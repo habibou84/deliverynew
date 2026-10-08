@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
 use App\Http\Controllers\Api\V1\FinanceController;
+use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\MerchantNotificationController;
 use App\Http\Controllers\Api\V1\MessageController;
@@ -13,10 +14,13 @@ use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\PricingGridController;
+use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\StockMovementController;
+use App\Http\Controllers\Api\V1\StorageContractController;
 use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
@@ -56,10 +60,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('incident-reasons', [ReferenceController::class, 'incidentReasons'])->name('incident-reasons.index');
         Route::get('recipients', [ReferenceController::class, 'recipients'])->name('recipients.index');
         Route::post('quotes', QuoteController::class)->name('quotes.store');
+        Route::get('hubs', [HubController::class, 'index'])->name('hubs.index');
 
         Route::middleware('can:settings.manage')->group(function () {
             Route::post('zones', [ZoneController::class, 'store'])->name('zones.store');
             Route::patch('zones/{zone}', [ZoneController::class, 'update'])->name('zones.update');
+            Route::post('hubs', [HubController::class, 'store'])->name('hubs.store');
+            Route::patch('hubs/{hub}', [HubController::class, 'update'])->name('hubs.update');
 
             Route::apiResource('pricing-grids', PricingGridController::class);
             Route::put('pricing-grids/{pricing_grid}/rules', [PricingGridController::class, 'syncRules'])->name('pricing-grids.rules');
@@ -100,6 +107,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/expenses', [OrderExpenseController::class, 'store'])->name('orders.expenses.store');
         Route::post('orders/{order}/expenses/{expense}/cancel', [OrderExpenseController::class, 'cancel'])->name('orders.expenses.cancel');
         Route::get('orders/{order}/attachments/{attachment}', [OrderActionController::class, 'showAttachment'])->name('orders.attachments.show');
+
+        // Stock (droits vérifiés par ProductPolicy et dans les contrôleurs)
+        Route::apiResource('products', ProductController::class);
+        Route::get('stock/movements', [StockMovementController::class, 'index'])->name('stock.movements.index');
+        Route::post('stock/movements', [StockMovementController::class, 'store'])->name('stock.movements.store');
+        Route::apiResource('storage-contracts', StorageContractController::class)->except('show');
 
         Route::get('reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
 

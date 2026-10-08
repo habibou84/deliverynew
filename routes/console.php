@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
 Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('reports:send')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();

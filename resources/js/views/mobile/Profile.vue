@@ -13,6 +13,10 @@
 
     <InstallBanner :app="app" />
 
+    <RouterLink v-if="auth.user?.merchant_id" to="/marchand/stock" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
+      <span class="font-medium">📦 Mon stock</span><span class="text-slate-400">›</span>
+    </RouterLink>
+
     <WhatsAppPreferences v-if="auth.user?.merchant_id" />
 
     <div class="m-card divide-y">

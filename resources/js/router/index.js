@@ -44,6 +44,7 @@ const routes = [
       { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
       { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },
       { path: 'tarifs', component: () => import('../views/admin/Pricing.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage' } },
       { path: 'caisse', component: () => import('../views/admin/Finance.vue'), meta: { permission: 'finance.view' } },
       { path: 'caisse/reversements/:id(\\d+)', component: shared.payoutDetail, meta: { permission: 'finance.view' } },
       { path: 'parametres', component: () => import('../views/admin/Settings.vue'), meta: { permission: 'settings.manage' } },
@@ -60,6 +61,7 @@ const routes = [
     children: [
       { path: '', name: 'livreur', component: () => import('../views/courier/Missions.vue'), meta: { title: 'Mes missions' } },
       { path: 'missions/:id(\\d+)', component: () => import('../views/courier/MissionDetail.vue'), meta: { title: 'Mission', back: true } },
+      { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage' } },
       { path: 'caisse', component: () => import('../views/courier/Wallet.vue'), meta: { title: 'Ma caisse' } },
       { path: 'notifications', component: mobile.notifications, meta: { title: 'Notifications', back: true } },
       { path: 'profil', component: mobile.profile, meta: { title: 'Mon profil' } },
@@ -77,6 +79,7 @@ const routes = [
       { path: 'courses', component: () => import('../views/merchant/Orders.vue'), meta: { title: 'Mes courses' } },
       { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true } },
       { path: 'courses/:id(\\d+)', component: () => import('../views/merchant/OrderView.vue'), meta: { title: 'Course', back: true } },
+      { path: 'stock', component: () => import('../views/merchant/Stock.vue'), meta: { title: 'Mon stock' } },
       { path: 'paiements', component: () => import('../views/merchant/Payments.vue'), meta: { title: 'Paiements', permission: 'finance.view' } },
       { path: 'paiements/:id(\\d+)', component: () => import('../views/merchant/PayoutView.vue'), meta: { title: 'Relevé', back: true, permission: 'finance.view' } },
       { path: 'notifications', component: mobile.notifications, meta: { title: 'Notifications', back: true } },

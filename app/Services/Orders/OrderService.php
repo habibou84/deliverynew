@@ -6,12 +6,15 @@ use App\Enums\FeePayer;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\Recipient;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\Pricing\PricingService;
+use App\Services\Stock\StockKeeper;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +43,7 @@ class OrderService
     public function __construct(
         private readonly PricingService $pricing,
         private readonly OrderJournal $journal,
+        private readonly StockKeeper $stock,
     ) {}
 
     /**
@@ -53,15 +57,41 @@ class OrderService
 
         return DB::transaction(function () use ($actor, $merchant, $data, $source) {
             $company = $merchant->company;
+            $hub = $this->hub($merchant, $data['pickup_hub_id'] ?? null);
+            $items = $this->items($merchant, $data['items'] ?? [], $hub);
+
+            // Commande préparée à l'entrepôt : le livreur part de l'entrepôt
+            if ($hub) {
+                $data = [
+                    ...$data,
+                    'pickup_zone_id' => $hub->zone_id,
+                    'pickup_address' => $hub->address,
+                    'pickup_landmark' => $hub->landmark,
+                    'pickup_contact_name' => $hub->name,
+                    'pickup_phone' => $hub->phone,
+                    'pickup_lat' => null,
+                    'pickup_lng' => null,
+                ];
+            }
+
+            // Montant et contenu déduits des articles quand ils ne sont pas indiqués
+            if ($items !== []) {
+                $data['items_amount'] ??= array_sum(array_map(fn ($i) => $i['quantity'] * $i['unit_price'], $items));
+                $data['description'] = filled($data['description'] ?? null)
+                    ? $data['description']
+                    : implode(', ', array_map(fn ($i) => "{$i['quantity']} × {$i['label']}", $items));
+            }
 
             // Adresse de ramassage du marchand par défaut
-            $data['pickup_zone_id'] ??= $merchant->pickup_zone_id;
-            $data['pickup_address'] ??= $merchant->pickup_address;
-            $data['pickup_landmark'] ??= $merchant->pickup_landmark;
-            $data['pickup_contact_name'] ??= $merchant->contact_name ?? $merchant->business_name;
-            $data['pickup_phone'] ??= $merchant->phone;
-            $data['pickup_lat'] ??= $merchant->pickup_lat;
-            $data['pickup_lng'] ??= $merchant->pickup_lng;
+            if ($hub === null) {
+                $data['pickup_zone_id'] ??= $merchant->pickup_zone_id;
+                $data['pickup_address'] ??= $merchant->pickup_address;
+                $data['pickup_landmark'] ??= $merchant->pickup_landmark;
+                $data['pickup_contact_name'] ??= $merchant->contact_name ?? $merchant->business_name;
+                $data['pickup_phone'] ??= $merchant->phone;
+                $data['pickup_lat'] ??= $merchant->pickup_lat;
+                $data['pickup_lng'] ??= $merchant->pickup_lng;
+            }
 
             if ($data['pickup_zone_id'] === null) {
                 throw new BusinessRuleException('Indiquez la zone de ramassage.', 'pickup_zone_id');
@@ -77,6 +107,7 @@ class OrderService
                 'merchant_id' => $merchant->id,
                 'source' => $source,
                 'created_by' => $actor->id,
+                'pickup_hub_id' => $hub?->id,
                 'fee_payer' => $feePayer,
                 'items_amount' => $itemsAmount,
                 'max_attempts' => $company->default_max_attempts,
@@ -85,6 +116,21 @@ class OrderService
             $order->cod_amount = Order::computeCodAmount($itemsAmount, $order->totalFees(), $feePayer);
             $order->recipient_id = $this->rememberRecipient($merchant, $data)->id;
             $order->save();
+
+            $location = $items !== [] ? $this->stock->location($merchant, $hub) : null;
+            foreach ($items as $item) {
+                $orderItem = $order->items()->create([
+                    'product_id' => $item['product']?->id,
+                    'stock_location_id' => $item['product'] ? $location->id : null,
+                    'label' => $item['label'],
+                    'quantity' => $item['quantity'],
+                    'unit_price' => $item['unit_price'],
+                ]);
+
+                if ($item['product']) {
+                    $this->stock->reserve($order, $orderItem->setRelation('product', $item['product'])->setRelation('location', $location), $actor);
+                }
+            }
 
             $this->journal->record($order, $actor, OrderEventType::Created, [
                 'to_status' => OrderStatus::Pending,
@@ -118,6 +164,10 @@ class OrderService
 
             if ($status->isFinal() || $status === OrderStatus::OutForDelivery) {
                 throw new BusinessRuleException("Une course « {$status->label()} » ne peut plus être modifiée.", 'status');
+            }
+
+            if ($order->fromWarehouse() && array_intersect(array_keys($data), self::PICKUP_FIELDS)) {
+                throw new BusinessRuleException('Cette commande part de l\'entrepôt : l\'adresse de ramassage ne se modifie pas.', 'pickup_zone_id');
             }
 
             if (! $status->isBeforePickup() && array_intersect(array_keys($data), [...self::PICKUP_FIELDS, ...self::MONEY_FIELDS, 'is_fragile', 'weight_kg', 'package_size'])) {
@@ -188,6 +238,59 @@ class OrderService
             $order->forceFill(['return_requested' => true])->save();
             $this->journal->record($order, $actor, OrderEventType::ReturnRequested, ['note' => $note]);
         });
+    }
+
+    private function hub(Merchant $merchant, ?int $hubId): ?Hub
+    {
+        if ($hubId === null) {
+            return null;
+        }
+
+        return Hub::forCompany($merchant->company_id)->active()->find($hubId)
+            ?? throw new BusinessRuleException('Entrepôt inconnu.', 'pickup_hub_id');
+    }
+
+    /**
+     * Articles de la course : produits du stock du marchand ou articles libres.
+     *
+     * @param  list<array{product_id?: ?int, label?: ?string, quantity?: int, unit_price?: ?int}>  $rows
+     * @return list<array{product: ?Product, label: string, quantity: int, unit_price: int}>
+     */
+    private function items(Merchant $merchant, array $rows, ?Hub $hub): array
+    {
+        $ids = array_filter(array_column($rows, 'product_id'));
+        $products = Product::forCompany($merchant->company_id)
+            ->where('merchant_id', $merchant->id)
+            ->where('is_active', true)
+            ->findMany($ids)
+            ->keyBy('id');
+
+        $items = [];
+        foreach ($rows as $index => $row) {
+            $product = null;
+            if (! empty($row['product_id'])) {
+                $product = $products->get($row['product_id'])
+                    ?? throw new BusinessRuleException('Produit inconnu ou désactivé.', "items.{$index}.product_id");
+            }
+
+            $label = trim((string) ($row['label'] ?? '')) ?: $product?->name;
+            if ($label === null || $label === '') {
+                throw new BusinessRuleException('Indiquez le nom de l\'article.', "items.{$index}.label");
+            }
+
+            $items[] = [
+                'product' => $product,
+                'label' => mb_substr($label, 0, 255),
+                'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
+                'unit_price' => (int) ($row['unit_price'] ?? $product?->price ?? 0),
+            ];
+        }
+
+        if ($hub && ! collect($items)->contains(fn ($i) => $i['product'] !== null)) {
+            throw new BusinessRuleException('Choisissez les produits à prendre à l\'entrepôt.', 'items');
+        }
+
+        return $items;
     }
 
     /**

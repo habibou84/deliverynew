@@ -93,6 +93,15 @@ sans compte Meta (les courses confirmées sont réellement créées).
 L'analyse se fait par règles ; avec `ANTHROPIC_API_KEY` (et `ANTHROPIC_MODEL`, par défaut `claude-opus-5-5`),
 Claude comprend aussi les messages sans format, avec retour automatique aux règles en cas d'erreur.
 
+### Stock et entrepôts
+
+Le marchand enregistre ses produits et le stock qu'il garde chez lui (**Mon stock** dans son application) ; l'entreprise
+tient le stock de ses entrepôts (**Stock** dans le back-office : entrées, retraits, inventaires, mouvements). En créant
+une course, on choisit les articles : ils sont réservés, puis sortis du stock à la livraison, ou libérés si la course
+est annulée ou le colis remis en stock. Une course qui part d'un entrepôt n'a pas de ramassage : elle est préparée
+(onglet « À préparer ») puis livrée. Le stockage est facturé chaque mois selon le contrat du marchand
+(`storage:bill`, lancé par le planificateur le 1er du mois ; `php artisan storage:bill --month=2026-09` pour un mois donné).
+
 Les envois passent par la file `messages` et les points d'activité par le planificateur (`reports:send` toutes les 5 minutes) :
 `composer dev` lance les deux.
 
@@ -106,6 +115,7 @@ Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot d
 | Administrateur | 07 00 00 00 01 | admin@livraison.test |
 | Dispatcher | 07 00 00 00 02 | dispatch@livraison.test |
 | Caissier (caisse, reversements, paie) | 07 00 00 00 03 | caisse@livraison.test |
+| Agent d'entrepôt (stock, préparation) | 07 00 00 00 06 | entrepot@livraison.test |
 | Livreur | 07 00 00 00 04 | - |
 | Livreuse | 07 00 00 00 05 | - |
 | E-commerçant (Boutique Chic Abidjan) | 05 00 00 00 01 | boutique@livraison.test |
@@ -154,7 +164,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/quotes` | devis d'une course (marchand ou personnel) |
 | GET/POST/PATCH | `/merchants`, POST `/merchants/{id}/users` | `merchants.view` / `merchants.manage` |
 | GET/PATCH | `/couriers` | dispatch / `users.manage` |
-| GET/POST/PATCH | `/orders` (filtres `queue`, `status[]`, `merchant_id`, `courier_id`, `search`…) | personnel, ou le marchand pour ses courses |
+| GET/POST/PATCH | `/orders` (filtres `queue` dont `to_prepare`, `status[]`, `merchant_id`, `hub_id`, `courier_id`, `search`…) ; création avec `items[]` et `pickup_hub_id` | personnel, ou le marchand pour ses courses |
 | POST | `/orders/{id}/status` | changement de statut (règles par rôle dans `OrderWorkflow`) |
 | POST | `/orders/{id}/assign`, `/orders/bulk-assign` | `orders.dispatch` (missions ramassage / livraison / retour) |
 | POST | `/orders/{id}/notes`, `/return-request`, `/attachments` | notes, demande de retour, photo de preuve |
@@ -169,6 +179,10 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
+| GET | `/hubs` · POST/PATCH `/hubs/{id}` | connecté (liste) · `settings.manage` : entrepôts |
+| GET/POST/PUT/DELETE | `/products` | marchand (ses produits) ou personnel ; création et modification : `stock.manage` |
+| GET/POST | `/stock/movements` | journal ; POST `{product_id, hub_id?, action: receipt\|withdrawal\|count, quantity}` : le marchand chez lui, le personnel dans les entrepôts |
+| GET/POST/PUT/DELETE | `/storage-contracts` | marchand (les siens) ; gestion : `settings.manage` ou `finance.manage` |
 | GET/PUT | `/whatsapp/settings` · POST `/whatsapp/test`, `/whatsapp/templates/sync` | `settings.manage` : numéro Meta, options, test, approbation des modèles |
 | GET | `/messages` · POST `/messages/{id}/retry` · GET `/orders/{id}/messages` | `orders.dispatch` : journal des messages WhatsApp/SMS, renvoi d'un échec |
 | POST | `/whatsapp/simulate` | `settings.manage` : simulateur de conversation (`from`, `text` ou `button_id`) ; renvoie les réponses du bot |

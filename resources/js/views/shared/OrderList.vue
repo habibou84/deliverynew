@@ -125,6 +125,7 @@ const queues = [
   { value: '', label: 'Toutes' },
   { value: 'to_confirm', label: 'À valider' },
   { value: 'to_pickup', label: 'À ramasser' },
+  { value: 'to_prepare', label: 'À préparer' },
   { value: 'to_deliver', label: 'À livrer' },
   { value: 'incidents', label: 'Incidents' },
   { value: 'to_return', label: 'À retourner' },

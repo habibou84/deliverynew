@@ -481,6 +481,7 @@ class FinanceController extends Controller
             'total_fees' => $p->total_fees,
             'total_shipping_fees' => $p->total_shipping_fees,
             'total_other_fees' => $p->total_other_fees,
+            'total_storage_fees' => $p->total_storage_fees,
             'total_adjustments' => $p->total_adjustments,
             'net_amount' => $p->net_amount,
             'status' => $p->status,

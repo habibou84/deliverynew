@@ -13,7 +13,15 @@
     <div class="grid lg:grid-cols-3 gap-4">
       <div class="lg:col-span-2 space-y-4">
         <div class="grid sm:grid-cols-2 gap-4">
-          <div class="card p-4 text-sm space-y-1">
+          <div v-if="order.from_warehouse" class="card p-4 text-sm space-y-1">
+            <h2 class="font-semibold mb-2">🏬 Départ de l'entrepôt · {{ order.pickup.hub_name }}</h2>
+            <p>{{ order.pickup.zone_name }} · {{ order.pickup.address || '—' }}</p>
+            <p v-if="order.pickup.landmark" class="text-gray-600">Repère : {{ order.pickup.landmark }}</p>
+            <p :class="order.prepared_at ? 'text-emerald-700' : 'text-amber-700'">
+              {{ order.prepared_at ? `Préparée le ${dateTime(order.prepared_at)}` : 'À préparer : pas de ramassage chez le marchand' }}
+            </p>
+          </div>
+          <div v-else class="card p-4 text-sm space-y-1">
             <h2 class="font-semibold mb-2">Ramassage · {{ order.pickup.zone_name }}</h2>
             <p>{{ order.pickup.contact_name }} · <a :href="telLink(order.pickup.phone)" class="text-blue-600">{{ order.pickup.phone }}</a></p>
             <p>{{ order.pickup.address || '—' }}</p>
@@ -61,6 +69,19 @@
           <div v-if="order.merchant"><p class="text-gray-500">Marchand</p><p>{{ order.merchant.business_name }}</p></div>
         </div>
 
+        <div v-if="order.items?.length" class="card p-4 text-sm">
+          <h2 class="font-semibold mb-2">Articles</h2>
+          <ul class="divide-y">
+            <li v-for="item in order.items" :key="item.id" class="py-1.5 flex justify-between gap-2">
+              <span>
+                <strong>{{ item.quantity }} ×</strong> {{ item.label }}
+                <span v-if="item.stock_state" :class="['ml-1 text-xs rounded-full px-2 py-0.5', STOCK_STATES[item.stock_state].class]">{{ STOCK_STATES[item.stock_state].label }}</span>
+              </span>
+              <span class="text-gray-600">{{ item.unit_price ? money(item.unit_price * item.quantity) : '' }}</span>
+            </li>
+          </ul>
+        </div>
+
         <div class="card p-4">
           <h2 class="font-semibold mb-3">Historique</h2>
           <OrderTimeline :events="order.events" />
@@ -88,6 +109,12 @@
             </div>
           </div>
           <button v-if="nextStatuses.length" class="btn-secondary w-full" @click="openStatus(nextStatuses)">Changer le statut…</button>
+        </div>
+
+        <div v-if="warehouseActions.length" class="card p-4 space-y-2">
+          <h2 class="font-semibold">Entrepôt</h2>
+          <button v-if="warehouseActions.includes('prepare')" class="btn-success w-full" @click="quickMove('at_hub', 'Commande préparée.')">📦 Commande préparée</button>
+          <button v-if="warehouseActions.includes('restock')" class="btn-secondary w-full" @click="restock">↩️ Remettre en stock</button>
         </div>
 
         <div v-if="isMerchant && !isFinal" class="card p-4 space-y-2">
@@ -158,8 +185,14 @@ import StatusChangeForm from '../../components/StatusChangeForm.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
-import { date, money, telLink } from '../../utils/format'
-import { ASSIGNABLE, ASSIGNMENT_LABELS, BEFORE_PICKUP, FINAL, TRANSITIONS } from '../../utils/workflow'
+import { date, dateTime, money, telLink } from '../../utils/format'
+import { ASSIGNABLE, ASSIGNMENT_LABELS, BEFORE_PICKUP, FINAL, TRANSITIONS, isWarehouseStep } from '../../utils/workflow'
+
+const STOCK_STATES = {
+  reserved: { label: 'réservé', class: 'bg-amber-100 text-amber-800' },
+  shipped: { label: 'sorti du stock', class: 'bg-emerald-100 text-emerald-800' },
+  released: { label: 'remis en stock', class: 'bg-slate-100 text-slate-700' },
+}
 
 const ASSIGNMENT_STATUS = {
   assigned: 'Assignée', accepted: 'Acceptée', refused: 'Refusée', in_progress: 'En cours',
@@ -190,12 +223,24 @@ const isFinal = computed(() => FINAL.includes(order.value?.status))
 const canEditDelivery = computed(() => !isFinal.value && order.value?.status !== 'out_for_delivery' && (isMerchant.value || isDispatcher.value))
 const assignableTypes = computed(() => Object.keys(ASSIGNABLE).filter((type) => {
   if (!ASSIGNABLE[type].includes(order.value.status)) return false
+  // Commande d'entrepôt : ni ramassage ni retour au marchand ; livraison une fois préparée
+  if (order.value.from_warehouse && type !== 'delivery') return false
+  if (order.value.from_warehouse && !order.value.prepared_at) return false
   // Le retour n'est proposé qu'après un incident ou sur demande
   if (type === 'return') return order.value.return_requested || ['delivery_failed', 'rescheduled', 'at_hub', 'return_assigned'].includes(order.value.status)
   if (type === 'delivery') return order.value.attempts_count < order.value.max_attempts
   return true
 }))
-const nextStatuses = computed(() => (TRANSITIONS[order.value.status] || []).filter((s) => !(s === 'confirmed' && order.value.status === 'pending')))
+const nextStatuses = computed(() => (TRANSITIONS[order.value.status] || [])
+  .filter((s) => !(s === 'confirmed' && order.value.status === 'pending') && !isWarehouseStep(order.value.status, s)))
+// Préparation et remise en stock (dispatch, agents de dépôt)
+const warehouseActions = computed(() => {
+  if (!order.value?.from_warehouse || isMerchant.value) return []
+  const actions = []
+  if (order.value.status === 'confirmed' && (auth.can('orders.dispatch') || auth.can('orders.update_status'))) actions.push('prepare')
+  if (['at_hub', 'delivery_failed', 'rescheduled'].includes(order.value.status) && (auth.can('orders.dispatch') || auth.can('stock.manage'))) actions.push('restock')
+  return actions
+})
 
 async function load() {
   try {
@@ -230,13 +275,19 @@ async function assign(type) {
   }
 }
 
-async function quickMove(status) {
+async function quickMove(status, message = null) {
   try {
     const { data } = await http.post(`/orders/${order.value.id}/status`, { status })
     order.value = data.data
+    if (message) toasts.success(message)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }
+}
+
+async function restock() {
+  if (!window.confirm('Le colis est-il bien revenu à l\'entrepôt ? Les articles redeviendront disponibles.')) return
+  await quickMove('returned', 'Articles remis en stock.')
 }
 
 function openStatus(choices) {

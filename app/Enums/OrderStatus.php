@@ -53,16 +53,18 @@ enum OrderStatus: string
     {
         return match ($this) {
             self::Pending => [self::Confirmed, self::Rejected, self::Cancelled],
-            self::Confirmed => [self::Cancelled],
+            // Commande d'entrepôt : « Préparée » la place au dépôt
+            self::Confirmed => [self::Cancelled, self::AtHub],
             // Échec au ramassage : retour à « Validée » pour réassignation
             self::PickupAssigned => [self::PickupInProgress, self::PickedUp, self::Confirmed, self::Cancelled],
             self::PickupInProgress => [self::PickedUp, self::Confirmed, self::Cancelled],
             self::PickedUp => [self::AtHub, self::OutForDelivery],
-            self::AtHub => [self::OutForDelivery],
+            // « Retourné » direct = remis en stock à l'entrepôt (commande d'entrepôt)
+            self::AtHub => [self::OutForDelivery, self::Returned],
             self::DeliveryAssigned => [self::OutForDelivery, self::AtHub],
             self::OutForDelivery => [self::Delivered, self::DeliveryFailed, self::Rescheduled],
-            self::DeliveryFailed => [self::Rescheduled, self::OutForDelivery, self::AtHub],
-            self::Rescheduled => [self::OutForDelivery, self::AtHub],
+            self::DeliveryFailed => [self::Rescheduled, self::OutForDelivery, self::AtHub, self::Returned],
+            self::Rescheduled => [self::OutForDelivery, self::AtHub, self::Returned],
             self::ReturnAssigned => [self::Returning, self::Returned],
             self::Returning => [self::Returned],
             self::Delivered, self::Returned, self::Cancelled, self::Rejected => [],

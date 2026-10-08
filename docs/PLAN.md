@@ -421,10 +421,18 @@ Règles retenues en phase 5 :
 - La commune de ramassage du marchand est écartée quand le message en cite plusieurs (« de Cocody à Yopougon »).
 - Les réponses du bot sont des messages de session (gratuits dans la fenêtre de 24 h ouverte par le marchand), sans SMS de repli.
 
-### Phase 6 : stock (3 à 4 semaines)
-- [ ] Produits, emplacements, niveaux, mouvements, réservations liées aux courses.
-- [ ] Stock entreprise (entrepôt), préparation des commandes, contrats et facturation du stockage.
-- [ ] Inventaires et alertes de stock bas.
+### Phase 6 : stock (3 à 4 semaines) ✅
+- [x] Produits, emplacements (chez le marchand ou dans un entrepôt), niveaux, journal des mouvements, réservations liées aux courses.
+- [x] Entrepôts de l'entreprise, commandes préparées à l'entrepôt (sans ramassage), remise en stock, contrats et facturation mensuelle du stockage.
+- [x] Inventaires, retraits, alertes de stock bas (notification au marchand, et aux agents de dépôt pour l'entrepôt).
+- [x] Écrans : Stock dans le back-office (produits, à préparer, mouvements, entrepôts, contrats) ; « Mon stock » et choix des articles dans la nouvelle course de l'application marchand.
+
+Règles retenues en phase 6 :
+- **Disponible = en stock − réservé.** Une course réserve ses articles à la création ; elle les sort du stock à la livraison ; annulée, refusée ou colis revenu, elle les libère. Les niveaux sont un cache recalculable depuis `stock_movements`.
+- **Qui tient quel stock** : le marchand gère ses produits et le stock gardé chez lui ; le stock des entrepôts n'est modifié que par l'entreprise (droit `stock.manage` : administrateur, agent de dépôt).
+- **Commande d'entrepôt** : `pickup_hub_id` renseigné, tarif calculé depuis la zone de l'entrepôt. Validée → « À préparer » → « Préparée au dépôt » → livraison. Pas de ramassage ni de retour au marchand : en cas d'échec, le colis revient à l'entrepôt et il est « remis en stock » (les frais de retour habituels s'appliquent).
+- **Facturation du stockage** (`storage:bill`, le 1er du mois à 01:10, pour le mois écoulé) : forfait mensuel, par article et par jour (stock de fin de journée), par commande préparée, ou gratuit. Une seule facturation par contrat et par mois ; un contrat facturé ne change plus de tarif (on le termine et on en crée un autre).
+- Les articles d'une course ne se modifient pas après sa création : on l'annule et on en crée une nouvelle.
 
 ### Phase 7 : API publique et webhooks (2 à 3 semaines)
 - [ ] Clés API, portées, idempotence, limitation de débit, documentation OpenAPI.

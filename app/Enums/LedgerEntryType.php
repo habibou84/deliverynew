@@ -14,6 +14,8 @@ enum LedgerEntryType: string
     case ShippingFee = 'shipping_fee';
     // Autres frais engagés pour la course (transport, emballage, stationnement…)
     case OtherFee = 'other_fee';
+    // Stockage des produits dans un entrepôt de l'entreprise (facturé chaque mois)
+    case StorageFee = 'storage_fee';
     case Adjustment = 'adjustment';
     // Reversement effectué : solde les écritures du relevé
     case Payout = 'payout';
@@ -26,6 +28,7 @@ enum LedgerEntryType: string
             self::ReturnFee => 'Frais de retour',
             self::ShippingFee => 'Frais d\'expédition',
             self::OtherFee => 'Autres frais',
+            self::StorageFee => 'Frais de stockage',
             self::Adjustment => 'Ajustement',
             self::Payout => 'Reversement',
         };

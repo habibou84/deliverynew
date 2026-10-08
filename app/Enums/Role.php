@@ -54,6 +54,7 @@ enum Role: string
                 Permission::FinanceManage,
             ],
             self::HubAgent => [
+                Permission::MerchantsView,
                 Permission::OrdersView,
                 Permission::OrdersUpdateStatus,
                 Permission::StockManage,

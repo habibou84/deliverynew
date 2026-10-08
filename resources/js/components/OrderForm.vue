@@ -67,6 +67,37 @@
       </div>
     </section>
 
+    <section v-if="products.length || hubs.length" class="card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="font-semibold">Articles du stock</h3>
+        <select v-model="form.pickup_hub_id" class="input w-auto" aria-label="Provenance des articles">
+          <option :value="null">Chez le marchand (ramassage)</option>
+          <option v-for="h in hubs" :key="h.id" :value="h.id">🏬 {{ h.name }} (préparée à l'entrepôt)</option>
+        </select>
+      </div>
+      <p v-if="form.pickup_hub_id" class="text-sm rounded bg-sky-50 text-sky-900 p-2">
+        La commande sera préparée à l'entrepôt puis livrée : pas de ramassage chez le marchand.
+      </p>
+      <div v-for="(item, i) in items" :key="i" class="grid grid-cols-[1fr_6rem_7rem_auto] gap-2 items-center">
+        <select v-if="item.product_id !== undefined" v-model="item.product_id" class="input" :aria-label="`Produit ${i + 1}`" @change="pickProduct(item)">
+          <option :value="null" disabled>Choisir un produit…</option>
+          <option v-for="p in products" :key="p.id" :value="p.id" :disabled="availableAt(p) <= 0">
+            {{ p.name }}{{ p.sku ? ` (${p.sku})` : '' }} · {{ availableAt(p) }} dispo
+          </option>
+        </select>
+        <input v-else v-model="item.label" class="input" placeholder="Article libre (hors stock)" :aria-label="`Article ${i + 1}`">
+        <input v-model.number="item.quantity" type="number" min="1" class="input" :aria-label="`Quantité ${i + 1}`">
+        <input v-model.number="item.unit_price" type="number" min="0" step="50" class="input" placeholder="Prix" :aria-label="`Prix unitaire ${i + 1}`">
+        <button type="button" class="btn-secondary px-2" :aria-label="`Retirer l'article ${i + 1}`" @click="items.splice(i, 1)">✕</button>
+      </div>
+      <p v-if="errors.items || errors.pickup_hub_id" class="field-error">{{ (errors.items || errors.pickup_hub_id)[0] }}</p>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="btn-secondary" :disabled="!products.length" @click="items.push({ product_id: null, quantity: 1, unit_price: 0 })">+ Produit du stock</button>
+        <button v-if="!form.pickup_hub_id" type="button" class="btn-secondary" @click="items.push({ label: '', quantity: 1, unit_price: 0 })">+ Article libre</button>
+      </div>
+      <p v-if="items.length" class="text-sm text-gray-600">Total des articles : <strong>{{ money(itemsTotal) }}</strong> (reporté dans le montant à encaisser, modifiable)</p>
+    </section>
+
     <section class="card p-4 space-y-3">
       <h3 class="font-semibold">Colis et paiement</h3>
       <div class="grid sm:grid-cols-2 gap-3">
@@ -102,7 +133,7 @@
       </div>
     </section>
 
-    <details class="card p-4">
+    <details v-if="!form.pickup_hub_id" class="card p-4">
       <summary class="font-semibold cursor-pointer">Lieu de ramassage (par défaut : adresse du marchand)</summary>
       <div class="grid sm:grid-cols-2 gap-3 mt-3">
         <div>
@@ -167,7 +198,11 @@ const form = reactive({
   merchant_note: '',
   pickup_zone_id: null,
   pickup_address: '',
+  pickup_hub_id: null,
 })
+const items = ref([])
+const hubs = ref([])
+const products = ref([])
 
 const zones = ref([])
 const merchants = ref([])
@@ -178,25 +213,56 @@ const error = ref('')
 const errors = ref({})
 const saving = ref(false)
 
+const itemsTotal = computed(() => items.value.reduce((sum, i) => sum + (i.quantity || 0) * (i.unit_price || 0), 0))
+const merchantId = computed(() => (isMerchant.value ? auth.user.merchant_id : form.merchant_id))
+const hubZoneId = computed(() => hubs.value.find((h) => h.id === form.pickup_hub_id)?.zone_id)
+
+// Disponible du produit à l'emplacement choisi (chez le marchand ou à l'entrepôt)
+function availableAt(product) {
+  return product.levels?.find((l) => (l.hub_id ?? null) === (form.pickup_hub_id ?? null))?.available ?? 0
+}
+
+function pickProduct(item) {
+  const product = products.value.find((p) => p.id === item.product_id)
+  if (product) item.unit_price = product.price
+}
+
+async function loadProducts() {
+  products.value = []
+  if (!merchantId.value) return
+  products.value = (await http.get('/products', { params: { merchant_id: merchantId.value, per_page: 200 } })).data.data
+}
+
+watch(itemsTotal, (total) => {
+  if (items.value.length) form.items_amount = total
+})
+watch(() => form.pickup_hub_id, (hub) => {
+  if (hub) items.value = items.value.filter((i) => i.product_id !== undefined)
+})
+
 const codAmount = computed(() => (form.items_amount || 0) + (form.fee_payer === 'recipient' && quote.value ? quote.value.total : 0))
 
 onMounted(async () => {
-  const requests = [http.get('/zones')]
+  const requests = [http.get('/zones'), http.get('/hubs').catch(() => ({ data: { data: [] } }))]
   if (!isMerchant.value) requests.push(http.get('/merchants', { params: { per_page: 200, status: 'active' } }))
-  const [z, m] = await Promise.all(requests)
+  const [z, h, m] = await Promise.all(requests)
   zones.value = z.data.data
+  hubs.value = h.data.data
   if (m) merchants.value = m.data.data
+  loadProducts()
 })
 
 watch(() => form.merchant_id, (id) => {
   const merchant = merchants.value.find((m) => m.id === id)
   if (merchant) form.fee_payer = merchant.default_fee_payer
+  items.value = []
+  loadProducts()
 })
 
 // Devis en direct
 let quoteTimer
 watch(
-  () => [form.merchant_id, form.delivery_zone_id, form.pickup_zone_id, form.is_express, form.is_fragile, form.weight_kg],
+  () => [form.merchant_id, form.delivery_zone_id, form.pickup_zone_id, form.pickup_hub_id, form.is_express, form.is_fragile, form.weight_kg],
   () => {
     clearTimeout(quoteTimer)
     quoteTimer = setTimeout(fetchQuote, 250)
@@ -211,7 +277,7 @@ async function fetchQuote() {
     const { data } = await http.post('/quotes', {
       merchant_id: isMerchant.value ? undefined : form.merchant_id,
       delivery_zone_id: form.delivery_zone_id,
-      pickup_zone_id: form.pickup_zone_id || undefined,
+      pickup_zone_id: hubZoneId.value || form.pickup_zone_id || undefined,
       is_express: form.is_express,
       is_fragile: form.is_fragile,
       weight_kg: form.weight_kg || undefined,
@@ -257,6 +323,16 @@ async function submit() {
   try {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null))
     if (isMerchant.value) delete payload.merchant_id
+    if (form.pickup_hub_id) {
+      delete payload.pickup_zone_id
+      delete payload.pickup_address
+    }
+    const lines = items.value.filter((i) => i.product_id || i.label?.trim())
+    if (lines.length) {
+      payload.items = lines.map((i) => (i.product_id
+        ? { product_id: i.product_id, quantity: i.quantity || 1, unit_price: i.unit_price || 0 }
+        : { label: i.label.trim(), quantity: i.quantity || 1, unit_price: i.unit_price || 0 }))
+    }
     const { data } = await http.post('/orders', payload)
     emit('saved', data.data)
   } catch (e) {

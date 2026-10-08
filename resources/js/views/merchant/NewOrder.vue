@@ -4,7 +4,7 @@
     <div class="mx-auto h-20 w-20 rounded-full bg-emerald-100 grid place-items-center text-4xl">✅</div>
     <div>
       <p class="text-2xl font-bold">Course enregistrée</p>
-      <p class="text-slate-500">Nous allons envoyer un livreur récupérer le colis.</p>
+      <p class="text-slate-500">{{ created.from_warehouse ? 'L\'agence prépare votre commande à l\'entrepôt.' : 'Nous allons envoyer un livreur récupérer le colis.' }}</p>
     </div>
     <div class="m-card p-4 space-y-1">
       <p class="text-sm text-slate-500">Code de suivi</p>
@@ -95,6 +95,30 @@
 
     <!-- 3. Colis et paiement -->
     <section v-show="step === 2" class="space-y-4">
+      <div v-if="products.length" class="space-y-3">
+        <div v-if="stockHubs.length">
+          <p class="m-label">D'où part le colis ?</p>
+          <ChoiceChips v-model="source" :options="sourceOptions" :columns="1" label="Provenance du colis" />
+        </div>
+        <div>
+          <p class="m-label">Articles de mon stock <span class="font-normal text-slate-400">(facultatif{{ source ? '' : ' : sinon, décrivez le colis plus bas' }})</span></p>
+          <div class="m-card divide-y">
+            <div v-for="p in sourceProducts" :key="p.id" class="p-3 flex items-center gap-3">
+              <div class="min-w-0 flex-1">
+                <p class="font-medium truncate">{{ p.name }}</p>
+                <p class="text-xs text-slate-500">{{ money(p.price) }} · {{ availableAt(p) }} dispo</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" class="tap h-9 w-9 rounded-full bg-slate-100 text-lg font-bold disabled:opacity-40" :disabled="!picked[p.id]" :aria-label="`Retirer un ${p.name}`" @click="pick(p, -1)">−</button>
+                <span class="w-6 text-center font-semibold">{{ picked[p.id] || 0 }}</span>
+                <button type="button" class="tap h-9 w-9 rounded-full text-white text-lg font-bold disabled:opacity-40" :style="{ backgroundColor: 'var(--app-color)' }" :disabled="(picked[p.id] || 0) >= availableAt(p)" :aria-label="`Ajouter un ${p.name}`" @click="pick(p, 1)">+</button>
+              </div>
+            </div>
+            <p v-if="!sourceProducts.length" class="p-3 text-sm text-slate-500">Aucun produit disponible {{ source ? 'à cet entrepôt' : 'chez vous' }}.</p>
+          </div>
+        </div>
+      </div>
+
       <div>
         <label class="m-label" for="amount">Montant des articles à encaisser</label>
         <div class="relative">
@@ -143,7 +167,12 @@
           <span><span class="block text-xs text-slate-500">Adresse</span>{{ zoneName }}<span v-if="form.delivery_address"> · {{ form.delivery_address }}</span></span><span class="text-[var(--app-color)] text-sm">Modifier</span>
         </button>
         <button type="button" class="w-full text-left p-4 flex justify-between gap-3" @click="step = 2">
-          <span><span class="block text-xs text-slate-500">Colis</span>{{ form.description || 'Colis' }}<span v-if="form.is_express"> · Express</span><span v-if="form.is_fragile"> · Fragile</span></span><span class="text-[var(--app-color)] text-sm">Modifier</span>
+          <span>
+            <span class="block text-xs text-slate-500">Colis{{ source ? ` · part de ${sourceName}` : '' }}</span>
+            <template v-if="pickedItems.length">{{ pickedItems.map((i) => `${i.quantity} × ${i.name}`).join(', ') }}</template>
+            <template v-else>{{ form.description || 'Colis' }}</template>
+            <span v-if="form.is_express"> · Express</span><span v-if="form.is_fragile"> · Fragile</span>
+          </span><span class="text-[var(--app-color)] text-sm">Modifier</span>
         </button>
       </div>
 
@@ -223,12 +252,42 @@ const quoteError = ref('')
 const error = ref('')
 const saving = ref(false)
 const created = ref(null)
+const products = ref([])
+const hubs = ref([])
+const source = ref(null) // null = chez moi, sinon identifiant de l'entrepôt
+const picked = reactive({})
 
 const whenOptions = [
   { value: 'asap', label: 'Au plus vite' },
   { value: 'tomorrow', label: 'Demain' },
   { value: 'other', label: 'Autre date' },
 ]
+
+// Entrepôts où le marchand a du stock disponible
+const stockHubs = computed(() => hubs.value.filter((h) => products.value.some((p) => p.levels.some((l) => l.hub_id === h.id && l.available > 0))))
+const sourceOptions = computed(() => [
+  { value: null, label: 'De chez moi', icon: '🏠', description: 'un livreur passe le récupérer' },
+  ...stockHubs.value.map((h) => ({ value: h.id, label: h.name, icon: '🏬', description: 'préparé à l\'entrepôt, sans ramassage' })),
+])
+const sourceName = computed(() => hubs.value.find((h) => h.id === source.value)?.name)
+const sourceZoneId = computed(() => hubs.value.find((h) => h.id === source.value)?.zone_id)
+
+function availableAt(product) {
+  return product.levels.find((l) => (l.hub_id ?? null) === source.value)?.available ?? 0
+}
+const sourceProducts = computed(() => products.value.filter((p) => availableAt(p) > 0 || picked[p.id]))
+const pickedItems = computed(() => products.value.filter((p) => picked[p.id] > 0).map((p) => ({ product_id: p.id, name: p.name, quantity: picked[p.id], unit_price: p.price })))
+
+function pick(product, delta) {
+  picked[product.id] = Math.max(0, Math.min(availableAt(product), (picked[product.id] || 0) + delta))
+  // Le montant à encaisser suit les articles choisis (modifiable ensuite)
+  form.items_amount = pickedItems.value.reduce((sum, i) => sum + i.quantity * i.unit_price, 0)
+}
+
+watch(source, () => {
+  Object.keys(picked).forEach((id) => delete picked[id])
+  fetchQuote()
+})
 
 const filteredZones = computed(() => {
   const term = zoneSearch.value.trim().toLowerCase()
@@ -266,7 +325,12 @@ async function fetchQuote() {
   quoteError.value = ''
   if (!form.delivery_zone_id) return
   try {
-    const { data } = await http.post('/quotes', { delivery_zone_id: form.delivery_zone_id, is_express: form.is_express, is_fragile: form.is_fragile })
+    const { data } = await http.post('/quotes', {
+      delivery_zone_id: form.delivery_zone_id,
+      pickup_zone_id: sourceZoneId.value || undefined,
+      is_express: form.is_express,
+      is_fragile: form.is_fragile,
+    })
     quote.value = data.data
   } catch (e) {
     quoteError.value = apiErrorMessage(e)
@@ -308,6 +372,10 @@ function next() {
     error.value = 'Choisissez la commune ou le quartier de livraison.'
     return
   }
+  if (step.value === 2 && source.value && !pickedItems.value.length) {
+    error.value = 'Choisissez les articles à prendre à l\'entrepôt.'
+    return
+  }
   if (step.value === 1 && when.value === 'other' && !form.delivery_scheduled_date) {
     error.value = 'Choisissez la date de livraison.'
     return
@@ -322,12 +390,16 @@ async function submit() {
   error.value = ''
   try {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null))
+    if (pickedItems.value.length) payload.items = pickedItems.value.map(({ product_id, quantity, unit_price }) => ({ product_id, quantity, unit_price }))
+    if (source.value) payload.pickup_hub_id = source.value
     created.value = (await http.post('/orders', payload)).data.data
+    loadStock()
   } catch (e) {
     error.value = apiErrorMessage(e)
     const field = Object.keys(e.response?.data?.errors || {})[0] || ''
     if (field.startsWith('recipient')) step.value = 0
     else if (field.startsWith('delivery')) step.value = 1
+    else if (field.startsWith('items') || field === 'pickup_hub_id') step.value = 2
   } finally {
     saving.value = false
   }
@@ -337,11 +409,22 @@ function reset() {
   Object.assign(form, blank(), { fee_payer: defaultFeePayer.value })
   created.value = null
   quote.value = null
+  source.value = null
+  Object.keys(picked).forEach((id) => delete picked[id])
   when.value = 'asap'
   step.value = 0
 }
 
 const defaultFeePayer = ref('recipient')
+
+async function loadStock() {
+  const [p, h] = await Promise.all([
+    http.get('/products', { params: { per_page: 200 } }).catch(() => null),
+    http.get('/hubs').catch(() => null),
+  ])
+  products.value = p?.data.data || []
+  hubs.value = h?.data.data || []
+}
 
 onMounted(async () => {
   const [z, m] = await Promise.all([
@@ -352,5 +435,6 @@ onMounted(async () => {
   // Réglage habituel du marchand pour le payeur des frais de livraison
   defaultFeePayer.value = m?.data.data.default_fee_payer || 'recipient'
   form.fee_payer = defaultFeePayer.value
+  loadStock()
 })
 </script>

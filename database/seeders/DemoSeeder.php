@@ -3,15 +3,20 @@
 namespace Database\Seeders;
 
 use App\Enums\Role;
+use App\Enums\StorageBillingType;
 use App\Enums\SurchargeType;
 use App\Models\Company;
 use App\Models\Courier;
+use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\PricingGrid;
 use App\Models\PricingRule;
+use App\Models\Product;
+use App\Models\StorageContract;
 use App\Models\User;
 use App\Models\Zone;
 use App\Services\CompanyProvisioner;
+use App\Services\Stock\StockKeeper;
 use Illuminate\Database\Seeder;
 
 /**
@@ -64,6 +69,55 @@ class DemoSeeder extends Seeder
             ],
         );
         $this->user($company, Role::MerchantOwner, 'Mariam Koné', '0500000001', 'boutique@livraison.test', $merchant);
+        $this->user($company, Role::HubAgent, 'Agent d\'entrepôt', '0700000006', 'entrepot@livraison.test');
+
+        $this->stock($company, $merchant);
+    }
+
+    /**
+     * Un entrepôt, quelques produits de la boutique (à l'entrepôt et chez elle) et un contrat de stockage.
+     */
+    private function stock(Company $company, Merchant $merchant): void
+    {
+        $plateau = Zone::forCompany($company->id)->where('name', 'Plateau')->first()
+            ?? Zone::forCompany($company->id)->whereNull('parent_id')->first();
+
+        $hub = Hub::withoutGlobalScopes()->firstOrCreate(
+            ['company_id' => $company->id, 'name' => 'Entrepôt Plateau'],
+            ['zone_id' => $plateau->id, 'address' => 'Avenue Chardy, immeuble Alpha', 'phone' => '+2252720000006'],
+        );
+
+        if (Product::withoutGlobalScopes()->where('merchant_id', $merchant->id)->exists()) {
+            return;
+        }
+
+        $keeper = app(StockKeeper::class);
+        $warehouse = $keeper->location($merchant, $hub);
+        $home = $keeper->location($merchant);
+
+        foreach ([
+            ['Robe wax taille M', 'ROBE-M', 15000, 5, 24, 0],
+            ['Sac à main cuir', 'SAC-01', 25000, 3, 8, 2],
+            ['Sandales dorées', 'SAND-38', 12000, 4, 3, 0],
+            ['Foulard soie', 'FOUL-01', 7500, null, 0, 6],
+        ] as [$name, $sku, $price, $threshold, $atHub, $atHome]) {
+            $product = Product::create([
+                'company_id' => $company->id, 'merchant_id' => $merchant->id,
+                'name' => $name, 'sku' => $sku, 'price' => $price, 'low_stock_threshold' => $threshold,
+            ]);
+
+            if ($atHub > 0) {
+                $keeper->receive(null, $product, $warehouse, $atHub, 'Dépôt initial');
+            }
+            if ($atHome > 0) {
+                $keeper->receive(null, $product, $home, $atHome, 'Stock de départ');
+            }
+        }
+
+        StorageContract::withoutGlobalScopes()->firstOrCreate(
+            ['company_id' => $company->id, 'merchant_id' => $merchant->id],
+            ['hub_id' => $hub->id, 'billing_type' => StorageBillingType::MonthlyFlat, 'price' => 10000, 'starts_on' => now()->startOfMonth()],
+        );
     }
 
     /**

@@ -139,13 +139,14 @@ Table hubs {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
   name varchar [not null]
-  zone_id bigint [ref: > zones.id]
+  zone_id bigint [ref: > zones.id, not null, note: 'point de départ des livraisons (tarif)']
   address text
-  lat decimal(10,7)
-  lng decimal(10,7)
-  is_warehouse boolean [default: false, note: 'peut stocker les produits des marchands']
+  landmark varchar
+  phone varchar
+  is_active boolean [default: true]
   created_at timestamp
   updated_at timestamp
+  Note: 'Entrepôts de l\'entreprise : les marchands y stockent leurs produits'
 }
 
 // ───────────────────────────── GÉOGRAPHIE & TARIFS ─────────────────────────────
@@ -248,8 +249,7 @@ Table orders {
   created_by bigint [ref: > users.id]
 
   // Ramassage
-  pickup_type varchar [default: 'merchant_address', note: 'merchant_address | company_stock']
-  pickup_hub_id bigint [ref: > hubs.id]
+  pickup_hub_id bigint [ref: > hubs.id, note: 'commande préparée à l\'entrepôt : pas de ramassage chez le marchand']
   pickup_zone_id bigint [ref: > zones.id]
   pickup_address text
   pickup_landmark varchar
@@ -304,6 +304,7 @@ Table orders {
   last_incident_reason_id bigint [ref: > incident_reasons.id]
   otp_hash varchar [note: 'code de livraison haché']
   confirmed_at timestamp
+  prepared_at timestamp [note: 'commande d\'entrepôt préparée']
   picked_up_at timestamp
   delivered_at timestamp
   returned_at timestamp
@@ -332,8 +333,8 @@ Table order_items {
   stock_location_id bigint [ref: > stock_locations.id]
   label varchar [not null]
   quantity int [not null, default: 1]
-  quantity_delivered int [note: 'livraison partielle']
   unit_price int [default: 0]
+  stock_state varchar [note: 'reserved | shipped | released (null = hors stock)']
   created_at timestamp
   updated_at timestamp
 }
@@ -560,8 +561,7 @@ Table products {
   description text
   price int [default: 0]
   weight_kg decimal(6,2)
-  photo_path varchar
-  low_stock_threshold int
+  low_stock_threshold int [note: 'alerte quand le disponible passe à ce seuil']
   is_active boolean [default: true]
   created_at timestamp
   updated_at timestamp
@@ -573,9 +573,7 @@ Table stock_locations {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
   merchant_id bigint [ref: > merchants.id, not null]
-  type varchar [not null, note: 'merchant_premises | company_warehouse']
-  hub_id bigint [ref: > hubs.id, note: 'si company_warehouse']
-  name varchar
+  hub_id bigint [ref: > hubs.id, note: 'null = chez le marchand']
   created_at timestamp
   updated_at timestamp
 }
@@ -584,8 +582,9 @@ Table stock_levels {
   id bigint [pk, increment]
   product_id bigint [ref: > products.id, not null]
   stock_location_id bigint [ref: > stock_locations.id, not null]
-  quantity_on_hand int [default: 0]
-  quantity_reserved int [default: 0, note: 'réservé par des courses non livrées']
+  on_hand int [default: 0]
+  reserved int [default: 0, note: 'réservé par des courses non livrées']
+  created_at timestamp
   updated_at timestamp
   Note: 'Cache recalculable depuis stock_movements ; disponible = on_hand - reserved'
   indexes { (product_id, stock_location_id) [unique] }
@@ -593,27 +592,47 @@ Table stock_levels {
 
 Table stock_movements {
   id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
   product_id bigint [ref: > products.id, not null]
   stock_location_id bigint [ref: > stock_locations.id, not null]
-  type varchar [not null, note: 'receipt | reservation | release | shipment | return | adjustment | transfer_in | transfer_out | inventory']
-  quantity int [not null, note: 'signé']
+  type varchar [not null, note: 'receipt | withdrawal | adjustment | reservation | release | shipment']
+  on_hand_change int [default: 0]
+  reserved_change int [default: 0]
+  on_hand_after int [not null]
   order_id bigint [ref: > orders.id]
   user_id bigint [ref: > users.id]
-  note text
+  note varchar
   created_at timestamp [not null]
-  indexes { (product_id, created_at) }
+  Note: 'Journal immuable'
+  indexes { (product_id, created_at) (stock_location_id, created_at) }
 }
 
 Table storage_contracts {
   id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
   merchant_id bigint [ref: > merchants.id, not null]
-  hub_id bigint [ref: > hubs.id, not null]
+  hub_id bigint [ref: > hubs.id, note: 'null = tous les entrepôts']
   billing_type varchar [not null, note: 'free | monthly_flat | per_unit_day | per_order']
   price int [default: 0]
-  starts_on date
+  starts_on date [not null]
   ends_on date
+  notes varchar
   created_at timestamp
   updated_at timestamp
+}
+
+Table storage_charges {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  storage_contract_id bigint [ref: > storage_contracts.id, not null]
+  period date [not null, note: 'premier jour du mois facturé']
+  quantity int [note: 'articles-jours, commandes préparées ou 1 (forfait)']
+  amount int [not null]
+  ledger_entry_id bigint [ref: > merchant_ledger_entries.id]
+  created_at timestamp
+  updated_at timestamp
+  indexes { (storage_contract_id, period) [unique] }
 }
 
 // ───────────────────────────── NOTIFICATIONS & RAPPORTS ─────────────────────────────
