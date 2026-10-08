@@ -6,7 +6,7 @@
         <button class="font-mono text-sm text-slate-500" @click="copy(order.tracking_code)">{{ order.tracking_code }} ⧉</button>
         <StatusBadge :status="order.status" :label="order.status_label" />
       </div>
-      <OrderProgress :status="order.status" :incident="order.last_incident?.label" :rescheduled-to="order.delivery.scheduled_date" />
+      <OrderProgress :status="order.status" :incident="order.last_incident?.label" :rescheduled-to="order.delivery.scheduled_date" :shipping="order.is_shipping" />
 
       <!-- Actions sur incident -->
       <div v-if="order.status === 'delivery_failed'" class="grid grid-cols-2 gap-2">
@@ -60,8 +60,19 @@
       <div class="flex justify-between">
         <span class="text-slate-500">Livraison ({{ order.amounts.fee_payer === 'recipient' ? 'client' : 'vous' }})</span><span>{{ money(order.amounts.total_fees) }}</span>
       </div>
+      <div v-if="order.is_shipping" class="flex justify-between">
+        <span class="text-slate-500">🚌 Expédition (vous)</span>
+        <span>{{ order.shipping.fee !== null ? money(order.shipping.fee) : (order.shipping.fee_estimate ? '≈ ' + money(order.shipping.fee_estimate) : 'au réel') }}</span>
+      </div>
       <div class="flex justify-between font-semibold text-base border-t pt-2"><span>À encaisser</span><span>{{ money(order.amounts.cod_amount) }}</span></div>
       <div v-if="order.amounts.collected_amount !== null" class="flex justify-between text-emerald-700 font-medium"><span>Encaissé</span><span>{{ money(order.amounts.collected_amount) }}</span></div>
+    </section>
+
+    <!-- Expédition -->
+    <section v-if="order.is_shipping && order.shipping.carrier" class="m-card p-4 space-y-1 text-sm">
+      <h2 class="font-semibold text-base">🚌 Colis expédié</h2>
+      <p>Par <strong>{{ order.shipping.carrier }}</strong><span v-if="order.shipping.reference"> · ticket {{ order.shipping.reference }}</span></p>
+      <p class="text-slate-500">Frais d'expédition de {{ money(order.shipping.fee) }} déduits de votre point.</p>
     </section>
 
     <!-- Autres actions -->

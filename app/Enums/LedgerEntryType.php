@@ -10,6 +10,8 @@ enum LedgerEntryType: string
     case DeliveryFee = 'delivery_fee';
     // Frais facturés pour un colis retourné
     case ReturnFee = 'return_fee';
+    // Frais d'expédition payés par le livreur à la gare ou au transporteur
+    case ShippingFee = 'shipping_fee';
     case Adjustment = 'adjustment';
     // Reversement effectué : solde les écritures du relevé
     case Payout = 'payout';
@@ -20,6 +22,7 @@ enum LedgerEntryType: string
             self::CodCredit => 'Encaissement',
             self::DeliveryFee => 'Frais de livraison',
             self::ReturnFee => 'Frais de retour',
+            self::ShippingFee => 'Frais d\'expédition',
             self::Adjustment => 'Ajustement',
             self::Payout => 'Reversement',
         };

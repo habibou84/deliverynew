@@ -38,7 +38,7 @@ class TrackingController extends Controller
             ->get()
             ->map(fn (OrderEvent $e) => [
                 'status' => $e->to_status->value,
-                'label' => $e->to_status->label(),
+                'label' => $order->is_shipping && $e->to_status === OrderStatus::Delivered ? 'Expédié' : $e->to_status->label(),
                 'rescheduled_to' => $e->rescheduled_to?->toDateString(),
                 'at' => $e->created_at,
             ]);
@@ -50,7 +50,8 @@ class TrackingController extends Controller
         return response()->json(['data' => [
             'tracking_code' => $order->tracking_code,
             'status' => $order->status->value,
-            'status_label' => $order->status->label(),
+            'status_label' => $order->statusLabel(),
+            'shipping_carrier' => $order->status === OrderStatus::Delivered ? $order->shipping_carrier : null,
             'merchant_name' => $order->merchant?->business_name,
             'delivery_zone' => $order->deliveryZone?->name,
             'scheduled_date' => $order->delivery_scheduled_date?->toDateString(),

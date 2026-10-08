@@ -22,7 +22,7 @@ class OrderResource extends JsonResource
             'merchant_reference' => $this->merchant_reference,
             'source' => $this->source,
             'status' => $this->status,
-            'status_label' => $this->status->label(),
+            'status_label' => $this->statusLabel(),
             'merchant_id' => $this->merchant_id,
             'merchant' => $this->whenLoaded('merchant', fn () => [
                 'id' => $this->merchant->id,
@@ -56,6 +56,14 @@ class OrderResource extends JsonResource
                 'scheduled_date' => $this->delivery_scheduled_date?->toDateString(),
                 'time_slot' => $this->delivery_time_slot,
             ],
+            // Zone d'expédition : colis déposé à une gare ou chez un transporteur
+            'is_shipping' => $this->is_shipping,
+            'shipping' => $this->when($this->is_shipping, fn () => [
+                'fee' => $this->shipping_fee,
+                'carrier' => $this->shipping_carrier,
+                'reference' => $this->shipping_reference,
+                'fee_estimate' => $this->relationLoaded('deliveryZone') ? $this->deliveryZone?->shipping_fee_estimate : null,
+            ]),
             'package' => [
                 'description' => $this->description,
                 'size' => $this->package_size,

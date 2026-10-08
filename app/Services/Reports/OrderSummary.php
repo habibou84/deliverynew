@@ -24,24 +24,30 @@ class OrderSummary
         $orders = $orders
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
-            ->get(['id', 'status', 'fee_payer', 'delivery_fee', 'surcharges_total', 'cod_amount', 'collected_amount', 'return_requested']);
+            ->get(['id', 'status', 'fee_payer', 'delivery_fee', 'surcharges_total', 'cod_amount', 'collected_amount', 'return_requested', 'is_shipping']);
 
         $count = fn (array $statuses) => $orders->whereIn('status', $statuses)->count();
         $delivered = $orders->where('status', OrderStatus::Delivered);
 
         $collected = $delivered->sum('collected_amount');
 
-        // Frais retenus (livraisons et retours), tels qu'inscrits au grand livre du marchand
-        $fees = -(int) MerchantLedgerEntry::query()
+        // Frais retenus, tels qu'inscrits au grand livre du marchand
+        $ledger = MerchantLedgerEntry::query()
             ->whereIn('order_id', $orders->pluck('id'))
-            ->whereIn('type', [LedgerEntryType::DeliveryFee->value, LedgerEntryType::ReturnFee->value])
-            ->sum('amount');
+            ->whereIn('type', [LedgerEntryType::DeliveryFee->value, LedgerEntryType::ReturnFee->value, LedgerEntryType::ShippingFee->value])
+            ->groupBy('type')
+            ->selectRaw('type, SUM(amount) AS total')
+            ->pluck('total', 'type');
+        $fees = -(int) ($ledger[LedgerEntryType::DeliveryFee->value] ?? 0) - (int) ($ledger[LedgerEntryType::ReturnFee->value] ?? 0);
+        // Frais payés à la gare ou au transporteur pour les colis expédiés
+        $shippingFees = -(int) ($ledger[LedgerEntryType::ShippingFee->value] ?? 0);
 
         return [
             'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
             'counts' => [
                 'total' => $orders->count(),
                 'delivered' => $delivered->count(),
+                'shipped' => $delivered->where('is_shipping', true)->count(),
                 'in_progress' => $count([
                     OrderStatus::Pending, OrderStatus::Confirmed, OrderStatus::PickupAssigned, OrderStatus::PickupInProgress,
                     OrderStatus::PickedUp, OrderStatus::AtHub, OrderStatus::DeliveryAssigned, OrderStatus::OutForDelivery,
@@ -55,7 +61,8 @@ class OrderSummary
             'amounts' => [
                 'collected' => $collected,
                 'fees' => $fees,
-                'net_to_merchant' => $collected - $fees,
+                'shipping_fees' => $shippingFees,
+                'net_to_merchant' => $collected - $fees - $shippingFees,
             ],
             'delivery_rate' => $orders->count() > 0 ? round($delivered->count() / $orders->count() * 100, 1) : null,
             'by_status' => collect(OrderStatus::cases())->mapWithKeys(fn (OrderStatus $s) => [

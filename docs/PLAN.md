@@ -379,6 +379,13 @@ Règles retenues en phase 2 :
 - [x] Livreur : disponibilité en un geste, missions par onglets (ramasser, livrer, retours), action principale unique par mission, appel / WhatsApp / itinéraire, incidents guidés, caisse.
 - [x] Service worker : l'application s'ouvre sans réseau ; missions, caisse et listes affichent les dernières données connues avec un bandeau « Hors ligne ». Les actions (livrer, incident…) demandent le réseau.
 
+### Zones d'expédition ✅ *réalisée*
+- [x] Zone marquée « expédition » (ex. « Expédition Bouaké (gare UTB Adjamé) ») avec des frais habituels indicatifs ; la course jusqu'à la gare se tarifie comme les autres zones.
+- [x] Le livreur dépose le colis à la gare et saisit la compagnie, les frais réellement payés et le numéro du ticket (photo possible). Pas de code de livraison : le destinataire n'est pas là.
+- [x] Frais facturés au marchand (écriture `shipping_fee` du grand livre), visibles dans son point du jour, son point d'activité WhatsApp, ses relevés et la fiche du colis.
+- [x] Frais remboursés au livreur sur son versement (`cash_collections.courier_expense`) : il verse l'encaissé moins les frais avancés ; si la caisse lui doit de l'argent, elle le lui remet.
+- [x] Messages : « colis expédié » au marchand (avec les frais) et au destinataire (compagnie, ticket) à la place du « colis en route ».
+
 ### Phase 3 : WhatsApp sortant (2 à 3 semaines) ✅ *réalisée côté application*
 - [ ] Compte Meta Business vérifié, numéro, soumission des templates : **démarche de l'entreprise** chez Meta ; l'application fournit les textes à soumettre et vérifie leur approbation.
 - [x] Pipeline de messages (`Messenger`, file `messages`, relances), préférences par marchand, `outbound_messages`, repli SMS (Twilio), webhook des accusés de réception Meta.

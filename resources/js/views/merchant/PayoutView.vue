@@ -11,6 +11,7 @@
     <section class="m-card p-4 space-y-2 text-sm">
       <div class="flex justify-between"><span class="text-slate-500">Encaissé</span><span>{{ money(payout.total_collected) }}</span></div>
       <div class="flex justify-between"><span class="text-slate-500">Frais de livraison</span><span>− {{ money(payout.total_fees) }}</span></div>
+      <div v-if="payout.total_shipping_fees" class="flex justify-between"><span class="text-slate-500">Frais d'expédition</span><span>− {{ money(payout.total_shipping_fees) }}</span></div>
       <div v-if="payout.total_adjustments" class="flex justify-between"><span class="text-slate-500">Ajustements</span><span>{{ money(payout.total_adjustments) }}</span></div>
       <div class="flex justify-between font-semibold text-base border-t pt-2"><span>Net</span><span>{{ money(payout.net_amount) }}</span></div>
     </section>

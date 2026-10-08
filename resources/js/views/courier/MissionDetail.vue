@@ -6,6 +6,9 @@
         <span class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">{{ mission.type_label }}</span>
         <StatusBadge :status="order.status" :label="order.status_label" />
       </div>
+      <p v-if="shipping" class="rounded-xl bg-indigo-50 text-indigo-900 p-3 font-medium">
+        🚌 Expédition : déposez le colis à la gare ou chez le transporteur, payez l'envoi et gardez le ticket.
+      </p>
       <p class="text-xl font-bold">{{ target.name }}</p>
       <p class="text-slate-700">📍 {{ target.zone }}<span v-if="target.address"> · {{ target.address }}</span></p>
       <p v-if="target.landmark" class="text-slate-500">Repère : {{ target.landmark }}</p>
@@ -27,7 +30,7 @@
 
     <!-- Argent et colis -->
     <section class="m-card p-4 space-y-2">
-      <div v-if="mission.type !== 'pickup'" class="flex items-center justify-between">
+      <div v-if="mission.type !== 'pickup' && !(shipping && !order.amounts.cod_amount)" class="flex items-center justify-between">
         <span class="text-slate-600">À encaisser</span>
         <span class="text-3xl font-bold">{{ money(order.amounts.cod_amount) }}</span>
       </div>
@@ -64,10 +67,33 @@
       </div>
     </div>
 
-    <!-- Livraison réussie -->
-    <BottomSheet :open="sheet === 'delivered'" title="Colis livré" @close="sheet = null">
+    <!-- Livraison réussie (ou dépôt à la gare pour une expédition) -->
+    <BottomSheet :open="sheet === 'delivered'" :title="shipping ? 'Colis expédié' : 'Colis livré'" @close="sheet = null">
       <div class="space-y-4">
-        <div>
+        <template v-if="shipping">
+          <div>
+            <label class="m-label" for="carrier">Compagnie ou gare</label>
+            <input id="carrier" v-model="delivery.shipping_carrier" class="m-input" list="carriers" placeholder="Ex. : UTB Adjamé" autocomplete="off">
+            <datalist id="carriers"><option v-for="c in recentCarriers" :key="c" :value="c" /></datalist>
+          </div>
+          <div>
+            <label class="m-label" for="shipfee">Frais d'expédition payés</label>
+            <div class="relative">
+              <input id="shipfee" v-model.number="delivery.shipping_fee" type="number" min="0" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
+              <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
+            </div>
+            <p class="text-sm text-slate-500 mt-1">Facturés au marchand et déduits de ce que vous versez à la caisse.</p>
+          </div>
+          <div>
+            <label class="m-label" for="ticket">Numéro du ticket</label>
+            <input id="ticket" v-model="delivery.shipping_reference" class="m-input" placeholder="Facultatif">
+          </div>
+          <label class="m-btn-secondary cursor-pointer">
+            📷 Photographier le ticket
+            <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
+          </label>
+        </template>
+        <div v-if="!shipping || order.amounts.cod_amount > 0">
           <label class="m-label" for="collected">Montant encaissé</label>
           <div class="relative">
             <input id="collected" v-model.number="delivery.collected_amount" type="number" min="0" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
@@ -90,12 +116,12 @@
           />
           <input v-model="delivery.transaction_ref" class="m-input" placeholder="Référence de la transaction (facultatif)">
         </template>
-        <div v-if="auth.user?.company?.require_delivery_code">
+        <div v-if="auth.user?.company?.require_delivery_code && !shipping">
           <label class="m-label" for="code">Code donné par le client</label>
           <input id="code" v-model="delivery.delivery_code" class="m-input text-center text-3xl font-bold tracking-[0.5em]" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••">
         </div>
         <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
-        <button class="m-btn-success text-lg py-5" :disabled="busy" @click="confirmDelivered">✓ Confirmer la livraison</button>
+        <button class="m-btn-success text-lg py-5" :disabled="busy" @click="confirmDelivered">{{ shipping ? '✓ Confirmer l\'expédition' : '✓ Confirmer la livraison' }}</button>
       </div>
     </BottomSheet>
 
@@ -160,7 +186,21 @@ const sheet = ref(null)
 const sheetError = ref('')
 const noteText = ref('')
 const refusal = ref(null)
-const delivery = reactive({ collected_amount: 0, payment_method: 'cash', received_by_company: false, transaction_ref: '', delivery_code: '' })
+const delivery = reactive({
+  collected_amount: 0, payment_method: 'cash', received_by_company: false, transaction_ref: '', delivery_code: '',
+  shipping_carrier: '', shipping_fee: 0, shipping_reference: '',
+})
+const shipping = computed(() => order.value?.is_shipping && mission.value?.type === 'delivery')
+const CARRIERS_KEY = 'recent_carriers'
+const recentCarriers = ref(readCarriers())
+
+function readCarriers() {
+  try {
+    return JSON.parse(localStorage.getItem(CARRIERS_KEY)) || []
+  } catch {
+    return []
+  }
+}
 const incident = reactive({ reason: null, when: 'tomorrow', date: null, note: '' })
 
 const active = computed(() => ['accepted', 'in_progress'].includes(mission.value?.status))
@@ -181,8 +221,8 @@ const primary = computed(() => {
   const t = mission.value.type
   if (t === 'pickup' && s === 'pickup_assigned') return { label: '🛵 Je pars chercher le colis', class: 'm-btn-primary', action: () => move('pickup_in_progress') }
   if (t === 'pickup' && ['pickup_assigned', 'pickup_in_progress'].includes(s)) return { label: '✓ J\'ai récupéré le colis', class: 'm-btn-success', action: () => move('picked_up') }
-  if (t === 'delivery' && ['delivery_assigned', 'picked_up', 'at_hub', 'delivery_failed', 'rescheduled'].includes(s)) return { label: '🛵 Je pars livrer', class: 'm-btn-primary', action: () => move('out_for_delivery') }
-  if (t === 'delivery' && s === 'out_for_delivery') return { label: '✓ Colis livré', class: 'm-btn-success', action: openDelivered }
+  if (t === 'delivery' && ['delivery_assigned', 'picked_up', 'at_hub', 'delivery_failed', 'rescheduled'].includes(s)) return { label: shipping.value ? '🚌 Je pars à la gare' : '🛵 Je pars livrer', class: 'm-btn-primary', action: () => move('out_for_delivery') }
+  if (t === 'delivery' && s === 'out_for_delivery') return { label: shipping.value ? '✓ Colis expédié' : '✓ Colis livré', class: 'm-btn-success', action: openDelivered }
   if (t === 'return' && s === 'return_assigned') return { label: '🛵 Je rapporte le colis', class: 'm-btn-primary', action: () => move('returning') }
   if (t === 'return' && ['return_assigned', 'returning'].includes(s)) return { label: '✓ Colis rendu au marchand', class: 'm-btn-success', action: () => move('returned') }
   return null
@@ -248,7 +288,10 @@ async function move(status) {
 }
 
 function openDelivered() {
-  Object.assign(delivery, { collected_amount: order.value.amounts.cod_amount, payment_method: 'cash', received_by_company: false, transaction_ref: '', delivery_code: '' })
+  Object.assign(delivery, {
+    collected_amount: order.value.amounts.cod_amount, payment_method: 'cash', received_by_company: false, transaction_ref: '', delivery_code: '',
+    shipping_carrier: recentCarriers.value[0] || '', shipping_fee: order.value.shipping?.fee_estimate ?? 0, shipping_reference: '',
+  })
   sheetError.value = ''
   sheet.value = 'delivered'
 }
@@ -266,14 +309,32 @@ async function confirmDelivered() {
       }
     }
     if (delivery.delivery_code) extra.delivery_code = delivery.delivery_code
+    if (shipping.value) {
+      Object.assign(extra, {
+        shipping_carrier: delivery.shipping_carrier.trim(),
+        shipping_fee: delivery.shipping_fee ?? 0,
+        shipping_reference: delivery.shipping_reference || undefined,
+      })
+    }
     await post('delivered', extra)
+    if (shipping.value) rememberCarrier(delivery.shipping_carrier.trim())
     sheet.value = null
-    toasts.success('Livraison enregistrée. Bravo !')
+    toasts.success(shipping.value ? 'Expédition enregistrée. Bravo !' : 'Livraison enregistrée. Bravo !')
     await load()
   } catch (e) {
     sheetError.value = apiErrorMessage(e)
   } finally {
     busy.value = false
+  }
+}
+
+// Les compagnies déjà utilisées sont proposées en premier
+function rememberCarrier(name) {
+  recentCarriers.value = [name, ...recentCarriers.value.filter((c) => c !== name)].slice(0, 5)
+  try {
+    localStorage.setItem(CARRIERS_KEY, JSON.stringify(recentCarriers.value))
+  } catch {
+    // Stockage indisponible : pas de suggestions
   }
 }
 

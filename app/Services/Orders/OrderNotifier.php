@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
 use App\Notifications\OrderAlert;
+use App\Support\Money;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 
@@ -92,7 +93,9 @@ class OrderNotifier
         return match ($event->to_status) {
             OrderStatus::PickedUp => [['picked_up', "Colis {$code} récupéré", 'Votre colis a été récupéré par notre livreur.'], null],
             OrderStatus::OutForDelivery => [['out_for_delivery', "Colis {$code} en chemin", 'Votre colis est en cours de livraison.'], null],
-            OrderStatus::Delivered => [['delivered', "Colis {$code} livré", 'Votre colis a été livré.'], null],
+            OrderStatus::Delivered => $order->is_shipping
+                ? [['delivered', "Colis {$code} expédié", "Déposé chez {$order->shipping_carrier}. Frais d'expédition : ".Money::format((int) $order->shipping_fee).'.'], null]
+                : [['delivered', "Colis {$code} livré", 'Votre colis a été livré.'], null],
             OrderStatus::DeliveryFailed => [
                 ['incident', "Échec de livraison {$code}", "La livraison n'a pas pu être effectuée.{$why}{$note}"],
                 ['incident', "Échec de livraison {$code}", trim("{$reason}{$note}")],

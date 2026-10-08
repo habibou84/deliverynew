@@ -42,7 +42,7 @@ class FinanceController extends Controller
 
         // Agrégats groupés par livreur (pas de requête par ligne)
         $cash = CashCollection::inCourierHands()->groupBy('courier_id')
-            ->selectRaw('courier_id, SUM(amount_collected) AS total, COUNT(*) AS n, MIN(collected_at) AS oldest')
+            ->selectRaw('courier_id, SUM('.CashCollection::amountDueSql().') AS total, COUNT(*) AS n, MIN(collected_at) AS oldest')
             ->get()->keyBy('courier_id');
         $unpaid = CourierEarning::whereNull('payout_id')->groupBy('courier_id')
             ->selectRaw('courier_id, SUM(amount) AS total')->pluck('total', 'courier_id');
@@ -55,7 +55,9 @@ class FinanceController extends Controller
             'unpaid' => (int) ($unpaid[$c->id] ?? 0),
             'pending_collections' => (int) ($cash[$c->id]->n ?? 0),
             'oldest_collected_at' => $cash[$c->id]->oldest ?? null,
-        ])->sortByDesc('cash_in_hand')->values();
+        ])
+            // Montant absolu : un livreur à qui la caisse doit des frais avancés reste en tête de liste
+            ->sortByDesc(fn ($c) => abs($c['cash_in_hand']))->values();
 
         return response()->json([
             'data' => $couriers,
@@ -87,7 +89,8 @@ class FinanceController extends Controller
 
         $data = $request->validate([
             'courier_id' => ['required', 'integer', Rule::exists('couriers', 'id')->where('company_id', $request->user()->company_id)],
-            'amount_received' => ['required', 'integer', 'min:0'],
+            // Négatif : la caisse rembourse au livreur des frais qu'il a avancés
+            'amount_received' => ['required', 'integer', 'min:-10000000', 'max:100000000'],
             'collection_ids' => ['nullable', 'array'],
             'collection_ids.*' => ['integer'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -359,6 +362,8 @@ class FinanceController extends Controller
             'recipient_name' => $c->order?->recipient_name,
             'amount_expected' => $c->amount_expected,
             'amount_collected' => $c->amount_collected,
+            'courier_expense' => $c->courier_expense,
+            'amount_due' => $c->amountDue(),
             'method' => $c->method,
             'method_label' => $c->method->label(),
             'received_by_company' => $c->received_by_company,
@@ -406,6 +411,7 @@ class FinanceController extends Controller
             'period_end' => $p->period_end?->toDateString(),
             'total_collected' => $p->total_collected,
             'total_fees' => $p->total_fees,
+            'total_shipping_fees' => $p->total_shipping_fees,
             'total_adjustments' => $p->total_adjustments,
             'net_amount' => $p->net_amount,
             'status' => $p->status,

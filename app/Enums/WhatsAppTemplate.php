@@ -16,6 +16,8 @@ enum WhatsAppTemplate: string
     case DeliveryIncident = 'incident_livraison';
     case PayoutPaid = 'reversement_effectue';
     case ActivityReport = 'rapport_activite';
+    case Shipped = 'colis_expedie';
+    case ShippedRecipient = 'colis_expedie_client';
 
     public const LANGUAGE = 'fr';
 
@@ -28,7 +30,9 @@ enum WhatsAppTemplate: string
             self::OrderDelivered => 'Bonjour {{1}}, le colis {{2}} pour {{3}} a été livré. Montant encaissé : {{4}}. Merci de votre confiance.',
             self::DeliveryIncident => 'Bonjour {{1}}, incident sur le colis {{2}} pour {{3}} : {{4}}. Choisissez la suite depuis votre espace : {{5}} . Merci.',
             self::PayoutPaid => 'Bonjour {{1}}, votre reversement {{2}} de {{3}} a été effectué par {{4}}. Le détail est dans votre espace marchand. Merci.',
-            self::ActivityReport => 'Bonjour {{1}}, voici votre point {{2}} : {{3}} courses, {{4}} livrées, {{5}} non livrées ou reportées, {{6}} retournées. Encaissé : {{7}}. Frais : {{8}}. Net : {{9}}. Merci de votre confiance.',
+            self::ActivityReport => 'Bonjour {{1}}, voici votre point {{2}} : {{3}} courses, {{4}} livrées ou expédiées, {{5}} non livrées ou reportées, {{6}} retournées. Encaissé : {{7}}. Frais de livraison : {{8}}. Frais d\'expédition : {{9}}. Net : {{10}}. Merci de votre confiance.',
+            self::Shipped => 'Bonjour {{1}}, le colis {{2}} pour {{3}} a été expédié par {{4}} (ticket {{5}}). Frais d\'expédition : {{6}}, déduits de votre point. Merci.',
+            self::ShippedRecipient => 'Bonjour {{1}}, votre colis de {{2}} a été expédié par {{3}} (ticket {{4}}). Récupérez-le à l\'arrivée auprès du transporteur. Merci de votre confiance.',
         };
     }
 
@@ -42,6 +46,8 @@ enum WhatsAppTemplate: string
             self::DeliveryIncident => 'Au marchand, en cas d\'échec de livraison, de ramassage ou de report',
             self::PayoutPaid => 'Au marchand, quand son reversement est payé',
             self::ActivityReport => 'Au marchand, point quotidien ou hebdomadaire',
+            self::Shipped => 'Au marchand, quand un colis est déposé à la gare (zone d\'expédition)',
+            self::ShippedRecipient => 'Au destinataire, quand son colis est déposé à la gare',
         };
     }
 
@@ -59,7 +65,9 @@ enum WhatsAppTemplate: string
             self::OrderDelivered => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Yopougon)', '13 500 F'],
             self::DeliveryIncident => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Yopougon)', 'Client injoignable', 'https://exemple.ci/marchand/courses/12'],
             self::PayoutPaid => ['Boutique Chic', 'RV-2610-0004', '154 000 F', 'Wave'],
-            self::ActivityReport => ['Boutique Chic', 'du 08/10/2026', '24', '20', '3', '1', '310 000 F', '36 000 F', '274 000 F'],
+            self::ActivityReport => ['Boutique Chic', 'du 08/10/2026', '24', '20', '3', '1', '310 000 F', '36 000 F', '6 000 F', '268 000 F'],
+            self::Shipped => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Bouaké)', 'UTB Adjamé', 'A-15234', '3 000 F'],
+            self::ShippedRecipient => ['Awa', 'Boutique Chic', 'UTB Adjamé', 'A-15234'],
         };
     }
 

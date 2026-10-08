@@ -37,9 +37,7 @@ class MerchantPayouts
             ->whereNull('payout_id')
             ->where('type', '!=', LedgerEntryType::Payout->value)
             // Course dont l'argent est encore chez le livreur : encaissement et frais attendent ensemble
-            ->whereDoesntHave('order.cashCollection', fn ($q) => $q
-                ->whereNull('remittance_id')
-                ->where('received_by_company', false));
+            ->whereDoesntHave('order.cashCollection', fn ($q) => $q->inCourierHands());
     }
 
     /**
@@ -108,6 +106,7 @@ class MerchantPayouts
                 'period_end' => $entries->max('created_at'),
                 'total_collected' => $sum([LedgerEntryType::CodCredit]),
                 'total_fees' => -$sum([LedgerEntryType::DeliveryFee, LedgerEntryType::ReturnFee]),
+                'total_shipping_fees' => -$sum([LedgerEntryType::ShippingFee]),
                 'total_adjustments' => $sum([LedgerEntryType::Adjustment]),
                 'net_amount' => $entries->sum('amount'),
                 'status' => PayoutStatus::Draft,

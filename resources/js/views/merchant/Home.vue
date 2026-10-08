@@ -41,6 +41,19 @@
       </div>
     </section>
 
+    <!-- Point du jour : argent -->
+    <section v-if="today && (today.amounts.collected || today.amounts.fees || today.amounts.shipping_fees)" class="m-card p-4 space-y-2 text-sm">
+      <h2 class="font-semibold text-base">Point du jour</h2>
+      <div class="flex justify-between"><span class="text-slate-500">Encaissé</span><span>{{ money(today.amounts.collected) }}</span></div>
+      <div class="flex justify-between"><span class="text-slate-500">Frais de livraison</span><span>− {{ money(today.amounts.fees) }}</span></div>
+      <div v-if="today.amounts.shipping_fees" class="flex justify-between">
+        <span class="text-slate-500">🚌 Frais d'expédition ({{ today.counts.shipped }} colis)</span><span>− {{ money(today.amounts.shipping_fees) }}</span>
+      </div>
+      <div class="flex justify-between font-semibold text-base border-t pt-2">
+        <span>Net du jour</span><span :class="signedClass(today.amounts.net_to_merchant)">{{ money(today.amounts.net_to_merchant) }}</span>
+      </div>
+    </section>
+
     <!-- Ce mois-ci -->
     <section v-if="month" class="rounded-2xl p-5 text-white" :style="{ backgroundColor: 'var(--app-color)' }">
       <p class="text-sm opacity-80">Ce mois-ci</p>
@@ -74,7 +87,7 @@ import EmptyState from '../../components/mobile/EmptyState.vue'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 import { orderChanges } from '../../composables/useRealtime'
-import { money, today as todayDate } from '../../utils/format'
+import { money, signedClass, today as todayDate } from '../../utils/format'
 
 const auth = useAuthStore()
 const firstName = computed(() => (auth.user?.name || '').split(' ')[0])

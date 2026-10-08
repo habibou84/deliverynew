@@ -212,6 +212,7 @@ class OrderService
             'delivery_fee' => $quote->basePrice,
             'surcharges_total' => $quote->surchargesTotal(),
             'pricing_details' => $quote->toArray(),
+            'is_shipping' => $deliveryZone->is_shipping,
         ];
     }
 

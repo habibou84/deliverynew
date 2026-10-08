@@ -18,10 +18,10 @@
     <InstallBanner app="livreur" />
 
     <!-- À verser -->
-    <RouterLink v-if="wallet && wallet.cash_in_hand > 0" to="/livreur/caisse" class="block m-card p-4 active:bg-slate-50">
+    <RouterLink v-if="wallet && wallet.cash_in_hand !== 0" to="/livreur/caisse" class="block m-card p-4 active:bg-slate-50">
       <div class="flex justify-between items-center">
-        <span class="text-slate-600">💵 À verser à la caisse</span>
-        <span class="font-bold text-lg">{{ money(wallet.cash_in_hand) }}</span>
+        <span class="text-slate-600">{{ wallet.cash_in_hand > 0 ? '💵 À verser à la caisse' : '💵 La caisse vous doit' }}</span>
+        <span class="font-bold text-lg">{{ money(Math.abs(wallet.cash_in_hand)) }}</span>
       </div>
     </RouterLink>
 
@@ -64,9 +64,10 @@
             <span v-if="m.status === 'assigned'" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">Nouvelle · à accepter</span>
             <StatusBadge v-else :status="m.order.status" :label="m.order.status_label" />
             <span v-if="m.order.package.is_express" class="rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5">⚡ Express</span>
+            <span v-if="m.order.is_shipping && m.type === 'delivery'" class="rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">🚌 À expédier</span>
           </div>
         </div>
-        <span v-if="m.type === 'delivery'" class="font-bold whitespace-nowrap">{{ money(m.order.amounts.cod_amount) }}</span>
+        <span v-if="m.type === 'delivery' && m.order.amounts.cod_amount" class="font-bold whitespace-nowrap">{{ money(m.order.amounts.cod_amount) }}</span>
       </div>
     </RouterLink>
   </div>

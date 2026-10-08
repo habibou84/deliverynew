@@ -50,6 +50,10 @@ class OrderMessages
                 break;
 
             case OrderStatus::OutForDelivery:
+                // Expédition : le destinataire est prévenu au dépôt à la gare
+                if ($order->is_shipping) {
+                    break;
+                }
                 $this->messenger->toRecipient($order, 'order.out_for_delivery', WhatsAppTemplate::OutForDelivery, [
                     $order->recipient_name ?: 'cher client',
                     $merchant->business_name,
@@ -60,6 +64,10 @@ class OrderMessages
                 break;
 
             case OrderStatus::Delivered:
+                if ($order->is_shipping) {
+                    $this->shipped($order, $recipient);
+                    break;
+                }
                 $this->messenger->toMerchant($merchant, NotificationEvent::OrderDelivered, WhatsAppTemplate::OrderDelivered,
                     [$merchant->business_name, $code, $recipient, Money::format((int) $order->collected_amount)], $order);
                 break;
@@ -78,6 +86,20 @@ class OrderMessages
             default:
                 break;
         }
+    }
+
+    private function shipped(Order $order, string $recipient): void
+    {
+        $merchant = $order->merchant;
+        $ticket = $order->shipping_reference ?: 'sans numéro';
+
+        $this->messenger->toMerchant($merchant, NotificationEvent::OrderDelivered, WhatsAppTemplate::Shipped, [
+            $merchant->business_name, $order->tracking_code, $recipient, $order->shipping_carrier, $ticket, Money::format((int) $order->shipping_fee),
+        ], $order);
+
+        $this->messenger->toRecipient($order, 'order.shipped', WhatsAppTemplate::ShippedRecipient, [
+            $order->recipient_name ?: 'cher client', $merchant->business_name, $order->shipping_carrier, $ticket,
+        ]);
     }
 
     private function incident(Order $order, OrderEvent $event, string $recipient, string $what): void

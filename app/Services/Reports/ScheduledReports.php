@@ -59,6 +59,7 @@ class ScheduledReports
                         $data['counts']['returned'],
                         Money::format($data['amounts']['collected']),
                         Money::format($data['amounts']['fees']),
+                        Money::format($data['amounts']['shipping_fees']),
                         Money::format($data['amounts']['net_to_merchant']),
                     ], ['event' => 'report.'.$report->frequency->value, 'merchant_id' => $merchant->id]);
                     $sent++;

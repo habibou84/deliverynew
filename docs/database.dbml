@@ -155,6 +155,8 @@ Table zones {
   parent_id bigint [ref: > zones.id, note: 'commune -> quartier (ex. Cocody -> Angré)']
   name varchar [not null]
   city varchar [default: 'Abidjan']
+  is_shipping boolean [default: false, note: 'zone d\'expédition : dépôt à une gare ou chez un transporteur']
+  shipping_fee_estimate int [note: 'frais d\'expédition habituels, indicatifs']
   polygon geometry [note: 'PostGIS, facultatif : détection de zone depuis un point GPS']
   is_active boolean [default: true]
   sort_order int
@@ -268,6 +270,10 @@ Table orders {
   delivery_lng decimal(10,7)
   delivery_scheduled_date date
   delivery_time_slot varchar [note: 'ex. 08-12 | 12-16 | 16-20']
+  is_shipping boolean [default: false, note: 'copié de la zone de livraison']
+  shipping_fee int [note: 'frais payés à la gare, saisis par le livreur, facturés au marchand']
+  shipping_carrier varchar [note: 'compagnie ou gare']
+  shipping_reference varchar [note: 'numéro du ticket']
 
   // Colis
   description text
@@ -426,6 +432,7 @@ Table cash_collections {
   courier_id bigint [ref: > couriers.id, not null]
   amount_expected int [not null]
   amount_collected int [not null]
+  courier_expense int [default: 0, note: 'frais avancés par le livreur (expédition), déduits de son versement']
   method varchar [not null, note: 'cash | wave | orange_money | mtn_momo | moov_money']
   transaction_ref varchar
   collected_at timestamp [not null]
@@ -451,7 +458,7 @@ Table merchant_ledger_entries {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
   merchant_id bigint [ref: > merchants.id, not null]
-  type varchar [not null, note: 'cod_credit | delivery_fee | surcharge | return_fee | storage_fee | payout | adjustment']
+  type varchar [not null, note: 'cod_credit | delivery_fee | shipping_fee | return_fee | storage_fee | payout | adjustment']
   amount int [not null, note: 'signé : + crédit marchand, - débit']
   order_id bigint [ref: > orders.id]
   payout_id bigint [ref: > merchant_payouts.id]
@@ -471,6 +478,7 @@ Table merchant_payouts {
   period_end date
   total_collected int
   total_fees int
+  total_shipping_fees int
   total_storage_fees int
   net_amount int [not null]
   status varchar [default: 'draft', note: 'draft | validated | paid | cancelled']

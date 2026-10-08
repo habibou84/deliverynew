@@ -69,9 +69,14 @@
             :style="form.delivery_zone_id === z.id ? { backgroundColor: 'var(--app-color)' } : {}"
             @click="form.delivery_zone_id = z.id"
           >
-            {{ z.full_name }}
+            <span v-if="z.is_shipping">🚌 </span>{{ z.full_name }}
           </button>
         </div>
+        <p v-if="selectedZone?.is_shipping" class="mt-2 rounded-xl bg-indigo-50 text-indigo-900 text-sm p-3">
+          🚌 <strong>Expédition</strong> : notre livreur dépose le colis à la gare et paie l'envoi
+          <template v-if="selectedZone.shipping_fee_estimate">(environ {{ money(selectedZone.shipping_fee_estimate) }})</template>.
+          Ces frais vous sont facturés au réel et déduits de votre point.
+        </p>
       </div>
       <div>
         <label class="m-label" for="address">Adresse</label>
@@ -149,8 +154,14 @@
           <div class="flex justify-between text-sm">
             <span class="text-slate-500">Livraison ({{ form.fee_payer === 'recipient' ? 'payée par le client' : 'à ma charge' }})</span><span>{{ money(quote.total) }}</span>
           </div>
+          <div v-if="quote.is_shipping" class="flex justify-between text-sm">
+            <span class="text-slate-500">🚌 Expédition (à votre charge, au réel)</span><span>≈ {{ money(shippingEstimate) }}</span>
+          </div>
           <div class="flex justify-between text-lg font-bold pt-2 border-t"><span>Le client paiera</span><span>{{ money(codAmount) }}</span></div>
-          <div class="flex justify-between text-sm text-emerald-700 font-medium"><span>Vous recevrez</span><span>{{ money((form.items_amount || 0) - (form.fee_payer === 'merchant' ? quote.total : 0)) }}</span></div>
+          <div :class="['flex justify-between text-sm font-medium', merchantNet < 0 ? 'text-slate-700' : 'text-emerald-700']">
+            <span>{{ merchantNet < 0 ? 'À votre charge' : 'Vous recevrez' }}</span>
+            <span>{{ quote.is_shipping ? '≈ ' : '' }}{{ money(Math.abs(merchantNet)) }}</span>
+          </div>
         </template>
         <p v-else class="text-slate-400 text-sm">Calcul du tarif…</p>
       </div>
@@ -223,7 +234,11 @@ const filteredZones = computed(() => {
   const term = zoneSearch.value.trim().toLowerCase()
   return zones.value.filter((z) => !term || z.full_name.toLowerCase().includes(term))
 })
-const zoneName = computed(() => zones.value.find((z) => z.id === form.delivery_zone_id)?.full_name || '—')
+const selectedZone = computed(() => zones.value.find((z) => z.id === form.delivery_zone_id))
+const zoneName = computed(() => selectedZone.value?.full_name || '—')
+const shippingEstimate = computed(() => (quote.value?.is_shipping ? quote.value.shipping_fee_estimate || 0 : 0))
+// Ce que le marchand touche (ou paie) pour cette course, frais d'expédition estimés compris
+const merchantNet = computed(() => (form.items_amount || 0) - (form.fee_payer === 'merchant' ? (quote.value?.total || 0) : 0) - shippingEstimate.value)
 const codAmount = computed(() => (form.items_amount || 0) + (form.fee_payer === 'recipient' && quote.value ? quote.value.total : 0))
 
 const shareLink = computed(() => {

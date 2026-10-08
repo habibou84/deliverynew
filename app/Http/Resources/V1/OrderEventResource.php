@@ -17,7 +17,7 @@ class OrderEventResource extends JsonResource
 
         // Le marchand ne voit pas les identifiants internes
         if ($request->user()?->merchant_id !== null) {
-            $meta = array_intersect_key($meta, array_flip(['type', 'type_label', 'courier_name', 'changes', 'collected_amount', 'source']));
+            $meta = array_intersect_key($meta, array_flip(['type', 'type_label', 'courier_name', 'changes', 'collected_amount', 'source', 'shipping_fee', 'shipping_carrier', 'shipping_reference']));
         }
 
         return [
@@ -26,7 +26,7 @@ class OrderEventResource extends JsonResource
             'from_status' => $this->from_status,
             'from_status_label' => $this->from_status?->label(),
             'to_status' => $this->to_status,
-            'to_status_label' => $this->to_status?->label(),
+            'to_status_label' => isset($meta['shipping_carrier']) ? 'Expédié' : $this->to_status?->label(),
             'incident_reason' => $this->incident_reason_id ? [
                 'id' => $this->incident_reason_id,
                 'label' => $this->incidentReason?->label,

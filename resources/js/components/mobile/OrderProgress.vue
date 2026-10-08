@@ -23,14 +23,16 @@ const props = defineProps({
   status: { type: String, required: true },
   incident: { type: String, default: '' },
   rescheduledTo: { type: String, default: '' },
+  // Zone d'expédition : la dernière étape est le dépôt à la gare
+  shipping: { type: Boolean, default: false },
 })
 
-const steps = [
+const steps = computed(() => [
   { key: 'created', label: 'Créée', icon: '1' },
   { key: 'picked', label: 'Récupérée', icon: '2' },
-  { key: 'way', label: 'En chemin', icon: '3' },
-  { key: 'done', label: 'Livrée', icon: '4' },
-]
+  { key: 'way', label: props.shipping ? 'Vers la gare' : 'En chemin', icon: '3' },
+  { key: 'done', label: props.shipping ? 'Expédiée' : 'Livrée', icon: '4' },
+])
 
 // Étape atteinte selon le statut de la course
 const current = computed(() => ({

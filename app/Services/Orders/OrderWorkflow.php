@@ -81,6 +81,9 @@ class OrderWorkflow
                     'collected_amount' => $to === OrderStatus::Delivered ? $order->collected_amount : null,
                     'payment_method' => $to === OrderStatus::Delivered && $order->collected_amount > 0 ? ($context['payment_method'] ?? 'cash') : null,
                     'attempts_count' => $order->attempts_count,
+                    'shipping_fee' => $to === OrderStatus::Delivered && $order->is_shipping ? $order->shipping_fee : null,
+                    'shipping_carrier' => $to === OrderStatus::Delivered && $order->is_shipping ? $order->shipping_carrier : null,
+                    'shipping_reference' => $to === OrderStatus::Delivered && $order->is_shipping ? $order->shipping_reference : null,
                 ], fn ($v) => $v !== null),
             ]);
 
@@ -201,7 +204,16 @@ class OrderWorkflow
 
     private function validateDelivery(Order $order, array $context): void
     {
-        if ($order->company->require_delivery_code) {
+        if ($order->is_shipping) {
+            // Expédition : le colis est confié à un transporteur, sans remise au destinataire
+            if (blank($context['shipping_carrier'] ?? null)) {
+                throw new BusinessRuleException('Indiquez la compagnie ou la gare d\'expédition.', 'shipping_carrier');
+            }
+
+            if (! isset($context['shipping_fee']) || ! is_int($context['shipping_fee']) || $context['shipping_fee'] < 0) {
+                throw new BusinessRuleException('Indiquez les frais d\'expédition payés (0 si rien n\'a été payé).', 'shipping_fee');
+            }
+        } elseif ($order->company->require_delivery_code) {
             $code = (string) ($context['delivery_code'] ?? '');
 
             if ($code === '' || ! hash_equals((string) $order->delivery_code, $code)) {
@@ -274,6 +286,11 @@ class OrderWorkflow
                 $this->finish($delivery, AssignmentStatus::Completed);
                 $order->delivered_at = $now;
                 $order->collected_amount = $context['collected_amount'] ?? $order->cod_amount;
+                if ($order->is_shipping) {
+                    $order->shipping_fee = $context['shipping_fee'];
+                    $order->shipping_carrier = trim($context['shipping_carrier']);
+                    $order->shipping_reference = filled($context['shipping_reference'] ?? null) ? trim($context['shipping_reference']) : null;
+                }
                 $order->recipient?->increment('deliveries_count');
 
                 return $delivery;
