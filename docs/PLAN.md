@@ -359,12 +359,18 @@ Choix faits pendant la phase 1 :
 - **Adresses** : pas de table `addresses` générique ; l'adresse de ramassage est portée par le marchand et copiée sur chaque course.
 - Reportés à la phase 2 avec la caisse : encaissement détaillé (`cash_collections`), versements livreurs et reversements.
 
-### Phase 2 : argent et paiement à la livraison (3 semaines)
-- [ ] Montant à encaisser, payeur des frais, encaissement par le livreur.
-- [ ] Versements livreurs et caisse, écarts.
-- [ ] Grand livre marchand, relevés, reversements (PDF).
-- [ ] Gains et paie des livreurs.
-- [ ] Point détaillé complet (livrés, non livrés, reportés, retournés, montants).
+### Phase 2 : argent et paiement à la livraison (3 semaines) ✅ *réalisée*
+- [x] Montant à encaisser, payeur des frais, encaissement par le livreur (espèces ou mobile money, payé au livreur ou directement sur le compte de l'entreprise).
+- [x] Versements livreurs à la caisse (total ou partiel), écarts ; un manque est retenu sur la paie du livreur.
+- [x] Grand livre marchand (écritures non modifiables), relevés imprimables / PDF, reversements (à payer → payé), ajustements.
+- [x] Gains et paie des livreurs (commission par ramassage, livraison et retour ; primes et retenues).
+- [x] Point détaillé complet ; les frais affichés proviennent du grand livre.
+
+Règles retenues en phase 2 :
+- **On ne reverse que l'argent arrivé en caisse** : les écritures d'une course dont l'argent est encore chez le livreur restent « en attente » et passent au reversement suivant.
+- **Frais retenus sur toute livraison**, quel que soit le payeur : payés par le client, ils sont inclus dans l'encaissement.
+- **Retour** : frais facturés au marchand selon un pourcentage paramétrable (`return_fee_percent`, 100 % par défaut).
+- Un reversement peut être **négatif** (frais supérieurs aux encaissements, ex. colis prépayés) : le relevé indique alors le montant dû par le marchand.
 
 ### Phase 3 : WhatsApp sortant (2 à 3 semaines)
 - [ ] Compte Meta Business vérifié, numéro, soumission des templates (**démarrer dès la phase 0** : la validation Meta prend du temps).

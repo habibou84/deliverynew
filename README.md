@@ -45,7 +45,7 @@ Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot d
 | Super administrateur | 07 00 00 00 00 | superadmin@livraison.test |
 | Administrateur | 07 00 00 00 01 | admin@livraison.test |
 | Dispatcher | 07 00 00 00 02 | dispatch@livraison.test |
-| Caissier | 07 00 00 00 03 | caisse@livraison.test |
+| Caissier (caisse, reversements, paie) | 07 00 00 00 03 | caisse@livraison.test |
 | Livreur | 07 00 00 00 04 | - |
 | Livreuse | 07 00 00 00 05 | - |
 | E-commerçant (Boutique Chic Abidjan) | 05 00 00 00 01 | boutique@livraison.test |
@@ -101,6 +101,11 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET | `/courier/missions` · POST `/courier/assignments/{id}/accept\|refuse` · PATCH `/courier/status` | livreur |
 | GET | `/reports/summary`, `/incident-reasons`, `/recipients`, `/notifications` | connecté |
 | GET | `/tracking/{code}` | **public** (suivi destinataire, 30 req/min) |
+| GET | `/finance/cash`, `/finance/couriers/{id}/collections`, `/finance/remittances` · POST `/finance/remittances` | caisse : argent chez les livreurs et versements (`finance.view` / `finance.manage`) |
+| GET | `/finance/merchants`, `/finance/merchants/{id}/ledger` · POST `.../adjustments` | soldes et grand livre (le marchand voit le sien) |
+| GET/POST | `/finance/payouts`, `/finance/payouts/{id}` · POST `.../pay`, `.../cancel` | reversements aux marchands |
+| GET/POST | `/finance/couriers/{id}/earnings`, `/finance/courier-payouts` · POST `.../pay`, `.../cancel` | paie des livreurs |
+| GET | `/courier/wallet` | livreur : argent à verser, gains non payés |
 
 Temps réel (Reverb) : canaux privés `company.{id}` (personnel), `merchant.{id}` (marchand) et `App.Models.User.{id}` (notifications), événement `order.changed`.
 

@@ -6,6 +6,7 @@
         <nav class="flex gap-1 text-sm overflow-x-auto">
           <RouterLink to="/marchand" exact-active-class="bg-green-700" class="px-3 py-1.5 rounded hover:bg-green-700">Mon point</RouterLink>
           <RouterLink to="/marchand/courses" exact-active-class="bg-green-700" class="px-3 py-1.5 rounded hover:bg-green-700">Mes courses</RouterLink>
+          <RouterLink v-if="auth.can('finance.view')" to="/marchand/paiements" active-class="bg-green-700" class="px-3 py-1.5 rounded hover:bg-green-700">Paiements</RouterLink>
           <RouterLink to="/marchand/courses/nouvelle" exact-active-class="bg-green-700" class="px-3 py-1.5 rounded hover:bg-green-700 whitespace-nowrap">+ Nouvelle course</RouterLink>
         </nav>
         <div class="ml-auto flex items-center gap-2">

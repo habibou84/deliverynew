@@ -16,6 +16,9 @@
             {{ c.is_available ? 'Disponible' : 'Indisponible' }}
           </span>
         </div>
+        <p v-if="c.delivery_commission || c.pickup_commission" class="text-xs text-gray-500">
+          Commission : {{ money(c.pickup_commission) }} ramassage · {{ money(c.delivery_commission) }} livraison
+        </p>
         <p class="text-sm text-gray-600">{{ VEHICLES[c.vehicle_type] }} {{ c.vehicle_plate ? `· ${c.vehicle_plate}` : '' }} · <strong>{{ c.active_assignments_count }}</strong> mission(s) en cours</p>
         <p class="text-sm">Zones : {{ c.zones.map((z) => z.name).join(', ') || 'toutes' }}</p>
         <p v-if="c.last_location_at" class="text-xs text-gray-500">
@@ -38,6 +41,14 @@
           </select>
         </div>
         <div><label class="label">Immatriculation</label><input v-model="form.data.vehicle_plate" class="input"></div>
+        <fieldset class="border rounded p-3">
+          <legend class="text-sm font-medium px-1">Rémunération par course (F) · 0 si salarié</legend>
+          <div class="grid grid-cols-3 gap-2">
+            <div><label class="label">Ramassage</label><input v-model.number="form.data.pickup_commission" type="number" min="0" class="input"></div>
+            <div><label class="label">Livraison</label><input v-model.number="form.data.delivery_commission" type="number" min="0" class="input"></div>
+            <div><label class="label">Retour</label><input v-model.number="form.data.return_commission" type="number" min="0" class="input"></div>
+          </div>
+        </fieldset>
         <div>
           <label class="label">Zones desservies</label>
           <div class="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto border rounded p-2">
@@ -60,7 +71,7 @@ import { onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
-import { dateTime, mapsLink, telLink } from '../../utils/format'
+import { dateTime, mapsLink, money, telLink } from '../../utils/format'
 
 const VEHICLES = { moto: 'Moto', velo: 'Vélo', voiture: 'Voiture', tricycle: 'Tricycle', pieton: 'À pied' }
 
@@ -78,6 +89,9 @@ function openForm(c) {
   form.data = {
     vehicle_type: c.vehicle_type,
     vehicle_plate: c.vehicle_plate,
+    pickup_commission: c.pickup_commission,
+    delivery_commission: c.delivery_commission,
+    return_commission: c.return_commission,
     is_available: c.is_available,
     notes: c.notes,
     zone_ids: c.zones.map((z) => z.id),
