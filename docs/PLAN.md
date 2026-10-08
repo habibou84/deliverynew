@@ -324,13 +324,22 @@ Produit séparé, avec sa **propre base de données**. Elle consomme l'API ci-de
 
 Hypothèse d'équipe : 2 développeurs full-stack, 1 développeur mobile et 1 chef de projet/testeur à temps partiel. Durées indicatives.
 
-### Phase 0 : fondations (1 à 2 semaines)
-- [ ] Corriger les bugs bloquants du code existant (voir §11).
-- [ ] Passer à PostgreSQL ; installer Redis, Horizon, Reverb et spatie/permission.
-- [ ] Multi-entreprise : table `companies`, `company_id` et *global scope*.
-- [ ] Rôles et permissions ; connexion par téléphone et mot de passe (plus courant que l'e-mail pour les livreurs).
-- [ ] Structure de l'API `/api/v1`, Form Requests, API Resources, gestion uniforme des erreurs.
-- [ ] CI GitHub Actions (Pint, PHPUnit, build Vite) ; environnements de préproduction et de production.
+### Phase 0 : fondations (1 à 2 semaines) ✅ *réalisée*
+- [x] Corriger les bugs bloquants du code existant (voir §11).
+- [x] Passer à PostgreSQL ; installer Redis, Horizon, Reverb et spatie/permission.
+- [x] Multi-entreprise : table `companies`, `company_id` et *global scope* (`BelongsToCompany`).
+- [x] Rôles et permissions (`App\Enums\Role`, `App\Enums\Permission`) ; connexion par téléphone **ou** e-mail, limitée à 5 essais/minute.
+- [x] Structure de l'API `/api/v1`, Form Requests, API Resources, gestion uniforme des erreurs (JSON en français).
+- [x] Gestion des entreprises (super admin) et des utilisateurs (admin), avec canal temps réel privé par entreprise.
+- [x] Front-end : routeur par rôle, client HTTP, écran de connexion.
+- [x] CI GitHub Actions (Pint, migrations et tests sur PostgreSQL, build Vite) ; dépendances mises à jour (0 alerte de sécurité).
+- [ ] Environnements de préproduction et de production (hébergement à choisir).
+- [ ] **À faire par vous** : lancer la vérification du compte Meta Business (nécessaire en phase 3).
+
+Choix faits pendant la phase 0 :
+- **Un compte = une entreprise** : téléphone et e-mail sont uniques sur toute la plateforme, ce qui permet de se connecter sans choisir d'entreprise. Une personne travaillant pour deux entreprises aura deux comptes (deux numéros).
+- **Plus d'inscription publique** : les comptes du personnel et des livreurs sont créés par l'admin. L'inscription des e-commerçants arrivera avec le module marchands (phase 1).
+- **Jetons d'API valables 30 jours** (`SANCTUM_EXPIRATION`), pour que les livreurs ne se reconnectent pas chaque jour. La suspension d'un compte ou le changement de mot de passe déconnecte tous ses appareils.
 
 ### Phase 1 : MVP opérationnel (5 à 6 semaines) ✅ *premier jalon utilisable*
 - [ ] Zones, grilles tarifaires et calcul de prix (avec tests unitaires).
@@ -405,8 +414,10 @@ Hypothèse d'équipe : 2 développeurs full-stack, 1 développeur mobile et 1 ch
 | 3 | `bootstrap/app.php` | `routes/api.php` n'est **pas chargé** : toutes les routes API répondent 404, ou sont capturées par la route attrape-tout de `web.php` | Routes API enregistrées (préfixe `/api`) ✅ |
 | 4 | `bootstrap/app.php` | Middleware Sanctum ajouté deux fois | Doublon supprimé ✅ |
 | 5 | `config/cors` | Fichier sans extension `.php`, donc jamais chargé | Renommé en `config/cors.php` ✅ |
-| 6 | `AuthController::register` | Tout le monde peut s'inscrire comme `livreur` | Inscription publique limitée à `client` ; les livreurs sont créés par l'admin ✅ |
+| 6 | `AuthController::register` | Tout le monde peut s'inscrire comme `livreur` | Inscription publique supprimée ; comptes créés par l'admin (phase 0) ✅ |
 | 7 | `AuthController::logout` | Supprime **tous** les jetons (déconnecte tous les appareils) | Ne révoque que le jeton courant ✅ |
 | 8 | `app/Models/User.php` | Trait Sanctum `HasApiTokens` absent : `createToken()` plante (erreur 500 à la connexion) | Trait ajouté ✅ |
-| 9 | `resources/js/app.js`, `stores/auth.js` | Importent `./router` et `../bootstrap/axios`, qui n'existent pas : le build Vite échoue | À créer en phase 0 (axios avec `baseURL: '/api'` et intercepteur de jeton) |
-| 10 | Front-end | Les appels `axios.post('/login')` devront viser `/api/login` une fois l'API chargée | À traiter avec le point 9 |
+| 9 | `resources/js/app.js`, `stores/auth.js` | Importent `./router` et `../bootstrap/axios`, qui n'existent pas : le build Vite échoue | Routeur et client HTTP créés ✅ |
+| 10 | Front-end | Les appels `axios.post('/login')` ne visaient pas l'API | Client HTTP sur `/api/v1` ✅ |
+| 11 | `vite.config.js` | Plugin Tailwind absent : aucune classe CSS générée, pages sans style | Plugin ajouté ✅ |
+| 12 | `AdminLayout.vue` | Barre latérale cachée sur grand écran ; composants déclarés en templates texte, non compilés par Vite | Classes corrigées, composants extraits en fichiers `.vue` ✅ |

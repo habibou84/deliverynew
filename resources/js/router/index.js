@@ -1,94 +1,61 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-
-import Login from '../views/Login.vue'
-import AdminLayout from '../layouts/AdminLayout.vue'
-import LivreurLayout from '../layouts/LivreurLayout.vue'
-import ClientLayout from '../layouts/ClientLayout.vue'
+import { SPACES } from '../roles'
 
 const routes = [
   {
-    path: '/',
-    redirect: '/login'
-  },
-
-  {
     path: '/login',
     name: 'login',
-    component: Login,
-    meta: { guest: true }
+    component: () => import('../views/login.vue'),
+    meta: { guest: true },
   },
-
   {
     path: '/admin',
-    component: AdminLayout,
-    meta: { requiresAuth: true, role: 'admin' }
+    name: 'admin',
+    component: () => import('../layouts/AdminLayout.vue'),
+    meta: { roles: SPACES.admin },
   },
-
   {
     path: '/livreur',
-    component: LivreurLayout,
-    meta: { requiresAuth: true, role: 'livreur' }
+    name: 'livreur',
+    component: () => import('../layouts/LivreurLayout.vue'),
+    meta: { roles: SPACES.livreur },
   },
-
   {
-    path: '/client',
-    component: ClientLayout,
-    meta: { requiresAuth: true, role: 'client' }
-  }
+    path: '/marchand',
+    name: 'marchand',
+    component: () => import('../layouts/ClientLayout.vue'),
+    meta: { roles: SPACES.marchand },
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 })
 
-/*
-|--------------------------------------------------------------------------
-| Guard global
-|--------------------------------------------------------------------------
-*/
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  // Page publique (login)
-  if (to.meta.guest) {
-    if (auth.token) {
-      // déjà connecté → redirection selon rôle
-      if (auth.user) {
-        if (auth.user.role === 'admin') return next('/admin')
-        if (auth.user.role === 'livreur') return next('/livreur')
-        if (auth.user.role === 'client') return next('/client')
-      }
-    }
-    return next()
-  }
-
-  // Page protégée
-  if (to.meta.requiresAuth) {
-    if (!auth.token) {
-      return next('/login')
-    }
-
-    // Si l'utilisateur n’est pas encore chargé
-    if (!auth.user) {
-      try {
-        await auth.fetchUser()
-      } catch {
-        return next('/login')
-      }
-    }
-
-    // Vérification du rôle
-    if (to.meta.role && auth.user.role !== to.meta.role) {
-      // tentative d’accès interdit → on renvoie vers son espace
-      if (auth.user.role === 'admin') return next('/admin')
-      if (auth.user.role === 'livreur') return next('/livreur')
-      if (auth.user.role === 'client') return next('/client')
+  if (auth.isAuthenticated && !auth.user) {
+    try {
+      await auth.fetchUser()
+    } catch {
+      auth.clear()
     }
   }
 
-  next()
+  if (!auth.user) {
+    return to.meta.guest ? true : { name: 'login', query: to.path !== '/' ? { redirect: to.fullPath } : {} }
+  }
+
+  // Utilisateur connecté : page de connexion, racine ou espace non autorisé → son espace
+  if (to.meta.guest || to.path === '/' || (to.meta.roles && !to.meta.roles.includes(auth.role))) {
+    return auth.homeRoute === to.path ? true : auth.homeRoute
+  }
+
+  return true
 })
 
 export default router

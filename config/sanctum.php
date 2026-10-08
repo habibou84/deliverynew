@@ -47,7 +47,8 @@ return [
     |
     */
 
-    'expiration' => null,
+    // 30 jours par défaut : les livreurs ne doivent pas se reconnecter chaque jour
+    'expiration' => env('SANCTUM_EXPIRATION', 60 * 24 * 30),
 
     /*
     |--------------------------------------------------------------------------

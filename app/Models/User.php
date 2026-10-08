@@ -2,66 +2,99 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\Role;
+use App\Enums\UserStatus;
+use App\Support\PhoneNumber;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
+    // Les rôles et permissions sont globaux (non liés à une entreprise) :
+    // l'isolation entre entreprises se fait par company_id.
+    protected string $guard_name = 'web';
+
     protected $fillable = [
-    'name',
-    'email',
-    'password',
-    'role',
-];
+        'company_id',
+        'name',
+        'phone',
+        'email',
+        'password',
+        'status',
+    ];
 
-
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
+            'last_login_at' => 'datetime',
             'password' => 'hashed',
+            'status' => UserStatus::class,
         ];
     }
 
-    public function isAdmin()
-{
-    return $this->role === 'admin';
-}
+    protected function phone(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => PhoneNumber::normalize($value) ?? $value,
+        );
+    }
 
-public function isLivreur()
-{
-    return $this->role === 'livreur';
-}
+    protected function email(): Attribute
+    {
+        return Attribute::make(
+            set: fn (?string $value) => $value === null ? null : mb_strtolower(trim($value)),
+        );
+    }
 
-public function isClient()
-{
-    return $this->role === 'client';
-}
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
+    }
 
+    public function scopeForCompany(Builder $query, ?int $companyId): Builder
+    {
+        return $query->where('company_id', $companyId);
+    }
+
+    /**
+     * Rôle principal de l'utilisateur (un seul rôle par compte).
+     */
+    public function primaryRole(): ?Role
+    {
+        $name = $this->getRoleNames()->first();
+
+        return $name ? Role::tryFrom($name) : null;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole(Role::SuperAdmin->value);
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === UserStatus::Active
+            && ($this->company === null || $this->company->isActive());
+    }
+
+    public function belongsToSameCompanyAs(self $other): bool
+    {
+        return $this->company_id !== null && $this->company_id === $other->company_id;
+    }
 }

@@ -2,7 +2,7 @@
   <div class="flex min-h-screen">
     <!-- Sidebar -->
     <aside class="w-64 bg-green-800 text-white p-4">
-      <h2 class="text-xl font-bold mb-6">Espace Client</h2>
+      <h2 class="text-xl font-bold mb-6">Espace e-commerçant</h2>
 
       <ul class="space-y-2">
         <li>
@@ -37,8 +37,8 @@
 
     <!-- Main -->
     <main class="flex-1 p-6 bg-gray-100">
-      <h1 class="text-2xl font-bold mb-4">Bienvenue Client</h1>
-      <p>Ici tu pourras créer et suivre tes commandes de livraison.</p>
+      <h1 class="text-2xl font-bold mb-4">Bienvenue {{ auth.user?.name }}</h1>
+      <p>Ici vous pourrez créer et suivre vos courses de livraison.</p>
     </main>
   </div>
 </template>

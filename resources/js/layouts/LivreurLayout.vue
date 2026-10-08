@@ -32,8 +32,8 @@
 
     <!-- Main -->
     <main class="flex-1 p-6 bg-gray-100">
-      <h1 class="text-2xl font-bold mb-4">Bienvenue Livreur</h1>
-      <p>Ici tu verras tes courses assignées, ton état et ta progression.</p>
+      <h1 class="text-2xl font-bold mb-4">Bienvenue {{ auth.user?.name }}</h1>
+      <p>Ici vous verrez vos ramassages et livraisons du jour.</p>
     </main>
   </div>
 </template>

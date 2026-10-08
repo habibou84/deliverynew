@@ -1,24 +1,23 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
 
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
+Route::prefix('v1')->name('v1.')->group(function () {
+    Route::post('auth/login', [AuthController::class, 'login'])
+        ->middleware('throttle:login')
+        ->name('auth.login');
 
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/me', [AuthController::class, 'me']);
+    Route::middleware(['auth:sanctum', 'active'])->group(function () {
+        Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
+        Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
 
-    Route::middleware('role:admin')->get('/admin/test', fn () =>
-        response()->json(['message' => 'Bienvenue Admin'])
-    );
+        Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
 
-    Route::middleware('role:livreur')->get('/livreur/test', fn () =>
-        response()->json(['message' => 'Bienvenue Livreur'])
-    );
-
-    Route::middleware('role:client')->get('/client/test', fn () =>
-        response()->json(['message' => 'Bienvenue Client'])
-    );
+        Route::apiResource('companies', CompanyController::class)->except('destroy');
+        Route::apiResource('users', UserController::class);
+    });
 });

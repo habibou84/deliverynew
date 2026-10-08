@@ -32,21 +32,16 @@ Table users {
   company_id bigint [ref: > companies.id, note: 'null = super_admin plateforme']
   merchant_id bigint [ref: > merchants.id, note: 'renseigné pour les comptes marchands']
   name varchar [not null]
-  phone varchar [note: 'identifiant de connexion principal']
-  email varchar
+  phone varchar [unique, note: 'identifiant de connexion principal, format E.164 (+225...)']
+  email varchar [unique, note: 'facultatif']
   password varchar [not null]
-  role varchar [not null, note: 'super_admin | admin | dispatcher | cashier | hub_agent | courier | merchant_owner | merchant_staff (complété par spatie/permission)']
   status varchar [default: 'active', note: 'active | suspended']
   last_login_at timestamp
   remember_token varchar
   created_at timestamp
   updated_at timestamp
   deleted_at timestamp
-  indexes {
-    (company_id, phone) [unique]
-    (company_id, email) [unique]
-    (company_id, role)
-  }
+  Note: 'Un compte = une entreprise : téléphone et e-mail uniques sur toute la plateforme. Rôles via spatie/permission (model_has_roles).'
 }
 
 Table devices {
