@@ -31,6 +31,8 @@ class OrderResource extends JsonResource
             ]),
 
             'pickup' => [
+                'hub_id' => $this->pickup_hub_id,
+                'hub_name' => $this->whenLoaded('pickupHub', fn () => $this->pickupHub?->name),
                 'zone_id' => $this->pickup_zone_id,
                 'zone_name' => $this->whenLoaded('pickupZone', fn () => $this->pickupZone->name),
                 'address' => $this->pickup_address,
@@ -56,6 +58,17 @@ class OrderResource extends JsonResource
                 'scheduled_date' => $this->delivery_scheduled_date?->toDateString(),
                 'time_slot' => $this->delivery_time_slot,
             ],
+            // Commande préparée à l'entrepôt : pas de ramassage
+            'from_warehouse' => $this->fromWarehouse(),
+            'prepared_at' => $this->prepared_at,
+            'items' => $this->whenLoaded('items', fn () => $this->items->map(fn ($item) => [
+                'id' => $item->id,
+                'product_id' => $item->product_id,
+                'label' => $item->label,
+                'quantity' => $item->quantity,
+                'unit_price' => $item->unit_price,
+                'stock_state' => $item->stock_state,
+            ])),
             // Zone d'expédition : colis déposé à une gare ou chez un transporteur
             'is_shipping' => $this->is_shipping,
             'shipping' => $this->when($this->is_shipping, fn () => [

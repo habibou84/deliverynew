@@ -290,13 +290,15 @@ Algorithme : grille spécifique du marchand si elle existe, sinon grille par dé
 Fonctionnement : le journal de la course appelle `OrderMessages`, qui passe par `Messenger` : le message est inscrit dans `outbound_messages`, puis le job `SendOutboundMessage` l'envoie (file `messages`, 3 tentatives pour les erreurs passagères). Les webhooks de statut Meta (envoyé, reçu, lu, échec) mettent à jour `outbound_messages`. En cas d'échec définitif (par exemple numéro sans WhatsApp), un SMS de même texte part une seule fois. Le marchand choisit ses messages dans son application ; les textes des modèles sont dans `App\Enums\WhatsAppTemplate` et affichés, prêts à copier, dans Paramètres > WhatsApp.
 
 ### 7.2 Entrant (création de course par WhatsApp)
-1. Meta appelle `POST /api/webhooks/whatsapp/{account}` ; la signature `X-Hub-Signature-256` est vérifiée.
-2. Le numéro de l'expéditeur est identifié : marchand connu (via `merchants.whatsapp_phone` ou `users.phone`), sinon message de refus.
-3. Deux voies :
-   - **WhatsApp Flow** (recommandé) : formulaire structuré (destinataire, téléphone, commune, adresse, montant à encaisser, produits).
-   - **Message libre ou transfert de commande** : analyse par IA, puis **récapitulatif et boutons « Confirmer / Modifier »**.
-4. La course est créée avec `source = whatsapp` ; le marchand reçoit le numéro de suivi et le prix.
-5. L'état de la conversation est conservé dans `whatsapp_sessions` (expiration 30 min).
+1. Meta appelle `POST /api/webhooks/whatsapp` (champ `messages`) ; la signature `X-Hub-Signature-256` est vérifiée, le compte est retrouvé par `phone_number_id` et chaque message est inscrit une seule fois dans `inbound_messages` (déduplication par identifiant Meta), puis traité par le job `ProcessInboundWhatsApp` (file `messages`).
+2. Le numéro de l'expéditeur est identifié : marchand actif connu (via `users.phone` d'un compte marchand, `merchants.whatsapp_phone` ou `merchants.phone`), sinon message de refus.
+3. Le marchand écrit librement, transfère la commande de son client ou suit le menu (boutons) :
+   - **Analyse** du message (`OrderMessageParser`) : par **règles** par défaut (lignes « Nom : … / Tél : … », numéros ivoiriens, montants « 12 500 F » ou « 15k », communes et quartiers, repère, qui paie la livraison) ; par **Claude** quand `ANTHROPIC_API_KEY` est renseignée, avec retour automatique aux règles en cas d'erreur.
+   - Ce qui manque est **demandé une question à la fois** (téléphone, commune, montant à encaisser ; « déjà payé » = 0) ; une commune ambiguë est proposée en boutons.
+   - **Récapitulatif chiffré** (prix, qui paie, montant à encaisser) avec les boutons **Confirmer / Modifier / Annuler**. Rien n'est créé sans confirmation.
+4. La course est créée avec `source = whatsapp` ; le marchand reçoit le numéro de suivi, le code de livraison, le montant à encaisser et le lien de suivi.
+5. Autres commandes : envoyer un numéro de suivi (`LV-…`) donne le statut du colis ; « point » donne le point du jour.
+6. L'état de la conversation est conservé dans `whatsapp_sessions` (expiration 30 min).
 
 Le compte WhatsApp peut appartenir à l'**entreprise** (un numéro unique pour tous les marchands) ou au **marchand**. Les deux sont prévus via `whatsapp_accounts.owner_type`.
 
@@ -306,10 +308,10 @@ Le compte WhatsApp peut appartenir à l'**entreprise** (un numéro unique pour t
 
 ### 8.1 API publique de la plateforme de livraison (`/api/v1`)
 - Authentification par **clé API** par marchand (`api_keys` : préfixe visible et hash stocké, portées `orders:write`, `orders:read`, `stock:read`…).
-- Endpoints : `GET /zones`, `POST /quotes` (devis), `POST /orders`, `GET /orders/{tracking}`, `GET /orders/{tracking}/events`, `POST /orders/{tracking}/cancel`, `GET /reports/summary`, `GET /products`.
+- Endpoints (`/api/public/v1`) : `GET /zones`, `GET /hubs`, `POST /quotes` (devis), `GET|POST /orders`, `GET /orders/{tracking}` (avec son historique), `POST /orders/{tracking}/cancel`, `GET /reports/summary`, `GET /products`.
 - En-tête `Idempotency-Key` obligatoire sur `POST /orders` (pas de doublon en cas de relance réseau).
-- **Webhooks sortants** signés HMAC (`order.created`, `order.status_changed`, `order.incident`, `payout.paid`), avec relances exponentielles (`webhook_deliveries`).
-- Documentation OpenAPI générée automatiquement (Scribe ou Scramble), limitation de débit et versionnement.
+- **Webhooks sortants** signés HMAC (`order.created`, `order.status_changed`, `order.incident`, `payout.paid`, `stock.low`), avec relances exponentielles (`webhook_deliveries`).
+- Documentation OpenAPI écrite à la main (contrat stable, `public/docs/openapi.yaml`), limitation de débit et versionnement par préfixe (`/v1`).
 
 ### 8.2 Application marchand indépendante
 Produit séparé, avec sa **propre base de données**. Elle consomme l'API ci-dessus.
@@ -404,20 +406,46 @@ Règles retenues en phase 3 :
 - [ ] Ionic/Capacitor : push FCM, GPS en arrière-plan, scan QR, caméra, mode hors ligne.
 - [ ] Publication Play Store (Android en priorité en Côte d'Ivoire).
 
-### Phase 5 : WhatsApp entrant (3 semaines)
-- [ ] Webhook entrant, identification du marchand, sessions.
-- [ ] WhatsApp Flow « Nouvelle course » ; analyse IA des messages libres avec confirmation.
+### Phase 5 : WhatsApp entrant (3 semaines) ✅ *réalisée côté application*
+- [x] Webhook entrant (messages texte et réponses aux boutons), déduplication, identification du marchand, sessions de 30 minutes.
+- [x] Création de course par conversation guidée : message libre ou transféré, questions sur ce qui manque, récapitulatif chiffré, confirmation obligatoire.
+- [x] Analyse par règles, ou par Claude si une clé est configurée (repli automatique sur les règles).
+- [x] Suivi d'un colis par son numéro, point du jour, menu à boutons.
+- [x] Réglage « Courses par WhatsApp » (activable par entreprise) et **simulateur** dans le back-office (WhatsApp > Simulateur) pour tout tester sans compte Meta.
+- [ ] WhatsApp Flow « Nouvelle course » : demande un Flow publié chez Meta ; la conversation guidée le remplace pour l'instant.
 - [ ] Connexion du numéro propre d'un marchand (Embedded Signup).
 
-### Phase 6 : stock (3 à 4 semaines)
-- [ ] Produits, emplacements, niveaux, mouvements, réservations liées aux courses.
-- [ ] Stock entreprise (entrepôt), préparation des commandes, contrats et facturation du stockage.
-- [ ] Inventaires et alertes de stock bas.
+Règles retenues en phase 5 :
+- **Confirmation obligatoire** : le récapitulatif est toujours montré avant la création, même quand le message est complet.
+- **L'IA est facultative** : sans clé, les règles couvrent les formats courants ; avec la clé, les numéros, montants et communes proposés par Claude sont revérifiés avant d'être retenus.
+- La commune de ramassage du marchand est écartée quand le message en cite plusieurs (« de Cocody à Yopougon »).
+- Les réponses du bot sont des messages de session (gratuits dans la fenêtre de 24 h ouverte par le marchand), sans SMS de repli.
 
-### Phase 7 : API publique et webhooks (2 à 3 semaines)
-- [ ] Clés API, portées, idempotence, limitation de débit, documentation OpenAPI.
-- [ ] Webhooks sortants signés avec relances.
-- [ ] Import CSV/Excel.
+### Phase 6 : stock (3 à 4 semaines) ✅
+- [x] Produits, emplacements (chez le marchand ou dans un entrepôt), niveaux, journal des mouvements, réservations liées aux courses.
+- [x] Entrepôts de l'entreprise, commandes préparées à l'entrepôt (sans ramassage), remise en stock, contrats et facturation mensuelle du stockage.
+- [x] Inventaires, retraits, alertes de stock bas (notification au marchand, et aux agents de dépôt pour l'entrepôt).
+- [x] Écrans : Stock dans le back-office (produits, à préparer, mouvements, entrepôts, contrats) ; « Mon stock » et choix des articles dans la nouvelle course de l'application marchand.
+
+Règles retenues en phase 6 :
+- **Disponible = en stock − réservé.** Une course réserve ses articles à la création ; elle les sort du stock à la livraison ; annulée, refusée ou colis revenu, elle les libère. Les niveaux sont un cache recalculable depuis `stock_movements`.
+- **Qui tient quel stock** : le marchand gère ses produits et le stock gardé chez lui ; le stock des entrepôts n'est modifié que par l'entreprise (droit `stock.manage` : administrateur, agent de dépôt).
+- **Commande d'entrepôt** : `pickup_hub_id` renseigné, tarif calculé depuis la zone de l'entrepôt. Validée → « À préparer » → « Préparée au dépôt » → livraison. Pas de ramassage ni de retour au marchand : en cas d'échec, le colis revient à l'entrepôt et il est « remis en stock » (les frais de retour habituels s'appliquent).
+- **Facturation du stockage** (`storage:bill`, le 1er du mois à 01:10, pour le mois écoulé) : forfait mensuel, par article et par jour (stock de fin de journée), par commande préparée, ou gratuit. Une seule facturation par contrat et par mois ; un contrat facturé ne change plus de tarif (on le termine et on en crée un autre).
+- Les articles d'une course ne se modifient pas après sa création : on l'annule et on en crée une nouvelle.
+
+### Phase 7 : API publique et webhooks (2 à 3 semaines) ✅
+- [x] Clés API par marchand (portées `orders:read`, `orders:write`, `stock:read`), idempotence, limitation de débit, documentation OpenAPI (`/developpeurs/api`).
+- [x] Webhooks sortants signés (HMAC-SHA256) avec relances, journal des envois, test et renvoi.
+- [x] Import de courses depuis un fichier CSV ou Excel, avec aperçu contrôlé ligne par ligne.
+- [x] Écrans : Intégrations (marchand et back-office), Importer des courses.
+
+Règles retenues en phase 7 :
+- **API séparée** `/api/public/v1`, au contrat stable décrit dans `public/docs/openapi.yaml` (un test vérifie que chaque route y figure). La clé agit au nom d'un compte du marchand : mêmes règles que son application (création « en attente », annulation avant ramassage…).
+- **Clés** `lv_<préfixe>_<secret>` : seul le hash est conservé, la clé n'est affichée qu'une fois ; révocation et expiration. Créées par le gérant du marchand (`integrations.manage`) ou par l'administration.
+- **Idempotence** obligatoire sur `POST /orders` (en-tête `Idempotency-Key`, mémorisé 24 h) ; **quota** de 120 requêtes par minute et par clé (`PUBLIC_API_RATE_LIMIT`).
+- **Webhooks** : HTTPS uniquement et jamais vers une adresse privée (contrôle à l'enregistrement et à l'envoi) ; 6 tentatives (immédiate, puis 1 min, 5 min, 30 min, 2 h, 6 h) ; journal conservé 30 jours.
+- **Import** : 500 lignes au plus ; en-têtes reconnus sous plusieurs noms ; le 0 initial d'un numéro retiré par Excel est rétabli ; rien n'est créé si une ligne est en erreur, sauf accord explicite pour n'importer que les lignes valides.
 
 ### Phase 8 : pilote et lancement (2 semaines)
 - [ ] Pilote avec 3 à 5 marchands et 5 à 10 livreurs ; corrections.

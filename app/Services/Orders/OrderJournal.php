@@ -8,17 +8,19 @@ use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
 use App\Services\Messaging\OrderMessages;
+use App\Services\Webhooks\WebhookDispatcher;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Écrit le journal immuable d'une course et déclenche, après validation de la
- * transaction, la diffusion temps réel, les notifications et les messages WhatsApp.
+ * transaction, la diffusion temps réel, les notifications, les messages WhatsApp et les webhooks.
  */
 class OrderJournal
 {
     public function __construct(
         private readonly OrderNotifier $notifier,
         private readonly OrderMessages $messages,
+        private readonly WebhookDispatcher $webhooks,
     ) {}
 
     /**
@@ -40,6 +42,7 @@ class OrderJournal
             OrderChanged::dispatch($order, $event);
             $this->notifier->notify($order, $event, $actor);
             $this->messages->handle($order, $event, $actor);
+            $this->webhooks->onOrderEvent($order, $event);
         });
 
         return $event;

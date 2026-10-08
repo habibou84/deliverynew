@@ -32,6 +32,7 @@ class Order extends Model
         'source',
         'created_by',
         'pickup_zone_id',
+        'pickup_hub_id',
         'pickup_address',
         'pickup_landmark',
         'pickup_contact_name',
@@ -94,6 +95,7 @@ class Order extends Model
             'max_attempts' => 'integer',
             'delivery_scheduled_date' => 'date:Y-m-d',
             'confirmed_at' => 'datetime',
+            'prepared_at' => 'datetime',
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
             'returned_at' => 'datetime',
@@ -161,6 +163,16 @@ class Order extends Model
     public function deliveryZone(): BelongsTo
     {
         return $this->belongsTo(Zone::class, 'delivery_zone_id');
+    }
+
+    public function pickupHub(): BelongsTo
+    {
+        return $this->belongsTo(Hub::class, 'pickup_hub_id');
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(OrderItem::class)->orderBy('id');
     }
 
     public function pickupCourier(): BelongsTo
@@ -243,7 +255,21 @@ class Order extends Model
      */
     public function statusLabel(): string
     {
-        return $this->is_shipping && $this->status === OrderStatus::Delivered ? 'Expédié' : $this->status->label();
+        return match (true) {
+            $this->is_shipping && $this->status === OrderStatus::Delivered => 'Expédié',
+            $this->fromWarehouse() && $this->status === OrderStatus::Confirmed => 'À préparer',
+            $this->fromWarehouse() && $this->status === OrderStatus::AtHub => 'Préparé au dépôt',
+            $this->fromWarehouse() && $this->status === OrderStatus::Returned => 'Remis en stock',
+            default => $this->status->label(),
+        };
+    }
+
+    /**
+     * Commande préparée dans un entrepôt de l'entreprise : pas de ramassage chez le marchand.
+     */
+    public function fromWarehouse(): bool
+    {
+        return $this->pickup_hub_id !== null;
     }
 
     public function totalFees(): int

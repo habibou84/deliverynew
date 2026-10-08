@@ -26,6 +26,7 @@
         <div><p class="text-gray-500">Frais de livraison</p><p class="font-semibold">− {{ money(payout.total_fees) }}</p></div>
         <div><p class="text-gray-500">Frais d'expédition</p><p class="font-semibold">− {{ money(payout.total_shipping_fees || 0) }}</p></div>
         <div><p class="text-gray-500">Autres frais</p><p class="font-semibold">− {{ money(payout.total_other_fees || 0) }}</p></div>
+        <div v-if="payout.total_storage_fees"><p class="text-gray-500">Stockage</p><p class="font-semibold">− {{ money(payout.total_storage_fees) }}</p></div>
         <div><p class="text-gray-500">Ajustements</p><p class="font-semibold">{{ money(payout.total_adjustments) }}</p></div>
         <div>
           <p class="text-gray-500">{{ payout.net_amount >= 0 ? 'Net à reverser' : 'Net dû par le marchand' }}</p>

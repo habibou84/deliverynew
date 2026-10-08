@@ -7,11 +7,13 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "anthropic-ai/sdk": "^0.56.0",
         "laravel/framework": "^12.0",
         "laravel/horizon": "^5.50",
         "laravel/reverb": "^1.12",
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1",
+        "openspout/openspout": "^5.3",
         "spatie/laravel-permission": "^8.3"
     },
     "require-dev": {

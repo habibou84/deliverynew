@@ -69,6 +69,16 @@
       </button>
     </section>
 
+    <!-- Stock : alerte de stock bas -->
+    <RouterLink
+      v-if="stock.total"
+      :to="stock.low ? '/marchand/stock?filtre=bas' : '/marchand/stock'"
+      :class="['tap block m-card p-4 flex items-center justify-between text-sm active:bg-slate-50', stock.low ? 'ring-2 ring-amber-300' : '']"
+    >
+      <span>📦 Mon stock · {{ stock.total }} produit{{ stock.total > 1 ? 's' : '' }}</span>
+      <span :class="stock.low ? 'font-semibold text-amber-700' : 'text-slate-500'">{{ stock.low ? `⚠️ ${stock.low} en stock bas` : 'Voir' }} →</span>
+    </RouterLink>
+
     <!-- Rappel du mois quand on regarde une autre période -->
     <button v-if="month && period.key !== 'month'" type="button" class="tap w-full m-card p-4 flex items-center justify-between text-sm active:bg-slate-50" @click="choose(presets.find((p) => p.key === 'month'))">
       <span class="text-slate-500">Ce mois-ci · {{ month.counts.total }} courses</span>
@@ -258,5 +268,23 @@ if (periode && DATE_RE.test(du || '') && DATE_RE.test(au || '')) {
 }
 
 watch(orderChanges, load)
-onMounted(load)
+// Résumé du stock (seulement si le marchand a des produits)
+const stock = reactive({ total: 0, low: 0 })
+async function loadStock() {
+  try {
+    const [all, low] = await Promise.all([
+      cachedGet('/products', { params: { per_page: 1 } }),
+      cachedGet('/products', { params: { per_page: 1, low: 1 } }),
+    ])
+    stock.total = all.data.meta?.total || 0
+    stock.low = low.data.meta?.total || 0
+  } catch {
+    // Facultatif : l'accueil reste utilisable sans le stock
+  }
+}
+
+onMounted(() => {
+  load()
+  loadStock()
+})
 </script>

@@ -82,6 +82,47 @@ Pour envoyer de vrais messages :
 4. Dans `.env` : `WHATSAPP_DRIVER=meta`, `WHATSAPP_APP_SECRET` (secret de l'application Meta) et `WHATSAPP_VERIFY_TOKEN` (chaîne de votre choix) ; abonner l'adresse du webhook indiquée sur la page au champ `messages`.
 5. SMS de repli (facultatif) : `SMS_DRIVER=twilio` avec `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM` ; `SMS_DRIVER=none` pour le désactiver.
 
+#### Courses par WhatsApp
+
+Un marchand dont le numéro est connu écrit au numéro de l'agence (message libre, commande transférée de son client
+ou menu à boutons) : le bot demande ce qui manque, montre un récapitulatif chiffré et crée la course après
+« Confirmer ». Il donne aussi le suivi d'un colis (envoyer son numéro `LV-…`) et le point du jour. Le réglage
+« Courses par WhatsApp » se trouve sur la page **WhatsApp**, et **WhatsApp > Simulateur** permet de tout essayer
+sans compte Meta (les courses confirmées sont réellement créées).
+
+L'analyse se fait par règles ; avec `ANTHROPIC_API_KEY` (et `ANTHROPIC_MODEL`, par défaut `claude-opus-5-5`),
+Claude comprend aussi les messages sans format, avec retour automatique aux règles en cas d'erreur.
+
+### Stock et entrepôts
+
+Le marchand enregistre ses produits et le stock qu'il garde chez lui (**Mon stock** dans son application) ; l'entreprise
+tient le stock de ses entrepôts (**Stock** dans le back-office : entrées, retraits, inventaires, mouvements). En créant
+une course, on choisit les articles : ils sont réservés, puis sortis du stock à la livraison, ou libérés si la course
+est annulée ou le colis remis en stock. Une course qui part d'un entrepôt n'a pas de ramassage : elle est préparée
+(onglet « À préparer ») puis livrée. Le stockage est facturé chaque mois selon le contrat du marchand
+(`storage:bill`, lancé par le planificateur le 1er du mois ; `php artisan storage:bill --month=2026-09` pour un mois donné).
+
+### API publique, webhooks et import
+
+Un e-commerçant connecte sa boutique en ligne ou son logiciel depuis **Profil › Intégrations** (l'administration
+le fait aussi depuis **Intégrations (API)**) :
+
+- **Clé API** (`lv_…`, affichée une seule fois) pour l'API `/api/public/v1` : zones, devis, création et suivi des
+  courses, annulation, point, produits. Documentation : **`/developpeurs/api`** (spécification
+  `public/docs/openapi.yaml`, importable dans Postman). `Idempotency-Key` obligatoire sur `POST /orders`,
+  120 requêtes par minute et par clé.
+- **Webhooks** : la boutique est prévenue de chaque événement (`order.created`, `order.status_changed`,
+  `order.incident`, `payout.paid`, `stock.low`). Vérification de la signature côté boutique :
+
+  ```php
+  $expected = 'sha256='.hash_hmac('sha256', $request->header('X-Webhook-Timestamp').'.'.$request->getContent(), $secret);
+  abort_unless(hash_equals($expected, $request->header('X-Webhook-Signature')), 401);
+  ```
+
+  Envois par la file `default`, 6 tentatives au plus, journal et renvoi dans l'écran Intégrations.
+- **Import** : **Courses › Importer** (back-office) ou **Profil › Importer des courses** (application marchand),
+  à partir du modèle CSV téléchargeable ou d'un fichier Excel ; aperçu contrôlé avant création.
+
 Les envois passent par la file `messages` et les points d'activité par le planificateur (`reports:send` toutes les 5 minutes) :
 `composer dev` lance les deux.
 
@@ -95,6 +136,7 @@ Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot d
 | Administrateur | 07 00 00 00 01 | admin@livraison.test |
 | Dispatcher | 07 00 00 00 02 | dispatch@livraison.test |
 | Caissier (caisse, reversements, paie) | 07 00 00 00 03 | caisse@livraison.test |
+| Agent d'entrepôt (stock, préparation) | 07 00 00 00 06 | entrepot@livraison.test |
 | Livreur | 07 00 00 00 04 | - |
 | Livreuse | 07 00 00 00 05 | - |
 | E-commerçant (Boutique Chic Abidjan) | 05 00 00 00 01 | boutique@livraison.test |
@@ -143,7 +185,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/quotes` | devis d'une course (marchand ou personnel) |
 | GET/POST/PATCH | `/merchants`, POST `/merchants/{id}/users` | `merchants.view` / `merchants.manage` |
 | GET/PATCH | `/couriers` | dispatch / `users.manage` |
-| GET/POST/PATCH | `/orders` (filtres `queue`, `status[]`, `merchant_id`, `courier_id`, `search`…) | personnel, ou le marchand pour ses courses |
+| GET/POST/PATCH | `/orders` (filtres `queue` dont `to_prepare`, `status[]`, `merchant_id`, `hub_id`, `courier_id`, `search`…) ; création avec `items[]` et `pickup_hub_id` | personnel, ou le marchand pour ses courses |
 | POST | `/orders/{id}/status` | changement de statut (règles par rôle dans `OrderWorkflow`) |
 | POST | `/orders/{id}/assign`, `/orders/bulk-assign` | `orders.dispatch` (missions ramassage / livraison / retour) |
 | POST | `/orders/{id}/notes`, `/return-request`, `/attachments` | notes, demande de retour, photo de preuve |
@@ -158,9 +200,18 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
+| GET/POST/DELETE | `/api-keys` | `integrations.manage` : clés de l'API publique (le marchand les siennes, l'administration avec `merchant_id`) |
+| GET/POST/PATCH/DELETE | `/webhooks` · POST `/webhooks/{id}/test`, `/webhooks/{id}/secret` · GET `/webhooks/{id}/deliveries` · POST `/webhook-deliveries/{id}/redeliver` | `integrations.manage` : adresses webhook, test, journal, renvoi |
+| GET | `/orders/import/template` · POST `/orders/import` (`file`, `dry_run`, `skip_invalid`, `merchant_id`) | `orders.create` : import CSV/Excel |
+| — | `/api/public/v1/…` (hors `/v1`) | **clé API** : voir `/developpeurs/api` |
+| GET | `/hubs` · POST/PATCH `/hubs/{id}` | connecté (liste) · `settings.manage` : entrepôts |
+| GET/POST/PUT/DELETE | `/products` | marchand (ses produits) ou personnel ; création et modification : `stock.manage` |
+| GET/POST | `/stock/movements` | journal ; POST `{product_id, hub_id?, action: receipt\|withdrawal\|count, quantity}` : le marchand chez lui, le personnel dans les entrepôts |
+| GET/POST/PUT/DELETE | `/storage-contracts` | marchand (les siens) ; gestion : `settings.manage` ou `finance.manage` |
 | GET/PUT | `/whatsapp/settings` · POST `/whatsapp/test`, `/whatsapp/templates/sync` | `settings.manage` : numéro Meta, options, test, approbation des modèles |
 | GET | `/messages` · POST `/messages/{id}/retry` · GET `/orders/{id}/messages` | `orders.dispatch` : journal des messages WhatsApp/SMS, renvoi d'un échec |
-| GET/POST | `/api/webhooks/whatsapp` (hors `/v1`) | **public**, signé par Meta (`X-Hub-Signature-256`) : accusés de réception |
+| POST | `/whatsapp/simulate` | `settings.manage` : simulateur de conversation (`from`, `text` ou `button_id`) ; renvoie les réponses du bot |
+| GET/POST | `/api/webhooks/whatsapp` (hors `/v1`) | **public**, signé par Meta (`X-Hub-Signature-256`) : accusés de réception et messages reçus |
 
 Temps réel (Reverb) : canaux privés `company.{id}` (personnel), `merchant.{id}` (marchand) et `App.Models.User.{id}` (notifications), événement `order.changed`.
 

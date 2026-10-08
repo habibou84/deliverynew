@@ -90,6 +90,34 @@ class Messenger
     }
 
     /**
+     * Réponse dans une conversation WhatsApp ouverte par l'expéditeur (pas de modèle,
+     * pas de SMS de repli), avec des boutons de réponse rapide facultatifs.
+     *
+     * @param  array<string, string>  $buttons  identifiant => libellé (3 au plus)
+     * @param  array<string, mixed>  $context
+     */
+    public function reply(int $companyId, string $to, string $text, array $buttons = [], array $context = []): OutboundMessage
+    {
+        $message = OutboundMessage::create([
+            ...$context,
+            'company_id' => $companyId,
+            'channel' => MessageChannel::WhatsApp,
+            'whatsapp_account_id' => WhatsAppAccount::forCompanyId($companyId)?->id,
+            'to' => PhoneNumber::normalize($to) ?? $to,
+            'recipient_type' => $context['recipient_type'] ?? 'merchant',
+            'event' => 'conversation',
+            'template_name' => null,
+            'payload' => $buttons === [] ? null : ['buttons' => $buttons],
+            'body' => $text,
+            'status' => MessageStatus::Queued,
+        ]);
+
+        SendOutboundMessage::dispatch($message)->afterCommit();
+
+        return $message;
+    }
+
+    /**
      * Message de test : modèle « hello_world » fourni par Meta à tout nouveau numéro.
      */
     public function test(int $companyId, string $to): OutboundMessage
@@ -118,6 +146,7 @@ class Messenger
     {
         if ($message->channel !== MessageChannel::WhatsApp
             || $message->recipient_type === 'test'
+            || $message->event === 'conversation'
             || config('messaging.sms.driver') === 'none'
             || ! Company::find($message->company_id)?->sms_fallback
             || $message->fallback()->exists()) {

@@ -9,6 +9,9 @@ use App\Services\Messaging\Gateways\MetaCloudGateway;
 use App\Services\Messaging\Gateways\SmsGateway;
 use App\Services\Messaging\Gateways\TwilioSmsGateway;
 use App\Services\Messaging\Gateways\WhatsAppGateway;
+use App\Services\WhatsApp\ClaudeOrderParser;
+use App\Services\WhatsApp\HeuristicOrderParser;
+use App\Services\WhatsApp\OrderMessageParser;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -28,6 +31,11 @@ class AppServiceProvider extends ServiceProvider
             'meta' => new MetaCloudGateway,
             default => new LogWhatsAppGateway,
         });
+
+        // Messages WhatsApp libres : Claude si une clé API est configurée, sinon analyse par règles
+        $this->app->bind(OrderMessageParser::class, fn ($app) => filled(config('messaging.ai.api_key'))
+            ? $app->make(ClaudeOrderParser::class)
+            : $app->make(HeuristicOrderParser::class));
 
         $this->app->bind(SmsGateway::class, fn () => match (config('messaging.sms.driver')) {
             'twilio' => new TwilioSmsGateway,
@@ -53,5 +61,13 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(5)->by(mb_strtolower((string) $request->input('login')).'|'.$request->ip()),
             Limit::perMinute(20)->by($request->ip()),
         ]);
+
+        // API publique : quota par clé, identifiée par son préfixe (en-têtes X-RateLimit-* renvoyés)
+        RateLimiter::for('public-api', function (Request $request) {
+            $key = (string) ($request->bearerToken() ?? $request->header('X-Api-Key'));
+
+            return Limit::perMinute((int) config('services.public_api.rate_limit', 120))
+                ->by(preg_match('/^lv_([a-z0-9]{8})_/', $key, $m) ? 'api-key:'.$m[1] : 'api-ip:'.$request->ip());
+        });
     }
 }

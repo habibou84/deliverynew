@@ -34,6 +34,10 @@ const route = useRoute()
 onMounted(() => store.fetch().catch(() => {}))
 
 function open(n) {
+  if (n.product_id && route.path.startsWith('/marchand')) {
+    router.push('/marchand/stock')
+    return
+  }
   if (!n.order_id) return
   // Livreur : ses missions ; marchand : la fiche de la course
   router.push(route.path.startsWith('/livreur') ? '/livreur' : `/marchand/courses/${n.order_id}`)

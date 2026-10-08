@@ -35,4 +35,16 @@ return [
         ],
     ],
 
+    // API publique : requêtes par minute et par clé
+    'public_api' => [
+        'rate_limit' => env('PUBLIC_API_RATE_LIMIT', 120),
+    ],
+
+    // Webhooks sortants : en production, HTTPS uniquement et jamais vers un réseau privé
+    'webhooks' => [
+        'allow_http' => env('WEBHOOKS_ALLOW_HTTP', false),
+        'allow_private_targets' => env('WEBHOOKS_ALLOW_PRIVATE_TARGETS', false),
+        'timeout' => 10,
+    ],
+
 ];

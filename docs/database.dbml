@@ -26,6 +26,7 @@ Table companies {
   return_fee_percent smallint [default: 100]
   notify_recipients boolean [default: true, note: 'WhatsApp au destinataire : colis en route + code']
   sms_fallback boolean [default: true, note: 'SMS si le WhatsApp n\'est pas remis']
+  whatsapp_orders boolean [default: true, note: 'création de course en écrivant au numéro WhatsApp']
   status varchar [default: 'active', note: 'active | suspended']
   created_at timestamp
   updated_at timestamp
@@ -138,13 +139,14 @@ Table hubs {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
   name varchar [not null]
-  zone_id bigint [ref: > zones.id]
+  zone_id bigint [ref: > zones.id, not null, note: 'point de départ des livraisons (tarif)']
   address text
-  lat decimal(10,7)
-  lng decimal(10,7)
-  is_warehouse boolean [default: false, note: 'peut stocker les produits des marchands']
+  landmark varchar
+  phone varchar
+  is_active boolean [default: true]
   created_at timestamp
   updated_at timestamp
+  Note: 'Entrepôts de l\'entreprise : les marchands y stockent leurs produits'
 }
 
 // ───────────────────────────── GÉOGRAPHIE & TARIFS ─────────────────────────────
@@ -247,8 +249,7 @@ Table orders {
   created_by bigint [ref: > users.id]
 
   // Ramassage
-  pickup_type varchar [default: 'merchant_address', note: 'merchant_address | company_stock']
-  pickup_hub_id bigint [ref: > hubs.id]
+  pickup_hub_id bigint [ref: > hubs.id, note: 'commande préparée à l\'entrepôt : pas de ramassage chez le marchand']
   pickup_zone_id bigint [ref: > zones.id]
   pickup_address text
   pickup_landmark varchar
@@ -303,6 +304,7 @@ Table orders {
   last_incident_reason_id bigint [ref: > incident_reasons.id]
   otp_hash varchar [note: 'code de livraison haché']
   confirmed_at timestamp
+  prepared_at timestamp [note: 'commande d\'entrepôt préparée']
   picked_up_at timestamp
   delivered_at timestamp
   returned_at timestamp
@@ -331,8 +333,8 @@ Table order_items {
   stock_location_id bigint [ref: > stock_locations.id]
   label varchar [not null]
   quantity int [not null, default: 1]
-  quantity_delivered int [note: 'livraison partielle']
   unit_price int [default: 0]
+  stock_state varchar [note: 'reserved | shipped | released (null = hors stock)']
   created_at timestamp
   updated_at timestamp
 }
@@ -559,8 +561,7 @@ Table products {
   description text
   price int [default: 0]
   weight_kg decimal(6,2)
-  photo_path varchar
-  low_stock_threshold int
+  low_stock_threshold int [note: 'alerte quand le disponible passe à ce seuil']
   is_active boolean [default: true]
   created_at timestamp
   updated_at timestamp
@@ -572,9 +573,7 @@ Table stock_locations {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
   merchant_id bigint [ref: > merchants.id, not null]
-  type varchar [not null, note: 'merchant_premises | company_warehouse']
-  hub_id bigint [ref: > hubs.id, note: 'si company_warehouse']
-  name varchar
+  hub_id bigint [ref: > hubs.id, note: 'null = chez le marchand']
   created_at timestamp
   updated_at timestamp
 }
@@ -583,8 +582,9 @@ Table stock_levels {
   id bigint [pk, increment]
   product_id bigint [ref: > products.id, not null]
   stock_location_id bigint [ref: > stock_locations.id, not null]
-  quantity_on_hand int [default: 0]
-  quantity_reserved int [default: 0, note: 'réservé par des courses non livrées']
+  on_hand int [default: 0]
+  reserved int [default: 0, note: 'réservé par des courses non livrées']
+  created_at timestamp
   updated_at timestamp
   Note: 'Cache recalculable depuis stock_movements ; disponible = on_hand - reserved'
   indexes { (product_id, stock_location_id) [unique] }
@@ -592,27 +592,47 @@ Table stock_levels {
 
 Table stock_movements {
   id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
   product_id bigint [ref: > products.id, not null]
   stock_location_id bigint [ref: > stock_locations.id, not null]
-  type varchar [not null, note: 'receipt | reservation | release | shipment | return | adjustment | transfer_in | transfer_out | inventory']
-  quantity int [not null, note: 'signé']
+  type varchar [not null, note: 'receipt | withdrawal | adjustment | reservation | release | shipment']
+  on_hand_change int [default: 0]
+  reserved_change int [default: 0]
+  on_hand_after int [not null]
   order_id bigint [ref: > orders.id]
   user_id bigint [ref: > users.id]
-  note text
+  note varchar
   created_at timestamp [not null]
-  indexes { (product_id, created_at) }
+  Note: 'Journal immuable'
+  indexes { (product_id, created_at) (stock_location_id, created_at) }
 }
 
 Table storage_contracts {
   id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
   merchant_id bigint [ref: > merchants.id, not null]
-  hub_id bigint [ref: > hubs.id, not null]
+  hub_id bigint [ref: > hubs.id, note: 'null = tous les entrepôts']
   billing_type varchar [not null, note: 'free | monthly_flat | per_unit_day | per_order']
   price int [default: 0]
-  starts_on date
+  starts_on date [not null]
   ends_on date
+  notes varchar
   created_at timestamp
   updated_at timestamp
+}
+
+Table storage_charges {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  storage_contract_id bigint [ref: > storage_contracts.id, not null]
+  period date [not null, note: 'premier jour du mois facturé']
+  quantity int [note: 'articles-jours, commandes préparées ou 1 (forfait)']
+  amount int [not null]
+  ledger_entry_id bigint [ref: > merchant_ledger_entries.id]
+  created_at timestamp
+  updated_at timestamp
+  indexes { (storage_contract_id, period) [unique] }
 }
 
 // ───────────────────────────── NOTIFICATIONS & RAPPORTS ─────────────────────────────
@@ -714,29 +734,34 @@ Table whatsapp_templates {
 
 Table inbound_messages {
   id bigint [pk, increment]
-  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, not null]
-  provider_message_id varchar [unique, note: 'déduplication des webhooks']
+  company_id bigint [ref: > companies.id, not null]
+  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, note: 'null en simulation']
+  provider_message_id varchar [unique, note: 'déduplication des webhooks Meta']
   from_phone varchar [not null]
-  merchant_id bigint [ref: > merchants.id]
-  type varchar [note: 'text | interactive | location | image | flow_reply']
+  merchant_id bigint [ref: > merchants.id, note: 'null = expéditeur inconnu']
+  type varchar [not null, note: 'text | button | image | audio | location | other']
   body text
-  payload jsonb
+  payload jsonb [note: 'identifiant du bouton, nom du contact…']
   order_id bigint [ref: > orders.id, note: 'course créée à partir de ce message']
   processed_at timestamp
   created_at timestamp
+  updated_at timestamp
+  indexes { (company_id, from_phone, created_at) }
 }
 
 Table whatsapp_sessions {
   id bigint [pk, increment]
-  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, not null]
+  company_id bigint [ref: > companies.id, not null]
   phone varchar [not null]
   merchant_id bigint [ref: > merchants.id]
-  state varchar [note: 'idle | collecting | awaiting_confirmation']
-  context jsonb [note: 'brouillon de course en cours']
-  expires_at timestamp
+  user_id bigint [ref: > users.id, note: 'compte marchand qui crée les courses']
+  state varchar [default: 'idle', note: 'idle | draft | confirm | track']
+  draft jsonb [note: 'brouillon de course en cours']
+  awaiting varchar [note: 'champ demandé au marchand (recipient_phone, zone_id, items_amount)']
+  expires_at timestamp [note: '30 min sans message : la conversation repart de zéro']
   created_at timestamp
   updated_at timestamp
-  indexes { (whatsapp_account_id, phone) [unique] }
+  indexes { (company_id, phone) [unique] }
 }
 
 // ───────────────────────────── API & INTÉGRATIONS ─────────────────────────────
@@ -744,11 +769,12 @@ Table whatsapp_sessions {
 Table api_keys {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
-  merchant_id bigint [ref: > merchants.id, note: 'null = clé entreprise']
-  name varchar
-  key_prefix varchar(12) [unique, note: 'partie visible']
-  key_hash varchar [not null]
-  scopes jsonb [note: '["orders:write","orders:read","stock:read"]']
+  merchant_id bigint [ref: > merchants.id, not null]
+  name varchar [not null]
+  key_prefix varchar(12) [unique, note: 'partie visible : lv_<prefix>_…']
+  key_hash varchar(64) [not null, note: 'SHA-256 de la clé complète']
+  scopes json [note: '["orders:read","orders:write","stock:read"]']
+  created_by bigint [ref: > users.id, note: 'compte au nom duquel agit la clé']
   last_used_at timestamp
   expires_at timestamp
   revoked_at timestamp
@@ -759,36 +785,45 @@ Table api_keys {
 Table idempotency_keys {
   id bigint [pk, increment]
   api_key_id bigint [ref: > api_keys.id, not null]
-  key varchar [not null]
-  response_code smallint
-  response_body jsonb
-  created_at timestamp
+  key varchar(100) [not null]
+  request_hash varchar(64) [not null, note: 'même clé + autre requête = refus']
+  response_code smallint [note: 'null = en cours de traitement']
+  response_body text
+  created_at timestamp [note: 'purgé après 24 h']
   indexes { (api_key_id, key) [unique] }
 }
 
 Table webhook_subscriptions {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
-  merchant_id bigint [ref: > merchants.id]
-  url varchar [not null]
-  events jsonb [note: '["order.status_changed","order.incident"]']
+  merchant_id bigint [ref: > merchants.id, not null]
+  url varchar [not null, note: 'https, jamais vers un réseau privé']
+  events json [note: '["order.created","order.status_changed","order.incident","payout.paid","stock.low"]']
   secret text [note: 'chiffré, signature HMAC-SHA256']
+  description varchar
   is_active boolean [default: true]
+  consecutive_failures int [default: 0]
+  created_by bigint [ref: > users.id]
   created_at timestamp
   updated_at timestamp
 }
 
 Table webhook_deliveries {
   id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
   webhook_subscription_id bigint [ref: > webhook_subscriptions.id, not null]
+  event_id uuid [note: 'X-Webhook-Id, pour dédoublonner']
   event varchar
-  payload jsonb
+  payload json
+  status varchar [default: 'pending', note: 'pending | delivered | failed']
+  attempts smallint [default: 0]
   response_code smallint
   response_body text
-  attempts smallint [default: 0]
+  error varchar
   next_retry_at timestamp
   delivered_at timestamp
-  created_at timestamp
+  created_at timestamp [note: 'purgé après 30 jours']
+  updated_at timestamp
 }
 
 // ─────────────────── APP MARCHAND INDÉPENDANTE (base séparée, pour mémoire) ───────────────────

@@ -14,6 +14,7 @@ use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\User;
 use App\Services\Finance\FinanceRecorder;
+use App\Services\Stock\StockKeeper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +28,7 @@ class OrderWorkflow
     public function __construct(
         private readonly OrderJournal $journal,
         private readonly FinanceRecorder $finance,
+        private readonly StockKeeper $stock,
     ) {}
 
     /**
@@ -67,6 +69,7 @@ class OrderWorkflow
             $order->save();
 
             $this->finance->onTransition($order, $to, $assignment, $context, $actor);
+            $this->stock->onTransition($order, $to, $actor);
 
             $this->journal->record($order, $actor, $reason ? OrderEventType::Incident : OrderEventType::StatusChanged, [
                 'assignment_id' => $assignment?->id,
@@ -74,7 +77,7 @@ class OrderWorkflow
                 'to_status' => $to,
                 'incident_reason_id' => $reason?->id,
                 'rescheduled_to' => $context['rescheduled_to'] ?? null,
-                'note' => $context['note'] ?? $context['cancel_reason'] ?? null,
+                'note' => $context['note'] ?? $context['cancel_reason'] ?? $this->defaultNote($order, $from, $to),
                 'lat' => $context['lat'] ?? null,
                 'lng' => $context['lng'] ?? null,
                 'meta' => array_filter([
@@ -151,8 +154,13 @@ class OrderWorkflow
             throw new AuthorizationException('Cette course ne vous est pas assignée pour cette étape.');
         }
 
-        // Agent de dépôt : réception au hub uniquement
+        // Agent de dépôt : réception au hub, préparation des commandes d'entrepôt
         if ($to === OrderStatus::AtHub && $actor->can(Permission::OrdersUpdateStatus->value)) {
+            return;
+        }
+
+        // Remise en stock d'une commande d'entrepôt
+        if ($to === OrderStatus::Returned && $order->fromWarehouse() && $actor->can(Permission::StockManage->value)) {
             return;
         }
 
@@ -165,6 +173,16 @@ class OrderWorkflow
 
         if ($reason !== null && ! $reason->appliesTo($stage)) {
             throw new BusinessRuleException('Ce motif ne s\'applique pas à cette étape.', 'incident_reason_id');
+        }
+
+        $returnStatuses = [OrderStatus::ReturnAssigned, OrderStatus::Returning];
+
+        if ($to === OrderStatus::AtHub && $from === OrderStatus::Confirmed && ! $order->fromWarehouse()) {
+            throw new BusinessRuleException('Le colis doit d\'abord être ramassé chez le marchand.', 'status');
+        }
+
+        if ($to === OrderStatus::Returned && ! in_array($from, $returnStatuses, true) && ! $order->fromWarehouse()) {
+            throw new BusinessRuleException('Assignez d\'abord un livreur pour le retour du colis au marchand.', 'status');
         }
 
         match ($to) {
@@ -272,6 +290,13 @@ class OrderWorkflow
                 return $pickup;
 
             case OrderStatus::AtHub:
+                if ($from === OrderStatus::Confirmed) {
+                    // Commande d'entrepôt préparée : prête pour la livraison
+                    $order->prepared_at = $now;
+
+                    return null;
+                }
+
                 // Colis rapporté au dépôt sans tentative : la livraison prévue est annulée
                 $this->finish($delivery, AssignmentStatus::Cancelled);
 
@@ -322,6 +347,10 @@ class OrderWorkflow
                 return $return;
 
             case OrderStatus::Returned:
+                if ($return === null) {
+                    // Remise en stock à l'entrepôt : plus aucune mission en cours
+                    $order->assignments()->active()->update(['status' => AssignmentStatus::Cancelled, 'completed_at' => $now]);
+                }
                 $this->finish($return, AssignmentStatus::Completed);
                 $order->returned_at = $now;
 
@@ -338,6 +367,15 @@ class OrderWorkflow
             default:
                 return null;
         }
+    }
+
+    private function defaultNote(Order $order, OrderStatus $from, OrderStatus $to): ?string
+    {
+        return match (true) {
+            $to === OrderStatus::AtHub && $from === OrderStatus::Confirmed => 'Commande préparée à l\'entrepôt',
+            $to === OrderStatus::Returned && $order->fromWarehouse() => 'Colis remis en stock à l\'entrepôt',
+            default => null,
+        };
     }
 
     private function start(?OrderAssignment $assignment): void

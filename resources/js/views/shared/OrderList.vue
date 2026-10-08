@@ -2,7 +2,10 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Courses</h1>
-      <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/nouvelle`" class="btn-primary">+ Nouvelle course</RouterLink>
+      <div v-if="auth.can('orders.create')" class="flex gap-2">
+        <RouterLink :to="`${auth.homeRoute}/courses/import`" class="btn-secondary">📥 Importer</RouterLink>
+        <RouterLink :to="`${auth.homeRoute}/courses/nouvelle`" class="btn-primary">+ Nouvelle course</RouterLink>
+      </div>
     </div>
 
     <!-- Files d'attente du dispatch -->
@@ -125,6 +128,7 @@ const queues = [
   { value: '', label: 'Toutes' },
   { value: 'to_confirm', label: 'À valider' },
   { value: 'to_pickup', label: 'À ramasser' },
+  { value: 'to_prepare', label: 'À préparer' },
   { value: 'to_deliver', label: 'À livrer' },
   { value: 'incidents', label: 'Incidents' },
   { value: 'to_return', label: 'À retourner' },

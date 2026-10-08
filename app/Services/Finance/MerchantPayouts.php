@@ -13,6 +13,7 @@ use App\Models\MerchantLedgerEntry;
 use App\Models\MerchantPayout;
 use App\Models\User;
 use App\Services\Messaging\Messenger;
+use App\Services\Webhooks\WebhookDispatcher;
 use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,10 @@ use Illuminate\Support\Str;
  */
 class MerchantPayouts
 {
-    public function __construct(private readonly Messenger $messenger) {}
+    public function __construct(
+        private readonly Messenger $messenger,
+        private readonly WebhookDispatcher $webhooks,
+    ) {}
 
     /**
      * Écritures prêtes à être reversées.
@@ -108,6 +112,7 @@ class MerchantPayouts
                 'total_fees' => -$sum([LedgerEntryType::DeliveryFee, LedgerEntryType::ReturnFee]),
                 'total_shipping_fees' => -$sum([LedgerEntryType::ShippingFee]),
                 'total_other_fees' => -$sum([LedgerEntryType::OtherFee]),
+                'total_storage_fees' => -$sum([LedgerEntryType::StorageFee]),
                 'total_adjustments' => $sum([LedgerEntryType::Adjustment]),
                 'net_amount' => $entries->sum('amount'),
                 'status' => PayoutStatus::Draft,
@@ -152,6 +157,7 @@ class MerchantPayouts
             $this->messenger->toMerchant($merchant, NotificationEvent::PayoutPaid, WhatsAppTemplate::PayoutPaid, [
                 $merchant->business_name, $payout->reference, Money::format($payout->net_amount), $method->label(),
             ]);
+            DB::afterCommit(fn () => $this->webhooks->onPayoutPaid($payout));
 
             return $payout;
         });

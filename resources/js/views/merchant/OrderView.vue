@@ -54,6 +54,16 @@
       <p v-if="order.delivery.scheduled_date" class="text-sm text-slate-500">Prévue le {{ date(order.delivery.scheduled_date) }}</p>
     </section>
 
+    <!-- Articles -->
+    <section v-if="order.items?.length || order.from_warehouse" class="m-card p-4 space-y-1 text-sm">
+      <p class="text-sm text-slate-500">{{ order.from_warehouse ? `🏬 Préparée à ${order.pickup.hub_name}` : 'Articles' }}</p>
+      <p v-for="item in order.items" :key="item.id">
+        <strong>{{ item.quantity }} ×</strong> {{ item.label }}
+        <span v-if="item.stock_state === 'reserved'" class="text-xs text-amber-700">· réservé</span>
+        <span v-else-if="item.stock_state === 'released'" class="text-xs text-slate-500">· remis en stock</span>
+      </p>
+    </section>
+
     <!-- Montants -->
     <section class="m-card p-4 space-y-2 text-sm">
       <div class="flex justify-between"><span class="text-slate-500">Articles</span><span>{{ money(order.amounts.items_amount) }}</span></div>

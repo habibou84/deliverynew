@@ -41,6 +41,24 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Courses reçues sur WhatsApp
+    |--------------------------------------------------------------------------
+    |
+    | Analyse des messages libres par Claude quand une clé API Anthropic est
+    | configurée ; sinon (ou en cas d'erreur), analyse par règles.
+    |
+    */
+
+    'ai' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-opus-5-5'),
+    ],
+
+    // Une conversation sans message depuis 30 minutes repart de zéro
+    'session_minutes' => 30,
+
     // Envois : 3 tentatives, espacées de 30 s puis 2 min
     'tries' => 3,
     'backoff' => [30, 120],

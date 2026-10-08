@@ -43,6 +43,32 @@ class MetaCloudGateway implements WhatsAppGateway
         return (string) $response->json('messages.0.id');
     }
 
+    public function sendReply(?WhatsAppAccount $account, string $to, string $text, array $buttons = []): string
+    {
+        $account = $this->ensureConfigured($account);
+
+        $payload = ['messaging_product' => 'whatsapp', 'to' => ltrim($to, '+')];
+
+        if ($buttons === []) {
+            $payload += ['type' => 'text', 'text' => ['body' => mb_substr($text, 0, 4096), 'preview_url' => true]];
+        } else {
+            // Boutons de réponse rapide : 3 au plus, libellés de 20 caractères au plus
+            $payload += ['type' => 'interactive', 'interactive' => [
+                'type' => 'button',
+                'body' => ['text' => mb_substr($text, 0, 1024)],
+                'action' => ['buttons' => array_map(
+                    fn ($id, $title) => ['type' => 'reply', 'reply' => ['id' => (string) $id, 'title' => mb_substr($title, 0, 20)]],
+                    array_keys(array_slice($buttons, 0, 3, true)),
+                    array_slice($buttons, 0, 3, true),
+                )],
+            ]];
+        }
+
+        $response = $this->call(fn () => $this->client($account)->post("{$account->phone_number_id}/messages", $payload));
+
+        return (string) $response->json('messages.0.id');
+    }
+
     public function templates(?WhatsAppAccount $account): array
     {
         $account = $this->ensureConfigured($account);

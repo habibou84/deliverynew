@@ -22,7 +22,7 @@ use Illuminate\Validation\Rule;
 class OrderController extends Controller
 {
     public const LIST_RELATIONS = [
-        'merchant', 'pickupZone', 'deliveryZone', 'lastIncidentReason',
+        'merchant', 'pickupZone', 'deliveryZone', 'lastIncidentReason', 'pickupHub', 'items',
         'pickupCourier.user', 'deliveryCourier.user', 'returnCourier.user',
     ];
 
@@ -36,8 +36,9 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_deliver', 'to_return', 'incidents'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_prepare', 'to_deliver', 'to_return', 'incidents'])],
             'merchant_id' => ['nullable', 'integer'],
+            'hub_id' => ['nullable', 'integer'],
             'courier_id' => ['nullable', 'integer'],
             'zone_id' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
@@ -52,6 +53,7 @@ class OrderController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->whereIn('status', $request->input('status')))
             ->when($request->filled('queue'), fn ($q) => $this->applyQueue($q, $request->string('queue')))
             ->when($request->filled('merchant_id'), fn ($q) => $q->where('merchant_id', $request->integer('merchant_id')))
+            ->when($request->filled('hub_id'), fn ($q) => $q->where('pickup_hub_id', $request->integer('hub_id')))
             ->when($request->filled('courier_id'), fn ($q) => $q->where(fn ($q) => $q
                 ->where('pickup_courier_id', $request->integer('courier_id'))
                 ->orWhere('delivery_courier_id', $request->integer('courier_id'))
@@ -128,7 +130,9 @@ class OrderController extends Controller
     {
         return match ($queue) {
             'to_confirm' => $query->where('status', OrderStatus::Pending),
-            'to_pickup' => $query->where('status', OrderStatus::Confirmed),
+            'to_pickup' => $query->where('status', OrderStatus::Confirmed)->whereNull('pickup_hub_id'),
+            // Commandes d'entrepôt validées, à préparer avant la livraison
+            'to_prepare' => $query->where('status', OrderStatus::Confirmed)->whereNotNull('pickup_hub_id'),
             'to_deliver' => $query->whereIn('status', OrderStatus::values([
                 OrderStatus::PickedUp, OrderStatus::AtHub, OrderStatus::DeliveryFailed, OrderStatus::Rescheduled,
             ]))->where('return_requested', false)

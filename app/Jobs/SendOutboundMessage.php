@@ -50,15 +50,20 @@ class SendOutboundMessage implements ShouldQueue
         $message->increment('attempts');
 
         try {
-            $providerId = $message->channel === MessageChannel::WhatsApp
-                ? $whatsapp->sendTemplate(
-                    $message->whatsapp_account_id ? WhatsAppAccount::forCompany($message->company_id)->find($message->whatsapp_account_id) : null,
+            $account = $message->whatsapp_account_id ? WhatsAppAccount::forCompany($message->company_id)->find($message->whatsapp_account_id) : null;
+
+            $providerId = match (true) {
+                $message->channel === MessageChannel::Sms => $sms->send($message->to, $message->body),
+                // Réponse dans une conversation ouverte par l'expéditeur : texte libre et boutons
+                $message->template_name === null => $whatsapp->sendReply($account, $message->to, $message->body, $message->payload['buttons'] ?? []),
+                default => $whatsapp->sendTemplate(
+                    $account,
                     $message->to,
                     $message->template_name,
                     $message->template_name === 'hello_world' ? 'en_US' : WhatsAppTemplate::LANGUAGE,
                     $message->payload ?? [],
-                )
-                : $sms->send($message->to, $message->body);
+                ),
+            };
         } catch (MessagingException $e) {
             if ($e->retryable && $this->attempts() < $this->tries) {
                 $message->update(['error' => $e->getMessage()]);

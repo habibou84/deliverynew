@@ -33,6 +33,8 @@ class StoreOrderRequest extends FormRequest
             ],
             'merchant_reference' => ['nullable', 'string', 'max:100'],
 
+            // Commande préparée dans un entrepôt (produits en stock chez l'entreprise)
+            'pickup_hub_id' => ['nullable', 'integer', Rule::exists('hubs', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'pickup_zone_id' => ['nullable', 'integer', $zone],
             'pickup_address' => ['nullable', 'string', 'max:500'],
             'pickup_landmark' => ['nullable', 'string', 'max:255'],
@@ -61,6 +63,13 @@ class StoreOrderRequest extends FormRequest
 
             'items_amount' => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'fee_payer' => ['nullable', Rule::enum(FeePayer::class)],
+
+            // Articles : produits du stock (réservés) ou articles libres
+            'items' => ['nullable', 'array', 'max:50'],
+            'items.*.product_id' => ['nullable', 'integer'],
+            'items.*.label' => ['nullable', 'required_without:items.*.product_id', 'string', 'max:255'],
+            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:10000'],
+            'items.*.unit_price' => ['nullable', 'integer', 'min:0', 'max:100000000'],
         ];
     }
 
@@ -76,6 +85,10 @@ class StoreOrderRequest extends FormRequest
             'items_amount' => 'montant des articles',
             'fee_payer' => 'payeur des frais',
             'weight_kg' => 'poids',
+            'pickup_hub_id' => 'entrepôt',
+            'items' => 'articles',
+            'items.*.label' => 'nom de l\'article',
+            'items.*.quantity' => 'quantité',
         ];
     }
 }

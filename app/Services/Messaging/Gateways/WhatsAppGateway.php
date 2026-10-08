@@ -17,6 +17,16 @@ interface WhatsAppGateway
     public function sendTemplate(?WhatsAppAccount $account, string $to, string $template, string $language, array $params): string;
 
     /**
+     * Réponse libre dans une conversation ouverte par l'expéditeur (fenêtre de 24 h),
+     * avec jusqu'à 3 boutons de réponse rapide (identifiant => libellé).
+     *
+     * @param  array<string, string>  $buttons
+     *
+     * @throws MessagingException
+     */
+    public function sendReply(?WhatsAppAccount $account, string $to, string $text, array $buttons = []): string;
+
+    /**
      * Modèles connus du fournisseur pour ce compte.
      *
      * @return list<array{name: string, language: string, status: string, category: ?string, rejected_reason: ?string}>

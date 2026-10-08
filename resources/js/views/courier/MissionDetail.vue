@@ -34,7 +34,13 @@
         <span class="text-slate-600">À encaisser</span>
         <span class="text-3xl font-bold">{{ money(order.amounts.cod_amount) }}</span>
       </div>
-      <p class="text-slate-700">📦 {{ order.package.description || 'Colis' }}</p>
+      <p v-if="order.from_warehouse && mission.type === 'delivery' && ['delivery_assigned', 'at_hub'].includes(order.status)" class="rounded-xl bg-sky-50 p-3 text-sky-900">
+        🏬 À récupérer à l'entrepôt <strong>{{ order.pickup.hub_name }}</strong><span v-if="order.pickup.address"> · {{ order.pickup.address }}</span>
+      </p>
+      <ul v-if="order.items?.length" class="text-slate-700 space-y-0.5">
+        <li v-for="item in order.items" :key="item.id">📦 <strong>{{ item.quantity }} ×</strong> {{ item.label }}</li>
+      </ul>
+      <p v-else class="text-slate-700">📦 {{ order.package.description || 'Colis' }}</p>
       <div class="flex flex-wrap gap-2">
         <span v-if="order.package.is_fragile" class="rounded-full bg-red-100 text-red-700 text-sm font-semibold px-3 py-1">🥚 Fragile</span>
         <span v-if="order.package.is_express" class="rounded-full bg-amber-100 text-amber-800 text-sm font-semibold px-3 py-1">⚡ Express</span>
