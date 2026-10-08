@@ -56,7 +56,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Toasts from '../Toasts.vue'
 import { useNotificationStore } from '../../stores/notifications'
@@ -78,6 +78,10 @@ useRealtime()
 if (!notifications.loaded) notifications.fetch().catch(() => {})
 
 const title = computed(() => route.meta.title || props.appName)
+
+// Couleur de l'application aussi sur <html> : les panneaux du bas (téléportés dans <body>) en héritent
+watchEffect(() => document.documentElement.style.setProperty('--app-color', props.color))
+onBeforeUnmount(() => document.documentElement.style.removeProperty('--app-color'))
 
 function isActive(tab) {
   return tab.exact ? route.path === tab.to : route.path.startsWith(tab.to)

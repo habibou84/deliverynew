@@ -91,3 +91,11 @@
 @utility m-btn-success {
     @apply m-btn bg-emerald-600 text-white;
 }
+
+/* Défilement horizontal sans barre visible (rangées de pastilles) */
+@utility no-scrollbar {
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+}
