@@ -97,7 +97,10 @@ Claude comprend aussi les messages sans format, avec retour automatique aux règ
 
 **Carte des livreurs** (back-office, droit `orders.dispatch`) montre la dernière position de chaque livreur, ses
 missions en cours et l'âge de la position ; elle se met à jour en direct (Reverb). L'application livreur envoie sa
-position toutes les 30 secondes pendant le service (localisation autorisée sur le téléphone). Fond de carte
+position toutes les 30 secondes pendant le service (localisation autorisée sur le téléphone).
+**Trajet du jour** (depuis la carte, ou `/admin/carte?livreur={id}&date=AAAA-MM-JJ`) : tracé de la journée, étapes
+des courses localisées (ramassé, livré, échec…), distance parcourue et heures de service. Les positions trop
+imprécises, à l'arrêt ou aberrantes ne sont pas conservées ; l'historique est purgé après 90 jours (`model:prune`). Fond de carte
 OpenStreetMap via Leaflet, sans clé ; pour un usage intensif, passer à un fournisseur de tuiles (MapTiler, Stadia…).
 
 ### Stock et entrepôts
@@ -207,6 +210,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
+| GET | `/couriers/{id}/track?date=` | `orders.dispatch` : trajet d'une journée (points, étapes, distance) |
 | GET | `/couriers/map` | `orders.dispatch` : positions et missions en cours des livreurs (diffusion `courier.location` sur `company.{id}`) |
 | GET/POST/DELETE | `/api-keys` | `integrations.manage` : clés de l'API publique (le marchand les siennes, l'administration avec `merchant_id`) |
 | GET/POST/PATCH/DELETE | `/webhooks` · POST `/webhooks/{id}/test`, `/webhooks/{id}/secret` · GET `/webhooks/{id}/deliveries` · POST `/webhook-deliveries/{id}/redeliver` | `integrations.manage` : adresses webhook, test, journal, renvoi |

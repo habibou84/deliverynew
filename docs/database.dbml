@@ -766,6 +766,18 @@ Table whatsapp_sessions {
 
 // ───────────────────────────── API & INTÉGRATIONS ─────────────────────────────
 
+Table courier_locations {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  courier_id bigint [ref: > couriers.id, not null]
+  lat decimal(10,7) [not null]
+  lng decimal(10,7) [not null]
+  accuracy smallint [note: 'précision en mètres']
+  recorded_at timestamp [not null]
+  Note: 'Trajets des livreurs pendant le service, purgés après 90 jours'
+  indexes { (courier_id, recorded_at) }
+}
+
 Table api_keys {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]

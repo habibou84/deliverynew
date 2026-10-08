@@ -6,9 +6,11 @@ use App\Enums\VehicleType;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CourierResource;
 use App\Models\Courier;
+use App\Services\Couriers\CourierTracker;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
@@ -68,6 +70,21 @@ class CourierController extends Controller
             ->values();
 
         return response()->json(['data' => $couriers]);
+    }
+
+    /**
+     * Trajet d'une journée : tracé, étapes des courses (ramassé, livré, échec…) et résumé.
+     */
+    public function track(Request $request, Courier $courier, CourierTracker $tracker): JsonResponse
+    {
+        $request->validate(['date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today']]);
+
+        $courier->loadMissing('user');
+
+        return response()->json(['data' => [
+            'courier' => ['id' => $courier->id, 'name' => $courier->user?->name, 'phone' => $courier->user?->phone],
+            ...$tracker->day($courier, $request->filled('date') ? Carbon::parse($request->string('date')) : today()),
+        ]]);
     }
 
     public function show(Courier $courier): CourierResource

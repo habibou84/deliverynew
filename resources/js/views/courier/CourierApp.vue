@@ -17,7 +17,7 @@ const auth = useAuthStore()
 let locationTimer
 async function sendLocation() {
   if (!auth.user?.courier?.is_available || document.hidden) return
-  const position = await currentPosition()
+  const position = await currentPosition(5000, true)
   if (position) http.patch('/courier/status', position).catch(() => {})
 }
 
