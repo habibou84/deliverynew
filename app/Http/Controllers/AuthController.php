@@ -14,14 +14,13 @@ class AuthController extends Controller
             'name' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:6',
-            'role' => 'required|in:client,livreur'
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
-            'role' => $request->role
+            'role' => 'client', // livreurs et admins sont créés par un administrateur
         ]);
 
         return response()->json($user);
@@ -51,7 +50,7 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->tokens()->delete();
+        $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Déconnecté']);
     }
 
