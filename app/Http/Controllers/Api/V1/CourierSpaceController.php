@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Events\CourierLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CourierResource;
 use App\Http\Resources\V1\OrderAssignmentResource;
@@ -78,7 +79,13 @@ class CourierSpaceController extends Controller
             ]);
         }
 
+        $changed = $courier->isDirty(['is_available', 'current_lat', 'current_lng', 'last_location_at']);
         $courier->save();
+
+        // Carte des livreurs en direct (personnel de l'entreprise)
+        if ($changed) {
+            CourierLocationUpdated::dispatch($courier);
+        }
 
         return CourierResource::make($courier->load(['user', 'zones'])->loadCount('activeAssignments'));
     }

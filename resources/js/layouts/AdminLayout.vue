@@ -63,6 +63,7 @@ const menu = computed(() => [
   { to: '/admin/courses/nouvelle', icon: '➕', label: 'Nouvelle course', permission: 'orders.create' },
   { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
   { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage' },
+  { to: '/admin/carte', icon: '📍', label: 'Carte des livreurs', permission: 'orders.dispatch' },
   { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
   { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
   { to: '/admin/zones', icon: '🗺️', label: 'Zones', permission: 'settings.manage' },

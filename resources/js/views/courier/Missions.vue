@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { cachedGet } from '../../composables/useCachedApi'
 import { useToastStore } from '../../stores/toasts'
@@ -131,20 +131,8 @@ async function toggleAvailability() {
   }
 }
 
-// Position envoyée toutes les minutes pendant le service
-let locationTimer
-async function sendLocation() {
-  if (!available.value) return
-  const position = await currentPosition()
-  if (position) http.patch('/courier/status', position).catch(() => {})
-}
-
 // Nouvelle mission reçue en temps réel
 watch(() => notifications.unread, load)
 
-onMounted(() => {
-  load()
-  locationTimer = setInterval(sendLocation, 60000)
-})
-onBeforeUnmount(() => clearInterval(locationTimer))
+onMounted(load)
 </script>

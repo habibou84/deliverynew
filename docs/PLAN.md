@@ -357,6 +357,7 @@ Choix faits pendant la phase 0 :
 Choix faits pendant la phase 1 :
 - **Échec du ramassage** : la course revient à « Validée » (motif obligatoire) pour être réassignée, sans statut supplémentaire.
 - **Code de livraison** : généré pour chaque course et visible du marchand (jamais du livreur). Son contrôle est **activable par entreprise** (`require_delivery_code`, désactivé par défaut) ; depuis la phase 3, le destinataire le reçoit sur WhatsApp quand le colis part.
+- **Carte des livreurs** (ajoutée après la phase 7) : dernière position et missions en cours, en direct ; position envoyée toutes les 30 s pendant le service, seule la dernière est conservée.
 - **Dépôts (hubs)** : le statut « Au dépôt » existe, mais la gestion de plusieurs dépôts est reportée (une seule entreprise = un dépôt implicite).
 - **Adresses** : pas de table `addresses` générique ; l'adresse de ramassage est portée par le marchand et copiée sur chaque course.
 - Reportés à la phase 2 avec la caisse : encaissement détaillé (`cash_collections`), versements livreurs et reversements.

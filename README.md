@@ -93,6 +93,13 @@ sans compte Meta (les courses confirmées sont réellement créées).
 L'analyse se fait par règles ; avec `ANTHROPIC_API_KEY` (et `ANTHROPIC_MODEL`, par défaut `claude-opus-5-5`),
 Claude comprend aussi les messages sans format, avec retour automatique aux règles en cas d'erreur.
 
+### Carte des livreurs
+
+**Carte des livreurs** (back-office, droit `orders.dispatch`) montre la dernière position de chaque livreur, ses
+missions en cours et l'âge de la position ; elle se met à jour en direct (Reverb). L'application livreur envoie sa
+position toutes les 30 secondes pendant le service (localisation autorisée sur le téléphone). Fond de carte
+OpenStreetMap via Leaflet, sans clé ; pour un usage intensif, passer à un fournisseur de tuiles (MapTiler, Stadia…).
+
 ### Stock et entrepôts
 
 Le marchand enregistre ses produits et le stock qu'il garde chez lui (**Mon stock** dans son application) ; l'entreprise
@@ -200,6 +207,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
+| GET | `/couriers/map` | `orders.dispatch` : positions et missions en cours des livreurs (diffusion `courier.location` sur `company.{id}`) |
 | GET/POST/DELETE | `/api-keys` | `integrations.manage` : clés de l'API publique (le marchand les siennes, l'administration avec `merchant_id`) |
 | GET/POST/PATCH/DELETE | `/webhooks` · POST `/webhooks/{id}/test`, `/webhooks/{id}/secret` · GET `/webhooks/{id}/deliveries` · POST `/webhook-deliveries/{id}/redeliver` | `integrations.manage` : adresses webhook, test, journal, renvoi |
 | GET | `/orders/import/template` · POST `/orders/import` (`file`, `dry_run`, `skip_invalid`, `merchant_id`) | `orders.create` : import CSV/Excel |

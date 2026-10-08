@@ -6,6 +6,7 @@ use App\Enums\VehicleType;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CourierResource;
 use App\Models\Courier;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
@@ -34,6 +35,39 @@ class CourierController extends Controller
             ->values();
 
         return CourierResource::collection($couriers);
+    }
+
+    /**
+     * Carte des livreurs : dernière position connue et missions en cours de chaque livreur actif.
+     */
+    public function map(): JsonResponse
+    {
+        $couriers = Courier::query()
+            ->with(['user', 'activeAssignments' => fn ($q) => $q->with(['order.pickupZone', 'order.deliveryZone'])->orderBy('id')])
+            ->whereHas('user', fn ($q) => $q->where('status', 'active'))
+            ->get()
+            ->map(fn (Courier $c) => [
+                'id' => $c->id,
+                'name' => $c->user->name,
+                'phone' => $c->user->phone,
+                'vehicle_type' => $c->vehicle_type,
+                'is_available' => $c->is_available,
+                'lat' => $c->current_lat,
+                'lng' => $c->current_lng,
+                'last_location_at' => $c->last_location_at,
+                'missions' => $c->activeAssignments->map(fn ($a) => [
+                    'order_id' => $a->order_id,
+                    'tracking_code' => $a->order?->tracking_code,
+                    'type' => $a->type->value,
+                    'type_label' => $a->type->label(),
+                    'status' => $a->status->value,
+                    'zone_name' => $a->type->value === 'pickup' ? $a->order?->pickupZone?->name : $a->order?->deliveryZone?->name,
+                ])->values(),
+            ])
+            ->sortBy(fn ($c) => [$c['lat'] === null, ! $c['is_available'], $c['name']])
+            ->values();
+
+        return response()->json(['data' => $couriers]);
     }
 
     public function show(Courier $courier): CourierResource

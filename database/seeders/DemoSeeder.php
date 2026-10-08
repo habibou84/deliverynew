@@ -56,6 +56,13 @@ class DemoSeeder extends Seeder
         Courier::withoutGlobalScopes()->where('company_id', $company->id)
             ->update(['pickup_commission' => 300, 'delivery_commission' => 500, 'return_commission' => 400]);
 
+        // Positions de démonstration pour la carte des livreurs (Cocody et Plateau)
+        foreach (['+2250700000004' => [5.3598, -3.9875], '+2250700000005' => [5.3236, -4.0187]] as $phone => [$lat, $lng]) {
+            Courier::withoutGlobalScopes()->whereNull('current_lat')
+                ->whereHas('user', fn ($q) => $q->where('phone', $phone))
+                ->update(['current_lat' => $lat, 'current_lng' => $lng, 'last_location_at' => now(), 'is_available' => true]);
+        }
+
         $cocody = Zone::forCompany($company->id)->where('name', 'Cocody')->first();
         $merchant = Merchant::withoutGlobalScopes()->firstOrCreate(
             ['company_id' => $company->id, 'phone' => '+2250500000001'],
