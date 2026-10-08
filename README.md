@@ -1,59 +1,111 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Livraison : plateforme de gestion de livraison pour e-commerçants
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Back-office (entreprise de livraison), espace e-commerçant et application livreur.
 
-## About Laravel
+- **Plan d'exécution, choix techniques et roadmap** : [`docs/PLAN.md`](docs/PLAN.md)
+- **Schéma de base de données** : [`docs/database.dbml`](docs/database.dbml) (à importer sur https://dbdiagram.io)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Stack
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Couche | Technologie |
+|---|---|
+| API | Laravel 12, Sanctum (jetons), spatie/laravel-permission |
+| Base de données | PostgreSQL 16 |
+| Files d'attente / cache | Redis + Laravel Horizon |
+| Temps réel | Laravel Reverb (WebSocket) |
+| Front-end | Vue 3, Pinia, Vue Router, Tailwind CSS 4 (Vite) |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Installation locale
 
-## Learning Laravel
+Prérequis : PHP 8.2+ (extensions `pdo_pgsql`, `redis`, `pcntl`), Composer, Node 22, PostgreSQL 16, Redis.
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+```bash
+composer install
+npm install
+cp .env.example .env
+php artisan key:generate
+php artisan reverb:install          # génère les clés REVERB_* dans .env
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+# Créer la base (adapter à votre installation PostgreSQL)
+createuser -P livraison             # mot de passe : secret (cf. .env)
+createdb -O livraison livraison
 
-## Laravel Sponsors
+php artisan migrate --seed          # rôles + données de démonstration
+composer dev                        # serveur, Horizon, Reverb, logs et Vite
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Puis ouvrir http://localhost:8000.
 
-### Premium Partners
+### Comptes de démonstration
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot de passe : `password`.
 
-## Contributing
+| Rôle | Téléphone | E-mail |
+|---|---|---|
+| Super administrateur | 07 00 00 00 00 | superadmin@livraison.test |
+| Administrateur | 07 00 00 00 01 | admin@livraison.test |
+| Dispatcher | 07 00 00 00 02 | dispatch@livraison.test |
+| Caissier | 07 00 00 00 03 | caisse@livraison.test |
+| Livreur | 07 00 00 00 04 | - |
+| Livreuse | 07 00 00 00 05 | - |
+| E-commerçant (Boutique Chic Abidjan) | 05 00 00 00 01 | boutique@livraison.test |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+On se connecte avec le **téléphone** (format local `07 xx xx xx xx` ou international `+225…`) **ou** l'e-mail.
 
-## Code of Conduct
+### Production
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan migrate --force
+php artisan db:seed --class=RolesAndPermissionsSeeder --force   # à chaque déploiement (idempotent)
+php artisan app:create-super-admin                               # première installation
+```
 
-## Security Vulnerabilities
+Processus à superviser (Supervisor/systemd) : `php artisan horizon`, `php artisan reverb:start`, et le planificateur (`php artisan schedule:run` chaque minute).
+Les notifications et la diffusion temps réel passent par la file d'attente : sans Horizon (ou `queue:work`), elles ne partent pas.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Tests et qualité
 
-## License
+```bash
+php artisan test                    # SQLite en mémoire (rapide)
+DB_CONNECTION=pgsql DB_DATABASE=livraison_test php artisan test   # sur PostgreSQL, comme la CI
+vendor/bin/pint                     # formatage du code
+npm run build                       # build front-end
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+La CI GitHub Actions (`.github/workflows/ci.yml`) exécute Pint, les migrations aller-retour et les tests sur PostgreSQL, puis le build front-end.
+
+## API
+
+Toutes les routes sont préfixées par `/api/v1` et répondent en JSON au format `{ "message": "...", "errors": { ... } }` en cas d'erreur.
+Authentification : en-tête `Authorization: Bearer <jeton>`.
+
+| Méthode | Route | Accès |
+|---|---|---|
+| POST | `/auth/login` | public (`login` = téléphone ou e-mail, `password`, `device_name`) ; 5 essais/minute |
+| GET | `/auth/me` | connecté : profil, entreprise, permissions |
+| POST | `/auth/logout` | connecté : révoque le jeton de l'appareil courant |
+| GET | `/roles` | rôles que l'utilisateur peut attribuer |
+| GET/POST | `/users` | `users.view` / `users.manage` (filtres `role`, `status`, `search`, `company_id` pour le super admin) |
+| GET/PATCH/DELETE | `/users/{id}` | même entreprise + `users.manage` |
+| GET/POST | `/companies` | super administrateur (création avec premier admin facultatif) |
+| GET/PATCH | `/companies/{id}` | super admin, ou admin de l'entreprise (paramètres hors statut) |
+| GET | `/zones` · POST/PATCH `/zones/{id}` | tous · `settings.manage` |
+| CRUD | `/pricing-grids`, PUT `/pricing-grids/{id}/rules` et `/surcharges` | `settings.manage` |
+| POST | `/quotes` | devis d'une course (marchand ou personnel) |
+| GET/POST/PATCH | `/merchants`, POST `/merchants/{id}/users` | `merchants.view` / `merchants.manage` |
+| GET/PATCH | `/couriers` | dispatch / `users.manage` |
+| GET/POST/PATCH | `/orders` (filtres `queue`, `status[]`, `merchant_id`, `courier_id`, `search`…) | personnel, ou le marchand pour ses courses |
+| POST | `/orders/{id}/status` | changement de statut (règles par rôle dans `OrderWorkflow`) |
+| POST | `/orders/{id}/assign`, `/orders/bulk-assign` | `orders.dispatch` (missions ramassage / livraison / retour) |
+| POST | `/orders/{id}/notes`, `/return-request`, `/attachments` | notes, demande de retour, photo de preuve |
+| GET | `/courier/missions` · POST `/courier/assignments/{id}/accept\|refuse` · PATCH `/courier/status` | livreur |
+| GET | `/reports/summary`, `/incident-reasons`, `/recipients`, `/notifications` | connecté |
+| GET | `/tracking/{code}` | **public** (suivi destinataire, 30 req/min) |
+
+Temps réel (Reverb) : canaux privés `company.{id}` (personnel), `merchant.{id}` (marchand) et `App.Models.User.{id}` (notifications), événement `order.changed`.
+
+## Architecture multi-entreprise
+
+- Chaque utilisateur appartient à une entreprise (`users.company_id`), sauf le super administrateur (`null`).
+- Les modèles métier utilisent le trait `App\Models\Concerns\BelongsToCompany` : filtrage automatique par entreprise et `company_id` rempli à la création.
+- Les rôles et permissions sont définis dans `App\Enums\Role` et `App\Enums\Permission`, puis synchronisés en base par `RolesAndPermissionsSeeder`.

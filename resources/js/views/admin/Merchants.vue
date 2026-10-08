@@ -1,0 +1,152 @@
+<template>
+  <div class="space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h1 class="text-xl font-bold">E-commerçants</h1>
+      <div class="flex gap-2">
+        <input v-model="search" class="input w-56" placeholder="Rechercher…" @input="debouncedLoad">
+        <button v-if="auth.can('merchants.manage')" class="btn-primary" @click="openForm()">+ Nouveau</button>
+      </div>
+    </div>
+
+    <div class="card overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-50 text-left text-gray-600">
+          <tr><th class="p-2">Nom</th><th class="p-2">Contact</th><th class="p-2">Ramassage</th><th class="p-2">Frais payés par</th><th class="p-2">Courses</th><th class="p-2">Statut</th><th /></tr>
+        </thead>
+        <tbody class="divide-y">
+          <tr v-for="m in merchants" :key="m.id">
+            <td class="p-2 font-medium">{{ m.business_name }}</td>
+            <td class="p-2">{{ m.contact_name }}<div class="text-xs text-gray-500">{{ m.phone }}</div></td>
+            <td class="p-2">{{ m.pickup_zone?.name || '—' }}<div class="text-xs text-gray-500">{{ m.pickup_address }}</div></td>
+            <td class="p-2">{{ m.default_fee_payer === 'recipient' ? 'Destinataire' : 'Marchand' }}</td>
+            <td class="p-2">{{ m.orders_count }}</td>
+            <td class="p-2"><span :class="m.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ m.status === 'active' ? 'Actif' : 'Suspendu' }}</span></td>
+            <td class="p-2 text-right whitespace-nowrap">
+              <RouterLink :to="{ path: '/admin/courses', query: { merchant_id: m.id } }" class="text-blue-600 mr-3">Courses</RouterLink>
+              <button v-if="auth.can('merchants.manage')" class="text-blue-600" @click="openForm(m)">Modifier</button>
+            </td>
+          </tr>
+          <tr v-if="!merchants.length"><td colspan="7" class="p-6 text-center text-gray-500">Aucun e-commerçant.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <Modal :open="form.open" :title="form.id ? 'Modifier l\'e-commerçant' : 'Nouvel e-commerçant'" @close="form.open = false">
+      <form class="space-y-3" @submit.prevent="save">
+        <div v-if="form.error" class="rounded bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ form.error }}</div>
+        <div><label class="label">Nom commercial *</label><input v-model="form.data.business_name" class="input" required></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="label">Contact</label><input v-model="form.data.contact_name" class="input"></div>
+          <div><label class="label">Téléphone *</label><input v-model="form.data.phone" class="input" required></div>
+          <div><label class="label">WhatsApp</label><input v-model="form.data.whatsapp_phone" class="input"></div>
+          <div><label class="label">E-mail</label><input v-model="form.data.email" type="email" class="input"></div>
+        </div>
+        <div>
+          <label class="label">Zone de ramassage</label>
+          <select v-model="form.data.pickup_zone_id" class="input">
+            <option :value="null">—</option>
+            <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
+          </select>
+        </div>
+        <div><label class="label">Adresse de ramassage</label><input v-model="form.data.pickup_address" class="input"></div>
+        <div><label class="label">Repère</label><input v-model="form.data.pickup_landmark" class="input"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="label">Grille tarifaire</label>
+            <select v-model="form.data.pricing_grid_id" class="input">
+              <option :value="null">Grille par défaut</option>
+              <option v-for="g in grids" :key="g.id" :value="g.id">{{ g.name }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Frais payés par</label>
+            <select v-model="form.data.default_fee_payer" class="input">
+              <option value="merchant">Marchand</option>
+              <option value="recipient">Destinataire</option>
+            </select>
+          </div>
+        </div>
+        <div v-if="form.id">
+          <label class="label">Statut</label>
+          <select v-model="form.data.status" class="input">
+            <option value="active">Actif</option>
+            <option value="suspended">Suspendu</option>
+          </select>
+        </div>
+        <fieldset v-else class="border rounded p-3 space-y-2">
+          <legend class="text-sm font-medium px-1">Compte de connexion (facultatif)</legend>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="label">Nom</label><input v-model="form.owner.name" class="input"></div>
+            <div><label class="label">Téléphone</label><input v-model="form.owner.phone" class="input"></div>
+            <div class="col-span-2"><label class="label">Mot de passe (8 caractères min.)</label><input v-model="form.owner.password" type="text" class="input" autocomplete="new-password"></div>
+          </div>
+        </fieldset>
+        <div><label class="label">Notes internes</label><textarea v-model="form.data.notes" rows="2" class="input" /></div>
+        <button class="btn-primary w-full" :disabled="form.saving">Enregistrer</button>
+      </form>
+    </Modal>
+  </div>
+</template>
+
+<script setup>
+import { onMounted, reactive, ref } from 'vue'
+import http, { apiErrorMessage } from '../../bootstrap/axios'
+import Modal from '../../components/Modal.vue'
+import { useAuthStore } from '../../stores/auth'
+import { useToastStore } from '../../stores/toasts'
+
+const auth = useAuthStore()
+const toasts = useToastStore()
+const merchants = ref([])
+const zones = ref([])
+const grids = ref([])
+const search = ref('')
+const form = reactive({ open: false, id: null, data: {}, owner: {}, error: '', saving: false })
+
+const FIELDS = ['business_name', 'contact_name', 'phone', 'whatsapp_phone', 'email', 'pickup_zone_id', 'pickup_address',
+  'pickup_landmark', 'pricing_grid_id', 'default_fee_payer', 'status', 'notes']
+
+async function load() {
+  merchants.value = (await http.get('/merchants', { params: { search: search.value || undefined, per_page: 200 } })).data.data
+}
+
+let timer
+function debouncedLoad() {
+  clearTimeout(timer)
+  timer = setTimeout(load, 300)
+}
+
+function openForm(merchant = null) {
+  form.id = merchant?.id ?? null
+  form.data = Object.fromEntries(FIELDS.map((f) => [f, merchant?.[f] ?? null]))
+  form.data.default_fee_payer ??= 'merchant'
+  form.data.status ??= 'active'
+  form.owner = { name: '', phone: '', password: '' }
+  form.error = ''
+  form.open = true
+}
+
+async function save() {
+  form.saving = true
+  form.error = ''
+  try {
+    const payload = Object.fromEntries(Object.entries(form.data).filter(([k, v]) => v !== '' && (v !== null || form.id) && !(k === 'status' && !form.id)))
+    if (!form.id && form.owner.phone) payload.owner = { ...form.owner, name: form.owner.name || form.data.contact_name || form.data.business_name }
+    if (form.id) await http.patch(`/merchants/${form.id}`, payload)
+    else await http.post('/merchants', payload)
+    form.open = false
+    toasts.success('E-commerçant enregistré.')
+    load()
+  } catch (e) {
+    form.error = apiErrorMessage(e)
+  } finally {
+    form.saving = false
+  }
+}
+
+onMounted(async () => {
+  load()
+  zones.value = (await http.get('/zones')).data.data
+  if (auth.can('settings.manage')) grids.value = (await http.get('/pricing-grids')).data.data
+})
+</script>

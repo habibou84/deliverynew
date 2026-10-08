@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Http\Requests\V1;
+
+use App\Enums\FeePayer;
+use App\Models\Order;
+use App\Rules\PhoneNumber;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class StoreOrderRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return $this->user()->can('create', Order::class);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        $companyId = $this->user()->company_id;
+        $zone = Rule::exists('zones', 'id')->where('company_id', $companyId)->where('is_active', true);
+
+        return [
+            // Le personnel choisit le marchand ; un marchand crée pour lui-même
+            'merchant_id' => [
+                Rule::requiredIf($this->user()->merchant_id === null),
+                Rule::prohibitedIf($this->user()->merchant_id !== null),
+                'integer',
+                Rule::exists('merchants', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
+            ],
+            'merchant_reference' => ['nullable', 'string', 'max:100'],
+
+            'pickup_zone_id' => ['nullable', 'integer', $zone],
+            'pickup_address' => ['nullable', 'string', 'max:500'],
+            'pickup_landmark' => ['nullable', 'string', 'max:255'],
+            'pickup_contact_name' => ['nullable', 'string', 'max:255'],
+            'pickup_phone' => ['nullable', 'string', new PhoneNumber],
+            'pickup_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'pickup_lng' => ['nullable', 'numeric', 'between:-180,180'],
+
+            'recipient_name' => ['nullable', 'string', 'max:255'],
+            'recipient_phone' => ['required', 'string', new PhoneNumber],
+            'recipient_phone2' => ['nullable', 'string', new PhoneNumber],
+            'delivery_zone_id' => ['required', 'integer', $zone],
+            'delivery_address' => ['nullable', 'string', 'max:500'],
+            'delivery_landmark' => ['nullable', 'string', 'max:255'],
+            'delivery_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'delivery_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'delivery_scheduled_date' => ['nullable', 'date', 'after_or_equal:today'],
+            'delivery_time_slot' => ['nullable', 'string', 'max:20'],
+
+            'description' => ['nullable', 'string', 'max:1000'],
+            'package_size' => ['nullable', Rule::in(['S', 'M', 'L', 'XL'])],
+            'weight_kg' => ['nullable', 'numeric', 'min:0', 'max:500'],
+            'is_fragile' => ['boolean'],
+            'is_express' => ['boolean'],
+            'merchant_note' => ['nullable', 'string', 'max:1000'],
+
+            'items_amount' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'fee_payer' => ['nullable', Rule::enum(FeePayer::class)],
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'merchant_id' => 'marchand',
+            'pickup_zone_id' => 'zone de ramassage',
+            'recipient_phone' => 'téléphone du destinataire',
+            'recipient_phone2' => 'second téléphone',
+            'delivery_zone_id' => 'zone de livraison',
+            'delivery_scheduled_date' => 'date de livraison',
+            'items_amount' => 'montant des articles',
+            'fee_payer' => 'payeur des frais',
+            'weight_kg' => 'poids',
+        ];
+    }
+}

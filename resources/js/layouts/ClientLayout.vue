@@ -1,54 +1,37 @@
 <template>
-  <div class="flex min-h-screen">
-    <!-- Sidebar -->
-    <aside class="w-64 bg-green-800 text-white p-4">
-      <h2 class="text-xl font-bold mb-6">Espace Client</h2>
-
-      <ul class="space-y-2">
-        <li>
-          <a href="#" class="block p-2 rounded hover:bg-green-700">
-            Nouvelle commande
-          </a>
-        </li>
-        <li>
-          <a href="#" class="block p-2 rounded hover:bg-green-700">
-            Mes commandes
-          </a>
-        </li>
-        <li>
-          <a href="#" class="block p-2 rounded hover:bg-green-700">
-            Paiements
-          </a>
-        </li>
-        <li>
-          <a href="#" class="block p-2 rounded hover:bg-green-700">
-            Mon profil
-          </a>
-        </li>
-      </ul>
-
-      <button
-        @click="logout"
-        class="mt-6 w-full bg-red-500 hover:bg-red-600 p-2 rounded"
-      >
-        Déconnexion
-      </button>
-    </aside>
-
-    <!-- Main -->
-    <main class="flex-1 p-6 bg-gray-100">
-      <h1 class="text-2xl font-bold mb-4">Bienvenue Client</h1>
-      <p>Ici tu pourras créer et suivre tes commandes de livraison.</p>
+  <div class="min-h-screen bg-gray-100">
+    <header class="bg-green-800 text-white">
+      <div class="max-w-6xl mx-auto px-4 py-2 flex items-center gap-3">
+        <span class="font-bold">🏪 {{ auth.user?.merchant?.business_name || 'Espace e-commerçant' }}</span>
+        <nav class="flex gap-1 text-sm overflow-x-auto">
+          <RouterLink to="/marchand" exact-active-class="bg-green-700" class="px-3 py-1.5 rounded hover:bg-green-700">Mon point</RouterLink>
+          <RouterLink to="/marchand/courses" exact-active-class="bg-green-700" class="px-3 py-1.5 rounded hover:bg-green-700">Mes courses</RouterLink>
+          <RouterLink to="/marchand/courses/nouvelle" exact-active-class="bg-green-700" class="px-3 py-1.5 rounded hover:bg-green-700 whitespace-nowrap">+ Nouvelle course</RouterLink>
+        </nav>
+        <div class="ml-auto flex items-center gap-2">
+          <NotificationBell />
+          <button class="text-sm bg-white/10 hover:bg-white/20 rounded px-3 py-1.5" @click="logout">Déconnexion</button>
+        </div>
+      </div>
+    </header>
+    <main class="max-w-6xl mx-auto p-4">
+      <RouterView />
     </main>
+    <Toasts />
   </div>
 </template>
 
 <script setup>
-import { useAuthStore } from '../stores/auth'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { useRealtime } from '../composables/useRealtime'
+import NotificationBell from '../components/NotificationBell.vue'
+import Toasts from '../components/Toasts.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+useRealtime()
 
 const logout = async () => {
   await auth.logout()

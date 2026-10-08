@@ -1,0 +1,52 @@
+<?php
+
+namespace App\Support;
+
+/**
+ * Normalise les numéros de téléphone au format E.164.
+ * Par défaut, un numéro local à 10 chiffres est considéré comme ivoirien (+225).
+ */
+class PhoneNumber
+{
+    public const DEFAULT_COUNTRY_CODE = '225';
+
+    public static function normalize(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+        $hasPlus = str_starts_with($value, '+');
+        $digits = preg_replace('/\D+/', '', $value);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        if (! $hasPlus && str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+            $hasPlus = true;
+        }
+
+        if (! $hasPlus) {
+            if (strlen($digits) === 10) {
+                $digits = self::DEFAULT_COUNTRY_CODE.$digits;
+            } elseif (! (strlen($digits) === 13 && str_starts_with($digits, self::DEFAULT_COUNTRY_CODE))) {
+                return null;
+            }
+        }
+
+        // E.164 : 8 à 15 chiffres, indicatif pays inclus
+        if (strlen($digits) < 8 || strlen($digits) > 15) {
+            return null;
+        }
+
+        return '+'.$digits;
+    }
+
+    public static function isValid(?string $value): bool
+    {
+        return self::normalize($value) !== null;
+    }
+}

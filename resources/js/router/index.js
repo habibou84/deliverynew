@@ -1,94 +1,101 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { SPACES } from '../roles'
 
-import Login from '../views/Login.vue'
-import AdminLayout from '../layouts/AdminLayout.vue'
-import LivreurLayout from '../layouts/LivreurLayout.vue'
-import ClientLayout from '../layouts/ClientLayout.vue'
+const shared = {
+  dashboard: () => import('../views/shared/Dashboard.vue'),
+  orders: () => import('../views/shared/OrderList.vue'),
+  orderCreate: () => import('../views/shared/OrderCreate.vue'),
+  orderDetail: () => import('../views/shared/OrderDetail.vue'),
+}
 
 const routes = [
   {
-    path: '/',
-    redirect: '/login'
-  },
-
-  {
     path: '/login',
     name: 'login',
-    component: Login,
-    meta: { guest: true }
+    component: () => import('../views/login.vue'),
+    meta: { guest: true },
   },
-
+  // Pages publiques (destinataire)
+  { path: '/suivi/:code?', name: 'tracking', component: () => import('../views/Tracking.vue'), meta: { public: true } },
+  {
+    path: '/etiquette/:id',
+    name: 'label',
+    component: () => import('../views/Label.vue'),
+    meta: { roles: [...SPACES.admin, ...SPACES.marchand] },
+  },
   {
     path: '/admin',
-    component: AdminLayout,
-    meta: { requiresAuth: true, role: 'admin' }
+    component: () => import('../layouts/AdminLayout.vue'),
+    meta: { roles: SPACES.admin },
+    children: [
+      { path: '', name: 'admin', component: shared.dashboard },
+      { path: 'courses', component: shared.orders, meta: { permission: 'orders.view' } },
+      { path: 'courses/nouvelle', component: shared.orderCreate, meta: { permission: 'orders.create' } },
+      { path: 'courses/:id(\\d+)', component: shared.orderDetail, meta: { permission: 'orders.view' } },
+      { path: 'marchands', component: () => import('../views/admin/Merchants.vue'), meta: { permission: 'merchants.view' } },
+      { path: 'livreurs', component: () => import('../views/admin/Couriers.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
+      { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'tarifs', component: () => import('../views/admin/Pricing.vue'), meta: { permission: 'settings.manage' } },
+    ],
   },
-
   {
     path: '/livreur',
-    component: LivreurLayout,
-    meta: { requiresAuth: true, role: 'livreur' }
+    component: () => import('../layouts/LivreurLayout.vue'),
+    meta: { roles: SPACES.livreur },
+    children: [
+      { path: '', name: 'livreur', component: () => import('../views/courier/Missions.vue') },
+      { path: 'missions/:id(\\d+)', component: () => import('../views/courier/MissionDetail.vue') },
+      // Les notifications pointent vers /livreur/courses/:id : on renvoie vers la liste des missions
+      { path: 'courses/:id', redirect: '/livreur' },
+    ],
   },
-
   {
-    path: '/client',
-    component: ClientLayout,
-    meta: { requiresAuth: true, role: 'client' }
-  }
+    path: '/marchand',
+    component: () => import('../layouts/ClientLayout.vue'),
+    meta: { roles: SPACES.marchand },
+    children: [
+      { path: '', name: 'marchand', component: shared.dashboard },
+      { path: 'courses', component: shared.orders },
+      { path: 'courses/nouvelle', component: shared.orderCreate },
+      { path: 'courses/:id(\\d+)', component: shared.orderDetail },
+    ],
+  },
+  { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
-  routes
+  routes,
 })
 
-/*
-|--------------------------------------------------------------------------
-| Guard global
-|--------------------------------------------------------------------------
-*/
-router.beforeEach(async (to, from, next) => {
+router.beforeEach(async (to) => {
+  if (to.meta.public) return true
+
   const auth = useAuthStore()
 
-  // Page publique (login)
-  if (to.meta.guest) {
-    if (auth.token) {
-      // déjà connecté → redirection selon rôle
-      if (auth.user) {
-        if (auth.user.role === 'admin') return next('/admin')
-        if (auth.user.role === 'livreur') return next('/livreur')
-        if (auth.user.role === 'client') return next('/client')
-      }
-    }
-    return next()
-  }
-
-  // Page protégée
-  if (to.meta.requiresAuth) {
-    if (!auth.token) {
-      return next('/login')
-    }
-
-    // Si l'utilisateur n’est pas encore chargé
-    if (!auth.user) {
-      try {
-        await auth.fetchUser()
-      } catch {
-        return next('/login')
-      }
-    }
-
-    // Vérification du rôle
-    if (to.meta.role && auth.user.role !== to.meta.role) {
-      // tentative d’accès interdit → on renvoie vers son espace
-      if (auth.user.role === 'admin') return next('/admin')
-      if (auth.user.role === 'livreur') return next('/livreur')
-      if (auth.user.role === 'client') return next('/client')
+  if (auth.isAuthenticated && !auth.user) {
+    try {
+      await auth.fetchUser()
+    } catch {
+      auth.clear()
     }
   }
 
-  next()
+  if (!auth.user) {
+    return to.meta.guest ? true : { name: 'login', query: to.path !== '/' ? { redirect: to.fullPath } : {} }
+  }
+
+  // Rôles autorisés : on regarde toute la chaîne de routes (layout + page)
+  const roles = to.matched.map((r) => r.meta.roles).filter(Boolean).at(-1)
+  const permission = to.meta.permission
+
+  if (to.meta.guest || to.path === '/' || (roles && !roles.includes(auth.role)) || (permission && !auth.can(permission))) {
+    return auth.homeRoute === to.path ? true : auth.homeRoute
+  }
+
+  return true
 })
 
 export default router

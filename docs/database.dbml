@@ -1,0 +1,738 @@
+// Schéma de base de données : plateforme de gestion de livraison
+// Format DBML, à importer sur https://dbdiagram.io
+// Conventions : montants en FCFA (XOF), entiers ; created_at/updated_at sur toutes les
+// tables sauf indication contraire ; company_id = isolation multi-entreprise.
+
+Project livraison {
+  database_type: 'PostgreSQL'
+  Note: 'Plateforme multi-entreprise de livraison pour e-commerçants (Côte d’Ivoire)'
+}
+
+// ───────────────────────────── ORGANISATION & ACCÈS ─────────────────────────────
+
+Table companies {
+  id bigint [pk, increment]
+  name varchar [not null]
+  slug varchar [unique, not null]
+  phone varchar
+  email varchar
+  address text
+  logo_path varchar
+  currency char(3) [default: 'XOF']
+  timezone varchar [default: 'Africa/Abidjan']
+  auto_confirm_orders boolean [default: false, note: 'valider les courses sans action admin']
+  default_max_attempts smallint [default: 3]
+  status varchar [default: 'active', note: 'active | suspended']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table users {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, note: 'null = super_admin plateforme']
+  merchant_id bigint [ref: > merchants.id, note: 'renseigné pour les comptes marchands']
+  name varchar [not null]
+  phone varchar [unique, note: 'identifiant de connexion principal, format E.164 (+225...)']
+  email varchar [unique, note: 'facultatif']
+  password varchar [not null]
+  status varchar [default: 'active', note: 'active | suspended']
+  last_login_at timestamp
+  remember_token varchar
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+  Note: 'Un compte = une entreprise : téléphone et e-mail uniques sur toute la plateforme. Rôles via spatie/permission (model_has_roles).'
+}
+
+Table devices {
+  id bigint [pk, increment]
+  user_id bigint [ref: > users.id, not null]
+  platform varchar [note: 'android | ios | web']
+  push_token varchar [unique, note: 'jeton FCM']
+  app_version varchar
+  last_seen_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table settings {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id]
+  key varchar [not null]
+  value jsonb
+  indexes { (company_id, key) [unique] }
+}
+
+// ───────────────────────────── ACTEURS ─────────────────────────────
+
+Table merchants {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  business_name varchar [not null]
+  contact_name varchar
+  phone varchar [not null]
+  whatsapp_phone varchar [note: 'numéro reconnu pour la création de course par WhatsApp']
+  email varchar
+  default_pickup_address_id bigint [ref: > addresses.id]
+  pricing_grid_id bigint [ref: > pricing_grids.id, note: 'grille négociée ; null = grille par défaut']
+  default_fee_payer varchar [default: 'merchant', note: 'merchant | recipient']
+  billing_mode varchar [default: 'deduct_from_cod', note: 'deduct_from_cod | prepaid | postpaid']
+  payout_method varchar [note: 'cash | wave | orange_money | mtn_momo | moov_money | bank']
+  payout_account varchar
+  payout_frequency varchar [default: 'weekly', note: 'daily | weekly | on_demand']
+  status varchar [default: 'active', note: 'pending | active | suspended']
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+  indexes {
+    (company_id, phone) [unique]
+    whatsapp_phone
+  }
+}
+
+Table couriers {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  user_id bigint [ref: - users.id, unique, not null]
+  vehicle_type varchar [note: 'moto | velo | voiture | tricycle | pieton']
+  vehicle_plate varchar
+  id_document_path varchar
+  home_hub_id bigint [ref: > hubs.id]
+  remuneration_type varchar [default: 'commission', note: 'salary | commission | mixed']
+  pickup_commission int [default: 0]
+  delivery_commission int [default: 0]
+  commission_percent decimal(5,2) [note: 'alternative : % du tarif']
+  is_available boolean [default: false, note: 'en service / hors service']
+  current_lat decimal(10,7)
+  current_lng decimal(10,7)
+  last_location_at timestamp
+  status varchar [default: 'active']
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+}
+
+Table courier_zones {
+  courier_id bigint [ref: > couriers.id]
+  zone_id bigint [ref: > zones.id]
+  indexes { (courier_id, zone_id) [pk] }
+}
+
+Table courier_locations {
+  id bigint [pk, increment]
+  courier_id bigint [ref: > couriers.id, not null]
+  lat decimal(10,7) [not null]
+  lng decimal(10,7) [not null]
+  accuracy_m smallint
+  battery smallint
+  recorded_at timestamp [not null]
+  Note: 'Haute volumétrie : purge après 90 jours'
+  indexes { (courier_id, recorded_at) }
+}
+
+Table hubs {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  name varchar [not null]
+  zone_id bigint [ref: > zones.id]
+  address text
+  lat decimal(10,7)
+  lng decimal(10,7)
+  is_warehouse boolean [default: false, note: 'peut stocker les produits des marchands']
+  created_at timestamp
+  updated_at timestamp
+}
+
+// ───────────────────────────── GÉOGRAPHIE & TARIFS ─────────────────────────────
+
+Table zones {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  parent_id bigint [ref: > zones.id, note: 'commune -> quartier (ex. Cocody -> Angré)']
+  name varchar [not null]
+  city varchar [default: 'Abidjan']
+  polygon geometry [note: 'PostGIS, facultatif : détection de zone depuis un point GPS']
+  is_active boolean [default: true]
+  sort_order int
+  created_at timestamp
+  updated_at timestamp
+  indexes { (company_id, parent_id, name) [unique] }
+}
+
+Table pricing_grids {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  name varchar [not null]
+  is_default boolean [default: false]
+  valid_from date
+  valid_until date
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table pricing_rules {
+  id bigint [pk, increment]
+  pricing_grid_id bigint [ref: > pricing_grids.id, not null]
+  origin_zone_id bigint [ref: > zones.id, not null]
+  destination_zone_id bigint [ref: > zones.id, not null]
+  price int [not null, note: 'ex. Cocody -> Yopougon = 1500']
+  is_symmetric boolean [default: true, note: 's’applique aussi dans le sens inverse']
+  estimated_minutes int
+  created_at timestamp
+  updated_at timestamp
+  indexes { (pricing_grid_id, origin_zone_id, destination_zone_id) [unique] }
+}
+
+Table pricing_surcharges {
+  id bigint [pk, increment]
+  pricing_grid_id bigint [ref: > pricing_grids.id, not null]
+  type varchar [not null, note: 'weight | size | express | fragile | out_of_city | failed_attempt | return | night']
+  min_value decimal(8,2) [note: 'ex. poids min (kg)']
+  max_value decimal(8,2)
+  amount int [default: 0]
+  percent decimal(5,2)
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table addresses {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  owner_type varchar [note: 'merchant | recipient | hub (polymorphique)']
+  owner_id bigint
+  label varchar [note: 'Boutique, Domicile...']
+  contact_name varchar
+  phone varchar
+  zone_id bigint [ref: > zones.id, not null]
+  address_line text
+  landmark varchar [note: 'repère : face pharmacie X']
+  lat decimal(10,7)
+  lng decimal(10,7)
+  created_at timestamp
+  updated_at timestamp
+  indexes { (owner_type, owner_id) }
+}
+
+Table recipients {
+  id bigint [pk, increment]
+  merchant_id bigint [ref: > merchants.id, not null]
+  name varchar
+  phone varchar [not null]
+  phone2 varchar
+  default_address_id bigint [ref: > addresses.id]
+  whatsapp_opt_in boolean [default: false]
+  deliveries_count int [default: 0]
+  failed_count int [default: 0, note: 'repérer les clients à risque']
+  created_at timestamp
+  updated_at timestamp
+  indexes { (merchant_id, phone) [unique] }
+}
+
+// ───────────────────────────── COURSES ─────────────────────────────
+
+Table orders {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  tracking_code varchar [unique, not null, note: 'ex. CI-2610-00123, encodé dans le QR']
+  merchant_reference varchar [note: 'n° de commande côté marchand']
+  external_id varchar [note: 'id côté app indépendante / API']
+  source varchar [not null, note: 'dashboard | mobile | whatsapp | api | import | admin']
+  created_by bigint [ref: > users.id]
+
+  // Ramassage
+  pickup_type varchar [default: 'merchant_address', note: 'merchant_address | company_stock']
+  pickup_hub_id bigint [ref: > hubs.id]
+  pickup_zone_id bigint [ref: > zones.id]
+  pickup_address text
+  pickup_landmark varchar
+  pickup_contact_name varchar
+  pickup_phone varchar
+  pickup_lat decimal(10,7)
+  pickup_lng decimal(10,7)
+  pickup_scheduled_at timestamp
+
+  // Destinataire
+  recipient_id bigint [ref: > recipients.id]
+  recipient_name varchar
+  recipient_phone varchar [not null]
+  recipient_phone2 varchar
+  delivery_zone_id bigint [ref: > zones.id, not null]
+  delivery_address text
+  delivery_landmark varchar
+  delivery_lat decimal(10,7)
+  delivery_lng decimal(10,7)
+  delivery_scheduled_date date
+  delivery_time_slot varchar [note: 'ex. 08-12 | 12-16 | 16-20']
+
+  // Colis
+  description text
+  package_size varchar [note: 'S | M | L | XL']
+  weight_kg decimal(6,2)
+  declared_value int
+  is_fragile boolean [default: false]
+  is_express boolean [default: false]
+  merchant_note text [note: 'instruction pour le livreur']
+
+  // Argent (figé à la création)
+  delivery_fee int [not null, note: 'prix zone->zone figé']
+  surcharges_total int [default: 0]
+  pricing_rule_id bigint [ref: > pricing_rules.id]
+  fee_payer varchar [not null, note: 'merchant | recipient']
+  items_amount int [default: 0, note: 'valeur des articles à encaisser']
+  cod_amount int [default: 0, note: 'total à encaisser = items_amount (+ frais si fee_payer = recipient)']
+  collected_amount int [default: 0]
+
+  // Suivi
+  status varchar [not null, default: 'pending', note: 'voir machine à états (PLAN.md §4)']
+  pickup_courier_id bigint [ref: > couriers.id, note: 'dénormalisé depuis order_assignments']
+  delivery_courier_id bigint [ref: > couriers.id, note: 'dénormalisé']
+  current_hub_id bigint [ref: > hubs.id]
+  attempts_count smallint [default: 0]
+  max_attempts smallint [default: 3]
+  last_incident_reason_id bigint [ref: > incident_reasons.id]
+  otp_hash varchar [note: 'code de livraison haché']
+  confirmed_at timestamp
+  picked_up_at timestamp
+  delivered_at timestamp
+  returned_at timestamp
+  cancelled_at timestamp
+  cancel_reason text
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+
+  indexes {
+    (company_id, status)
+    (company_id, created_at)
+    (merchant_id, created_at)
+    (merchant_id, status)
+    (delivery_courier_id, status)
+    (pickup_courier_id, status)
+    (merchant_id, merchant_reference)
+    recipient_phone
+  }
+}
+
+Table order_items {
+  id bigint [pk, increment]
+  order_id bigint [ref: > orders.id, not null]
+  product_id bigint [ref: > products.id, note: 'null = article libre hors stock']
+  stock_location_id bigint [ref: > stock_locations.id]
+  label varchar [not null]
+  quantity int [not null, default: 1]
+  quantity_delivered int [note: 'livraison partielle']
+  unit_price int [default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table order_assignments {
+  id bigint [pk, increment]
+  order_id bigint [ref: > orders.id, not null]
+  courier_id bigint [ref: > couriers.id, not null]
+  type varchar [not null, note: 'pickup | delivery | return | transfer']
+  status varchar [not null, default: 'assigned', note: 'assigned | accepted | refused | in_progress | completed | failed | cancelled']
+  sequence int [note: 'ordre dans la tournée']
+  assigned_by bigint [ref: > users.id]
+  assigned_at timestamp [not null]
+  accepted_at timestamp
+  started_at timestamp
+  completed_at timestamp
+  refusal_reason text
+  created_at timestamp
+  updated_at timestamp
+  indexes {
+    (order_id, type)
+    (courier_id, status)
+  }
+}
+
+Table incident_reasons {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, note: 'null = motif système commun']
+  code varchar [not null, note: 'unreachable | wrong_address | refused | postponed | damaged | no_money | absent | other']
+  label varchar [not null, note: 'Destinataire injoignable...']
+  applies_to varchar [default: 'delivery', note: 'pickup | delivery | both']
+  requires_date boolean [default: false, note: 'true pour un report']
+  counts_as_attempt boolean [default: true]
+  triggers_return boolean [default: false, note: 'ex. refus définitif']
+  is_active boolean [default: true]
+  indexes { (company_id, code) [unique] }
+}
+
+Table order_events {
+  id bigint [pk, increment]
+  order_id bigint [ref: > orders.id, not null]
+  assignment_id bigint [ref: > order_assignments.id]
+  type varchar [not null, note: 'created | edited | status_changed | assigned | unassigned | note | incident | rescheduled | scan | cod_collected | proof_added | message_sent | cancelled']
+  from_status varchar
+  to_status varchar
+  incident_reason_id bigint [ref: > incident_reasons.id]
+  rescheduled_to date
+  note text
+  actor_type varchar [not null, note: 'user | system | whatsapp | api']
+  actor_id bigint [ref: > users.id]
+  actor_role varchar [note: 'rôle au moment de l’action']
+  lat decimal(10,7)
+  lng decimal(10,7)
+  meta jsonb [note: 'diff des champs modifiés, ip, appareil...']
+  visible_to_merchant boolean [default: true]
+  created_at timestamp [not null]
+  Note: 'JOURNAL IMMUABLE : insertions uniquement, ni update ni delete'
+  indexes {
+    (order_id, created_at)
+    (actor_id, created_at)
+  }
+}
+
+Table order_attachments {
+  id bigint [pk, increment]
+  order_id bigint [ref: > orders.id, not null]
+  event_id bigint [ref: > order_events.id]
+  type varchar [note: 'photo_pickup | photo_delivery | signature | document']
+  file_path varchar [not null]
+  uploaded_by bigint [ref: > users.id]
+  created_at timestamp
+}
+
+Table order_imports {
+  id bigint [pk, increment]
+  merchant_id bigint [ref: > merchants.id, not null]
+  file_path varchar
+  status varchar [note: 'processing | done | failed']
+  total_rows int
+  success_rows int
+  errors jsonb
+  created_by bigint [ref: > users.id]
+  created_at timestamp
+  updated_at timestamp
+}
+
+// ───────────────────────────── FINANCE ─────────────────────────────
+
+Table cash_collections {
+  id bigint [pk, increment]
+  order_id bigint [ref: > orders.id, not null]
+  courier_id bigint [ref: > couriers.id, not null]
+  amount_expected int [not null]
+  amount_collected int [not null]
+  method varchar [not null, note: 'cash | wave | orange_money | mtn_momo | moov_money']
+  transaction_ref varchar
+  collected_at timestamp [not null]
+  remittance_id bigint [ref: > courier_remittances.id, note: 'null = encore en main du livreur']
+  created_at timestamp
+}
+
+Table courier_remittances {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  courier_id bigint [ref: > couriers.id, not null]
+  amount_expected int [not null]
+  amount_received int [not null]
+  difference int [note: 'écart de caisse']
+  received_by bigint [ref: > users.id]
+  received_at timestamp
+  notes text
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table merchant_ledger_entries {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  type varchar [not null, note: 'cod_credit | delivery_fee | surcharge | return_fee | storage_fee | payout | adjustment']
+  amount int [not null, note: 'signé : + crédit marchand, - débit']
+  order_id bigint [ref: > orders.id]
+  payout_id bigint [ref: > merchant_payouts.id]
+  description varchar
+  created_by bigint [ref: > users.id]
+  created_at timestamp [not null]
+  Note: 'Solde marchand = SUM(amount). Insertions uniquement ; corrections via adjustment.'
+  indexes { (merchant_id, created_at) }
+}
+
+Table merchant_payouts {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  reference varchar [unique]
+  period_start date
+  period_end date
+  total_collected int
+  total_fees int
+  total_storage_fees int
+  net_amount int [not null]
+  status varchar [default: 'draft', note: 'draft | validated | paid | cancelled']
+  method varchar
+  transaction_ref varchar
+  statement_pdf_path varchar
+  validated_by bigint [ref: > users.id]
+  paid_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table courier_earnings {
+  id bigint [pk, increment]
+  courier_id bigint [ref: > couriers.id, not null]
+  order_id bigint [ref: > orders.id]
+  assignment_id bigint [ref: > order_assignments.id]
+  type varchar [note: 'pickup | delivery | bonus | penalty']
+  amount int [not null]
+  courier_payout_id bigint [ref: > courier_payouts.id]
+  created_at timestamp
+}
+
+Table courier_payouts {
+  id bigint [pk, increment]
+  courier_id bigint [ref: > couriers.id, not null]
+  period_start date
+  period_end date
+  amount int [not null]
+  status varchar [note: 'draft | paid']
+  paid_at timestamp
+  method varchar
+  created_at timestamp
+  updated_at timestamp
+}
+
+// ───────────────────────────── STOCK ─────────────────────────────
+
+Table products {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  sku varchar
+  name varchar [not null]
+  description text
+  price int [default: 0]
+  weight_kg decimal(6,2)
+  photo_path varchar
+  low_stock_threshold int
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+  deleted_at timestamp
+  indexes { (merchant_id, sku) [unique] }
+}
+
+Table stock_locations {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  type varchar [not null, note: 'merchant_premises | company_warehouse']
+  hub_id bigint [ref: > hubs.id, note: 'si company_warehouse']
+  name varchar
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table stock_levels {
+  id bigint [pk, increment]
+  product_id bigint [ref: > products.id, not null]
+  stock_location_id bigint [ref: > stock_locations.id, not null]
+  quantity_on_hand int [default: 0]
+  quantity_reserved int [default: 0, note: 'réservé par des courses non livrées']
+  updated_at timestamp
+  Note: 'Cache recalculable depuis stock_movements ; disponible = on_hand - reserved'
+  indexes { (product_id, stock_location_id) [unique] }
+}
+
+Table stock_movements {
+  id bigint [pk, increment]
+  product_id bigint [ref: > products.id, not null]
+  stock_location_id bigint [ref: > stock_locations.id, not null]
+  type varchar [not null, note: 'receipt | reservation | release | shipment | return | adjustment | transfer_in | transfer_out | inventory']
+  quantity int [not null, note: 'signé']
+  order_id bigint [ref: > orders.id]
+  user_id bigint [ref: > users.id]
+  note text
+  created_at timestamp [not null]
+  indexes { (product_id, created_at) }
+}
+
+Table storage_contracts {
+  id bigint [pk, increment]
+  merchant_id bigint [ref: > merchants.id, not null]
+  hub_id bigint [ref: > hubs.id, not null]
+  billing_type varchar [not null, note: 'free | monthly_flat | per_unit_day | per_order']
+  price int [default: 0]
+  starts_on date
+  ends_on date
+  created_at timestamp
+  updated_at timestamp
+}
+
+// ───────────────────────────── NOTIFICATIONS & RAPPORTS ─────────────────────────────
+
+Table notifications {
+  id uuid [pk]
+  type varchar
+  notifiable_type varchar
+  notifiable_id bigint
+  data jsonb
+  read_at timestamp
+  created_at timestamp
+  updated_at timestamp
+  Note: 'Table standard Laravel (notifications in-app)'
+}
+
+Table notification_preferences {
+  id bigint [pk, increment]
+  user_id bigint [ref: > users.id]
+  merchant_id bigint [ref: > merchants.id]
+  event varchar [not null, note: 'order.created | order.picked_up | order.incident | order.delivered | report.daily ...']
+  channels jsonb [note: '["in_app","push","whatsapp","sms","email"]']
+  indexes { (user_id, event) [unique] }
+}
+
+Table outbound_messages {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  channel varchar [not null, note: 'whatsapp | sms | push | email']
+  whatsapp_account_id bigint [ref: > whatsapp_accounts.id]
+  to varchar [not null]
+  template_name varchar
+  payload jsonb
+  order_id bigint [ref: > orders.id]
+  status varchar [default: 'queued', note: 'queued | sent | delivered | read | failed']
+  provider_message_id varchar [unique]
+  error text
+  cost int
+  sent_at timestamp
+  created_at timestamp
+  updated_at timestamp
+  indexes { (order_id) }
+}
+
+Table scheduled_reports {
+  id bigint [pk, increment]
+  merchant_id bigint [ref: > merchants.id, not null]
+  frequency varchar [note: 'daily | weekly | monthly']
+  send_time time [default: '19:00']
+  channels jsonb [note: '["whatsapp","email"]']
+  is_active boolean [default: true]
+  last_sent_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+// ───────────────────────────── WHATSAPP ─────────────────────────────
+
+Table whatsapp_accounts {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  owner_type varchar [not null, note: 'company | merchant']
+  owner_id bigint [not null]
+  provider varchar [default: 'meta_cloud', note: 'meta_cloud | 360dialog | twilio']
+  waba_id varchar
+  phone_number_id varchar [unique]
+  display_phone varchar
+  access_token text [note: 'chiffré']
+  webhook_secret text [note: 'chiffré']
+  allow_order_creation boolean [default: true]
+  status varchar [default: 'pending', note: 'pending | connected | disconnected']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table whatsapp_templates {
+  id bigint [pk, increment]
+  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, not null]
+  name varchar [not null]
+  language varchar [default: 'fr']
+  category varchar [note: 'utility | marketing | authentication']
+  body text
+  variables jsonb
+  status varchar [note: 'pending | approved | rejected']
+  created_at timestamp
+  updated_at timestamp
+  indexes { (whatsapp_account_id, name, language) [unique] }
+}
+
+Table inbound_messages {
+  id bigint [pk, increment]
+  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, not null]
+  provider_message_id varchar [unique, note: 'déduplication des webhooks']
+  from_phone varchar [not null]
+  merchant_id bigint [ref: > merchants.id]
+  type varchar [note: 'text | interactive | location | image | flow_reply']
+  body text
+  payload jsonb
+  order_id bigint [ref: > orders.id, note: 'course créée à partir de ce message']
+  processed_at timestamp
+  created_at timestamp
+}
+
+Table whatsapp_sessions {
+  id bigint [pk, increment]
+  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, not null]
+  phone varchar [not null]
+  merchant_id bigint [ref: > merchants.id]
+  state varchar [note: 'idle | collecting | awaiting_confirmation']
+  context jsonb [note: 'brouillon de course en cours']
+  expires_at timestamp
+  created_at timestamp
+  updated_at timestamp
+  indexes { (whatsapp_account_id, phone) [unique] }
+}
+
+// ───────────────────────────── API & INTÉGRATIONS ─────────────────────────────
+
+Table api_keys {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, note: 'null = clé entreprise']
+  name varchar
+  key_prefix varchar(12) [unique, note: 'partie visible']
+  key_hash varchar [not null]
+  scopes jsonb [note: '["orders:write","orders:read","stock:read"]']
+  last_used_at timestamp
+  expires_at timestamp
+  revoked_at timestamp
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table idempotency_keys {
+  id bigint [pk, increment]
+  api_key_id bigint [ref: > api_keys.id, not null]
+  key varchar [not null]
+  response_code smallint
+  response_body jsonb
+  created_at timestamp
+  indexes { (api_key_id, key) [unique] }
+}
+
+Table webhook_subscriptions {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id]
+  url varchar [not null]
+  events jsonb [note: '["order.status_changed","order.incident"]']
+  secret text [note: 'chiffré, signature HMAC-SHA256']
+  is_active boolean [default: true]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table webhook_deliveries {
+  id bigint [pk, increment]
+  webhook_subscription_id bigint [ref: > webhook_subscriptions.id, not null]
+  event varchar
+  payload jsonb
+  response_code smallint
+  response_body text
+  attempts smallint [default: 0]
+  next_retry_at timestamp
+  delivered_at timestamp
+  created_at timestamp
+}
+
+// ─────────────────── APP MARCHAND INDÉPENDANTE (base séparée, pour mémoire) ───────────────────
+// carrier_connections(id, shop_id, carrier_name, base_url, api_key_encrypted, status, last_sync_at)
+// carrier_zone_mappings(id, carrier_connection_id, local_zone, carrier_zone_id)
+// shipments(id, shop_id, sales_order_id, carrier_connection_id, carrier_tracking_code, status, fee, cod_amount, last_event_at)
+// + catalogue, clients (CRM), commandes, stock multi-entrepôts, paiements...
