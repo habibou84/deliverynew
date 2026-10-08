@@ -11,3 +11,8 @@ Broadcast::channel('company.{companyId}', function ($user, $companyId) {
     return (int) $user->company_id === (int) $companyId
         && $user->hasAnyRole(\App\Enums\Role::values(\App\Enums\Role::staff()));
 });
+
+// Suivi temps réel des courses d'un marchand : comptes du marchand uniquement
+Broadcast::channel('merchant.{merchantId}', function ($user, $merchantId) {
+    return $user->merchant_id !== null && (int) $user->merchant_id === (int) $merchantId;
+});

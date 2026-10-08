@@ -8,6 +8,8 @@ enum Permission: string
     case UsersView = 'users.view';
     case UsersManage = 'users.manage';
     case SettingsManage = 'settings.manage';
+    case MerchantsView = 'merchants.view';
+    case MerchantsManage = 'merchants.manage';
     case OrdersView = 'orders.view';
     case OrdersCreate = 'orders.create';
     case OrdersDispatch = 'orders.dispatch';

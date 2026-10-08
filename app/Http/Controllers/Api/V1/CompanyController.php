@@ -9,6 +9,7 @@ use App\Http\Requests\V1\UpdateCompanyRequest;
 use App\Http\Resources\V1\CompanyResource;
 use App\Models\Company;
 use App\Models\User;
+use App\Services\CompanyProvisioner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -36,15 +37,17 @@ class CompanyController extends Controller
         return CompanyResource::collection($companies);
     }
 
-    public function store(StoreCompanyRequest $request): JsonResponse
+    public function store(StoreCompanyRequest $request, CompanyProvisioner $provisioner): JsonResponse
     {
         $data = $request->validated();
 
-        $company = DB::transaction(function () use ($data) {
+        $company = DB::transaction(function () use ($data, $provisioner) {
             $company = Company::create([
                 ...collect($data)->except('admin')->all(),
                 'slug' => $data['slug'] ?? $this->uniqueSlug($data['name']),
             ]);
+
+            $provisioner->provision($company);
 
             if (! empty($data['admin'])) {
                 User::create([

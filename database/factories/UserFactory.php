@@ -64,6 +64,9 @@ class UserFactory extends Factory
 
     public function withRole(Role $role): static
     {
-        return $this->afterCreating(fn (User $user) => $user->assignRole($role->value));
+        return $this->afterCreating(function (User $user) use ($role) {
+            $user->assignRole($role->value);
+            $user->syncCourierProfile();
+        });
     }
 }

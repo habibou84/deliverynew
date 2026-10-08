@@ -1,0 +1,148 @@
+<?php
+
+namespace App\Services\Orders;
+
+use App\Enums\OrderEventType;
+use App\Enums\OrderStatus;
+use App\Enums\Role;
+use App\Models\Order;
+use App\Models\OrderEvent;
+use App\Models\User;
+use App\Notifications\OrderAlert;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Notification;
+
+/**
+ * Décide qui alerter pour chaque action sur une course. L'auteur de l'action
+ * n'est jamais notifié de sa propre action.
+ */
+class OrderNotifier
+{
+    public function notify(Order $order, OrderEvent $event, ?User $actor): void
+    {
+        $order->loadMissing('merchant');
+        $code = $order->tracking_code;
+        $merchantName = $order->merchant->business_name;
+        $reason = $event->incidentReason?->label;
+        $note = $event->note ? ' « '.$event->note.' »' : '';
+        $actorIsMerchant = $actor?->merchant_id !== null;
+
+        $toMerchant = null;
+        $toStaff = null;
+
+        switch ($event->type) {
+            case OrderEventType::Created:
+                $toStaff = ['new_order', "Nouvelle course {$code}", "{$merchantName} → {$order->deliveryZone?->name}"];
+                break;
+
+            case OrderEventType::Assigned:
+                $courierUser = User::find($event->meta['courier_user_id'] ?? null);
+                if ($courierUser) {
+                    $this->send(collect([$courierUser]), $actor, $order, 'new_mission',
+                        'Nouvelle mission : '.($event->meta['type_label'] ?? ''), "{$code} · {$merchantName}");
+                }
+                break;
+
+            case OrderEventType::AssignmentRefused:
+                $toStaff = ['mission_refused', "Mission refusée {$code}", ($event->actor_name ?? 'Le livreur').' a refusé la mission.'.$note];
+                break;
+
+            case OrderEventType::Note:
+                if ($actorIsMerchant) {
+                    $toStaff = ['note', "Note du marchand sur {$code}", $merchantName.' :'.$note];
+                } elseif ($event->visible_to_merchant) {
+                    $toMerchant = ['note', "Note sur votre colis {$code}", trim(($event->actor_name ?? '').' :'.$note)];
+                    if ($actor?->isCourier()) {
+                        $toStaff = ['note', "Note du livreur sur {$code}", trim(($event->actor_name ?? '').' :'.$note)];
+                    }
+                }
+                break;
+
+            case OrderEventType::ReturnRequested:
+                $toStaff = ['return_requested', "Retour demandé pour {$code}", $merchantName.' demande le retour du colis.'.$note];
+                break;
+
+            case OrderEventType::StatusChanged:
+            case OrderEventType::Incident:
+                [$toMerchant, $toStaff] = $this->forStatus($order, $event, $actorIsMerchant, $reason, $note);
+                break;
+
+            default:
+                break;
+        }
+
+        if ($toMerchant) {
+            $this->send($this->merchantUsers($order), $actor, $order, ...$toMerchant);
+        }
+
+        if ($toStaff) {
+            $this->send($this->dispatchers($order), $actor, $order, ...$toStaff);
+        }
+    }
+
+    /**
+     * @return array{0: ?array, 1: ?array}
+     */
+    private function forStatus(Order $order, OrderEvent $event, bool $actorIsMerchant, ?string $reason, string $note): array
+    {
+        $code = $order->tracking_code;
+        $why = $reason ? " Motif : {$reason}." : '';
+        $date = $event->rescheduled_to?->format('d/m/Y');
+
+        return match ($event->to_status) {
+            OrderStatus::PickedUp => [['picked_up', "Colis {$code} récupéré", 'Votre colis a été récupéré par notre livreur.'], null],
+            OrderStatus::OutForDelivery => [['out_for_delivery', "Colis {$code} en chemin", 'Votre colis est en cours de livraison.'], null],
+            OrderStatus::Delivered => [['delivered', "Colis {$code} livré", 'Votre colis a été livré.'], null],
+            OrderStatus::DeliveryFailed => [
+                ['incident', "Échec de livraison {$code}", "La livraison n'a pas pu être effectuée.{$why}{$note}"],
+                ['incident', "Échec de livraison {$code}", trim("{$reason}{$note}")],
+            ],
+            OrderStatus::Rescheduled => [
+                $actorIsMerchant ? null : ['rescheduled', "Livraison reportée {$code}", "Livraison reportée au {$date}.{$why}{$note}"],
+                ['rescheduled', "Livraison reportée {$code}", "Reportée au {$date}.{$why}{$note}"],
+            ],
+            OrderStatus::Confirmed => $event->from_status === OrderStatus::Pending
+                ? [['confirmed', "Course {$code} validée", 'Votre course a été validée.'], null]
+                : [null, ['pickup_failed', "Échec du ramassage {$code}", trim("{$reason}{$note}")]],
+            OrderStatus::Returned => [['returned', "Colis {$code} retourné", 'Le colis vous a été retourné.'], null],
+            OrderStatus::Rejected => [['rejected', "Course {$code} refusée", 'La course a été refusée par l\'entreprise de livraison.'.$note], null],
+            OrderStatus::Cancelled => $actorIsMerchant
+                ? [null, ['cancelled', "Course {$code} annulée", 'Le marchand a annulé la course.'.$note]]
+                : [['cancelled', "Course {$code} annulée", 'La course a été annulée.'.$note], null],
+            default => [null, null],
+        };
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function merchantUsers(Order $order): Collection
+    {
+        return User::where('merchant_id', $order->merchant_id)->where('status', 'active')->get();
+    }
+
+    /**
+     * Administrateurs et dispatchers de l'entreprise.
+     *
+     * @return Collection<int, User>
+     */
+    private function dispatchers(Order $order): Collection
+    {
+        return User::forCompany($order->company_id)
+            ->where('status', 'active')
+            ->role([Role::Admin->value, Role::Dispatcher->value])
+            ->get();
+    }
+
+    /**
+     * @param  Collection<int, User>  $users
+     */
+    private function send(Collection $users, ?User $actor, Order $order, string $kind, string $title, string $body): void
+    {
+        $users = $users->reject(fn (User $u) => $actor !== null && $u->is($actor));
+
+        if ($users->isNotEmpty()) {
+            Notification::send($users, new OrderAlert($order, $kind, $title, $body));
+        }
+    }
+}

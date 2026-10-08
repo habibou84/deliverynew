@@ -22,6 +22,7 @@ class Company extends Model
         'timezone',
         'auto_confirm_orders',
         'default_max_attempts',
+        'require_delivery_code',
         'status',
     ];
 
@@ -30,6 +31,7 @@ class Company extends Model
         return [
             'auto_confirm_orders' => 'boolean',
             'default_max_attempts' => 'integer',
+            'require_delivery_code' => 'boolean',
             'status' => CompanyStatus::class,
         ];
     }

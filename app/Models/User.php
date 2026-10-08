@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -26,6 +27,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'company_id',
+        'merchant_id',
         'name',
         'phone',
         'email',
@@ -67,6 +69,16 @@ class User extends Authenticatable
         return $this->belongsTo(Company::class);
     }
 
+    public function merchant(): BelongsTo
+    {
+        return $this->belongsTo(Merchant::class);
+    }
+
+    public function courier(): HasOne
+    {
+        return $this->hasOne(Courier::class);
+    }
+
     public function scopeForCompany(Builder $query, ?int $companyId): Builder
     {
         return $query->where('company_id', $companyId);
@@ -87,10 +99,39 @@ class User extends Authenticatable
         return $this->hasRole(Role::SuperAdmin->value);
     }
 
+    /**
+     * Crée le profil livreur (véhicule, zones, disponibilité) si l'utilisateur
+     * a le rôle livreur et n'en a pas encore.
+     */
+    public function syncCourierProfile(): void
+    {
+        if ($this->isCourier() && $this->company_id !== null) {
+            Courier::withoutGlobalScopes()->firstOrCreate(
+                ['user_id' => $this->id],
+                ['company_id' => $this->company_id],
+            );
+            $this->unsetRelation('courier');
+        }
+    }
+
+    public function isCourier(): bool
+    {
+        return $this->hasRole(Role::Courier->value);
+    }
+
+    /**
+     * Personnel de l'entreprise de livraison (back-office) ou super administrateur.
+     */
+    public function isStaff(): bool
+    {
+        return $this->hasAnyRole([Role::SuperAdmin->value, ...Role::values(Role::staff())]);
+    }
+
     public function isActive(): bool
     {
         return $this->status === UserStatus::Active
-            && ($this->company === null || $this->company->isActive());
+            && ($this->company === null || $this->company->isActive())
+            && ($this->merchant_id === null || $this->merchant?->isActive() === true);
     }
 
     public function belongsToSameCompanyAs(self $other): bool

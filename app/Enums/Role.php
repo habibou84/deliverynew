@@ -40,11 +40,13 @@ enum Role: string
             self::Admin => Permission::companyScoped(),
             self::Dispatcher => [
                 Permission::UsersView,
+                Permission::MerchantsView,
                 Permission::OrdersView,
                 Permission::OrdersCreate,
                 Permission::OrdersDispatch,
             ],
             self::Cashier => [
+                Permission::MerchantsView,
                 Permission::OrdersView,
                 Permission::FinanceView,
                 Permission::FinanceManage,
