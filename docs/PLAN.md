@@ -407,5 +407,6 @@ Hypothèse d'équipe : 2 développeurs full-stack, 1 développeur mobile et 1 ch
 | 5 | `config/cors` | Fichier sans extension `.php`, donc jamais chargé | Renommé en `config/cors.php` ✅ |
 | 6 | `AuthController::register` | Tout le monde peut s'inscrire comme `livreur` | Inscription publique limitée à `client` ; les livreurs sont créés par l'admin ✅ |
 | 7 | `AuthController::logout` | Supprime **tous** les jetons (déconnecte tous les appareils) | Ne révoque que le jeton courant ✅ |
-| 8 | `resources/js/app.js`, `stores/auth.js` | Importent `./router` et `../bootstrap/axios`, qui n'existent pas : le build Vite échoue | À créer en phase 0 (axios avec `baseURL: '/api'` et intercepteur de jeton) |
-| 9 | Front-end | Les appels `axios.post('/login')` devront viser `/api/login` une fois l'API chargée | À traiter avec le point 8 |
+| 8 | `app/Models/User.php` | Trait Sanctum `HasApiTokens` absent : `createToken()` plante (erreur 500 à la connexion) | Trait ajouté ✅ |
+| 9 | `resources/js/app.js`, `stores/auth.js` | Importent `./router` et `../bootstrap/axios`, qui n'existent pas : le build Vite échoue | À créer en phase 0 (axios avec `baseURL: '/api'` et intercepteur de jeton) |
+| 10 | Front-end | Les appels `axios.post('/login')` devront viser `/api/login` une fois l'API chargée | À traiter avec le point 9 |
