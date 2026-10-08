@@ -33,6 +33,7 @@ class ApiDocumentationTest extends TestCase
     public function test_documentation_page_is_served(): void
     {
         $this->get('/developpeurs/api')->assertOk()->assertSee('docs/openapi.yaml', false);
-        $this->get('/docs/openapi.yaml')->assertStatus(200);
+        // Fichier statique servi directement par le serveur web
+        $this->assertFileExists(public_path('docs/openapi.yaml'));
     }
 }
