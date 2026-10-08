@@ -383,7 +383,8 @@ Règles retenues en phase 2 :
 - [x] Zone marquée « expédition » (ex. « Expédition Bouaké (gare UTB Adjamé) ») avec des frais habituels indicatifs ; la course jusqu'à la gare se tarifie comme les autres zones.
 - [x] Le livreur dépose le colis à la gare et saisit la compagnie, les frais réellement payés et le numéro du ticket (photo possible). Pas de code de livraison : le destinataire n'est pas là.
 - [x] Frais facturés au marchand (écriture `shipping_fee` du grand livre), visibles dans son point du jour, son point d'activité WhatsApp, ses relevés et la fiche du colis.
-- [x] Frais remboursés au livreur sur son versement (`cash_collections.courier_expense`) : il verse l'encaissé moins les frais avancés ; si la caisse lui doit de l'argent, elle le lui remet.
+- [x] Frais de gare payés **soit par le livreur** (de sa poche, ou avec une **avance de caisse** remise avant son départ), **soit directement par l'agence**. Ce que le livreur a payé est déduit de son versement ; l'avance non dépensée revient à la caisse.
+- [x] **Autres frais d'une course** (transport, emballage, stationnement ou péage, autre) : déclarés par le livreur depuis sa mission, ou saisis par le dispatch ou la caisse qui choisissent qui a payé (livreur ou agence) et qui supporte le coût (marchand ou agence). Facturés au marchand, ils sont déduits de son point et de ses relevés (« Autres frais ») ; une saisie erronée s'annule par contre-écriture tant que le livreur n'a pas été remboursé.
 - [x] Messages : « colis expédié » au marchand (avec les frais) et au destinataire (compagnie, ticket) à la place du « colis en route ».
 
 ### Phase 3 : WhatsApp sortant (2 à 3 semaines) ✅ *réalisée côté application*

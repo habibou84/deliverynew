@@ -59,6 +59,15 @@ class OrderNotifier
                 }
                 break;
 
+            case OrderEventType::ExpenseAdded:
+                if ($event->visible_to_merchant) {
+                    $toMerchant = ['expense', "Frais sur votre colis {$code}", (string) $event->note];
+                }
+                if ($actor?->isCourier()) {
+                    $toStaff = ['expense', "Frais déclarés sur {$code}", trim(($event->actor_name ?? '').' : '.$event->note)];
+                }
+                break;
+
             case OrderEventType::ReturnRequested:
                 $toStaff = ['return_requested', "Retour demandé pour {$code}", $merchantName.' demande le retour du colis.'.$note];
                 break;

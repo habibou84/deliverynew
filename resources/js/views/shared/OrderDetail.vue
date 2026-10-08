@@ -104,6 +104,8 @@
           <button class="btn-primary w-full" :disabled="!note.text.trim()" @click="addNote">Envoyer</button>
         </div>
 
+        <OrderExpenses v-if="isStaff" :order-id="order.id" :expenses="order.expenses || []" :can-add="canManageExpenses" @changed="load" />
+
         <OrderMessages v-if="isStaff" :order-id="order.id" :version="order.updated_at" />
 
         <div v-if="isStaff && order.assignments?.length" class="card p-4 text-sm">
@@ -151,6 +153,7 @@ import StatusBadge from '../../components/StatusBadge.vue'
 import OrderTimeline from '../../components/OrderTimeline.vue'
 import Modal from '../../components/Modal.vue'
 import OrderMessages from '../../components/OrderMessages.vue'
+import OrderExpenses from '../../components/OrderExpenses.vue'
 import StatusChangeForm from '../../components/StatusChangeForm.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
@@ -182,6 +185,7 @@ const editError = ref('')
 const isMerchant = computed(() => !!auth.user?.merchant_id)
 const isStaff = computed(() => !isMerchant.value)
 const isDispatcher = computed(() => auth.can('orders.dispatch'))
+const canManageExpenses = computed(() => auth.can('orders.dispatch') || auth.can('finance.manage'))
 const isFinal = computed(() => FINAL.includes(order.value?.status))
 const canEditDelivery = computed(() => !isFinal.value && order.value?.status !== 'out_for_delivery' && (isMerchant.value || isDispatcher.value))
 const assignableTypes = computed(() => Object.keys(ASSIGNABLE).filter((type) => {

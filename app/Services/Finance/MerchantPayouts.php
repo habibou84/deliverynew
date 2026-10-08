@@ -107,6 +107,7 @@ class MerchantPayouts
                 'total_collected' => $sum([LedgerEntryType::CodCredit]),
                 'total_fees' => -$sum([LedgerEntryType::DeliveryFee, LedgerEntryType::ReturnFee]),
                 'total_shipping_fees' => -$sum([LedgerEntryType::ShippingFee]),
+                'total_other_fees' => -$sum([LedgerEntryType::OtherFee]),
                 'total_adjustments' => $sum([LedgerEntryType::Adjustment]),
                 'net_amount' => $entries->sum('amount'),
                 'status' => PayoutStatus::Draft,

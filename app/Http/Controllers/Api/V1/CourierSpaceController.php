@@ -27,7 +27,11 @@ class CourierSpaceController extends Controller
                 fn ($q) => $q->whereNotIn('status', ['assigned', 'accepted', 'in_progress'])->whereDate('updated_at', today()),
                 fn ($q) => $q->active(),
             )
-            ->with(['order' => fn ($q) => $q->with(OrderController::LIST_RELATIONS)])
+            // Frais déjà déclarés par ce livreur sur la course
+            ->with(['order' => fn ($q) => $q->with([
+                ...OrderController::LIST_RELATIONS,
+                'expenses' => fn ($e) => $e->active()->where('courier_id', $courier->id)->orderBy('id'),
+            ])])
             ->orderByRaw("CASE type WHEN 'pickup' THEN 0 WHEN 'delivery' THEN 1 ELSE 2 END")
             ->orderBy('assigned_at')
             ->get();

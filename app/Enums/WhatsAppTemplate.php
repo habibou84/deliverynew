@@ -30,7 +30,7 @@ enum WhatsAppTemplate: string
             self::OrderDelivered => 'Bonjour {{1}}, le colis {{2}} pour {{3}} a été livré. Montant encaissé : {{4}}. Merci de votre confiance.',
             self::DeliveryIncident => 'Bonjour {{1}}, incident sur le colis {{2}} pour {{3}} : {{4}}. Choisissez la suite depuis votre espace : {{5}} . Merci.',
             self::PayoutPaid => 'Bonjour {{1}}, votre reversement {{2}} de {{3}} a été effectué par {{4}}. Le détail est dans votre espace marchand. Merci.',
-            self::ActivityReport => 'Bonjour {{1}}, voici votre point {{2}} : {{3}} courses, {{4}} livrées ou expédiées, {{5}} non livrées ou reportées, {{6}} retournées. Encaissé : {{7}}. Frais de livraison : {{8}}. Frais d\'expédition : {{9}}. Net : {{10}}. Merci de votre confiance.',
+            self::ActivityReport => 'Bonjour {{1}}, voici votre point {{2}} : {{3}} courses, {{4}} livrées ou expédiées, {{5}} non livrées ou reportées, {{6}} retournées. Encaissé : {{7}}. Frais de livraison : {{8}}. Frais d\'expédition et autres frais : {{9}}. Net : {{10}}. Merci de votre confiance.',
             self::Shipped => 'Bonjour {{1}}, le colis {{2}} pour {{3}} a été expédié par {{4}} (ticket {{5}}). Frais d\'expédition : {{6}}, déduits de votre point. Merci.',
             self::ShippedRecipient => 'Bonjour {{1}}, votre colis de {{2}} a été expédié par {{3}} (ticket {{4}}). Récupérez-le à l\'arrivée auprès du transporteur. Merci de votre confiance.',
         };

@@ -68,6 +68,15 @@
       <div v-if="order.amounts.collected_amount !== null" class="flex justify-between text-emerald-700 font-medium"><span>Encaissé</span><span>{{ money(order.amounts.collected_amount) }}</span></div>
     </section>
 
+    <!-- Frais facturés au marchand -->
+    <section v-if="order.expenses?.length" class="m-card p-4 space-y-2 text-sm">
+      <h2 class="font-semibold text-base">Frais de la course</h2>
+      <div v-for="e in order.expenses" :key="e.id" :class="['flex justify-between gap-3', e.cancelled_at ? 'line-through text-slate-400' : '']">
+        <span class="text-slate-600">{{ e.description }}</span><span class="whitespace-nowrap">− {{ money(e.amount) }}</span>
+      </div>
+      <p class="text-slate-500 text-xs">Déduits de votre point.</p>
+    </section>
+
     <!-- Expédition -->
     <section v-if="order.is_shipping && order.shipping.carrier" class="m-card p-4 space-y-1 text-sm">
       <h2 class="font-semibold text-base">🚌 Colis expédié</h2>

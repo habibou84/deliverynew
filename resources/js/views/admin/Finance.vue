@@ -23,17 +23,23 @@
       <div class="card overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-gray-600">
-            <tr><th class="p-2">Livreur</th><th class="p-2 text-right">En main</th><th class="p-2">Encaissements</th><th class="p-2">Plus ancien</th><th class="p-2 text-right">Gains non payés</th><th /></tr>
+            <tr><th class="p-2">Livreur</th><th class="p-2 text-right" title="Encaissé + avances − frais payés">À verser</th><th class="p-2">Lignes</th><th class="p-2">Plus ancien</th><th class="p-2 text-right">Gains non payés</th><th /></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="c in cash?.data || []" :key="c.courier_id">
               <td class="p-2 font-medium">{{ c.name }}<div class="text-xs text-gray-500">{{ c.phone }}</div></td>
-              <td class="p-2 text-right font-semibold">{{ money(c.cash_in_hand) }}</td>
+              <td class="p-2 text-right font-semibold">
+                {{ money(c.cash_in_hand) }}
+                <div v-if="c.advances || c.expenses" class="text-xs font-normal text-gray-500">
+                  <span v-if="c.advances">+{{ money(c.advances) }} avance</span><span v-if="c.advances && c.expenses"> · </span><span v-if="c.expenses">−{{ money(c.expenses) }} frais</span>
+                </div>
+              </td>
               <td class="p-2">{{ c.pending_collections }}</td>
               <td class="p-2 text-xs">{{ c.oldest_collected_at ? dateTime(c.oldest_collected_at) : '—' }}</td>
               <td :class="['p-2 text-right', signedClass(c.unpaid)]">{{ money(c.unpaid) }}</td>
-              <td class="p-2 text-right">
-                <button v-if="c.cash_in_hand !== 0 && canManage" class="btn-primary" @click="openRemit(c)">{{ c.cash_in_hand > 0 ? 'Recevoir le versement' : 'Rembourser le livreur' }}</button>
+              <td class="p-2 text-right whitespace-nowrap space-x-1">
+                <button v-if="canManage" class="btn-secondary" @click="openAdvance(c)">Donner une avance</button>
+                <button v-if="c.pending_collections && canManage" class="btn-primary" @click="openRemit(c)">{{ c.cash_in_hand >= 0 ? 'Recevoir le versement' : 'Rembourser le livreur' }}</button>
               </td>
             </tr>
           </tbody>
@@ -152,20 +158,31 @@
     <!-- Versement d'un livreur -->
     <Modal :open="remit.open" :title="`Versement de ${remit.courier?.name}`" @close="remit.open = false">
       <form class="space-y-3" @submit.prevent="saveRemit">
-        <p class="text-sm text-gray-600">Décochez les encaissements que le livreur ne verse pas aujourd'hui.</p>
-        <ul class="border rounded divide-y max-h-64 overflow-y-auto text-sm">
+        <p v-if="remit.collections.length" class="text-sm text-gray-600">Décochez les encaissements que le livreur ne verse pas aujourd'hui.</p>
+        <ul v-if="remit.collections.length" class="border rounded divide-y max-h-64 overflow-y-auto text-sm">
           <li v-for="c in remit.collections" :key="c.id" class="flex items-center gap-2 p-2">
             <input v-model="remit.selected" type="checkbox" :value="c.id" :aria-label="c.tracking_code">
             <span class="font-mono text-xs">{{ c.tracking_code }}</span>
             <span class="flex-1 truncate">{{ c.recipient_name }}</span>
             <span class="text-xs text-gray-500">{{ c.method_label }}</span>
-            <span v-if="c.courier_expense" class="text-xs text-indigo-700" :title="`Encaissé ${money(c.amount_collected)}`">🚌 − {{ money(c.courier_expense) }}</span>
-            <span class="font-medium">{{ money(c.amount_due) }}</span>
+            <span class="font-medium">{{ money(c.amount_collected) }}</span>
           </li>
+        </ul>
+        <ul v-if="remit.advances.length || remit.expenses.length" class="border rounded divide-y text-sm">
+          <li v-for="a in remit.advances" :key="`a${a.id}`" class="flex items-center gap-2 p-2">
+            <span class="flex-1">💵 Avance : {{ a.reason }} <span class="text-xs text-gray-500">{{ dateTime(a.given_at) }}</span></span>
+            <span class="font-medium">+ {{ money(a.amount) }}</span>
+          </li>
+          <li v-for="e in remit.expenses" :key="`e${e.id}`" class="flex items-center gap-2 p-2">
+            <span class="font-mono text-xs">{{ e.tracking_code }}</span>
+            <span class="flex-1">{{ e.description }}</span>
+            <span class="font-medium text-emerald-700">− {{ money(e.amount) }}</span>
+          </li>
+          <li class="p-2 text-xs text-gray-500">Avances et frais payés par le livreur : toujours réglés avec ce versement.</li>
         </ul>
         <p class="text-sm">
           <template v-if="remitExpected >= 0">Montant attendu : <strong>{{ money(remitExpected) }}</strong></template>
-          <template v-else>Frais avancés par le livreur (expéditions) : <strong>la caisse lui doit {{ money(-remitExpected) }}</strong></template>
+          <template v-else>Frais payés par le livreur : <strong>la caisse lui doit {{ money(-remitExpected) }}</strong></template>
         </p>
         <div>
           <label class="label" for="received">{{ remitExpected >= 0 ? 'Montant reçu (F) *' : 'Montant remis au livreur (F) *' }}</label>
@@ -176,7 +193,30 @@
         </div>
         <div><label class="label" for="rnotes">Note</label><input id="rnotes" v-model="remit.notes" class="input"></div>
         <p v-if="remit.error" class="field-error">{{ remit.error }}</p>
-        <button class="btn-primary w-full" :disabled="!remit.selected.length">Valider le versement</button>
+        <button class="btn-primary w-full" :disabled="!remit.selected.length && !remit.advances.length && !remit.expenses.length">Valider le versement</button>
+      </form>
+    </Modal>
+
+    <!-- Avance de caisse à un livreur -->
+    <Modal :open="advance.open" :title="`Avance à ${advance.courier?.name}`" @close="advance.open = false">
+      <form class="space-y-3" @submit.prevent="saveAdvance">
+        <p class="text-sm text-gray-600">
+          Argent remis au livreur avant sa mission (frais de gare, transport…). Il déclare ensuite les frais payés dans son
+          application ; le reste revient à la caisse lors de son versement.
+        </p>
+        <div>
+          <label class="label" for="adv-amount">Montant (F) *</label>
+          <input id="adv-amount" v-model.number="advance.amount" type="number" min="1" class="input" required>
+        </div>
+        <div>
+          <label class="label" for="adv-reason">Motif *</label>
+          <div class="flex flex-wrap gap-2 mb-2">
+            <button v-for="r in ['Frais de gare', 'Transport', 'Emballage']" :key="r" type="button" class="rounded-full px-3 py-1 text-xs ring-1 ring-slate-300" @click="advance.reason = r">{{ r }}</button>
+          </div>
+          <input id="adv-reason" v-model="advance.reason" class="input" required>
+        </div>
+        <p v-if="advance.error" class="field-error">{{ advance.error }}</p>
+        <button class="btn-primary w-full" :disabled="!(advance.amount > 0) || !advance.reason">Remettre l'avance</button>
       </form>
     </Modal>
 
@@ -259,13 +299,17 @@ const merchantBalances = ref([])
 const payouts = ref([])
 const courierPayouts = ref([])
 
-const remit = reactive({ open: false, courier: null, collections: [], selected: [], amount_received: 0, notes: '', error: '' })
+const remit = reactive({ open: false, courier: null, collections: [], advances: [], expenses: [], selected: [], amount_received: 0, notes: '', error: '' })
+const advance = reactive({ open: false, courier: null, amount: null, reason: 'Frais de gare', error: '' })
 const ledger = reactive({ open: false, merchant: null, entries: [], adjust: { amount: null, description: '' }, error: '' })
 const adjust = reactive({ open: false, courier: null, amount: null, description: '', error: '' })
 const courierPayout = reactive({ open: false, data: null })
 
 // Montant dû par le livreur, frais d'expédition avancés déduits ; négatif : la caisse lui doit de l'argent
-const remitExpected = computed(() => remit.collections.filter((c) => remit.selected.includes(c.id)).reduce((s, c) => s + c.amount_due, 0))
+// Encaissements cochés + avances reçues − frais payés ; négatif : la caisse doit de l'argent au livreur
+const remitExpected = computed(() => remit.collections.filter((c) => remit.selected.includes(c.id)).reduce((s, c) => s + c.amount_collected, 0)
+  + remit.advances.reduce((s, a) => s + a.amount, 0)
+  - remit.expenses.reduce((s, e) => s + e.amount, 0))
 // Le champ est toujours saisi en positif : reçu du livreur, ou remis au livreur quand la caisse lui doit
 const remitSigned = computed(() => (remitExpected.value < 0 ? -1 : 1) * (remit.amount_received ?? 0))
 const remitDifference = computed(() => remitSigned.value - remitExpected.value)
@@ -292,6 +336,8 @@ async function openRemit(courier) {
     open: true,
     courier,
     collections: data.data,
+    advances: data.advances || [],
+    expenses: data.expenses || [],
     selected: data.data.map((c) => c.id),
     amount_received: Math.abs(courier.cash_in_hand),
     notes: '',
@@ -314,6 +360,22 @@ async function saveRemit() {
     load()
   } catch (e) {
     remit.error = apiErrorMessage(e)
+  }
+}
+
+function openAdvance(courier) {
+  Object.assign(advance, { open: true, courier, amount: null, reason: 'Frais de gare', error: '' })
+}
+
+async function saveAdvance() {
+  advance.error = ''
+  try {
+    await http.post(`/finance/couriers/${advance.courier.courier_id}/advances`, { amount: advance.amount, reason: advance.reason })
+    advance.open = false
+    toasts.success('Avance enregistrée.')
+    load()
+  } catch (e) {
+    advance.error = apiErrorMessage(e)
   }
 }
 

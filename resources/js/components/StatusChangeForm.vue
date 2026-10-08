@@ -29,7 +29,16 @@
           <div><label class="label" for="carrier">Compagnie ou gare *</label><input id="carrier" v-model="form.shipping_carrier" class="input" required></div>
           <div><label class="label" for="shipfee">Frais d'expédition (F) *</label><input id="shipfee" v-model.number="form.shipping_fee" type="number" min="0" class="input" required></div>
         </div>
-        <div><label class="label" for="ticket">Numéro du ticket</label><input id="ticket" v-model="form.shipping_reference" class="input"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="label" for="ticket">Numéro du ticket</label><input id="ticket" v-model="form.shipping_reference" class="input"></div>
+          <div>
+            <label class="label" for="shippaid">Payés par</label>
+            <select id="shippaid" v-model="form.shipping_paid_by" class="input">
+              <option value="courier">Le livreur (avance ou de sa poche)</option>
+              <option value="company">L'agence directement</option>
+            </select>
+          </div>
+        </div>
       </template>
       <div>
         <label class="label" for="amount">Montant encaissé (F)</label>
@@ -92,6 +101,7 @@ const form = reactive({
   shipping_carrier: '',
   shipping_fee: props.order.shipping?.fee_estimate ?? 0,
   shipping_reference: '',
+  shipping_paid_by: 'courier',
   note: '',
 })
 const allReasons = ref([])
@@ -134,6 +144,7 @@ async function submit() {
           shipping_carrier: form.shipping_carrier,
           shipping_fee: form.shipping_fee ?? 0,
           shipping_reference: form.shipping_reference || undefined,
+          shipping_paid_by: form.shipping_paid_by,
         })
       }
     }

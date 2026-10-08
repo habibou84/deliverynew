@@ -36,6 +36,8 @@ class TransitionOrderRequest extends FormRequest
             'shipping_fee' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'shipping_carrier' => ['nullable', 'string', 'max:100'],
             'shipping_reference' => ['nullable', 'string', 'max:100'],
+            // Frais de gare payés par le livreur (défaut) ou directement par l'agence
+            'shipping_paid_by' => ['nullable', Rule::in(['courier', 'company'])],
             'cancel_reason' => ['nullable', 'string', 'max:1000'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],

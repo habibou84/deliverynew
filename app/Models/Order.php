@@ -198,6 +198,11 @@ class Order extends Model
         return $this->hasOne(CashCollection::class);
     }
 
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(OrderExpense::class);
+    }
+
     public function attachments(): HasMany
     {
         return $this->hasMany(OrderAttachment::class);

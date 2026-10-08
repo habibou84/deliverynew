@@ -432,12 +432,44 @@ Table cash_collections {
   courier_id bigint [ref: > couriers.id, not null]
   amount_expected int [not null]
   amount_collected int [not null]
-  courier_expense int [default: 0, note: 'frais avancés par le livreur (expédition), déduits de son versement']
   method varchar [not null, note: 'cash | wave | orange_money | mtn_momo | moov_money']
   transaction_ref varchar
   collected_at timestamp [not null]
   remittance_id bigint [ref: > courier_remittances.id, note: 'null = encore en main du livreur']
   created_at timestamp
+}
+
+Table order_expenses {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  order_id bigint [ref: > orders.id, not null]
+  type varchar [not null, note: 'shipping | transport | packaging | parking | other']
+  label varchar [note: 'précision (compagnie, ticket, trajet…)']
+  amount int [not null]
+  paid_by varchar [default: 'courier', note: 'courier (de sa poche ou avec une avance) | company']
+  courier_id bigint [ref: > couriers.id]
+  billed_to varchar [default: 'merchant', note: 'merchant (déduit de son point) | company']
+  ledger_entry_id bigint [ref: > merchant_ledger_entries.id]
+  remittance_id bigint [ref: > courier_remittances.id, note: 'livreur remboursé lors de ce versement']
+  created_by bigint [ref: > users.id]
+  cancelled_at timestamp
+  cancelled_by bigint [ref: > users.id]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table courier_advances {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  courier_id bigint [ref: > couriers.id, not null]
+  amount int [not null, note: 'argent remis au livreur avant une mission']
+  reason varchar [not null]
+  order_id bigint [ref: > orders.id]
+  given_by bigint [ref: > users.id]
+  given_at timestamp [not null]
+  remittance_id bigint [ref: > courier_remittances.id, note: 'réglée lors de ce versement']
+  created_at timestamp
+  updated_at timestamp
 }
 
 Table courier_remittances {
@@ -458,7 +490,7 @@ Table merchant_ledger_entries {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
   merchant_id bigint [ref: > merchants.id, not null]
-  type varchar [not null, note: 'cod_credit | delivery_fee | shipping_fee | return_fee | storage_fee | payout | adjustment']
+  type varchar [not null, note: 'cod_credit | delivery_fee | shipping_fee | other_fee | return_fee | storage_fee | payout | adjustment']
   amount int [not null, note: 'signé : + crédit marchand, - débit']
   order_id bigint [ref: > orders.id]
   payout_id bigint [ref: > merchant_payouts.id]
@@ -479,6 +511,7 @@ Table merchant_payouts {
   total_collected int
   total_fees int
   total_shipping_fees int
+  total_other_fees int
   total_storage_fees int
   net_amount int [not null]
   status varchar [default: 'draft', note: 'draft | validated | paid | cancelled']

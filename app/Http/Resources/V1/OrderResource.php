@@ -99,6 +99,7 @@ class OrderResource extends JsonResource
             'cancel_reason' => $this->cancel_reason,
 
             'events' => OrderEventResource::collection($this->whenLoaded('events')),
+            'expenses' => OrderExpenseResource::collection($this->whenLoaded('expenses')),
             'assignments' => $this->when(
                 $user?->merchant_id === null,
                 fn () => OrderAssignmentResource::collection($this->whenLoaded('assignments')),

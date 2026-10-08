@@ -34,13 +34,15 @@ class OrderSummary
         // Frais retenus, tels qu'inscrits au grand livre du marchand
         $ledger = MerchantLedgerEntry::query()
             ->whereIn('order_id', $orders->pluck('id'))
-            ->whereIn('type', [LedgerEntryType::DeliveryFee->value, LedgerEntryType::ReturnFee->value, LedgerEntryType::ShippingFee->value])
+            ->whereIn('type', [LedgerEntryType::DeliveryFee->value, LedgerEntryType::ReturnFee->value, LedgerEntryType::ShippingFee->value, LedgerEntryType::OtherFee->value])
             ->groupBy('type')
             ->selectRaw('type, SUM(amount) AS total')
             ->pluck('total', 'type');
         $fees = -(int) ($ledger[LedgerEntryType::DeliveryFee->value] ?? 0) - (int) ($ledger[LedgerEntryType::ReturnFee->value] ?? 0);
         // Frais payés à la gare ou au transporteur pour les colis expédiés
         $shippingFees = -(int) ($ledger[LedgerEntryType::ShippingFee->value] ?? 0);
+        // Autres frais engagés pour les courses (transport, emballage…)
+        $otherFees = -(int) ($ledger[LedgerEntryType::OtherFee->value] ?? 0);
 
         return [
             'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
@@ -62,7 +64,8 @@ class OrderSummary
                 'collected' => $collected,
                 'fees' => $fees,
                 'shipping_fees' => $shippingFees,
-                'net_to_merchant' => $collected - $fees - $shippingFees,
+                'other_fees' => $otherFees,
+                'net_to_merchant' => $collected - $fees - $shippingFees - $otherFees,
             ],
             'delivery_rate' => $orders->count() > 0 ? round($delivered->count() / $orders->count() * 100, 1) : null,
             'by_status' => collect(OrderStatus::cases())->mapWithKeys(fn (OrderStatus $s) => [

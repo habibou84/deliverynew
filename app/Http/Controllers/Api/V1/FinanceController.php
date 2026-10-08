@@ -7,14 +7,17 @@ use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\CashCollection;
 use App\Models\Courier;
+use App\Models\CourierAdvance;
 use App\Models\CourierEarning;
 use App\Models\CourierPayout;
 use App\Models\CourierRemittance;
 use App\Models\Merchant;
 use App\Models\MerchantLedgerEntry;
 use App\Models\MerchantPayout;
+use App\Models\OrderExpense;
 use App\Models\User;
 use App\Services\Finance\CashDesk;
+use App\Services\Finance\CourierCash;
 use App\Services\Finance\CourierPayroll;
 use App\Services\Finance\MerchantPayouts;
 use Illuminate\Http\JsonResponse;
@@ -32,6 +35,7 @@ class FinanceController extends Controller
         private readonly CashDesk $cashDesk,
         private readonly MerchantPayouts $payouts,
         private readonly CourierPayroll $payroll,
+        private readonly CourierCash $courierCash,
     ) {}
 
     // ───────────── Argent chez les livreurs et versements ─────────────
@@ -41,9 +45,7 @@ class FinanceController extends Controller
         $this->authorizeStaff($request);
 
         // Agrégats groupés par livreur (pas de requête par ligne)
-        $cash = CashCollection::inCourierHands()->groupBy('courier_id')
-            ->selectRaw('courier_id, SUM('.CashCollection::amountDueSql().') AS total, COUNT(*) AS n, MIN(collected_at) AS oldest')
-            ->get()->keyBy('courier_id');
+        $cash = $this->courierCash->balances();
         $unpaid = CourierEarning::whereNull('payout_id')->groupBy('courier_id')
             ->selectRaw('courier_id, SUM(amount) AS total')->pluck('total', 'courier_id');
 
@@ -51,10 +53,13 @@ class FinanceController extends Controller
             'courier_id' => $c->id,
             'name' => $c->user?->name,
             'phone' => $c->user?->phone,
-            'cash_in_hand' => (int) ($cash[$c->id]->total ?? 0),
+            'cash_in_hand' => $cash[$c->id]['due'] ?? 0,
+            'collected' => $cash[$c->id]['collected'] ?? 0,
+            'advances' => $cash[$c->id]['advances'] ?? 0,
+            'expenses' => $cash[$c->id]['expenses'] ?? 0,
             'unpaid' => (int) ($unpaid[$c->id] ?? 0),
-            'pending_collections' => (int) ($cash[$c->id]->n ?? 0),
-            'oldest_collected_at' => $cash[$c->id]->oldest ?? null,
+            'pending_collections' => $cash[$c->id]['items'] ?? 0,
+            'oldest_collected_at' => $cash[$c->id]['oldest'] ?? null,
         ])
             // Montant absolu : un livreur à qui la caisse doit des frais avancés reste en tête de liste
             ->sortByDesc(fn ($c) => abs($c['cash_in_hand']))->values();
@@ -80,7 +85,34 @@ class FinanceController extends Controller
             ->get()
             ->map(fn (CashCollection $c) => $this->collectionData($c));
 
-        return response()->json(['data' => $collections]);
+        return response()->json([
+            'data' => $collections,
+            ...$this->courierExtras($courier),
+        ]);
+    }
+
+    /**
+     * Avance remise par la caisse au livreur (frais de gare, transport…) ; ce qu'il
+     * n'a pas dépensé revient à la caisse lors de son versement.
+     */
+    public function storeAdvance(Request $request, Courier $courier): JsonResponse
+    {
+        $this->authorizeStaff($request, manage: true);
+
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:1', 'max:10000000'],
+            'reason' => ['required', 'string', 'max:255'],
+            'order_id' => ['nullable', 'integer', Rule::exists('orders', 'id')->where('company_id', $courier->company_id)],
+        ], [], ['amount' => 'montant', 'reason' => 'motif']);
+
+        $advance = $courier->advances()->create([
+            ...$data,
+            'company_id' => $courier->company_id,
+            'given_by' => $request->user()->id,
+            'given_at' => now(),
+        ]);
+
+        return response()->json(['data' => $this->advanceData($advance->load('order:id,tracking_code'))], 201);
     }
 
     public function storeRemittance(Request $request): JsonResponse
@@ -317,6 +349,7 @@ class FinanceController extends Controller
         return response()->json(['data' => [
             ...$this->payroll->summary($courier),
             'earned_today' => (int) $courier->earnings()->whereIn('type', ['pickup', 'delivery', 'return'])->whereDate('created_at', today())->sum('amount'),
+            ...$this->courierExtras($courier),
             'collections' => $courier->collections()->inCourierHands()->with('order:id,tracking_code,recipient_name,merchant_id')
                 ->orderBy('collected_at')->get()->map(fn ($c) => $this->collectionData($c)),
             'recent_payouts' => $courier->payouts()->where('status', 'paid')->latest('paid_at')->limit(5)->get()
@@ -362,13 +395,48 @@ class FinanceController extends Controller
             'recipient_name' => $c->order?->recipient_name,
             'amount_expected' => $c->amount_expected,
             'amount_collected' => $c->amount_collected,
-            'courier_expense' => $c->courier_expense,
-            'amount_due' => $c->amountDue(),
             'method' => $c->method,
             'method_label' => $c->method->label(),
             'received_by_company' => $c->received_by_company,
             'collected_at' => $c->collected_at,
             'remittance_id' => $c->remittance_id,
+        ];
+    }
+
+    /**
+     * Avances et frais à régler avec la caisse lors du prochain versement.
+     *
+     * @return array{balance: array<string, int>, advances: mixed, expenses: mixed}
+     */
+    private function courierExtras(Courier $courier): array
+    {
+        return [
+            'balance' => $this->courierCash->balance($courier),
+            'advances' => $courier->advances()->unsettled()->with('order:id,tracking_code')->orderBy('given_at')->get()
+                ->map(fn (CourierAdvance $a) => $this->advanceData($a)),
+            'expenses' => $courier->expenses()->owedToCourier()->with('order:id,tracking_code,recipient_name')->orderBy('created_at')->get()
+                ->map(fn (OrderExpense $e) => [
+                    'id' => $e->id,
+                    'order_id' => $e->order_id,
+                    'tracking_code' => $e->order?->tracking_code,
+                    'recipient_name' => $e->order?->recipient_name,
+                    'type' => $e->type,
+                    'description' => $e->description(),
+                    'amount' => $e->amount,
+                    'created_at' => $e->created_at,
+                ]),
+        ];
+    }
+
+    private function advanceData(CourierAdvance $a): array
+    {
+        return [
+            'id' => $a->id,
+            'amount' => $a->amount,
+            'reason' => $a->reason,
+            'order_id' => $a->order_id,
+            'tracking_code' => $a->order?->tracking_code,
+            'given_at' => $a->given_at,
         ];
     }
 
@@ -412,6 +480,7 @@ class FinanceController extends Controller
             'total_collected' => $p->total_collected,
             'total_fees' => $p->total_fees,
             'total_shipping_fees' => $p->total_shipping_fees,
+            'total_other_fees' => $p->total_other_fees,
             'total_adjustments' => $p->total_adjustments,
             'net_amount' => $p->net_amount,
             'status' => $p->status,

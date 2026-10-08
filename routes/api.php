@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Api\V1\ReferenceController;
@@ -95,6 +96,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
         Route::get('orders/{order}/messages', [MessageController::class, 'forOrder'])->name('orders.messages');
+        Route::post('orders/{order}/expenses', [OrderExpenseController::class, 'store'])->name('orders.expenses.store');
+        Route::post('orders/{order}/expenses/{expense}/cancel', [OrderExpenseController::class, 'cancel'])->name('orders.expenses.cancel');
         Route::get('orders/{order}/attachments/{attachment}', [OrderActionController::class, 'showAttachment'])->name('orders.attachments.show');
 
         Route::get('reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
@@ -103,6 +106,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::prefix('finance')->name('finance.')->controller(FinanceController::class)->group(function () {
             Route::get('cash', 'cash')->name('cash');
             Route::get('couriers/{courier}/collections', 'collections')->name('couriers.collections');
+            Route::post('couriers/{courier}/advances', 'storeAdvance')->name('couriers.advances.store');
             Route::get('couriers/{courier}/earnings', 'earnings')->name('couriers.earnings');
             Route::post('couriers/{courier}/adjustments', 'adjustCourier')->name('couriers.adjustments');
             Route::get('remittances', 'remittances')->name('remittances.index');

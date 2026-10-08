@@ -42,12 +42,15 @@
     </section>
 
     <!-- Point du jour : argent -->
-    <section v-if="today && (today.amounts.collected || today.amounts.fees || today.amounts.shipping_fees)" class="m-card p-4 space-y-2 text-sm">
+    <section v-if="today && (today.amounts.collected || today.amounts.fees || today.amounts.shipping_fees || today.amounts.other_fees)" class="m-card p-4 space-y-2 text-sm">
       <h2 class="font-semibold text-base">Point du jour</h2>
       <div class="flex justify-between"><span class="text-slate-500">Encaissé</span><span>{{ money(today.amounts.collected) }}</span></div>
       <div class="flex justify-between"><span class="text-slate-500">Frais de livraison</span><span>− {{ money(today.amounts.fees) }}</span></div>
       <div v-if="today.amounts.shipping_fees" class="flex justify-between">
         <span class="text-slate-500">🚌 Frais d'expédition ({{ today.counts.shipped }} colis)</span><span>− {{ money(today.amounts.shipping_fees) }}</span>
+      </div>
+      <div v-if="today.amounts.other_fees" class="flex justify-between">
+        <span class="text-slate-500">💸 Autres frais (transport, emballage…)</span><span>− {{ money(today.amounts.other_fees) }}</span>
       </div>
       <div class="flex justify-between font-semibold text-base border-t pt-2">
         <span>Net du jour</span><span :class="signedClass(today.amounts.net_to_merchant)">{{ money(today.amounts.net_to_merchant) }}</span>

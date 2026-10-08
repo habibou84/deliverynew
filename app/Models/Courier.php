@@ -56,6 +56,16 @@ class Courier extends Model
         return $this->belongsToMany(Zone::class);
     }
 
+    public function advances(): HasMany
+    {
+        return $this->hasMany(CourierAdvance::class);
+    }
+
+    public function expenses(): HasMany
+    {
+        return $this->hasMany(OrderExpense::class);
+    }
+
     public function assignments(): HasMany
     {
         return $this->hasMany(OrderAssignment::class);
