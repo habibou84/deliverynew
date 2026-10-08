@@ -3,9 +3,9 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\Role;
-use App\Models\CashCollection;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
+use App\Models\OrderExpense;
 use App\Models\OutboundMessage;
 use App\Models\User;
 use App\Models\Zone;
@@ -123,17 +123,20 @@ class ShippingTest extends TestCase
             ->map(fn ($e) => [$e->type->value, $e->amount])->all();
         $this->assertSame([['cod_credit', 10000], ['delivery_fee', -1500], ['shipping_fee', -3000]], $ledger);
 
-        $collection = CashCollection::where('order_id', $order->id)->sole();
-        $this->assertSame(3000, $collection->courier_expense);
-        $this->assertSame(7000, $collection->amountDue());
+        $expense = OrderExpense::where('order_id', $order->id)->sole();
+        $this->assertSame(['shipping', 3000, 'courier', $this->courierB->id, 'merchant'],
+            [$expense->type->value, $expense->amount, $expense->paid_by, $expense->courier_id, $expense->billed_to]);
+        $this->assertSame('UTB Adjamé, ticket A-15234', $expense->label);
 
         $this->as($this->courierB->user)->getJson('/api/v1/courier/wallet')
             ->assertJsonPath('data.cash_in_hand', 7000)
-            ->assertJsonPath('data.collections.0.courier_expense', 3000);
+            ->assertJsonPath('data.balance.collected', 10000)
+            ->assertJsonPath('data.expenses.0.amount', 3000);
 
         $this->as($this->cashier)->postJson('/api/v1/finance/remittances', [
             'courier_id' => $this->courierB->id, 'amount_received' => 7000,
         ])->assertCreated()->assertJsonPath('data.amount_expected', 7000)->assertJsonPath('data.difference', 0);
+        $this->assertNotNull($expense->fresh()->remittance_id);
     }
 
     public function test_prepaid_shipment_means_the_cash_desk_owes_the_courier(): void
@@ -144,9 +147,6 @@ class ShippingTest extends TestCase
             ->assertJsonPath('data.0.courier_id', $this->courierB->id)
             ->assertJsonPath('data.0.cash_in_hand', -3000);
 
-        // Tant que le livreur n'est pas remboursé, les frais ne partent pas dans un relevé
-        $this->postJson('/api/v1/finance/payouts', ['merchant_id' => $this->merchant->id])->assertUnprocessable();
-
         // La caisse rend 3 000 F au livreur : aucun écart
         $this->postJson('/api/v1/finance/remittances', ['courier_id' => $this->courierB->id, 'amount_received' => -3000])
             ->assertCreated()->assertJsonPath('data.difference', 0);
@@ -156,6 +156,39 @@ class ShippingTest extends TestCase
         $this->assertSame(1500, $payout['total_fees']);
         $this->assertSame(3000, $payout['total_shipping_fees']);
         $this->assertSame(-4500, $payout['net_amount']);
+    }
+
+    public function test_cash_desk_can_advance_the_station_fees(): void
+    {
+        // La caisse remet 5 000 F au livreur avant son départ pour la gare
+        $this->as($this->cashier)->postJson("/api/v1/finance/couriers/{$this->courierB->id}/advances", [
+            'amount' => 5000, 'reason' => 'Frais de gare',
+        ])->assertCreated()->assertJsonPath('data.amount', 5000);
+
+        $this->ship($this->onTheWay(['items_amount' => 0]), 3500);
+
+        // Il rend la monnaie : 5 000 - 3 500
+        $this->as($this->courierB->user)->getJson('/api/v1/courier/wallet')
+            ->assertJsonPath('data.cash_in_hand', 1500)
+            ->assertJsonPath('data.balance.advances', 5000)
+            ->assertJsonPath('data.balance.expenses', 3500)
+            ->assertJsonPath('data.advances.0.reason', 'Frais de gare');
+
+        $this->as($this->cashier)->postJson('/api/v1/finance/remittances', ['courier_id' => $this->courierB->id, 'amount_received' => 1500])
+            ->assertCreated()->assertJsonPath('data.amount_expected', 1500)->assertJsonPath('data.difference', 0);
+        $this->getJson('/api/v1/finance/cash')->assertJsonPath('data.0.cash_in_hand', 0);
+    }
+
+    public function test_station_fees_paid_directly_by_the_agency(): void
+    {
+        $order = $this->onTheWay(['items_amount' => 0]);
+        $this->as($this->dispatcher)->move($order, 'delivered', [
+            'shipping_fee' => 3000, 'shipping_carrier' => 'UTB', 'shipping_paid_by' => 'company',
+        ])->assertOk();
+
+        $this->assertSame('company', OrderExpense::sole()->paid_by);
+        $this->assertSame(-3000, (int) MerchantLedgerEntry::where('type', 'shipping_fee')->sum('amount'));
+        $this->as($this->cashier)->getJson('/api/v1/finance/cash')->assertJsonPath('data.0.cash_in_hand', 0);
     }
 
     public function test_point_shows_shipping_fees_separately(): void

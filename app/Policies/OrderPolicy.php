@@ -59,6 +59,25 @@ class OrderPolicy
         return $user->merchant_id === $order->merchant_id || $user->can(Permission::OrdersDispatch->value);
     }
 
+    /**
+     * Frais engagés pour la course : le livreur de la course ou le personnel (dispatch, caisse).
+     */
+    public function addExpense(User $user, Order $order): bool
+    {
+        if ($user->isCourier()) {
+            return $this->view($user, $order);
+        }
+
+        return $user->merchant_id === null
+            && ($user->can(Permission::OrdersDispatch->value) || $user->can(Permission::FinanceManage->value));
+    }
+
+    public function cancelExpense(User $user, Order $order): bool
+    {
+        return $user->merchant_id === null && ! $user->isCourier()
+            && ($user->can(Permission::OrdersDispatch->value) || $user->can(Permission::FinanceManage->value));
+    }
+
     public function addAttachment(User $user, Order $order): bool
     {
         return $user->merchant_id === null && $this->view($user, $order);

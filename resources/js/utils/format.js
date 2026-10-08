@@ -79,6 +79,8 @@ export const EVENT_LABELS = {
   incident: 'Incident',
   return_requested: 'Retour demandé',
   proof_added: 'Preuve ajoutée',
+  expense_added: 'Frais ajoutés',
+  expense_cancelled: 'Frais annulés',
 }
 
 export const ROLE_LABELS = {

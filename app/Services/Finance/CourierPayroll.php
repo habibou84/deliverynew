@@ -6,7 +6,6 @@ use App\Enums\EarningType;
 use App\Enums\PaymentMethod;
 use App\Enums\PayoutStatus;
 use App\Exceptions\BusinessRuleException;
-use App\Models\CashCollection;
 use App\Models\Courier;
 use App\Models\CourierEarning;
 use App\Models\CourierPayout;
@@ -26,7 +25,7 @@ class CourierPayroll
     {
         return [
             'unpaid' => (int) $courier->earnings()->whereNull('payout_id')->sum('amount'),
-            'cash_in_hand' => (int) $courier->collections()->inCourierHands()->sum(DB::raw(CashCollection::amountDueSql())),
+            'cash_in_hand' => app(CourierCash::class)->balance($courier)['due'],
         ];
     }
 

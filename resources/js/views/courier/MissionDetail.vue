@@ -44,6 +44,16 @@
       <p class="font-mono text-xs text-slate-400">{{ order.tracking_code }}<span v-if="mission.type === 'pickup'"> · {{ order.merchant?.business_name }}</span></p>
     </section>
 
+    <!-- Frais déclarés -->
+    <section v-if="order.expenses?.length" class="m-card p-4 space-y-2">
+      <h2 class="font-semibold">Mes frais sur cette course</h2>
+      <div v-for="e in order.expenses" :key="e.id" class="flex justify-between gap-3 text-sm">
+        <span class="text-slate-600">{{ e.description }}</span>
+        <span class="font-semibold whitespace-nowrap">{{ money(e.amount) }}</span>
+      </div>
+      <p class="text-xs text-slate-500">Remboursés sur votre prochain versement à la caisse.</p>
+    </section>
+
     <!-- Actions -->
     <div class="fixed bottom-16 inset-x-0 z-20 bg-white border-t pb-safe">
       <div class="mx-auto max-w-lg p-3 space-y-2">
@@ -55,10 +65,11 @@
         </template>
         <template v-else-if="active">
           <button v-if="primary" :class="[primary.class, 'text-lg py-5']" :disabled="busy" @click="primary.action()">{{ primary.label }}</button>
-          <div class="grid grid-cols-3 gap-2">
-            <button v-if="canReportIncident" class="m-btn-secondary py-3 text-red-600" @click="openIncident">⚠️ Problème</button>
-            <button class="m-btn-secondary py-3" @click="sheet = 'note'">💬 Note</button>
-            <label class="m-btn-secondary py-3 cursor-pointer">
+          <div class="grid grid-cols-4 gap-2">
+            <button v-if="canReportIncident" class="m-btn-secondary py-3 px-1 text-sm text-red-600" @click="openIncident">⚠️ Problème</button>
+            <button class="m-btn-secondary py-3 px-1 text-sm" @click="sheet = 'note'">💬 Note</button>
+            <button class="m-btn-secondary py-3 px-1 text-sm" @click="openExpense">💸 Frais</button>
+            <label class="m-btn-secondary py-3 px-1 text-sm cursor-pointer">
               📷 Photo
               <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
             </label>
@@ -141,6 +152,28 @@
       </div>
     </BottomSheet>
 
+    <!-- Frais payés pour la course -->
+    <BottomSheet :open="sheet === 'expense'" title="J'ai payé des frais" @close="sheet = null">
+      <div class="space-y-4">
+        <ChoiceChips v-model="expense.type" :options="expenseOptions" :columns="2" label="Type de frais" />
+        <input v-model="expense.label" class="m-input" :placeholder="expense.type === 'other' ? 'Précisez (obligatoire)' : 'Précision (facultatif) : ex. taxi Adjamé → Cocody'">
+        <div>
+          <label class="m-label" for="expense-amount">Montant payé</label>
+          <div class="relative">
+            <input id="expense-amount" v-model.number="expense.amount" type="number" min="1" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
+          </div>
+        </div>
+        <p class="text-sm text-slate-500">Payé de votre poche ou avec une avance de la caisse : le montant est déduit de votre prochain versement et facturé au marchand.</p>
+        <label class="m-btn-secondary cursor-pointer">
+          📷 Photographier le reçu
+          <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
+        </label>
+        <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
+        <button class="m-btn-primary" :disabled="busy || !expense.type || !(expense.amount > 0)" @click="saveExpense">Enregistrer les frais</button>
+      </div>
+    </BottomSheet>
+
     <!-- Refus de mission -->
     <BottomSheet :open="sheet === 'refuse'" title="Pourquoi refusez-vous ?" @close="sheet = null">
       <div class="space-y-4">
@@ -202,6 +235,14 @@ function readCarriers() {
   }
 }
 const incident = reactive({ reason: null, when: 'tomorrow', date: null, note: '' })
+const expense = reactive({ type: 'transport', label: '', amount: null })
+const expenseOptions = [
+  { value: 'transport', label: 'Transport', icon: '🚕' },
+  { value: 'packaging', label: 'Emballage', icon: '📦' },
+  { value: 'parking', label: 'Parking, péage', icon: '🅿️' },
+  { value: 'shipping', label: 'Gare', icon: '🚌' },
+  { value: 'other', label: 'Autre', icon: '➕' },
+]
 
 const active = computed(() => ['accepted', 'in_progress'].includes(mission.value?.status))
 const canReportIncident = computed(() => ['pickup_assigned', 'pickup_in_progress', 'out_for_delivery'].includes(order.value?.status))
@@ -335,6 +376,27 @@ function rememberCarrier(name) {
     localStorage.setItem(CARRIERS_KEY, JSON.stringify(recentCarriers.value))
   } catch {
     // Stockage indisponible : pas de suggestions
+  }
+}
+
+function openExpense() {
+  Object.assign(expense, { type: 'transport', label: '', amount: null })
+  sheetError.value = ''
+  sheet.value = 'expense'
+}
+
+async function saveExpense() {
+  busy.value = true
+  sheetError.value = ''
+  try {
+    await http.post(`/orders/${order.value.id}/expenses`, { type: expense.type, label: expense.label || undefined, amount: expense.amount })
+    sheet.value = null
+    toasts.success('Frais enregistrés : ils seront déduits de votre versement.')
+    await load()
+  } catch (e) {
+    sheetError.value = apiErrorMessage(e)
+  } finally {
+    busy.value = false
   }
 }
 

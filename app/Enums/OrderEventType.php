@@ -14,4 +14,6 @@ enum OrderEventType: string
     case Incident = 'incident';
     case ReturnRequested = 'return_requested';
     case ProofAdded = 'proof_added';
+    case ExpenseAdded = 'expense_added';
+    case ExpenseCancelled = 'expense_cancelled';
 }
