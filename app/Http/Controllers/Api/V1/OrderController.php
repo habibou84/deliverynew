@@ -11,6 +11,7 @@ use App\Http\Resources\V1\OrderResource;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Services\Orders\OrderService;
+use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,7 +64,7 @@ class OrderController extends Controller
             ->when($request->filled('search'), function ($q) use ($request) {
                 $raw = trim($request->string('search'));
                 $term = '%'.mb_strtolower($raw).'%';
-                $phone = \App\Support\PhoneNumber::normalize($raw);
+                $phone = PhoneNumber::normalize($raw);
                 $q->where(fn ($q) => $q
                     ->whereRaw('LOWER(tracking_code) LIKE ?', [$term])
                     ->orWhereRaw('LOWER(merchant_reference) LIKE ?', [$term])

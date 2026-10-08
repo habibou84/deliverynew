@@ -7,8 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreMerchantRequest;
 use App\Http\Requests\V1\UpdateMerchantRequest;
 use App\Http\Resources\V1\MerchantResource;
+use App\Http\Resources\V1\UserResource;
 use App\Models\Merchant;
 use App\Models\User;
+use App\Rules\PhoneNumber;
+use App\Support\PhoneNumber as Phone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -103,13 +106,13 @@ class MerchantController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', new \App\Rules\PhoneNumber],
+            'phone' => ['required', 'string', new PhoneNumber],
             'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', Password::min(8)],
             'role' => ['required', Rule::in([Role::MerchantOwner->value, Role::MerchantStaff->value])],
         ]);
 
-        $phone = \App\Support\PhoneNumber::normalize($data['phone']);
+        $phone = Phone::normalize($data['phone']);
         if (User::withTrashed()->where('phone', $phone)->exists()) {
             return response()->json([
                 'message' => 'Ce téléphone est déjà utilisé.',
@@ -128,6 +131,6 @@ class MerchantController extends Controller
             return $user;
         });
 
-        return \App\Http\Resources\V1\UserResource::make($user->load('roles'))->response()->setStatusCode(201);
+        return UserResource::make($user->load('roles'))->response()->setStatusCode(201);
     }
 }

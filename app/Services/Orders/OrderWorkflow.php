@@ -160,7 +160,10 @@ class OrderWorkflow
             OrderStatus::OutForDelivery => $this->validateOutForDelivery($order),
             OrderStatus::DeliveryFailed => $reason ?? throw new BusinessRuleException('Indiquez le motif de l\'échec.', 'incident_reason_id'),
             OrderStatus::Rescheduled => $this->validateRescheduleDate($context['rescheduled_to'] ?? null),
-            OrderStatus::Confirmed => $reason ?? throw new BusinessRuleException('Indiquez le motif de l\'échec du ramassage.', 'incident_reason_id'),
+            // Retour à « Validée » depuis le ramassage = échec du ramassage, motif obligatoire
+            OrderStatus::Confirmed => $from === OrderStatus::Pending
+                ? null
+                : ($reason ?? throw new BusinessRuleException('Indiquez le motif de l\'échec du ramassage.', 'incident_reason_id')),
             OrderStatus::Delivered => $this->validateDelivery($order, $context),
             default => null,
         };
