@@ -6,6 +6,14 @@ use Tests\TestCase;
 
 class PwaManifestTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Pas de build front-end dans le job de tests
+        $this->withoutVite();
+    }
+
     public function test_each_mobile_app_has_its_own_manifest(): void
     {
         $this->get('/manifest/livreur.webmanifest')
