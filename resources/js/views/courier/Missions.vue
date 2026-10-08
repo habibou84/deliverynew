@@ -1,81 +1,103 @@
 <template>
   <div class="space-y-4">
-    <div class="card p-3 flex items-center justify-between">
-      <div>
-        <p class="font-semibold">{{ auth.user?.name }}</p>
-        <p class="text-xs text-gray-500">{{ available ? 'En service' : 'Hors service' }}</p>
-      </div>
-      <button :class="available ? 'btn-success' : 'btn-secondary'" @click="toggleAvailability">
-        {{ available ? '🟢 Disponible' : '⚪ Indisponible' }}
-      </button>
-    </div>
-
-    <!-- Portefeuille : argent à verser à la caisse et gains -->
-    <div v-if="wallet" class="grid grid-cols-2 gap-2">
-      <div class="card p-3">
-        <p class="text-xs text-gray-500">À verser à la caisse</p>
-        <p class="text-lg font-bold">{{ money(wallet.cash_in_hand) }}</p>
-        <p class="text-xs text-gray-500">{{ wallet.collections.length }} encaissement(s)</p>
-      </div>
-      <div class="card p-3">
-        <p class="text-xs text-gray-500">Mes gains non payés</p>
-        <p :class="['text-lg font-bold', signedClass(wallet.unpaid)]">{{ money(wallet.unpaid) }}</p>
-        <p class="text-xs text-gray-500">Aujourd'hui : {{ money(wallet.earned_today) }}</p>
-      </div>
-    </div>
-
-    <div class="flex gap-2">
-      <button v-for="t in tabs" :key="t.value" :class="['btn flex-1', tab === t.value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300']" @click="tab = t.value">
-        {{ t.label }} <span class="ml-1 rounded-full bg-black/10 px-1.5 text-xs">{{ count(t.value) }}</span>
-      </button>
-    </div>
-
-    <p v-if="loading" class="text-center text-gray-500 py-8">Chargement…</p>
-    <p v-else-if="!visible.length" class="text-center text-gray-500 py-8">Aucune mission {{ tab === 'pickup' ? 'de ramassage' : 'de livraison' }} pour le moment.</p>
-
-    <RouterLink
-      v-for="m in visible"
-      :key="m.id"
-      :to="`/livreur/missions/${m.id}`"
-      class="card p-4 block space-y-1 active:bg-slate-50"
+    <!-- Disponibilité -->
+    <button
+      :class="['tap w-full rounded-2xl p-4 flex items-center gap-4 text-left transition', available ? 'bg-emerald-600 text-white' : 'bg-white ring-1 ring-slate-200']"
+      :aria-pressed="available"
+      @click="toggleAvailability"
     >
-      <div class="flex items-center justify-between gap-2">
-        <span class="font-mono text-xs">{{ m.order.tracking_code }}</span>
-        <StatusBadge :status="m.order.status" :label="m.order.status_label" />
+      <span :class="['h-8 w-14 rounded-full p-1 transition', available ? 'bg-white/30' : 'bg-slate-200']">
+        <span :class="['block h-6 w-6 rounded-full bg-white shadow transition', available ? 'translate-x-6' : '']" />
+      </span>
+      <span class="flex-1">
+        <span class="block font-semibold text-lg">{{ available ? 'Je suis en service' : 'Je suis hors service' }}</span>
+        <span :class="['block text-sm', available ? 'text-white/80' : 'text-slate-500']">{{ available ? 'Vous recevez des missions' : 'Touchez pour commencer votre journée' }}</span>
+      </span>
+    </button>
+
+    <InstallBanner app="livreur" />
+
+    <!-- À verser -->
+    <RouterLink v-if="wallet && wallet.cash_in_hand > 0" to="/livreur/caisse" class="block m-card p-4 active:bg-slate-50">
+      <div class="flex justify-between items-center">
+        <span class="text-slate-600">💵 À verser à la caisse</span>
+        <span class="font-bold text-lg">{{ money(wallet.cash_in_hand) }}</span>
       </div>
-      <template v-if="m.type === 'pickup'">
-        <p class="font-semibold">{{ m.order.merchant?.business_name }}</p>
-        <p class="text-sm">{{ m.order.pickup.zone_name }} · {{ m.order.pickup.address }}</p>
-      </template>
-      <template v-else>
-        <p class="font-semibold">{{ m.order.recipient.name || m.order.recipient.phone }}</p>
-        <p class="text-sm">{{ m.order.delivery.zone_name }} · {{ m.order.delivery.address }}</p>
-        <p class="text-sm font-medium">À encaisser : {{ money(m.order.amounts.cod_amount) }}</p>
-      </template>
-      <p v-if="m.status === 'assigned'" class="text-xs text-amber-700 font-medium">Nouvelle mission : à accepter</p>
+    </RouterLink>
+
+    <!-- Onglets -->
+    <div class="flex rounded-xl bg-slate-200 p-1">
+      <button v-for="t in tabs" :key="t.value" :class="['tap flex-1 rounded-lg py-2.5 text-sm font-semibold', tab === t.value ? 'bg-white shadow-sm text-[var(--app-color)]' : 'text-slate-600']" @click="tab = t.value">
+        {{ t.label }}
+        <span :class="['ml-1 rounded-full px-1.5 text-xs', count(t.value) ? 'bg-[var(--app-color)] text-white' : 'bg-slate-300 text-slate-600']">{{ count(t.value) }}</span>
+      </button>
+    </div>
+
+    <p v-if="stale" class="rounded-xl bg-amber-50 text-amber-800 text-sm px-4 py-3">
+      Hors ligne : voici vos missions telles qu'elles étaient à la dernière connexion.
+    </p>
+
+    <p v-if="loading" class="text-center text-slate-400 py-8">Chargement…</p>
+    <div v-else-if="error && !missions.length" class="text-center py-8 space-y-3">
+      <p class="text-slate-600">{{ error }}</p>
+      <button class="m-btn m-btn-secondary" @click="load">Réessayer</button>
+    </div>
+    <EmptyState
+      v-else-if="!visible.length"
+      icon="✅"
+      :title="tab === 'pickup' ? 'Aucun ramassage en attente' : tab === 'delivery' ? 'Aucune livraison en attente' : 'Aucun retour'"
+      text="Les nouvelles missions apparaissent ici automatiquement."
+    />
+
+    <RouterLink v-for="m in visible" :key="m.id" :to="`/livreur/missions/${m.id}`" class="block m-card p-4 active:bg-slate-50">
+      <div class="flex items-start gap-3">
+        <span :class="['h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl', m.type === 'pickup' ? 'bg-indigo-100' : m.type === 'delivery' ? 'bg-blue-100' : 'bg-rose-100']">
+          {{ m.type === 'pickup' ? '📦' : m.type === 'delivery' ? '🛵' : '↩️' }}
+        </span>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold truncate">{{ m.type === 'pickup' ? m.order.merchant?.business_name : (m.order.recipient.name || m.order.recipient.phone) }}</p>
+          <p class="text-sm text-slate-500 truncate">
+            📍 {{ m.type === 'pickup' ? m.order.pickup.zone_name : m.order.delivery.zone_name }}
+            · {{ m.type === 'pickup' ? m.order.pickup.address : m.order.delivery.address }}
+          </p>
+          <div class="flex flex-wrap items-center gap-2 mt-2">
+            <span v-if="m.status === 'assigned'" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">Nouvelle · à accepter</span>
+            <StatusBadge v-else :status="m.order.status" :label="m.order.status_label" />
+            <span v-if="m.order.package.is_express" class="rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5">⚡ Express</span>
+          </div>
+        </div>
+        <span v-if="m.type === 'delivery'" class="font-bold whitespace-nowrap">{{ money(m.order.amounts.cod_amount) }}</span>
+      </div>
     </RouterLink>
   </div>
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import http from '../../bootstrap/axios'
+import http, { apiErrorMessage } from '../../bootstrap/axios'
+import { cachedGet } from '../../composables/useCachedApi'
+import { useToastStore } from '../../stores/toasts'
 import StatusBadge from '../../components/StatusBadge.vue'
+import EmptyState from '../../components/mobile/EmptyState.vue'
+import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useNotificationStore } from '../../stores/notifications'
 import { currentPosition } from '../../composables/useGeolocation'
-import { money, signedClass } from '../../utils/format'
+import { money } from '../../utils/format'
 
 const auth = useAuthStore()
 const notifications = useNotificationStore()
+const toasts = useToastStore()
 const missions = ref([])
-const loading = ref(true)
-const available = ref(false)
 const wallet = ref(null)
+const loading = ref(true)
+const stale = ref(false)
+const error = ref('')
+const available = ref(auth.user?.courier?.is_available ?? false)
 const tab = ref('pickup')
 const tabs = [
-  { value: 'pickup', label: 'À ramasser' },
-  { value: 'delivery', label: 'À livrer' },
+  { value: 'pickup', label: 'Ramasser' },
+  { value: 'delivery', label: 'Livrer' },
   { value: 'return', label: 'Retours' },
 ]
 
@@ -83,18 +105,29 @@ const visible = computed(() => missions.value.filter((m) => m.type === tab.value
 const count = (type) => missions.value.filter((m) => m.type === type).length
 
 async function load() {
-  const [m, w] = await Promise.all([http.get('/courier/missions'), http.get('/courier/wallet')])
-  missions.value = m.data.data
-  wallet.value = w.data.data
-  loading.value = false
-  if (!count(tab.value) && count('delivery')) tab.value = 'delivery'
+  try {
+    const [m, w] = await Promise.all([cachedGet('/courier/missions'), cachedGet('/courier/wallet')])
+    missions.value = m.data.data
+    wallet.value = w.data.data
+    stale.value = m.stale || w.stale
+    error.value = ''
+  } catch (e) {
+    error.value = apiErrorMessage(e, 'Impossible de charger vos missions.')
+  } finally {
+    loading.value = false
+  }
+  if (!count(tab.value)) tab.value = ['pickup', 'delivery', 'return'].find((t) => count(t)) || tab.value
 }
 
 async function toggleAvailability() {
-  const position = await currentPosition()
-  const { data } = await http.patch('/courier/status', { is_available: !available.value, ...(position || {}) })
-  available.value = data.data.is_available
-  if (auth.user.courier) auth.user.courier.is_available = available.value
+  try {
+    const position = await currentPosition()
+    const { data } = await http.patch('/courier/status', { is_available: !available.value, ...(position || {}) })
+    available.value = data.data.is_available
+    if (auth.user.courier) auth.user.courier.is_available = available.value
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
 }
 
 // Position envoyée toutes les minutes pendant le service
@@ -105,12 +138,11 @@ async function sendLocation() {
   if (position) http.patch('/courier/status', position).catch(() => {})
 }
 
-// Nouvelle mission reçue en temps réel : on recharge
+// Nouvelle mission reçue en temps réel
 watch(() => notifications.unread, load)
 
-onMounted(async () => {
+onMounted(() => {
   load()
-  available.value = auth.user?.courier?.is_available ?? false
   locationTimer = setInterval(sendLocation, 60000)
 })
 onBeforeUnmount(() => clearInterval(locationTimer))

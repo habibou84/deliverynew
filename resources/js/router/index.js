@@ -10,6 +10,11 @@ const shared = {
   payoutDetail: () => import('../views/shared/PayoutDetail.vue'),
 }
 
+const mobile = {
+  notifications: () => import('../views/mobile/Notifications.vue'),
+  profile: () => import('../views/mobile/Profile.vue'),
+}
+
 const routes = [
   {
     path: '/login',
@@ -44,28 +49,35 @@ const routes = [
       { path: 'parametres', component: () => import('../views/admin/Settings.vue'), meta: { permission: 'settings.manage' } },
     ],
   },
+  // Application livreur (PWA mobile)
   {
     path: '/livreur',
-    component: () => import('../layouts/LivreurLayout.vue'),
+    component: () => import('../views/courier/CourierApp.vue'),
     meta: { roles: SPACES.livreur },
     children: [
-      { path: '', name: 'livreur', component: () => import('../views/courier/Missions.vue') },
-      { path: 'missions/:id(\\d+)', component: () => import('../views/courier/MissionDetail.vue') },
+      { path: '', name: 'livreur', component: () => import('../views/courier/Missions.vue'), meta: { title: 'Mes missions' } },
+      { path: 'missions/:id(\\d+)', component: () => import('../views/courier/MissionDetail.vue'), meta: { title: 'Mission', back: true } },
+      { path: 'caisse', component: () => import('../views/courier/Wallet.vue'), meta: { title: 'Ma caisse' } },
+      { path: 'notifications', component: mobile.notifications, meta: { title: 'Notifications', back: true } },
+      { path: 'profil', component: mobile.profile, meta: { title: 'Mon profil' } },
       // Les notifications pointent vers /livreur/courses/:id : on renvoie vers la liste des missions
       { path: 'courses/:id', redirect: '/livreur' },
     ],
   },
+  // Application e-commerçant (PWA mobile)
   {
     path: '/marchand',
-    component: () => import('../layouts/ClientLayout.vue'),
+    component: () => import('../views/merchant/MerchantApp.vue'),
     meta: { roles: SPACES.marchand },
     children: [
-      { path: '', name: 'marchand', component: shared.dashboard },
-      { path: 'courses', component: shared.orders },
-      { path: 'courses/nouvelle', component: shared.orderCreate },
-      { path: 'courses/:id(\\d+)', component: shared.orderDetail },
-      { path: 'paiements', component: () => import('../views/merchant/Payments.vue'), meta: { permission: 'finance.view' } },
-      { path: 'paiements/:id(\\d+)', component: shared.payoutDetail, meta: { permission: 'finance.view' } },
+      { path: '', name: 'marchand', component: () => import('../views/merchant/Home.vue') },
+      { path: 'courses', component: () => import('../views/merchant/Orders.vue'), meta: { title: 'Mes courses' } },
+      { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true } },
+      { path: 'courses/:id(\\d+)', component: () => import('../views/merchant/OrderView.vue'), meta: { title: 'Course', back: true } },
+      { path: 'paiements', component: () => import('../views/merchant/Payments.vue'), meta: { title: 'Paiements', permission: 'finance.view' } },
+      { path: 'paiements/:id(\\d+)', component: () => import('../views/merchant/PayoutView.vue'), meta: { title: 'Relevé', back: true, permission: 'finance.view' } },
+      { path: 'notifications', component: mobile.notifications, meta: { title: 'Notifications', back: true } },
+      { path: 'profil', component: mobile.profile, meta: { title: 'Mon profil' } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

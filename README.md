@@ -54,6 +54,21 @@ Après une mise à jour du code, relancez toujours `composer install`, `npm inst
 
 Puis ouvrir http://localhost:8000.
 
+### Applications mobiles (PWA)
+
+| Application | Adresse | Pour |
+|---|---|---|
+| Back-office | `/admin` | administrateurs, dispatch, caisse (écran d'ordinateur) |
+| Mes livraisons | `/marchand` | e-commerçants (téléphone) |
+| Livreur | `/livreur` | livreurs (téléphone) |
+
+Après connexion, chacun arrive sur son application. Sur Android (Chrome), un bouton « Installer l'application » apparaît ;
+sur iPhone (Safari), *Partager → Sur l'écran d'accueil*. L'installation et le service worker exigent **HTTPS**
+(ou `localhost`) : pour tester sur un téléphone en local, passez par un tunnel HTTPS (ngrok, Cloudflare Tunnel…).
+Le service worker n'est actif qu'avec le build de production (`npm run build`), pas avec `npm run dev`.
+
+Hors ligne, l'application s'ouvre et affiche les dernières données connues ; les actions demandent le réseau.
+
 ### Comptes de démonstration
 
 Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot de passe : `password`.

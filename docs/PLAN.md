@@ -372,6 +372,13 @@ Règles retenues en phase 2 :
 - **Retour** : frais facturés au marchand selon un pourcentage paramétrable (`return_fee_percent`, 100 % par défaut).
 - Un reversement peut être **négatif** (frais supérieurs aux encaissements, ex. colis prépayés) : le relevé indique alors le montant dû par le marchand.
 
+### Applications mobiles PWA marchand et livreur ✅ *réalisée (avant la phase 4)*
+- [x] Deux applications installables (`/marchand` vert, `/livreur` bleu) : manifeste, icônes et couleur propres à chacune, distinctes du back-office.
+- [x] Interface mobile : barre d'onglets en bas, gros boutons, choix par pastilles plutôt que listes déroulantes, panneaux du bas pour les actions.
+- [x] Marchand : accueil (alertes, chiffres du jour et du mois), nouvelle course en 4 étapes avec récapitulatif chiffré et partage WhatsApp du suivi, suivi de course avec frise, paiements.
+- [x] Livreur : disponibilité en un geste, missions par onglets (ramasser, livrer, retours), action principale unique par mission, appel / WhatsApp / itinéraire, incidents guidés, caisse.
+- [x] Service worker : l'application s'ouvre sans réseau ; missions, caisse et listes affichent les dernières données connues avec un bandeau « Hors ligne ». Les actions (livrer, incident…) demandent le réseau.
+
 ### Phase 3 : WhatsApp sortant (2 à 3 semaines)
 - [ ] Compte Meta Business vérifié, numéro, soumission des templates (**démarrer dès la phase 0** : la validation Meta prend du temps).
 - [ ] Pipeline de notifications, préférences, `outbound_messages`, repli SMS.
