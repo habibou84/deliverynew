@@ -1,56 +1,84 @@
 <template>
   <div class="space-y-4">
-    <h1 class="text-xl font-bold">Mes paiements</h1>
+    <section v-if="summary" class="rounded-2xl p-5 text-white" :style="{ backgroundColor: 'var(--app-color)' }">
+      <p class="text-sm opacity-80">Disponible pour le prochain paiement</p>
+      <p class="text-4xl font-bold mt-1">{{ money(summary.available) }}</p>
+      <div class="grid grid-cols-2 gap-3 mt-4 text-sm">
+        <div class="rounded-xl bg-white/15 p-3">
+          <p class="opacity-80">En attente</p>
+          <p class="font-semibold text-lg">{{ money(summary.pending_cash) }}</p>
+          <p class="text-xs opacity-80">argent encore chez le livreur</p>
+        </div>
+        <div class="rounded-xl bg-white/15 p-3">
+          <p class="opacity-80">Total à recevoir</p>
+          <p class="font-semibold text-lg">{{ money(summary.unpaid_total) }}</p>
+        </div>
+      </div>
+    </section>
 
-    <div v-if="summary" class="grid sm:grid-cols-3 gap-3">
-      <StatCard title="Disponible (prochain reversement)" :value="money(summary.available)" icon="🏦" />
-      <StatCard title="En attente (argent chez le livreur)" :value="money(summary.pending_cash)" icon="🛵" />
-      <StatCard title="Total non reversé" :value="money(summary.unpaid_total)" icon="💰" />
+    <div class="flex rounded-xl bg-slate-200 p-1">
+      <button v-for="t in tabs" :key="t.value" :class="['tap flex-1 rounded-lg py-2 text-sm font-medium', tab === t.value ? 'bg-white shadow-sm' : 'text-slate-600']" @click="tab = t.value">
+        {{ t.label }}
+      </button>
     </div>
 
-    <div class="card">
-      <h2 class="font-semibold p-4 border-b">Mes reversements</h2>
-      <ul class="divide-y">
-        <li v-for="p in payouts" :key="p.id">
-          <RouterLink :to="`/marchand/paiements/${p.id}`" class="flex flex-wrap items-center gap-3 p-3 hover:bg-slate-50 text-sm">
-            <span class="font-mono text-xs">{{ p.reference }}</span>
-            <span class="flex-1">{{ date(p.period_start) }} → {{ date(p.period_end) }}</span>
-            <span :class="['font-semibold', signedClass(p.net_amount)]">{{ money(p.net_amount) }}</span>
-            <PayoutBadge :status="p.status" :label="p.status_label" />
-          </RouterLink>
-        </li>
-        <li v-if="!payouts.length" class="p-4 text-sm text-gray-500">Aucun reversement pour le moment.</li>
-      </ul>
-    </div>
+    <template v-if="tab === 'payouts'">
+      <RouterLink v-for="p in payouts" :key="p.id" :to="`/marchand/paiements/${p.id}`" class="block m-card p-4 active:bg-slate-50">
+        <div class="flex justify-between items-center">
+          <p :class="['text-lg font-bold', signedClass(p.net_amount)]">{{ money(p.net_amount) }}</p>
+          <PayoutBadge :status="p.status" :label="p.status_label" />
+        </div>
+        <p class="text-sm text-slate-500">{{ date(p.period_start) }} → {{ date(p.period_end) }}</p>
+        <p v-if="p.paid_at" class="text-sm text-slate-500">Payé le {{ date(p.paid_at) }} · {{ p.method_label }}</p>
+      </RouterLink>
+      <EmptyState v-if="loaded && !payouts.length" icon="💸" title="Aucun paiement pour le moment" text="Vos paiements apparaîtront ici dès que l'agence vous reversera l'argent encaissé." />
+    </template>
 
-    <div class="card">
-      <h2 class="font-semibold p-4 border-b">Détail des opérations</h2>
-      <LedgerTable :entries="entries" />
-    </div>
+    <template v-else>
+      <div class="m-card divide-y">
+        <div v-for="e in entries" :key="e.id" class="p-4 flex justify-between gap-3">
+          <div class="min-w-0">
+            <p class="font-medium">{{ e.type_label }}</p>
+            <p class="text-xs text-slate-500 truncate">{{ e.order?.tracking_code || e.description }} · {{ dateTime(e.created_at) }}</p>
+          </div>
+          <p :class="['font-semibold whitespace-nowrap', signedClass(e.amount)]">{{ e.amount > 0 ? '+' : '' }}{{ money(e.amount) }}</p>
+        </div>
+      </div>
+      <EmptyState v-if="loaded && !entries.length" icon="🧾" title="Aucune opération" />
+    </template>
   </div>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
-import http from '../../bootstrap/axios'
-import StatCard from '../../components/StatCard.vue'
-import LedgerTable from '../../components/LedgerTable.vue'
+import { cachedGet } from '../../composables/useCachedApi'
 import PayoutBadge from '../../components/PayoutBadge.vue'
+import EmptyState from '../../components/mobile/EmptyState.vue'
 import { useAuthStore } from '../../stores/auth'
-import { date, money, signedClass } from '../../utils/format'
+import { date, dateTime, money, signedClass } from '../../utils/format'
 
 const auth = useAuthStore()
+const tabs = [
+  { value: 'payouts', label: 'Mes paiements' },
+  { value: 'entries', label: 'Opérations' },
+]
+const tab = ref('payouts')
 const summary = ref(null)
 const entries = ref([])
 const payouts = ref([])
+const loaded = ref(false)
 
 onMounted(async () => {
-  const [ledger, list] = await Promise.all([
-    http.get(`/finance/merchants/${auth.user.merchant_id}/ledger`),
-    http.get('/finance/payouts'),
-  ])
-  summary.value = ledger.data.summary
-  entries.value = ledger.data.data
-  payouts.value = list.data.data
+  try {
+    const [ledger, list] = await Promise.all([
+      cachedGet(`/finance/merchants/${auth.user.merchant_id}/ledger`),
+      cachedGet('/finance/payouts'),
+    ])
+    summary.value = ledger.data.summary
+    entries.value = ledger.data.data
+    payouts.value = list.data.data
+  } finally {
+    loaded.value = true
+  }
 })
 </script>

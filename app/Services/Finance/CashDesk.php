@@ -40,7 +40,8 @@ class CashDesk
                 throw new BusinessRuleException('Ce livreur n\'a aucun encaissement à verser.', 'courier_id');
             }
 
-            $expected = $collections->sum('amount_collected');
+            // Frais avancés par le livreur (expédition) déduits de ce qu'il doit verser
+            $expected = $collections->sum(fn (CashCollection $c) => $c->amountDue());
 
             $remittance = CourierRemittance::create([
                 'company_id' => $courier->company_id,

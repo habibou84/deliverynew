@@ -31,9 +31,10 @@
       <StatCard title="Annulés" :value="summary.counts.cancelled" icon="✖️" />
     </div>
 
-    <div v-if="summary" class="grid md:grid-cols-4 gap-3">
+    <div v-if="summary" class="grid md:grid-cols-4 xl:grid-cols-5 gap-3">
       <StatCard title="Montant encaissé" :value="money(summary.amounts.collected)" icon="💰" />
       <StatCard title="Frais de livraison retenus" :value="money(summary.amounts.fees)" icon="🧾" />
+      <StatCard v-if="summary.amounts.shipping_fees" title="Frais d'expédition" :value="money(summary.amounts.shipping_fees)" icon="🚌" />
       <StatCard :title="isMerchant ? 'Net à recevoir' : 'Net à reverser'" :value="money(summary.amounts.net_to_merchant)" icon="🏦" />
       <StatCard title="Taux de livraison" :value="summary.delivery_rate === null ? '—' : `${summary.delivery_rate} %`" icon="📈" />
     </div>

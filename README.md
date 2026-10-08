@@ -17,7 +17,7 @@ Back-office (entreprise de livraison), espace e-commerçant et application livre
 
 ## Installation locale
 
-Prérequis : PHP 8.2+ (extensions `pdo_pgsql`, `redis`, `pcntl`), Composer, Node 22, PostgreSQL 16, Redis.
+Prérequis : PHP 8.2+ (extensions `pdo_pgsql` et `redis` ; `pcntl` seulement pour Horizon en production), Composer, Node 22, PostgreSQL 16, Redis.
 
 ```bash
 composer install
@@ -31,10 +31,59 @@ createuser -P livraison             # mot de passe : secret (cf. .env)
 createdb -O livraison livraison
 
 php artisan migrate --seed          # rôles + données de démonstration
-composer dev                        # serveur, Horizon, Reverb, logs et Vite
+composer dev                        # serveur, file d'attente, Reverb et Vite
 ```
 
+`composer dev` fonctionne sous Windows, macOS et Linux : il lance `queue:listen` (et non Horizon) et ne lance pas `pail`.
+Les logs sont dans `storage/logs/laravel.log` ; sous macOS/Linux, `php artisan pail` les affiche en direct.
+
+#### Windows
+
+Horizon et Pail ont besoin des extensions PHP `pcntl` et `posix`, qui n'existent pas sous Windows.
+`composer.json` les déclare dans `config.platform` pour que `composer install` fonctionne quand même ;
+ces deux outils ne s'utilisent simplement pas en local (Horizon sert en production, sur un serveur Linux).
+
+Sans Redis (cas fréquent sous Windows), utilisez la base de données pour le cache et les files d'attente dans `.env` :
+
+```dotenv
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+```
+
+Après une mise à jour du code, relancez toujours `composer install`, `npm install` et `php artisan migrate`.
+
 Puis ouvrir http://localhost:8000.
+
+### Applications mobiles (PWA)
+
+| Application | Adresse | Pour |
+|---|---|---|
+| Back-office | `/admin` | administrateurs, dispatch, caisse (écran d'ordinateur) |
+| Mes livraisons | `/marchand` | e-commerçants (téléphone) |
+| Livreur | `/livreur` | livreurs (téléphone) |
+
+Après connexion, chacun arrive sur son application. Sur Android (Chrome), un bouton « Installer l'application » apparaît ;
+sur iPhone (Safari), *Partager → Sur l'écran d'accueil*. L'installation et le service worker exigent **HTTPS**
+(ou `localhost`) : pour tester sur un téléphone en local, passez par un tunnel HTTPS (ngrok, Cloudflare Tunnel…).
+Le service worker n'est actif qu'avec le build de production (`npm run build`), pas avec `npm run dev`.
+
+Hors ligne, l'application s'ouvre et affiche les dernières données connues ; les actions demandent le réseau.
+
+### WhatsApp et SMS
+
+Par défaut, rien n'est réellement envoyé (`WHATSAPP_DRIVER=log`, `SMS_DRIVER=log`) : les messages apparaissent dans
+**Messages** (back-office), sur la fiche colis et dans `storage/logs/laravel.log`.
+
+Pour envoyer de vrais messages :
+
+1. Chez Meta : compte Business vérifié, application avec le produit WhatsApp, numéro ajouté, jeton d'accès permanent (utilisateur système).
+2. Dans le back-office, **WhatsApp** : saisir l'identifiant du numéro, l'identifiant WABA et le jeton ; envoyer un message de test.
+3. Créer dans le gestionnaire WhatsApp chacun des modèles affichés sur cette page (catégorie Utilitaire, langue Français, texte identique), puis « Vérifier l'approbation chez Meta ».
+4. Dans `.env` : `WHATSAPP_DRIVER=meta`, `WHATSAPP_APP_SECRET` (secret de l'application Meta) et `WHATSAPP_VERIFY_TOKEN` (chaîne de votre choix) ; abonner l'adresse du webhook indiquée sur la page au champ `messages`.
+5. SMS de repli (facultatif) : `SMS_DRIVER=twilio` avec `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM` ; `SMS_DRIVER=none` pour le désactiver.
+
+Les envois passent par la file `messages` et les points d'activité par le planificateur (`reports:send` toutes les 5 minutes) :
+`composer dev` lance les deux.
 
 ### Comptes de démonstration
 
@@ -61,7 +110,7 @@ php artisan app:create-super-admin                               # première ins
 ```
 
 Processus à superviser (Supervisor/systemd) : `php artisan horizon`, `php artisan reverb:start`, et le planificateur (`php artisan schedule:run` chaque minute).
-Les notifications et la diffusion temps réel passent par la file d'attente : sans Horizon (ou `queue:work`), elles ne partent pas.
+Les notifications, la diffusion temps réel et les messages WhatsApp/SMS passent par les files `default` et `messages` : sans Horizon (ou `queue:work --queue=default,messages`), ils ne partent pas.
 
 ## Tests et qualité
 
@@ -89,7 +138,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET/PATCH/DELETE | `/users/{id}` | même entreprise + `users.manage` |
 | GET/POST | `/companies` | super administrateur (création avec premier admin facultatif) |
 | GET/PATCH | `/companies/{id}` | super admin, ou admin de l'entreprise (paramètres hors statut) |
-| GET | `/zones` · POST/PATCH `/zones/{id}` | tous · `settings.manage` |
+| GET | `/zones` · POST/PATCH `/zones/{id}` | tous · `settings.manage` (`is_shipping`, `shipping_fee_estimate` pour une zone d'expédition) |
 | CRUD | `/pricing-grids`, PUT `/pricing-grids/{id}/rules` et `/surcharges` | `settings.manage` |
 | POST | `/quotes` | devis d'une course (marchand ou personnel) |
 | GET/POST/PATCH | `/merchants`, POST `/merchants/{id}/users` | `merchants.view` / `merchants.manage` |
@@ -106,6 +155,10 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET/POST | `/finance/payouts`, `/finance/payouts/{id}` · POST `.../pay`, `.../cancel` | reversements aux marchands |
 | GET/POST | `/finance/couriers/{id}/earnings`, `/finance/courier-payouts` · POST `.../pay`, `.../cancel` | paie des livreurs |
 | GET | `/courier/wallet` | livreur : argent à verser, gains non payés |
+| GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
+| GET/PUT | `/whatsapp/settings` · POST `/whatsapp/test`, `/whatsapp/templates/sync` | `settings.manage` : numéro Meta, options, test, approbation des modèles |
+| GET | `/messages` · POST `/messages/{id}/retry` · GET `/orders/{id}/messages` | `orders.dispatch` : journal des messages WhatsApp/SMS, renvoi d'un échec |
+| GET/POST | `/api/webhooks/whatsapp` (hors `/v1`) | **public**, signé par Meta (`X-Hub-Signature-256`) : accusés de réception |
 
 Temps réel (Reverb) : canaux privés `company.{id}` (personnel), `merchant.{id}` (marchand) et `App.Models.User.{id}` (notifications), événement `order.changed`.
 

@@ -7,15 +7,19 @@ use App\Events\OrderChanged;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
+use App\Services\Messaging\OrderMessages;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Écrit le journal immuable d'une course et déclenche, après validation de la
- * transaction, la diffusion temps réel et les notifications.
+ * transaction, la diffusion temps réel, les notifications et les messages WhatsApp.
  */
 class OrderJournal
 {
-    public function __construct(private readonly OrderNotifier $notifier) {}
+    public function __construct(
+        private readonly OrderNotifier $notifier,
+        private readonly OrderMessages $messages,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $attributes
@@ -35,6 +39,7 @@ class OrderJournal
         DB::afterCommit(function () use ($order, $event, $actor) {
             OrderChanged::dispatch($order, $event);
             $this->notifier->notify($order, $event, $actor);
+            $this->messages->handle($order, $event, $actor);
         });
 
         return $event;

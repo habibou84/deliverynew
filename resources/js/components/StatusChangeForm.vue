@@ -23,6 +23,14 @@
     </div>
 
     <template v-if="form.status === 'delivered'">
+      <template v-if="order.is_shipping">
+        <p class="text-sm rounded bg-indigo-50 text-indigo-900 p-2">🚌 Expédition : colis déposé à la gare, frais facturés au marchand.</p>
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="label" for="carrier">Compagnie ou gare *</label><input id="carrier" v-model="form.shipping_carrier" class="input" required></div>
+          <div><label class="label" for="shipfee">Frais d'expédition (F) *</label><input id="shipfee" v-model.number="form.shipping_fee" type="number" min="0" class="input" required></div>
+        </div>
+        <div><label class="label" for="ticket">Numéro du ticket</label><input id="ticket" v-model="form.shipping_reference" class="input"></div>
+      </template>
       <div>
         <label class="label" for="amount">Montant encaissé (F)</label>
         <input id="amount" v-model.number="form.collected_amount" type="number" min="0" class="input">
@@ -43,7 +51,7 @@
           <input id="ref" v-model="form.transaction_ref" class="input">
         </div>
       </template>
-      <div v-if="askCode">
+      <div v-if="askCode && !order.is_shipping">
         <label class="label" for="code">Code de livraison donné par le client</label>
         <input id="code" v-model="form.delivery_code" class="input" inputmode="numeric" maxlength="4" autocomplete="one-time-code">
       </div>
@@ -81,6 +89,9 @@ const form = reactive({
   received_by_company: false,
   transaction_ref: '',
   delivery_code: '',
+  shipping_carrier: '',
+  shipping_fee: props.order.shipping?.fee_estimate ?? 0,
+  shipping_reference: '',
   note: '',
 })
 const allReasons = ref([])
@@ -118,6 +129,13 @@ async function submit() {
         }
       }
       if (form.delivery_code) payload.delivery_code = form.delivery_code
+      if (props.order.is_shipping) {
+        Object.assign(payload, {
+          shipping_carrier: form.shipping_carrier,
+          shipping_fee: form.shipping_fee ?? 0,
+          shipping_reference: form.shipping_reference || undefined,
+        })
+      }
     }
     if (form.status === 'cancelled') payload.cancel_reason = form.note || undefined
     if (props.position) Object.assign(payload, props.position)

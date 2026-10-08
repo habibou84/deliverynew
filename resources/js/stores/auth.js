@@ -2,6 +2,27 @@ import { defineStore } from 'pinia'
 import http, { TOKEN_KEY } from '../bootstrap/axios'
 import { disconnectEcho } from '../bootstrap/echo'
 import { homeFor } from '../roles'
+import { clearApiCache } from '../composables/useCachedApi'
+
+// Profil gardé sur l'appareil pour ouvrir l'application sans réseau (PWA hors ligne)
+const USER_KEY = 'user'
+
+function readCachedUser() {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY) || 'null')
+  } catch {
+    return null
+  }
+}
+
+function cacheUser(user) {
+  try {
+    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user))
+    else localStorage.removeItem(USER_KEY)
+  } catch {
+    // stockage indisponible : l'application demandera simplement le réseau au démarrage
+  }
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -28,11 +49,26 @@ export const useAuthStore = defineStore('auth', {
       this.token = data.token
       this.user = data.user
       localStorage.setItem(TOKEN_KEY, data.token)
+      cacheUser(data.user)
     },
 
+    /**
+     * Recharge le profil. Sans réseau, reprend le profil gardé sur l'appareil ;
+     * seule une session refusée par le serveur (401) entraîne la déconnexion.
+     */
     async fetchUser() {
-      const { data } = await http.get('/auth/me')
-      this.user = data.data
+      try {
+        const { data } = await http.get('/auth/me')
+        this.user = data.data
+        cacheUser(data.data)
+      } catch (error) {
+        const cached = readCachedUser()
+        if (!error.response && cached) {
+          this.user = cached
+          return
+        }
+        throw error
+      }
     },
 
     async logout() {
@@ -48,6 +84,8 @@ export const useAuthStore = defineStore('auth', {
       this.user = null
       this.token = null
       localStorage.removeItem(TOKEN_KEY)
+      clearApiCache()
+      cacheUser(null)
     },
   },
 })

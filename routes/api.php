@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\MerchantController;
+use App\Http\Controllers\Api\V1\MerchantNotificationController;
+use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
@@ -16,8 +18,16 @@ use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\ZoneController;
+use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
+
+// Webhooks des fournisseurs (authentifiés par signature)
+Route::prefix('webhooks')->name('webhooks.')->group(function () {
+    Route::get('whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('whatsapp.verify');
+    Route::post('whatsapp', [WhatsAppWebhookController::class, 'handle'])->name('whatsapp.handle');
+});
 
 Route::prefix('v1')->name('v1.')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])
@@ -53,11 +63,23 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::apiResource('pricing-grids', PricingGridController::class);
             Route::put('pricing-grids/{pricing_grid}/rules', [PricingGridController::class, 'syncRules'])->name('pricing-grids.rules');
             Route::put('pricing-grids/{pricing_grid}/surcharges', [PricingGridController::class, 'syncSurcharges'])->name('pricing-grids.surcharges');
+
+            // WhatsApp
+            Route::get('whatsapp/settings', [WhatsAppSettingsController::class, 'show'])->name('whatsapp.settings');
+            Route::put('whatsapp/settings', [WhatsAppSettingsController::class, 'update'])->name('whatsapp.settings.update');
+            Route::post('whatsapp/test', [WhatsAppSettingsController::class, 'test'])->middleware('throttle:10,1')->name('whatsapp.test');
+            Route::post('whatsapp/templates/sync', [WhatsAppSettingsController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
         });
+
+        // Journal des messages WhatsApp et SMS
+        Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
+        Route::post('messages/{message}/retry', [MessageController::class, 'retry'])->name('messages.retry');
 
         // Marchands
         Route::apiResource('merchants', MerchantController::class)->except('destroy');
         Route::post('merchants/{merchant}/users', [MerchantController::class, 'storeUser'])->name('merchants.users.store');
+        Route::get('merchants/{merchant}/notifications', [MerchantNotificationController::class, 'show'])->name('merchants.notifications');
+        Route::put('merchants/{merchant}/notifications', [MerchantNotificationController::class, 'update'])->name('merchants.notifications.update');
 
         // Livreurs (gestion par le personnel)
         Route::get('couriers', [CourierController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.index');
@@ -72,6 +94,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/notes', [OrderActionController::class, 'note'])->name('orders.notes');
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
+        Route::get('orders/{order}/messages', [MessageController::class, 'forOrder'])->name('orders.messages');
         Route::get('orders/{order}/attachments/{attachment}', [OrderActionController::class, 'showAttachment'])->name('orders.attachments.show');
 
         Route::get('reports/summary', [ReportController::class, 'summary'])->name('reports.summary');

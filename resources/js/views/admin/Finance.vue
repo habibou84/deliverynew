@@ -33,7 +33,7 @@
               <td class="p-2 text-xs">{{ c.oldest_collected_at ? dateTime(c.oldest_collected_at) : '—' }}</td>
               <td :class="['p-2 text-right', signedClass(c.unpaid)]">{{ money(c.unpaid) }}</td>
               <td class="p-2 text-right">
-                <button v-if="c.cash_in_hand > 0 && canManage" class="btn-primary" @click="openRemit(c)">Recevoir le versement</button>
+                <button v-if="c.cash_in_hand !== 0 && canManage" class="btn-primary" @click="openRemit(c)">{{ c.cash_in_hand > 0 ? 'Recevoir le versement' : 'Rembourser le livreur' }}</button>
               </td>
             </tr>
           </tbody>
@@ -159,12 +159,16 @@
             <span class="font-mono text-xs">{{ c.tracking_code }}</span>
             <span class="flex-1 truncate">{{ c.recipient_name }}</span>
             <span class="text-xs text-gray-500">{{ c.method_label }}</span>
-            <span class="font-medium">{{ money(c.amount_collected) }}</span>
+            <span v-if="c.courier_expense" class="text-xs text-indigo-700" :title="`Encaissé ${money(c.amount_collected)}`">🚌 − {{ money(c.courier_expense) }}</span>
+            <span class="font-medium">{{ money(c.amount_due) }}</span>
           </li>
         </ul>
-        <p class="text-sm">Montant attendu : <strong>{{ money(remitExpected) }}</strong></p>
+        <p class="text-sm">
+          <template v-if="remitExpected >= 0">Montant attendu : <strong>{{ money(remitExpected) }}</strong></template>
+          <template v-else>Frais avancés par le livreur (expéditions) : <strong>la caisse lui doit {{ money(-remitExpected) }}</strong></template>
+        </p>
         <div>
-          <label class="label" for="received">Montant reçu (F) *</label>
+          <label class="label" for="received">{{ remitExpected >= 0 ? 'Montant reçu (F) *' : 'Montant remis au livreur (F) *' }}</label>
           <input id="received" v-model.number="remit.amount_received" type="number" min="0" class="input" required>
           <p v-if="remitDifference" :class="['text-sm mt-1', signedClass(remitDifference)]">
             Écart : {{ money(remitDifference) }}{{ remitDifference < 0 ? ' (sera retenu sur la paie du livreur)' : '' }}
@@ -260,8 +264,11 @@ const ledger = reactive({ open: false, merchant: null, entries: [], adjust: { am
 const adjust = reactive({ open: false, courier: null, amount: null, description: '', error: '' })
 const courierPayout = reactive({ open: false, data: null })
 
-const remitExpected = computed(() => remit.collections.filter((c) => remit.selected.includes(c.id)).reduce((s, c) => s + c.amount_collected, 0))
-const remitDifference = computed(() => (remit.amount_received ?? 0) - remitExpected.value)
+// Montant dû par le livreur, frais d'expédition avancés déduits ; négatif : la caisse lui doit de l'argent
+const remitExpected = computed(() => remit.collections.filter((c) => remit.selected.includes(c.id)).reduce((s, c) => s + c.amount_due, 0))
+// Le champ est toujours saisi en positif : reçu du livreur, ou remis au livreur quand la caisse lui doit
+const remitSigned = computed(() => (remitExpected.value < 0 ? -1 : 1) * (remit.amount_received ?? 0))
+const remitDifference = computed(() => remitSigned.value - remitExpected.value)
 
 function setTab(value) {
   tab.value = value
@@ -286,7 +293,7 @@ async function openRemit(courier) {
     courier,
     collections: data.data,
     selected: data.data.map((c) => c.id),
-    amount_received: courier.cash_in_hand,
+    amount_received: Math.abs(courier.cash_in_hand),
     notes: '',
     error: '',
   })
@@ -298,7 +305,7 @@ async function saveRemit() {
     const allSelected = remit.selected.length === remit.collections.length
     await http.post('/finance/remittances', {
       courier_id: remit.courier.courier_id,
-      amount_received: remit.amount_received,
+      amount_received: remitSigned.value,
       collection_ids: allSelected ? undefined : remit.selected,
       notes: remit.notes || undefined,
     })

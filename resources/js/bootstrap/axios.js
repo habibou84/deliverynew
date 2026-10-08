@@ -40,6 +40,9 @@ http.interceptors.response.use(
  * Extrait un message lisible d'une erreur d'API ({ message, errors? }).
  */
 export function apiErrorMessage(error, fallback = 'Une erreur est survenue.') {
+  if (error.isAxiosError && !error.response) {
+    return 'Pas de connexion. Réessayez quand le réseau revient.'
+  }
   const data = error.response?.data
   if (data?.errors) {
     const first = Object.values(data.errors)[0]

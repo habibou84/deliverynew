@@ -1,200 +1,404 @@
 <template>
-  <div v-if="mission" class="space-y-4 pb-24">
-    <div class="flex items-center gap-2">
-      <RouterLink to="/livreur" class="btn-secondary">←</RouterLink>
-      <span class="font-mono text-sm">{{ order.tracking_code }}</span>
-      <StatusBadge class="ml-auto" :status="order.status" :label="order.status_label" />
+  <div v-if="mission" class="space-y-4 pb-36">
+    <!-- Où aller -->
+    <section class="m-card p-4 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">{{ mission.type_label }}</span>
+        <StatusBadge :status="order.status" :label="order.status_label" />
+      </div>
+      <p v-if="shipping" class="rounded-xl bg-indigo-50 text-indigo-900 p-3 font-medium">
+        🚌 Expédition : déposez le colis à la gare ou chez le transporteur, payez l'envoi et gardez le ticket.
+      </p>
+      <p class="text-xl font-bold">{{ target.name }}</p>
+      <p class="text-slate-700">📍 {{ target.zone }}<span v-if="target.address"> · {{ target.address }}</span></p>
+      <p v-if="target.landmark" class="text-slate-500">Repère : {{ target.landmark }}</p>
+      <p v-if="mission.type === 'delivery' && order.delivery.scheduled_date" class="text-sm text-slate-500">Prévue le {{ date(order.delivery.scheduled_date) }} {{ order.delivery.time_slot ? `(${order.delivery.time_slot}h)` : '' }}</p>
+
+      <div class="grid grid-cols-3 gap-2 pt-2">
+        <a :href="telLink(target.phone)" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
+          <span class="text-2xl">📞</span>Appeler
+        </a>
+        <a :href="whatsappLink(target.phone)" target="_blank" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
+          <span class="text-2xl">💬</span>WhatsApp
+        </a>
+        <a :href="mapsLink(target.lat, target.lng, `${target.address || ''} ${target.zone}`)" target="_blank" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
+          <span class="text-2xl">🗺️</span>Itinéraire
+        </a>
+      </div>
+      <a v-if="target.phone2" :href="telLink(target.phone2)" class="block text-center text-sm text-[var(--app-color)] font-medium pt-1">📞 Autre numéro : {{ target.phone2 }}</a>
+    </section>
+
+    <!-- Argent et colis -->
+    <section class="m-card p-4 space-y-2">
+      <div v-if="mission.type !== 'pickup' && !(shipping && !order.amounts.cod_amount)" class="flex items-center justify-between">
+        <span class="text-slate-600">À encaisser</span>
+        <span class="text-3xl font-bold">{{ money(order.amounts.cod_amount) }}</span>
+      </div>
+      <p class="text-slate-700">📦 {{ order.package.description || 'Colis' }}</p>
+      <div class="flex flex-wrap gap-2">
+        <span v-if="order.package.is_fragile" class="rounded-full bg-red-100 text-red-700 text-sm font-semibold px-3 py-1">🥚 Fragile</span>
+        <span v-if="order.package.is_express" class="rounded-full bg-amber-100 text-amber-800 text-sm font-semibold px-3 py-1">⚡ Express</span>
+        <span v-if="order.attempts_count" class="rounded-full bg-slate-100 text-slate-700 text-sm px-3 py-1">Tentative {{ order.attempts_count + 1 }} / {{ order.max_attempts }}</span>
+      </div>
+      <p v-if="order.package.merchant_note" class="rounded-xl bg-amber-50 p-3 text-amber-900">📝 {{ order.package.merchant_note }}</p>
+      <p class="font-mono text-xs text-slate-400">{{ order.tracking_code }}<span v-if="mission.type === 'pickup'"> · {{ order.merchant?.business_name }}</span></p>
+    </section>
+
+    <!-- Actions -->
+    <div class="fixed bottom-16 inset-x-0 z-20 bg-white border-t pb-safe">
+      <div class="mx-auto max-w-lg p-3 space-y-2">
+        <template v-if="mission.status === 'assigned'">
+          <div class="grid grid-cols-3 gap-2">
+            <button class="m-btn-secondary" @click="sheet = 'refuse'">Refuser</button>
+            <button class="m-btn-success col-span-2" :disabled="busy" @click="accept">✓ Accepter</button>
+          </div>
+        </template>
+        <template v-else-if="active">
+          <button v-if="primary" :class="[primary.class, 'text-lg py-5']" :disabled="busy" @click="primary.action()">{{ primary.label }}</button>
+          <div class="grid grid-cols-3 gap-2">
+            <button v-if="canReportIncident" class="m-btn-secondary py-3 text-red-600" @click="openIncident">⚠️ Problème</button>
+            <button class="m-btn-secondary py-3" @click="sheet = 'note'">💬 Note</button>
+            <label class="m-btn-secondary py-3 cursor-pointer">
+              📷 Photo
+              <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
+            </label>
+          </div>
+        </template>
+      </div>
     </div>
 
-    <div class="card p-4 space-y-2">
-      <p class="text-xs uppercase text-gray-500">{{ mission.type_label }}</p>
-      <template v-if="mission.type === 'pickup'">
-        <p class="font-semibold text-lg">{{ order.merchant?.business_name }}</p>
-        <p>{{ order.pickup.contact_name }}</p>
-        <p>{{ order.pickup.zone_name }} · {{ order.pickup.address }}</p>
-        <p v-if="order.pickup.landmark" class="text-gray-600">Repère : {{ order.pickup.landmark }}</p>
-        <ContactButtons :phone="order.pickup.phone" :maps="mapsLink(order.pickup.lat, order.pickup.lng, order.pickup.address)" />
-      </template>
-      <template v-else>
-        <p class="font-semibold text-lg">{{ order.recipient.name || 'Destinataire' }}</p>
-        <p>{{ order.delivery.zone_name }} · {{ order.delivery.address }}</p>
-        <p v-if="order.delivery.landmark" class="text-gray-600">Repère : {{ order.delivery.landmark }}</p>
-        <p v-if="order.delivery.scheduled_date">Prévue le {{ date(order.delivery.scheduled_date) }} {{ order.delivery.time_slot ? `(${order.delivery.time_slot}h)` : '' }}</p>
-        <ContactButtons :phone="order.recipient.phone" :phone2="order.recipient.phone2" :maps="mapsLink(order.delivery.lat, order.delivery.lng, order.delivery.address)" />
-      </template>
-    </div>
-
-    <div class="card p-4 text-sm space-y-1">
-      <p v-if="mission.type !== 'pickup'" class="text-lg">À encaisser : <strong>{{ money(order.amounts.cod_amount) }}</strong></p>
-      <p>Colis : {{ order.package.description || '—' }}<span v-if="order.package.is_fragile" class="text-red-600 font-medium"> · FRAGILE</span><span v-if="order.package.is_express"> · Express</span></p>
-      <p v-if="order.package.merchant_note" class="bg-amber-50 rounded p-2">📝 {{ order.package.merchant_note }}</p>
-      <p v-if="order.attempts_count">Tentatives : {{ order.attempts_count }} / {{ order.max_attempts }}</p>
-    </div>
-
-    <div v-if="error" class="rounded bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error }}</div>
-
-    <!-- Actions principales, en bas de l'écran -->
-    <div class="fixed bottom-0 inset-x-0 bg-white border-t p-3 space-y-2 z-40">
-      <template v-if="mission.status === 'assigned'">
-        <div class="flex gap-2">
-          <button class="btn-secondary flex-1" @click="refuse">Refuser</button>
-          <button class="btn-success flex-1" @click="accept">Accepter</button>
-        </div>
-      </template>
-      <template v-else-if="isActive">
-        <button v-if="primary" :class="[primary.class, 'w-full py-3 text-base']" :disabled="busy" @click="primary.action()">{{ primary.label }}</button>
-        <div class="flex gap-2">
-          <button v-if="canReportIncident" class="btn-danger flex-1" @click="openIncident">Signaler un problème</button>
-          <button class="btn-secondary flex-1" @click="noteOpen = true">Note</button>
-          <label class="btn-secondary flex-1 cursor-pointer">
-            📷 Photo
+    <!-- Livraison réussie (ou dépôt à la gare pour une expédition) -->
+    <BottomSheet :open="sheet === 'delivered'" :title="shipping ? 'Colis expédié' : 'Colis livré'" @close="sheet = null">
+      <div class="space-y-4">
+        <template v-if="shipping">
+          <div>
+            <label class="m-label" for="carrier">Compagnie ou gare</label>
+            <input id="carrier" v-model="delivery.shipping_carrier" class="m-input" list="carriers" placeholder="Ex. : UTB Adjamé" autocomplete="off">
+            <datalist id="carriers"><option v-for="c in recentCarriers" :key="c" :value="c" /></datalist>
+          </div>
+          <div>
+            <label class="m-label" for="shipfee">Frais d'expédition payés</label>
+            <div class="relative">
+              <input id="shipfee" v-model.number="delivery.shipping_fee" type="number" min="0" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
+              <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
+            </div>
+            <p class="text-sm text-slate-500 mt-1">Facturés au marchand et déduits de ce que vous versez à la caisse.</p>
+          </div>
+          <div>
+            <label class="m-label" for="ticket">Numéro du ticket</label>
+            <input id="ticket" v-model="delivery.shipping_reference" class="m-input" placeholder="Facultatif">
+          </div>
+          <label class="m-btn-secondary cursor-pointer">
+            📷 Photographier le ticket
             <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
           </label>
+        </template>
+        <div v-if="!shipping || order.amounts.cod_amount > 0">
+          <label class="m-label" for="collected">Montant encaissé</label>
+          <div class="relative">
+            <input id="collected" v-model.number="delivery.collected_amount" type="number" min="0" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
+          </div>
+          <p v-if="delivery.collected_amount !== order.amounts.cod_amount" class="text-sm text-amber-700 mt-1">Attendu : {{ money(order.amounts.cod_amount) }}</p>
         </div>
-      </template>
-      <p v-else class="text-center text-sm text-gray-500">Mission terminée.</p>
-    </div>
+        <div v-if="delivery.collected_amount > 0">
+          <p class="m-label">Le client a payé en</p>
+          <ChoiceChips v-model="delivery.payment_method" :options="paymentOptions" :columns="2" label="Mode de paiement" />
+        </div>
+        <template v-if="delivery.collected_amount > 0 && delivery.payment_method !== 'cash'">
+          <ChoiceChips
+            v-model="delivery.received_by_company"
+            :options="[
+              { value: false, label: 'Sur mon téléphone', description: 'je le verserai à la caisse' },
+              { value: true, label: 'Sur le compte de l\'agence', description: 'rien à verser' },
+            ]"
+            label="Paiement reçu"
+          />
+          <input v-model="delivery.transaction_ref" class="m-input" placeholder="Référence de la transaction (facultatif)">
+        </template>
+        <div v-if="auth.user?.company?.require_delivery_code && !shipping">
+          <label class="m-label" for="code">Code donné par le client</label>
+          <input id="code" v-model="delivery.delivery_code" class="m-input text-center text-3xl font-bold tracking-[0.5em]" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••">
+        </div>
+        <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
+        <button class="m-btn-success text-lg py-5" :disabled="busy" @click="confirmDelivered">{{ shipping ? '✓ Confirmer l\'expédition' : '✓ Confirmer la livraison' }}</button>
+      </div>
+    </BottomSheet>
 
-    <Modal :open="statusModal.open" :title="statusModal.title" @close="statusModal.open = false">
-      <StatusChangeForm
-        v-if="statusModal.open"
-        :order="order"
-        :choices="statusModal.choices"
-        :ask-code="!!auth.user?.company?.require_delivery_code"
-        :position="position"
-        @done="done"
-      />
-    </Modal>
+    <!-- Problème -->
+    <BottomSheet :open="sheet === 'incident'" title="Que se passe-t-il ?" @close="sheet = null">
+      <div class="space-y-4">
+        <ChoiceChips v-model="incident.reason" :options="reasonOptions" label="Motif" />
+        <div v-if="selectedReason?.requires_date">
+          <p class="m-label">Nouvelle date demandée par le client</p>
+          <ChoiceChips v-model="incident.when" :options="dateOptions" :columns="3" label="Date" />
+          <input v-if="incident.when === 'other'" v-model="incident.date" type="date" :min="today()" class="m-input mt-2" aria-label="Date">
+        </div>
+        <textarea v-model="incident.note" rows="2" class="m-input" placeholder="Précisez (facultatif) : ex. téléphone éteint, 3 appels" />
+        <p class="text-xs text-slate-500">L'agence et le marchand sont prévenus immédiatement.</p>
+        <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
+        <button class="m-btn-danger" :disabled="busy || !incident.reason" @click="confirmIncident">Envoyer</button>
+      </div>
+    </BottomSheet>
 
-    <Modal :open="noteOpen" title="Ajouter une note" @close="noteOpen = false">
-      <form class="space-y-3" @submit.prevent="sendNote">
-        <textarea v-model="noteText" rows="3" class="input" placeholder="Ex. : destinataire injoignable, rappeler après 17h" required />
-        <p class="text-xs text-gray-500">La note est envoyée immédiatement à l'administrateur et au marchand.</p>
-        <button class="btn-primary w-full">Envoyer</button>
-      </form>
-    </Modal>
+    <!-- Refus de mission -->
+    <BottomSheet :open="sheet === 'refuse'" title="Pourquoi refusez-vous ?" @close="sheet = null">
+      <div class="space-y-4">
+        <ChoiceChips v-model="refusal" :options="refusalOptions" label="Raison du refus" />
+        <button class="m-btn-danger" :disabled="busy || !refusal" @click="refuse">Refuser la mission</button>
+      </div>
+    </BottomSheet>
+
+    <!-- Note -->
+    <BottomSheet :open="sheet === 'note'" title="Note pour l'agence et le marchand" @close="sheet = null">
+      <div class="space-y-3">
+        <textarea v-model="noteText" rows="3" class="m-input" placeholder="Ex. : le client demande de rappeler après 17h" />
+        <button class="m-btn-primary" :disabled="busy || !noteText.trim()" @click="sendNote">Envoyer</button>
+      </div>
+    </BottomSheet>
   </div>
-  <p v-else class="text-gray-500">Chargement…</p>
+  <p v-else class="text-center text-slate-400 py-10">Chargement…</p>
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
-import Modal from '../../components/Modal.vue'
-import StatusChangeForm from '../../components/StatusChangeForm.vue'
-import { useToastStore } from '../../stores/toasts'
+import BottomSheet from '../../components/mobile/BottomSheet.vue'
+import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'
+import { cachedGet } from '../../composables/useCachedApi'
+import { useToastStore } from '../../stores/toasts'
 import { currentPosition } from '../../composables/useGeolocation'
-import { date, mapsLink, money, telLink, whatsappLink } from '../../utils/format'
-
-// Boutons d'appel, WhatsApp et itinéraire
-const ContactButtons = defineComponent({
-  props: { phone: String, phone2: String, maps: String },
-  setup(props) {
-    const link = (href, label, cls = 'btn-secondary flex-1') => href && h('a', { href, class: cls, target: href.startsWith('http') ? '_blank' : undefined }, label)
-    return () => h('div', { class: 'flex flex-wrap gap-2 pt-2' }, [
-      link(telLink(props.phone), '📞 Appeler'),
-      link(telLink(props.phone2), '📞 2e numéro'),
-      link(whatsappLink(props.phone), '💬 WhatsApp'),
-      link(props.maps, '🗺️ Itinéraire'),
-    ].filter(Boolean))
-  },
-})
+import { date, DELIVERY_PAYMENT_METHODS, mapsLink, money, PAYMENT_METHODS, telLink, today, whatsappLink } from '../../utils/format'
 
 const route = useRoute()
 const router = useRouter()
-const toasts = useToastStore()
 const auth = useAuthStore()
+const toasts = useToastStore()
 
 const mission = ref(null)
 const order = computed(() => mission.value?.order)
-const error = ref('')
+const reasons = ref([])
 const busy = ref(false)
-const position = ref(null)
-const statusModal = reactive({ open: false, title: '', choices: [] })
-const noteOpen = ref(false)
+const sheet = ref(null)
+const sheetError = ref('')
 const noteText = ref('')
+const refusal = ref(null)
+const delivery = reactive({
+  collected_amount: 0, payment_method: 'cash', received_by_company: false, transaction_ref: '', delivery_code: '',
+  shipping_carrier: '', shipping_fee: 0, shipping_reference: '',
+})
+const shipping = computed(() => order.value?.is_shipping && mission.value?.type === 'delivery')
+const CARRIERS_KEY = 'recent_carriers'
+const recentCarriers = ref(readCarriers())
 
-const isActive = computed(() => ['accepted', 'in_progress'].includes(mission.value?.status))
+function readCarriers() {
+  try {
+    return JSON.parse(localStorage.getItem(CARRIERS_KEY)) || []
+  } catch {
+    return []
+  }
+}
+const incident = reactive({ reason: null, when: 'tomorrow', date: null, note: '' })
+
+const active = computed(() => ['accepted', 'in_progress'].includes(mission.value?.status))
 const canReportIncident = computed(() => ['pickup_assigned', 'pickup_in_progress', 'out_for_delivery'].includes(order.value?.status))
+
+// Coordonnées utiles selon le type de mission : marchand (ramassage) ou client (livraison, retour au marchand)
+const target = computed(() => {
+  const o = order.value
+  const toMerchant = mission.value.type !== 'delivery'
+  return toMerchant
+    ? { name: o.merchant?.business_name || o.pickup.contact_name, phone: o.pickup.phone, phone2: null, zone: o.pickup.zone_name, address: o.pickup.address, landmark: o.pickup.landmark, lat: o.pickup.lat, lng: o.pickup.lng }
+    : { name: o.recipient.name || 'Client', phone: o.recipient.phone, phone2: o.recipient.phone2, zone: o.delivery.zone_name, address: o.delivery.address, landmark: o.delivery.landmark, lat: o.delivery.lat, lng: o.delivery.lng }
+})
 
 // Prochaine étape selon le type de mission et l'avancement
 const primary = computed(() => {
   const s = order.value.status
   const t = mission.value.type
-  if (t === 'pickup' && s === 'pickup_assigned') return { label: 'Je pars au ramassage', class: 'btn-primary', action: () => move('pickup_in_progress') }
-  if (t === 'pickup' && ['pickup_assigned', 'pickup_in_progress'].includes(s)) return { label: '✅ Colis récupéré', class: 'btn-success', action: () => move('picked_up') }
-  if (t === 'delivery' && ['delivery_assigned', 'picked_up', 'at_hub', 'delivery_failed', 'rescheduled'].includes(s)) return { label: '🚚 Je pars livrer', class: 'btn-primary', action: () => move('out_for_delivery') }
-  if (t === 'delivery' && s === 'out_for_delivery') return { label: '✅ Colis livré', class: 'btn-success', action: () => openStatus('Confirmer la livraison', ['delivered']) }
-  if (t === 'return' && s === 'return_assigned') return { label: 'Je pars rendre le colis', class: 'btn-primary', action: () => move('returning') }
-  if (t === 'return' && ['return_assigned', 'returning'].includes(s)) return { label: '✅ Colis rendu au marchand', class: 'btn-success', action: () => move('returned') }
+  if (t === 'pickup' && s === 'pickup_assigned') return { label: '🛵 Je pars chercher le colis', class: 'm-btn-primary', action: () => move('pickup_in_progress') }
+  if (t === 'pickup' && ['pickup_assigned', 'pickup_in_progress'].includes(s)) return { label: '✓ J\'ai récupéré le colis', class: 'm-btn-success', action: () => move('picked_up') }
+  if (t === 'delivery' && ['delivery_assigned', 'picked_up', 'at_hub', 'delivery_failed', 'rescheduled'].includes(s)) return { label: shipping.value ? '🚌 Je pars à la gare' : '🛵 Je pars livrer', class: 'm-btn-primary', action: () => move('out_for_delivery') }
+  if (t === 'delivery' && s === 'out_for_delivery') return { label: shipping.value ? '✓ Colis expédié' : '✓ Colis livré', class: 'm-btn-success', action: openDelivered }
+  if (t === 'return' && s === 'return_assigned') return { label: '🛵 Je rapporte le colis', class: 'm-btn-primary', action: () => move('returning') }
+  if (t === 'return' && ['return_assigned', 'returning'].includes(s)) return { label: '✓ Colis rendu au marchand', class: 'm-btn-success', action: () => move('returned') }
   return null
 })
 
+const stage = computed(() => (mission.value?.type === 'pickup' ? 'pickup' : 'delivery'))
+const reasonOptions = computed(() => reasons.value
+  .filter((r) => r.applies_to === 'both' || r.applies_to === stage.value)
+  .map((r) => ({ value: r.id, label: r.label })))
+const selectedReason = computed(() => reasons.value.find((r) => r.id === incident.reason))
+
+const paymentOptions = DELIVERY_PAYMENT_METHODS.map((m) => ({
+  value: m,
+  label: PAYMENT_METHODS[m],
+  icon: { cash: '💵', wave: '🌊', orange_money: '🟠', mtn_momo: '🟡', moov_money: '🔵' }[m],
+}))
+const refusalOptions = [
+  { value: 'Moto en panne', label: '🔧 Moto en panne' },
+  { value: 'Trop loin de ma position', label: '📍 Trop loin de ma position' },
+  { value: 'Trop de missions en cours', label: '📦 Trop de missions en cours' },
+  { value: 'Pas disponible', label: '⏸️ Pas disponible' },
+]
+const dayOffset = (n) => {
+  const d = new Date(Date.now() + n * 86400000)
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
+  return d.toISOString().slice(0, 10)
+}
+const dateOptions = [
+  { value: 'tomorrow', label: 'Demain' },
+  { value: 'after', label: 'Après-demain' },
+  { value: 'other', label: 'Autre' },
+]
+
 async function load() {
-  const { data } = await http.get('/courier/missions')
+  let data
+  try {
+    ;({ data } = await cachedGet('/courier/missions'))
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+    return
+  }
   mission.value = data.data.find((m) => m.id === Number(route.params.id)) ?? null
-  // Mission terminée (ou retirée) : retour à la liste
+  // Mission terminée ou retirée : retour à la liste
   if (!mission.value) router.replace('/livreur')
+}
+
+async function post(status, extra = {}) {
+  const position = await currentPosition()
+  return http.post(`/orders/${order.value.id}/status`, { status, ...extra, ...(position || {}) })
 }
 
 async function move(status) {
   busy.value = true
-  error.value = ''
   try {
-    const pos = await currentPosition()
-    const { data } = await http.post(`/orders/${order.value.id}/status`, { status, ...(pos || {}) })
-    afterMove(data.data)
+    const { data } = await post(status)
+    toasts.success(data.data.status_label)
+    await load()
   } catch (e) {
-    error.value = apiErrorMessage(e)
+    toasts.error(apiErrorMessage(e))
   } finally {
     busy.value = false
   }
 }
 
-function afterMove(updated) {
-  toasts.success(`${updated.tracking_code} : ${updated.status_label}`)
-  load()
+function openDelivered() {
+  Object.assign(delivery, {
+    collected_amount: order.value.amounts.cod_amount, payment_method: 'cash', received_by_company: false, transaction_ref: '', delivery_code: '',
+    shipping_carrier: recentCarriers.value[0] || '', shipping_fee: order.value.shipping?.fee_estimate ?? 0, shipping_reference: '',
+  })
+  sheetError.value = ''
+  sheet.value = 'delivered'
 }
 
-async function openStatus(title, choices) {
-  position.value = await currentPosition()
-  statusModal.title = title
-  statusModal.choices = choices
-  statusModal.open = true
+async function confirmDelivered() {
+  busy.value = true
+  sheetError.value = ''
+  try {
+    const extra = { collected_amount: delivery.collected_amount }
+    if (delivery.collected_amount > 0) {
+      extra.payment_method = delivery.payment_method
+      if (delivery.payment_method !== 'cash') {
+        extra.received_by_company = delivery.received_by_company
+        if (delivery.transaction_ref) extra.transaction_ref = delivery.transaction_ref
+      }
+    }
+    if (delivery.delivery_code) extra.delivery_code = delivery.delivery_code
+    if (shipping.value) {
+      Object.assign(extra, {
+        shipping_carrier: delivery.shipping_carrier.trim(),
+        shipping_fee: delivery.shipping_fee ?? 0,
+        shipping_reference: delivery.shipping_reference || undefined,
+      })
+    }
+    await post('delivered', extra)
+    if (shipping.value) rememberCarrier(delivery.shipping_carrier.trim())
+    sheet.value = null
+    toasts.success(shipping.value ? 'Expédition enregistrée. Bravo !' : 'Livraison enregistrée. Bravo !')
+    await load()
+  } catch (e) {
+    sheetError.value = apiErrorMessage(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+// Les compagnies déjà utilisées sont proposées en premier
+function rememberCarrier(name) {
+  recentCarriers.value = [name, ...recentCarriers.value.filter((c) => c !== name)].slice(0, 5)
+  try {
+    localStorage.setItem(CARRIERS_KEY, JSON.stringify(recentCarriers.value))
+  } catch {
+    // Stockage indisponible : pas de suggestions
+  }
 }
 
 function openIncident() {
-  const choices = mission.value.type === 'pickup' ? ['confirmed'] : ['delivery_failed', 'rescheduled']
-  openStatus('Signaler un problème', choices)
+  Object.assign(incident, { reason: null, when: 'tomorrow', date: null, note: '' })
+  sheetError.value = ''
+  sheet.value = 'incident'
 }
 
-function done(updated) {
-  statusModal.open = false
-  afterMove(updated)
+async function confirmIncident() {
+  busy.value = true
+  sheetError.value = ''
+  try {
+    // Ramassage : retour à « Validée » ; livraison : échec (ou report daté selon le motif)
+    const status = stage.value === 'pickup' ? 'confirmed' : 'delivery_failed'
+    const extra = { incident_reason_id: incident.reason, note: incident.note || undefined }
+    if (selectedReason.value?.requires_date) {
+      extra.rescheduled_to = { tomorrow: dayOffset(1), after: dayOffset(2), other: incident.date }[incident.when]
+    }
+    await post(status, extra)
+    sheet.value = null
+    toasts.success('Problème signalé à l\'agence et au marchand.')
+    await load()
+  } catch (e) {
+    sheetError.value = apiErrorMessage(e)
+  } finally {
+    busy.value = false
+  }
 }
 
 async function accept() {
-  await http.post(`/courier/assignments/${mission.value.id}/accept`)
-  load()
+  busy.value = true
+  try {
+    await http.post(`/courier/assignments/${mission.value.id}/accept`)
+    await load()
+  } finally {
+    busy.value = false
+  }
 }
 
 async function refuse() {
-  const reason = window.prompt('Pourquoi refusez-vous cette mission ?')
-  if (!reason) return
-  await http.post(`/courier/assignments/${mission.value.id}/refuse`, { reason })
-  toasts.push('Mission refusée.')
-  router.replace('/livreur')
+  busy.value = true
+  try {
+    await http.post(`/courier/assignments/${mission.value.id}/refuse`, { reason: refusal.value })
+    toasts.push('Mission refusée.')
+    router.replace('/livreur')
+  } finally {
+    busy.value = false
+  }
 }
 
 async function sendNote() {
-  const pos = await currentPosition()
-  await http.post(`/orders/${order.value.id}/notes`, { note: noteText.value, ...(pos || {}) })
-  noteText.value = ''
-  noteOpen.value = false
-  toasts.success('Note envoyée.')
+  busy.value = true
+  try {
+    const position = await currentPosition()
+    await http.post(`/orders/${order.value.id}/notes`, { note: noteText.value, ...(position || {}) })
+    noteText.value = ''
+    sheet.value = null
+    toasts.success('Note envoyée.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy.value = false
+  }
 }
 
 async function uploadPhoto(e) {
@@ -212,5 +416,8 @@ async function uploadPhoto(e) {
   e.target.value = ''
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  reasons.value = (await cachedGet('/incident-reasons').catch(() => ({ data: { data: [] } }))).data.data
+})
 </script>

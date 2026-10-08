@@ -50,7 +50,7 @@ class OrderChanged implements ShouldBroadcast
                 'tracking_code' => $this->order->tracking_code,
                 'merchant_id' => $this->order->merchant_id,
                 'status' => $this->order->status->value,
-                'status_label' => $this->order->status->label(),
+                'status_label' => $this->order->statusLabel(),
             ],
             'event' => [
                 'id' => $this->event->id,

@@ -30,6 +30,15 @@ class DemoSeeder extends Seeder
         );
 
         app(CompanyProvisioner::class)->provision($company);
+
+        // Zones d'expédition : colis déposés à une gare routière pour l'intérieur du pays
+        foreach (['Expédition Bouaké (gare UTB Adjamé)' => 3000, 'Expédition Yamoussoukro (gare UTB Adjamé)' => 2500] as $name => $estimate) {
+            Zone::withoutGlobalScopes()->updateOrCreate(
+                ['company_id' => $company->id, 'name' => $name, 'parent_id' => null],
+                ['city' => 'Abidjan', 'is_shipping' => true, 'shipping_fee_estimate' => $estimate, 'sort_order' => 100],
+            );
+        }
+
         $this->pricing($company);
 
         $this->user($company, Role::Admin, 'Administrateur', '0700000001', 'admin@livraison.test');
@@ -66,6 +75,18 @@ class DemoSeeder extends Seeder
         $grid = PricingGrid::forCompany($company->id)->where('is_default', true)->first();
         $zones = Zone::forCompany($company->id)->whereNull('parent_id')->get();
         $outskirts = ['Anyama', 'Bingerville', 'Songon'];
+        $shipping = $zones->where('is_shipping', true);
+        $zones = $zones->where('is_shipping', false);
+
+        // Course jusqu'à la gare d'Adjamé, depuis toute commune
+        foreach ($shipping as $station) {
+            foreach ($zones as $origin) {
+                PricingRule::updateOrCreate(
+                    ['pricing_grid_id' => $grid->id, 'origin_zone_id' => $origin->id, 'destination_zone_id' => $station->id],
+                    ['price' => 1500, 'is_symmetric' => true],
+                );
+            }
+        }
 
         foreach ($zones as $origin) {
             foreach ($zones as $destination) {

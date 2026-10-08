@@ -49,6 +49,7 @@ class Order extends Model
         'delivery_lng',
         'delivery_scheduled_date',
         'delivery_time_slot',
+        'is_shipping',
         'description',
         'package_size',
         'weight_kg',
@@ -81,6 +82,8 @@ class Order extends Model
             'weight_kg' => 'float',
             'is_fragile' => 'boolean',
             'is_express' => 'boolean',
+            'is_shipping' => 'boolean',
+            'shipping_fee' => 'integer',
             'return_requested' => 'boolean',
             'delivery_fee' => 'integer',
             'surcharges_total' => 'integer',
@@ -228,6 +231,14 @@ class Order extends Model
     public static function computeCodAmount(int $itemsAmount, int $fees, FeePayer $payer): int
     {
         return $itemsAmount + ($payer === FeePayer::Recipient ? $fees : 0);
+    }
+
+    /**
+     * Libellé du statut : un colis d'une zone d'expédition « livré » a été remis au transporteur.
+     */
+    public function statusLabel(): string
+    {
+        return $this->is_shipping && $this->status === OrderStatus::Delivered ? 'Expédié' : $this->status->label();
     }
 
     public function totalFees(): int

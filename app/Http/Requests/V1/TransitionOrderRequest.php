@@ -33,6 +33,9 @@ class TransitionOrderRequest extends FormRequest
             'payment_method' => ['nullable', Rule::in(array_map(fn (PaymentMethod $m) => $m->value, PaymentMethod::atDelivery()))],
             'received_by_company' => ['nullable', 'boolean'],
             'transaction_ref' => ['nullable', 'string', 'max:100'],
+            'shipping_fee' => ['nullable', 'integer', 'min:0', 'max:1000000'],
+            'shipping_carrier' => ['nullable', 'string', 'max:100'],
+            'shipping_reference' => ['nullable', 'string', 'max:100'],
             'cancel_reason' => ['nullable', 'string', 'max:1000'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
@@ -49,6 +52,9 @@ class TransitionOrderRequest extends FormRequest
             'collected_amount' => 'montant encaissé',
             'payment_method' => 'mode de paiement',
             'transaction_ref' => 'référence de transaction',
+            'shipping_fee' => 'frais d\'expédition',
+            'shipping_carrier' => 'compagnie de transport',
+            'shipping_reference' => 'numéro du ticket',
         ];
     }
 }

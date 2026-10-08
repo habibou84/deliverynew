@@ -18,7 +18,7 @@ class MerchantPayout extends Model
 
     protected $fillable = [
         'company_id', 'merchant_id', 'reference', 'period_start', 'period_end', 'total_collected',
-        'total_fees', 'total_adjustments', 'net_amount', 'status', 'method', 'transaction_ref',
+        'total_fees', 'total_shipping_fees', 'total_adjustments', 'net_amount', 'status', 'method', 'transaction_ref',
         'notes', 'created_by', 'paid_by', 'paid_at',
     ];
 
@@ -31,6 +31,7 @@ class MerchantPayout extends Model
             'period_end' => 'date:Y-m-d',
             'total_collected' => 'integer',
             'total_fees' => 'integer',
+            'total_shipping_fees' => 'integer',
             'total_adjustments' => 'integer',
             'net_amount' => 'integer',
             'paid_at' => 'datetime',

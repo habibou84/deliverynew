@@ -40,6 +40,14 @@
           </div>
           <div><p class="text-gray-500">À encaisser</p><p class="font-semibold text-lg">{{ money(order.amounts.cod_amount) }}</p></div>
           <div><p class="text-gray-500">Encaissé</p><p class="font-semibold">{{ money(order.amounts.collected_amount) }}</p></div>
+          <div v-if="order.is_shipping" class="sm:col-span-4 rounded bg-indigo-50 text-indigo-900 p-2">
+            🚌 <strong>Expédition</strong> ·
+            <template v-if="order.shipping.carrier">
+              déposé chez {{ order.shipping.carrier }}<span v-if="order.shipping.reference"> (ticket {{ order.shipping.reference }})</span>,
+              frais {{ money(order.shipping.fee) }} facturés au marchand
+            </template>
+            <template v-else>frais du transporteur facturés au marchand au réel<span v-if="order.shipping.fee_estimate"> (≈ {{ money(order.shipping.fee_estimate) }})</span></template>
+          </div>
           <div v-if="order.delivery_code" class="sm:col-span-2">
             <p class="text-gray-500">Code de livraison (à transmettre au client)</p>
             <p class="font-mono text-lg tracking-widest">{{ order.delivery_code }}</p>
@@ -96,6 +104,8 @@
           <button class="btn-primary w-full" :disabled="!note.text.trim()" @click="addNote">Envoyer</button>
         </div>
 
+        <OrderMessages v-if="isStaff" :order-id="order.id" :version="order.updated_at" />
+
         <div v-if="isStaff && order.assignments?.length" class="card p-4 text-sm">
           <h2 class="font-semibold mb-2">Missions</h2>
           <ul class="space-y-2">
@@ -140,6 +150,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
 import OrderTimeline from '../../components/OrderTimeline.vue'
 import Modal from '../../components/Modal.vue'
+import OrderMessages from '../../components/OrderMessages.vue'
 import StatusChangeForm from '../../components/StatusChangeForm.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'

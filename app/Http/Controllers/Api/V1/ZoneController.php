@@ -59,6 +59,8 @@ class ZoneController extends Controller
                 Rule::notIn(array_filter([$zone?->id]))],
             'city' => ['sometimes', 'string', 'max:100'],
             'is_active' => ['sometimes', 'boolean'],
+            'is_shipping' => ['sometimes', 'boolean'],
+            'shipping_fee_estimate' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],
         ];
     }

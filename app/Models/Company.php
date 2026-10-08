@@ -25,6 +25,8 @@ class Company extends Model
         'default_max_attempts',
         'require_delivery_code',
         'return_fee_percent',
+        'notify_recipients',
+        'sms_fallback',
         'status',
     ];
 
@@ -35,6 +37,8 @@ class Company extends Model
             'default_max_attempts' => 'integer',
             'require_delivery_code' => 'boolean',
             'return_fee_percent' => 'integer',
+            'notify_recipients' => 'boolean',
+            'sms_fallback' => 'boolean',
             'status' => CompanyStatus::class,
         ];
     }

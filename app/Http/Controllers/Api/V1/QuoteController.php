@@ -33,6 +33,11 @@ class QuoteController extends Controller
         $pickupZone = Zone::findOrFail($data['pickup_zone_id'] ?? $merchant->pickup_zone_id);
         $deliveryZone = Zone::findOrFail($data['delivery_zone_id']);
 
-        return response()->json(['data' => $pricing->quote($merchant, $pickupZone, $deliveryZone, $data)->toArray()]);
+        return response()->json(['data' => [
+            ...$pricing->quote($merchant, $pickupZone, $deliveryZone, $data)->toArray(),
+            // Expédition : frais du transporteur en plus, facturés au réel
+            'is_shipping' => $deliveryZone->is_shipping,
+            'shipping_fee_estimate' => $deliveryZone->is_shipping ? $deliveryZone->shipping_fee_estimate : null,
+        ]]);
     }
 }

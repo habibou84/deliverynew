@@ -4,7 +4,7 @@
       <span :class="['absolute -left-[7px] mt-1.5 h-3 w-3 rounded-full', dot(event)]" />
       <div class="flex flex-wrap items-baseline gap-x-2">
         <span class="font-medium text-sm">{{ title(event) }}</span>
-        <StatusBadge v-if="event.to_status && event.type !== 'created'" :status="event.to_status" />
+        <StatusBadge v-if="event.to_status && event.type !== 'created'" :status="event.to_status" :label="event.to_status_label" />
         <span v-if="!event.visible_to_merchant" class="text-xs rounded bg-slate-100 px-1.5 text-slate-500">interne</span>
       </div>
       <p class="text-xs text-gray-500">
