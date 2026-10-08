@@ -39,9 +39,11 @@ class ReportController extends Controller
         $count = fn (array $statuses) => $orders->whereIn('status', $statuses)->count();
         $delivered = $orders->where('status', OrderStatus::Delivered);
 
-        // Frais à la charge du marchand : courses livrées ou retournées (le déplacement a eu lieu)
-        $billable = $orders->whereIn('status', [OrderStatus::Delivered, OrderStatus::Returned])
-            ->where('fee_payer', FeePayer::Merchant);
+        // Frais retenus par l'entreprise : toutes les courses livrées (payés par le client ou
+        // par le marchand) et les retours dont les frais sont à la charge du marchand.
+        $billable = $delivered->merge(
+            $orders->where('status', OrderStatus::Returned)->where('fee_payer', FeePayer::Merchant)
+        );
 
         $collected = $delivered->sum('collected_amount');
         $fees = $billable->sum(fn (Order $o) => $o->delivery_fee + $o->surcharges_total);
@@ -63,7 +65,7 @@ class ReportController extends Controller
             ],
             'amounts' => [
                 'collected' => $collected,
-                'merchant_fees' => $fees,
+                'fees' => $fees,
                 // Montant à reverser au marchand (réglé en phase 2 avec la caisse)
                 'net_to_merchant' => $collected - $fees,
             ],

@@ -341,16 +341,23 @@ Choix faits pendant la phase 0 :
 - **Plus d'inscription publique** : les comptes du personnel et des livreurs sont créés par l'admin. L'inscription des e-commerçants arrivera avec le module marchands (phase 1).
 - **Jetons d'API valables 30 jours** (`SANCTUM_EXPIRATION`), pour que les livreurs ne se reconnectent pas chaque jour. La suspension d'un compte ou le changement de mot de passe déconnecte tous ses appareils.
 
-### Phase 1 : MVP opérationnel (5 à 6 semaines) ✅ *premier jalon utilisable*
-- [ ] Zones, grilles tarifaires et calcul de prix (avec tests unitaires).
-- [ ] Marchands (CRUD) et création de leurs comptes.
-- [ ] Livreurs (CRUD), zones et disponibilité.
-- [ ] Création de course (marchand et admin), carnet de destinataires, numéro de suivi, étiquette QR.
-- [ ] Machine à états et `order_events` ; `order_assignments` (ramassage et livraison séparés).
-- [ ] Dashboard admin : notification temps réel (Reverb) des nouvelles courses, dispatch, fiche colis avec chronologie.
-- [ ] App livreur v1 (PWA d'abord) : missions, statuts, notes et motifs d'incident, photo, OTP.
-- [ ] Notifications in-app temps réel au marchand ; lien de suivi public.
-- [ ] Rapports marchand de base (compteurs par statut et par période).
+### Phase 1 : MVP opérationnel (5 à 6 semaines) ✅ *réalisée : premier jalon utilisable*
+- [x] Zones (commune › quartier), grilles tarifaires (matrice, symétrie, grilles négociées), suppléments, calcul de prix testé.
+- [x] Marchands et création de leurs comptes ; suspension.
+- [x] Livreurs : profil créé avec le compte, zones desservies, disponibilité, position.
+- [x] Création de course (marchand et admin) avec devis en direct, carnet de destinataires, code de suivi, étiquette QR 10 × 15 cm.
+- [x] Machine à états, journal immuable `order_events`, missions `order_assignments` (ramassage et livraison séparés, acceptation/refus, réassignation, assignation groupée).
+- [x] Dashboard admin : files d'attente du dispatch, alertes temps réel (Reverb), fiche colis avec chronologie complète.
+- [x] Application livreur (web mobile) : missions, statuts en un geste, motifs d'incident, report daté, notes, photo, code de livraison, appel/WhatsApp/itinéraire, GPS.
+- [x] Notifications temps réel (cloche + toasts) pour marchand, dispatchers et livreurs ; page de suivi publique sans données personnelles.
+- [x] Point marchand : compteurs par état, montants encaissés, frais retenus, net à reverser.
+
+Choix faits pendant la phase 1 :
+- **Échec du ramassage** : la course revient à « Validée » (motif obligatoire) pour être réassignée, sans statut supplémentaire.
+- **Code de livraison** : généré pour chaque course et visible du marchand (jamais du livreur). Son contrôle est **désactivable par entreprise** (`require_delivery_code`, désactivé par défaut) tant que l'envoi automatique au destinataire par WhatsApp (phase 3) n'existe pas.
+- **Dépôts (hubs)** : le statut « Au dépôt » existe, mais la gestion de plusieurs dépôts est reportée (une seule entreprise = un dépôt implicite).
+- **Adresses** : pas de table `addresses` générique ; l'adresse de ramassage est portée par le marchand et copiée sur chaque course.
+- Reportés à la phase 2 avec la caisse : encaissement détaillé (`cash_collections`), versements livreurs et reversements.
 
 ### Phase 2 : argent et paiement à la livraison (3 semaines)
 - [ ] Montant à encaisser, payeur des frais, encaissement par le livreur.

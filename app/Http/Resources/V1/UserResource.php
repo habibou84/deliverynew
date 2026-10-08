@@ -40,6 +40,16 @@ class UserResource extends JsonResource
             'status' => $this->status,
             'last_login_at' => $this->last_login_at,
             'company' => CompanyResource::make($this->whenLoaded('company')),
+            'merchant_id' => $this->merchant_id,
+            'merchant' => $this->whenLoaded('merchant', fn () => $this->merchant ? [
+                'id' => $this->merchant->id,
+                'business_name' => $this->merchant->business_name,
+            ] : null),
+            'courier' => $this->whenLoaded('courier', fn () => $this->courier ? [
+                'id' => $this->courier->id,
+                'is_available' => $this->courier->is_available,
+                'vehicle_type' => $this->courier->vehicle_type,
+            ] : null),
             'permissions' => $this->when(
                 $this->withPermissions,
                 fn () => $this->getAllPermissions()->pluck('name')->values(),

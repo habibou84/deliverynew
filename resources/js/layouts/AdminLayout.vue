@@ -1,101 +1,77 @@
 <template>
   <div class="flex h-screen bg-gray-100">
-    <!-- Sidebar -->
     <aside
       :class="[
-        'fixed md:relative z-40 w-64 h-full bg-slate-900 text-white transition-all duration-300',
+        'fixed md:relative z-40 w-64 h-full bg-slate-900 text-white transition-all duration-300 flex flex-col',
         sidebarOpen ? 'left-0' : '-left-64 md:left-0'
       ]"
     >
-      <div class="p-4 text-xl font-bold border-b border-slate-700">
-        🚚 Delivery Admin
+      <div class="p-4 text-lg font-bold border-b border-slate-700">
+        🚚 {{ auth.user?.company?.name || 'Administration' }}
       </div>
-
-      <nav class="p-4 space-y-2">
-        <SidebarItem icon="🏠" label="Dashboard" />
-        <SidebarItem icon="📦" label="Courses" />
-        <SidebarItem icon="👥" label="Clients" />
-        <SidebarItem icon="🚚" label="Livreurs" />
-        <SidebarItem icon="💰" label="Comptabilité" />
-        <SidebarItem icon="🗺️" label="Carte Live" />
-        <SidebarItem icon="🔔" label="Notifications" />
-        <SidebarItem icon="⚙️" label="Paramètres" />
+      <nav class="p-3 space-y-1 flex-1 overflow-y-auto" @click="sidebarOpen = false">
+        <SidebarItem v-for="item in menu" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" />
       </nav>
     </aside>
 
-    <!-- Overlay mobile -->
-    <div
-      v-if="sidebarOpen"
-      @click="sidebarOpen = false"
-      class="fixed inset-0 bg-black/40 z-30 md:hidden"
-    ></div>
+    <div v-if="sidebarOpen" class="fixed inset-0 bg-black/40 z-30 md:hidden" @click="sidebarOpen = false" />
 
-    <!-- Main content -->
-    <div class="flex-1 flex flex-col">
-      <!-- Topbar -->
-      <header class="flex items-center justify-between bg-white shadow px-4 py-2">
+    <div class="flex-1 flex flex-col min-w-0">
+      <header class="flex items-center justify-between bg-white shadow px-4 py-2 gap-2">
         <div class="flex items-center gap-2">
-          <button
-            class="md:hidden p-2 rounded bg-slate-900 text-white"
-            @click="sidebarOpen = true"
-          >
-            ☰
-          </button>
-          <h1 class="font-bold text-lg">Administration</h1>
+          <button class="md:hidden p-2 rounded bg-slate-900 text-white" aria-label="Menu" @click="sidebarOpen = true">☰</button>
+          <form class="hidden md:block" @submit.prevent="quickSearch">
+            <input v-model="search" type="search" placeholder="Code, téléphone…" class="input w-64" aria-label="Rechercher une course">
+          </form>
         </div>
-
-        <div class="flex items-center gap-4">
-          <input
-            type="text"
-            placeholder="Rechercher..."
-            class="hidden md:block border rounded px-2 py-1"
-          />
-          <span class="text-sm text-gray-600">
-            {{ auth.user?.name }}
-            <span class="text-gray-400">· {{ auth.user?.role_label }}</span>
+        <div class="flex items-center gap-3">
+          <NotificationBell />
+          <span class="hidden sm:inline text-sm text-gray-600">
+            {{ auth.user?.name }} <span class="text-gray-400">· {{ auth.user?.role_label }}</span>
           </span>
-          <button
-            @click="logout"
-            class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-          >
-            Déconnexion
-          </button>
+          <button class="btn-danger" @click="logout">Déconnexion</button>
         </div>
       </header>
 
-      <!-- Page content -->
-      <main class="flex-1 overflow-y-auto p-6">
-        <!-- Statistiques branchées sur l'API en phase 1 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <StatCard title="Total Courses" icon="📦" />
-          <StatCard title="En cours" icon="⏳" />
-          <StatCard title="Livrées" icon="✅" />
-          <StatCard title="Recettes" icon="💰" />
-          <StatCard title="Encaissements" icon="🏦" />
-        </div>
-
-        <div class="bg-white p-6 rounded shadow">
-          <h2 class="text-xl font-bold mb-2">Bienvenue dans l’interface Admin</h2>
-          <p class="text-gray-600">
-            Ici vous piloterez les courses, les livreurs, les e-commerçants, les paiements
-            et la carte en temps réel.
-          </p>
-        </div>
+      <main class="flex-1 overflow-y-auto p-4 md:p-6">
+        <RouterView />
       </main>
     </div>
+    <Toasts />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useAuthStore } from '../stores/auth'
-import SidebarItem from '../components/SidebarItem.vue'
-import StatCard from '../components/StatCard.vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+import { useRealtime } from '../composables/useRealtime'
+import SidebarItem from '../components/SidebarItem.vue'
+import NotificationBell from '../components/NotificationBell.vue'
+import Toasts from '../components/Toasts.vue'
 
 const sidebarOpen = ref(false)
+const search = ref('')
 const auth = useAuthStore()
 const router = useRouter()
+
+useRealtime()
+
+const menu = computed(() => [
+  { to: '/admin', icon: '🏠', label: 'Tableau de bord' },
+  { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view' },
+  { to: '/admin/courses/nouvelle', icon: '➕', label: 'Nouvelle course', permission: 'orders.create' },
+  { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
+  { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
+  { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
+  { to: '/admin/zones', icon: '🗺️', label: 'Zones', permission: 'settings.manage' },
+  { to: '/admin/tarifs', icon: '💰', label: 'Tarifs', permission: 'settings.manage' },
+].filter((item) => !item.permission || auth.can(item.permission)))
+
+function quickSearch() {
+  router.push({ path: '/admin/courses', query: { search: search.value } })
+  search.value = ''
+}
 
 const logout = async () => {
   await auth.logout()

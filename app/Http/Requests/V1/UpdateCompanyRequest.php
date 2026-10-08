@@ -47,6 +47,7 @@ class UpdateCompanyRequest extends FormRequest
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'auto_confirm_orders' => ['sometimes', 'boolean'],
             'default_max_attempts' => ['sometimes', 'integer', 'min:1', 'max:10'],
+            'require_delivery_code' => ['sometimes', 'boolean'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
         ];
     }

@@ -40,13 +40,13 @@ class AuthController extends Controller
         return response()->json([
             'token' => $token,
             'token_type' => 'Bearer',
-            'user' => UserResource::make($user->load('company'))->withPermissions(),
+            'user' => UserResource::make($user->load(['company', 'merchant', 'courier']))->withPermissions(),
         ]);
     }
 
     public function me(Request $request): UserResource
     {
-        return UserResource::make($request->user()->load('company'))->withPermissions();
+        return UserResource::make($request->user()->load(['company', 'merchant', 'courier']))->withPermissions();
     }
 
     public function logout(Request $request): JsonResponse

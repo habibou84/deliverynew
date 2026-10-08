@@ -210,8 +210,20 @@ class OrderCommunicationTest extends TestCase
             ->assertJsonPath('data.counts.failed', 1)
             ->assertJsonPath('data.counts.in_progress', 1)
             ->assertJsonPath('data.amounts.collected', 20000)
-            ->assertJsonPath('data.amounts.merchant_fees', 1500)
+            ->assertJsonPath('data.amounts.fees', 1500)
             ->assertJsonPath('data.amounts.net_to_merchant', 18500);
+    }
+
+    public function test_fees_paid_by_the_recipient_are_kept_from_the_cash_collected(): void
+    {
+        $order = $this->createOrder(['items_amount' => 15000, 'fee_payer' => 'recipient']);
+        $this->outForDelivery($order);
+        $this->move($order, 'delivered')->assertOk();
+
+        $this->as($this->merchantUser)->getJson('/api/v1/reports/summary')
+            ->assertJsonPath('data.amounts.collected', 16500)
+            ->assertJsonPath('data.amounts.fees', 1500)
+            ->assertJsonPath('data.amounts.net_to_merchant', 15000);
     }
 
     public function test_recipients_book_is_filled_automatically(): void

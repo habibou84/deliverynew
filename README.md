@@ -48,6 +48,7 @@ Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot d
 | Caissier | 07 00 00 00 03 | caisse@livraison.test |
 | Livreur | 07 00 00 00 04 | - |
 | Livreuse | 07 00 00 00 05 | - |
+| E-commerçant (Boutique Chic Abidjan) | 05 00 00 00 01 | boutique@livraison.test |
 
 On se connecte avec le **téléphone** (format local `07 xx xx xx xx` ou international `+225…`) **ou** l'e-mail.
 
@@ -60,6 +61,7 @@ php artisan app:create-super-admin                               # première ins
 ```
 
 Processus à superviser (Supervisor/systemd) : `php artisan horizon`, `php artisan reverb:start`, et le planificateur (`php artisan schedule:run` chaque minute).
+Les notifications et la diffusion temps réel passent par la file d'attente : sans Horizon (ou `queue:work`), elles ne partent pas.
 
 ## Tests et qualité
 
@@ -87,6 +89,20 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET/PATCH/DELETE | `/users/{id}` | même entreprise + `users.manage` |
 | GET/POST | `/companies` | super administrateur (création avec premier admin facultatif) |
 | GET/PATCH | `/companies/{id}` | super admin, ou admin de l'entreprise (paramètres hors statut) |
+| GET | `/zones` · POST/PATCH `/zones/{id}` | tous · `settings.manage` |
+| CRUD | `/pricing-grids`, PUT `/pricing-grids/{id}/rules` et `/surcharges` | `settings.manage` |
+| POST | `/quotes` | devis d'une course (marchand ou personnel) |
+| GET/POST/PATCH | `/merchants`, POST `/merchants/{id}/users` | `merchants.view` / `merchants.manage` |
+| GET/PATCH | `/couriers` | dispatch / `users.manage` |
+| GET/POST/PATCH | `/orders` (filtres `queue`, `status[]`, `merchant_id`, `courier_id`, `search`…) | personnel, ou le marchand pour ses courses |
+| POST | `/orders/{id}/status` | changement de statut (règles par rôle dans `OrderWorkflow`) |
+| POST | `/orders/{id}/assign`, `/orders/bulk-assign` | `orders.dispatch` (missions ramassage / livraison / retour) |
+| POST | `/orders/{id}/notes`, `/return-request`, `/attachments` | notes, demande de retour, photo de preuve |
+| GET | `/courier/missions` · POST `/courier/assignments/{id}/accept\|refuse` · PATCH `/courier/status` | livreur |
+| GET | `/reports/summary`, `/incident-reasons`, `/recipients`, `/notifications` | connecté |
+| GET | `/tracking/{code}` | **public** (suivi destinataire, 30 req/min) |
+
+Temps réel (Reverb) : canaux privés `company.{id}` (personnel), `merchant.{id}` (marchand) et `App.Models.User.{id}` (notifications), événement `order.changed`.
 
 ## Architecture multi-entreprise
 
