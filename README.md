@@ -17,7 +17,7 @@ Back-office (entreprise de livraison), espace e-commerçant et application livre
 
 ## Installation locale
 
-Prérequis : PHP 8.2+ (extensions `pdo_pgsql`, `redis`, `pcntl`), Composer, Node 22, PostgreSQL 16, Redis.
+Prérequis : PHP 8.2+ (extensions `pdo_pgsql` et `redis` ; `pcntl` seulement pour Horizon en production), Composer, Node 22, PostgreSQL 16, Redis.
 
 ```bash
 composer install
@@ -31,8 +31,26 @@ createuser -P livraison             # mot de passe : secret (cf. .env)
 createdb -O livraison livraison
 
 php artisan migrate --seed          # rôles + données de démonstration
-composer dev                        # serveur, Horizon, Reverb, logs et Vite
+composer dev                        # serveur, file d'attente, Reverb et Vite
 ```
+
+`composer dev` fonctionne sous Windows, macOS et Linux : il lance `queue:listen` (et non Horizon) et ne lance pas `pail`.
+Les logs sont dans `storage/logs/laravel.log` ; sous macOS/Linux, `php artisan pail` les affiche en direct.
+
+#### Windows
+
+Horizon et Pail ont besoin des extensions PHP `pcntl` et `posix`, qui n'existent pas sous Windows.
+`composer.json` les déclare dans `config.platform` pour que `composer install` fonctionne quand même ;
+ces deux outils ne s'utilisent simplement pas en local (Horizon sert en production, sur un serveur Linux).
+
+Sans Redis (cas fréquent sous Windows), utilisez la base de données pour le cache et les files d'attente dans `.env` :
+
+```dotenv
+CACHE_STORE=database
+QUEUE_CONNECTION=database
+```
+
+Après une mise à jour du code, relancez toujours `composer install`, `npm install` et `php artisan migrate`.
 
 Puis ouvrir http://localhost:8000.
 
