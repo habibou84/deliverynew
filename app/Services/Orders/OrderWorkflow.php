@@ -6,12 +6,14 @@ use App\Enums\AssignmentStatus;
 use App\Enums\AssignmentType;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use App\Enums\Permission;
 use App\Exceptions\BusinessRuleException;
 use App\Models\IncidentReason;
 use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\User;
+use App\Services\Finance\FinanceRecorder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +24,10 @@ use Illuminate\Support\Facades\DB;
  */
 class OrderWorkflow
 {
-    public function __construct(private readonly OrderJournal $journal) {}
+    public function __construct(
+        private readonly OrderJournal $journal,
+        private readonly FinanceRecorder $finance,
+    ) {}
 
     /**
      * @param  array{
@@ -61,6 +66,8 @@ class OrderWorkflow
             $order->status = $to;
             $order->save();
 
+            $this->finance->onTransition($order, $to, $assignment, $context, $actor);
+
             $this->journal->record($order, $actor, $reason ? OrderEventType::Incident : OrderEventType::StatusChanged, [
                 'assignment_id' => $assignment?->id,
                 'from_status' => $from,
@@ -72,6 +79,7 @@ class OrderWorkflow
                 'lng' => $context['lng'] ?? null,
                 'meta' => array_filter([
                     'collected_amount' => $to === OrderStatus::Delivered ? $order->collected_amount : null,
+                    'payment_method' => $to === OrderStatus::Delivered && $order->collected_amount > 0 ? ($context['payment_method'] ?? 'cash') : null,
                     'attempts_count' => $order->attempts_count,
                 ], fn ($v) => $v !== null),
             ]);
@@ -205,6 +213,12 @@ class OrderWorkflow
 
         if ($collected !== null && (! is_int($collected) || $collected < 0)) {
             throw new BusinessRuleException('Montant encaissé invalide.', 'collected_amount');
+        }
+
+        $method = PaymentMethod::tryFrom($context['payment_method'] ?? 'cash');
+
+        if (! empty($context['received_by_company']) && $method === PaymentMethod::Cash) {
+            throw new BusinessRuleException('Des espèces ne peuvent pas être reçues directement sur le compte de l\'entreprise.', 'received_by_company');
         }
     }
 

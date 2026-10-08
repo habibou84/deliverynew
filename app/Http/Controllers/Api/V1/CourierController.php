@@ -46,6 +46,9 @@ class CourierController extends Controller
         $data = $request->validate([
             'vehicle_type' => ['sometimes', Rule::enum(VehicleType::class)],
             'vehicle_plate' => ['sometimes', 'nullable', 'string', 'max:30'],
+            'pickup_commission' => ['sometimes', 'integer', 'min:0', 'max:100000'],
+            'delivery_commission' => ['sometimes', 'integer', 'min:0', 'max:100000'],
+            'return_commission' => ['sometimes', 'integer', 'min:0', 'max:100000'],
             'is_available' => ['sometimes', 'boolean'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'zone_ids' => ['sometimes', 'array'],

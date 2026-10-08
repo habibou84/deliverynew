@@ -27,6 +27,22 @@
         <label class="label" for="amount">Montant encaissé (F)</label>
         <input id="amount" v-model.number="form.collected_amount" type="number" min="0" class="input">
       </div>
+      <div v-if="form.collected_amount > 0">
+        <label class="label" for="method">Mode de paiement</label>
+        <select id="method" v-model="form.payment_method" class="input">
+          <option v-for="m in DELIVERY_PAYMENT_METHODS" :key="m" :value="m">{{ PAYMENT_METHODS[m] }}</option>
+        </select>
+      </div>
+      <template v-if="form.collected_amount > 0 && form.payment_method !== 'cash'">
+        <label class="flex items-center gap-2 text-sm">
+          <input v-model="form.received_by_company" type="checkbox">
+          Payé directement sur le compte de l'entreprise (rien à verser à la caisse)
+        </label>
+        <div>
+          <label class="label" for="ref">Référence de la transaction</label>
+          <input id="ref" v-model="form.transaction_ref" class="input">
+        </div>
+      </template>
       <div v-if="askCode">
         <label class="label" for="code">Code de livraison donné par le client</label>
         <input id="code" v-model="form.delivery_code" class="input" inputmode="numeric" maxlength="4" autocomplete="one-time-code">
@@ -45,7 +61,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
-import { STATUS_LABELS, today } from '../utils/format'
+import { DELIVERY_PAYMENT_METHODS, PAYMENT_METHODS, STATUS_LABELS, today } from '../utils/format'
 import { needsDate, needsReason } from '../utils/workflow'
 
 const props = defineProps({
@@ -61,6 +77,9 @@ const form = reactive({
   incident_reason_id: null,
   rescheduled_to: null,
   collected_amount: props.order.amounts.cod_amount,
+  payment_method: 'cash',
+  received_by_company: false,
+  transaction_ref: '',
   delivery_code: '',
   note: '',
 })
@@ -91,6 +110,13 @@ async function submit() {
     if (showDate.value) payload.rescheduled_to = form.rescheduled_to
     if (form.status === 'delivered') {
       payload.collected_amount = form.collected_amount
+      if (form.collected_amount > 0) {
+        payload.payment_method = form.payment_method
+        if (form.payment_method !== 'cash') {
+          payload.received_by_company = form.received_by_company
+          if (form.transaction_ref) payload.transaction_ref = form.transaction_ref
+        }
+      }
       if (form.delivery_code) payload.delivery_code = form.delivery_code
     }
     if (form.status === 'cancelled') payload.cancel_reason = form.note || undefined

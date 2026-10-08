@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
+use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderActionController;
@@ -75,12 +76,38 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         Route::get('reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
 
+        // Caisse et finances (droits vérifiés dans le contrôleur : finance.view / finance.manage)
+        Route::prefix('finance')->name('finance.')->controller(FinanceController::class)->group(function () {
+            Route::get('cash', 'cash')->name('cash');
+            Route::get('couriers/{courier}/collections', 'collections')->name('couriers.collections');
+            Route::get('couriers/{courier}/earnings', 'earnings')->name('couriers.earnings');
+            Route::post('couriers/{courier}/adjustments', 'adjustCourier')->name('couriers.adjustments');
+            Route::get('remittances', 'remittances')->name('remittances.index');
+            Route::post('remittances', 'storeRemittance')->name('remittances.store');
+
+            Route::get('merchants', 'merchants')->name('merchants.index');
+            Route::get('merchants/{merchant}/ledger', 'ledger')->name('merchants.ledger');
+            Route::post('merchants/{merchant}/adjustments', 'adjustMerchant')->name('merchants.adjustments');
+            Route::get('payouts', 'payouts')->name('payouts.index');
+            Route::post('payouts', 'storePayout')->name('payouts.store');
+            Route::get('payouts/{payout}', 'showPayout')->name('payouts.show');
+            Route::post('payouts/{payout}/pay', 'payPayout')->name('payouts.pay');
+            Route::post('payouts/{payout}/cancel', 'cancelPayout')->name('payouts.cancel');
+
+            Route::get('courier-payouts', 'courierPayouts')->name('courier-payouts.index');
+            Route::post('courier-payouts', 'storeCourierPayout')->name('courier-payouts.store');
+            Route::get('courier-payouts/{courierPayout}', 'showCourierPayout')->name('courier-payouts.show');
+            Route::post('courier-payouts/{courierPayout}/pay', 'payCourierPayout')->name('courier-payouts.pay');
+            Route::post('courier-payouts/{courierPayout}/cancel', 'cancelCourierPayout')->name('courier-payouts.cancel');
+        });
+
         // Espace livreur
         Route::prefix('courier')->name('courier.')->middleware('role:courier')->group(function () {
             Route::get('missions', [CourierSpaceController::class, 'missions'])->name('missions');
             Route::post('assignments/{assignment}/accept', [CourierSpaceController::class, 'accept'])->name('assignments.accept');
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
             Route::patch('status', [CourierSpaceController::class, 'updateStatus'])->name('status');
+            Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
         });
     });
 });

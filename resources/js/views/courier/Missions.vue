@@ -10,6 +10,20 @@
       </button>
     </div>
 
+    <!-- Portefeuille : argent à verser à la caisse et gains -->
+    <div v-if="wallet" class="grid grid-cols-2 gap-2">
+      <div class="card p-3">
+        <p class="text-xs text-gray-500">À verser à la caisse</p>
+        <p class="text-lg font-bold">{{ money(wallet.cash_in_hand) }}</p>
+        <p class="text-xs text-gray-500">{{ wallet.collections.length }} encaissement(s)</p>
+      </div>
+      <div class="card p-3">
+        <p class="text-xs text-gray-500">Mes gains non payés</p>
+        <p :class="['text-lg font-bold', signedClass(wallet.unpaid)]">{{ money(wallet.unpaid) }}</p>
+        <p class="text-xs text-gray-500">Aujourd'hui : {{ money(wallet.earned_today) }}</p>
+      </div>
+    </div>
+
     <div class="flex gap-2">
       <button v-for="t in tabs" :key="t.value" :class="['btn flex-1', tab === t.value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300']" @click="tab = t.value">
         {{ t.label }} <span class="ml-1 rounded-full bg-black/10 px-1.5 text-xs">{{ count(t.value) }}</span>
@@ -50,13 +64,14 @@ import StatusBadge from '../../components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useNotificationStore } from '../../stores/notifications'
 import { currentPosition } from '../../composables/useGeolocation'
-import { money } from '../../utils/format'
+import { money, signedClass } from '../../utils/format'
 
 const auth = useAuthStore()
 const notifications = useNotificationStore()
 const missions = ref([])
 const loading = ref(true)
 const available = ref(false)
+const wallet = ref(null)
 const tab = ref('pickup')
 const tabs = [
   { value: 'pickup', label: 'À ramasser' },
@@ -68,7 +83,9 @@ const visible = computed(() => missions.value.filter((m) => m.type === tab.value
 const count = (type) => missions.value.filter((m) => m.type === type).length
 
 async function load() {
-  missions.value = (await http.get('/courier/missions')).data.data
+  const [m, w] = await Promise.all([http.get('/courier/missions'), http.get('/courier/wallet')])
+  missions.value = m.data.data
+  wallet.value = w.data.data
   loading.value = false
   if (!count(tab.value) && count('delivery')) tab.value = 'delivery'
 }

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\FeePayer;
+use App\Enums\LedgerEntryType;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,14 +40,13 @@ class ReportController extends Controller
         $count = fn (array $statuses) => $orders->whereIn('status', $statuses)->count();
         $delivered = $orders->where('status', OrderStatus::Delivered);
 
-        // Frais retenus par l'entreprise : toutes les courses livrées (payés par le client ou
-        // par le marchand) et les retours dont les frais sont à la charge du marchand.
-        $billable = $delivered->merge(
-            $orders->where('status', OrderStatus::Returned)->where('fee_payer', FeePayer::Merchant)
-        );
-
         $collected = $delivered->sum('collected_amount');
-        $fees = $billable->sum(fn (Order $o) => $o->delivery_fee + $o->surcharges_total);
+
+        // Frais retenus (livraisons et retours), tels qu'inscrits au grand livre du marchand
+        $fees = -(int) MerchantLedgerEntry::query()
+            ->whereIn('order_id', $orders->pluck('id'))
+            ->whereIn('type', [LedgerEntryType::DeliveryFee->value, LedgerEntryType::ReturnFee->value])
+            ->sum('amount');
 
         return response()->json(['data' => [
             'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
@@ -66,7 +66,6 @@ class ReportController extends Controller
             'amounts' => [
                 'collected' => $collected,
                 'fees' => $fees,
-                // Montant à reverser au marchand (réglé en phase 2 avec la caisse)
                 'net_to_merchant' => $collected - $fees,
             ],
             'delivery_rate' => $orders->count() > 0 ? round($delivered->count() / $orders->count() * 100, 1) : null,

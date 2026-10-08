@@ -105,3 +105,20 @@ export function mapsLink(lat, lng, address) {
   if (address) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address}, Abidjan`)}`
   return null
 }
+
+export const PAYMENT_METHODS = {
+  cash: 'Espèces',
+  wave: 'Wave',
+  orange_money: 'Orange Money',
+  mtn_momo: 'MTN MoMo',
+  moov_money: 'Moov Money',
+  bank: 'Virement bancaire',
+}
+
+export const DELIVERY_PAYMENT_METHODS = ['cash', 'wave', 'orange_money', 'mtn_momo', 'moov_money']
+
+// Montant signé : vert si crédit, rouge si débit
+export function signedClass(value) {
+  if (!value) return 'text-gray-500'
+  return value > 0 ? 'text-emerald-700' : 'text-red-600'
+}

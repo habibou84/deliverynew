@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\Role;
 use App\Enums\SurchargeType;
 use App\Models\Company;
+use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\PricingGrid;
 use App\Models\PricingRule;
@@ -36,6 +37,10 @@ class DemoSeeder extends Seeder
         $this->user($company, Role::Cashier, 'Caissier', '0700000003', 'caisse@livraison.test');
         $this->user($company, Role::Courier, 'Koffi Livreur', '0700000004', null);
         $this->user($company, Role::Courier, 'Awa Livreuse', '0700000005', null);
+
+        // Rémunération à la course des livreurs de démonstration
+        Courier::withoutGlobalScopes()->where('company_id', $company->id)
+            ->update(['pickup_commission' => 300, 'delivery_commission' => 500, 'return_commission' => 400]);
 
         $cocody = Zone::forCompany($company->id)->where('name', 'Cocody')->first();
         $merchant = Merchant::withoutGlobalScopes()->firstOrCreate(

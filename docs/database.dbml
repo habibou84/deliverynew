@@ -410,6 +410,11 @@ Table order_imports {
 }
 
 // ───────────────────────────── FINANCE ─────────────────────────────
+// Implémenté en phase 2 (migration 2026_10_10_000001_create_finance_tables) avec ces écarts :
+// - cash_collections.received_by_company : mobile money reçu directement par l'entreprise
+// - merchant_ledger_entries et courier_earnings : insertions uniquement (seul payout_id évolue)
+// - courier_earnings.type inclut « shortfall » (manque de caisse, montant négatif)
+// - commissions portées par couriers (pickup/delivery/return_commission)
 
 Table cash_collections {
   id bigint [pk, increment]

@@ -65,7 +65,9 @@ const menu = computed(() => [
   { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
   { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
   { to: '/admin/zones', icon: '🗺️', label: 'Zones', permission: 'settings.manage' },
-  { to: '/admin/tarifs', icon: '💰', label: 'Tarifs', permission: 'settings.manage' },
+  { to: '/admin/tarifs', icon: '🏷️', label: 'Tarifs', permission: 'settings.manage' },
+  { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
+  { to: '/admin/parametres', icon: '⚙️', label: 'Paramètres', permission: 'settings.manage' },
 ].filter((item) => !item.permission || auth.can(item.permission)))
 
 function quickSearch() {

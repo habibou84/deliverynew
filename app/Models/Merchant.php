@@ -77,6 +77,16 @@ class Merchant extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function ledgerEntries(): HasMany
+    {
+        return $this->hasMany(MerchantLedgerEntry::class);
+    }
+
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(MerchantPayout::class);
+    }
+
     public function recipients(): HasMany
     {
         return $this->hasMany(Recipient::class);

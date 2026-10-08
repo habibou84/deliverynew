@@ -28,6 +28,7 @@ class CompanyResource extends JsonResource
             'auto_confirm_orders' => $this->auto_confirm_orders,
             'default_max_attempts' => $this->default_max_attempts,
             'require_delivery_code' => $this->require_delivery_code,
+            'return_fee_percent' => $this->return_fee_percent,
             'status' => $this->status,
             'users_count' => $this->whenCounted('users'),
             'created_at' => $this->created_at,

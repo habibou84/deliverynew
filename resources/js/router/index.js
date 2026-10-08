@@ -7,6 +7,7 @@ const shared = {
   orders: () => import('../views/shared/OrderList.vue'),
   orderCreate: () => import('../views/shared/OrderCreate.vue'),
   orderDetail: () => import('../views/shared/OrderDetail.vue'),
+  payoutDetail: () => import('../views/shared/PayoutDetail.vue'),
 }
 
 const routes = [
@@ -38,6 +39,9 @@ const routes = [
       { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
       { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },
       { path: 'tarifs', component: () => import('../views/admin/Pricing.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'caisse', component: () => import('../views/admin/Finance.vue'), meta: { permission: 'finance.view' } },
+      { path: 'caisse/reversements/:id(\\d+)', component: shared.payoutDetail, meta: { permission: 'finance.view' } },
+      { path: 'parametres', component: () => import('../views/admin/Settings.vue'), meta: { permission: 'settings.manage' } },
     ],
   },
   {
@@ -60,6 +64,8 @@ const routes = [
       { path: 'courses', component: shared.orders },
       { path: 'courses/nouvelle', component: shared.orderCreate },
       { path: 'courses/:id(\\d+)', component: shared.orderDetail },
+      { path: 'paiements', component: () => import('../views/merchant/Payments.vue'), meta: { permission: 'finance.view' } },
+      { path: 'paiements/:id(\\d+)', component: shared.payoutDetail, meta: { permission: 'finance.view' } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },
