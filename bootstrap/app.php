@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\AuthenticateApiKey;
+use App\Http\Middleware\EnsureApiScope;
+use App\Http\Middleware\EnsureIdempotency;
 use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -30,6 +33,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
+            'api.key' => AuthenticateApiKey::class,
+            'api.scope' => EnsureApiScope::class,
+            'idempotent' => EnsureIdempotency::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,
         ]);

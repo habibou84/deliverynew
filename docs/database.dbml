@@ -769,11 +769,12 @@ Table whatsapp_sessions {
 Table api_keys {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
-  merchant_id bigint [ref: > merchants.id, note: 'null = clé entreprise']
-  name varchar
-  key_prefix varchar(12) [unique, note: 'partie visible']
-  key_hash varchar [not null]
-  scopes jsonb [note: '["orders:write","orders:read","stock:read"]']
+  merchant_id bigint [ref: > merchants.id, not null]
+  name varchar [not null]
+  key_prefix varchar(12) [unique, note: 'partie visible : lv_<prefix>_…']
+  key_hash varchar(64) [not null, note: 'SHA-256 de la clé complète']
+  scopes json [note: '["orders:read","orders:write","stock:read"]']
+  created_by bigint [ref: > users.id, note: 'compte au nom duquel agit la clé']
   last_used_at timestamp
   expires_at timestamp
   revoked_at timestamp
@@ -784,36 +785,45 @@ Table api_keys {
 Table idempotency_keys {
   id bigint [pk, increment]
   api_key_id bigint [ref: > api_keys.id, not null]
-  key varchar [not null]
-  response_code smallint
-  response_body jsonb
-  created_at timestamp
+  key varchar(100) [not null]
+  request_hash varchar(64) [not null, note: 'même clé + autre requête = refus']
+  response_code smallint [note: 'null = en cours de traitement']
+  response_body text
+  created_at timestamp [note: 'purgé après 24 h']
   indexes { (api_key_id, key) [unique] }
 }
 
 Table webhook_subscriptions {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
-  merchant_id bigint [ref: > merchants.id]
-  url varchar [not null]
-  events jsonb [note: '["order.status_changed","order.incident"]']
+  merchant_id bigint [ref: > merchants.id, not null]
+  url varchar [not null, note: 'https, jamais vers un réseau privé']
+  events json [note: '["order.created","order.status_changed","order.incident","payout.paid","stock.low"]']
   secret text [note: 'chiffré, signature HMAC-SHA256']
+  description varchar
   is_active boolean [default: true]
+  consecutive_failures int [default: 0]
+  created_by bigint [ref: > users.id]
   created_at timestamp
   updated_at timestamp
 }
 
 Table webhook_deliveries {
   id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
   webhook_subscription_id bigint [ref: > webhook_subscriptions.id, not null]
+  event_id uuid [note: 'X-Webhook-Id, pour dédoublonner']
   event varchar
-  payload jsonb
+  payload json
+  status varchar [default: 'pending', note: 'pending | delivered | failed']
+  attempts smallint [default: 0]
   response_code smallint
   response_body text
-  attempts smallint [default: 0]
+  error varchar
   next_retry_at timestamp
   delivered_at timestamp
-  created_at timestamp
+  created_at timestamp [note: 'purgé après 30 jours']
+  updated_at timestamp
 }
 
 // ─────────────────── APP MARCHAND INDÉPENDANTE (base séparée, pour mémoire) ───────────────────

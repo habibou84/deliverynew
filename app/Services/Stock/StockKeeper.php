@@ -16,6 +16,7 @@ use App\Models\StockLocation;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Notifications\StockAlert;
+use App\Services\Webhooks\WebhookDispatcher;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
@@ -240,7 +241,9 @@ class StockKeeper
         $title = $after <= 0 ? "Rupture de stock : {$product->name}" : "Stock bas : {$product->name}";
         $body = "Il reste {$after} article(s) disponible(s) (seuil : {$product->low_stock_threshold}).";
 
-        DB::afterCommit(function () use ($product, $location, $title, $body) {
+        DB::afterCommit(function () use ($product, $location, $title, $body, $after) {
+            app(WebhookDispatcher::class)->onLowStock($product, $after);
+
             $users = User::forCompany($product->company_id)
                 ->where('status', 'active')
                 ->where(fn ($q) => $q->where('merchant_id', $product->merchant_id)

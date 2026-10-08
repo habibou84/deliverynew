@@ -262,6 +262,8 @@ class MessagingTest extends TestCase
 
     public function test_scheduled_reports_are_sent_once_when_due(): void
     {
+        // Activation avant l'heure d'envoi (le test ne dépend pas de l'heure réelle)
+        Carbon::setTestNow('2026-10-08 17:00:00');
         $this->as($this->merchantUser)->putJson("/api/v1/merchants/{$this->merchant->id}/notifications", [
             'reports' => [
                 'daily' => ['active' => true, 'send_time' => '19:00'],

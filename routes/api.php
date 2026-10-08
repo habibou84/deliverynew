@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\ApiScope;
+use App\Http\Controllers\Api\PublicV1\PublicApiController;
+use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CourierController;
@@ -13,6 +16,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
+use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\QuoteController;
@@ -23,6 +27,7 @@ use App\Http\Controllers\Api\V1\StockMovementController;
 use App\Http\Controllers\Api\V1\StorageContractController;
 use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
@@ -32,6 +37,22 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('webhooks')->name('webhooks.')->group(function () {
     Route::get('whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('whatsapp.verify');
     Route::post('whatsapp', [WhatsAppWebhookController::class, 'handle'])->name('whatsapp.handle');
+});
+
+// API publique des marchands (clé API, quota par clé) : contrat documenté dans public/docs/openapi.yaml
+Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:public-api'])->controller(PublicApiController::class)->group(function () {
+    $read = 'api.scope:'.ApiScope::OrdersRead->value;
+    $write = 'api.scope:'.ApiScope::OrdersWrite->value;
+
+    Route::get('zones', 'zones')->name('zones');
+    Route::get('hubs', 'hubs')->name('hubs');
+    Route::post('quotes', 'quote')->name('quotes');
+    Route::get('orders', 'orders')->middleware($read)->name('orders.index');
+    Route::post('orders', 'store')->middleware([$write, 'idempotent'])->name('orders.store');
+    Route::get('orders/{trackingCode}', 'show')->middleware($read)->name('orders.show');
+    Route::post('orders/{trackingCode}/cancel', 'cancel')->middleware($write)->name('orders.cancel');
+    Route::get('reports/summary', 'summary')->middleware($read)->name('reports.summary');
+    Route::get('products', 'products')->middleware('api.scope:'.ApiScope::StockRead->value)->name('products');
 });
 
 Route::prefix('v1')->name('v1.')->group(function () {
@@ -96,6 +117,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::patch('couriers/{courier}', [CourierController::class, 'update'])->middleware('can:users.manage')->name('couriers.update');
 
         // Courses
+        Route::get('orders/import/template', [OrderImportController::class, 'template'])->name('orders.import.template');
+        Route::post('orders/import', [OrderImportController::class, 'store'])->middleware('throttle:20,1')->name('orders.import');
         Route::post('orders/bulk-assign', [OrderActionController::class, 'bulkAssign'])->name('orders.bulk-assign');
         Route::apiResource('orders', OrderController::class)->except('destroy');
         Route::post('orders/{order}/status', [OrderActionController::class, 'transition'])->name('orders.transition');
@@ -107,6 +130,18 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/expenses', [OrderExpenseController::class, 'store'])->name('orders.expenses.store');
         Route::post('orders/{order}/expenses/{expense}/cancel', [OrderExpenseController::class, 'cancel'])->name('orders.expenses.cancel');
         Route::get('orders/{order}/attachments/{attachment}', [OrderActionController::class, 'showAttachment'])->name('orders.attachments.show');
+
+        // Clés de l'API publique (le marchand pour lui-même, l'administration pour un marchand)
+        Route::get('api-keys', [ApiKeyController::class, 'index'])->name('api-keys.index');
+        Route::post('api-keys', [ApiKeyController::class, 'store'])->name('api-keys.store');
+        Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->name('api-keys.destroy');
+
+        // Webhooks sortants
+        Route::apiResource('webhooks', WebhookController::class)->except('show');
+        Route::post('webhooks/{webhook}/secret', [WebhookController::class, 'rotateSecret'])->name('webhooks.secret');
+        Route::post('webhooks/{webhook}/test', [WebhookController::class, 'test'])->middleware('throttle:10,1')->name('webhooks.test');
+        Route::get('webhooks/{webhook}/deliveries', [WebhookController::class, 'deliveries'])->name('webhooks.deliveries');
+        Route::post('webhook-deliveries/{delivery}/redeliver', [WebhookController::class, 'redeliver'])->middleware('throttle:30,1')->name('webhook-deliveries.redeliver');
 
         // Stock (droits vérifiés par ProductPolicy et dans les contrôleurs)
         Route::apiResource('products', ProductController::class);

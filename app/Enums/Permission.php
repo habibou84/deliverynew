@@ -17,6 +17,8 @@ enum Permission: string
     case FinanceView = 'finance.view';
     case FinanceManage = 'finance.manage';
     case StockManage = 'stock.manage';
+    // Clés API et webhooks
+    case IntegrationsManage = 'integrations.manage';
 
     /**
      * Toutes les permissions limitées à une entreprise (tout sauf la gestion

@@ -102,6 +102,27 @@ est annulée ou le colis remis en stock. Une course qui part d'un entrepôt n'a 
 (onglet « À préparer ») puis livrée. Le stockage est facturé chaque mois selon le contrat du marchand
 (`storage:bill`, lancé par le planificateur le 1er du mois ; `php artisan storage:bill --month=2026-09` pour un mois donné).
 
+### API publique, webhooks et import
+
+Un e-commerçant connecte sa boutique en ligne ou son logiciel depuis **Profil › Intégrations** (l'administration
+le fait aussi depuis **Intégrations (API)**) :
+
+- **Clé API** (`lv_…`, affichée une seule fois) pour l'API `/api/public/v1` : zones, devis, création et suivi des
+  courses, annulation, point, produits. Documentation : **`/developpeurs/api`** (spécification
+  `public/docs/openapi.yaml`, importable dans Postman). `Idempotency-Key` obligatoire sur `POST /orders`,
+  120 requêtes par minute et par clé.
+- **Webhooks** : la boutique est prévenue de chaque événement (`order.created`, `order.status_changed`,
+  `order.incident`, `payout.paid`, `stock.low`). Vérification de la signature côté boutique :
+
+  ```php
+  $expected = 'sha256='.hash_hmac('sha256', $request->header('X-Webhook-Timestamp').'.'.$request->getContent(), $secret);
+  abort_unless(hash_equals($expected, $request->header('X-Webhook-Signature')), 401);
+  ```
+
+  Envois par la file `default`, 6 tentatives au plus, journal et renvoi dans l'écran Intégrations.
+- **Import** : **Courses › Importer** (back-office) ou **Profil › Importer des courses** (application marchand),
+  à partir du modèle CSV téléchargeable ou d'un fichier Excel ; aperçu contrôlé avant création.
+
 Les envois passent par la file `messages` et les points d'activité par le planificateur (`reports:send` toutes les 5 minutes) :
 `composer dev` lance les deux.
 
@@ -179,6 +200,10 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
+| GET/POST/DELETE | `/api-keys` | `integrations.manage` : clés de l'API publique (le marchand les siennes, l'administration avec `merchant_id`) |
+| GET/POST/PATCH/DELETE | `/webhooks` · POST `/webhooks/{id}/test`, `/webhooks/{id}/secret` · GET `/webhooks/{id}/deliveries` · POST `/webhook-deliveries/{id}/redeliver` | `integrations.manage` : adresses webhook, test, journal, renvoi |
+| GET | `/orders/import/template` · POST `/orders/import` (`file`, `dry_run`, `skip_invalid`, `merchant_id`) | `orders.create` : import CSV/Excel |
+| — | `/api/public/v1/…` (hors `/v1`) | **clé API** : voir `/developpeurs/api` |
 | GET | `/hubs` · POST/PATCH `/hubs/{id}` | connecté (liste) · `settings.manage` : entrepôts |
 | GET/POST/PUT/DELETE | `/products` | marchand (ses produits) ou personnel ; création et modification : `stock.manage` |
 | GET/POST | `/stock/movements` | journal ; POST `{product_id, hub_id?, action: receipt\|withdrawal\|count, quantity}` : le marchand chez lui, le personnel dans les entrepôts |

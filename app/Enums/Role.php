@@ -67,6 +67,7 @@ enum Role: string
                 Permission::OrdersCreate,
                 Permission::FinanceView,
                 Permission::StockManage,
+                Permission::IntegrationsManage,
             ],
             self::MerchantStaff => [
                 Permission::OrdersView,

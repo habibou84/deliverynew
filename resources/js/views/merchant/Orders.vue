@@ -5,6 +5,8 @@
       <svg viewBox="0 0 24 24" class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" /></svg>
     </div>
 
+    <RouterLink v-if="auth.can('orders.create')" to="/marchand/courses/import" class="block text-right text-sm font-medium text-[var(--app-color)]">📥 Importer un fichier Excel ou CSV</RouterLink>
+
     <div class="flex gap-2 overflow-x-auto -mx-4 px-4 pb-1">
       <button
         v-for="f in filters"
@@ -34,6 +36,9 @@ import { cachedGet } from '../../composables/useCachedApi'
 import OrderCard from '../../components/mobile/OrderCard.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
 import { orderChanges } from '../../composables/useRealtime'
+import { useAuthStore } from '../../stores/auth'
+
+const auth = useAuthStore()
 
 const ACTIVE = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress', 'picked_up', 'at_hub', 'delivery_assigned', 'out_for_delivery', 'return_assigned', 'returning']
 

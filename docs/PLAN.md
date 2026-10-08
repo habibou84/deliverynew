@@ -308,10 +308,10 @@ Le compte WhatsApp peut appartenir à l'**entreprise** (un numéro unique pour t
 
 ### 8.1 API publique de la plateforme de livraison (`/api/v1`)
 - Authentification par **clé API** par marchand (`api_keys` : préfixe visible et hash stocké, portées `orders:write`, `orders:read`, `stock:read`…).
-- Endpoints : `GET /zones`, `POST /quotes` (devis), `POST /orders`, `GET /orders/{tracking}`, `GET /orders/{tracking}/events`, `POST /orders/{tracking}/cancel`, `GET /reports/summary`, `GET /products`.
+- Endpoints (`/api/public/v1`) : `GET /zones`, `GET /hubs`, `POST /quotes` (devis), `GET|POST /orders`, `GET /orders/{tracking}` (avec son historique), `POST /orders/{tracking}/cancel`, `GET /reports/summary`, `GET /products`.
 - En-tête `Idempotency-Key` obligatoire sur `POST /orders` (pas de doublon en cas de relance réseau).
-- **Webhooks sortants** signés HMAC (`order.created`, `order.status_changed`, `order.incident`, `payout.paid`), avec relances exponentielles (`webhook_deliveries`).
-- Documentation OpenAPI générée automatiquement (Scribe ou Scramble), limitation de débit et versionnement.
+- **Webhooks sortants** signés HMAC (`order.created`, `order.status_changed`, `order.incident`, `payout.paid`, `stock.low`), avec relances exponentielles (`webhook_deliveries`).
+- Documentation OpenAPI écrite à la main (contrat stable, `public/docs/openapi.yaml`), limitation de débit et versionnement par préfixe (`/v1`).
 
 ### 8.2 Application marchand indépendante
 Produit séparé, avec sa **propre base de données**. Elle consomme l'API ci-dessus.
@@ -434,10 +434,18 @@ Règles retenues en phase 6 :
 - **Facturation du stockage** (`storage:bill`, le 1er du mois à 01:10, pour le mois écoulé) : forfait mensuel, par article et par jour (stock de fin de journée), par commande préparée, ou gratuit. Une seule facturation par contrat et par mois ; un contrat facturé ne change plus de tarif (on le termine et on en crée un autre).
 - Les articles d'une course ne se modifient pas après sa création : on l'annule et on en crée une nouvelle.
 
-### Phase 7 : API publique et webhooks (2 à 3 semaines)
-- [ ] Clés API, portées, idempotence, limitation de débit, documentation OpenAPI.
-- [ ] Webhooks sortants signés avec relances.
-- [ ] Import CSV/Excel.
+### Phase 7 : API publique et webhooks (2 à 3 semaines) ✅
+- [x] Clés API par marchand (portées `orders:read`, `orders:write`, `stock:read`), idempotence, limitation de débit, documentation OpenAPI (`/developpeurs/api`).
+- [x] Webhooks sortants signés (HMAC-SHA256) avec relances, journal des envois, test et renvoi.
+- [x] Import de courses depuis un fichier CSV ou Excel, avec aperçu contrôlé ligne par ligne.
+- [x] Écrans : Intégrations (marchand et back-office), Importer des courses.
+
+Règles retenues en phase 7 :
+- **API séparée** `/api/public/v1`, au contrat stable décrit dans `public/docs/openapi.yaml` (un test vérifie que chaque route y figure). La clé agit au nom d'un compte du marchand : mêmes règles que son application (création « en attente », annulation avant ramassage…).
+- **Clés** `lv_<préfixe>_<secret>` : seul le hash est conservé, la clé n'est affichée qu'une fois ; révocation et expiration. Créées par le gérant du marchand (`integrations.manage`) ou par l'administration.
+- **Idempotence** obligatoire sur `POST /orders` (en-tête `Idempotency-Key`, mémorisé 24 h) ; **quota** de 120 requêtes par minute et par clé (`PUBLIC_API_RATE_LIMIT`).
+- **Webhooks** : HTTPS uniquement et jamais vers une adresse privée (contrôle à l'enregistrement et à l'envoi) ; 6 tentatives (immédiate, puis 1 min, 5 min, 30 min, 2 h, 6 h) ; journal conservé 30 jours.
+- **Import** : 500 lignes au plus ; en-têtes reconnus sous plusieurs noms ; le 0 initial d'un numéro retiré par Excel est rétabli ; rien n'est créé si une ligne est en erreur, sauf accord explicite pour n'importer que les lignes valides.
 
 ### Phase 8 : pilote et lancement (2 semaines)
 - [ ] Pilote avec 3 à 5 marchands et 5 à 10 livreurs ; corrections.
