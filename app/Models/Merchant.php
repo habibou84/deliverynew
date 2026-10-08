@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\FeePayer;
 use App\Enums\MerchantStatus;
+use App\Enums\NotificationEvent;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\PhoneNumber;
 use Database\Factories\MerchantFactory;
@@ -90,6 +91,34 @@ class Merchant extends Model
     public function recipients(): HasMany
     {
         return $this->hasMany(Recipient::class);
+    }
+
+    public function notificationPreferences(): HasMany
+    {
+        return $this->hasMany(NotificationPreference::class);
+    }
+
+    public function scheduledReports(): HasMany
+    {
+        return $this->hasMany(ScheduledReport::class);
+    }
+
+    /**
+     * Le marchand veut-il recevoir cet événement sur WhatsApp ?
+     */
+    public function wantsWhatsApp(NotificationEvent $event): bool
+    {
+        $preference = $this->loadMissing('notificationPreferences')->notificationPreferences->firstWhere('event', $event);
+
+        return $preference ? in_array('whatsapp', $preference->channels, true) : $event->enabledByDefault();
+    }
+
+    /**
+     * Numéro qui reçoit les messages WhatsApp du marchand.
+     */
+    public function messagingPhone(): ?string
+    {
+        return $this->whatsapp_phone ?: $this->phone;
     }
 
     public function isActive(): bool

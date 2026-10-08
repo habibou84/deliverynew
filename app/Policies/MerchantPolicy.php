@@ -27,4 +27,12 @@ class MerchantPolicy
     {
         return $user->can(Permission::MerchantsManage->value);
     }
+
+    /**
+     * Préférences de messages WhatsApp : le marchand lui-même ou le personnel autorisé.
+     */
+    public function manageNotifications(User $user, Merchant $merchant): bool
+    {
+        return $user->merchant_id === $merchant->id || $user->can(Permission::MerchantsManage->value);
+    }
 }

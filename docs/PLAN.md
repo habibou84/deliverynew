@@ -279,15 +279,15 @@ Algorithme : grille spécifique du marchand si elle existe, sinon grille par dé
 ### 7.1 Sortant (notifications)
 | Événement | Destinataire | Template |
 |---|---|---|
-| Course créée / validée | Marchand | `course_confirmee` |
+| Course validée | Marchand | `course_confirmee` |
 | Colis récupéré | Marchand | `colis_recupere` |
-| En chemin | Destinataire (+ OTP, lien de suivi) | `colis_en_route` |
+| En chemin | Destinataire (montant, code de livraison, lien de suivi) | `colis_en_route` |
 | Livré | Marchand | `colis_livre` |
-| Incident / note / report | **Marchand + admin** (temps réel) | `incident_livraison` |
-| Point quotidien / hebdomadaire | Marchand | `rapport_journalier` (avec PDF joint) |
+| Échec de livraison ou de ramassage, report | Marchand (l'admin est alerté dans l'application) | `incident_livraison` |
+| Point quotidien / hebdomadaire | Marchand | `rapport_activite` |
 | Reversement effectué | Marchand | `reversement_effectue` |
 
-Fonctionnement : l'événement Laravel déclenche le job `SendWhatsAppMessage` (file `whatsapp`, 3 relances). Les webhooks de statut Meta (envoyé, reçu, lu, échec) mettent à jour `outbound_messages`. En cas d'échec, on bascule sur le SMS.
+Fonctionnement : le journal de la course appelle `OrderMessages`, qui passe par `Messenger` : le message est inscrit dans `outbound_messages`, puis le job `SendOutboundMessage` l'envoie (file `messages`, 3 tentatives pour les erreurs passagères). Les webhooks de statut Meta (envoyé, reçu, lu, échec) mettent à jour `outbound_messages`. En cas d'échec définitif (par exemple numéro sans WhatsApp), un SMS de même texte part une seule fois. Le marchand choisit ses messages dans son application ; les textes des modèles sont dans `App\Enums\WhatsAppTemplate` et affichés, prêts à copier, dans Paramètres > WhatsApp.
 
 ### 7.2 Entrant (création de course par WhatsApp)
 1. Meta appelle `POST /api/webhooks/whatsapp/{account}` ; la signature `X-Hub-Signature-256` est vérifiée.
@@ -354,7 +354,7 @@ Choix faits pendant la phase 0 :
 
 Choix faits pendant la phase 1 :
 - **Échec du ramassage** : la course revient à « Validée » (motif obligatoire) pour être réassignée, sans statut supplémentaire.
-- **Code de livraison** : généré pour chaque course et visible du marchand (jamais du livreur). Son contrôle est **désactivable par entreprise** (`require_delivery_code`, désactivé par défaut) tant que l'envoi automatique au destinataire par WhatsApp (phase 3) n'existe pas.
+- **Code de livraison** : généré pour chaque course et visible du marchand (jamais du livreur). Son contrôle est **activable par entreprise** (`require_delivery_code`, désactivé par défaut) ; depuis la phase 3, le destinataire le reçoit sur WhatsApp quand le colis part.
 - **Dépôts (hubs)** : le statut « Au dépôt » existe, mais la gestion de plusieurs dépôts est reportée (une seule entreprise = un dépôt implicite).
 - **Adresses** : pas de table `addresses` générique ; l'adresse de ramassage est portée par le marchand et copiée sur chaque course.
 - Reportés à la phase 2 avec la caisse : encaissement détaillé (`cash_collections`), versements livreurs et reversements.
@@ -379,11 +379,18 @@ Règles retenues en phase 2 :
 - [x] Livreur : disponibilité en un geste, missions par onglets (ramasser, livrer, retours), action principale unique par mission, appel / WhatsApp / itinéraire, incidents guidés, caisse.
 - [x] Service worker : l'application s'ouvre sans réseau ; missions, caisse et listes affichent les dernières données connues avec un bandeau « Hors ligne ». Les actions (livrer, incident…) demandent le réseau.
 
-### Phase 3 : WhatsApp sortant (2 à 3 semaines)
-- [ ] Compte Meta Business vérifié, numéro, soumission des templates (**démarrer dès la phase 0** : la validation Meta prend du temps).
-- [ ] Pipeline de notifications, préférences, `outbound_messages`, repli SMS.
-- [ ] Alertes d'incident en temps réel au marchand ; messages au destinataire (OTP, suivi).
-- [ ] Rapports programmés (quotidiens et hebdomadaires) envoyés sur WhatsApp.
+### Phase 3 : WhatsApp sortant (2 à 3 semaines) ✅ *réalisée côté application*
+- [ ] Compte Meta Business vérifié, numéro, soumission des templates : **démarche de l'entreprise** chez Meta ; l'application fournit les textes à soumettre et vérifie leur approbation.
+- [x] Pipeline de messages (`Messenger`, file `messages`, relances), préférences par marchand, `outbound_messages`, repli SMS (Twilio), webhook des accusés de réception Meta.
+- [x] Alertes d'incident au marchand ; message au destinataire quand le colis part (montant, code de livraison, lien de suivi).
+- [x] Points d'activité programmés (quotidien, hebdomadaire) envoyés sur WhatsApp.
+- [x] Écrans : Paramètres > WhatsApp (numéro, test, modèles), journal des messages avec renvoi, messages sur la fiche colis, préférences du marchand dans son application.
+
+Règles retenues en phase 3 :
+- **Mode simulation par défaut** (`WHATSAPP_DRIVER=log`, `SMS_DRIVER=log`) : rien ne part tant que l'entreprise n'a pas son numéro Meta ; les messages restent visibles dans le journal.
+- **Par défaut**, le marchand reçoit les livraisons, les incidents et les reversements ; la validation et le ramassage sont désactivés (trop de messages de routine). Il peut tout changer dans son profil.
+- **Un rapport vide n'est pas envoyé** ; le premier rapport part à la prochaine échéance après son activation.
+- Le rapport PDF joint est reporté : il demande un lien public signé vers le relevé.
 
 ### Phase 4 : application mobile native livreur et marchand (3 à 4 semaines, en parallèle des phases 2 et 3)
 - [ ] Ionic/Capacitor : push FCM, GPS en arrière-plan, scan QR, caméra, mode hors ligne.

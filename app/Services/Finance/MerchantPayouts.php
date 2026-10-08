@@ -3,13 +3,17 @@
 namespace App\Services\Finance;
 
 use App\Enums\LedgerEntryType;
+use App\Enums\NotificationEvent;
 use App\Enums\PaymentMethod;
 use App\Enums\PayoutStatus;
+use App\Enums\WhatsAppTemplate;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Merchant;
 use App\Models\MerchantLedgerEntry;
 use App\Models\MerchantPayout;
 use App\Models\User;
+use App\Services\Messaging\Messenger;
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,6 +25,8 @@ use Illuminate\Support\Str;
  */
 class MerchantPayouts
 {
+    public function __construct(private readonly Messenger $messenger) {}
+
     /**
      * Écritures prêtes à être reversées.
      */
@@ -140,6 +146,11 @@ class MerchantPayouts
                 'payout_id' => $payout->id,
                 'description' => "Reversement {$payout->reference} ({$method->label()})",
                 'created_by' => $actor->id,
+            ]);
+
+            $merchant = $payout->merchant;
+            $this->messenger->toMerchant($merchant, NotificationEvent::PayoutPaid, WhatsAppTemplate::PayoutPaid, [
+                $merchant->business_name, $payout->reference, Money::format($payout->net_amount), $method->label(),
             ]);
 
             return $payout;

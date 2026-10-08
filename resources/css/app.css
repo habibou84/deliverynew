@@ -11,6 +11,17 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
+/* Tailwind 4 colore les bordures en « currentColor » : on retrouve le gris clair de Tailwind 3 */
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-slate-200, currentColor);
+    }
+}
+
 /* Composants d'interface réutilisés dans toute l'application (utilitaires Tailwind 4) */
 @utility btn {
     @apply inline-flex items-center justify-center gap-1 rounded-md px-3 py-2 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed;

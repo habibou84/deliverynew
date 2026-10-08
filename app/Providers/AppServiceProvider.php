@@ -3,6 +3,12 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\Messaging\Gateways\LogSmsGateway;
+use App\Services\Messaging\Gateways\LogWhatsAppGateway;
+use App\Services\Messaging\Gateways\MetaCloudGateway;
+use App\Services\Messaging\Gateways\SmsGateway;
+use App\Services\Messaging\Gateways\TwilioSmsGateway;
+use App\Services\Messaging\Gateways\WhatsAppGateway;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -18,7 +24,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(WhatsAppGateway::class, fn () => match (config('messaging.whatsapp.driver')) {
+            'meta' => new MetaCloudGateway,
+            default => new LogWhatsAppGateway,
+        });
+
+        $this->app->bind(SmsGateway::class, fn () => match (config('messaging.sms.driver')) {
+            'twilio' => new TwilioSmsGateway,
+            default => new LogSmsGateway,
+        });
     }
 
     /**

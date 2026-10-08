@@ -17,7 +17,7 @@
         </label>
         <label class="flex items-start gap-2 text-sm">
           <input v-model="form.require_delivery_code" type="checkbox" class="mt-1">
-          <span>Exiger le code de livraison du destinataire<span class="block text-gray-500">À activer quand les destinataires reçoivent leur code (le marchand le leur transmet ; envoi WhatsApp automatique en phase 3).</span></span>
+          <span>Exiger le code de livraison du destinataire<span class="block text-gray-500">Le destinataire reçoit son code sur WhatsApp quand le livreur part livrer (Paramètres WhatsApp), ou par le marchand.</span></span>
         </label>
         <div>
           <label class="label" for="attempts">Nombre maximal de tentatives de livraison</label>

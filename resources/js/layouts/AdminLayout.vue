@@ -67,6 +67,8 @@ const menu = computed(() => [
   { to: '/admin/zones', icon: '🗺️', label: 'Zones', permission: 'settings.manage' },
   { to: '/admin/tarifs', icon: '🏷️', label: 'Tarifs', permission: 'settings.manage' },
   { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
+  { to: '/admin/messages', icon: '💬', label: 'Messages', permission: 'orders.dispatch' },
+  { to: '/admin/whatsapp', icon: '📱', label: 'WhatsApp', permission: 'settings.manage' },
   { to: '/admin/parametres', icon: '⚙️', label: 'Paramètres', permission: 'settings.manage' },
 ].filter((item) => !item.permission || auth.can(item.permission)))
 

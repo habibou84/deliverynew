@@ -22,6 +22,10 @@ Table companies {
   timezone varchar [default: 'Africa/Abidjan']
   auto_confirm_orders boolean [default: false, note: 'valider les courses sans action admin']
   default_max_attempts smallint [default: 3]
+  require_delivery_code boolean [default: false]
+  return_fee_percent smallint [default: 100]
+  notify_recipients boolean [default: true, note: 'WhatsApp au destinataire : colis en route + code']
+  sms_fallback boolean [default: true, note: 'SMS si le WhatsApp n\'est pas remis']
   status varchar [default: 'active', note: 'active | suspended']
   created_at timestamp
   updated_at timestamp
@@ -586,42 +590,54 @@ Table notifications {
 
 Table notification_preferences {
   id bigint [pk, increment]
-  user_id bigint [ref: > users.id]
-  merchant_id bigint [ref: > merchants.id]
-  event varchar [not null, note: 'order.created | order.picked_up | order.incident | order.delivered | report.daily ...']
-  channels jsonb [note: '["in_app","push","whatsapp","sms","email"]']
-  indexes { (user_id, event) [unique] }
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  event varchar [not null, note: 'order.confirmed | order.picked_up | order.delivered | order.incident | payout.paid']
+  channels jsonb [note: '["whatsapp"] ; les notifications dans l\'application sont toujours envoyées']
+  created_at timestamp
+  updated_at timestamp
+  indexes { (merchant_id, event) [unique] }
 }
 
 Table outbound_messages {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
-  channel varchar [not null, note: 'whatsapp | sms | push | email']
+  channel varchar [not null, note: 'whatsapp | sms']
   whatsapp_account_id bigint [ref: > whatsapp_accounts.id]
-  to varchar [not null]
+  to varchar [not null, note: 'E.164']
+  recipient_type varchar [not null, note: 'merchant | recipient | test']
+  event varchar [note: 'order.delivered, report.daily...']
   template_name varchar
-  payload jsonb
+  payload jsonb [note: 'paramètres du modèle']
+  body text [not null, note: 'texte rendu : journal et SMS de repli']
   order_id bigint [ref: > orders.id]
+  merchant_id bigint [ref: > merchants.id]
+  fallback_for_id bigint [ref: > outbound_messages.id, note: 'SMS de repli de ce message WhatsApp']
   status varchar [default: 'queued', note: 'queued | sent | delivered | read | failed']
   provider_message_id varchar [unique]
   error text
-  cost int
+  attempts smallint [default: 0]
   sent_at timestamp
+  delivered_at timestamp
+  read_at timestamp
+  failed_at timestamp
   created_at timestamp
   updated_at timestamp
-  indexes { (order_id) }
+  indexes { (company_id, created_at); (company_id, status); (order_id) }
 }
 
 Table scheduled_reports {
   id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
   merchant_id bigint [ref: > merchants.id, not null]
-  frequency varchar [note: 'daily | weekly | monthly']
+  frequency varchar [note: 'daily | weekly']
   send_time time [default: '19:00']
-  channels jsonb [note: '["whatsapp","email"]']
+  weekday smallint [default: 1, note: 'hebdomadaire : 1 = lundi … 7 = dimanche']
   is_active boolean [default: true]
   last_sent_at timestamp
   created_at timestamp
   updated_at timestamp
+  indexes { (merchant_id, frequency) [unique] }
 }
 
 // ───────────────────────────── WHATSAPP ─────────────────────────────
@@ -629,15 +645,13 @@ Table scheduled_reports {
 Table whatsapp_accounts {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
-  owner_type varchar [not null, note: 'company | merchant']
-  owner_id bigint [not null]
+  owner_type varchar [not null, default: 'company', note: 'company | merchant (numéro propre au marchand : plus tard)']
+  owner_id bigint
   provider varchar [default: 'meta_cloud', note: 'meta_cloud | 360dialog | twilio']
   waba_id varchar
   phone_number_id varchar [unique]
   display_phone varchar
-  access_token text [note: 'chiffré']
-  webhook_secret text [note: 'chiffré']
-  allow_order_creation boolean [default: true]
+  access_token text [note: 'chiffré ; le secret des webhooks est celui de l\'application Meta (.env)']
   status varchar [default: 'pending', note: 'pending | connected | disconnected']
   created_at timestamp
   updated_at timestamp
@@ -646,12 +660,12 @@ Table whatsapp_accounts {
 Table whatsapp_templates {
   id bigint [pk, increment]
   whatsapp_account_id bigint [ref: > whatsapp_accounts.id, not null]
-  name varchar [not null]
+  name varchar [not null, note: 'texte et paramètres : catalogue App\\Enums\\WhatsAppTemplate']
   language varchar [default: 'fr']
   category varchar [note: 'utility | marketing | authentication']
-  body text
-  variables jsonb
-  status varchar [note: 'pending | approved | rejected']
+  status varchar [note: 'pending | approved | rejected | paused | disabled (synchronisé depuis Meta)']
+  rejected_reason varchar
+  synced_at timestamp
   created_at timestamp
   updated_at timestamp
   indexes { (whatsapp_account_id, name, language) [unique] }

@@ -13,6 +13,8 @@
 
     <InstallBanner :app="app" />
 
+    <WhatsAppPreferences v-if="auth.user?.merchant_id" />
+
     <div class="m-card divide-y">
       <div class="p-4 flex justify-between text-sm"><span class="text-slate-500">Entreprise de livraison</span><span class="font-medium">{{ auth.user?.company?.name }}</span></div>
       <div class="p-4 flex justify-between text-sm"><span class="text-slate-500">Rôle</span><span class="font-medium">{{ auth.user?.role_label }}</span></div>
@@ -30,6 +32,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
+import WhatsAppPreferences from '../../components/mobile/WhatsAppPreferences.vue'
 import { useAuthStore } from '../../stores/auth'
 import { pwa } from '../../composables/usePwa'
 import { telLink } from '../../utils/format'

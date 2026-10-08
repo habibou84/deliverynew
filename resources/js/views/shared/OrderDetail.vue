@@ -96,6 +96,8 @@
           <button class="btn-primary w-full" :disabled="!note.text.trim()" @click="addNote">Envoyer</button>
         </div>
 
+        <OrderMessages v-if="isStaff" :order-id="order.id" :version="order.updated_at" />
+
         <div v-if="isStaff && order.assignments?.length" class="card p-4 text-sm">
           <h2 class="font-semibold mb-2">Missions</h2>
           <ul class="space-y-2">
@@ -140,6 +142,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
 import OrderTimeline from '../../components/OrderTimeline.vue'
 import Modal from '../../components/Modal.vue'
+import OrderMessages from '../../components/OrderMessages.vue'
 import StatusChangeForm from '../../components/StatusChangeForm.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
