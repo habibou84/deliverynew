@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Models\Courier;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Courier
+ * @mixin Courier
  */
 class CourierResource extends JsonResource
 {

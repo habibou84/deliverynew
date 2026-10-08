@@ -7,6 +7,7 @@ use App\Enums\FeePayer;
 use App\Enums\OrderStatus;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\PhoneNumber;
+use Database\Factories\OrderFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
-    /** @use HasFactory<\Database\Factories\OrderFactory> */
+    /** @use HasFactory<OrderFactory> */
     use BelongsToCompany, HasFactory, SoftDeletes;
 
     // Alphabet sans caractères ambigus (0/O, 1/I/L) pour les codes de suivi

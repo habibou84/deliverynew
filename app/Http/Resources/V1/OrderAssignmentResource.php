@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Models\OrderAssignment;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\OrderAssignment
+ * @mixin OrderAssignment
  */
 class OrderAssignmentResource extends JsonResource
 {

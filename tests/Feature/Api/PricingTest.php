@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\SurchargeType;
+use App\Models\Company;
 use App\Models\PricingGrid;
 use App\Services\Pricing\PricingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -89,7 +90,7 @@ class PricingTest extends TestCase
 
     public function test_quote_rejects_zones_of_another_company(): void
     {
-        $foreign = $this->zone('Ailleurs', company: \App\Models\Company::factory()->create());
+        $foreign = $this->zone('Ailleurs', company: Company::factory()->create());
         Sanctum::actingAs($this->merchantUser);
 
         $this->postJson('/api/v1/quotes', ['delivery_zone_id' => $foreign->id])

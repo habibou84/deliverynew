@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Role;
 use Illuminate\Support\Facades\Broadcast;
 
 Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
@@ -9,7 +10,7 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 // Événements temps réel de l'entreprise (nouvelles courses, incidents...) : personnel uniquement
 Broadcast::channel('company.{companyId}', function ($user, $companyId) {
     return (int) $user->company_id === (int) $companyId
-        && $user->hasAnyRole(\App\Enums\Role::values(\App\Enums\Role::staff()));
+        && $user->hasAnyRole(Role::values(Role::staff()));
 });
 
 // Suivi temps réel des courses d'un marchand : comptes du marchand uniquement

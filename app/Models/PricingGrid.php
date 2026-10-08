@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use Database\Factories\PricingGridFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PricingGrid extends Model
 {
-    /** @use HasFactory<\Database\Factories\PricingGridFactory> */
+    /** @use HasFactory<PricingGridFactory> */
     use BelongsToCompany, HasFactory;
 
     protected $fillable = ['company_id', 'name', 'is_default'];

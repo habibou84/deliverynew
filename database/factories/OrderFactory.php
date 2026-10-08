@@ -4,13 +4,14 @@ namespace Database\Factories;
 
 use App\Enums\FeePayer;
 use App\Models\Merchant;
+use App\Models\Order;
 use App\Models\Zone;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
  * Pour des courses réalistes (prix calculé, journal), passer par OrderService.
  *
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Order>
+ * @extends Factory<Order>
  */
 class OrderFactory extends Factory
 {

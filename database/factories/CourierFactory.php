@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 /**
  * Crée un livreur complet : compte utilisateur (rôle livreur) et profil.
  *
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Courier>
+ * @extends Factory<Courier>
  */
 class CourierFactory extends Factory
 {

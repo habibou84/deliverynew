@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Models\OrderEvent;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\OrderEvent
+ * @mixin OrderEvent
  */
 class OrderEventResource extends JsonResource
 {

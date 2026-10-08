@@ -10,6 +10,7 @@ use App\Notifications\OrderAlert;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -247,7 +248,7 @@ class OrderCommunicationTest extends TestCase
             'broadcasting.connections.reverb.secret' => 'test-secret',
             'broadcasting.connections.reverb.app_id' => 'test-app',
         ]);
-        \Illuminate\Support\Facades\Broadcast::purge();
+        Broadcast::purge();
         require base_path('routes/channels.php');
 
         $auth = fn (User $user, string $channel) => $this->withToken($user->createToken('t')->plainTextToken)

@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Models\User;
+
 enum Role: string
 {
     case SuperAdmin = 'super_admin';
@@ -88,7 +90,7 @@ enum Role: string
      *
      * @return list<self>
      */
-    public static function assignableBy(\App\Models\User $actor): array
+    public static function assignableBy(User $actor): array
     {
         if ($actor->isSuperAdmin() || $actor->hasRole(self::Admin->value)) {
             return [...self::staff(), self::Courier];

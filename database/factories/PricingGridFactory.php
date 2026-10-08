@@ -3,10 +3,11 @@
 namespace Database\Factories;
 
 use App\Models\Company;
+use App\Models\PricingGrid;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\PricingGrid>
+ * @extends Factory<PricingGrid>
  */
 class PricingGridFactory extends Factory
 {

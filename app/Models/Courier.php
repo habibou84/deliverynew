@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AssignmentStatus;
 use App\Enums\VehicleType;
 use App\Models\Concerns\BelongsToCompany;
+use Database\Factories\CourierFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Courier extends Model
 {
-    /** @use HasFactory<\Database\Factories\CourierFactory> */
+    /** @use HasFactory<CourierFactory> */
     use BelongsToCompany, HasFactory;
 
     protected $fillable = [

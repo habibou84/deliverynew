@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use Database\Factories\ZoneFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Zone extends Model
 {
-    /** @use HasFactory<\Database\Factories\ZoneFactory> */
+    /** @use HasFactory<ZoneFactory> */
     use BelongsToCompany, HasFactory;
 
     protected $fillable = ['company_id', 'parent_id', 'name', 'city', 'is_active', 'sort_order'];

@@ -5,10 +5,11 @@ namespace Database\Factories;
 use App\Enums\FeePayer;
 use App\Enums\MerchantStatus;
 use App\Models\Company;
+use App\Models\Merchant;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Merchant>
+ * @extends Factory<Merchant>
  */
 class MerchantFactory extends Factory
 {

@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Models\IncidentReason;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\IncidentReason
+ * @mixin IncidentReason
  */
 class IncidentReasonResource extends JsonResource
 {

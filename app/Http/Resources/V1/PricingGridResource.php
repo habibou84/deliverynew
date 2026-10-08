@@ -2,11 +2,12 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Models\PricingGrid;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\PricingGrid
+ * @mixin PricingGrid
  */
 class PricingGridResource extends JsonResource
 {

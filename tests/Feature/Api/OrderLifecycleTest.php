@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\OrderStatus;
+use App\Enums\Role;
 use App\Models\IncidentReason;
 use App\Models\Order;
 use App\Models\OrderEvent;
@@ -271,7 +272,7 @@ class OrderLifecycleTest extends TestCase
     public function test_cross_company_orders_are_not_found(): void
     {
         $order = $this->createOrder();
-        $outsider = User::factory()->withRole(\App\Enums\Role::Admin)->create();
+        $outsider = User::factory()->withRole(Role::Admin)->create();
 
         $this->as($outsider)->getJson("/api/v1/orders/{$order->id}")->assertNotFound();
         $this->assertSame(0, OrderEvent::where('actor_id', $outsider->id)->count());
