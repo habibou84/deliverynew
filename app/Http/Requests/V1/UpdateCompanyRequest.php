@@ -48,6 +48,7 @@ class UpdateCompanyRequest extends FormRequest
             'auto_confirm_orders' => ['sometimes', 'boolean'],
             'default_max_attempts' => ['sometimes', 'integer', 'min:1', 'max:10'],
             'require_delivery_code' => ['sometimes', 'boolean'],
+            'return_fee_percent' => ['sometimes', 'integer', 'min:0', 'max:100'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
         ];
     }

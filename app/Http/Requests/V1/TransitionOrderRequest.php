@@ -3,6 +3,7 @@
 namespace App\Http\Requests\V1;
 
 use App\Enums\OrderStatus;
+use App\Enums\PaymentMethod;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,6 +30,9 @@ class TransitionOrderRequest extends FormRequest
             'rescheduled_to' => ['nullable', 'date'],
             'delivery_code' => ['nullable', 'string', 'max:10'],
             'collected_amount' => ['nullable', 'integer', 'min:0'],
+            'payment_method' => ['nullable', Rule::in(array_map(fn (PaymentMethod $m) => $m->value, PaymentMethod::atDelivery()))],
+            'received_by_company' => ['nullable', 'boolean'],
+            'transaction_ref' => ['nullable', 'string', 'max:100'],
             'cancel_reason' => ['nullable', 'string', 'max:1000'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
@@ -43,6 +47,8 @@ class TransitionOrderRequest extends FormRequest
             'rescheduled_to' => 'date de report',
             'delivery_code' => 'code de livraison',
             'collected_amount' => 'montant encaissé',
+            'payment_method' => 'mode de paiement',
+            'transaction_ref' => 'référence de transaction',
         ];
     }
 }

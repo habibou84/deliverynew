@@ -24,6 +24,7 @@ class Company extends Model
         'auto_confirm_orders',
         'default_max_attempts',
         'require_delivery_code',
+        'return_fee_percent',
         'status',
     ];
 
@@ -33,6 +34,7 @@ class Company extends Model
             'auto_confirm_orders' => 'boolean',
             'default_max_attempts' => 'integer',
             'require_delivery_code' => 'boolean',
+            'return_fee_percent' => 'integer',
             'status' => CompanyStatus::class,
         ];
     }
