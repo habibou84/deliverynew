@@ -70,6 +70,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('whatsapp/settings', [WhatsAppSettingsController::class, 'update'])->name('whatsapp.settings.update');
             Route::post('whatsapp/test', [WhatsAppSettingsController::class, 'test'])->middleware('throttle:10,1')->name('whatsapp.test');
             Route::post('whatsapp/templates/sync', [WhatsAppSettingsController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
+            Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware('throttle:60,1')->name('whatsapp.simulate');
         });
 
         // Journal des messages WhatsApp et SMS

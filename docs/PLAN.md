@@ -290,13 +290,15 @@ Algorithme : grille spécifique du marchand si elle existe, sinon grille par dé
 Fonctionnement : le journal de la course appelle `OrderMessages`, qui passe par `Messenger` : le message est inscrit dans `outbound_messages`, puis le job `SendOutboundMessage` l'envoie (file `messages`, 3 tentatives pour les erreurs passagères). Les webhooks de statut Meta (envoyé, reçu, lu, échec) mettent à jour `outbound_messages`. En cas d'échec définitif (par exemple numéro sans WhatsApp), un SMS de même texte part une seule fois. Le marchand choisit ses messages dans son application ; les textes des modèles sont dans `App\Enums\WhatsAppTemplate` et affichés, prêts à copier, dans Paramètres > WhatsApp.
 
 ### 7.2 Entrant (création de course par WhatsApp)
-1. Meta appelle `POST /api/webhooks/whatsapp/{account}` ; la signature `X-Hub-Signature-256` est vérifiée.
-2. Le numéro de l'expéditeur est identifié : marchand connu (via `merchants.whatsapp_phone` ou `users.phone`), sinon message de refus.
-3. Deux voies :
-   - **WhatsApp Flow** (recommandé) : formulaire structuré (destinataire, téléphone, commune, adresse, montant à encaisser, produits).
-   - **Message libre ou transfert de commande** : analyse par IA, puis **récapitulatif et boutons « Confirmer / Modifier »**.
-4. La course est créée avec `source = whatsapp` ; le marchand reçoit le numéro de suivi et le prix.
-5. L'état de la conversation est conservé dans `whatsapp_sessions` (expiration 30 min).
+1. Meta appelle `POST /api/webhooks/whatsapp` (champ `messages`) ; la signature `X-Hub-Signature-256` est vérifiée, le compte est retrouvé par `phone_number_id` et chaque message est inscrit une seule fois dans `inbound_messages` (déduplication par identifiant Meta), puis traité par le job `ProcessInboundWhatsApp` (file `messages`).
+2. Le numéro de l'expéditeur est identifié : marchand actif connu (via `users.phone` d'un compte marchand, `merchants.whatsapp_phone` ou `merchants.phone`), sinon message de refus.
+3. Le marchand écrit librement, transfère la commande de son client ou suit le menu (boutons) :
+   - **Analyse** du message (`OrderMessageParser`) : par **règles** par défaut (lignes « Nom : … / Tél : … », numéros ivoiriens, montants « 12 500 F » ou « 15k », communes et quartiers, repère, qui paie la livraison) ; par **Claude** quand `ANTHROPIC_API_KEY` est renseignée, avec retour automatique aux règles en cas d'erreur.
+   - Ce qui manque est **demandé une question à la fois** (téléphone, commune, montant à encaisser ; « déjà payé » = 0) ; une commune ambiguë est proposée en boutons.
+   - **Récapitulatif chiffré** (prix, qui paie, montant à encaisser) avec les boutons **Confirmer / Modifier / Annuler**. Rien n'est créé sans confirmation.
+4. La course est créée avec `source = whatsapp` ; le marchand reçoit le numéro de suivi, le code de livraison, le montant à encaisser et le lien de suivi.
+5. Autres commandes : envoyer un numéro de suivi (`LV-…`) donne le statut du colis ; « point » donne le point du jour.
+6. L'état de la conversation est conservé dans `whatsapp_sessions` (expiration 30 min).
 
 Le compte WhatsApp peut appartenir à l'**entreprise** (un numéro unique pour tous les marchands) ou au **marchand**. Les deux sont prévus via `whatsapp_accounts.owner_type`.
 
@@ -404,10 +406,20 @@ Règles retenues en phase 3 :
 - [ ] Ionic/Capacitor : push FCM, GPS en arrière-plan, scan QR, caméra, mode hors ligne.
 - [ ] Publication Play Store (Android en priorité en Côte d'Ivoire).
 
-### Phase 5 : WhatsApp entrant (3 semaines)
-- [ ] Webhook entrant, identification du marchand, sessions.
-- [ ] WhatsApp Flow « Nouvelle course » ; analyse IA des messages libres avec confirmation.
+### Phase 5 : WhatsApp entrant (3 semaines) ✅ *réalisée côté application*
+- [x] Webhook entrant (messages texte et réponses aux boutons), déduplication, identification du marchand, sessions de 30 minutes.
+- [x] Création de course par conversation guidée : message libre ou transféré, questions sur ce qui manque, récapitulatif chiffré, confirmation obligatoire.
+- [x] Analyse par règles, ou par Claude si une clé est configurée (repli automatique sur les règles).
+- [x] Suivi d'un colis par son numéro, point du jour, menu à boutons.
+- [x] Réglage « Courses par WhatsApp » (activable par entreprise) et **simulateur** dans le back-office (WhatsApp > Simulateur) pour tout tester sans compte Meta.
+- [ ] WhatsApp Flow « Nouvelle course » : demande un Flow publié chez Meta ; la conversation guidée le remplace pour l'instant.
 - [ ] Connexion du numéro propre d'un marchand (Embedded Signup).
+
+Règles retenues en phase 5 :
+- **Confirmation obligatoire** : le récapitulatif est toujours montré avant la création, même quand le message est complet.
+- **L'IA est facultative** : sans clé, les règles couvrent les formats courants ; avec la clé, les numéros, montants et communes proposés par Claude sont revérifiés avant d'être retenus.
+- La commune de ramassage du marchand est écartée quand le message en cite plusieurs (« de Cocody à Yopougon »).
+- Les réponses du bot sont des messages de session (gratuits dans la fenêtre de 24 h ouverte par le marchand), sans SMS de repli.
 
 ### Phase 6 : stock (3 à 4 semaines)
 - [ ] Produits, emplacements, niveaux, mouvements, réservations liées aux courses.

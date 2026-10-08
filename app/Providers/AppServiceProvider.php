@@ -9,6 +9,9 @@ use App\Services\Messaging\Gateways\MetaCloudGateway;
 use App\Services\Messaging\Gateways\SmsGateway;
 use App\Services\Messaging\Gateways\TwilioSmsGateway;
 use App\Services\Messaging\Gateways\WhatsAppGateway;
+use App\Services\WhatsApp\ClaudeOrderParser;
+use App\Services\WhatsApp\HeuristicOrderParser;
+use App\Services\WhatsApp\OrderMessageParser;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -28,6 +31,11 @@ class AppServiceProvider extends ServiceProvider
             'meta' => new MetaCloudGateway,
             default => new LogWhatsAppGateway,
         });
+
+        // Messages WhatsApp libres : Claude si une clé API est configurée, sinon analyse par règles
+        $this->app->bind(OrderMessageParser::class, fn ($app) => filled(config('messaging.ai.api_key'))
+            ? $app->make(ClaudeOrderParser::class)
+            : $app->make(HeuristicOrderParser::class));
 
         $this->app->bind(SmsGateway::class, fn () => match (config('messaging.sms.driver')) {
             'twilio' => new TwilioSmsGateway,

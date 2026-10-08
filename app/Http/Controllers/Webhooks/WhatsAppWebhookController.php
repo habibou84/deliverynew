@@ -4,15 +4,18 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Enums\MessageStatus;
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessInboundWhatsApp;
+use App\Models\InboundMessage;
 use App\Models\OutboundMessage;
+use App\Models\WhatsAppAccount;
 use App\Services\Messaging\Messenger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 /**
- * Webhook de l'application Meta : accusés de remise des messages envoyés.
- * Les messages entrants (création de course par WhatsApp) arrivent en phase 5.
+ * Webhook de l'application Meta : accusés de remise des messages envoyés et
+ * messages reçus des marchands (création de course par WhatsApp).
  */
 class WhatsAppWebhookController extends Controller
 {
@@ -42,10 +45,50 @@ class WhatsAppWebhookController extends Controller
                 foreach ($change['value']['statuses'] ?? [] as $status) {
                     $this->applyStatus($status);
                 }
+
+                $account = WhatsAppAccount::withoutGlobalScopes()
+                    ->where('phone_number_id', $change['value']['metadata']['phone_number_id'] ?? '')
+                    ->first();
+
+                foreach ($change['value']['messages'] ?? [] as $message) {
+                    $this->receive($account, $message);
+                }
             }
         }
 
         return response()->json(['received' => true]);
+    }
+
+    /**
+     * Message d'un expéditeur : confié à la conversation (création de course…).
+     *
+     * @param  array<string, mixed>  $message
+     */
+    private function receive(?WhatsAppAccount $account, array $message): void
+    {
+        if ($account === null || ! isset($message['id'], $message['from'])) {
+            return;
+        }
+
+        // Meta peut renvoyer le même webhook : un message n'est traité qu'une fois
+        if (InboundMessage::withoutGlobalScopes()->where('provider_message_id', $message['id'])->exists()) {
+            return;
+        }
+
+        $type = $message['type'] ?? 'other';
+        [$kind, $text, $buttonId] = match ($type) {
+            'text' => ['text', $message['text']['body'] ?? '', null],
+            'interactive' => ['button',
+                $message['interactive']['button_reply']['title'] ?? $message['interactive']['list_reply']['title'] ?? null,
+                $message['interactive']['button_reply']['id'] ?? $message['interactive']['list_reply']['id'] ?? null],
+            'button' => ['text', $message['button']['text'] ?? '', null],
+            default => [$type, null, null],
+        };
+
+        ProcessInboundWhatsApp::dispatch($account->company_id, '+'.ltrim($message['from'], '+'), $kind, $text, $buttonId, [
+            'whatsapp_account_id' => $account->id,
+            'provider_message_id' => $message['id'],
+        ]);
     }
 
     /**

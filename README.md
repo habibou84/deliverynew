@@ -82,6 +82,17 @@ Pour envoyer de vrais messages :
 4. Dans `.env` : `WHATSAPP_DRIVER=meta`, `WHATSAPP_APP_SECRET` (secret de l'application Meta) et `WHATSAPP_VERIFY_TOKEN` (chaîne de votre choix) ; abonner l'adresse du webhook indiquée sur la page au champ `messages`.
 5. SMS de repli (facultatif) : `SMS_DRIVER=twilio` avec `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM` ; `SMS_DRIVER=none` pour le désactiver.
 
+#### Courses par WhatsApp
+
+Un marchand dont le numéro est connu écrit au numéro de l'agence (message libre, commande transférée de son client
+ou menu à boutons) : le bot demande ce qui manque, montre un récapitulatif chiffré et crée la course après
+« Confirmer ». Il donne aussi le suivi d'un colis (envoyer son numéro `LV-…`) et le point du jour. Le réglage
+« Courses par WhatsApp » se trouve sur la page **WhatsApp**, et **WhatsApp > Simulateur** permet de tout essayer
+sans compte Meta (les courses confirmées sont réellement créées).
+
+L'analyse se fait par règles ; avec `ANTHROPIC_API_KEY` (et `ANTHROPIC_MODEL`, par défaut `claude-opus-5-5`),
+Claude comprend aussi les messages sans format, avec retour automatique aux règles en cas d'erreur.
+
 Les envois passent par la file `messages` et les points d'activité par le planificateur (`reports:send` toutes les 5 minutes) :
 `composer dev` lance les deux.
 
@@ -160,7 +171,8 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
 | GET/PUT | `/whatsapp/settings` · POST `/whatsapp/test`, `/whatsapp/templates/sync` | `settings.manage` : numéro Meta, options, test, approbation des modèles |
 | GET | `/messages` · POST `/messages/{id}/retry` · GET `/orders/{id}/messages` | `orders.dispatch` : journal des messages WhatsApp/SMS, renvoi d'un échec |
-| GET/POST | `/api/webhooks/whatsapp` (hors `/v1`) | **public**, signé par Meta (`X-Hub-Signature-256`) : accusés de réception |
+| POST | `/whatsapp/simulate` | `settings.manage` : simulateur de conversation (`from`, `text` ou `button_id`) ; renvoie les réponses du bot |
+| GET/POST | `/api/webhooks/whatsapp` (hors `/v1`) | **public**, signé par Meta (`X-Hub-Signature-256`) : accusés de réception et messages reçus |
 
 Temps réel (Reverb) : canaux privés `company.{id}` (personnel), `merchant.{id}` (marchand) et `App.Models.User.{id}` (notifications), événement `order.changed`.
 

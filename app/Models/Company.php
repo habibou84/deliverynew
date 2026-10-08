@@ -27,6 +27,7 @@ class Company extends Model
         'return_fee_percent',
         'notify_recipients',
         'sms_fallback',
+        'whatsapp_orders',
         'status',
     ];
 
@@ -39,6 +40,7 @@ class Company extends Model
             'return_fee_percent' => 'integer',
             'notify_recipients' => 'boolean',
             'sms_fallback' => 'boolean',
+            'whatsapp_orders' => 'boolean',
             'status' => CompanyStatus::class,
         ];
     }

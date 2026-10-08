@@ -48,6 +48,7 @@ const routes = [
       { path: 'caisse/reversements/:id(\\d+)', component: shared.payoutDetail, meta: { permission: 'finance.view' } },
       { path: 'parametres', component: () => import('../views/admin/Settings.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp', component: () => import('../views/admin/WhatsApp.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage' } },
       { path: 'messages', component: () => import('../views/admin/Messages.vue'), meta: { permission: 'orders.dispatch' } },
     ],
   },

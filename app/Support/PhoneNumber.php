@@ -45,6 +45,20 @@ class PhoneNumber
         return '+'.$digits;
     }
 
+    /**
+     * Affichage lisible : +2250707070707 → « 07 07 07 07 07 » (numéros ivoiriens).
+     */
+    public static function display(?string $value): string
+    {
+        $normalized = self::normalize($value);
+
+        if ($normalized !== null && strlen($normalized) === 14 && str_starts_with($normalized, '+'.self::DEFAULT_COUNTRY_CODE)) {
+            return trim(chunk_split(substr($normalized, 4), 2, ' '));
+        }
+
+        return (string) ($normalized ?? $value);
+    }
+
     public static function isValid(?string $value): bool
     {
         return self::normalize($value) !== null;

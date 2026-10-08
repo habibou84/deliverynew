@@ -39,6 +39,27 @@
         <button class="btn-primary" :disabled="saving">Enregistrer le numéro</button>
       </form>
 
+      <!-- Courses reçues sur WhatsApp -->
+      <div class="card p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="font-semibold">Courses par WhatsApp</h2>
+          <RouterLink to="/admin/whatsapp/simulateur" class="btn-secondary">Ouvrir le simulateur</RouterLink>
+        </div>
+        <label class="flex items-start gap-2 text-sm">
+          <input :checked="s.whatsapp_orders" type="checkbox" class="mt-1" @change="saveOption('whatsapp_orders', $event.target.checked)">
+          <span>Les e-commerçants peuvent créer des courses en écrivant à ce numéro
+            <span class="block text-gray-500">
+              Ils envoient les informations de la course (ou transfèrent la commande de leur client) ; le bot demande ce qui manque,
+              affiche un récapitulatif avec le prix et crée la course après confirmation. Menu : nouvelle course, point du jour, suivi d'un colis.
+            </span></span>
+        </label>
+        <p class="text-sm" :class="s.ai_parser ? 'text-emerald-700' : 'text-gray-500'">
+          {{ s.ai_parser
+            ? '✨ Analyse des messages libres par Claude activée.'
+            : 'Analyse par règles (numéros, montants, communes, format « Nom : … »). Ajoutez ANTHROPIC_API_KEY dans .env pour que Claude comprenne aussi les messages sans format.' }}
+        </p>
+      </div>
+
       <!-- Options -->
       <div class="card p-4 space-y-3">
         <h2 class="font-semibold">Envois</h2>

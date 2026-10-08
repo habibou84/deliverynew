@@ -26,6 +26,7 @@ Table companies {
   return_fee_percent smallint [default: 100]
   notify_recipients boolean [default: true, note: 'WhatsApp au destinataire : colis en route + code']
   sms_fallback boolean [default: true, note: 'SMS si le WhatsApp n\'est pas remis']
+  whatsapp_orders boolean [default: true, note: 'création de course en écrivant au numéro WhatsApp']
   status varchar [default: 'active', note: 'active | suspended']
   created_at timestamp
   updated_at timestamp
@@ -714,29 +715,34 @@ Table whatsapp_templates {
 
 Table inbound_messages {
   id bigint [pk, increment]
-  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, not null]
-  provider_message_id varchar [unique, note: 'déduplication des webhooks']
+  company_id bigint [ref: > companies.id, not null]
+  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, note: 'null en simulation']
+  provider_message_id varchar [unique, note: 'déduplication des webhooks Meta']
   from_phone varchar [not null]
-  merchant_id bigint [ref: > merchants.id]
-  type varchar [note: 'text | interactive | location | image | flow_reply']
+  merchant_id bigint [ref: > merchants.id, note: 'null = expéditeur inconnu']
+  type varchar [not null, note: 'text | button | image | audio | location | other']
   body text
-  payload jsonb
+  payload jsonb [note: 'identifiant du bouton, nom du contact…']
   order_id bigint [ref: > orders.id, note: 'course créée à partir de ce message']
   processed_at timestamp
   created_at timestamp
+  updated_at timestamp
+  indexes { (company_id, from_phone, created_at) }
 }
 
 Table whatsapp_sessions {
   id bigint [pk, increment]
-  whatsapp_account_id bigint [ref: > whatsapp_accounts.id, not null]
+  company_id bigint [ref: > companies.id, not null]
   phone varchar [not null]
   merchant_id bigint [ref: > merchants.id]
-  state varchar [note: 'idle | collecting | awaiting_confirmation']
-  context jsonb [note: 'brouillon de course en cours']
-  expires_at timestamp
+  user_id bigint [ref: > users.id, note: 'compte marchand qui crée les courses']
+  state varchar [default: 'idle', note: 'idle | draft | confirm | track']
+  draft jsonb [note: 'brouillon de course en cours']
+  awaiting varchar [note: 'champ demandé au marchand (recipient_phone, zone_id, items_amount)']
+  expires_at timestamp [note: '30 min sans message : la conversation repart de zéro']
   created_at timestamp
   updated_at timestamp
-  indexes { (whatsapp_account_id, phone) [unique] }
+  indexes { (company_id, phone) [unique] }
 }
 
 // ───────────────────────────── API & INTÉGRATIONS ─────────────────────────────

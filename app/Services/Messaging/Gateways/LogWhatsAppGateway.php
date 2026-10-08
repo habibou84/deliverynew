@@ -19,6 +19,13 @@ class LogWhatsAppGateway implements WhatsAppGateway
         return 'log-'.Str::uuid();
     }
 
+    public function sendReply(?WhatsAppAccount $account, string $to, string $text, array $buttons = []): string
+    {
+        Log::info("[WhatsApp simulé] réponse → {$to}", ['text' => $text, 'buttons' => $buttons]);
+
+        return 'log-'.Str::uuid();
+    }
+
     public function templates(?WhatsAppAccount $account): array
     {
         return array_map(fn (WhatsAppTemplate $t) => [
