@@ -46,6 +46,11 @@ jobs:
       DB_DATABASE: livraison_test
       DB_USERNAME: livraison
       DB_PASSWORD: secret
+      # Pas de Redis en CI : cache et sessions en mémoire, files synchrones
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      QUEUE_CONNECTION: sync
+      BROADCAST_CONNECTION: log
     steps:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
