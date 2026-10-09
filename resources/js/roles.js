@@ -9,5 +9,5 @@ export function homeFor(role) {
   if (SPACES.admin.includes(role)) return '/admin'
   if (SPACES.livreur.includes(role)) return '/livreur'
   if (SPACES.marchand.includes(role)) return '/marchand'
-  return '/login'
+  return '/'
 }

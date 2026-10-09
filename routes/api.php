@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\ZoneController;
+use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +66,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
         ->middleware('throttle:login')
         ->name('auth.login');
 
+    // Nom, logo et accroche de l'entreprise de livraison (pages de connexion)
+    Route::get('branding', [BrandingController::class, 'show'])->name('branding.show');
+
     // Suivi public d'un colis (destinataire)
     Route::get('tracking/{code}', TrackingController::class)
         ->middleware('throttle:30,1')
@@ -73,6 +77,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::middleware(['auth:sanctum', 'active'])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+        Route::post('company/logo', [BrandingController::class, 'upload'])->name('company.logo.store');
+        Route::delete('company/logo', [BrandingController::class, 'destroy'])->name('company.logo.destroy');
 
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::post('notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');

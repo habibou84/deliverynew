@@ -62,7 +62,8 @@ const installedLabel = computed(() => (pwa.installed ? 'application installée' 
 
 async function logout() {
   await forgetPushDevice()
+  const login = auth.role === 'courier' ? '/livreur/connexion' : '/'
   await auth.logout()
-  router.push('/login')
+  router.push(login)
 }
 </script>

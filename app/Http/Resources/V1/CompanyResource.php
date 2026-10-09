@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1;
 
 use App\Models\Company;
+use App\Support\Branding;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -31,6 +32,8 @@ class CompanyResource extends JsonResource
             'return_fee_percent' => $this->return_fee_percent,
             'field_alert_reminder_minutes' => $this->field_alert_reminder_minutes,
             'parcel_hold_alert_hours' => $this->parcel_hold_alert_hours,
+            'tagline' => $this->tagline,
+            'logo_url' => Branding::logoUrl($this->resource),
             'status' => $this->status,
             'users_count' => $this->whenCounted('users'),
             'created_at' => $this->created_at,

@@ -6,8 +6,10 @@
         sidebarOpen ? 'left-0' : '-left-64 md:left-0'
       ]"
     >
-      <div class="p-4 text-lg font-bold border-b border-slate-700">
-        🚚 {{ auth.user?.company?.name || 'Administration' }}
+      <div class="p-4 text-lg font-bold border-b border-slate-700 flex items-center gap-2 min-w-0">
+        <img v-if="branding.logo_url" :src="branding.logo_url" alt="" class="h-8 w-8 object-contain shrink-0 rounded bg-white p-0.5">
+        <span v-else aria-hidden="true">🚚</span>
+        <span class="truncate">{{ auth.user?.company?.name || 'Administration' }}</span>
       </div>
       <nav class="p-3 space-y-1 flex-1 overflow-y-auto" @click="sidebarOpen = false">
         <SidebarItem v-for="item in menu" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" />
@@ -53,6 +55,7 @@ import Toasts from '../components/Toasts.vue'
 import AlertSoundToggle from '../components/AlertSoundToggle.vue'
 import { useFieldReportStore } from '../stores/fieldReports'
 import { useHeldParcelStore } from '../stores/heldParcels'
+import { branding, loadBranding } from '../composables/useBranding'
 
 const sidebarOpen = ref(false)
 const search = ref('')
@@ -60,6 +63,7 @@ const auth = useAuthStore()
 const router = useRouter()
 
 useRealtime()
+loadBranding()
 
 // Remontées terrain à traiter : badge du menu, rafraîchi chaque minute
 // Colis restés trop longtemps chez un livreur : badge du menu
@@ -106,6 +110,6 @@ function quickSearch() {
 
 const logout = async () => {
   await auth.logout()
-  router.push('/login')
+  router.push('/admin/connexion')
 }
 </script>

@@ -19,6 +19,7 @@ class Company extends Model
         'phone',
         'email',
         'address',
+        'tagline',
         'currency',
         'timezone',
         'auto_confirm_orders',

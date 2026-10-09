@@ -27,8 +27,10 @@ http.interceptors.response.use(
 
     if (status === 401 && !isLogin) {
       localStorage.removeItem(TOKEN_KEY)
-      if (window.location.pathname !== '/login') {
-        window.location.assign('/login')
+      const path = window.location.pathname
+      const login = path.startsWith('/admin') ? '/admin/connexion' : path.startsWith('/livreur') ? '/livreur/connexion' : '/'
+      if (path !== login) {
+        window.location.assign(login)
       }
     }
 

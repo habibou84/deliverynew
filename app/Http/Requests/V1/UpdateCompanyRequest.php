@@ -51,6 +51,7 @@ class UpdateCompanyRequest extends FormRequest
             'return_fee_percent' => ['sometimes', 'integer', 'min:0', 'max:100'],
             'field_alert_reminder_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
             'parcel_hold_alert_hours' => ['sometimes', 'integer', 'min:0', 'max:168'],
+            'tagline' => ['sometimes', 'nullable', 'string', 'max:160'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
         ];
     }

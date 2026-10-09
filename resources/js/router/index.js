@@ -16,14 +16,13 @@ const mobile = {
 }
 
 const routes = [
-  // Adresse racine : le garde de navigation redirige vers la connexion ou l'espace de l'utilisateur
-  { path: '/', name: 'home', component: { render: () => null } },
-  {
-    path: '/login',
-    name: 'login',
-    component: () => import('../views/login.vue'),
-    meta: { guest: true },
-  },
+  // Pages de connexion : e-commerçants à la racine (page d'accueil du site), équipe et livreurs dans leur espace.
+  // Une fois connecté, chacun est renvoyé vers son espace, quelle que soit la page utilisée.
+  { path: '/', name: 'home', component: () => import('../views/auth/MerchantHome.vue'), meta: { guest: true } },
+  { path: '/admin/connexion', name: 'login-staff', component: () => import('../views/auth/StaffLogin.vue'), meta: { guest: true } },
+  { path: '/livreur/connexion', name: 'login-courier', component: () => import('../views/auth/CourierLogin.vue'), meta: { guest: true } },
+  // Ancienne adresse de connexion
+  { path: '/login', redirect: (to) => ({ path: '/', query: to.query }) },
   // Pages publiques (destinataire)
   { path: '/suivi/:code?', name: 'tracking', component: () => import('../views/Tracking.vue'), meta: { public: true } },
   {
@@ -112,6 +111,12 @@ const router = createRouter({
   routes,
 })
 
+// Page de connexion de l'espace demandé, avec retour à la page voulue après connexion
+function loginFor(to) {
+  const login = to.path.startsWith('/admin') ? '/admin/connexion' : to.path.startsWith('/livreur') ? '/livreur/connexion' : '/'
+  return { path: login, query: to.path !== login && !['/admin', '/livreur', '/marchand'].includes(to.path) ? { redirect: to.fullPath } : {} }
+}
+
 router.beforeEach(async (to) => {
   if (to.meta.public) return true
 
@@ -126,7 +131,7 @@ router.beforeEach(async (to) => {
   }
 
   if (!auth.user) {
-    return to.meta.guest ? true : { name: 'login', query: to.path !== '/' ? { redirect: to.fullPath } : {} }
+    return to.meta.guest ? true : loginFor(to)
   }
 
   // Rôles autorisés : on regarde toute la chaîne de routes (layout + page)

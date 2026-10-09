@@ -15,6 +15,9 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Entreprise dont le nom et le logo s'affichent sur les pages publiques (slug ou identifiant)
+    'branding_company' => env('BRANDING_COMPANY'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
