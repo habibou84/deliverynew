@@ -159,6 +159,12 @@ class OrderWorkflow
             return;
         }
 
+        // Caissier : colis ramassé rendu par le livreur lors du point de caisse
+        if ($to === OrderStatus::AtHub && $from === OrderStatus::PickedUp && $order->held_by_courier_id !== null
+            && $actor->can(Permission::FinanceManage->value)) {
+            return;
+        }
+
         // Remise en stock d'une commande d'entrepôt
         if ($to === OrderStatus::Returned && $order->fromWarehouse() && $actor->can(Permission::StockManage->value)) {
             return;
@@ -286,6 +292,7 @@ class OrderWorkflow
             case OrderStatus::PickedUp:
                 $this->finish($pickup, AssignmentStatus::Completed);
                 $order->picked_up_at = $now;
+                $order->handTo($order->pickup_courier_id);
 
                 return $pickup;
 
@@ -299,17 +306,20 @@ class OrderWorkflow
 
                 // Colis rapporté au dépôt sans tentative : la livraison prévue est annulée
                 $this->finish($delivery, AssignmentStatus::Cancelled);
+                $order->handTo(null);
 
                 return null;
 
             case OrderStatus::OutForDelivery:
                 $this->start($delivery);
+                $order->handTo($order->delivery_courier_id);
 
                 return $delivery;
 
             case OrderStatus::Delivered:
                 $this->finish($delivery, AssignmentStatus::Completed);
                 $order->delivered_at = $now;
+                $order->handTo(null);
                 $order->collected_amount = $context['collected_amount'] ?? $order->cod_amount;
                 if ($order->is_shipping) {
                     $order->shipping_fee = $context['shipping_fee'];
@@ -343,6 +353,7 @@ class OrderWorkflow
 
             case OrderStatus::Returning:
                 $this->start($return);
+                $order->handTo($order->return_courier_id);
 
                 return $return;
 
@@ -353,6 +364,7 @@ class OrderWorkflow
                 }
                 $this->finish($return, AssignmentStatus::Completed);
                 $order->returned_at = $now;
+                $order->handTo(null);
 
                 return $return;
 
@@ -360,6 +372,7 @@ class OrderWorkflow
             case OrderStatus::Rejected:
                 $order->assignments()->active()->update(['status' => AssignmentStatus::Cancelled, 'completed_at' => $now]);
                 $order->cancelled_at = $now;
+                $order->handTo(null);
                 $order->cancel_reason = $context['cancel_reason'] ?? $context['note'] ?? null;
 
                 return null;

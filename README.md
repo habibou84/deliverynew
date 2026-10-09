@@ -110,6 +110,22 @@ remontée se marque « traitée » avec un commentaire, le menu affiche le nombr
   relancé au dispatch après le délai réglé dans **Paramètres** (10 min par défaut, 0 = jamais), puis aux
   administrateurs après trois fois ce délai. Rien n'est relancé si la course est terminée.
 
+### Colis non livrés chez les livreurs
+
+L'application sait à tout moment quel livreur a quel colis en main (ramassé, en livraison, en échec ou reporté),
+jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
+
+- **Point de caisse** : le versement liste les colis non livrés du livreur ; le caissier coche ceux qu'il reçoit
+  (« Tout cocher » possible). Les colis non cochés sont notés « gardés » sur le versement. Un colis ramassé rendu
+  passe « Au dépôt » ; un colis en échec ou reporté garde son statut pour que le dispatch décide de la suite.
+  Un livreur sans argent à verser rend ses colis via « Recevoir les colis ».
+- **Point bloqué** tant qu'une course du livreur est « En chemin » : il doit d'abord indiquer « livré » ou « échec ».
+- **Colis chez les livreurs** (back-office, `orders.dispatch`) : colis par livreur avec leur ancienneté, filtre
+  « En retard », réception au dépôt en un clic. Au-delà du délai réglé dans **Paramètres** (24 h par défaut,
+  0 = jamais), le colis passe en rouge, le menu affiche un badge et le dispatch reçoit une alerte sonore
+  (`parcels:overdue`, toutes les 15 min, une alerte par colis).
+- Le livreur voit dans **Ma caisse** les colis à rapporter au dépôt.
+
 ### Notifications push des livreurs
 
 Le livreur active les notifications depuis le bandeau de **Missions** ou son **Profil** (bouton de test). Il est alors

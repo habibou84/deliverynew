@@ -23,7 +23,7 @@
       <div class="card overflow-x-auto">
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-gray-600">
-            <tr><th class="p-2">Livreur</th><th class="p-2 text-right" title="Encaissé + avances − frais payés">À verser</th><th class="p-2">Lignes</th><th class="p-2">Plus ancien</th><th class="p-2 text-right">Gains non payés</th><th /></tr>
+            <tr><th class="p-2">Livreur</th><th class="p-2 text-right" title="Encaissé + avances − frais payés">À verser</th><th class="p-2">Lignes</th><th class="p-2" title="Colis non livrés encore chez le livreur">Colis</th><th class="p-2">Plus ancien</th><th class="p-2 text-right">Gains non payés</th><th /></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="c in cash?.data || []" :key="c.courier_id">
@@ -35,11 +35,13 @@
                 </div>
               </td>
               <td class="p-2">{{ c.pending_collections }}</td>
+              <td class="p-2"><span v-if="c.parcels_in_hand" class="rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-xs font-medium">📦 {{ c.parcels_in_hand }}</span><span v-else class="text-gray-400">—</span></td>
               <td class="p-2 text-xs">{{ c.oldest_collected_at ? dateTime(c.oldest_collected_at) : '—' }}</td>
               <td :class="['p-2 text-right', signedClass(c.unpaid)]">{{ money(c.unpaid) }}</td>
               <td class="p-2 text-right whitespace-nowrap space-x-1">
                 <button v-if="canManage" class="btn-secondary" @click="openAdvance(c)">Donner une avance</button>
                 <button v-if="c.pending_collections && canManage" class="btn-primary" @click="openRemit(c)">{{ c.cash_in_hand >= 0 ? 'Recevoir le versement' : 'Rembourser le livreur' }}</button>
+                <button v-else-if="c.parcels_in_hand && canManage" class="btn-primary" @click="openRemit(c)">Recevoir les colis</button>
               </td>
             </tr>
           </tbody>
@@ -50,7 +52,7 @@
         <h2 class="font-semibold p-4 border-b">Derniers versements</h2>
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-gray-600">
-            <tr><th class="p-2">Date</th><th class="p-2">Livreur</th><th class="p-2 text-right">Attendu</th><th class="p-2 text-right">Reçu</th><th class="p-2 text-right">Écart</th><th class="p-2">Reçu par</th></tr>
+            <tr><th class="p-2">Date</th><th class="p-2">Livreur</th><th class="p-2 text-right">Attendu</th><th class="p-2 text-right">Reçu</th><th class="p-2 text-right">Écart</th><th class="p-2">Colis</th><th class="p-2">Reçu par</th></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="r in remittances" :key="r.id">
@@ -59,9 +61,14 @@
               <td class="p-2 text-right">{{ money(r.amount_expected) }}</td>
               <td class="p-2 text-right">{{ money(r.amount_received) }}</td>
               <td :class="['p-2 text-right font-medium', signedClass(r.difference)]">{{ r.difference ? money(r.difference) : '—' }}</td>
+              <td class="p-2 text-xs">
+                <span v-if="r.parcels_returned.length" class="block text-emerald-700" :title="r.parcels_returned.join(', ')">✓ {{ r.parcels_returned.length }} rendu{{ r.parcels_returned.length > 1 ? 's' : '' }}</span>
+                <span v-if="r.parcels_kept.length" class="block text-amber-700" :title="r.parcels_kept.join(', ')">⚠ {{ r.parcels_kept.length }} gardé{{ r.parcels_kept.length > 1 ? 's' : '' }} : {{ r.parcels_kept.join(', ') }}</span>
+                <span v-if="!r.parcels_returned.length && !r.parcels_kept.length" class="text-gray-400">—</span>
+              </td>
               <td class="p-2 text-xs">{{ r.received_by }}<span v-if="r.notes" class="block text-gray-500">{{ r.notes }}</span></td>
             </tr>
-            <tr v-if="!remittances.length"><td colspan="6" class="p-4 text-center text-gray-500">Aucun versement.</td></tr>
+            <tr v-if="!remittances.length"><td colspan="7" class="p-4 text-center text-gray-500">Aucun versement.</td></tr>
           </tbody>
         </table>
       </div>
@@ -156,8 +163,41 @@
     </template>
 
     <!-- Versement d'un livreur -->
-    <Modal :open="remit.open" :title="`Versement de ${remit.courier?.name}`" @close="remit.open = false">
+    <Modal :open="remit.open" :title="`${remitHasCash ? 'Versement' : 'Colis'} de ${remit.courier?.name}`" @close="remit.open = false">
       <form class="space-y-3" @submit.prevent="saveRemit">
+        <!-- Courses pas encore clôturées : le point attend -->
+        <div v-if="remitOnTheRoad.length" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800 space-y-1">
+          <p class="font-semibold">🛵 {{ remitOnTheRoad.length }} course{{ remitOnTheRoad.length > 1 ? 's' : '' }} encore « En chemin »</p>
+          <p>Le livreur doit indiquer « livré » ou « échec » dans son application avant le point de caisse.</p>
+          <p class="space-x-2">
+            <RouterLink v-for="p in remitOnTheRoad" :key="p.id" :to="`/admin/courses/${p.id}`" class="font-mono text-xs underline">{{ p.tracking_code }}</RouterLink>
+          </p>
+        </div>
+
+        <!-- Colis non livrés à rendre au dépôt -->
+        <div v-if="remitParcels.length" class="space-y-1">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">📦 Colis à rendre au dépôt ({{ remitParcels.length }})</p>
+            <button type="button" class="text-xs text-blue-700" @click="remit.returned = remit.returned.length === remitParcels.length ? [] : remitParcels.map((p) => p.id)">
+              {{ remit.returned.length === remitParcels.length ? 'Tout décocher' : 'Tout cocher' }}
+            </button>
+          </div>
+          <p class="text-xs text-gray-600">Cochez chaque colis que le livreur vous remet. Ceux qui restent décochés sont notés comme gardés par le livreur.</p>
+          <ul class="border rounded divide-y max-h-56 overflow-y-auto text-sm">
+            <li v-for="p in remitParcels" :key="p.id" :class="['flex items-center gap-2 p-2', remit.returned.includes(p.id) ? 'bg-emerald-50' : '']">
+              <input v-model="remit.returned" type="checkbox" :value="p.id" :aria-label="`Colis ${p.tracking_code} rendu`">
+              <span class="font-mono text-xs">{{ p.tracking_code }}</span>
+              <span class="flex-1 min-w-0 truncate">{{ p.recipient_name || p.recipient_phone }} <span class="text-xs text-gray-500">· {{ p.merchant }}</span></span>
+              <span class="text-xs text-gray-600 whitespace-nowrap">{{ p.rescheduled_to ? `Reporté au ${date(p.rescheduled_to)}` : (p.incident || p.status_label) }}</span>
+              <span :class="['text-xs whitespace-nowrap', isOld(p.held_since) ? 'text-red-600 font-semibold' : 'text-gray-500']">{{ heldFor(p.held_since) }}</span>
+            </li>
+          </ul>
+          <p v-if="remitParcels.length - remit.returned.length > 0" class="text-xs text-amber-700">
+            ⚠ {{ remitParcels.length - remit.returned.length }} colis resteront chez le livreur.
+          </p>
+        </div>
+
+        <p v-if="remit.collections.length" class="text-sm font-semibold pt-1">💵 Encaissements</p>
         <p v-if="remit.collections.length" class="text-sm text-gray-600">Décochez les encaissements que le livreur ne verse pas aujourd'hui.</p>
         <ul v-if="remit.collections.length" class="border rounded divide-y max-h-64 overflow-y-auto text-sm">
           <li v-for="c in remit.collections" :key="c.id" class="flex items-center gap-2 p-2">
@@ -180,6 +220,7 @@
           </li>
           <li class="p-2 text-xs text-gray-500">Avances et frais payés par le livreur : toujours réglés avec ce versement.</li>
         </ul>
+        <template v-if="remitHasCash">
         <p class="text-sm">
           <template v-if="remitExpected >= 0">Montant attendu : <strong>{{ money(remitExpected) }}</strong></template>
           <template v-else>Frais payés par le livreur : <strong>la caisse lui doit {{ money(-remitExpected) }}</strong></template>
@@ -192,8 +233,12 @@
           </p>
         </div>
         <div><label class="label" for="rnotes">Note</label><input id="rnotes" v-model="remit.notes" class="input"></div>
+        </template>
         <p v-if="remit.error" class="field-error">{{ remit.error }}</p>
-        <button class="btn-primary w-full" :disabled="!remit.selected.length && !remit.advances.length && !remit.expenses.length">Valider le versement</button>
+        <button v-if="remitHasCash" class="btn-primary w-full" :disabled="remitOnTheRoad.length > 0 || (!remit.selected.length && !remit.advances.length && !remit.expenses.length)">
+          Valider le versement{{ remit.returned.length ? ` et ${remit.returned.length} colis` : '' }}
+        </button>
+        <button v-else class="btn-primary w-full" :disabled="!remit.returned.length">Valider la réception de {{ remit.returned.length }} colis</button>
       </form>
     </Modal>
 
@@ -299,7 +344,16 @@ const merchantBalances = ref([])
 const payouts = ref([])
 const courierPayouts = ref([])
 
-const remit = reactive({ open: false, courier: null, collections: [], advances: [], expenses: [], selected: [], amount_received: 0, notes: '', error: '' })
+const remit = reactive({ open: false, courier: null, collections: [], advances: [], expenses: [], parcels: [], returned: [], selected: [], amount_received: 0, notes: '', error: '' })
+const remitHasCash = computed(() => remit.collections.length > 0 || remit.advances.length > 0 || remit.expenses.length > 0)
+const remitOnTheRoad = computed(() => remit.parcels.filter((p) => p.on_the_road))
+const remitParcels = computed(() => remit.parcels.filter((p) => !p.on_the_road))
+const isOld = (since) => since && Date.now() - new Date(since).getTime() > 24 * 3600000
+function heldFor(since) {
+  const hours = Math.floor((Date.now() - new Date(since).getTime()) / 3600000)
+  if (hours < 1) return "depuis moins d'1 h"
+  return hours >= 24 ? `depuis ${Math.floor(hours / 24)} j` : `depuis ${hours} h`
+}
 const advance = reactive({ open: false, courier: null, amount: null, reason: 'Frais de gare', error: '' })
 const ledger = reactive({ open: false, merchant: null, entries: [], adjust: { amount: null, description: '' }, error: '' })
 const adjust = reactive({ open: false, courier: null, amount: null, description: '', error: '' })
@@ -338,6 +392,8 @@ async function openRemit(courier) {
     collections: data.data,
     advances: data.advances || [],
     expenses: data.expenses || [],
+    parcels: data.parcels || [],
+    returned: [],
     selected: data.data.map((c) => c.id),
     amount_received: Math.abs(courier.cash_in_hand),
     notes: '',
@@ -348,15 +404,25 @@ async function openRemit(courier) {
 async function saveRemit() {
   remit.error = ''
   try {
+    if (!remitHasCash.value) {
+      await http.post(`/couriers/${remit.courier.courier_id}/parcels/receive`, { order_ids: remit.returned })
+      remit.open = false
+      toasts.success(`${remit.returned.length} colis reçu(s) au dépôt.`)
+      load()
+      return
+    }
     const allSelected = remit.selected.length === remit.collections.length
+    const kept = remitParcels.value.length - remit.returned.length
     await http.post('/finance/remittances', {
       courier_id: remit.courier.courier_id,
       amount_received: remitSigned.value,
       collection_ids: allSelected ? undefined : remit.selected,
+      returned_order_ids: remit.returned,
       notes: remit.notes || undefined,
     })
     remit.open = false
-    toasts.success('Versement enregistré.')
+    if (kept > 0) toasts.push(`${kept} colis reste(nt) chez ${remit.courier.name}.`, 'info', { title: 'Versement enregistré' })
+    else toasts.success('Versement enregistré.')
     load()
   } catch (e) {
     remit.error = apiErrorMessage(e)

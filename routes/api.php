@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
+use App\Http\Controllers\Api\V1\ParcelController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\PushSubscriptionController;
@@ -117,6 +118,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('{event}/handle', [FieldReportController::class, 'handle'])->name('handle');
             Route::post('{event}/reopen', [FieldReportController::class, 'reopen'])->name('reopen');
         });
+
+        // Colis chez les livreurs (droits vérifiés dans le contrôleur)
+        Route::get('parcels/held', [ParcelController::class, 'index'])->name('parcels.held');
+        Route::get('parcels/held/counts', [ParcelController::class, 'counts'])->name('parcels.held.counts');
+        Route::post('couriers/{courier}/parcels/receive', [ParcelController::class, 'receive'])->name('couriers.parcels.receive');
 
         // Journal des messages WhatsApp et SMS
         Route::get('messages', [MessageController::class, 'index'])->name('messages.index');

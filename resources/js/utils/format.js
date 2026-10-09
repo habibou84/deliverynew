@@ -81,6 +81,7 @@ export const EVENT_LABELS = {
   proof_added: 'Preuve ajoutée',
   expense_added: 'Frais ajoutés',
   expense_cancelled: 'Frais annulés',
+  parcel_received: 'Colis rendu au dépôt',
 }
 
 export const ROLE_LABELS = {

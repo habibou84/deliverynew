@@ -30,6 +30,7 @@ class CompanyResource extends JsonResource
             'require_delivery_code' => $this->require_delivery_code,
             'return_fee_percent' => $this->return_fee_percent,
             'field_alert_reminder_minutes' => $this->field_alert_reminder_minutes,
+            'parcel_hold_alert_hours' => $this->parcel_hold_alert_hours,
             'status' => $this->status,
             'users_count' => $this->whenCounted('users'),
             'created_at' => $this->created_at,

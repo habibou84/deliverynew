@@ -16,7 +16,7 @@ class CourierRemittance extends Model
 
     protected $fillable = [
         'company_id', 'courier_id', 'amount_expected', 'amount_received', 'difference',
-        'received_by', 'received_at', 'notes',
+        'received_by', 'received_at', 'notes', 'parcels',
     ];
 
     protected function casts(): array
@@ -26,6 +26,7 @@ class CourierRemittance extends Model
             'amount_received' => 'integer',
             'difference' => 'integer',
             'received_at' => 'datetime',
+            'parcels' => 'array',
         ];
     }
 

@@ -102,6 +102,11 @@ class OrderResource extends JsonResource
             'pickup_courier' => $this->whenLoaded('pickupCourier', fn () => $this->courierSummary($this->pickupCourier)),
             'delivery_courier' => $this->whenLoaded('deliveryCourier', fn () => $this->courierSummary($this->deliveryCourier)),
             'return_courier' => $this->whenLoaded('returnCourier', fn () => $this->courierSummary($this->returnCourier)),
+            // Garde du colis : visible du personnel uniquement
+            'held_by' => $this->when($user?->merchant_id === null && $this->relationLoaded('holder'), fn () => $this->holder ? [
+                ...$this->courierSummary($this->holder),
+                'since' => $this->held_since,
+            ] : null),
             'attempts_count' => $this->attempts_count,
             'max_attempts' => $this->max_attempts,
             'return_requested' => $this->return_requested,

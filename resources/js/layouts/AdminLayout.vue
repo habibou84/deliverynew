@@ -52,6 +52,7 @@ import NotificationBell from '../components/NotificationBell.vue'
 import Toasts from '../components/Toasts.vue'
 import AlertSoundToggle from '../components/AlertSoundToggle.vue'
 import { useFieldReportStore } from '../stores/fieldReports'
+import { useHeldParcelStore } from '../stores/heldParcels'
 
 const sidebarOpen = ref(false)
 const search = ref('')
@@ -61,13 +62,19 @@ const router = useRouter()
 useRealtime()
 
 // Remontées terrain à traiter : badge du menu, rafraîchi chaque minute
+// Colis restés trop longtemps chez un livreur : badge du menu
 const fieldReports = useFieldReportStore()
+const heldParcels = useHeldParcelStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
 let countsTimer
+function fetchCounts() {
+  fieldReports.fetchCounts().catch(() => {})
+  heldParcels.fetchCounts().catch(() => {})
+}
 onMounted(() => {
   if (!isDispatch.value) return
-  fieldReports.fetchCounts().catch(() => {})
-  countsTimer = setInterval(() => fieldReports.fetchCounts().catch(() => {}), 60000)
+  fetchCounts()
+  countsTimer = setInterval(fetchCounts, 60000)
 })
 onBeforeUnmount(() => clearInterval(countsTimer))
 
@@ -78,6 +85,7 @@ const menu = computed(() => [
   { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
   { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage' },
   { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
+  { to: '/admin/colis-livreurs', icon: '🎒', label: 'Colis chez les livreurs', permission: 'orders.dispatch', badge: heldParcels.counts.overdue },
   { to: '/admin/carte', icon: '📍', label: 'Carte des livreurs', permission: 'orders.dispatch' },
   { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
   { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
