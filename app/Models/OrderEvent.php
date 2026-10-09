@@ -82,6 +82,11 @@ class OrderEvent extends Model
         return $this->hasMany(OrderAttachment::class, 'event_id');
     }
 
+    public function replies(): HasMany
+    {
+        return $this->hasMany(CourierMessage::class, 'reply_to_event_id')->orderBy('id');
+    }
+
     public function review(): HasOne
     {
         return $this->hasOne(FieldReportReview::class);

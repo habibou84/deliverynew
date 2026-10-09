@@ -27,6 +27,7 @@ Table companies {
   notify_recipients boolean [default: true, note: 'WhatsApp au destinataire : colis en route + code']
   sms_fallback boolean [default: true, note: 'SMS si le WhatsApp n\'est pas remis']
   whatsapp_orders boolean [default: true, note: 'création de course en écrivant au numéro WhatsApp']
+  field_alert_reminder_minutes smallint [default: 10, note: 'relance des problèmes des livreurs sans suite (0 = jamais)']
   status varchar [default: 'active', note: 'active | suspended']
   created_at timestamp
   updated_at timestamp
@@ -130,6 +131,30 @@ Table field_report_reviews {
   handled_by bigint [ref: > users.id]
   comment varchar(500)
   handled_at timestamp [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table courier_messages {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  order_id bigint [ref: > orders.id, not null]
+  courier_id bigint [ref: > couriers.id, not null]
+  sender_id bigint [ref: > users.id]
+  reply_to_event_id bigint [ref: > order_events.id, note: 'remontée terrain à laquelle répond la consigne']
+  body varchar(500) [not null]
+  read_at timestamp
+  acknowledged_at timestamp [note: '« Compris » du livreur']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table field_report_reminders {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  order_event_id bigint [ref: - order_events.id, unique]
+  count smallint [note: '1 = dispatch, 2 = administrateurs']
+  last_reminded_at timestamp
   created_at timestamp
   updated_at timestamp
 }

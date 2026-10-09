@@ -5,7 +5,10 @@
         <h1 class="text-xl font-bold">Remontées terrain</h1>
         <p class="text-sm text-gray-600">Notes et problèmes enregistrés par les livreurs. Marquez-les comme traités pour que l'équipe sache qui s'en est occupé.</p>
       </div>
-      <p v-if="!alertSound.unlocked && alertSound.enabled" class="text-xs rounded bg-amber-50 text-amber-900 px-2 py-1">🔊 Cliquez n'importe où dans la page pour activer le son des alertes.</p>
+      <!-- Place réservée : la page ne bouge pas quand le son s'active au premier clic -->
+      <p :class="['text-xs rounded bg-amber-50 text-amber-900 px-2 py-1', alertSound.unlocked || !alertSound.enabled ? 'invisible' : '']" :aria-hidden="alertSound.unlocked">
+        🔊 Cliquez n'importe où dans la page pour activer le son des alertes.
+      </p>
     </div>
 
     <!-- État -->
@@ -78,12 +81,24 @@
               · <span class="text-gray-500">{{ r.order.status_label }}</span>
             </p>
             <p v-if="r.photos" class="text-xs text-gray-500">📷 {{ r.photos }} photo(s) sur la fiche de la course</p>
+            <CourierMessageThread
+              v-if="r.replies?.length || replying === r.id"
+              class="pt-1"
+              :order-id="r.order.id"
+              :messages="r.replies || []"
+              :reply-to="r.id"
+              :composer="replying === r.id"
+              cancelable
+              @sent="(m, handled) => replied(r, m, handled)"
+              @cancel="replying = null"
+            />
             <p v-if="r.review" class="text-sm text-emerald-700">
               ✓ Traité par {{ r.review.handled_by || '—' }} le {{ dateTime(r.review.handled_at) }}<span v-if="r.review.comment"> : {{ r.review.comment }}</span>
             </p>
           </div>
 
           <div class="flex flex-col gap-2 shrink-0 w-full sm:w-64">
+            <button v-if="r.order && replying !== r.id" type="button" class="btn-primary" @click="replying = r.id">💬 Répondre au livreur</button>
             <template v-if="!r.review">
               <input v-model="comments[r.id]" class="input text-sm" placeholder="Ce qui a été fait (facultatif)" :aria-label="`Commentaire sur la remontée ${r.id}`" @keydown.enter="handle(r)">
               <button type="button" class="btn-success" @click="handle(r)">✓ Marquer comme traité</button>
@@ -113,6 +128,7 @@
 import { onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { alertSound } from '../../composables/useAlertSound'
+import CourierMessageThread from '../../components/CourierMessageThread.vue'
 import { useFieldReportStore } from '../../stores/fieldReports'
 import { useToastStore } from '../../stores/toasts'
 import { date, dateTime, money, telLink } from '../../utils/format'
@@ -137,6 +153,7 @@ const loaded = ref(false)
 const couriers = ref([])
 const comments = reactive({})
 const highlighted = ref(new Set())
+const replying = ref(null)
 const filters = reactive({ state: 'open', kind: '', courier_id: '', from: '', to: '', search: '' })
 
 function title(r) {
@@ -172,6 +189,16 @@ async function handle(r) {
     toasts.success('Remontée marquée comme traitée.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function replied(r, message, handled) {
+  r.replies = [...(r.replies || []), message]
+  replying.value = null
+  toasts.success('Consigne envoyée au livreur.')
+  if (handled && !r.review) {
+    if (filters.state === 'open') reports.value = reports.value.filter((x) => x.id !== r.id)
+    store.fetchCounts().catch(() => {})
   }
 }
 

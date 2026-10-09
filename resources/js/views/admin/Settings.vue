@@ -23,6 +23,11 @@
           <label class="label" for="attempts">Nombre maximal de tentatives de livraison</label>
           <input id="attempts" v-model.number="form.default_max_attempts" type="number" min="1" max="10" class="input w-24">
         </div>
+        <div>
+          <label class="label" for="reminder">Relancer un problème signalé par un livreur et resté sans suite après (minutes)</label>
+          <input id="reminder" v-model.number="form.field_alert_reminder_minutes" type="number" min="0" max="240" class="input w-24">
+          <p class="text-xs text-gray-500 mt-1">Relance au dispatch après ce délai, puis aux administrateurs après trois fois ce délai. 0 = pas de relance. Répondre au livreur ou traiter la remontée arrête les relances.</p>
+        </div>
       </fieldset>
 
       <fieldset class="space-y-3 border-t pt-4">
@@ -45,7 +50,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
-const FIELDS = ['name', 'phone', 'address', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent']
+const FIELDS = ['name', 'phone', 'address', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes']
 
 const auth = useAuthStore()
 const toasts = useToastStore()

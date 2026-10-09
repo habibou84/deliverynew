@@ -5,9 +5,9 @@ let nextId = 1
 export const useToastStore = defineStore('toasts', {
   state: () => ({ items: [] }),
   actions: {
-    push(message, type = 'info', { title = null, timeout = 5000, to = null } = {}) {
+    push(message, type = 'info', { title = null, timeout = 5000, to = null, href = null } = {}) {
       const id = nextId++
-      this.items.push({ id, message, type, title, to })
+      this.items.push({ id, message, type, title, to, href })
       if (timeout) setTimeout(() => this.dismiss(id), timeout)
     },
     success(message, opts) { this.push(message, 'success', opts) },

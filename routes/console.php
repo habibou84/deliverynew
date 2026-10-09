@@ -16,3 +16,4 @@ Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('reports:send')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class, CourierLocation::class]])->daily();
+Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();

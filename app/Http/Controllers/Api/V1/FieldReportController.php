@@ -42,7 +42,7 @@ class FieldReportController extends Controller
         $reports = $this->query($request)
             ->with([
                 'order' => fn ($q) => $q->with(['merchant', 'deliveryZone', 'pickupZone']),
-                'incidentReason', 'attachments', 'review.handler',
+                'incidentReason', 'attachments', 'review.handler', 'replies.sender',
             ])
             ->orderByDesc('id')
             ->paginate($request->integer('per_page', 30));
@@ -76,7 +76,7 @@ class FieldReportController extends Controller
             'handled_at' => now(),
         ]);
 
-        return response()->json(['data' => $this->present($event->fresh(['order.merchant', 'order.deliveryZone', 'order.pickupZone', 'incidentReason', 'attachments', 'review.handler'])), 'open' => $this->openCounts()]);
+        return response()->json(['data' => $this->present($event->fresh(['order.merchant', 'order.deliveryZone', 'order.pickupZone', 'incidentReason', 'attachments', 'review.handler', 'replies.sender'])), 'open' => $this->openCounts()]);
     }
 
     public function reopen(OrderEvent $event): JsonResponse
@@ -84,7 +84,7 @@ class FieldReportController extends Controller
         $this->ensureFieldReport($event);
         FieldReportReview::where('order_event_id', $event->id)->delete();
 
-        return response()->json(['data' => $this->present($event->fresh(['order.merchant', 'order.deliveryZone', 'order.pickupZone', 'incidentReason', 'attachments', 'review.handler'])), 'open' => $this->openCounts()]);
+        return response()->json(['data' => $this->present($event->fresh(['order.merchant', 'order.deliveryZone', 'order.pickupZone', 'incidentReason', 'attachments', 'review.handler', 'replies.sender'])), 'open' => $this->openCounts()]);
     }
 
     private function query(Request $request): Builder
@@ -175,6 +175,7 @@ class FieldReportController extends Controller
                 'recipient_phone' => $order->recipient_phone,
                 'zone' => $order->deliveryZone?->name,
             ] : null,
+            'replies' => $e->relationLoaded('replies') ? $e->replies->map(fn ($m) => $m->present())->values() : [],
             'review' => $e->review ? [
                 'handled_at' => $e->review->handled_at,
                 'handled_by' => $e->review->handler?->name,

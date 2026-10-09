@@ -38,6 +38,10 @@ function open(n) {
     router.push('/marchand/stock')
     return
   }
+  if (n.dispatch_message) {
+    router.push(n.assignment_id ? `/livreur/missions/${n.assignment_id}` : '/livreur/messages')
+    return
+  }
   if (!n.order_id) return
   // Livreur : ses missions ; marchand : la fiche de la course
   router.push(route.path.startsWith('/livreur') ? '/livreur' : `/marchand/courses/${n.order_id}`)

@@ -102,6 +102,14 @@ notifications du bureau) via 🔊 dans l'en-tête ; le navigateur n'autorise le 
 La page **Remontées terrain** les liste (filtres : à traiter / traitées, type, livreur, dates, recherche) ; chaque
 remontée se marque « traitée » avec un commentaire, le menu affiche le nombre restant (30 derniers jours).
 
+- **Réponse au livreur** : depuis une remontée (ou la fiche d'une course), le dispatch envoie une consigne, avec des
+  réponses rapides en un clic. Le livreur la reçoit en direct (son, vibration, bandeau), la retrouve dans sa mission
+  et dans **Consignes de l'agence**, et la confirme d'un « 👍 Compris » ; le dispatch voit « lu » puis « compris ».
+  La consigne est tracée au journal de la course (note interne) et peut marquer la remontée comme traitée.
+- **Relance automatique** (`field-reports:remind`, chaque minute) : un problème resté sans réponse ni traitement est
+  relancé au dispatch après le délai réglé dans **Paramètres** (10 min par défaut, 0 = jamais), puis aux
+  administrateurs après trois fois ce délai. Rien n'est relancé si la course est terminée.
+
 ### Carte des livreurs
 
 **Carte des livreurs** (back-office, droit `orders.dispatch`) montre la dernière position de chaque livreur, ses
@@ -220,6 +228,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
 | GET | `/field-reports` (`state`, `kind`, `courier_id`, `from`, `to`, `search`) · GET `/field-reports/counts` · POST `/field-reports/{event}/handle` · `/reopen` | `orders.dispatch` : remontées terrain et leur suivi |
+| GET/POST | `/orders/{id}/courier-messages` (`body`, `reply_to_event_id`, `mark_handled`) · livreur : GET `/courier/messages` · POST `/courier/messages/{id}/ack` | `orders.dispatch` / livreur : consignes au livreur |
 | GET | `/couriers/{id}/track?date=` | `orders.dispatch` : trajet d'une journée (points, étapes, distance) |
 | GET | `/couriers/map` | `orders.dispatch` : positions et missions en cours des livreurs (diffusion `courier.location` sur `company.{id}`) |
 | GET/POST/DELETE | `/api-keys` | `integrations.manage` : clés de l'API publique (le marchand les siennes, l'administration avec `merchant_id`) |

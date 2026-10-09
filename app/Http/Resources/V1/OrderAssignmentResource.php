@@ -27,6 +27,7 @@ class OrderAssignmentResource extends JsonResource
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,
             'refusal_reason' => $this->refusal_reason,
+            'unread_messages' => $this->when($this->resource->getAttribute('unread_messages') !== null, fn () => $this->resource->getAttribute('unread_messages')),
             'order' => OrderResource::make($this->whenLoaded('order')),
         ];
     }

@@ -17,6 +17,11 @@
 
     <InstallBanner app="livreur" />
 
+    <!-- Consignes de l'agence non lues -->
+    <RouterLink v-if="messages.unread" to="/livreur/messages" class="tap block rounded-2xl bg-sky-600 text-white p-4 font-semibold active:bg-sky-700">
+      💬 {{ messages.unread }} consigne{{ messages.unread > 1 ? 's' : '' }} de l'agence à lire →
+    </RouterLink>
+
     <!-- À verser -->
     <RouterLink v-if="wallet && wallet.cash_in_hand !== 0" to="/livreur/caisse" class="block m-card p-4 active:bg-slate-50">
       <div class="flex justify-between items-center">
@@ -55,7 +60,10 @@
           {{ m.type === 'pickup' ? '📦' : m.type === 'delivery' ? '🛵' : '↩️' }}
         </span>
         <div class="flex-1 min-w-0">
-          <p class="font-semibold truncate">{{ m.type === 'pickup' ? m.order.merchant?.business_name : (m.order.recipient.name || m.order.recipient.phone) }}</p>
+          <p class="font-semibold truncate">
+            {{ m.type === 'pickup' ? m.order.merchant?.business_name : (m.order.recipient.name || m.order.recipient.phone) }}
+            <span v-if="m.unread_messages" class="ml-1 rounded-full bg-sky-600 px-2 py-0.5 text-xs text-white">💬 {{ m.unread_messages }}</span>
+          </p>
           <p class="text-sm text-slate-500 truncate">
             📍 {{ m.type === 'pickup' ? m.order.pickup.zone_name : m.order.delivery.zone_name }}
             · {{ m.type === 'pickup' ? m.order.pickup.address : m.order.delivery.address }}
@@ -84,6 +92,7 @@ import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useNotificationStore } from '../../stores/notifications'
 import { currentPosition } from '../../composables/useGeolocation'
+import { useCourierMessageStore } from '../../stores/courierMessages'
 import { money } from '../../utils/format'
 
 const auth = useAuthStore()
@@ -109,6 +118,7 @@ async function load() {
   try {
     const [m, w] = await Promise.all([cachedGet('/courier/missions'), cachedGet('/courier/wallet')])
     missions.value = m.data.data
+    messages.setUnread(m.data.meta?.unread_messages)
     wallet.value = w.data.data
     stale.value = m.stale || w.stale
     error.value = ''
@@ -132,6 +142,8 @@ async function toggleAvailability() {
 }
 
 // Nouvelle mission reçue en temps réel
+const messages = useCourierMessageStore()
+
 watch(() => notifications.unread, load)
 
 onMounted(load)

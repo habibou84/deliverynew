@@ -6,6 +6,7 @@ use App\Events\CourierLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CourierResource;
 use App\Http\Resources\V1\OrderAssignmentResource;
+use App\Models\CourierMessage;
 use App\Models\OrderAssignment;
 use App\Services\Couriers\CourierTracker;
 use App\Services\Orders\OrderDispatcher;
@@ -38,7 +39,16 @@ class CourierSpaceController extends Controller
             ->orderBy('assigned_at')
             ->get();
 
-        return OrderAssignmentResource::collection($assignments);
+        // Consignes de l'agence non lues, par course
+        $unread = CourierMessage::where('courier_id', $courier->id)->whereNull('read_at')
+            ->whereIn('order_id', $assignments->pluck('order_id'))
+            ->groupBy('order_id')->selectRaw('order_id, COUNT(*) AS total')->pluck('total', 'order_id');
+        $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('unread_messages', (int) ($unread[$a->order_id] ?? 0)));
+
+        return OrderAssignmentResource::collection($assignments)->additional(['meta' => [
+            // Toutes consignes non lues (y compris sur des missions terminées)
+            'unread_messages' => CourierMessage::where('courier_id', $courier->id)->whereNull('read_at')->where('created_at', '>=', now()->subDays(2))->count(),
+        ]]);
     }
 
     public function accept(Request $request, OrderAssignment $assignment, OrderDispatcher $dispatcher): OrderAssignmentResource

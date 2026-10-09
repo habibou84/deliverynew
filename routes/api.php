@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CourierController;
+use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
 use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
@@ -138,6 +139,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
         Route::get('orders/{order}/messages', [MessageController::class, 'forOrder'])->name('orders.messages');
+        Route::get('orders/{order}/courier-messages', [CourierMessageController::class, 'index'])->name('orders.courier-messages.index');
+        Route::post('orders/{order}/courier-messages', [CourierMessageController::class, 'store'])->middleware('throttle:60,1')->name('orders.courier-messages.store');
         Route::post('orders/{order}/expenses', [OrderExpenseController::class, 'store'])->name('orders.expenses.store');
         Route::post('orders/{order}/expenses/{expense}/cancel', [OrderExpenseController::class, 'cancel'])->name('orders.expenses.cancel');
         Route::get('orders/{order}/attachments/{attachment}', [OrderActionController::class, 'showAttachment'])->name('orders.attachments.show');
@@ -195,6 +198,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
             Route::patch('status', [CourierSpaceController::class, 'updateStatus'])->name('status');
             Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
+            Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
+            Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');
         });
     });
 });

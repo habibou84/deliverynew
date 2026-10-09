@@ -67,6 +67,7 @@ const routes = [
       { path: 'missions/:id(\\d+)', component: () => import('../views/courier/MissionDetail.vue'), meta: { title: 'Mission', back: true } },
       { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage' } },
       { path: 'caisse', component: () => import('../views/courier/Wallet.vue'), meta: { title: 'Ma caisse' } },
+      { path: 'messages', component: () => import('../views/courier/Messages.vue'), meta: { title: 'Consignes de l\'agence', back: true } },
       { path: 'notifications', component: mobile.notifications, meta: { title: 'Notifications', back: true } },
       { path: 'profil', component: mobile.profile, meta: { title: 'Mon profil' } },
       // Les notifications pointent vers /livreur/courses/:id : on renvoie vers la liste des missions
