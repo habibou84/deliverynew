@@ -1,87 +1,126 @@
 # Déployer sur un VPS LWS
 
-Ce guide met l'application en ligne sur un **VPS Linux LWS** (ou tout autre VPS) pour la tester avec
-de vrais téléphones : back-office, applications livreur et marchand (PWA), temps réel, notifications push.
+Ce guide met l'application en ligne pour la tester avec de vrais téléphones : back-office,
+applications livreur et marchand (PWA), temps réel, notifications push.
 
-Le script `deploy/install.sh` installe et configure tout en une commande :
-Nginx, PHP 8.3, PostgreSQL, Redis, Node.js (compilation de l'interface), Horizon (files d'attente),
-Reverb (temps réel), les tâches planifiées, le pare-feu et le certificat HTTPS.
+- **Serveur avec ISPConfig** (VPS LWS livré avec Debian 13 « Trixie » + ISPConfig 3) : partie A,
+  script `deploy/ispconfig.sh`. ISPConfig garde la main sur Apache, PHP, le certificat HTTPS et le
+  pare-feu ; le script ajoute le reste sans y toucher.
+- **VPS nu** (Ubuntu 22.04/24.04 ou Debian 12, sans panneau) : partie B, script `deploy/install.sh`.
 
-## 1. Avant de commencer
+Dans les deux cas : PostgreSQL, Redis, Horizon (files d'attente), Reverb (temps réel), tâches planifiées.
+
+## Avant de commencer
 
 | Il faut | Pourquoi |
 |---|---|
-| Un VPS LWS sous **Ubuntu 24.04** (ou 22.04, ou Debian 12), 2 Go de RAM minimum (4 Go conseillés) | La compilation de l'interface et PostgreSQL ont besoin de mémoire |
-| L'accès **root en SSH** (identifiants envoyés par LWS à la livraison du VPS) | Le script installe des paquets système |
-| Un **nom de domaine ou sous-domaine**, par ex. `test.mondomaine.ci` | Le HTTPS est obligatoire pour la géolocalisation, l'installation des applications sur téléphone et les notifications push : impossible avec une simple adresse IP |
+| L'accès **root en SSH** au VPS (identifiants envoyés par LWS) | Les scripts installent des paquets système |
+| 2 Go de RAM minimum (4 Go conseillés) | Compilation de l'interface, PostgreSQL |
+| Un **sous-domaine**, par ex. `test.mondomaine.ci`, avec un enregistrement **A** vers l'adresse IP du VPS | HTTPS obligatoire pour la géolocalisation, l'installation des applications sur téléphone et les notifications push |
 | L'accès au dépôt GitHub `habibou84/deliverynew` | Le serveur télécharge le code depuis GitHub |
 
-### Faire pointer le domaine vers le VPS
+L'enregistrement A se crée dans l'espace client LWS : **Domaines > Zone DNS**, nom `test`, valeur
+= adresse IP du VPS. Vérification depuis votre ordinateur : `ping test.mondomaine.ci`.
 
-Dans l'espace client LWS (ou chez votre registraire) : **Domaines > Zone DNS**, ajoutez un enregistrement
-**A** : nom `test` (pour `test.mondomaine.ci`), valeur = **adresse IP du VPS**. Comptez de quelques
-minutes à quelques heures pour la propagation. Pour vérifier depuis votre ordinateur :
+---
 
-```bash
-ping test.mondomaine.ci      # doit répondre avec l'adresse IP du VPS
-```
+## A. Serveur avec ISPConfig (Debian 13)
 
-## 2. Se connecter au VPS
+### A1. Créer le site dans ISPConfig
 
-Depuis un terminal (PowerShell sous Windows, Terminal sous macOS/Linux) :
+Panneau ISPConfig (`https://ADRESSE_IP:8080`) > **Sites > Site web > Ajouter un site web** :
 
-```bash
-ssh root@ADRESSE_IP_DU_VPS
-```
+- **Domaine** : `test.mondomaine.ci` (décochez « Auto-sous-domaine www » si vous n'avez pas créé `www.test…`) ;
+- **PHP** : `PHP-FPM` ;
+- **SSL** et **Let's Encrypt SSL** : cochés (le domaine doit déjà pointer vers le VPS) ;
+- enregistrez, attendez une minute qu'ISPConfig crée le site.
 
-## 3. Donner au serveur l'accès au dépôt (clé de déploiement)
+### A2. Donner au site l'accès au dépôt
 
-Le dépôt est privé : on crée une **clé de déploiement en lecture seule** pour le serveur.
+Connectez-vous au VPS (`ssh root@ADRESSE_IP`) puis :
 
 ```bash
 apt-get update && apt-get install -y git
+DOMAIN=test.mondomaine.ci
+SITE=$(readlink -f /var/www/$DOMAIN); U=$(stat -c %U $SITE/web)
+sudo -u $U mkdir -p $SITE/private/.ssh && chmod 700 $SITE/private/.ssh
+sudo -u $U ssh-keygen -t ed25519 -N "" -C deploy-livraison -f $SITE/private/.ssh/id_ed25519
+cat $SITE/private/.ssh/id_ed25519.pub
+```
+
+Copiez la ligne affichée (`ssh-ed25519 …`) dans GitHub : **dépôt `deliverynew` > Settings >
+Deploy keys > Add deploy key**, sans cocher « Allow write access ». Puis téléchargez le code :
+
+```bash
+sudo -u $U -H env HOME=$SITE/private \
+  GIT_SSH_COMMAND="ssh -i $SITE/private/.ssh/id_ed25519 -o UserKnownHostsFile=$SITE/private/.ssh/known_hosts -o StrictHostKeyChecking=accept-new" \
+  git clone -b main git@github.com:habibou84/deliverynew.git $SITE/web/livraison
+```
+
+### A3. Lancer l'installation
+
+```bash
+cd $SITE/web/livraison
+DOMAIN=$DOMAIN EMAIL=vous@mondomaine.ci bash deploy/ispconfig.sh
+```
+
+Comptez 10 à 15 minutes. Le script installe PostgreSQL, Redis, Supervisor, Node.js, Composer et les
+extensions PHP manquantes, crée la base, le `.env` de production et les clés, compile l'interface,
+lance Horizon et Reverb (port local 6001 : 8080 et 8081 sont pris par ISPConfig) et la tâche
+planifiée. Ajoutez `DEMO=0` devant `bash` pour une base vide, `BRANCH=…` pour une autre branche.
+
+### A4. Coller les directives Apache dans ISPConfig
+
+À la fin, le script affiche un bloc à coller dans **Sites > test.mondomaine.ci > Options > Apache
+Directives** (racine du site sur `livraison/public`, en-tête d'authentification transmis à PHP,
+WebSocket du temps réel). Le voici :
+
+```apache
+DocumentRoot {DOCROOT}/livraison/public
+<Directory {DOCROOT}/livraison/public>
+    Options +FollowSymLinks -Indexes
+    AllowOverride All
+    Require all granted
+    CGIPassAuth On
+</Directory>
+ProxyPass /app/ ws://127.0.0.1:6001/app/
+ProxyPassReverse /app/ ws://127.0.0.1:6001/app/
+```
+
+Enregistrez, attendez une minute (ISPConfig régénère Apache), puis ouvrez `https://test.mondomaine.ci`.
+
+> Le champ « PHP open_basedir » du même onglet doit contenir `{DOCROOT}` (valeur par défaut).
+> Si ISPConfig utilise Nginx au lieu d'Apache sur votre serveur, le script s'arrête et le signale.
+
+### A5. Mettre à jour
+
+```bash
+bash $SITE/web/livraison/deploy/update.sh
+```
+
+---
+
+## B. VPS nu (sans ISPConfig)
+
+```bash
+ssh root@ADRESSE_IP
+apt-get update && apt-get install -y git
 mkdir -p /var/www/.ssh /var/www/livraison
 chown -R www-data:www-data /var/www/.ssh /var/www/livraison && chmod 700 /var/www/.ssh
-sudo -u www-data ssh-keygen -t ed25519 -N "" -C "deploy-livraison" -f /var/www/.ssh/id_ed25519
-cat /var/www/.ssh/id_ed25519.pub
-```
-
-Copiez la ligne affichée (elle commence par `ssh-ed25519`), puis dans GitHub :
-**dépôt `deliverynew` > Settings > Deploy keys > Add deploy key**, collez-la, laissez
-« Allow write access » **décoché**, enregistrez.
-
-Téléchargez ensuite le code :
-
-```bash
-sudo -u www-data -H env GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new" \
+sudo -u www-data ssh-keygen -t ed25519 -N "" -C deploy-livraison -f /var/www/.ssh/id_ed25519
+cat /var/www/.ssh/id_ed25519.pub          # à ajouter dans GitHub > Deploy keys (lecture seule)
+sudo -u www-data -H env GIT_SSH_COMMAND="ssh -i /var/www/.ssh/id_ed25519 -o UserKnownHostsFile=/var/www/.ssh/known_hosts -o StrictHostKeyChecking=accept-new" \
   git clone git@github.com:habibou84/deliverynew.git /var/www/livraison
-```
-
-> Dépôt public ? Clonez simplement en HTTPS et ajoutez `REPO=https://github.com/habibou84/deliverynew.git`
-> à la commande de l'étape 4.
-
-## 4. Lancer l'installation
-
-Remplacez le domaine et l'adresse e-mail (utilisée pour le certificat HTTPS) :
-
-```bash
 cd /var/www/livraison
-DOMAIN=test.mondomaine.ci EMAIL=moi@mondomaine.ci bash deploy/install.sh
+DOMAIN=test.mondomaine.ci EMAIL=vous@mondomaine.ci bash deploy/install.sh
 ```
 
-Comptez **10 à 15 minutes**. Options (à ajouter devant `bash`) :
+Le script installe aussi Nginx, PHP 8.3, le pare-feu et le certificat HTTPS (Certbot). Mise à jour :
+`bash /var/www/livraison/deploy/update.sh`.
 
-| Option | Effet |
-|---|---|
-| `BRANCH=ccr-e22d186a-wdlowk` | Déployer une branche pas encore fusionnée (par défaut : `main`) |
-| `DEMO=0` | Base vide, sans les données et comptes de démonstration (par défaut : avec) |
+---
 
-Le script peut être **relancé sans risque** (par ex. si le certificat HTTPS a échoué parce que le
-domaine ne pointait pas encore vers le VPS) : il conserve la base, le `.env` et les clés.
-
-À la fin, il affiche l'adresse de l'application et les comptes de démonstration.
-
-## 5. Tester
+## Tester
 
 | Qui | Adresse | Compte de démonstration (mot de passe `password`) |
 |---|---|---|
@@ -90,56 +129,46 @@ domaine ne pointait pas encore vers le VPS) : il conserve la base, le `.env` et 
 | E-commerçant | `https://test.mondomaine.ci/marchand` | 05 00 00 00 01 |
 
 Sur le téléphone, ouvrez l'adresse dans **Chrome** (Android) ou **Safari** (iPhone), connectez-vous,
-puis **Ajouter à l'écran d'accueil** pour installer l'application. Le livreur active ensuite les
-notifications depuis le bandeau de ses missions (sur iPhone : iOS 16.4 minimum, application installée).
+puis **Ajouter à l'écran d'accueil**. Le livreur active ensuite les notifications depuis le bandeau de
+ses missions (iPhone : iOS 16.4 minimum, application installée).
 
-> Serveur de test accessible à tous : changez les mots de passe des comptes de démonstration (menu
+> Le site est accessible à tous : changez les mots de passe des comptes de démonstration (menu
 > Utilisateurs), ou installez avec `DEMO=0` puis créez le premier compte :
-> `cd /var/www/livraison && sudo -u www-data php artisan app:create-super-admin`.
+> `cd <dossier de l'application> && sudo -u <utilisateur du site> php artisan app:create-super-admin`.
 
-## 6. Mettre à jour après une modification du code
+Les scripts peuvent être **relancés sans risque** : base, `.env` et clés sont conservés.
 
-```bash
-bash /var/www/livraison/deploy/update.sh
-```
+## Facultatif
 
-Le script met le site en maintenance quelques secondes, récupère la dernière version de la branche,
-met à jour les dépendances, recompile l'interface, applique les migrations et redémarre Horizon et Reverb.
-
-## 7. Facultatif
-
-- **WhatsApp réel** : dans `/var/www/livraison/.env`, mettez `WHATSAPP_DRIVER=meta` et
-  `WHATSAPP_APP_SECRET`, puis dans Meta configurez le webhook
-  `https://test.mondomaine.ci/api/webhooks/whatsapp` avec le jeton `WHATSAPP_VERIFY_TOKEN` du `.env`
-  (généré à l'installation). Le numéro se saisit ensuite dans **Paramètres > WhatsApp**.
+- **WhatsApp réel** : dans le `.env`, `WHATSAPP_DRIVER=meta` et `WHATSAPP_APP_SECRET`, puis dans Meta
+  le webhook `https://test.mondomaine.ci/api/webhooks/whatsapp` avec le jeton `WHATSAPP_VERIFY_TOKEN`
+  du `.env` (généré à l'installation). Le numéro se saisit dans **Paramètres > WhatsApp**.
 - **Commandes WhatsApp comprises par Claude** : `ANTHROPIC_API_KEY=…` dans le `.env`.
-- Après toute modification du `.env` : `cd /var/www/livraison && sudo -u www-data php artisan optimize`
-  puis `supervisorctl restart all`. Pour les variables `VITE_…`, relancez `deploy/update.sh`
-  (l'interface doit être recompilée).
+- Après une modification du `.env` : relancez `deploy/update.sh` (il recompile l'interface et vide les caches).
 - **Sauvegarde quotidienne de la base** :
   ```bash
   mkdir -p /var/backups/livraison
   echo '30 2 * * * postgres pg_dump livraison | gzip > /var/backups/livraison/$(date +\%F).sql.gz && find /var/backups/livraison -mtime +14 -delete' > /etc/cron.d/livraison-backup
   ```
 
-## 8. En cas de problème
+## En cas de problème
 
 | Symptôme | À vérifier |
 |---|---|
-| Page blanche ou erreur 500 | `tail -50 /var/www/livraison/storage/logs/laravel-*.log` |
-| Pas de temps réel (pas de son, carte figée) | `supervisorctl status` (livraison-reverb doit être `RUNNING`), `tail storage/logs/reverb.log` |
-| Notifications ou WhatsApp qui ne partent pas | `supervisorctl status` (livraison-horizon), `sudo -u www-data php artisan horizon:status`, `tail storage/logs/horizon.log` |
-| Relances et alertes automatiques absentes | `cat /etc/cron.d/livraison`, `sudo -u www-data php artisan schedule:list` |
-| Erreur Nginx | `nginx -t`, `tail /var/log/nginx/error.log` |
-| Certificat HTTPS | Le domaine doit pointer vers le VPS, puis `certbot --nginx -d test.mondomaine.ci` |
+| Page blanche ou erreur 500 | `tail -50 <application>/storage/logs/laravel-*.log` |
+| Page par défaut d'ISPConfig au lieu de l'application | Directives Apache (A4) pas encore appliquées : attendez une minute, vérifiez **Outils > Journal** dans ISPConfig |
+| Pas de temps réel (pas de son, carte figée) | `supervisorctl status` (livraison-reverb `RUNNING`), `tail <application>/storage/logs/reverb.log`, directives `ProxyPass` présentes |
+| Notifications ou WhatsApp qui ne partent pas | `supervisorctl status` (livraison-horizon), `tail <application>/storage/logs/horizon.log` |
+| Relances et alertes automatiques absentes | `cat /etc/cron.d/livraison` |
+| Erreur 401 sur toutes les pages après connexion | `CGIPassAuth On` manquant dans les directives Apache |
 
-Architecture installée :
+Architecture installée (ISPConfig) :
 
 ```
-Internet ──HTTPS──▶ Nginx ──▶ PHP-FPM 8.3 ──▶ Laravel ──▶ PostgreSQL
-                     │                          │
-                     └─ /app (WebSocket) ──▶ Reverb (127.0.0.1:8080)
-                                                │
-                     Redis ◀── files d'attente ─┴─ Horizon (Supervisor)
+Internet ──HTTPS──▶ Apache (ISPConfig) ──▶ PHP-FPM du site ──▶ Laravel ──▶ PostgreSQL
+                     │                                          │
+                     └─ /app/ (WebSocket) ──▶ Reverb (127.0.0.1:6001)
+                                                                │
+                     Redis ◀── files d'attente ─────────────────┴─ Horizon (Supervisor)
                      cron : schedule:run chaque minute (relances, alertes, rapports)
 ```

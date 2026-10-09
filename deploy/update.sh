@@ -1,22 +1,19 @@
 #!/usr/bin/env bash
 #
-# Mise à jour de l'application déjà installée (à lancer en root) :
+# Mise à jour de l'application déjà installée (install.sh ou ispconfig.sh), à lancer en root :
 #
-#   bash /var/www/livraison/deploy/update.sh
+#   bash /chemin/de/l/application/deploy/update.sh
 #
-# Récupère la dernière version de la branche, met à jour les dépendances,
-# recompile l'interface, applique les migrations puis redémarre les processus.
+# Récupère la dernière version de la branche, met à jour les dépendances, recompile
+# l'interface, applique les migrations puis redémarre les processus.
 
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-APP_USER=www-data
-APP_HOME=/var/www
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
-[[ $EUID -eq 0 ]] || { echo "Lancez ce script en root." >&2; exit 1; }
-
-as_app() { sudo -u "$APP_USER" -H env COMPOSER_HOME="$APP_HOME/.composer" npm_config_cache="$APP_HOME/.npm" bash -c "cd '$APP_DIR' && $*"; }
-step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
+[[ $EUID -eq 0 ]] || fail "lancez ce script en root."
+[[ -f "$DEPLOY_CONF" ]] || fail "$DEPLOY_CONF absent : l'application n'a pas été installée avec install.sh ou ispconfig.sh."
+. "$DEPLOY_CONF"
 
 BRANCH="$(as_app "git rev-parse --abbrev-ref HEAD")"
 
@@ -39,9 +36,12 @@ as_app "php artisan db:seed --class=RolesAndPermissionsSeeder --force"
 as_app "php artisan optimize"
 
 step "Redémarrage des processus"
-systemctl reload "$(systemctl list-units --type=service --no-legend 'php*-fpm.service' | awk '{print $1}' | head -n1)"
+# PHP-FPM : vider le cache OPcache de l'ancien code
+for unit in $(systemctl list-units --type=service --state=running --no-legend 'php*-fpm.service' | awk '{print $1}'); do
+    systemctl reload "$unit"
+done
 as_app "php artisan horizon:terminate"
-as_app "php artisan reverb:restart" || supervisorctl restart livraison-reverb
+supervisorctl restart livraison-reverb
 supervisorctl status
 
 step "Terminé : $(as_app "git log -1 --format='%h %s'")"
