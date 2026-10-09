@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use LogicException;
 
 /**
@@ -78,5 +80,35 @@ class OrderEvent extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(OrderAttachment::class, 'event_id');
+    }
+
+    public function review(): HasOne
+    {
+        return $this->hasOne(FieldReportReview::class);
+    }
+
+    /**
+     * Remontées terrain : notes et problèmes enregistrés par les livreurs
+     * (incident, échec ou report, refus de mission, frais déclarés).
+     */
+    public function scopeFieldReports(Builder $query): Builder
+    {
+        return $query->where('actor_role', 'courier')->where(fn ($q) => $q
+            ->whereIn('type', [OrderEventType::Note->value, OrderEventType::Incident->value, OrderEventType::AssignmentRefused->value, OrderEventType::ExpenseAdded->value])
+            ->orWhere(fn ($q) => $q->where('type', OrderEventType::StatusChanged->value)
+                ->whereIn('to_status', [OrderStatus::DeliveryFailed->value, OrderStatus::Rescheduled->value])));
+    }
+
+    /**
+     * Catégorie d'une remontée terrain : incident | note | refusal | expense.
+     */
+    public function fieldKind(): string
+    {
+        return match ($this->type) {
+            OrderEventType::Note => 'note',
+            OrderEventType::AssignmentRefused => 'refusal',
+            OrderEventType::ExpenseAdded => 'expense',
+            default => 'incident',
+        };
     }
 }

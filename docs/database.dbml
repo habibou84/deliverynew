@@ -123,6 +123,17 @@ Table courier_zones {
   indexes { (courier_id, zone_id) [pk] }
 }
 
+Table field_report_reviews {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  order_event_id bigint [ref: - order_events.id, unique, note: 'note ou problème signalé par un livreur']
+  handled_by bigint [ref: > users.id]
+  comment varchar(500)
+  handled_at timestamp [not null]
+  created_at timestamp
+  updated_at timestamp
+}
+
 Table courier_locations {
   id bigint [pk, increment]
   courier_id bigint [ref: > couriers.id, not null]

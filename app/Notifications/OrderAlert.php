@@ -21,6 +21,7 @@ class OrderAlert extends Notification implements ShouldQueue
         public string $kind,
         public string $title,
         public string $body,
+        public array $extra = [],
     ) {}
 
     /**
@@ -43,6 +44,7 @@ class OrderAlert extends Notification implements ShouldQueue
             'order_id' => $this->order->id,
             'tracking_code' => $this->order->tracking_code,
             'status' => $this->order->status->value,
+            ...$this->extra,
         ];
     }
 

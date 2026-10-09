@@ -93,6 +93,15 @@ sans compte Meta (les courses confirmées sont réellement créées).
 L'analyse se fait par règles ; avec `ANTHROPIC_API_KEY` (et `ANTHROPIC_MODEL`, par défaut `claude-opus-5-5`),
 Claude comprend aussi les messages sans format, avec retour automatique aux règles en cas d'erreur.
 
+### Remontées terrain
+
+Les notes et problèmes enregistrés par les livreurs (échec ou report de livraison, échec de ramassage, refus de
+mission, frais déclarés, notes, même internes) arrivent **en direct** au dispatch : toast, **son** (carillon pour une
+note, trois bips pour un problème) et notification du bureau si l'onglet est caché. Réglages (son, volume, test,
+notifications du bureau) via 🔊 dans l'en-tête ; le navigateur n'autorise le son qu'après un premier clic dans la page.
+La page **Remontées terrain** les liste (filtres : à traiter / traitées, type, livreur, dates, recherche) ; chaque
+remontée se marque « traitée » avec un commentaire, le menu affiche le nombre restant (30 derniers jours).
+
 ### Carte des livreurs
 
 **Carte des livreurs** (back-office, droit `orders.dispatch`) montre la dernière position de chaque livreur, ses
@@ -210,6 +219,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
+| GET | `/field-reports` (`state`, `kind`, `courier_id`, `from`, `to`, `search`) · GET `/field-reports/counts` · POST `/field-reports/{event}/handle` · `/reopen` | `orders.dispatch` : remontées terrain et leur suivi |
 | GET | `/couriers/{id}/track?date=` | `orders.dispatch` : trajet d'une journée (points, étapes, distance) |
 | GET | `/couriers/map` | `orders.dispatch` : positions et missions en cours des livreurs (diffusion `courier.location` sur `company.{id}`) |
 | GET/POST/DELETE | `/api-keys` | `integrations.manage` : clés de l'API publique (le marchand les siennes, l'administration avec `merchant_id`) |

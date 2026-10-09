@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
+use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\MerchantController;
@@ -99,6 +100,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('whatsapp/test', [WhatsAppSettingsController::class, 'test'])->middleware('throttle:10,1')->name('whatsapp.test');
             Route::post('whatsapp/templates/sync', [WhatsAppSettingsController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
             Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware('throttle:60,1')->name('whatsapp.simulate');
+        });
+
+        // Remontées terrain des livreurs (notes, problèmes) : consultation et suivi par le dispatch
+        Route::middleware('can:orders.dispatch')->prefix('field-reports')->name('field-reports.')->group(function () {
+            Route::get('/', [FieldReportController::class, 'index'])->name('index');
+            Route::get('counts', [FieldReportController::class, 'counts'])->name('counts');
+            Route::post('{event}/handle', [FieldReportController::class, 'handle'])->name('handle');
+            Route::post('{event}/reopen', [FieldReportController::class, 'reopen'])->name('reopen');
         });
 
         // Journal des messages WhatsApp et SMS

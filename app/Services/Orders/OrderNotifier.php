@@ -51,8 +51,11 @@ class OrderNotifier
             case OrderEventType::Note:
                 if ($actorIsMerchant) {
                     $toStaff = ['note', "Note du marchand sur {$code}", $merchantName.' :'.$note];
-                } elseif ($event->visible_to_merchant) {
-                    $toMerchant = ['note', "Note sur votre colis {$code}", trim(($event->actor_name ?? '').' :'.$note)];
+                } else {
+                    if ($event->visible_to_merchant) {
+                        $toMerchant = ['note', "Note sur votre colis {$code}", trim(($event->actor_name ?? '').' :'.$note)];
+                    }
+                    // Note d'un livreur : toujours signalée au dispatch, même invisible pour le marchand
                     if ($actor?->isCourier()) {
                         $toStaff = ['note', "Note du livreur sur {$code}", trim(($event->actor_name ?? '').' :'.$note)];
                     }
@@ -86,7 +89,7 @@ class OrderNotifier
         }
 
         if ($toStaff) {
-            $this->send($this->dispatchers($order), $actor, $order, ...$toStaff);
+            $this->send($this->dispatchers($order), $actor, $order, ...$toStaff, extra: $this->fieldReport($event, $actor));
         }
     }
 
@@ -149,12 +152,29 @@ class OrderNotifier
     /**
      * @param  Collection<int, User>  $users
      */
-    private function send(Collection $users, ?User $actor, Order $order, string $kind, string $title, string $body): void
+    /**
+     * Remontée terrain d'un livreur : signalée comme telle (son, journal « Remontées terrain »).
+     *
+     * @return array<string, mixed>
+     */
+    private function fieldReport(OrderEvent $event, ?User $actor): array
+    {
+        if (! $actor?->isCourier() || ! OrderEvent::whereKey($event->id)->fieldReports()->exists()) {
+            return [];
+        }
+
+        return ['field' => true, 'severity' => $event->fieldKind() === 'note' ? 'note' : 'alert', 'event_id' => $event->id];
+    }
+
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function send(Collection $users, ?User $actor, Order $order, string $kind, string $title, string $body, array $extra = []): void
     {
         $users = $users->reject(fn (User $u) => $actor !== null && $u->is($actor));
 
         if ($users->isNotEmpty()) {
-            Notification::send($users, new OrderAlert($order, $kind, $title, $body));
+            Notification::send($users, new OrderAlert($order, $kind, $title, $body, $extra));
         }
     }
 }
