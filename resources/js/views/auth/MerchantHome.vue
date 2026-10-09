@@ -39,6 +39,7 @@
               <p class="text-sm text-slate-500">Accédez à vos courses, à vos encaissements et à vos reversements.</p>
             </div>
             <LoginForm tone="merchant" />
+            <InstallBanner app="marchand" class="md:hidden" />
             <div v-if="branding.signup_open" class="border-t border-slate-200 pt-5 text-center space-y-2">
               <p class="text-sm text-slate-600">Pas encore client ?</p>
               <RouterLink to="/inscription" class="block w-full rounded-xl border-2 border-emerald-600 py-3 font-semibold text-emerald-700 hover:bg-emerald-50">Créer mon compte gratuitement</RouterLink>
@@ -92,7 +93,7 @@
           <p v-if="branding.email"><a :href="`mailto:${branding.email}`" class="hover:text-white">✉️ {{ branding.email }}</a></p>
         </div>
         <div class="space-y-2 text-sm md:text-right">
-          <p>Application mobile : ouvrez ce site sur votre téléphone puis « Ajouter à l'écran d'accueil ».</p>
+          <p>Application mobile : ouvrez ce site sur votre téléphone ; la page vous guide pour l'installer.</p>
           <p class="text-slate-500">© {{ year }} {{ branding.name }}</p>
         </div>
       </div>
@@ -105,6 +106,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BrandLogo from '../../components/auth/BrandLogo.vue'
 import LoginForm from '../../components/auth/LoginForm.vue'
+import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import { branding, loadBranding, whatsappLink } from '../../composables/useBranding'
 
 const router = useRouter()
