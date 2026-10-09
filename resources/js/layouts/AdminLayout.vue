@@ -86,6 +86,7 @@ const menu = computed(() => [
   { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage' },
   { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
   { to: '/admin/colis-livreurs', icon: '🎒', label: 'Colis chez les livreurs', permission: 'orders.dispatch', badge: heldParcels.counts.overdue },
+  { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },
   { to: '/admin/carte', icon: '📍', label: 'Carte des livreurs', permission: 'orders.dispatch' },
   { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
   { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },

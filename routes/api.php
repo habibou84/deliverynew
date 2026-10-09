@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\PushSubscriptionController;
 use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\ReturnSlipController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\StockMovementController;
 use App\Http\Controllers\Api\V1\StorageContractController;
@@ -118,6 +119,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('{event}/handle', [FieldReportController::class, 'handle'])->name('handle');
             Route::post('{event}/reopen', [FieldReportController::class, 'reopen'])->name('reopen');
         });
+
+        // Bons de retour groupés par marchand (droits vérifiés dans le contrôleur)
+        Route::get('return-slips', [ReturnSlipController::class, 'index'])->name('return-slips.index');
+        Route::post('return-slips', [ReturnSlipController::class, 'store'])->name('return-slips.store');
+        Route::get('return-slips/{returnSlip}', [ReturnSlipController::class, 'show'])->name('return-slips.show');
+        Route::post('return-slips/{returnSlip}/hand-over', [ReturnSlipController::class, 'handOver'])->middleware('throttle:30,1')->name('return-slips.hand-over');
+        Route::post('return-slips/{returnSlip}/cancel', [ReturnSlipController::class, 'cancel'])->name('return-slips.cancel');
+        Route::get('return-slips/{returnSlip}/proof/{kind}', [ReturnSlipController::class, 'proof'])->whereIn('kind', ['signature', 'photo'])->name('return-slips.proof');
 
         // Colis chez les livreurs (droits vérifiés dans le contrôleur)
         Route::get('parcels/held', [ParcelController::class, 'index'])->name('parcels.held');
@@ -214,6 +223,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
             Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
             Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');
+            Route::get('return-slips', [ReturnSlipController::class, 'mine'])->name('return-slips');
         });
     });
 });

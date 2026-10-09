@@ -133,6 +133,12 @@ jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
 - **Rappel du matin** (`orders:due-today`, chaque jour à 06:50) : le dispatch est prévenu des courses reportées à
   aujourd'hui et pas encore assignées, avec les livreurs qui ont déjà le colis en main (à leur confier en priorité).
   Dans la liste des courses, 🎒 indique le livreur qui a le colis.
+- **Bon de retour groupé** (**Retours marchands**, back-office) : les colis à rendre sont regroupés par marchand ;
+  le dispatch crée un bon (`BR-…`) confié à un livreur (celui qui a déjà les colis est proposé). Le marchand reçoit
+  le lien du bon par WhatsApp. Dans son application, le livreur ouvre le bon, coche les colis remis, saisit le nom
+  de la personne qui reçoit et fait **signer à l'écran** ou **photographie** la remise : toutes les courses passent
+  « Retourné » et le marchand reçoit la confirmation. Le bon est imprimable (A4) depuis `/bon-de-retour/{id}`.
+  Deux nouveaux modèles WhatsApp sont à faire approuver : `bon_de_retour` et `retour_remis`.
 
 ### Notifications push des livreurs
 

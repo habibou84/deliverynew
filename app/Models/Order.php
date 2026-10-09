@@ -192,6 +192,11 @@ class Order extends Model
         return $this->belongsTo(Courier::class, 'return_courier_id');
     }
 
+    public function returnSlip(): BelongsTo
+    {
+        return $this->belongsTo(ReturnSlip::class);
+    }
+
     /**
      * Livreur qui a le colis en main (pas encore rendu au dépôt, livré ou retourné).
      */

@@ -18,6 +18,8 @@ enum WhatsAppTemplate: string
     case ActivityReport = 'rapport_activite';
     case Shipped = 'colis_expedie';
     case ShippedRecipient = 'colis_expedie_client';
+    case ReturnSlip = 'bon_de_retour';
+    case ReturnHanded = 'retour_remis';
 
     public const LANGUAGE = 'fr';
 
@@ -33,6 +35,8 @@ enum WhatsAppTemplate: string
             self::ActivityReport => 'Bonjour {{1}}, voici votre point {{2}} : {{3}} courses, {{4}} livrées ou expédiées, {{5}} non livrées ou reportées, {{6}} retournées. Encaissé : {{7}}. Frais de livraison : {{8}}. Frais d\'expédition et autres frais : {{9}}. Net : {{10}}. Merci de votre confiance.',
             self::Shipped => 'Bonjour {{1}}, le colis {{2}} pour {{3}} a été expédié par {{4}} (ticket {{5}}). Frais d\'expédition : {{6}}, déduits de votre point. Merci.',
             self::ShippedRecipient => 'Bonjour {{1}}, votre colis de {{2}} a été expédié par {{3}} (ticket {{4}}). Récupérez-le à l\'arrivée auprès du transporteur. Merci de votre confiance.',
+            self::ReturnSlip => 'Bonjour {{1}}, notre livreur {{2}} vous rapporte {{3}} colis non livré(s) (bon de retour {{4}}). Détail du bon : {{5}} . Merci.',
+            self::ReturnHanded => 'Bonjour {{1}}, {{2}} colis vous ont été rendus (bon de retour {{3}}), reçus par {{4}}. Détail du bon : {{5}} . Merci.',
         };
     }
 
@@ -48,6 +52,8 @@ enum WhatsAppTemplate: string
             self::ActivityReport => 'Au marchand, point quotidien ou hebdomadaire',
             self::Shipped => 'Au marchand, quand un colis est déposé à la gare (zone d\'expédition)',
             self::ShippedRecipient => 'Au destinataire, quand son colis est déposé à la gare',
+            self::ReturnSlip => 'Au marchand, quand un bon de retour de ses colis est confié à un livreur',
+            self::ReturnHanded => 'Au marchand, quand ses colis lui ont été rendus (bon de retour signé)',
         };
     }
 
@@ -68,6 +74,8 @@ enum WhatsAppTemplate: string
             self::ActivityReport => ['Boutique Chic', 'du 08/10/2026', '24', '20', '3', '1', '310 000 F', '36 000 F', '6 000 F', '268 000 F'],
             self::Shipped => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Bouaké)', 'UTB Adjamé', 'A-15234', '3 000 F'],
             self::ShippedRecipient => ['Awa', 'Boutique Chic', 'UTB Adjamé', 'A-15234'],
+            self::ReturnSlip => ['Boutique Chic', 'Koffi', '4', 'BR-261009-00012', 'https://exemple.ci/bon-de-retour/12'],
+            self::ReturnHanded => ['Boutique Chic', '4', 'BR-261009-00012', 'Mariam Koné', 'https://exemple.ci/bon-de-retour/12'],
         };
     }
 
