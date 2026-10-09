@@ -43,6 +43,45 @@ class ReferenceDataTest extends TestCase
             ->assertJsonValidationErrors('parent_id'); // un seul niveau de sous-zone
     }
 
+    public function test_admin_edits_a_zone(): void
+    {
+        Sanctum::actingAs($this->dispatcher);
+        $this->patchJson("/api/v1/zones/{$this->angre->id}", ['name' => 'Angré 8e tranche'])->assertForbidden();
+
+        Sanctum::actingAs($this->admin);
+        $this->patchJson("/api/v1/zones/{$this->angre->id}", ['name' => 'Angré 8e tranche', 'parent_id' => $this->plateau->id])->assertOk()
+            ->assertJsonPath('data.full_name', 'Plateau › Angré 8e tranche');
+        $this->patchJson("/api/v1/zones/{$this->angre->id}", ['parent_id' => null])->assertOk()->assertJsonPath('data.parent_id', null);
+
+        // Une commune qui a des quartiers reste une commune
+        $this->patchJson("/api/v1/zones/{$this->plateau->id}", ['parent_id' => $this->cocody->id])->assertOk();
+        $this->patchJson("/api/v1/zones/{$this->cocody->id}", ['parent_id' => $this->yopougon->id])->assertUnprocessable()
+            ->assertJsonValidationErrors('parent_id');
+    }
+
+    public function test_only_unused_zones_can_be_deleted(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $unused = $this->zone('Bingerville');
+        $this->rule($this->grid, $unused, $this->plateau, 2500);
+        $this->courierA->zones()->attach($unused->id);
+
+        $this->deleteJson("/api/v1/zones/{$unused->id}")->assertNoContent();
+        $this->assertNull(Zone::find($unused->id));
+        $this->assertSame(0, $this->grid->rules()->where('origin_zone_id', $unused->id)->count());
+
+        // Commune avec quartiers, zone de ramassage d'un marchand, zone de courses
+        $this->deleteJson("/api/v1/zones/{$this->cocody->id}")->assertUnprocessable()
+            ->assertJsonPath('message', fn ($m) => str_contains($m, '1 quartier(s)') && str_contains($m, '1 e-commerçant(s)'));
+        $this->createOrder();
+        $this->deleteJson("/api/v1/zones/{$this->yopougon->id}")->assertUnprocessable()
+            ->assertJsonPath('message', fn ($m) => str_contains($m, '1 course(s)') && str_contains($m, 'Désactivez-la'));
+        $this->assertNotNull($this->yopougon->fresh());
+
+        Sanctum::actingAs($this->dispatcher);
+        $this->deleteJson("/api/v1/zones/{$this->angre->id}")->assertForbidden();
+    }
+
     public function test_admin_replaces_the_price_matrix(): void
     {
         Sanctum::actingAs($this->admin);
