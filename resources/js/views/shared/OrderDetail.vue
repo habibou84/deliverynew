@@ -98,6 +98,7 @@
       <div class="space-y-4">
         <div v-if="isDispatcher && !isFinal" class="card p-4 space-y-3">
           <h2 class="font-semibold">Dispatch</h2>
+          <button v-if="['delivery_failed', 'rescheduled'].includes(order.status)" class="btn-primary w-full" @click="deciding = true">🧭 Décider de la suite</button>
           <div class="flex gap-2 flex-wrap">
             <button v-if="order.status === 'pending'" class="btn-success" @click="quickMove('confirmed')">Valider</button>
             <button v-if="order.status === 'pending'" class="btn-secondary" @click="openStatus(['rejected'])">Refuser</button>
@@ -178,6 +179,8 @@
         <button class="btn-primary w-full">Enregistrer</button>
       </form>
     </Modal>
+
+    <OrderDecision :open="deciding" :order="order" :couriers="couriers" @close="deciding = false" @decided="decided" />
   </div>
   <p v-else-if="error" class="text-red-600">{{ error }}</p>
   <p v-else class="text-gray-500">Chargement…</p>
@@ -190,6 +193,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
 import OrderTimeline from '../../components/OrderTimeline.vue'
 import Modal from '../../components/Modal.vue'
+import OrderDecision from '../../components/OrderDecision.vue'
 import OrderMessages from '../../components/OrderMessages.vue'
 import OrderExpenses from '../../components/OrderExpenses.vue'
 import StatusChangeForm from '../../components/StatusChangeForm.vue'
@@ -219,6 +223,13 @@ const toasts = useToastStore()
 const order = ref(null)
 const error = ref('')
 const couriers = ref([])
+// Suite à donner à un colis non livré (relivrer, retourner, remettre en stock)
+const deciding = ref(false)
+function decided() {
+  deciding.value = false
+  toasts.success('Décision enregistrée.')
+  load()
+}
 const zones = ref([])
 const assignment = reactive({ pickup: null, delivery: null, return: null })
 const note = reactive({ text: '', internal: false })

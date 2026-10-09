@@ -21,6 +21,14 @@ class OrderMessages
 
     public function handle(Order $order, OrderEvent $event, ?User $actor): void
     {
+        // Retour décidé par l'agence : le marchand est prévenu que son colis lui revient
+        if ($event->type === OrderEventType::ReturnRequested && $actor?->merchant_id === null) {
+            $order->loadMissing(['merchant', 'deliveryZone']);
+            $this->incident($order, $event, $this->recipientLabel($order), 'le colis vous sera retourné');
+
+            return;
+        }
+
         if (! in_array($event->type, [OrderEventType::StatusChanged, OrderEventType::Incident], true)) {
             return;
         }

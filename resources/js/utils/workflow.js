@@ -6,11 +6,11 @@ export const TRANSITIONS = {
   pickup_assigned: ['pickup_in_progress', 'picked_up', 'confirmed', 'cancelled'],
   pickup_in_progress: ['picked_up', 'confirmed', 'cancelled'],
   picked_up: ['at_hub', 'out_for_delivery'],
-  at_hub: ['out_for_delivery', 'returned'],
+  at_hub: ['out_for_delivery', 'rescheduled', 'returned'],
   delivery_assigned: ['out_for_delivery', 'at_hub'],
   out_for_delivery: ['delivered', 'delivery_failed', 'rescheduled'],
   delivery_failed: ['rescheduled', 'out_for_delivery', 'at_hub', 'returned'],
-  rescheduled: ['out_for_delivery', 'at_hub', 'returned'],
+  rescheduled: ['out_for_delivery', 'at_hub', 'rescheduled', 'returned'],
   return_assigned: ['returning', 'returned'],
   returning: ['returned'],
 }

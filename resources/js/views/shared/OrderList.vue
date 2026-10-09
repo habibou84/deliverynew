@@ -91,10 +91,13 @@
               <StatusBadge :status="o.status" :label="o.status_label" />
               <div v-if="o.last_incident && ['delivery_failed', 'rescheduled'].includes(o.status)" class="text-xs text-red-600 mt-0.5">{{ o.last_incident.label }}</div>
               <div v-if="o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)" class="text-xs text-rose-600">Retour demandé</div>
+              <div v-if="o.status === 'rescheduled' && o.delivery.scheduled_date" :class="['text-xs', o.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-gray-600']">📅 {{ o.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(o.delivery.scheduled_date) }}</div>
+              <button v-if="canDecide(o)" type="button" class="mt-1 text-xs rounded bg-blue-600 text-white px-2 py-0.5" @click.stop="deciding = o">Décider</button>
             </td>
             <td class="p-2 text-xs">
               <div v-if="o.pickup_courier">↑ {{ o.pickup_courier.name }}</div>
               <div v-if="o.delivery_courier">↓ {{ o.delivery_courier.name }}</div>
+              <div v-if="o.held_by" class="text-amber-700" :title="`Colis chez ${o.held_by.name}`">🎒 {{ o.held_by.name }}</div>
             </td>
             <td class="p-2 text-right whitespace-nowrap">{{ money(o.amounts.cod_amount) }}</td>
             <td class="p-2 text-xs text-gray-500 whitespace-nowrap">{{ dateTime(o.created_at) }}</td>
@@ -103,6 +106,8 @@
       </table>
     </div>
     <Pagination :meta="meta" @change="load" />
+
+    <OrderDecision :open="!!deciding" :order="deciding" :couriers="couriers" @close="deciding = null" @decided="decided" />
   </div>
 </template>
 
@@ -112,10 +117,11 @@ import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
 import Pagination from '../../components/Pagination.vue'
+import OrderDecision from '../../components/OrderDecision.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
-import { dateTime, money, STATUS_LABELS } from '../../utils/format'
+import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -130,6 +136,8 @@ const queues = [
   { value: 'to_pickup', label: 'À ramasser' },
   { value: 'to_prepare', label: 'À préparer' },
   { value: 'to_deliver', label: 'À livrer' },
+  { value: 'to_decide', label: 'À décider' },
+  { value: 'scheduled', label: 'Reportées' },
   { value: 'incidents', label: 'Incidents' },
   { value: 'to_return', label: 'À retourner' },
 ]
@@ -184,6 +192,16 @@ function setQueue(value) {
 
 function toggleAll(e) {
   selected.value = e.target.checked ? orders.value.map((o) => o.id) : []
+}
+
+// Suite à donner à un colis non livré
+const deciding = ref(null)
+const todayIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+const canDecide = (o) => auth.can('orders.dispatch') && ['delivery_failed', 'rescheduled'].includes(o.status) && !['return_assigned', 'returning'].includes(o.status)
+function decided(order) {
+  deciding.value = null
+  toasts.success(order.status === 'rescheduled' ? `Relivraison prévue le ${date(order.delivery.scheduled_date)}.` : (order.return_requested ? 'Retour au marchand décidé.' : 'Décision enregistrée.'))
+  load(meta.value?.current_page || 1)
 }
 
 function open(order) {

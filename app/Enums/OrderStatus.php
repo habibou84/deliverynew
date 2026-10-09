@@ -60,11 +60,12 @@ enum OrderStatus: string
             self::PickupInProgress => [self::PickedUp, self::Confirmed, self::Cancelled],
             self::PickedUp => [self::AtHub, self::OutForDelivery],
             // « Retourné » direct = remis en stock à l'entrepôt (commande d'entrepôt)
-            self::AtHub => [self::OutForDelivery, self::Returned],
+            self::AtHub => [self::OutForDelivery, self::Rescheduled, self::Returned],
             self::DeliveryAssigned => [self::OutForDelivery, self::AtHub],
             self::OutForDelivery => [self::Delivered, self::DeliveryFailed, self::Rescheduled],
             self::DeliveryFailed => [self::Rescheduled, self::OutForDelivery, self::AtHub, self::Returned],
-            self::Rescheduled => [self::OutForDelivery, self::AtHub, self::Returned],
+            // Rescheduled → Rescheduled : nouvelle date décidée par le dispatch
+            self::Rescheduled => [self::OutForDelivery, self::AtHub, self::Rescheduled, self::Returned],
             self::ReturnAssigned => [self::Returning, self::Returned],
             self::Returning => [self::Returned],
             self::Delivered, self::Returned, self::Cancelled, self::Rejected => [],

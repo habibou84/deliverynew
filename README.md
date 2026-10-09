@@ -125,6 +125,11 @@ jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
   0 = jamais), le colis passe en rouge, le menu affiche un badge et le dispatch reçoit une alerte sonore
   (`parcels:overdue`, toutes les 15 min, une alerte par colis).
 - Le livreur voit dans **Ma caisse** les colis à rapporter au dépôt.
+- **Décider de la suite** (file **À décider** des courses, ou fiche de la course) : un échec de livraison attend
+  une décision avant de revenir dans « À livrer » : **relivrer** à une date (aujourd'hui, demain…, livreur
+  facultatif), **retourner au marchand** ou, pour une commande d'entrepôt, **remettre en stock**. Le marchand est
+  prévenu par WhatsApp (nouvelle date ou retour du colis). Les reports à une date future sont dans **Reportées** et
+  reviennent dans « À livrer » le jour prévu.
 
 ### Notifications push des livreurs
 

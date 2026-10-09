@@ -11,6 +11,7 @@ use App\Http\Resources\V1\OrderResource;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\OrderAttachment;
+use App\Services\Orders\OrderDecisions;
 use App\Services\Orders\OrderDispatcher;
 use App\Services\Orders\OrderJournal;
 use App\Services\Orders\OrderService;
@@ -30,6 +31,7 @@ class OrderActionController extends Controller
         private readonly OrderDispatcher $dispatcher,
         private readonly OrderService $orders,
         private readonly OrderJournal $journal,
+        private readonly OrderDecisions $decisions,
     ) {}
 
     public function transition(TransitionOrderRequest $request, Order $order): OrderResource
@@ -44,6 +46,23 @@ class OrderActionController extends Controller
         );
 
         return $this->detail($request, $order);
+    }
+
+    /**
+     * Suite donnée à un colis non livré : relivrer, retourner au marchand, remettre en stock.
+     */
+    public function decide(Request $request, Order $order): OrderResource
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate([
+            'decision' => ['required', Rule::in([OrderDecisions::REDELIVER, OrderDecisions::RETURN, OrderDecisions::RESTOCK])],
+            'date' => ['required_if:decision,redeliver', 'nullable', 'date', 'after_or_equal:today'],
+            'courier_id' => ['nullable', 'integer', Rule::exists('couriers', 'id')->where('company_id', $request->user()->company_id)],
+            'note' => ['nullable', 'string', 'max:500'],
+        ], [], ['decision' => 'décision', 'date' => 'date de livraison', 'courier_id' => 'livreur']);
+
+        return $this->detail($request, $this->decisions->decide($request->user(), $order, $data));
     }
 
     public function assign(Request $request, Order $order): OrderResource
