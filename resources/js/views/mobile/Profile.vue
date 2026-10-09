@@ -23,6 +23,8 @@
       <span class="font-medium">🔌 Intégrations (API, webhooks)</span><span class="text-slate-400">›</span>
     </RouterLink>
 
+    <PushSettings v-if="app === 'livreur'" />
+
     <WhatsAppPreferences v-if="auth.user?.merchant_id" />
 
     <div class="m-card divide-y">
@@ -43,6 +45,8 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import WhatsAppPreferences from '../../components/mobile/WhatsAppPreferences.vue'
+import PushSettings from '../../components/mobile/PushSettings.vue'
+import { forgetPushDevice } from '../../composables/usePush'
 import { useAuthStore } from '../../stores/auth'
 import { pwa } from '../../composables/usePwa'
 import { telLink } from '../../utils/format'
@@ -57,6 +61,7 @@ const initials = computed(() => (auth.user?.name || '?').split(' ').map((p) => p
 const installedLabel = computed(() => (pwa.installed ? 'application installée' : 'web'))
 
 async function logout() {
+  await forgetPushDevice()
   await auth.logout()
   router.push('/login')
 }

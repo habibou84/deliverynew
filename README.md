@@ -110,6 +110,19 @@ remontée se marque « traitée » avec un commentaire, le menu affiche le nombr
   relancé au dispatch après le délai réglé dans **Paramètres** (10 min par défaut, 0 = jamais), puis aux
   administrateurs après trois fois ce délai. Rien n'est relancé si la course est terminée.
 
+### Notifications push des livreurs
+
+Le livreur active les notifications depuis le bandeau de **Missions** ou son **Profil** (bouton de test). Il est alors
+prévenu même application fermée ou téléphone en veille : **nouvelle mission** et **consigne de l'agence** (le toucher
+ouvre la mission). Web Push standard (VAPID, chiffrement `aes128gcm`), implémenté sans dépendance ni service tiers.
+
+- Générer les clés une fois par serveur : `php artisan webpush:vapid`, puis copier `VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY` et `VAPID_SUBJECT` (mailto: ou https:) dans `.env`. Ne pas les changer ensuite : les abonnements
+  existants deviendraient invalides. Sans clés, la fonction est simplement masquée.
+- HTTPS obligatoire (sauf `localhost`) ; le service worker n'est enregistré que dans la version compilée (`npm run build`).
+- **iPhone** : iOS 16.4 minimum et application **installée sur l'écran d'accueil** ; l'app le signale au livreur.
+- Les abonnements expirés (réponse 404/410) sont supprimés automatiquement ; la déconnexion retire celui de l'appareil.
+
 ### Carte des livreurs
 
 **Carte des livreurs** (back-office, droit `orders.dispatch`) montre la dernière position de chaque livreur, ses

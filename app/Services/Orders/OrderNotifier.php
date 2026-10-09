@@ -40,7 +40,8 @@ class OrderNotifier
                 $courierUser = User::find($event->meta['courier_user_id'] ?? null);
                 if ($courierUser) {
                     $this->send(collect([$courierUser]), $actor, $order, 'new_mission',
-                        'Nouvelle mission : '.($event->meta['type_label'] ?? ''), "{$code} · {$merchantName}");
+                        'Nouvelle mission : '.($event->meta['type_label'] ?? ''), "{$code} · {$merchantName}",
+                        extra: ['assignment_id' => $event->assignment_id]);
                 }
                 break;
 

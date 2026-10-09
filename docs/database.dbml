@@ -159,6 +159,20 @@ Table field_report_reminders {
   updated_at timestamp
 }
 
+Table push_subscriptions {
+  id bigint [pk, increment]
+  user_id bigint [ref: > users.id, not null]
+  endpoint text [not null]
+  endpoint_hash varchar(64) [unique, not null, note: 'sha256 de endpoint']
+  p256dh varchar(120) [not null]
+  auth varchar(40) [not null]
+  user_agent varchar
+  last_used_at timestamp
+  created_at timestamp
+  updated_at timestamp
+  Note: 'Abonnements Web Push (un par appareil), supprimés sur réponse 404/410'
+}
+
 Table courier_locations {
   id bigint [pk, increment]
   courier_id bigint [ref: > couriers.id, not null]

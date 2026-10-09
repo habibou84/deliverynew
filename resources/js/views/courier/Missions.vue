@@ -17,6 +17,17 @@
 
     <InstallBanner app="livreur" />
 
+    <!-- Invitation à activer les notifications push -->
+    <div v-if="showPushInvite" class="rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4 space-y-2">
+      <p class="font-semibold text-amber-900">🔔 Soyez prévenu même téléphone en veille</p>
+      <p class="text-sm text-amber-900">Nouvelles missions et consignes de l'agence, sans garder l'application ouverte.</p>
+      <p v-if="push.error" class="text-sm text-red-600">{{ push.error }}</p>
+      <div class="flex gap-2">
+        <button type="button" class="m-btn-primary py-2" :disabled="push.busy" @click="enablePush">Activer les notifications</button>
+        <button type="button" class="m-btn-secondary w-auto px-4 py-2" @click="dismissPushInvite">Plus tard</button>
+      </div>
+    </div>
+
     <!-- Consignes de l'agence non lues -->
     <RouterLink v-if="messages.unread" to="/livreur/messages" class="tap block rounded-2xl bg-sky-600 text-white p-4 font-semibold active:bg-sky-700">
       💬 {{ messages.unread }} consigne{{ messages.unread > 1 ? 's' : '' }} de l'agence à lire →
@@ -93,6 +104,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useNotificationStore } from '../../stores/notifications'
 import { currentPosition } from '../../composables/useGeolocation'
 import { useCourierMessageStore } from '../../stores/courierMessages'
+import { enablePush, initPush, push } from '../../composables/usePush'
 import { money } from '../../utils/format'
 
 const auth = useAuthStore()
@@ -144,7 +156,19 @@ async function toggleAvailability() {
 // Nouvelle mission reçue en temps réel
 const messages = useCourierMessageStore()
 
+// Invitation masquée 3 jours après « Plus tard »
+const pushInviteHiddenUntil = ref(Number((() => { try { return localStorage.getItem('push-invite-hidden') } catch { return 0 } })() || 0))
+const showPushInvite = computed(() => push.checked && push.supported && push.serverEnabled && !push.subscribed
+  && push.permission !== 'denied' && Date.now() > pushInviteHiddenUntil.value)
+function dismissPushInvite() {
+  pushInviteHiddenUntil.value = Date.now() + 3 * 86400000
+  try { localStorage.setItem('push-invite-hidden', String(pushInviteHiddenUntil.value)) } catch { /* stockage indisponible */ }
+}
+
 watch(() => notifications.unread, load)
 
-onMounted(load)
+onMounted(() => {
+  load()
+  initPush()
+})
 </script>
