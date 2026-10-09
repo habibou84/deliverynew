@@ -24,8 +24,13 @@ jobs:
       - run: vendor/bin/pint --test
 
   tests:
-    name: Tests (PostgreSQL)
+    name: Tests (PostgreSQL, PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 8.4 : version de Debian 13 (serveur ISPConfig)
+        php: ['8.3', '8.4']
     services:
       postgres:
         image: postgres:16
@@ -55,14 +60,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: ${{ matrix.php }}
           extensions: pdo_pgsql, intl
           tools: composer:v2
           coverage: none
       - uses: actions/cache@v4
         with:
           path: ~/.composer/cache/files
-          key: composer-${{ hashFiles('composer.lock') }}
+          key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
       - run: composer install --no-interaction --no-progress --prefer-dist
       - run: cp .env.example .env && php artisan key:generate
       - name: Migrations (aller-retour)

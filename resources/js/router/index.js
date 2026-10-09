@@ -16,6 +16,8 @@ const mobile = {
 }
 
 const routes = [
+  // Adresse racine : le garde de navigation redirige vers la connexion ou l'espace de l'utilisateur
+  { path: '/', name: 'home', component: { render: () => null } },
   {
     path: '/login',
     name: 'login',
