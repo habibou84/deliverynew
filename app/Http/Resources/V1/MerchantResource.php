@@ -30,6 +30,7 @@ class MerchantResource extends JsonResource
             'pickup_lng' => $this->pickup_lng,
             'default_fee_payer' => $this->default_fee_payer,
             'status' => $this->status,
+            'source' => $this->source,
             // Informations internes à l'entreprise de livraison
             'pricing_grid_id' => $this->when($isStaff, $this->pricing_grid_id),
             'notes' => $this->when($isStaff, $this->notes),

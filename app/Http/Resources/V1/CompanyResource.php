@@ -33,6 +33,7 @@ class CompanyResource extends JsonResource
             'field_alert_reminder_minutes' => $this->field_alert_reminder_minutes,
             'parcel_hold_alert_hours' => $this->parcel_hold_alert_hours,
             'tagline' => $this->tagline,
+            'merchant_signup' => $this->merchant_signup,
             'logo_url' => Branding::logoUrl($this->resource),
             'status' => $this->status,
             'users_count' => $this->whenCounted('users'),

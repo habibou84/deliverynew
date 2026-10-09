@@ -63,6 +63,14 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         // API publique : quota par clé, identifiée par son préfixe (en-têtes X-RateLimit-* renvoyés)
+        // Demandes de vérification de numéro (inscription, mot de passe oublié) et SMS envoyés
+        RateLimiter::for('verification-start', fn (Request $request) => [
+            Limit::perMinute(3)->by('vs-min:'.$request->ip()),
+            Limit::perHour(10)->by('vs-hour:'.$request->ip()),
+        ]);
+
+        RateLimiter::for('verification-sms', fn (Request $request) => Limit::perHour(10)->by('sms:'.$request->ip()));
+
         RateLimiter::for('public-api', function (Request $request) {
             $key = (string) ($request->bearerToken() ?? $request->header('X-Api-Key'));
 

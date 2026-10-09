@@ -214,6 +214,29 @@ Chaque page accepte tous les comptes : après connexion, chacun arrive dans son 
 et l'accroche se règlent dans **Paramètres > Logo et page d'accueil** ; `BRANDING_COMPANY` (slug ou identifiant)
 désigne l'entreprise affichée si plusieurs partagent l'installation (par défaut : la première entreprise active).
 
+### Inscription des e-commerçants et mot de passe oublié
+
+Depuis la page d'accueil, **Créer mon compte** (`/inscription`) : boutique, responsable, téléphone, commune et
+adresse de ramassage, mot de passe. Rien n'est créé avant la vérification du numéro ; ensuite la boutique et le
+compte du gérant sont **actifs aussitôt** (tarif par défaut), la personne est connectée et l'équipe reçoit une
+notification « Nouvel e-commerçant » (filtre **Inscrits en ligne** dans E-commerçants).
+
+Vérification du numéro, valable 30 minutes :
+
+1. **WhatsApp** (gratuit, proposé en premier si WhatsApp est branché à Meta) : un bouton ouvre WhatsApp avec le
+   message « Code de vérification : 123456 » vers le numéro de l'entreprise. Le webhook le reçoit et vérifie que
+   l'expéditeur est bien le numéro saisi ; la page continue toute seule (elle interroge le serveur toutes les 3 s).
+2. **SMS** (secours) : code à 6 chiffres, uniquement vers les mobiles ivoiriens (01, 05, 07), 5 essais par code,
+   un renvoi par minute, 3 SMS par numéro et par heure ; le code n'est pas écrit dans le journal des messages.
+
+Limites : 5 demandes par numéro et par heure, 3 par minute et 10 par heure par adresse IP. Sans aucun envoi réel
+(`WHATSAPP_DRIVER=log` et `SMS_DRIVER=log`), le code SMS s'affiche sur la page (**mode démonstration**).
+Les inscriptions se ferment dans **Paramètres > E-commerçants** (la page d'accueil propose alors le contact WhatsApp).
+
+**Mot de passe oublié ?** (lien sous chaque formulaire de connexion, `/mot-de-passe-oublie`) : même vérification
+du numéro, puis nouveau mot de passe ; les autres appareils sont déconnectés. La réponse est identique que le
+numéro ait un compte ou non.
+
 ### Comptes de démonstration
 
 Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot de passe : `password`.
@@ -267,6 +290,13 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/auth/login` | public (`login` = téléphone ou e-mail, `password`, `device_name`) ; 5 essais/minute |
 | GET | `/auth/me` | connecté : profil, entreprise, permissions |
 | POST | `/auth/logout` | connecté : révoque le jeton de l'appareil courant |
+| GET | `/signup` | public : inscriptions ouvertes, zones de ramassage |
+| POST | `/signup` | public : demande d'inscription → `token` et état de la vérification |
+| POST | `/password/forgot` | public (`phone`) → `token` et état de la vérification |
+| GET | `/verifications/{token}` | public : état (`pending`, `verified`, `completed`…) ; ouvre la session à la fin d'une inscription |
+| POST | `/verifications/{token}/sms` | public : envoie le code par SMS |
+| POST | `/verifications/{token}/code` | public (`code`) : vérifie le code SMS |
+| POST | `/password/reset` | public (`token`, `password`, `password_confirmation`) : nouveau mot de passe, session ouverte |
 | GET | `/roles` | rôles que l'utilisateur peut attribuer |
 | GET/POST | `/users` | `users.view` / `users.manage` (filtres `role`, `status`, `search`, `company_id` pour le super admin) |
 | GET/PATCH/DELETE | `/users/{id}` | même entreprise + `users.manage` |

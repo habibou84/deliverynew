@@ -46,10 +46,15 @@ export const useAuthStore = defineStore('auth', {
         device_name: navigator.userAgent.slice(0, 100),
       })
 
-      this.token = data.token
-      this.user = data.user
-      localStorage.setItem(TOKEN_KEY, data.token)
-      cacheUser(data.user)
+      this.startSession(data)
+    },
+
+    // Session ouverte par le serveur : connexion, fin d'inscription, nouveau mot de passe
+    startSession({ token, user }) {
+      this.token = token
+      this.user = user
+      localStorage.setItem(TOKEN_KEY, token)
+      cacheUser(user)
     },
 
     /**

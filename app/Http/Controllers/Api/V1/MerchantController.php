@@ -30,6 +30,7 @@ class MerchantController extends Controller
         $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'string'],
+            'source' => ['nullable', 'string', 'in:backoffice,signup'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
 
@@ -37,6 +38,8 @@ class MerchantController extends Controller
             ->with('pickupZone')
             ->withCount('orders')
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            // Inscrits en ligne
+            ->when($request->filled('source'), fn ($q) => $q->where('source', $request->string('source'))->latest())
             ->when($request->filled('search'), function ($q) use ($request) {
                 $term = '%'.mb_strtolower($request->string('search')).'%';
                 $q->where(fn ($q) => $q->whereRaw('LOWER(business_name) LIKE ?', [$term])

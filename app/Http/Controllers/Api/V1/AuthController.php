@@ -33,15 +33,23 @@ class AuthController extends Controller
             return response()->json(['message' => 'Compte suspendu. Contactez votre administrateur.'], 403);
         }
 
+        return response()->json(self::session($user, $request->input('device_name') ?: 'api'));
+    }
+
+    /**
+     * Ouvre une session (jeton d'accès) : connexion, fin d'inscription, nouveau mot de passe.
+     *
+     * @return array<string, mixed>
+     */
+    public static function session(User $user, string $device = 'api'): array
+    {
         $user->forceFill(['last_login_at' => now()])->save();
 
-        $token = $user->createToken($request->input('device_name') ?: 'api')->plainTextToken;
-
-        return response()->json([
-            'token' => $token,
+        return [
+            'token' => $user->createToken($device)->plainTextToken,
             'token_type' => 'Bearer',
             'user' => UserResource::make($user->load(['company', 'merchant', 'courier']))->withPermissions(),
-        ]);
+        ];
     }
 
     public function me(Request $request): UserResource

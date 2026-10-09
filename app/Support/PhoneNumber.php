@@ -59,6 +59,15 @@ class PhoneNumber
         return (string) ($normalized ?? $value);
     }
 
+    /**
+     * Mobile ivoirien (01 Moov, 05 MTN, 07 Orange) : seuls numéros auxquels on envoie
+     * des SMS de vérification.
+     */
+    public static function isLocalMobile(?string $value): bool
+    {
+        return (bool) preg_match('/^\+'.self::DEFAULT_COUNTRY_CODE.'0[157]\d{8}$/', (string) self::normalize($value));
+    }
+
     public static function isValid(?string $value): bool
     {
         return self::normalize($value) !== null;

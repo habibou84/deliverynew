@@ -21,6 +21,9 @@ const routes = [
   { path: '/', name: 'home', component: () => import('../views/auth/MerchantHome.vue'), meta: { guest: true } },
   { path: '/admin/connexion', name: 'login-staff', component: () => import('../views/auth/StaffLogin.vue'), meta: { guest: true } },
   { path: '/livreur/connexion', name: 'login-courier', component: () => import('../views/auth/CourierLogin.vue'), meta: { guest: true } },
+  // Inscription des e-commerçants et mot de passe oublié (numéro vérifié par WhatsApp ou SMS)
+  { path: '/inscription', name: 'signup', component: () => import('../views/auth/Signup.vue'), meta: { guest: true } },
+  { path: '/mot-de-passe-oublie', name: 'forgot-password', component: () => import('../views/auth/ForgotPassword.vue'), meta: { guest: true } },
   // Ancienne adresse de connexion
   { path: '/login', redirect: (to) => ({ path: '/', query: to.query }) },
   // Pages publiques (destinataire)
