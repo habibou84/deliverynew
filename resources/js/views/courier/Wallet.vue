@@ -11,6 +11,26 @@
       </div>
     </section>
 
+    <!-- Colis non livrés encore en main : à rapporter au dépôt lors du point -->
+    <section v-if="parcelsToReturn.length || onTheRoad.length" class="space-y-2">
+      <p v-if="onTheRoad.length" class="rounded-xl bg-sky-50 text-sky-900 text-sm px-4 py-3">
+        🛵 {{ onTheRoad.length }} course{{ onTheRoad.length > 1 ? 's' : '' }} en chemin : indiquez « livré » ou « échec » avant de faire votre point à la caisse.
+      </p>
+      <template v-if="parcelsToReturn.length">
+        <h2 class="font-semibold">📦 Colis à rapporter au dépôt ({{ parcelsToReturn.length }})</h2>
+        <div class="m-card divide-y">
+          <div v-for="p in parcelsToReturn" :key="p.id" class="p-4 flex justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium truncate">{{ p.recipient_name || p.recipient_phone }}</p>
+              <p class="text-xs text-slate-500">{{ p.tracking_code }} · {{ p.merchant }}</p>
+            </div>
+            <p class="text-xs text-right text-slate-600">{{ p.rescheduled_to ? `Reporté au ${date(p.rescheduled_to)}` : (p.incident || p.status_label) }}</p>
+          </div>
+        </div>
+        <p class="text-sm text-slate-500 text-center">Remettez-les à la caisse ou au dépôt lors de votre point.</p>
+      </template>
+    </section>
+
     <section class="grid grid-cols-2 gap-2">
       <div class="m-card p-4">
         <p class="text-sm text-slate-500">Gagné aujourd'hui</p>
@@ -73,7 +93,7 @@
       </div>
     </section>
 
-    <EmptyState v-if="!wallet.collections.length && !wallet.advances?.length && !wallet.expenses?.length && !wallet.recent_payouts.length" icon="💵" title="Rien à verser" text="L'argent encaissé lors de vos livraisons apparaîtra ici." />
+    <EmptyState v-if="!wallet.parcels?.length && !wallet.collections.length && !wallet.advances?.length && !wallet.expenses?.length && !wallet.recent_payouts.length" icon="💵" title="Rien à verser" text="L'argent encaissé lors de vos livraisons apparaîtra ici." />
   </div>
   <div v-else-if="error" class="text-center py-10 space-y-3">
     <p class="text-slate-600">{{ error }}</p>
@@ -83,7 +103,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { apiErrorMessage } from '../../bootstrap/axios'
 import { cachedGet } from '../../composables/useCachedApi'
 import EmptyState from '../../components/mobile/EmptyState.vue'
@@ -92,6 +112,8 @@ import { date, dateTime, money, signedClass } from '../../utils/format'
 const wallet = ref(null)
 const stale = ref(false)
 const error = ref('')
+const parcelsToReturn = computed(() => (wallet.value?.parcels || []).filter((p) => !p.on_the_road))
+const onTheRoad = computed(() => (wallet.value?.parcels || []).filter((p) => p.on_the_road))
 
 async function load() {
   error.value = ''

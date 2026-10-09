@@ -5,6 +5,7 @@ import { useNotificationStore } from '../stores/notifications'
 import { useToastStore } from '../stores/toasts'
 import { useFieldReportStore } from '../stores/fieldReports'
 import { useCourierMessageStore } from '../stores/courierMessages'
+import { useHeldParcelStore } from '../stores/heldParcels'
 import { desktopNotify, playAlertSound } from './useAlertSound'
 import router from '../router'
 
@@ -30,6 +31,7 @@ export function useRealtime() {
   const userChannel = `App.Models.User.${auth.user.id}`
   const fieldReports = useFieldReportStore()
   const courierMessages = useCourierMessageStore()
+  const heldParcels = useHeldParcelStore()
 
   echo.private(userChannel).notification((n) => {
     notifications.receive(n)
@@ -41,6 +43,16 @@ export function useRealtime() {
       desktopNotify(n.title, n.body, () => router.push(`${auth.homeRoute}/courses/${n.order_id}`))
       fieldReports.received()
       toasts.push(n.body, alert ? 'error' : 'info', { title: `${alert ? '⚠️' : '📝'} ${n.title}`, to: n.order_id, timeout: alert ? 20000 : 10000 })
+      return
+    }
+
+    // Colis resté trop longtemps chez un livreur : son, notification du bureau, toast vers l'écran de suivi
+    if (n.custody) {
+      const href = '/admin/colis-livreurs'
+      playAlertSound('alert')
+      desktopNotify(n.title, n.body, () => router.push(href))
+      heldParcels.received()
+      toasts.push(n.body, 'error', { title: n.title, timeout: 20000, href })
       return
     }
 

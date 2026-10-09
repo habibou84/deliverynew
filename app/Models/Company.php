@@ -29,6 +29,7 @@ class Company extends Model
         'sms_fallback',
         'whatsapp_orders',
         'field_alert_reminder_minutes',
+        'parcel_hold_alert_hours',
         'status',
     ];
 
@@ -43,6 +44,7 @@ class Company extends Model
             'sms_fallback' => 'boolean',
             'whatsapp_orders' => 'boolean',
             'field_alert_reminder_minutes' => 'integer',
+            'parcel_hold_alert_hours' => 'integer',
             'status' => CompanyStatus::class,
         ];
     }

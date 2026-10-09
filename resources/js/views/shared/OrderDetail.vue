@@ -40,6 +40,12 @@
           </div>
         </div>
 
+        <!-- Garde du colis (personnel uniquement) -->
+        <p v-if="order.held_by" class="rounded-lg bg-amber-50 ring-1 ring-amber-200 px-4 py-2 text-sm text-amber-900">
+          🎒 Colis chez <strong>{{ order.held_by.name }}</strong> depuis le {{ dateTime(order.held_by.since) }}
+          <span v-if="['delivery_failed', 'rescheduled'].includes(order.status)"> · pas encore rendu au dépôt</span>
+        </p>
+
         <div class="card p-4 text-sm grid sm:grid-cols-4 gap-3">
           <div><p class="text-gray-500">Articles</p><p class="font-semibold">{{ money(order.amounts.items_amount) }}</p></div>
           <div>

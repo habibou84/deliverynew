@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\PaymentMethod;
 use App\Enums\Permission;
+use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Models\CashCollection;
 use App\Models\Courier;
@@ -16,12 +17,14 @@ use App\Models\MerchantLedgerEntry;
 use App\Models\MerchantPayout;
 use App\Models\OrderExpense;
 use App\Models\User;
+use App\Services\Couriers\ParcelCustody;
 use App\Services\Finance\CashDesk;
 use App\Services\Finance\CourierCash;
 use App\Services\Finance\CourierPayroll;
 use App\Services\Finance\MerchantPayouts;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 /**
@@ -36,6 +39,7 @@ class FinanceController extends Controller
         private readonly MerchantPayouts $payouts,
         private readonly CourierPayroll $payroll,
         private readonly CourierCash $courierCash,
+        private readonly ParcelCustody $custody,
     ) {}
 
     // ───────────── Argent chez les livreurs et versements ─────────────
@@ -49,6 +53,9 @@ class FinanceController extends Controller
         $unpaid = CourierEarning::whereNull('payout_id')->groupBy('courier_id')
             ->selectRaw('courier_id, SUM(amount) AS total')->pluck('total', 'courier_id');
 
+        $parcels = ParcelCustody::heldQuery()->groupBy('held_by_courier_id')
+            ->selectRaw('held_by_courier_id, COUNT(*) AS n')->pluck('n', 'held_by_courier_id');
+
         $couriers = Courier::with('user')->get()->map(fn (Courier $c) => [
             'courier_id' => $c->id,
             'name' => $c->user?->name,
@@ -60,6 +67,7 @@ class FinanceController extends Controller
             'unpaid' => (int) ($unpaid[$c->id] ?? 0),
             'pending_collections' => $cash[$c->id]['items'] ?? 0,
             'oldest_collected_at' => $cash[$c->id]['oldest'] ?? null,
+            'parcels_in_hand' => (int) ($parcels[$c->id] ?? 0),
         ])
             // Montant absolu : un livreur à qui la caisse doit des frais avancés reste en tête de liste
             ->sortByDesc(fn ($c) => abs($c['cash_in_hand']))->values();
@@ -125,16 +133,46 @@ class FinanceController extends Controller
             'amount_received' => ['required', 'integer', 'min:-10000000', 'max:100000000'],
             'collection_ids' => ['nullable', 'array'],
             'collection_ids.*' => ['integer'],
+            // Colis non livrés que le livreur rend au dépôt pendant le point
+            'returned_order_ids' => ['nullable', 'array'],
+            'returned_order_ids.*' => ['integer'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ], [], ['amount_received' => 'montant reçu', 'courier_id' => 'livreur']);
 
-        $remittance = $this->cashDesk->remit(
-            $request->user(),
-            Courier::findOrFail($data['courier_id']),
-            $data['amount_received'],
-            $data['collection_ids'] ?? null,
-            $data['notes'] ?? null,
-        );
+        $courier = Courier::findOrFail($data['courier_id']);
+
+        // Pas de point tant qu'une course est « En chemin » : le livreur doit d'abord la clôturer
+        $onTheRoad = $this->custody->onTheRoad($courier);
+        if ($onTheRoad->isNotEmpty()) {
+            throw new BusinessRuleException(
+                $onTheRoad->count().' course(s) encore « En chemin » ('.$onTheRoad->pluck('tracking_code')->implode(', ').'). '
+                .'Le livreur doit indiquer « livré » ou « échec » avant le point de caisse.',
+                'courier_id',
+            );
+        }
+
+        $remittance = DB::transaction(function () use ($request, $courier, $data) {
+            $received = $this->custody->receive($request->user(), $courier, $data['returned_order_ids'] ?? []);
+
+            $remittance = $this->cashDesk->remit(
+                $request->user(),
+                $courier,
+                $data['amount_received'],
+                $data['collection_ids'] ?? null,
+                $data['notes'] ?? null,
+            );
+
+            // Trace des colis rendus et de ceux que le livreur garde encore
+            $kept = $this->custody->held($courier);
+            if ($received->isNotEmpty() || $kept->isNotEmpty()) {
+                $remittance->update(['parcels' => [
+                    'returned' => $received->pluck('tracking_code')->values()->all(),
+                    'kept' => $kept->pluck('tracking_code')->values()->all(),
+                ]]);
+            }
+
+            return $remittance;
+        });
 
         return response()->json(['data' => $this->remittanceData($remittance->load(['courier.user', 'receiver']))], 201);
     }
@@ -412,6 +450,7 @@ class FinanceController extends Controller
     {
         return [
             'balance' => $this->courierCash->balance($courier),
+            'parcels' => $this->custody->held($courier)->map(fn ($o) => ParcelCustody::parcelData($o))->values(),
             'advances' => $courier->advances()->unsettled()->with('order:id,tracking_code')->orderBy('given_at')->get()
                 ->map(fn (CourierAdvance $a) => $this->advanceData($a)),
             'expenses' => $courier->expenses()->owedToCourier()->with('order:id,tracking_code,recipient_name')->orderBy('created_at')->get()
@@ -452,6 +491,8 @@ class FinanceController extends Controller
             'received_by' => $r->receiver?->name,
             'received_at' => $r->received_at,
             'notes' => $r->notes,
+            'parcels_returned' => $r->parcels['returned'] ?? [],
+            'parcels_kept' => $r->parcels['kept'] ?? [],
         ];
     }
 

@@ -118,6 +118,7 @@ class OrderController extends Controller
             // Le marchand ne voit que les frais qui lui sont facturés
             'expenses' => fn ($q) => $q->when($isMerchant, fn ($q) => $q->where('billed_to', 'merchant'))
                 ->with('courier.user')->orderBy('id'),
+            ...($isMerchant ? [] : ['holder.user']),
         ];
     }
 

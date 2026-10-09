@@ -28,6 +28,7 @@ Table companies {
   sms_fallback boolean [default: true, note: 'SMS si le WhatsApp n\'est pas remis']
   whatsapp_orders boolean [default: true, note: 'création de course en écrivant au numéro WhatsApp']
   field_alert_reminder_minutes smallint [default: 10, note: 'relance des problèmes des livreurs sans suite (0 = jamais)']
+  parcel_hold_alert_hours smallint [default: 24, note: 'alerte des colis restés chez un livreur (0 = jamais)']
   status varchar [default: 'active', note: 'active | suspended']
   created_at timestamp
   updated_at timestamp
@@ -348,6 +349,9 @@ Table orders {
   status varchar [not null, default: 'pending', note: 'voir machine à états (PLAN.md §4)']
   pickup_courier_id bigint [ref: > couriers.id, note: 'dénormalisé depuis order_assignments']
   delivery_courier_id bigint [ref: > couriers.id, note: 'dénormalisé']
+  held_by_courier_id bigint [ref: > couriers.id, note: 'livreur qui a le colis en main (null = au dépôt, livré ou retourné)']
+  held_since timestamp
+  hold_alerted_at timestamp [note: 'alerte « colis toujours chez le livreur » envoyée']
   current_hub_id bigint [ref: > hubs.id]
   attempts_count smallint [default: 0]
   max_attempts smallint [default: 3]
@@ -534,6 +538,7 @@ Table courier_remittances {
   received_by bigint [ref: > users.id]
   received_at timestamp
   notes text
+  parcels json [note: '{returned: [codes], kept: [codes]} : colis rendus et gardés lors du point']
   created_at timestamp
   updated_at timestamp
 }

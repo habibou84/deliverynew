@@ -28,6 +28,11 @@
           <input id="reminder" v-model.number="form.field_alert_reminder_minutes" type="number" min="0" max="240" class="input w-24">
           <p class="text-xs text-gray-500 mt-1">Relance au dispatch après ce délai, puis aux administrateurs après trois fois ce délai. 0 = pas de relance. Répondre au livreur ou traiter la remontée arrête les relances.</p>
         </div>
+        <div>
+          <label class="label" for="hold-alert">Alerter quand un colis non livré reste chez un livreur depuis plus de (heures)</label>
+          <input id="hold-alert" v-model.number="form.parcel_hold_alert_hours" type="number" min="0" max="168" class="input w-24">
+          <p class="text-xs text-gray-500 mt-1">Alerte sonore au dispatch, une fois par colis, et colis signalé en rouge dans « Colis chez les livreurs ». 0 = jamais.</p>
+        </div>
       </fieldset>
 
       <fieldset class="space-y-3 border-t pt-4">
@@ -50,7 +55,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
-const FIELDS = ['name', 'phone', 'address', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes']
+const FIELDS = ['name', 'phone', 'address', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours']
 
 const auth = useAuthStore()
 const toasts = useToastStore()
