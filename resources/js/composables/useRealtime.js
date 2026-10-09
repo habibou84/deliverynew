@@ -65,7 +65,7 @@ export function useRealtime() {
       return
     }
 
-    toasts.push(n.body, n.kind === 'incident' ? 'error' : 'info', { title: n.title, to: n.order_id })
+    toasts.push(n.body, n.kind === 'incident' ? 'error' : 'info', n.href ? { title: n.title, href: n.href, timeout: 12000 } : { title: n.title, to: n.order_id })
   })
   channels.push(userChannel)
 

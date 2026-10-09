@@ -55,7 +55,8 @@ function toggle() { open.value = !open.value }
 
 function go(n) {
   open.value = false
-  if (n.order_id) router.push(`${auth.homeRoute}/courses/${n.order_id}`)
+  if (n.href) router.push(n.href)
+  else if (n.order_id) router.push(`${auth.homeRoute}/courses/${n.order_id}`)
   else if (n.product_id) router.push(`${auth.homeRoute}/stock`)
 }
 </script>

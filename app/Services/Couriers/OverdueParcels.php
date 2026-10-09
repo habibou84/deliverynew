@@ -64,7 +64,7 @@ class OverdueParcels
                     'parcel_overdue',
                     $count > 1 ? "📦 {$count} colis toujours chez {$name}" : "📦 Colis {$oldest->tracking_code} toujours chez {$name}",
                     "Non rendu{$this->plural($count)} au dépôt depuis plus de {$age} : ".$parcels->pluck('tracking_code')->take(5)->implode(', ').($count > 5 ? '…' : '').'.',
-                    ['custody' => true, 'severity' => 'alert', 'courier_id' => (int) $courierId, 'count' => $count],
+                    ['custody' => true, 'severity' => 'alert', 'courier_id' => (int) $courierId, 'count' => $count, 'href' => '/admin/colis-livreurs'],
                 ));
                 $sent++;
             }

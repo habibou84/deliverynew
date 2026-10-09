@@ -130,6 +130,9 @@ jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
   facultatif), **retourner au marchand** ou, pour une commande d'entrepôt, **remettre en stock**. Le marchand est
   prévenu par WhatsApp (nouvelle date ou retour du colis). Les reports à une date future sont dans **Reportées** et
   reviennent dans « À livrer » le jour prévu.
+- **Rappel du matin** (`orders:due-today`, chaque jour à 06:50) : le dispatch est prévenu des courses reportées à
+  aujourd'hui et pas encore assignées, avec les livreurs qui ont déjà le colis en main (à leur confier en priorité).
+  Dans la liste des courses, 🎒 indique le livreur qui a le colis.
 
 ### Notifications push des livreurs
 

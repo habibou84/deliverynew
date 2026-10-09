@@ -6,7 +6,9 @@ use App\Models\IncidentReason;
 use App\Models\Order;
 use App\Models\OutboundMessage;
 use App\Models\User;
+use App\Notifications\OrderAlert;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -141,5 +143,34 @@ class OrderDecisionTest extends TestCase
         Sanctum::actingAs($this->dispatcher);
         $this->postJson("/api/v1/orders/{$order->id}/decision", ['decision' => 'redeliver', 'date' => today()->toDateString()])
             ->assertJsonValidationErrors('decision');
+    }
+
+    public function test_morning_reminder_for_rescheduled_orders(): void
+    {
+        Notification::fake();
+        $today = $this->failed();
+        $later = $this->failed();
+        Sanctum::actingAs($this->dispatcher);
+        $this->postJson("/api/v1/orders/{$today->id}/decision", ['decision' => 'redeliver', 'date' => today()->addDay()->toDateString()])->assertOk();
+        $this->postJson("/api/v1/orders/{$later->id}/decision", ['decision' => 'redeliver', 'date' => today()->addDays(5)->toDateString()])->assertOk();
+
+        // Rien de prévu aujourd'hui
+        $this->artisan('orders:due-today')->assertSuccessful();
+        $this->assertSame(0, $this->dueTodayAlerts());
+
+        $this->travel(1)->days();
+        $this->artisan('orders:due-today')->assertSuccessful();
+        Notification::assertSentTo($this->dispatcher, OrderAlert::class, fn (OrderAlert $n) => $n->kind === 'due_today'
+            && $n->order->is($today) && $n->extra['count'] === 1 && $n->extra['href'] === '/admin/courses?queue=to_deliver'
+            && str_contains($n->body, 'chez '.$this->courierB->user->name));
+
+        // Une seule fois par jour
+        $this->artisan('orders:due-today');
+        $this->assertSame(1, $this->dueTodayAlerts());
+    }
+
+    private function dueTodayAlerts(): int
+    {
+        return Notification::sent($this->dispatcher, OrderAlert::class)->filter(fn (OrderAlert $n) => $n->kind === 'due_today')->count();
     }
 }
