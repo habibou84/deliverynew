@@ -111,6 +111,17 @@ class StockKeeper
     }
 
     /**
+     * Colis perdu : les articles sortent du stock (ajustement), sans livraison.
+     */
+    public function lose(Order $order, ?User $actor): void
+    {
+        foreach ($this->reservedItems($order) as $item) {
+            $this->move($item->product, $item->location, StockMovementType::Adjustment, -$item->quantity, -$item->quantity, $actor, $order, 'Colis perdu');
+            $item->forceFill(['stock_state' => 'shipped'])->save();
+        }
+    }
+
+    /**
      * Course annulée, refusée ou colis revenu : les articles redeviennent disponibles.
      */
     public function release(Order $order, ?User $actor, string $note): void
@@ -131,6 +142,7 @@ class StockKeeper
             OrderStatus::Cancelled => $this->release($order, $actor, 'Course annulée'),
             OrderStatus::Rejected => $this->release($order, $actor, 'Course refusée'),
             OrderStatus::Returned => $this->release($order, $actor, $order->fromWarehouse() ? 'Colis remis en stock' : 'Colis retourné au marchand'),
+            OrderStatus::Lost => $this->lose($order, $actor),
             default => null,
         };
     }

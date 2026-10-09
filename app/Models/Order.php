@@ -99,6 +99,8 @@ class Order extends Model
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
             'held_since' => 'datetime',
+            'lost_at' => 'datetime',
+            'hold_escalated_at' => 'datetime',
             'hold_alerted_at' => 'datetime',
             'returned_at' => 'datetime',
             'cancelled_at' => 'datetime',
@@ -192,6 +194,11 @@ class Order extends Model
         return $this->belongsTo(Courier::class, 'return_courier_id');
     }
 
+    public function returnSlip(): BelongsTo
+    {
+        return $this->belongsTo(ReturnSlip::class);
+    }
+
     /**
      * Livreur qui a le colis en main (pas encore rendu au dépôt, livré ou retourné).
      */
@@ -212,6 +219,7 @@ class Order extends Model
         $this->held_by_courier_id = $courierId;
         $this->held_since = $courierId ? now() : null;
         $this->hold_alerted_at = null;
+        $this->hold_escalated_at = null;
     }
 
     public function lastIncidentReason(): BelongsTo

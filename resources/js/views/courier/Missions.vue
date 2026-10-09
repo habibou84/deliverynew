@@ -28,6 +28,12 @@
       </div>
     </div>
 
+    <!-- Bons de retour à remettre aux marchands -->
+    <RouterLink v-for="s in returnSlips" :key="s.id" :to="`/livreur/retours/${s.id}`" class="tap block rounded-2xl bg-rose-600 text-white p-4 active:bg-rose-700">
+      <span class="block font-semibold">📮 {{ s.orders_count }} colis à rendre à {{ s.merchant.business_name }}</span>
+      <span class="block text-sm text-white/80">Bon {{ s.reference }} · faites signer le marchand à la remise →</span>
+    </RouterLink>
+
     <!-- Consignes de l'agence non lues -->
     <RouterLink v-if="messages.unread" to="/livreur/messages" class="tap block rounded-2xl bg-sky-600 text-white p-4 font-semibold active:bg-sky-700">
       💬 {{ messages.unread }} consigne{{ messages.unread > 1 ? 's' : '' }} de l'agence à lire →
@@ -112,6 +118,7 @@ const notifications = useNotificationStore()
 const toasts = useToastStore()
 const missions = ref([])
 const wallet = ref(null)
+const returnSlips = ref([])
 const loading = ref(true)
 const stale = ref(false)
 const error = ref('')
@@ -128,7 +135,8 @@ const count = (type) => missions.value.filter((m) => m.type === type).length
 
 async function load() {
   try {
-    const [m, w] = await Promise.all([cachedGet('/courier/missions'), cachedGet('/courier/wallet')])
+    const [m, w, r] = await Promise.all([cachedGet('/courier/missions'), cachedGet('/courier/wallet'), cachedGet('/courier/return-slips').catch(() => null)])
+    returnSlips.value = r?.data.data || []
     missions.value = m.data.data
     messages.setUnread(m.data.meta?.unread_messages)
     wallet.value = w.data.data

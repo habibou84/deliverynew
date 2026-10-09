@@ -23,7 +23,7 @@ class OrderController extends Controller
 {
     public const LIST_RELATIONS = [
         'merchant', 'pickupZone', 'deliveryZone', 'lastIncidentReason', 'pickupHub', 'items',
-        'pickupCourier.user', 'deliveryCourier.user', 'returnCourier.user',
+        'pickupCourier.user', 'deliveryCourier.user', 'returnCourier.user', 'holder.user',
     ];
 
     public function __construct(private readonly OrderService $orders) {}
@@ -36,7 +36,7 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_prepare', 'to_deliver', 'to_return', 'incidents'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_prepare', 'to_deliver', 'to_decide', 'scheduled', 'to_return', 'incidents'])],
             'merchant_id' => ['nullable', 'integer'],
             'hub_id' => ['nullable', 'integer'],
             'courier_id' => ['nullable', 'integer'],
@@ -118,7 +118,6 @@ class OrderController extends Controller
             // Le marchand ne voit que les frais qui lui sont facturés
             'expenses' => fn ($q) => $q->when($isMerchant, fn ($q) => $q->where('billed_to', 'merchant'))
                 ->with('courier.user')->orderBy('id'),
-            ...($isMerchant ? [] : ['holder.user']),
         ];
     }
 
@@ -134,10 +133,20 @@ class OrderController extends Controller
             'to_pickup' => $query->where('status', OrderStatus::Confirmed)->whereNull('pickup_hub_id'),
             // Commandes d'entrepôt validées, à préparer avant la livraison
             'to_prepare' => $query->where('status', OrderStatus::Confirmed)->whereNotNull('pickup_hub_id'),
-            'to_deliver' => $query->whereIn('status', OrderStatus::values([
-                OrderStatus::PickedUp, OrderStatus::AtHub, OrderStatus::DeliveryFailed, OrderStatus::Rescheduled,
-            ]))->where('return_requested', false)
+            // À livrer aujourd'hui : colis disponibles et reports arrivés à échéance
+            'to_deliver' => $query->whereIn('status', OrderStatus::values([OrderStatus::PickedUp, OrderStatus::AtHub, OrderStatus::Rescheduled]))
+                ->where(fn ($q) => $q->where('status', '!=', OrderStatus::Rescheduled->value)
+                    ->orWhereNull('delivery_scheduled_date')
+                    ->orWhereDate('delivery_scheduled_date', '<=', today()))
+                ->where('return_requested', false)
                 ->whereDoesntHave('assignments', fn ($q) => $q->active()->where('type', AssignmentType::Delivery->value)),
+            // Échecs sans suite : relivrer, retourner ou remettre en stock
+            'to_decide' => $query->where('status', OrderStatus::DeliveryFailed)
+                ->where('return_requested', false)
+                ->whereDoesntHave('assignments', fn ($q) => $q->active()),
+            // Reports à une date future
+            'scheduled' => $query->where('status', OrderStatus::Rescheduled)->whereDate('delivery_scheduled_date', '>', today())
+                ->where('return_requested', false),
             'to_return' => $query->where('return_requested', true)
                 ->whereNotIn('status', OrderStatus::values([OrderStatus::ReturnAssigned, OrderStatus::Returning, OrderStatus::Returned])),
             'incidents' => $query->whereIn('status', OrderStatus::values([OrderStatus::DeliveryFailed, OrderStatus::Rescheduled])),

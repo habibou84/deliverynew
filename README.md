@@ -125,6 +125,26 @@ jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
   0 = jamais), le colis passe en rouge, le menu affiche un badge et le dispatch reçoit une alerte sonore
   (`parcels:overdue`, toutes les 15 min, une alerte par colis).
 - Le livreur voit dans **Ma caisse** les colis à rapporter au dépôt.
+- **Décider de la suite** (file **À décider** des courses, ou fiche de la course) : un échec de livraison attend
+  une décision avant de revenir dans « À livrer » : **relivrer** à une date (aujourd'hui, demain…, livreur
+  facultatif), **retourner au marchand** ou, pour une commande d'entrepôt, **remettre en stock**. Le marchand est
+  prévenu par WhatsApp (nouvelle date ou retour du colis). Les reports à une date future sont dans **Reportées** et
+  reviennent dans « À livrer » le jour prévu.
+- **Rappel du matin** (`orders:due-today`, chaque jour à 06:50) : le dispatch est prévenu des courses reportées à
+  aujourd'hui et pas encore assignées, avec les livreurs qui ont déjà le colis en main (à leur confier en priorité).
+  Dans la liste des courses, 🎒 indique le livreur qui a le colis.
+- **Bon de retour groupé** (**Retours marchands**, back-office) : les colis à rendre sont regroupés par marchand ;
+  le dispatch crée un bon (`BR-…`) confié à un livreur (celui qui a déjà les colis est proposé). Le marchand reçoit
+  le lien du bon par WhatsApp. Dans son application, le livreur ouvre le bon, coche les colis remis, saisit le nom
+  de la personne qui reçoit et fait **signer à l'écran** ou **photographie** la remise : toutes les courses passent
+  « Retourné » et le marchand reçoit la confirmation. Le bon est imprimable (A4) depuis `/bon-de-retour/{id}`.
+  Deux nouveaux modèles WhatsApp sont à faire approuver : `bon_de_retour` et `retour_remis`.
+- **Colis perdu** : un administrateur (dispatch + caisse) déclare la perte depuis la fiche de la course (bouton
+  « 🚨 Déclarer le colis perdu ») : circonstances, **indemnité au marchand** (valeur des articles proposée), portée à
+  son grand livre et versée avec son prochain reversement, et **retenue facultative** sur la paie du livreur
+  responsable. La course passe « Perdu » (statut final), le marchand est prévenu par WhatsApp, le stock d'une
+  commande d'entrepôt est sorti. Un colis resté chez un livreur plus de trois fois le délai d'alerte (72 h par défaut)
+  est signalé « peut-être perdu » aux administrateurs et dans « Colis chez les livreurs ».
 
 ### Notifications push des livreurs
 

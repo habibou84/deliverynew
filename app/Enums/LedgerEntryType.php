@@ -16,6 +16,8 @@ enum LedgerEntryType: string
     case OtherFee = 'other_fee';
     // Stockage des produits dans un entrepôt de l'entreprise (facturé chaque mois)
     case StorageFee = 'storage_fee';
+    // Indemnité versée au marchand pour un colis perdu
+    case LostCompensation = 'lost_compensation';
     case Adjustment = 'adjustment';
     // Reversement effectué : solde les écritures du relevé
     case Payout = 'payout';
@@ -29,6 +31,7 @@ enum LedgerEntryType: string
             self::ShippingFee => 'Frais d\'expédition',
             self::OtherFee => 'Autres frais',
             self::StorageFee => 'Frais de stockage',
+            self::LostCompensation => 'Indemnité colis perdu',
             self::Adjustment => 'Ajustement',
             self::Payout => 'Reversement',
         };

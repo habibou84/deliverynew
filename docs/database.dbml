@@ -174,6 +174,25 @@ Table push_subscriptions {
   Note: 'Abonnements Web Push (un par appareil), supprimés sur réponse 404/410'
 }
 
+Table return_slips {
+  id bigint [pk, increment]
+  company_id bigint [ref: > companies.id, not null]
+  merchant_id bigint [ref: > merchants.id, not null]
+  courier_id bigint [ref: > couriers.id]
+  reference varchar(30) [unique, not null, note: 'BR-AAMMJJ-00001']
+  status varchar(20) [default: 'open', note: 'open, handed, cancelled']
+  created_by bigint [ref: > users.id]
+  handed_at timestamp
+  received_by_name varchar(120)
+  signature_path varchar [note: 'signature dessinée à l\'écran (PNG)']
+  photo_path varchar [note: 'photo de la remise']
+  lat decimal(10,7)
+  lng decimal(10,7)
+  notes varchar(500)
+  created_at timestamp
+  updated_at timestamp
+}
+
 Table courier_locations {
   id bigint [pk, increment]
   courier_id bigint [ref: > couriers.id, not null]
@@ -349,9 +368,13 @@ Table orders {
   status varchar [not null, default: 'pending', note: 'voir machine à états (PLAN.md §4)']
   pickup_courier_id bigint [ref: > couriers.id, note: 'dénormalisé depuis order_assignments']
   delivery_courier_id bigint [ref: > couriers.id, note: 'dénormalisé']
+  return_slip_id bigint [ref: > return_slips.id, note: 'bon de retour groupé']
   held_by_courier_id bigint [ref: > couriers.id, note: 'livreur qui a le colis en main (null = au dépôt, livré ou retourné)']
   held_since timestamp
   hold_alerted_at timestamp [note: 'alerte « colis toujours chez le livreur » envoyée']
+  hold_escalated_at timestamp [note: 'alerte « peut-être perdu » aux administrateurs']
+  lost_at timestamp [note: 'statut lost : colis déclaré perdu']
+  lost_reason varchar(500)
   current_hub_id bigint [ref: > hubs.id]
   attempts_count smallint [default: 0]
   max_attempts smallint [default: 3]

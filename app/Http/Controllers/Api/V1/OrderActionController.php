@@ -11,8 +11,10 @@ use App\Http\Resources\V1\OrderResource;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\OrderAttachment;
+use App\Services\Orders\OrderDecisions;
 use App\Services\Orders\OrderDispatcher;
 use App\Services\Orders\OrderJournal;
+use App\Services\Orders\OrderLosses;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\OrderWorkflow;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +32,8 @@ class OrderActionController extends Controller
         private readonly OrderDispatcher $dispatcher,
         private readonly OrderService $orders,
         private readonly OrderJournal $journal,
+        private readonly OrderDecisions $decisions,
+        private readonly OrderLosses $losses,
     ) {}
 
     public function transition(TransitionOrderRequest $request, Order $order): OrderResource
@@ -44,6 +48,40 @@ class OrderActionController extends Controller
         );
 
         return $this->detail($request, $order);
+    }
+
+    /**
+     * Suite donnée à un colis non livré : relivrer, retourner au marchand, remettre en stock.
+     */
+    public function decide(Request $request, Order $order): OrderResource
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate([
+            'decision' => ['required', Rule::in([OrderDecisions::REDELIVER, OrderDecisions::RETURN, OrderDecisions::RESTOCK])],
+            'date' => ['required_if:decision,redeliver', 'nullable', 'date', 'after_or_equal:today'],
+            'courier_id' => ['nullable', 'integer', Rule::exists('couriers', 'id')->where('company_id', $request->user()->company_id)],
+            'note' => ['nullable', 'string', 'max:500'],
+        ], [], ['decision' => 'décision', 'date' => 'date de livraison', 'courier_id' => 'livreur']);
+
+        return $this->detail($request, $this->decisions->decide($request->user(), $order, $data));
+    }
+
+    /**
+     * Colis perdu : indemnité au marchand, retenue éventuelle sur la paie du livreur.
+     */
+    public function declareLost(Request $request, Order $order): OrderResource
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+            'compensation' => ['required', 'integer', 'min:0', 'max:100000000'],
+            'courier_deduction' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            'responsible_courier_id' => ['nullable', 'integer', Rule::exists('couriers', 'id')->where('company_id', $request->user()->company_id)],
+        ], [], ['reason' => 'circonstances', 'compensation' => 'indemnité', 'courier_deduction' => 'retenue', 'responsible_courier_id' => 'livreur responsable']);
+
+        return $this->detail($request, $this->losses->declare($request->user(), $order, $data));
     }
 
     public function assign(Request $request, Order $order): OrderResource

@@ -63,6 +63,7 @@
               <td :class="['p-2 whitespace-nowrap', isOverdue(p) ? 'text-red-700 font-semibold' : 'text-gray-600']">
                 {{ heldFor(p.held_since) }}
                 <div class="text-xs font-normal text-gray-500">{{ dateTime(p.held_since) }}</div>
+                <RouterLink v-if="maybeLost(p)" :to="`/admin/courses/${p.id}`" class="text-xs font-semibold text-red-700 underline">🚨 Peut-être perdu : vérifier</RouterLink>
               </td>
             </tr>
           </tbody>
@@ -106,6 +107,8 @@ const visible = computed(() => {
     .filter((c) => c.parcels.length)
 })
 
+// Au-delà de trois fois le délai : à retrouver ou à déclarer perdu (fiche de la course)
+const maybeLost = (p) => alertHours.value > 0 && Date.now() - new Date(p.held_since).getTime() >= 3 * alertHours.value * 3600000
 const isOverdue = (p) => alertHours.value > 0 && Date.now() - new Date(p.held_since).getTime() >= alertHours.value * 3600000
 function heldFor(since) {
   const hours = Math.floor((Date.now() - new Date(since).getTime()) / 3600000)

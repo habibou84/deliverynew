@@ -246,14 +246,17 @@ class OrderIncidentTest extends TestCase
             ->assertUnprocessable();
     }
 
-    public function test_dispatch_queue_to_deliver(): void
+    public function test_failed_deliveries_wait_for_a_decision(): void
     {
         $order = $this->orderOutForDelivery();
         $this->move($order, 'delivery_failed', ['incident_reason_id' => $this->reason('absent')]);
         $this->assertSame(OrderStatus::DeliveryFailed, $order->fresh()->status);
 
-        $ids = collect($this->as($this->dispatcher)->getJson('/api/v1/orders?queue=to_deliver')->json('data'))->pluck('id');
+        // Un échec attend d'abord une décision (relivrer, retourner) avant de revenir dans « À livrer »
+        $toDeliver = collect($this->as($this->dispatcher)->getJson('/api/v1/orders?queue=to_deliver')->json('data'))->pluck('id');
+        $toDecide = collect($this->getJson('/api/v1/orders?queue=to_decide')->json('data'))->pluck('id');
 
-        $this->assertContains($order->id, $ids);
+        $this->assertNotContains($order->id, $toDeliver);
+        $this->assertContains($order->id, $toDecide);
     }
 }

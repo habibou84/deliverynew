@@ -111,6 +111,15 @@ class OrderWorkflow
 
     private function authorizeActor(User $actor, Order $order, OrderStatus $from, OrderStatus $to): void
     {
+        // Déclarer un colis perdu engage la caisse : administrateur (dispatch + finance) uniquement
+        if ($to === OrderStatus::Lost) {
+            if ($actor->can(Permission::OrdersDispatch->value) && $actor->can(Permission::FinanceManage->value)) {
+                return;
+            }
+
+            throw new AuthorizationException('Seul un administrateur peut déclarer un colis perdu.');
+        }
+
         if ($actor->can(Permission::OrdersDispatch->value)) {
             return;
         }
@@ -200,6 +209,8 @@ class OrderWorkflow
                 ? null
                 : ($reason ?? throw new BusinessRuleException('Indiquez le motif de l\'échec du ramassage.', 'incident_reason_id')),
             OrderStatus::Delivered => $this->validateDelivery($order, $context),
+            OrderStatus::Lost => filled($context['lost_reason'] ?? null) ? null
+                : throw new BusinessRuleException('Déclarez la perte depuis l\'action « Colis perdu ».', 'status'),
             default => null,
         };
     }
@@ -367,6 +378,14 @@ class OrderWorkflow
                 $order->handTo(null);
 
                 return $return;
+
+            case OrderStatus::Lost:
+                $order->assignments()->active()->update(['status' => AssignmentStatus::Cancelled, 'completed_at' => $now]);
+                $order->lost_at = $now;
+                $order->lost_reason = $context['lost_reason'];
+                $order->handTo(null);
+
+                return null;
 
             case OrderStatus::Cancelled:
             case OrderStatus::Rejected:

@@ -39,6 +39,7 @@ class FinanceRecorder
             OrderStatus::PickedUp => $this->earn($courier, EarningType::Pickup, $courier?->pickup_commission, $order),
             OrderStatus::Delivered => $this->delivered($order, $courier, $context, $actor),
             OrderStatus::Returned => $this->returned($order, $courier, $actor),
+            OrderStatus::Lost => $this->lost($order, $context, $actor),
             default => null,
         };
     }
@@ -94,6 +95,29 @@ class FinanceRecorder
         $this->ledger($order, LedgerEntryType::ReturnFee, -$fee, $actor, "Frais de retour ({$percent} % des frais de livraison)");
 
         $this->earn($courier, EarningType::Return, $courier?->return_commission, $order);
+    }
+
+    /**
+     * Colis perdu : indemnité au marchand, retenue éventuelle sur la paie du livreur responsable.
+     */
+    private function lost(Order $order, array $context, User $actor): void
+    {
+        $this->ledger($order, LedgerEntryType::LostCompensation, (int) ($context['compensation'] ?? 0), $actor, 'Indemnité pour le colis perdu');
+
+        $deduction = (int) ($context['courier_deduction'] ?? 0);
+        $courier = isset($context['responsible_courier_id']) ? Courier::find($context['responsible_courier_id']) : null;
+
+        if ($courier && $deduction > 0) {
+            CourierEarning::create([
+                'company_id' => $courier->company_id,
+                'courier_id' => $courier->id,
+                'type' => EarningType::LostParcel,
+                'amount' => -$deduction,
+                'order_id' => $order->id,
+                'description' => 'Colis perdu '.$order->tracking_code,
+                'created_by' => $actor->id,
+            ]);
+        }
     }
 
     private function ledger(Order $order, LedgerEntryType $type, int $amount, User $actor, string $description): void

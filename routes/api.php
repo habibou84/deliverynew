@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\PushSubscriptionController;
 use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use App\Http\Controllers\Api\V1\ReportController;
+use App\Http\Controllers\Api\V1\ReturnSlipController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\StockMovementController;
 use App\Http\Controllers\Api\V1\StorageContractController;
@@ -119,6 +120,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('{event}/reopen', [FieldReportController::class, 'reopen'])->name('reopen');
         });
 
+        // Bons de retour groupés par marchand (droits vérifiés dans le contrôleur)
+        Route::get('return-slips', [ReturnSlipController::class, 'index'])->name('return-slips.index');
+        Route::post('return-slips', [ReturnSlipController::class, 'store'])->name('return-slips.store');
+        Route::get('return-slips/{returnSlip}', [ReturnSlipController::class, 'show'])->name('return-slips.show');
+        Route::post('return-slips/{returnSlip}/hand-over', [ReturnSlipController::class, 'handOver'])->middleware('throttle:30,1')->name('return-slips.hand-over');
+        Route::post('return-slips/{returnSlip}/cancel', [ReturnSlipController::class, 'cancel'])->name('return-slips.cancel');
+        Route::get('return-slips/{returnSlip}/proof/{kind}', [ReturnSlipController::class, 'proof'])->whereIn('kind', ['signature', 'photo'])->name('return-slips.proof');
+
         // Colis chez les livreurs (droits vérifiés dans le contrôleur)
         Route::get('parcels/held', [ParcelController::class, 'index'])->name('parcels.held');
         Route::get('parcels/held/counts', [ParcelController::class, 'counts'])->name('parcels.held.counts');
@@ -148,6 +157,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::apiResource('orders', OrderController::class)->except('destroy');
         Route::post('orders/{order}/status', [OrderActionController::class, 'transition'])->name('orders.transition');
         Route::post('orders/{order}/assign', [OrderActionController::class, 'assign'])->name('orders.assign');
+        Route::post('orders/{order}/decision', [OrderActionController::class, 'decide'])->name('orders.decision');
+        Route::post('orders/{order}/lost', [OrderActionController::class, 'declareLost'])->name('orders.lost');
         Route::post('orders/{order}/notes', [OrderActionController::class, 'note'])->name('orders.notes');
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
@@ -213,6 +224,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
             Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
             Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');
+            Route::get('return-slips', [ReturnSlipController::class, 'mine'])->name('return-slips');
         });
     });
 });

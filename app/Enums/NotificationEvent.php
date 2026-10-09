@@ -13,6 +13,7 @@ enum NotificationEvent: string
     case OrderDelivered = 'order.delivered';
     case OrderIncident = 'order.incident';
     case PayoutPaid = 'payout.paid';
+    case ReturnSlip = 'order.returned';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum NotificationEvent: string
             self::OrderDelivered => 'Colis livré',
             self::OrderIncident => 'Incident (échec, report)',
             self::PayoutPaid => 'Reversement effectué',
+            self::ReturnSlip => 'Retour de colis (bon de retour)',
         };
     }
 

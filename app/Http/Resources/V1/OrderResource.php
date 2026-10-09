@@ -115,6 +115,8 @@ class OrderResource extends JsonResource
                 'label' => $this->lastIncidentReason->label,
             ] : null),
             'cancel_reason' => $this->cancel_reason,
+            'lost_at' => $this->lost_at,
+            'lost_reason' => $this->lost_reason,
 
             'events' => OrderEventResource::collection($this->whenLoaded('events')),
             'expenses' => OrderExpenseResource::collection($this->whenLoaded('expenses')),
