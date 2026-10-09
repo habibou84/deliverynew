@@ -3,16 +3,26 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Tarifs</h1>
       <div class="flex gap-2">
-        <select v-model="gridId" class="input w-auto" @change="loadGrid">
+        <select v-model="gridId" class="input w-auto" @change="switchGrid">
           <option v-for="g in grids" :key="g.id" :value="g.id">{{ g.name }}{{ g.is_default ? ' (par défaut)' : '' }}</option>
         </select>
         <button class="btn-secondary" @click="newGrid">+ Grille négociée</button>
       </div>
     </div>
 
+    <div v-if="grid" class="flex flex-wrap items-center gap-3 text-sm">
+      <span class="text-gray-600">
+        Grille « {{ grid.name }} »{{ grid.is_default ? ' : appliquée à tous les e-commerçants sans grille négociée' : ` : ${grid.merchants_count ?? 0} e-commerçant(s)` }}
+      </span>
+      <button class="text-blue-600" @click="renameGrid">Renommer</button>
+      <button v-if="!grid.is_default" class="text-red-600" @click="deleteGrid">Supprimer la grille</button>
+    </div>
+
     <p class="text-sm text-gray-600">
       Prix en francs CFA. Ligne = départ, colonne = arrivée. Les cases grisées reprennent le tarif du sens inverse (tarif symétrique) ;
       saisissez une valeur pour définir un tarif différent dans ce sens. Case vide = trajet non desservi.
+      Pour <strong>modifier</strong> un tarif, changez la valeur ; pour le <strong>supprimer</strong>, videz la case (un tarif symétrique
+      se supprime depuis la case où il a été saisi, dans les deux sens à la fois). Puis « Enregistrer les tarifs ».
     </p>
 
     <p v-if="!loaded" class="text-gray-500">Chargement de la grille…</p>
@@ -45,7 +55,7 @@
 
     <div v-if="loaded" class="card p-4 space-y-3">
       <h2 class="font-semibold">Suppléments</h2>
-      <div v-for="(s, i) in surcharges" :key="i" class="flex flex-wrap gap-2 items-end">
+      <div v-for="(s, i) in surcharges" :key="i" class="flex flex-wrap gap-2 items-end" @input="dirty = true" @change="dirty = true">
         <div>
           <label class="label">Type</label>
           <select v-model="s.type" class="input w-auto">
@@ -60,10 +70,15 @@
         </template>
         <div><label class="label">Montant (F)</label><input v-model.number="s.amount" type="number" min="0" class="input w-28"></div>
         <div><label class="label">ou % du tarif</label><input v-model.number="s.percent" type="number" min="0" max="100" class="input w-20"></div>
-        <button class="btn-secondary" @click="surcharges.splice(i, 1)">Retirer</button>
+        <button class="btn-secondary" @click="surcharges.splice(i, 1); dirty = true">Retirer</button>
       </div>
-      <button class="btn-secondary" @click="surcharges.push({ type: 'express', amount: 0, percent: null, min_value: null, max_value: null })">+ Supplément</button>
+      <button class="btn-secondary" @click="dirty = true; surcharges.push({ type: 'express', amount: 0, percent: null, min_value: null, max_value: null })">+ Supplément</button>
     </div>
+
+    <p v-if="dirty" class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800" role="status">
+      Modifications non enregistrées.
+      <button type="button" class="underline ml-2" @click="loadGrid">Annuler les modifications</button>
+    </p>
 
     <div class="flex gap-2">
       <!-- Enregistrer remplace toute la grille : jamais avant son chargement complet -->
@@ -74,7 +89,8 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 
@@ -87,6 +103,10 @@ const prices = ref({}) // "origine-destination" -> prix
 const surcharges = ref([])
 const saving = ref(false)
 const loaded = ref(false)
+const dirty = ref(false)
+let shownGridId = null
+
+const leaveWarning = 'Des tarifs modifiés ne sont pas enregistrés. Quitter quand même ?'
 
 const key = (a, b) => `${a}-${b}`
 
@@ -99,6 +119,7 @@ function mirror(a, b) {
 }
 
 function setCell(a, b, raw) {
+  dirty.value = true
   const value = raw === '' ? null : Number(raw)
   if (value === null || Number.isNaN(value)) delete prices.value[key(a, b)]
   else prices.value[key(a, b)] = value
@@ -118,7 +139,46 @@ async function loadGrid() {
   }
   prices.value = map
   surcharges.value = grid.value.surcharges.map((s) => ({ ...s }))
+  shownGridId = gridId.value
+  dirty.value = false
   loaded.value = true
+}
+
+// Changer de grille fait perdre les modifications en cours : on demande d'abord
+function switchGrid() {
+  if (dirty.value && !window.confirm(leaveWarning)) {
+    gridId.value = shownGridId
+    return
+  }
+  loadGrid()
+}
+
+async function renameGrid() {
+  const name = window.prompt('Nouveau nom de la grille :', grid.value.name)?.trim()
+  if (!name || name === grid.value.name) return
+  try {
+    await http.patch(`/pricing-grids/${gridId.value}`, { name })
+    grid.value.name = name
+    await loadGrids()
+    toasts.success('Grille renommée.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function deleteGrid() {
+  const count = grid.value.merchants_count ?? 0
+  const consequence = count ? ` Ses ${count} e-commerçant(s) passeront sur la grille par défaut.` : ''
+  if (!window.confirm(`Supprimer la grille « ${grid.value.name} » et tous ses tarifs ?${consequence}`)) return
+  try {
+    await http.delete(`/pricing-grids/${gridId.value}`)
+    gridId.value = null
+    await loadGrids()
+    if (gridId.value) await loadGrid()
+    toasts.success('Grille supprimée.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
 }
 
 async function save() {
@@ -145,6 +205,7 @@ async function save() {
 }
 
 async function newGrid() {
+  if (dirty.value && !window.confirm(leaveWarning)) return
   const name = window.prompt('Nom de la grille négociée (ex. : Gros volume) :')
   if (!name) return
   const { data } = await http.post('/pricing-grids', { name })
@@ -158,6 +219,14 @@ async function makeDefault() {
   await loadGrids()
   await loadGrid()
 }
+
+onBeforeRouteLeave(() => !dirty.value || window.confirm(leaveWarning))
+
+function warnBeforeUnload(event) {
+  if (dirty.value) event.preventDefault()
+}
+window.addEventListener('beforeunload', warnBeforeUnload)
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnload))
 
 onMounted(async () => {
   zones.value = (await http.get('/zones')).data.data

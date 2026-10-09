@@ -302,7 +302,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET/PATCH/DELETE | `/users/{id}` | même entreprise + `users.manage` |
 | GET/POST | `/companies` | super administrateur (création avec premier admin facultatif) |
 | GET/PATCH | `/companies/{id}` | super admin, ou admin de l'entreprise (paramètres hors statut) |
-| GET | `/zones` · POST/PATCH `/zones/{id}` | tous · `settings.manage` (`is_shipping`, `shipping_fee_estimate` pour une zone d'expédition) |
+| GET | `/zones` · POST/PATCH/DELETE `/zones/{id}` | tous · `settings.manage` (`is_shipping`, `shipping_fee_estimate` pour une zone d'expédition) ; suppression refusée pour une zone utilisée (courses, e-commerçants, entrepôts, quartiers) : la désactiver |
 | CRUD | `/pricing-grids`, PUT `/pricing-grids/{id}/rules` et `/surcharges` | `settings.manage` |
 | POST | `/quotes` | devis d'une course (marchand ou personnel) |
 | GET/POST/PATCH | `/merchants`, POST `/merchants/{id}/users` | `merchants.view` / `merchants.manage` |

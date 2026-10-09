@@ -115,6 +115,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::middleware('can:settings.manage')->group(function () {
             Route::post('zones', [ZoneController::class, 'store'])->name('zones.store');
             Route::patch('zones/{zone}', [ZoneController::class, 'update'])->name('zones.update');
+            Route::delete('zones/{zone}', [ZoneController::class, 'destroy'])->name('zones.destroy');
             Route::post('hubs', [HubController::class, 'store'])->name('hubs.store');
             Route::patch('hubs/{hub}', [HubController::class, 'update'])->name('hubs.update');
 
