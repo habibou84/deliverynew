@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Models\WhatsAppSession;
 use App\Models\Zone;
+use App\Services\Accounts\PhoneVerifier;
 use App\Services\Messaging\Messenger;
 use App\Services\Orders\OrderService;
 use App\Services\Pricing\PricingService;
@@ -55,6 +56,7 @@ class Conversation
         private readonly OrderMessageParser $parser,
         private readonly HeuristicOrderParser $rules,
         private readonly ZoneMatcher $zoneMatcher,
+        private readonly PhoneVerifier $verifier,
     ) {}
 
     /**
@@ -74,6 +76,13 @@ class Conversation
             'body' => $text,
             'payload' => $buttonId ? ['button_id' => $buttonId] : null,
         ]);
+
+        // Message de vérification d'un numéro (inscription, mot de passe oublié)
+        if ($type === 'text' && ($answer = $this->verifier->handleWhatsApp($company, $this->phone, $text)) !== null) {
+            $this->reply($answer);
+
+            return $this->done();
+        }
 
         [$merchant, $user] = $this->identify();
         $this->inbound->update(['merchant_id' => $merchant?->id]);

@@ -39,7 +39,11 @@
               <p class="text-sm text-slate-500">Accédez à vos courses, à vos encaissements et à vos reversements.</p>
             </div>
             <LoginForm tone="merchant" />
-            <p class="text-center text-sm text-slate-600">
+            <div v-if="branding.signup_open" class="border-t border-slate-200 pt-5 text-center space-y-2">
+              <p class="text-sm text-slate-600">Pas encore client ?</p>
+              <RouterLink to="/inscription" class="block w-full rounded-xl border-2 border-emerald-600 py-3 font-semibold text-emerald-700 hover:bg-emerald-50">Créer mon compte gratuitement</RouterLink>
+            </div>
+            <p v-else class="text-center text-sm text-slate-600">
               Pas encore client ?
               <a v-if="contactLink" :href="contactLink" target="_blank" rel="noopener" class="font-semibold text-emerald-700 hover:underline">Ouvrez votre compte</a>
               <span v-else class="font-semibold">Contactez-nous</span>

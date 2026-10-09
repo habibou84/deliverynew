@@ -31,6 +31,10 @@
       </span>
     </label>
 
+    <p class="text-right -mt-2">
+      <RouterLink :to="{ path: '/mot-de-passe-oublie', query: { espace: tone } }" class="text-sm text-slate-600 hover:underline">Mot de passe oublié ?</RouterLink>
+    </p>
+
     <button type="submit" :disabled="loading" :class="['w-full rounded-xl py-3 font-semibold text-white shadow-sm disabled:opacity-60 transition', button]">
       {{ loading ? 'Connexion…' : 'Se connecter' }}
     </button>

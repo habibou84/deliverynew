@@ -34,6 +34,14 @@
       </div>
 
       <fieldset class="space-y-3 border-t pt-4">
+        <legend class="font-semibold">E-commerçants</legend>
+        <label class="flex items-start gap-2 text-sm">
+          <input v-model="form.merchant_signup" type="checkbox" class="mt-1">
+          <span>Inscriptions en ligne ouvertes<span class="block text-gray-500">Les e-commerçants créent leur compte depuis la page d'accueil (« Créer mon compte »). Le compte est actif dès que le numéro est vérifié par WhatsApp ou SMS ; vous êtes prévenu à chaque inscription.</span></span>
+        </label>
+      </fieldset>
+
+      <fieldset class="space-y-3 border-t pt-4">
         <legend class="font-semibold">Courses</legend>
         <label class="flex items-start gap-2 text-sm">
           <input v-model="form.auto_confirm_orders" type="checkbox" class="mt-1">
@@ -80,7 +88,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
 
-const FIELDS = ['name', 'phone', 'address', 'tagline', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours']
+const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours']
 
 const auth = useAuthStore()
 const toasts = useToastStore()

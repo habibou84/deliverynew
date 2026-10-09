@@ -13,7 +13,7 @@ function readCache() {
 
 // Nom, logo et accroche de l'entreprise de livraison (pages publiques). Affichage
 // immédiat depuis le dernier chargement, puis mise à jour depuis le serveur.
-export const branding = reactive({ name: '', tagline: '', phone: '', email: '', address: '', logo_url: null, loaded: false, ...readCache() })
+export const branding = reactive({ name: '', tagline: '', phone: '', email: '', address: '', logo_url: null, signup_open: false, loaded: false, ...readCache() })
 
 let loading = null
 

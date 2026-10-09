@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\ParcelController;
+use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\PushSubscriptionController;
@@ -28,10 +29,12 @@ use App\Http\Controllers\Api\V1\ReferenceController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\ReturnSlipController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\SignupController;
 use App\Http\Controllers\Api\V1\StockMovementController;
 use App\Http\Controllers\Api\V1\StorageContractController;
 use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\VerificationController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\ZoneController;
@@ -65,6 +68,15 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:login')
         ->name('auth.login');
+
+    // Inscription des e-commerçants et mot de passe oublié : numéro vérifié par WhatsApp ou SMS
+    Route::get('signup', [SignupController::class, 'options'])->name('signup.options');
+    Route::post('signup', [SignupController::class, 'store'])->middleware('throttle:verification-start')->name('signup.store');
+    Route::post('password/forgot', [PasswordResetController::class, 'forgot'])->middleware('throttle:verification-start')->name('password.forgot');
+    Route::post('password/reset', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
+    Route::get('verifications/{token}', [VerificationController::class, 'show'])->middleware('throttle:90,1')->name('verifications.show');
+    Route::post('verifications/{token}/sms', [VerificationController::class, 'sms'])->middleware('throttle:verification-sms')->name('verifications.sms');
+    Route::post('verifications/{token}/code', [VerificationController::class, 'code'])->middleware('throttle:20,1')->name('verifications.code');
 
     // Nom, logo et accroche de l'entreprise de livraison (pages de connexion)
     Route::get('branding', [BrandingController::class, 'show'])->name('branding.show');

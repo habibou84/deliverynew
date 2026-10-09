@@ -143,6 +143,10 @@ Les scripts peuvent être **relancés sans risque** : base, `.env` et clés sont
 - **WhatsApp réel** : dans le `.env`, `WHATSAPP_DRIVER=meta` et `WHATSAPP_APP_SECRET`, puis dans Meta
   le webhook `https://test.mondomaine.ci/api/webhooks/whatsapp` avec le jeton `WHATSAPP_VERIFY_TOKEN`
   du `.env` (généré à l'installation). Le numéro se saisit dans **Paramètres > WhatsApp**.
+- **Inscription en ligne des e-commerçants** (page d'accueil, « Créer mon compte ») : le numéro se vérifie par
+  WhatsApp dès que le WhatsApp réel ci-dessus est branché (webhook compris). Pour le SMS de secours :
+  `SMS_DRIVER=twilio`, `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM`. Sans l'un ni l'autre, le code s'affiche sur la
+  page (mode démonstration) : fermez les inscriptions dans **Paramètres > E-commerçants** si le site est public.
 - **Commandes WhatsApp comprises par Claude** : `ANTHROPIC_API_KEY=…` dans le `.env`.
 - Après une modification du `.env` : relancez `deploy/update.sh` (il recompile l'interface et vide les caches).
 - **Sauvegarde quotidienne de la base** :

@@ -4,6 +4,9 @@
       <h1 class="text-xl font-bold">E-commerçants</h1>
       <div class="flex gap-2">
         <input v-model="search" class="input w-56" placeholder="Rechercher…" @input="debouncedLoad">
+        <label class="flex items-center gap-2 text-sm whitespace-nowrap">
+          <input v-model="onlySignups" type="checkbox" @change="load"> Inscrits en ligne
+        </label>
         <button v-if="auth.can('merchants.manage')" class="btn-primary" @click="openForm()">+ Nouveau</button>
       </div>
     </div>
@@ -15,7 +18,12 @@
         </thead>
         <tbody class="divide-y">
           <tr v-for="m in merchants" :key="m.id">
-            <td class="p-2 font-medium">{{ m.business_name }}</td>
+            <td class="p-2 font-medium">
+              {{ m.business_name }}
+              <span v-if="m.source === 'signup'" class="ml-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" :title="`Inscrit en ligne le ${new Date(m.created_at).toLocaleDateString('fr-FR')}`">
+                {{ isNew(m) ? 'Nouveau · ' : '' }}inscrit en ligne
+              </span>
+            </td>
             <td class="p-2">{{ m.contact_name }}<div class="text-xs text-gray-500">{{ m.phone }}</div></td>
             <td class="p-2">{{ m.pickup_zone?.name || '—' }}<div class="text-xs text-gray-500">{{ m.pickup_address }}</div></td>
             <td class="p-2">{{ m.default_fee_payer === 'recipient' ? 'Destinataire' : 'Marchand' }}</td>
@@ -90,6 +98,7 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -101,13 +110,23 @@ const merchants = ref([])
 const zones = ref([])
 const grids = ref([])
 const search = ref('')
+const route = useRoute()
+// Lien de la notification « Nouvel e-commerçant » : ?nouveaux=1
+const onlySignups = ref(!!route.query.nouveaux)
 const form = reactive({ open: false, id: null, data: {}, owner: {}, error: '', saving: false })
 
 const FIELDS = ['business_name', 'contact_name', 'phone', 'whatsapp_phone', 'email', 'pickup_zone_id', 'pickup_address',
   'pickup_landmark', 'pricing_grid_id', 'default_fee_payer', 'status', 'notes']
 
 async function load() {
-  merchants.value = (await http.get('/merchants', { params: { search: search.value || undefined, per_page: 200 } })).data.data
+  merchants.value = (await http.get('/merchants', {
+    params: { search: search.value || undefined, source: onlySignups.value ? 'signup' : undefined, per_page: 200 },
+  })).data.data
+}
+
+// Inscrit depuis moins de 7 jours
+function isNew(m) {
+  return Date.now() - new Date(m.created_at).getTime() < 7 * 86400000
 }
 
 let timer
