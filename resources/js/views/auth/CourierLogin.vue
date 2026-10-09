@@ -8,9 +8,9 @@
     <div class="mt-8 w-full max-w-sm mx-auto rounded-3xl bg-white p-6 shadow-2xl">
       <LoginForm tone="courier" />
     </div>
-    <p class="mt-auto pt-8 text-center text-sm text-blue-100">
-      Installez l'application : menu du navigateur, puis « Ajouter à l'écran d'accueil ».
-    </p>
+    <div class="mt-4 w-full max-w-sm mx-auto">
+      <InstallBanner app="livreur" />
+    </div>
   </div>
 </template>
 
@@ -18,6 +18,7 @@
 import { onMounted } from 'vue'
 import BrandLogo from '../../components/auth/BrandLogo.vue'
 import LoginForm from '../../components/auth/LoginForm.vue'
+import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import { branding, loadBranding } from '../../composables/useBranding'
 
 onMounted(() => loadBranding())
