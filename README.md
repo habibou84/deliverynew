@@ -139,6 +139,12 @@ jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
   de la personne qui reçoit et fait **signer à l'écran** ou **photographie** la remise : toutes les courses passent
   « Retourné » et le marchand reçoit la confirmation. Le bon est imprimable (A4) depuis `/bon-de-retour/{id}`.
   Deux nouveaux modèles WhatsApp sont à faire approuver : `bon_de_retour` et `retour_remis`.
+- **Colis perdu** : un administrateur (dispatch + caisse) déclare la perte depuis la fiche de la course (bouton
+  « 🚨 Déclarer le colis perdu ») : circonstances, **indemnité au marchand** (valeur des articles proposée), portée à
+  son grand livre et versée avec son prochain reversement, et **retenue facultative** sur la paie du livreur
+  responsable. La course passe « Perdu » (statut final), le marchand est prévenu par WhatsApp, le stock d'une
+  commande d'entrepôt est sorti. Un colis resté chez un livreur plus de trois fois le délai d'alerte (72 h par défaut)
+  est signalé « peut-être perdu » aux administrateurs et dans « Colis chez les livreurs ».
 
 ### Notifications push des livreurs
 

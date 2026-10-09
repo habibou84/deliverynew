@@ -282,7 +282,7 @@ components:
           additionalProperties: { type: array, items: { type: string } }
     Status:
       type: string
-      enum: [pending, confirmed, rejected, pickup_assigned, pickup_in_progress, picked_up, at_hub, delivery_assigned, out_for_delivery, delivered, delivery_failed, rescheduled, return_assigned, returning, returned, cancelled]
+      enum: [pending, confirmed, rejected, pickup_assigned, pickup_in_progress, picked_up, at_hub, delivery_assigned, out_for_delivery, delivered, delivery_failed, rescheduled, return_assigned, returning, returned, cancelled, lost]
     Zone:
       type: object
       properties:

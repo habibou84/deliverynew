@@ -20,6 +20,7 @@ enum OrderStatus: string
     case Returning = 'returning';
     case Returned = 'returned';
     case Cancelled = 'cancelled';
+    case Lost = 'lost';
 
     public function label(): string
     {
@@ -40,12 +41,14 @@ enum OrderStatus: string
             self::Returning => 'Retour en cours',
             self::Returned => 'Retourné',
             self::Cancelled => 'Annulée',
+            self::Lost => 'Perdu',
         };
     }
 
     /**
      * Transitions autorisées depuis ce statut. Les assignations (ramassage,
      * livraison, retour) passent par OrderDispatcher et non par cette table.
+     * « Perdu » passe uniquement par la déclaration de perte (OrderLosses).
      *
      * @return list<self>
      */
@@ -58,17 +61,17 @@ enum OrderStatus: string
             // Échec au ramassage : retour à « Validée » pour réassignation
             self::PickupAssigned => [self::PickupInProgress, self::PickedUp, self::Confirmed, self::Cancelled],
             self::PickupInProgress => [self::PickedUp, self::Confirmed, self::Cancelled],
-            self::PickedUp => [self::AtHub, self::OutForDelivery],
+            self::PickedUp => [self::AtHub, self::OutForDelivery, self::Lost],
             // « Retourné » direct = remis en stock à l'entrepôt (commande d'entrepôt)
-            self::AtHub => [self::OutForDelivery, self::Rescheduled, self::Returned],
-            self::DeliveryAssigned => [self::OutForDelivery, self::AtHub],
-            self::OutForDelivery => [self::Delivered, self::DeliveryFailed, self::Rescheduled],
-            self::DeliveryFailed => [self::Rescheduled, self::OutForDelivery, self::AtHub, self::Returned],
+            self::AtHub => [self::OutForDelivery, self::Rescheduled, self::Returned, self::Lost],
+            self::DeliveryAssigned => [self::OutForDelivery, self::AtHub, self::Lost],
+            self::OutForDelivery => [self::Delivered, self::DeliveryFailed, self::Rescheduled, self::Lost],
+            self::DeliveryFailed => [self::Rescheduled, self::OutForDelivery, self::AtHub, self::Returned, self::Lost],
             // Rescheduled → Rescheduled : nouvelle date décidée par le dispatch
-            self::Rescheduled => [self::OutForDelivery, self::AtHub, self::Rescheduled, self::Returned],
-            self::ReturnAssigned => [self::Returning, self::Returned],
-            self::Returning => [self::Returned],
-            self::Delivered, self::Returned, self::Cancelled, self::Rejected => [],
+            self::Rescheduled => [self::OutForDelivery, self::AtHub, self::Rescheduled, self::Returned, self::Lost],
+            self::ReturnAssigned => [self::Returning, self::Returned, self::Lost],
+            self::Returning => [self::Returned, self::Lost],
+            self::Delivered, self::Returned, self::Cancelled, self::Rejected, self::Lost => [],
         };
     }
 
@@ -79,7 +82,7 @@ enum OrderStatus: string
 
     public function isFinal(): bool
     {
-        return in_array($this, [self::Delivered, self::Returned, self::Cancelled, self::Rejected], true);
+        return in_array($this, [self::Delivered, self::Returned, self::Cancelled, self::Rejected, self::Lost], true);
     }
 
     /**

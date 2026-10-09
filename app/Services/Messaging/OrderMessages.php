@@ -2,10 +2,12 @@
 
 namespace App\Services\Messaging;
 
+use App\Enums\LedgerEntryType;
 use App\Enums\NotificationEvent;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Enums\WhatsAppTemplate;
+use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
@@ -82,6 +84,12 @@ class OrderMessages
 
             case OrderStatus::DeliveryFailed:
                 $this->incident($order, $event, $recipient, 'livraison impossible');
+                break;
+
+            case OrderStatus::Lost:
+                $compensation = (int) MerchantLedgerEntry::where('order_id', $order->id)->where('type', LedgerEntryType::LostCompensation->value)->sum('amount');
+                $this->incident($order, $event, $recipient, 'colis perdu, nous vous présentons nos excuses'
+                    .($compensation > 0 ? '. Indemnité de '.Money::format($compensation).' portée à votre compte' : ''));
                 break;
 
             case OrderStatus::Rescheduled:

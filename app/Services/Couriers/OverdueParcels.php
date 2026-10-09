@@ -32,6 +32,54 @@ class OverdueParcels
 
     private function forCompany(Company $company): int
     {
+        return $this->overdue($company) + $this->escalate($company);
+    }
+
+    /**
+     * Colis toujours chez le livreur après trois fois le délai : les administrateurs
+     * sont prévenus qu'il est peut-être perdu (à retrouver ou à déclarer perdu).
+     */
+    private function escalate(Company $company): int
+    {
+        $orders = Order::withoutGlobalScopes()
+            ->where('company_id', $company->id)
+            ->whereNotNull('held_by_courier_id')
+            ->whereNull('hold_escalated_at')
+            ->where('held_since', '<=', now()->subHours(3 * $company->parcel_hold_alert_hours))
+            ->with(['holder' => fn ($q) => $q->withoutGlobalScopes()->with('user')])
+            ->orderBy('held_since')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return 0;
+        }
+
+        $admins = User::forCompany($company->id)->where('status', 'active')->role(Role::Admin->value)->get();
+        $sent = 0;
+
+        foreach ($orders->groupBy('held_by_courier_id') as $courierId => $parcels) {
+            $name = $parcels->first()->holder?->user?->name ?? 'un livreur';
+            $days = (int) floor($parcels->first()->held_since->diffInHours(now()) / 24);
+
+            if ($admins->isNotEmpty()) {
+                Notification::send($admins, new OrderAlert(
+                    $parcels->first(),
+                    'parcel_maybe_lost',
+                    "🚨 Colis peut-être perdu{$this->plural($parcels->count())} chez {$name}",
+                    $parcels->pluck('tracking_code')->take(5)->implode(', ')." : chez le livreur depuis {$days} jour(s). Retrouvez le colis ou déclarez-le perdu.",
+                    ['custody' => true, 'severity' => 'alert', 'courier_id' => (int) $courierId, 'count' => $parcels->count(), 'href' => '/admin/colis-livreurs'],
+                ));
+                $sent++;
+            }
+
+            Order::withoutGlobalScopes()->whereKey($parcels->modelKeys())->update(['hold_escalated_at' => now()]);
+        }
+
+        return $sent;
+    }
+
+    private function overdue(Company $company): int
+    {
         $orders = Order::withoutGlobalScopes()
             ->where('company_id', $company->id)
             ->whereNotNull('held_by_courier_id')

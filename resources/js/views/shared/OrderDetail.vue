@@ -40,6 +40,10 @@
           </div>
         </div>
 
+        <p v-if="order.status === 'lost'" class="rounded-lg bg-red-50 ring-1 ring-red-200 px-4 py-2 text-sm text-red-900">
+          🚨 Colis déclaré perdu le {{ dateTime(order.lost_at) }}<span v-if="order.lost_reason"> : {{ order.lost_reason }}</span>
+        </p>
+
         <!-- Garde du colis (personnel uniquement) -->
         <p v-if="order.held_by" class="rounded-lg bg-amber-50 ring-1 ring-amber-200 px-4 py-2 text-sm text-amber-900">
           🎒 Colis chez <strong>{{ order.held_by.name }}</strong> depuis le {{ dateTime(order.held_by.since) }}
@@ -99,6 +103,7 @@
         <div v-if="isDispatcher && !isFinal" class="card p-4 space-y-3">
           <h2 class="font-semibold">Dispatch</h2>
           <button v-if="['delivery_failed', 'rescheduled'].includes(order.status)" class="btn-primary w-full" @click="deciding = true">🧭 Décider de la suite</button>
+          <button v-if="canDeclareLost" class="btn-secondary w-full text-red-700" @click="losing = true">🚨 Déclarer le colis perdu</button>
           <div class="flex gap-2 flex-wrap">
             <button v-if="order.status === 'pending'" class="btn-success" @click="quickMove('confirmed')">Valider</button>
             <button v-if="order.status === 'pending'" class="btn-secondary" @click="openStatus(['rejected'])">Refuser</button>
@@ -180,6 +185,7 @@
       </form>
     </Modal>
 
+    <LostParcelDialog :open="losing" :order="order" :couriers="couriers" @close="losing = false" @declared="declaredLost" />
     <OrderDecision :open="deciding" :order="order" :couriers="couriers" @close="deciding = false" @decided="decided" />
   </div>
   <p v-else-if="error" class="text-red-600">{{ error }}</p>
@@ -194,6 +200,7 @@ import StatusBadge from '../../components/StatusBadge.vue'
 import OrderTimeline from '../../components/OrderTimeline.vue'
 import Modal from '../../components/Modal.vue'
 import OrderDecision from '../../components/OrderDecision.vue'
+import LostParcelDialog from '../../components/LostParcelDialog.vue'
 import OrderMessages from '../../components/OrderMessages.vue'
 import OrderExpenses from '../../components/OrderExpenses.vue'
 import StatusChangeForm from '../../components/StatusChangeForm.vue'
@@ -223,6 +230,15 @@ const toasts = useToastStore()
 const order = ref(null)
 const error = ref('')
 const couriers = ref([])
+// Colis perdu : administrateur (dispatch + caisse), colis ramassé et pas encore livré ou retourné
+const losing = ref(false)
+const canDeclareLost = computed(() => auth.can('orders.dispatch') && auth.can('finance.manage') && !BEFORE_PICKUP.includes(order.value?.status))
+function declaredLost() {
+  losing.value = false
+  toasts.success('Colis déclaré perdu. Le marchand est prévenu.')
+  load()
+}
+
 // Suite à donner à un colis non livré (relivrer, retourner, remettre en stock)
 const deciding = ref(false)
 function decided() {

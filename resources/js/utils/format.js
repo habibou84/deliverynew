@@ -43,6 +43,7 @@ const STATUS_COLORS = {
   returning: 'bg-rose-100 text-rose-800',
   returned: 'bg-gray-200 text-gray-700',
   cancelled: 'bg-gray-200 text-gray-700',
+  lost: 'bg-red-200 text-red-900',
 }
 
 export function statusClass(status) {
@@ -66,6 +67,7 @@ export const STATUS_LABELS = {
   returning: 'Retour en cours',
   returned: 'Retourné',
   cancelled: 'Annulée',
+  lost: 'Perdu',
 }
 
 export const EVENT_LABELS = {

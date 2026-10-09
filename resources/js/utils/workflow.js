@@ -15,7 +15,7 @@ export const TRANSITIONS = {
   returning: ['returned'],
 }
 
-export const FINAL = ['delivered', 'returned', 'cancelled', 'rejected']
+export const FINAL = ['delivered', 'returned', 'cancelled', 'rejected', 'lost']
 export const BEFORE_PICKUP = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress']
 
 export const ASSIGNABLE = {

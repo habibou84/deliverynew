@@ -372,6 +372,9 @@ Table orders {
   held_by_courier_id bigint [ref: > couriers.id, note: 'livreur qui a le colis en main (null = au dépôt, livré ou retourné)']
   held_since timestamp
   hold_alerted_at timestamp [note: 'alerte « colis toujours chez le livreur » envoyée']
+  hold_escalated_at timestamp [note: 'alerte « peut-être perdu » aux administrateurs']
+  lost_at timestamp [note: 'statut lost : colis déclaré perdu']
+  lost_reason varchar(500)
   current_hub_id bigint [ref: > hubs.id]
   attempts_count smallint [default: 0]
   max_attempts smallint [default: 3]
