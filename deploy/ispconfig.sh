@@ -15,6 +15,7 @@
 #   EMAIL    (obligatoire) adresse de contact (notifications push)
 #   REPO     dépôt Git (défaut : git@github.com:habibou84/deliverynew.git)
 #   BRANCH   branche à déployer (défaut : main)
+#   SITE_ROOT dossier du site affiché par ISPConfig (défaut : lien /var/www/<domaine>)
 #   DEMO     1 = données de démonstration (mot de passe « password »), 0 = base vide
 #
 # Relançable sans risque : base de données, .env et clés sont conservés.
@@ -51,8 +52,10 @@ fi
 # ─────────────────────────── Site ISPConfig ───────────────────────────
 
 step "Site ISPConfig de $DOMAIN"
-SITE_ROOT="$(readlink -f "/var/www/$DOMAIN" 2>/dev/null || true)"
-[[ -n "$SITE_ROOT" && -d "$SITE_ROOT/web" ]] || fail "site introuvable (/var/www/$DOMAIN). Créez-le d'abord dans ISPConfig : Sites > Site web > Ajouter."
+# Dossier du site : celui affiché par ISPConfig (SITE_ROOT=/var/www/clients/clientX/webY), sinon le lien /var/www/<domaine>
+SITE_ROOT="${SITE_ROOT:-$(readlink -f "/var/www/$DOMAIN" 2>/dev/null || true)}"
+SITE_ROOT="${SITE_ROOT%/}"
+[[ -n "$SITE_ROOT" && -d "$SITE_ROOT/web" ]] || fail "site introuvable ($SITE_ROOT). Indiquez le dossier affiché par ISPConfig : SITE_ROOT=/var/www/clients/clientX/webY"
 APP_USER="$(stat -c %U "$SITE_ROOT/web")"
 APP_GROUP="$(stat -c %G "$SITE_ROOT/web")"
 TOOLS_HOME="$SITE_ROOT/private"
