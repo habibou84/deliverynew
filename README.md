@@ -227,6 +227,9 @@ php artisan db:seed --class=RolesAndPermissionsSeeder --force   # à chaque dép
 php artisan app:create-super-admin                               # première installation
 ```
 
+**Mise en ligne sur un VPS (LWS ou autre)** : voir [docs/DEPLOIEMENT-LWS.md](docs/DEPLOIEMENT-LWS.md) ; `deploy/install.sh`
+installe tout (Nginx, PHP 8.3, PostgreSQL, Redis, Horizon, Reverb, cron, HTTPS) et `deploy/update.sh` met à jour.
+
 Processus à superviser (Supervisor/systemd) : `php artisan horizon`, `php artisan reverb:start`, et le planificateur (`php artisan schedule:run` chaque minute).
 Les notifications, la diffusion temps réel et les messages WhatsApp/SMS passent par les files `default` et `messages` : sans Horizon (ou `queue:work --queue=default,messages`), ils ne partent pas.
 
