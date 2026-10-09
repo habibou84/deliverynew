@@ -124,9 +124,9 @@ Le script installe aussi Nginx, PHP 8.3, le pare-feu et le certificat HTTPS (Cer
 
 | Qui | Adresse | Compte de démonstration (mot de passe `password`) |
 |---|---|---|
-| Back-office | `https://test.mondomaine.ci/login` | 07 00 00 00 01 (administrateur), 02 (dispatcher), 03 (caissier) |
+| Back-office | `https://test.mondomaine.ci/admin` | 07 00 00 00 01 (administrateur), 02 (dispatcher), 03 (caissier) |
 | Livreur | `https://test.mondomaine.ci/livreur` | 07 00 00 00 04 ou 05 |
-| E-commerçant | `https://test.mondomaine.ci/marchand` | 05 00 00 00 01 |
+| E-commerçant | `https://test.mondomaine.ci` (page d'accueil) | 05 00 00 00 01 |
 
 Sur le téléphone, ouvrez l'adresse dans **Chrome** (Android) ou **Safari** (iPhone), connectez-vous,
 puis **Ajouter à l'écran d'accueil**. Le livreur active ensuite les notifications depuis le bandeau de

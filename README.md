@@ -202,6 +202,18 @@ le fait aussi depuis **Intégrations (API)**) :
 Les envois passent par la file `messages` et les points d'activité par le planificateur (`reports:send` toutes les 5 minutes) :
 `composer dev` lance les deux.
 
+### Pages de connexion
+
+| Adresse | Pour | Aspect |
+|---|---|---|
+| `/` | E-commerçants (page d'accueil du site) | Logo, accroche, avantages, connexion, suivi d'un colis, contact WhatsApp |
+| `/admin` (→ `/admin/connexion`) | Équipe : administration, dispatch, caisse, entrepôt | Sobre, sombre |
+| `/livreur` (→ `/livreur/connexion`) | Livreurs | Application mobile bleue |
+
+Chaque page accepte tous les comptes : après connexion, chacun arrive dans son espace. Le logo (PNG, JPEG ou WebP)
+et l'accroche se règlent dans **Paramètres > Logo et page d'accueil** ; `BRANDING_COMPANY` (slug ou identifiant)
+désigne l'entreprise affichée si plusieurs partagent l'installation (par défaut : la première entreprise active).
+
 ### Comptes de démonstration
 
 Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot de passe : `password`.

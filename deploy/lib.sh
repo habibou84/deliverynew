@@ -187,8 +187,9 @@ summary() {
     step "Terminé"
     cat <<EOF
     Application      : https://$DOMAIN
-    Back-office      : https://$DOMAIN/login
-    Livreur (mobile) : https://$DOMAIN/livreur   ·   Marchand (mobile) : https://$DOMAIN/marchand
+    E-commerçants    : https://$DOMAIN  (page d'accueil ; logo et accroche dans Paramètres)
+    Back-office      : https://$DOMAIN/admin
+    Livreurs         : https://$DOMAIN/livreur
     Dossier          : $APP_DIR (journaux : storage/logs)
     Mise à jour      : bash $APP_DIR/deploy/update.sh
 
