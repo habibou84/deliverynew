@@ -17,6 +17,22 @@
 
     <InstallBanner app="livreur" />
 
+    <!-- Invitation à activer les notifications push -->
+    <div v-if="showPushInvite" class="rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4 space-y-2">
+      <p class="font-semibold text-amber-900">🔔 Soyez prévenu même téléphone en veille</p>
+      <p class="text-sm text-amber-900">Nouvelles missions et consignes de l'agence, sans garder l'application ouverte.</p>
+      <p v-if="push.error" class="text-sm text-red-600">{{ push.error }}</p>
+      <div class="flex gap-2">
+        <button type="button" class="m-btn-primary py-2" :disabled="push.busy" @click="enablePush">Activer les notifications</button>
+        <button type="button" class="m-btn-secondary w-auto px-4 py-2" @click="dismissPushInvite">Plus tard</button>
+      </div>
+    </div>
+
+    <!-- Consignes de l'agence non lues -->
+    <RouterLink v-if="messages.unread" to="/livreur/messages" class="tap block rounded-2xl bg-sky-600 text-white p-4 font-semibold active:bg-sky-700">
+      💬 {{ messages.unread }} consigne{{ messages.unread > 1 ? 's' : '' }} de l'agence à lire →
+    </RouterLink>
+
     <!-- À verser -->
     <RouterLink v-if="wallet && wallet.cash_in_hand !== 0" to="/livreur/caisse" class="block m-card p-4 active:bg-slate-50">
       <div class="flex justify-between items-center">
@@ -55,7 +71,10 @@
           {{ m.type === 'pickup' ? '📦' : m.type === 'delivery' ? '🛵' : '↩️' }}
         </span>
         <div class="flex-1 min-w-0">
-          <p class="font-semibold truncate">{{ m.type === 'pickup' ? m.order.merchant?.business_name : (m.order.recipient.name || m.order.recipient.phone) }}</p>
+          <p class="font-semibold truncate">
+            {{ m.type === 'pickup' ? m.order.merchant?.business_name : (m.order.recipient.name || m.order.recipient.phone) }}
+            <span v-if="m.unread_messages" class="ml-1 rounded-full bg-sky-600 px-2 py-0.5 text-xs text-white">💬 {{ m.unread_messages }}</span>
+          </p>
           <p class="text-sm text-slate-500 truncate">
             📍 {{ m.type === 'pickup' ? m.order.pickup.zone_name : m.order.delivery.zone_name }}
             · {{ m.type === 'pickup' ? m.order.pickup.address : m.order.delivery.address }}
@@ -74,7 +93,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { cachedGet } from '../../composables/useCachedApi'
 import { useToastStore } from '../../stores/toasts'
@@ -84,6 +103,8 @@ import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useNotificationStore } from '../../stores/notifications'
 import { currentPosition } from '../../composables/useGeolocation'
+import { useCourierMessageStore } from '../../stores/courierMessages'
+import { enablePush, initPush, push } from '../../composables/usePush'
 import { money } from '../../utils/format'
 
 const auth = useAuthStore()
@@ -109,6 +130,7 @@ async function load() {
   try {
     const [m, w] = await Promise.all([cachedGet('/courier/missions'), cachedGet('/courier/wallet')])
     missions.value = m.data.data
+    messages.setUnread(m.data.meta?.unread_messages)
     wallet.value = w.data.data
     stale.value = m.stale || w.stale
     error.value = ''
@@ -131,20 +153,22 @@ async function toggleAvailability() {
   }
 }
 
-// Position envoyée toutes les minutes pendant le service
-let locationTimer
-async function sendLocation() {
-  if (!available.value) return
-  const position = await currentPosition()
-  if (position) http.patch('/courier/status', position).catch(() => {})
+// Nouvelle mission reçue en temps réel
+const messages = useCourierMessageStore()
+
+// Invitation masquée 3 jours après « Plus tard »
+const pushInviteHiddenUntil = ref(Number((() => { try { return localStorage.getItem('push-invite-hidden') } catch { return 0 } })() || 0))
+const showPushInvite = computed(() => push.checked && push.supported && push.serverEnabled && !push.subscribed
+  && push.permission !== 'denied' && Date.now() > pushInviteHiddenUntil.value)
+function dismissPushInvite() {
+  pushInviteHiddenUntil.value = Date.now() + 3 * 86400000
+  try { localStorage.setItem('push-invite-hidden', String(pushInviteHiddenUntil.value)) } catch { /* stockage indisponible */ }
 }
 
-// Nouvelle mission reçue en temps réel
 watch(() => notifications.unread, load)
 
 onMounted(() => {
   load()
-  locationTimer = setInterval(sendLocation, 60000)
+  initPush()
 })
-onBeforeUnmount(() => clearInterval(locationTimer))
 </script>

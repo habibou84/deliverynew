@@ -5,7 +5,8 @@
     exact-active-class="bg-slate-700"
   >
     <span>{{ icon }}</span>
-    <span>{{ label }}</span>
+    <span class="flex-1">{{ label }}</span>
+    <span v-if="badge" class="min-w-5 h-5 px-1.5 rounded-full bg-red-600 text-white text-xs font-semibold grid place-items-center">{{ badge > 99 ? '99+' : badge }}</span>
   </RouterLink>
 </template>
 
@@ -14,5 +15,6 @@ defineProps({
   icon: { type: String, default: '' },
   label: { type: String, required: true },
   to: { type: String, required: true },
+  badge: { type: Number, default: 0 },
 })
 </script>

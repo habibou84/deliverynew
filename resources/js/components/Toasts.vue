@@ -30,6 +30,7 @@ const classes = {
 
 function open(toast) {
   toasts.dismiss(toast.id)
-  if (toast.to) router.push(`${auth.homeRoute}/courses/${toast.to}`)
+  if (toast.href) router.push(toast.href)
+  else if (toast.to) router.push(`${auth.homeRoute}/courses/${toast.to}`)
 }
 </script>

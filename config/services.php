@@ -40,6 +40,13 @@ return [
         'rate_limit' => env('PUBLIC_API_RATE_LIMIT', 120),
     ],
 
+    // Notifications push (Web Push, VAPID) : clés générées par « php artisan webpush:vapid »
+    'webpush' => [
+        'public_key' => env('VAPID_PUBLIC_KEY'),
+        'private_key' => env('VAPID_PRIVATE_KEY'),
+        'subject' => env('VAPID_SUBJECT'),
+    ],
+
     // Webhooks sortants : en production, HTTPS uniquement et jamais vers un réseau privé
     'webhooks' => [
         'allow_http' => env('WEBHOOKS_ALLOW_HTTP', false),

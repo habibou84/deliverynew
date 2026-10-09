@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CourierController;
+use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
+use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\MerchantController;
@@ -19,6 +21,7 @@ use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\PushSubscriptionController;
 use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use App\Http\Controllers\Api\V1\ReportController;
@@ -72,6 +75,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::post('notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
 
+        // Notifications push de l'appareil (Web Push)
+        Route::get('push', [PushSubscriptionController::class, 'show'])->name('push.show');
+        Route::post('push/subscriptions', [PushSubscriptionController::class, 'store'])->middleware('throttle:20,1')->name('push.subscribe');
+        Route::delete('push/subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push.unsubscribe');
+        Route::post('push/test', [PushSubscriptionController::class, 'test'])->middleware('throttle:5,1')->name('push.test');
+
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
         Route::apiResource('companies', CompanyController::class)->except('destroy');
         Route::apiResource('users', UserController::class);
@@ -101,6 +110,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware('throttle:60,1')->name('whatsapp.simulate');
         });
 
+        // Remontées terrain des livreurs (notes, problèmes) : consultation et suivi par le dispatch
+        Route::middleware('can:orders.dispatch')->prefix('field-reports')->name('field-reports.')->group(function () {
+            Route::get('/', [FieldReportController::class, 'index'])->name('index');
+            Route::get('counts', [FieldReportController::class, 'counts'])->name('counts');
+            Route::post('{event}/handle', [FieldReportController::class, 'handle'])->name('handle');
+            Route::post('{event}/reopen', [FieldReportController::class, 'reopen'])->name('reopen');
+        });
+
         // Journal des messages WhatsApp et SMS
         Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
         Route::post('messages/{message}/retry', [MessageController::class, 'retry'])->name('messages.retry');
@@ -112,6 +129,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::put('merchants/{merchant}/notifications', [MerchantNotificationController::class, 'update'])->name('merchants.notifications.update');
 
         // Livreurs (gestion par le personnel)
+        Route::get('couriers/map', [CourierController::class, 'map'])->middleware('can:orders.dispatch')->name('couriers.map');
+        Route::get('couriers/{courier}/track', [CourierController::class, 'track'])->middleware('can:orders.dispatch')->name('couriers.track');
         Route::get('couriers', [CourierController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.index');
         Route::get('couriers/{courier}', [CourierController::class, 'show'])->middleware('can:orders.dispatch')->name('couriers.show');
         Route::patch('couriers/{courier}', [CourierController::class, 'update'])->middleware('can:users.manage')->name('couriers.update');
@@ -127,6 +146,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
         Route::get('orders/{order}/messages', [MessageController::class, 'forOrder'])->name('orders.messages');
+        Route::get('orders/{order}/courier-messages', [CourierMessageController::class, 'index'])->name('orders.courier-messages.index');
+        Route::post('orders/{order}/courier-messages', [CourierMessageController::class, 'store'])->middleware('throttle:60,1')->name('orders.courier-messages.store');
         Route::post('orders/{order}/expenses', [OrderExpenseController::class, 'store'])->name('orders.expenses.store');
         Route::post('orders/{order}/expenses/{expense}/cancel', [OrderExpenseController::class, 'cancel'])->name('orders.expenses.cancel');
         Route::get('orders/{order}/attachments/{attachment}', [OrderActionController::class, 'showAttachment'])->name('orders.attachments.show');
@@ -184,6 +205,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
             Route::patch('status', [CourierSpaceController::class, 'updateStatus'])->name('status');
             Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
+            Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
+            Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');
         });
     });
 });

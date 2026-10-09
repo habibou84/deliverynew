@@ -93,6 +93,46 @@ sans compte Meta (les courses confirmées sont réellement créées).
 L'analyse se fait par règles ; avec `ANTHROPIC_API_KEY` (et `ANTHROPIC_MODEL`, par défaut `claude-opus-5-5`),
 Claude comprend aussi les messages sans format, avec retour automatique aux règles en cas d'erreur.
 
+### Remontées terrain
+
+Les notes et problèmes enregistrés par les livreurs (échec ou report de livraison, échec de ramassage, refus de
+mission, frais déclarés, notes, même internes) arrivent **en direct** au dispatch : toast, **son** (carillon pour une
+note, trois bips pour un problème) et notification du bureau si l'onglet est caché. Réglages (son, volume, test,
+notifications du bureau) via 🔊 dans l'en-tête ; le navigateur n'autorise le son qu'après un premier clic dans la page.
+La page **Remontées terrain** les liste (filtres : à traiter / traitées, type, livreur, dates, recherche) ; chaque
+remontée se marque « traitée » avec un commentaire, le menu affiche le nombre restant (30 derniers jours).
+
+- **Réponse au livreur** : depuis une remontée (ou la fiche d'une course), le dispatch envoie une consigne, avec des
+  réponses rapides en un clic. Le livreur la reçoit en direct (son, vibration, bandeau), la retrouve dans sa mission
+  et dans **Consignes de l'agence**, et la confirme d'un « 👍 Compris » ; le dispatch voit « lu » puis « compris ».
+  La consigne est tracée au journal de la course (note interne) et peut marquer la remontée comme traitée.
+- **Relance automatique** (`field-reports:remind`, chaque minute) : un problème resté sans réponse ni traitement est
+  relancé au dispatch après le délai réglé dans **Paramètres** (10 min par défaut, 0 = jamais), puis aux
+  administrateurs après trois fois ce délai. Rien n'est relancé si la course est terminée.
+
+### Notifications push des livreurs
+
+Le livreur active les notifications depuis le bandeau de **Missions** ou son **Profil** (bouton de test). Il est alors
+prévenu même application fermée ou téléphone en veille : **nouvelle mission** et **consigne de l'agence** (le toucher
+ouvre la mission). Web Push standard (VAPID, chiffrement `aes128gcm`), implémenté sans dépendance ni service tiers.
+
+- Générer les clés une fois par serveur : `php artisan webpush:vapid`, puis copier `VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY` et `VAPID_SUBJECT` (mailto: ou https:) dans `.env`. Ne pas les changer ensuite : les abonnements
+  existants deviendraient invalides. Sans clés, la fonction est simplement masquée.
+- HTTPS obligatoire (sauf `localhost`) ; le service worker n'est enregistré que dans la version compilée (`npm run build`).
+- **iPhone** : iOS 16.4 minimum et application **installée sur l'écran d'accueil** ; l'app le signale au livreur.
+- Les abonnements expirés (réponse 404/410) sont supprimés automatiquement ; la déconnexion retire celui de l'appareil.
+
+### Carte des livreurs
+
+**Carte des livreurs** (back-office, droit `orders.dispatch`) montre la dernière position de chaque livreur, ses
+missions en cours et l'âge de la position ; elle se met à jour en direct (Reverb). L'application livreur envoie sa
+position toutes les 30 secondes pendant le service (localisation autorisée sur le téléphone).
+**Trajet du jour** (depuis la carte, ou `/admin/carte?livreur={id}&date=AAAA-MM-JJ`) : tracé de la journée, étapes
+des courses localisées (ramassé, livré, échec…), distance parcourue et heures de service. Les positions trop
+imprécises, à l'arrêt ou aberrantes ne sont pas conservées ; l'historique est purgé après 90 jours (`model:prune`). Fond de carte
+OpenStreetMap via Leaflet, sans clé ; pour un usage intensif, passer à un fournisseur de tuiles (MapTiler, Stadia…).
+
 ### Stock et entrepôts
 
 Le marchand enregistre ses produits et le stock qu'il garde chez lui (**Mon stock** dans son application) ; l'entreprise
@@ -200,6 +240,10 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |
+| GET | `/field-reports` (`state`, `kind`, `courier_id`, `from`, `to`, `search`) · GET `/field-reports/counts` · POST `/field-reports/{event}/handle` · `/reopen` | `orders.dispatch` : remontées terrain et leur suivi |
+| GET/POST | `/orders/{id}/courier-messages` (`body`, `reply_to_event_id`, `mark_handled`) · livreur : GET `/courier/messages` · POST `/courier/messages/{id}/ack` | `orders.dispatch` / livreur : consignes au livreur |
+| GET | `/couriers/{id}/track?date=` | `orders.dispatch` : trajet d'une journée (points, étapes, distance) |
+| GET | `/couriers/map` | `orders.dispatch` : positions et missions en cours des livreurs (diffusion `courier.location` sur `company.{id}`) |
 | GET/POST/DELETE | `/api-keys` | `integrations.manage` : clés de l'API publique (le marchand les siennes, l'administration avec `merchant_id`) |
 | GET/POST/PATCH/DELETE | `/webhooks` · POST `/webhooks/{id}/test`, `/webhooks/{id}/secret` · GET `/webhooks/{id}/deliveries` · POST `/webhook-deliveries/{id}/redeliver` | `integrations.manage` : adresses webhook, test, journal, renvoi |
 | GET | `/orders/import/template` · POST `/orders/import` (`file`, `dry_run`, `skip_invalid`, `merchant_id`) | `orders.create` : import CSV/Excel |

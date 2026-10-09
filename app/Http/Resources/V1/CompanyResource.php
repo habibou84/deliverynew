@@ -29,6 +29,7 @@ class CompanyResource extends JsonResource
             'default_max_attempts' => $this->default_max_attempts,
             'require_delivery_code' => $this->require_delivery_code,
             'return_fee_percent' => $this->return_fee_percent,
+            'field_alert_reminder_minutes' => $this->field_alert_reminder_minutes,
             'status' => $this->status,
             'users_count' => $this->whenCounted('users'),
             'created_at' => $this->created_at,

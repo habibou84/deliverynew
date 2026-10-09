@@ -10,7 +10,7 @@
         🚚 {{ auth.user?.company?.name || 'Administration' }}
       </div>
       <nav class="p-3 space-y-1 flex-1 overflow-y-auto" @click="sidebarOpen = false">
-        <SidebarItem v-for="item in menu" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" />
+        <SidebarItem v-for="item in menu" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" />
       </nav>
     </aside>
 
@@ -25,6 +25,7 @@
           </form>
         </div>
         <div class="flex items-center gap-3">
+          <AlertSoundToggle v-if="isDispatch" />
           <NotificationBell />
           <span class="hidden sm:inline text-sm text-gray-600">
             {{ auth.user?.name }} <span class="text-gray-400">· {{ auth.user?.role_label }}</span>
@@ -42,13 +43,15 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useRealtime } from '../composables/useRealtime'
 import SidebarItem from '../components/SidebarItem.vue'
 import NotificationBell from '../components/NotificationBell.vue'
 import Toasts from '../components/Toasts.vue'
+import AlertSoundToggle from '../components/AlertSoundToggle.vue'
+import { useFieldReportStore } from '../stores/fieldReports'
 
 const sidebarOpen = ref(false)
 const search = ref('')
@@ -57,12 +60,25 @@ const router = useRouter()
 
 useRealtime()
 
+// Remontées terrain à traiter : badge du menu, rafraîchi chaque minute
+const fieldReports = useFieldReportStore()
+const isDispatch = computed(() => auth.can('orders.dispatch'))
+let countsTimer
+onMounted(() => {
+  if (!isDispatch.value) return
+  fieldReports.fetchCounts().catch(() => {})
+  countsTimer = setInterval(() => fieldReports.fetchCounts().catch(() => {}), 60000)
+})
+onBeforeUnmount(() => clearInterval(countsTimer))
+
 const menu = computed(() => [
   { to: '/admin', icon: '🏠', label: 'Tableau de bord' },
   { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view' },
   { to: '/admin/courses/nouvelle', icon: '➕', label: 'Nouvelle course', permission: 'orders.create' },
   { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
   { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage' },
+  { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
+  { to: '/admin/carte', icon: '📍', label: 'Carte des livreurs', permission: 'orders.dispatch' },
   { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
   { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
   { to: '/admin/zones', icon: '🗺️', label: 'Zones', permission: 'settings.manage' },

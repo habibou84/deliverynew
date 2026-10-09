@@ -28,6 +28,7 @@ class Company extends Model
         'notify_recipients',
         'sms_fallback',
         'whatsapp_orders',
+        'field_alert_reminder_minutes',
         'status',
     ];
 
@@ -41,6 +42,7 @@ class Company extends Model
             'notify_recipients' => 'boolean',
             'sms_fallback' => 'boolean',
             'whatsapp_orders' => 'boolean',
+            'field_alert_reminder_minutes' => 'integer',
             'status' => CompanyStatus::class,
         ];
     }

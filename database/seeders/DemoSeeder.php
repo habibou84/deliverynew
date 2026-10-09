@@ -7,6 +7,7 @@ use App\Enums\StorageBillingType;
 use App\Enums\SurchargeType;
 use App\Models\Company;
 use App\Models\Courier;
+use App\Models\CourierLocation;
 use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\PricingGrid;
@@ -56,6 +57,15 @@ class DemoSeeder extends Seeder
         Courier::withoutGlobalScopes()->where('company_id', $company->id)
             ->update(['pickup_commission' => 300, 'delivery_commission' => 500, 'return_commission' => 400]);
 
+        // Positions de démonstration pour la carte des livreurs (Cocody et Plateau)
+        foreach (['+2250700000004' => [5.3598, -3.9875], '+2250700000005' => [5.3236, -4.0187]] as $phone => [$lat, $lng]) {
+            Courier::withoutGlobalScopes()->whereNull('current_lat')
+                ->whereHas('user', fn ($q) => $q->where('phone', $phone))
+                ->update(['current_lat' => $lat, 'current_lng' => $lng, 'last_location_at' => now(), 'is_available' => true]);
+        }
+
+        $this->demoTrack($company);
+
         $cocody = Zone::forCompany($company->id)->where('name', 'Cocody')->first();
         $merchant = Merchant::withoutGlobalScopes()->firstOrCreate(
             ['company_id' => $company->id, 'phone' => '+2250500000001'],
@@ -72,6 +82,32 @@ class DemoSeeder extends Seeder
         $this->user($company, Role::HubAgent, 'Agent d\'entrepôt', '0700000006', 'entrepot@livraison.test');
 
         $this->stock($company, $merchant);
+    }
+
+    /**
+     * Trajet de la matinée de Koffi (Cocody → Adjamé → Plateau) pour l'historique des trajets.
+     */
+    private function demoTrack(Company $company): void
+    {
+        $courier = Courier::withoutGlobalScopes()->whereHas('user', fn ($q) => $q->where('phone', '+2250700000004'))->first();
+
+        if (! $courier || CourierLocation::withoutGlobalScopes()->where('courier_id', $courier->id)->whereDate('recorded_at', today())->exists()) {
+            return;
+        }
+
+        $route = [
+            [5.3598, -3.9875], [5.3562, -3.9921], [5.3531, -3.9978], [5.3502, -4.0040], [5.3489, -4.0102],
+            [5.3497, -4.0161], [5.3512, -4.0214], [5.3466, -4.0233], [5.3398, -4.0221], [5.3330, -4.0203],
+            [5.3271, -4.0192], [5.3236, -4.0187],
+        ];
+        $start = today()->setTime(8, 0);
+
+        foreach ($route as $i => [$lat, $lng]) {
+            CourierLocation::create([
+                'company_id' => $company->id, 'courier_id' => $courier->id,
+                'lat' => $lat, 'lng' => $lng, 'accuracy' => 15, 'recorded_at' => $start->copy()->addMinutes($i * 3),
+            ]);
+        }
     }
 
     /**

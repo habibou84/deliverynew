@@ -1,5 +1,7 @@
 <template>
   <div v-if="mission" class="space-y-4 pb-36">
+    <DispatchMessages :order-id="order.id" />
+
     <!-- Où aller -->
     <section class="m-card p-4 space-y-2">
       <div class="flex items-center justify-between">
@@ -204,6 +206,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
+import DispatchMessages from '../../components/mobile/DispatchMessages.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'

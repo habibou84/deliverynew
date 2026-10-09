@@ -131,6 +131,11 @@
           <button class="btn-primary w-full" :disabled="!note.text.trim()" @click="addNote">Envoyer</button>
         </div>
 
+        <div v-if="isDispatcher && order.assignments?.length" class="card p-4 space-y-2">
+          <h2 class="font-semibold">Consignes au livreur</h2>
+          <CourierMessageThread :order-id="order.id" :messages="courierMessages" :composer="!isFinal" @sent="(m) => courierMessages.push(m)" />
+        </div>
+
         <OrderExpenses v-if="isStaff" :order-id="order.id" :expenses="order.expenses || []" :can-add="canManageExpenses" @changed="load" />
 
         <OrderMessages v-if="isStaff" :order-id="order.id" :version="order.updated_at" />
@@ -182,6 +187,7 @@ import Modal from '../../components/Modal.vue'
 import OrderMessages from '../../components/OrderMessages.vue'
 import OrderExpenses from '../../components/OrderExpenses.vue'
 import StatusChangeForm from '../../components/StatusChangeForm.vue'
+import CourierMessageThread from '../../components/CourierMessageThread.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
@@ -214,6 +220,7 @@ const statusModal = reactive({ open: false, choices: [] })
 const editModal = ref(false)
 const edit = reactive({})
 const editError = ref('')
+const courierMessages = ref([])
 
 const isMerchant = computed(() => !!auth.user?.merchant_id)
 const isStaff = computed(() => !isMerchant.value)
@@ -246,6 +253,7 @@ async function load() {
   try {
     const { data } = await http.get(`/orders/${route.params.id}`)
     order.value = data.data
+    if (isDispatcher.value) courierMessages.value = (await http.get(`/orders/${route.params.id}/courier-messages`)).data.data
   } catch (e) {
     error.value = apiErrorMessage(e)
   }

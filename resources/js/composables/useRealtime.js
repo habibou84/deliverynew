@@ -3,6 +3,10 @@ import { useEcho } from '../bootstrap/echo'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationStore } from '../stores/notifications'
 import { useToastStore } from '../stores/toasts'
+import { useFieldReportStore } from '../stores/fieldReports'
+import { useCourierMessageStore } from '../stores/courierMessages'
+import { desktopNotify, playAlertSound } from './useAlertSound'
+import router from '../router'
 
 // Compteur global incrémenté à chaque changement de course reçu en temps réel :
 // les écrans le surveillent pour se rafraîchir.
@@ -24,8 +28,31 @@ export function useRealtime() {
   if (!echo || !auth.user) return
 
   const userChannel = `App.Models.User.${auth.user.id}`
+  const fieldReports = useFieldReportStore()
+  const courierMessages = useCourierMessageStore()
+
   echo.private(userChannel).notification((n) => {
     notifications.receive(n)
+
+    // Remontée terrain d'un livreur (note, problème) : son, notification du bureau, toast prolongé
+    if (n.field) {
+      const alert = n.severity === 'alert'
+      playAlertSound(n.severity)
+      desktopNotify(n.title, n.body, () => router.push(`${auth.homeRoute}/courses/${n.order_id}`))
+      fieldReports.received()
+      toasts.push(n.body, alert ? 'error' : 'info', { title: `${alert ? '⚠️' : '📝'} ${n.title}`, to: n.order_id, timeout: alert ? 20000 : 10000 })
+      return
+    }
+
+    // Consigne du dispatch reçue par le livreur : son, vibration, toast qui ouvre la mission
+    if (n.dispatch_message) {
+      playAlertSound('alert')
+      navigator.vibrate?.([300, 150, 300])
+      courierMessages.received()
+      toasts.push(n.body, 'info', { title: n.title, timeout: 15000, href: n.assignment_id ? `/livreur/missions/${n.assignment_id}` : '/livreur/messages' })
+      return
+    }
+
     toasts.push(n.body, n.kind === 'incident' ? 'error' : 'info', { title: n.title, to: n.order_id })
   })
   channels.push(userChannel)

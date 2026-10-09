@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\CourierLocation;
 use App\Models\IdempotencyKey;
 use App\Models\WebhookDelivery;
 use Illuminate\Foundation\Inspiring;
@@ -14,4 +15,5 @@ Schedule::command('sanctum:prune-expired --hours=24')->daily();
 Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('reports:send')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();
-Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class]])->daily();
+Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class, CourierLocation::class]])->daily();
+Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();
