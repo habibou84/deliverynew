@@ -141,6 +141,22 @@
                 <label class="flex items-center gap-2"><input v-model="rule.conditions.fragile" type="checkbox"> Fragile seulement</label>
               </div>
               <div>
+                <p class="label">Jours (aucun coché : tous les jours)</p>
+                <div class="flex flex-wrap gap-3">
+                  <label v-for="(d, i) in DAYS" :key="d" class="flex items-center gap-1">
+                    <input v-model="rule.conditions.days" type="checkbox" :value="i + 1"> {{ d }}
+                  </label>
+                </div>
+              </div>
+              <div>
+                <p class="label">Heures (vide : toute la journée)</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  de <input v-model="rule.conditions.time_from" type="time" class="input w-32 !py-1" aria-label="Heure de début">
+                  à <input v-model="rule.conditions.time_to" type="time" class="input w-32 !py-1" aria-label="Heure de fin">
+                  <span class="text-xs text-gray-500">Heure de l'étape (ex. livraison) ; 22:00 → 06:00 passe minuit.</span>
+                </div>
+              </div>
+              <div>
                 <p class="label">Véhicules (aucun coché : tous)</p>
                 <div class="flex flex-wrap gap-3">
                   <label v-for="(label, value) in VEHICLES" :key="value" class="flex items-center gap-1">
@@ -203,6 +219,51 @@
         <p v-for="k in ['min_amount', 'max_amount']" v-show="errors[k]" :key="k" class="field-error has-error">{{ errors[k]?.[0] }}</p>
       </div>
 
+      <div class="card p-4 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-semibold">Primes d'objectifs</h2>
+          <button class="text-sm text-blue-600" @click="addBonus">+ Ajouter une prime</button>
+        </div>
+        <p class="text-sm text-gray-600">
+          Versées sur la fiche de fin de période quand l'objectif est atteint. Pour un même objectif, seul le palier le plus
+          haut atteint est payé (ex. 150 livraisons → 10 000 F, 250 → 25 000 F) ; des objectifs différents s'additionnent.
+          Le livreur suit sa progression dans son application.
+        </p>
+        <p v-if="!plan.bonuses.length" class="text-sm text-gray-500">Aucune prime.</p>
+        <p v-else-if="!plan.pay_period" class="text-sm text-amber-700">Choisissez une période de paie : les primes se calculent sur chaque période.</p>
+        <div
+          v-for="(b, i) in plan.bonuses" :key="b.key"
+          :class="['flex flex-wrap items-end gap-2 rounded-lg border p-3', bonusErrors(i).length ? 'border-red-400 bg-red-50/40 has-error' : '']"
+        >
+          <div>
+            <label class="label">Objectif</label>
+            <select v-model="b.metric" class="input w-auto">
+              <option v-for="m in meta.bonus_metrics" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">{{ b.metric === 'success_rate' ? 'Taux minimal (%)' : 'Seuil' }}</label>
+            <input v-model.number="b.threshold" type="number" min="1" :max="b.metric === 'success_rate' ? 100 : undefined" class="input w-24">
+          </div>
+          <div v-if="b.metric === 'success_rate'">
+            <label class="label">À partir de … livraisons tentées</label>
+            <input v-model.number="b.min_count" type="number" min="1" class="input w-28" placeholder="1">
+          </div>
+          <div>
+            <label class="label">Prime (F)</label>
+            <input v-model.number="b.amount" type="number" min="1" class="input w-28">
+          </div>
+          <div class="flex-1 min-w-40">
+            <label class="label">Libellé (facultatif)</label>
+            <input v-model="b.label" class="input" maxlength="100" placeholder="Ex. : Prime du meilleur mois">
+          </div>
+          <button class="text-sm text-red-600 pb-2" @click="plan.bonuses.splice(i, 1)">Retirer</button>
+          <ul v-if="bonusErrors(i).length" class="field-error w-full"><li v-for="m in bonusErrors(i)" :key="m">{{ m }}</li></ul>
+        </div>
+      </div>
+
+      <PaySimulatorPanel :settings="settings" :events="meta.events" :zones="zones" :reasons="reasons" />
+
       <div class="sticky bottom-0 bg-white/90 backdrop-blur py-3 flex items-center gap-3">
         <button class="btn-primary" :disabled="saving" @click="save">{{ saving ? 'Enregistrement…' : 'Enregistrer le plan' }}</button>
         <p v-if="error" class="field-error">{{ error }}</p>
@@ -232,16 +293,18 @@ import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
+import PaySimulatorPanel from '../../components/PaySimulatorPanel.vue'
 import { useToastStore } from '../../stores/toasts'
 
 const VEHICLES = { moto: 'Moto', velo: 'Vélo', voiture: 'Voiture', tricycle: 'Tricycle', pieton: 'À pied' }
+const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 const route = useRoute()
 const router = useRouter()
 const toasts = useToastStore()
 
 const plans = ref([])
-const meta = ref({ events: [], calcs: [], templates: [], periods: [] })
+const meta = ref({ events: [], calcs: [], templates: [], periods: [], bonus_metrics: [] })
 const zones = ref([])
 const reasons = ref([])
 const planId = ref(null)
@@ -253,17 +316,24 @@ const errors = ref({})
 const creator = reactive({ open: false, name: '', template: 'fixed', error: '' })
 let nextKey = 1
 
+// Réglages de l'éditeur (pour le simulateur) : recalculés seulement quand le plan change
+const settings = computed(() => (plan.value ? payload(plan.value) : {}))
 const sharedPlans = computed(() => plans.value.filter((p) => !p.personal))
 const personalPlans = computed(() => plans.value.filter((p) => p.personal))
+
+function emptyConditions() {
+  return { zone_ids: [], vehicle_types: [], incident_reason_ids: [], days: [], time_from: '', time_to: '', express: false, fragile: false }
+}
 
 function editable(p) {
   return {
     ...p,
+    bonuses: (p.bonuses || []).map((b) => ({ ...b, key: nextKey++ })),
     rules: p.rules.map((r) => ({
       ...r,
       key: nextKey++,
       zone_amounts: { ...r.zone_amounts },
-      conditions: { zone_ids: [], vehicle_types: [], incident_reason_ids: [], express: false, fragile: false, ...r.conditions },
+      conditions: { ...emptyConditions(), ...r.conditions },
     })),
   }
 }
@@ -290,7 +360,7 @@ const rulesOf = (event) => plan.value.rules.filter((r) => r.event === event)
 function addRule(event) {
   plan.value.rules.push({
     key: nextKey++, event, calc: 'fixed', amount: 0, percent: null, label: '', zone_amounts: {},
-    conditions: { zone_ids: [], vehicle_types: [], incident_reason_ids: [], express: false, fragile: false },
+    conditions: emptyConditions(),
   })
 }
 
@@ -303,6 +373,14 @@ function setZoneAmount(rule, zoneId, value) {
   else rule.zone_amounts[zoneId] = Number(value)
 }
 
+function addBonus() {
+  plan.value.bonuses.push({ key: nextKey++, metric: 'deliveries', threshold: 100, min_count: null, amount: 5000, label: '' })
+}
+
+function bonusErrors(i) {
+  return Object.entries(errors.value).filter(([k]) => k.startsWith(`bonuses.${i}.`)).map(([, m]) => m[0])
+}
+
 function ruleErrors(rule) {
   const prefix = `rules.${plan.value.rules.indexOf(rule)}.`
   return Object.entries(errors.value).filter(([k]) => k.startsWith(prefix)).map(([, m]) => m[0])
@@ -310,7 +388,7 @@ function ruleErrors(rule) {
 
 function hasConditions(rule) {
   const c = rule.conditions
-  return c.express || c.fragile || c.vehicle_types.length || c.zone_ids.length || (rule.event === 'failed_attempt' && c.incident_reason_ids.length)
+  return c.express || c.fragile || c.vehicle_types.length || c.zone_ids.length || c.days.length || c.time_from || (rule.event === 'failed_attempt' && c.incident_reason_ids.length)
 }
 
 function conditionsText(rule) {
@@ -318,6 +396,8 @@ function conditionsText(rule) {
   const parts = []
   if (c.express) parts.push('express')
   if (c.fragile) parts.push('fragile')
+  if (c.days.length) parts.push([...c.days].sort().map((d) => DAYS[d - 1]).join(', '))
+  if (c.time_from && c.time_to) parts.push(`${c.time_from} → ${c.time_to}`)
   if (c.vehicle_types.length) parts.push(c.vehicle_types.map((v) => VEHICLES[v]).join(', '))
   if (c.zone_ids.length && rule.calc !== 'zone_grid') parts.push(`${c.zone_ids.length} zone(s)`)
   if (rule.event === 'failed_attempt' && c.incident_reason_ids.length) parts.push(`${c.incident_reason_ids.length} motif(s)`)
@@ -348,7 +428,17 @@ function payload(p) {
         vehicle_types: r.conditions.vehicle_types,
         zone_ids: r.calc === 'zone_grid' ? [] : r.conditions.zone_ids,
         incident_reason_ids: r.event === 'failed_attempt' ? r.conditions.incident_reason_ids : [],
+        days: r.conditions.days,
+        time_from: r.conditions.time_from || null,
+        time_to: r.conditions.time_to || null,
       },
+    })),
+    bonuses: (p.bonuses || []).map((b) => ({
+      metric: b.metric,
+      threshold: b.threshold,
+      min_count: b.metric === 'success_rate' ? blank(b.min_count) : null,
+      amount: b.amount,
+      label: b.label || null,
     })),
   }
 }

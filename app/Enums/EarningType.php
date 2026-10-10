@@ -18,6 +18,8 @@ enum EarningType: string
     case Salary = 'salary';
     // Retenue au-delà du plafond : sortie de cette fiche (+), reprise sur la suivante (−)
     case Carryover = 'carryover';
+    // Prime d'objectif atteinte sur une période (plan de paie)
+    case Bonus = 'bonus';
 
     public function label(): string
     {
@@ -31,6 +33,7 @@ enum EarningType: string
             self::Adjustment => 'Ajustement',
             self::Salary => 'Salaire de base',
             self::Carryover => 'Retenue reportée',
+            self::Bonus => 'Prime d\'objectif',
         };
     }
 }

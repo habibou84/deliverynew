@@ -52,6 +52,11 @@ class PayPlan extends Model
         return $this->hasMany(PayPlanRule::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    public function bonuses(): HasMany
+    {
+        return $this->hasMany(PayPlanBonus::class)->orderBy('metric')->orderBy('threshold');
+    }
+
     /**
      * Livreur dont c'est le plan personnel.
      */

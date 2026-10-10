@@ -13,6 +13,8 @@ use App\Models\PayPlan;
 use App\Models\PayPlanRule;
 use App\Models\Zone;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 
 /**
  * Rémunération des livreurs selon leur plan : à chaque étape d'une course, les
@@ -23,6 +25,8 @@ use App\Support\Money;
  */
 class CourierPay
 {
+    public function __construct(private CourierActivity $activity) {}
+
     // Ramassage « par passage » : colis du même marchand ramassés dans ce délai
     public const VISIT_WINDOW_HOURS = 3;
 
@@ -102,13 +106,18 @@ class CourierPay
 
     /**
      * Lignes de gain d'une étape : une par règle applicable, plus l'éventuelle borne.
+     * $at : moment de l'étape (conditions de jour et d'heure), maintenant par défaut.
+     * $sameVisit : imposé par le simulateur ; sinon déduit des gains déjà enregistrés.
      *
      * @return list<array{rule: ?PayPlanRule, label: string, amount: int, detail: string}>
      */
-    public function lines(PayPlan $plan, PayEvent $event, Order $order, Courier $courier, bool $withVisits = false): array
+    public function lines(PayPlan $plan, PayEvent $event, Order $order, Courier $courier, bool $withVisits = false, ?CarbonInterface $at = null, ?bool $sameVisit = null): array
     {
+        $at ??= now();
+
         // Ramassage par passage : les colis suivants du même marchand ne paient que le supplément
-        if ($withVisits && $event === PayEvent::Pickup && $plan->pickup_mode === PayPlan::PICKUP_PER_VISIT && $this->sameVisit($courier, $order)) {
+        if ($event === PayEvent::Pickup && $plan->pickup_mode === PayPlan::PICKUP_PER_VISIT
+            && ($sameVisit ?? ($withVisits && $this->sameVisit($courier, $order)))) {
             return [[
                 'rule' => null,
                 'label' => 'Colis supplémentaire',
@@ -125,7 +134,7 @@ class CourierPay
 
         $lines = [];
         foreach ($rules as $rule) {
-            if ($this->matches($rule, $event, $order, $courier)) {
+            if ($this->matches($rule, $event, $order, $courier, $at)) {
                 $lines[] = ['rule' => $rule, 'label' => $rule->label ?: $event->label(), ...$this->amount($rule, $event, $order)];
             }
         }
@@ -187,9 +196,20 @@ class CourierPay
         return ['amount' => $rule->amount, 'detail' => 'Autres zones'];
     }
 
-    private function matches(PayPlanRule $rule, PayEvent $event, Order $order, Courier $courier): bool
+    private function matches(PayPlanRule $rule, PayEvent $event, Order $order, Courier $courier, CarbonInterface $at): bool
     {
         $conditions = $rule->conditions ?? [];
+
+        // Jours et heures, dans le fuseau de l'entreprise
+        if (! empty($conditions['days']) || ! empty($conditions['time_from'])) {
+            $local = CarbonImmutable::parse($at)->setTimezone($this->activity->timezone($courier->company_id));
+            if (! empty($conditions['days']) && ! in_array($local->dayOfWeekIso, array_map('intval', $conditions['days']), true)) {
+                return false;
+            }
+            if (! empty($conditions['time_from']) && ! empty($conditions['time_to']) && ! $this->inTimeRange($local->format('H:i'), $conditions['time_from'], $conditions['time_to'])) {
+                return false;
+            }
+        }
 
         if (! empty($conditions['zone_ids'])) {
             $zone = $this->zone($event, $order);
@@ -216,6 +236,14 @@ class CourierPay
         }
 
         return true;
+    }
+
+    /**
+     * Plage horaire [début, fin[ ; une plage qui passe minuit (22:00 → 06:00) est acceptée.
+     */
+    private function inTimeRange(string $time, string $from, string $to): bool
+    {
+        return $from <= $to ? ($time >= $from && $time < $to) : ($time >= $from || $time < $to);
     }
 
     /**

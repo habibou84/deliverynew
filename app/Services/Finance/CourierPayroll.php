@@ -11,6 +11,7 @@ use App\Models\CourierAdvance;
 use App\Models\CourierEarning;
 use App\Models\CourierPayout;
 use App\Models\PayPlan;
+use App\Models\PayPlanBonus;
 use App\Models\User;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -74,12 +75,15 @@ class CourierPayroll
                 return null;
             }
 
-            $salary = $this->salary($courier, $plan, $start, $end);
+            // Salaire et primes de la période : créés maintenant, mais rattachés à cette fiche
+            $extra = collect([$this->salary($courier, $plan, $start, $end), ...$this->bonuses($courier, $plan, $start, $end)])
+                ->filter()->map->getKey()->all();
 
+            [, $until] = app(CourierActivity::class)->range($courier->company_id, $start, $end);
             $earnings = CourierEarning::query()->withoutGlobalScopes()
                 ->where('courier_id', $courier->id)->whereNull('payout_id')
-                ->where(fn ($q) => $q->where('created_at', '<=', $end->copy()->endOfDay())
-                    ->when($salary, fn ($q) => $q->orWhere('id', $salary->id)))
+                ->where(fn ($q) => $q->where('created_at', '<=', $until)
+                    ->when($extra, fn ($q) => $q->orWhereIn('id', $extra)))
                 ->lockForUpdate()->get();
 
             if ($earnings->isEmpty()) {
@@ -128,6 +132,35 @@ class CourierPayroll
             'period_start' => $start->toDateString(),
             'period_end' => $end->toDateString(),
         ]);
+    }
+
+    /**
+     * Primes d'objectifs atteintes sur la période (une seule fois par période).
+     *
+     * @return list<CourierEarning>
+     */
+    private function bonuses(Courier $courier, PayPlan $plan, CarbonInterface $start, CarbonInterface $end): array
+    {
+        $plan->loadMissing('bonuses');
+        if ($plan->bonuses->isEmpty() || CourierEarning::query()->withoutGlobalScopes()->where('courier_id', $courier->id)
+            ->where('type', EarningType::Bonus->value)->whereDate('period_start', $start->toDateString())->exists()) {
+            return [];
+        }
+
+        $bonuses = app(PayBonuses::class);
+        $measures = $bonuses->measure($courier, $start, $end);
+
+        return $bonuses->reached($plan->bonuses, $measures)->map(fn (PayPlanBonus $bonus) => CourierEarning::create([
+            'company_id' => $courier->company_id,
+            'courier_id' => $courier->id,
+            'type' => EarningType::Bonus,
+            'amount' => $bonus->amount,
+            'pay_plan_id' => $plan->id,
+            'description' => $bonus->title(),
+            'detail' => sprintf('Objectif %s atteint : %d', $bonus->metric->goal($bonus->threshold), $measures[$bonus->metric->value]).($bonus->metric->value === 'success_rate' ? ' %' : ''),
+            'period_start' => $start->toDateString(),
+            'period_end' => $end->toDateString(),
+        ]))->all();
     }
 
     /**

@@ -88,7 +88,7 @@ class PayrollPeriodTest extends TestCase
         $this->earn(700, '2026-11-01 09:00'); // période suivante
 
         $this->as($this->courierA->user)->getJson('/api/v1/courier/wallet')
-            ->assertJsonPath('data.pay', ['base_salary' => 60000, 'period_label' => 'Chaque mois', 'next_payslip' => '2026-11-01']);
+            ->assertJsonPath('data.pay', ['base_salary' => 60000, 'period_label' => 'Chaque mois', 'next_payslip' => '2026-11-01', 'objectives' => []]);
 
         $this->travelTo(CarbonImmutable::parse('2026-11-01 00:20'));
         $this->artisan('payroll:close')->expectsOutput('1 fiche(s) de paie préparée(s).')->assertSuccessful();

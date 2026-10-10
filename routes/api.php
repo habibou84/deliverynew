@@ -133,6 +133,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('pricing-grids/{pricing_grid}/surcharges', [PricingGridController::class, 'syncSurcharges'])->name('pricing-grids.surcharges');
 
             // Paie des livreurs : plans de rémunération
+            Route::post('pay-plans/simulate', [PayPlanController::class, 'simulate'])->middleware('throttle:30,1')->name('pay-plans.simulate');
             Route::apiResource('pay-plans', PayPlanController::class);
 
             // WhatsApp
