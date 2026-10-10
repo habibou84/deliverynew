@@ -238,6 +238,22 @@ Avec `PLATFORM_DOMAIN` (ex. `jibiat.com`), une seule installation sert toutes le
 - Webhooks entrants (WhatsApp) et API publique (clé d'API) fonctionnent à toutes les adresses.
 - Sans `PLATFORM_DOMAIN`, rien ne change : une seule entreprise, désignée par `BRANDING_COMPANY`.
 
+**Console du super administrateur** (`admin.jibiat.com` → `/console`, ou `/console` sans plateforme) :
+
+- tableau des entreprises : adresse, marchands, livreurs, courses du mois, dernière course, statut ; recherche et
+  filtre (`GET /console/companies`) ;
+- création d'une entreprise : nom, adresse (proposée d'après le nom : minuscules, chiffres et tirets, 3 à 40
+  caractères, ni réservée comme `www` ou `admin`, ni déjà prise), fuseau horaire et premier administrateur avec un mot
+  de passe provisoire (`POST /companies`) ; zones, grille tarifaire et plan de paie de départ créés automatiquement ;
+- fiche : informations (changer l'adresse coupe l'ancienne), suspension et réactivation (`PATCH /companies/{id}`) ;
+- **assistance** : « Ouvrir son espace » ouvre l'espace de l'entreprise avec le compte d'un membre de son équipe
+  (un administrateur par défaut) pour une heure, avec un bandeau rouge pendant toute la session et une trace de
+  chaque ouverture (qui, avec quel compte, motif, adresse IP). Le jeton passe dans le fragment de l'adresse
+  (`#support=…`), jamais envoyé au serveur, et en est retiré dès l'ouverture
+  (`POST /console/companies/{id}/support-session`). Sans plateforme, la session d'assistance remplace celle de la
+  console dans le navigateur (même adresse) ;
+- premier super administrateur : `php artisan app:create-super-admin`.
+
 ### Paie des livreurs : plans de rémunération
 
 **Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de

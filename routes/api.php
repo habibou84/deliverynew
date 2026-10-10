@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\PublicV1\PublicApiController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
@@ -110,6 +111,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('push/subscriptions', [PushSubscriptionController::class, 'store'])->middleware('throttle:20,1')->name('push.subscribe');
         Route::delete('push/subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push.unsubscribe');
         Route::post('push/test', [PushSubscriptionController::class, 'test'])->middleware('throttle:5,1')->name('push.test');
+
+        // Console du super administrateur (plateforme)
+        Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsoleController::class)->group(function () {
+            Route::get('companies', 'companies')->name('companies');
+            Route::get('companies/{company}', 'show')->name('companies.show');
+            Route::post('companies/{company}/support-session', 'supportSession')->middleware('throttle:10,1')->name('companies.support');
+        });
 
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
         Route::apiResource('companies', CompanyController::class)->except('destroy');

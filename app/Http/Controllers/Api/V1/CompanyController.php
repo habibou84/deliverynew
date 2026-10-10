@@ -15,7 +15,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Str;
 
 class CompanyController extends Controller
 {
@@ -43,8 +42,9 @@ class CompanyController extends Controller
 
         $company = DB::transaction(function () use ($data, $provisioner) {
             $company = Company::create([
-                ...collect($data)->except('admin')->all(),
-                'slug' => $data['slug'] ?? $this->uniqueSlug($data['name']),
+                // Champs laissés vides : valeurs par défaut (fuseau Africa/Abidjan…)
+                ...collect($data)->except('admin')->reject(fn ($v) => $v === null)->all(),
+                'slug' => $data['slug'] ?? Company::freeSlug($data['name']),
             ]);
 
             $provisioner->provision($company);
@@ -79,18 +79,5 @@ class CompanyController extends Controller
         $company->update($request->validated());
 
         return CompanyResource::make($company->loadCount('users'));
-    }
-
-    private function uniqueSlug(string $name): string
-    {
-        $base = Str::slug($name) ?: 'entreprise';
-        $slug = $base;
-        $i = 2;
-
-        while (Company::where('slug', $slug)->exists()) {
-            $slug = $base.'-'.$i++;
-        }
-
-        return $slug;
     }
 }

@@ -89,6 +89,16 @@ const routes = [
       { path: 'courses/:id', redirect: '/livreur' },
     ],
   },
+  // Console du super administrateur (admin.jibiat.com) : les entreprises de la plateforme
+  {
+    path: '/console',
+    component: () => import('../layouts/ConsoleLayout.vue'),
+    meta: { roles: SPACES.console },
+    children: [
+      { path: '', name: 'console', component: () => import('../views/console/Companies.vue') },
+      { path: 'entreprises/:id(\\d+)', component: () => import('../views/console/Company.vue') },
+    ],
+  },
   // Application e-commerçant (PWA mobile)
   {
     path: '/marchand',
@@ -120,8 +130,8 @@ const router = createRouter({
 
 // Page de connexion de l'espace demandé, avec retour à la page voulue après connexion
 function loginFor(to) {
-  const login = to.path.startsWith('/admin') ? '/admin/connexion' : to.path.startsWith('/livreur') ? '/livreur/connexion' : '/'
-  return { path: login, query: to.path !== login && !['/admin', '/livreur', '/marchand'].includes(to.path) ? { redirect: to.fullPath } : {} }
+  const login = to.path.startsWith('/admin') || to.path.startsWith('/console') ? '/admin/connexion' : to.path.startsWith('/livreur') ? '/livreur/connexion' : '/'
+  return { path: login, query: to.path !== login && !['/admin', '/livreur', '/marchand', '/console'].includes(to.path) ? { redirect: to.fullPath } : {} }
 }
 
 router.beforeEach(async (to) => {

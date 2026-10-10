@@ -36,6 +36,14 @@
         </div>
       </header>
 
+      <div v-if="auth.user?.support_session" class="bg-red-600 text-white text-sm px-4 py-2 flex flex-wrap items-center justify-between gap-2" role="status">
+        <span>
+          🛟 Session d'assistance ouverte par {{ auth.user.support_session.opened_by || 'le super administrateur' }}
+          avec le compte de {{ auth.user.name }}<template v-if="auth.user.support_session.expires_at"> · fin à {{ new Date(auth.user.support_session.expires_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }}</template>
+        </span>
+        <button class="rounded bg-white/20 px-3 py-1 font-medium hover:bg-white/30" @click="logout">Terminer la session</button>
+      </div>
+
       <main class="flex-1 overflow-y-auto p-4 md:p-6">
         <RouterView />
       </main>

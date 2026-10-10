@@ -1,3 +1,5 @@
+// En premier : le jeton d'une session d'assistance est retiré de l'adresse avant le routeur
+import './bootstrap/supportSession'
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
