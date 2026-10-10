@@ -90,10 +90,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [delivery_zone_id]
+              description: 'Indiquez delivery_zone_id ou delivery_zone (nom de la commune ou du quartier).'
               properties:
                 delivery_zone_id: { type: integer }
+                delivery_zone: { type: string, example: Cocody Angré, description: 'Nom de la zone, si vous ne connaissez pas son identifiant' }
                 pickup_zone_id: { type: integer, description: 'Par défaut, la zone de ramassage du marchand' }
+                pickup_zone: { type: string, description: 'Nom de la zone de ramassage' }
                 is_express: { type: boolean }
                 is_fragile: { type: boolean }
                 weight_kg: { type: number }
@@ -294,13 +296,20 @@ components:
         shipping_fee_estimate: { type: [integer, 'null'] }
     NewOrder:
       type: object
-      required: [recipient_phone, delivery_zone_id]
+      required: [recipient_phone]
+      description: 'La zone de livraison se donne par delivery_zone_id ou par delivery_zone (nom).'
       properties:
         merchant_reference: { type: string, description: 'Votre numéro de commande' }
         recipient_name: { type: string }
         recipient_phone: { type: string, example: '07 08 09 10 11' }
         recipient_phone2: { type: string }
-        delivery_zone_id: { type: integer }
+        delivery_zone_id: { type: integer, description: 'Identifiant (GET /zones) ; ou bien delivery_zone' }
+        delivery_zone:
+          type: string
+          example: Yopougon Siporex
+          description: >-
+            Nom de la commune ou du quartier, tel que saisi par votre client (« Cocody », « yop siporex »).
+            Zone inconnue ou ambiguë : erreur 422 sur ce champ, avec les zones possibles.
         delivery_address: { type: string }
         delivery_landmark: { type: string, example: Face pharmacie }
         delivery_scheduled_date: { type: string, format: date }
