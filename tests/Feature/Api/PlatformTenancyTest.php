@@ -9,6 +9,7 @@ use App\Models\PhoneVerification;
 use App\Models\User;
 use App\Services\Orders\OrderWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
@@ -115,5 +116,60 @@ class PlatformTenancyTest extends TestCase
 
         config(['platform.domain' => null, 'app.url' => 'https://livraison.example']);
         $this->assertSame('https://livraison.example/suivi/LV-1', $this->company->url('/suivi/LV-1'));
+    }
+
+    // ───────────── Étape 2 : comptes par entreprise ─────────────
+
+    public function test_the_same_number_can_have_an_account_in_each_company(): void
+    {
+        $this->dispatcher->update(['phone' => '0711223344']);
+        $twin = User::factory()->withRole(Role::Courier)->create(['company_id' => $this->other->id, 'phone' => '0711223344', 'password' => 'autremotdepasse']);
+
+        $this->assertSame($this->company->id, $this->login('rapide', '0711223344')->assertOk()->json('user.company_id'));
+        $token = $this->login('eclair', '0711223344', 'autremotdepasse')->assertOk()->json('token');
+        $this->assertSame($twin->id, $this->withToken($token)->getJson($this->at('eclair', '/api/v1/auth/me'))->json('data.id'));
+
+        // Le mot de passe d'une entreprise ne vaut pas pour l'autre
+        $this->login('eclair', '0711223344')->assertJsonValidationErrors('login');
+
+        // Dans une même entreprise, le numéro reste unique
+        Sanctum::actingAs($this->admin);
+        $this->postJson($this->at('rapide', '/api/v1/users'), ['name' => 'Doublon', 'phone' => '07 11 22 33 44', 'password' => 'password', 'role' => 'courier'])
+            ->assertJsonValidationErrors('phone');
+    }
+
+    public function test_a_merchant_of_one_company_can_sign_up_with_another(): void
+    {
+        $this->other->update(['merchant_signup' => true]);
+        $zone = $this->zone('Treichville', null, $this->other);
+
+        // Le gérant du marchand de « rapide » s'inscrit chez « eclair » avec le même numéro
+        $this->postJson($this->at('eclair', '/api/v1/signup'), [
+            'business_name' => 'Boutique Test', 'contact_name' => 'Mariam', 'phone' => $this->merchantUser->phone,
+            'pickup_zone_id' => $zone->id, 'pickup_address' => 'Avenue 12',
+            'password' => 'motdepasse', 'password_confirmation' => 'motdepasse',
+        ])->assertCreated();
+
+        // Mais pas deux fois dans la même entreprise
+        $this->postJson($this->at('rapide', '/api/v1/signup'), [
+            'business_name' => 'Boutique Bis', 'contact_name' => 'Mariam', 'phone' => $this->merchantUser->phone,
+            'pickup_zone_id' => $this->cocody->id, 'pickup_address' => 'Riviera',
+            'password' => 'motdepasse', 'password_confirmation' => 'motdepasse',
+        ])->assertUnprocessable();
+    }
+
+    public function test_without_the_platform_an_ambiguous_number_must_use_its_company_address(): void
+    {
+        config(['platform.domain' => null]);
+        $this->dispatcher->update(['phone' => '0711223344']);
+        User::factory()->withRole(Role::Courier)->create(['company_id' => $this->other->id, 'phone' => '0711223344', 'password' => 'autremotdepasse']);
+
+        // Mots de passe différents : le bon compte est trouvé
+        $this->assertSame($this->other->id, $this->postJson('/api/v1/auth/login', ['login' => '0711223344', 'password' => 'autremotdepasse'])->assertOk()->json('user.company_id'));
+
+        // Même mot de passe dans les deux entreprises : impossible de choisir
+        User::query()->where('phone', '+2250711223344')->update(['password' => bcrypt('password')]);
+        $this->postJson('/api/v1/auth/login', ['login' => '0711223344', 'password' => 'password'])
+            ->assertJsonPath('errors.login.0', 'Ce numéro a un compte dans plusieurs entreprises : connectez-vous depuis l\'adresse de votre entreprise.');
     }
 }

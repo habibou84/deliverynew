@@ -126,13 +126,13 @@ class MerchantController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', new PhoneNumber],
-            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
+            'email' => ['nullable', 'email', 'max:255', User::uniqueIn($merchant->company_id, 'email')],
             'password' => ['required', 'string', Password::min(8)],
             'role' => ['required', Rule::in([Role::MerchantOwner->value, Role::MerchantStaff->value])],
         ]);
 
         $phone = Phone::normalize($data['phone']);
-        if (User::withTrashed()->where('phone', $phone)->exists()) {
+        if (User::takenIn($merchant->company_id, 'phone', $phone)) {
             return response()->json([
                 'message' => 'Ce téléphone est déjà utilisé.',
                 'errors' => ['phone' => ['Ce téléphone est déjà utilisé.']],

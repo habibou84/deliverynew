@@ -30,12 +30,12 @@ class MerchantSignup
 
             $data = $verification->payload ?? [];
 
-            if (User::withTrashed()->where('phone', $verification->phone)->exists()
+            if (User::takenIn($verification->company_id, 'phone', $verification->phone)
                 || Merchant::forCompany($verification->company_id)->where('phone', $verification->phone)->exists()) {
                 throw new BusinessRuleException('Ce numéro a déjà un compte. Connectez-vous, ou utilisez « Mot de passe oublié ».', 'phone');
             }
 
-            if (filled($data['email'] ?? null) && User::withTrashed()->where('email', $data['email'])->exists()) {
+            if (User::takenIn($verification->company_id, 'email', $data['email'] ?? null)) {
                 $data['email'] = null;
             }
 

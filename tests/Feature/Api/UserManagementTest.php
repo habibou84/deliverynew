@@ -71,14 +71,18 @@ class UserManagementTest extends TestCase
             ->assertJsonValidationErrors('role');
     }
 
-    public function test_phone_numbers_are_unique_whatever_the_format(): void
+    public function test_phone_numbers_are_unique_within_the_company_whatever_the_format(): void
     {
         Sanctum::actingAs($this->admin);
-        User::factory()->create(['phone' => '+2250505050505']);
+        User::factory()->for($this->company)->create(['phone' => '+2250505050505']);
 
         $this->postJson('/api/v1/users', $this->courierPayload(['phone' => '0505050505']))
             ->assertUnprocessable()
             ->assertJsonPath('errors.phone.0', 'Ce téléphone est déjà utilisé.');
+
+        // Le même numéro dans une autre entreprise : accepté (livreur de deux entreprises)
+        User::factory()->create(['phone' => '+2250707070707']);
+        $this->postJson('/api/v1/users', $this->courierPayload(['phone' => '0707070707']))->assertCreated();
     }
 
     public function test_dispatcher_can_list_users_but_not_create_them(): void
