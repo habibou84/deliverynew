@@ -43,7 +43,7 @@ class ParcelCustody
     {
         return self::heldQuery()->where('held_by_courier_id', $courier->id)
             ->with(['merchant:id,business_name', 'deliveryZone:id,name', 'lastIncidentReason:id,label'])
-            ->orderBy('held_since')
+            ->orderBy('held_since')->orderBy('id')
             ->get();
     }
 
@@ -56,7 +56,7 @@ class ParcelCustody
     {
         return self::heldQuery()->where('held_by_courier_id', $courier->id)
             ->where('status', OrderStatus::OutForDelivery->value)
-            ->orderBy('held_since')
+            ->orderBy('held_since')->orderBy('id')
             ->get(['id', 'tracking_code', 'recipient_name', 'status', 'held_since']);
     }
 

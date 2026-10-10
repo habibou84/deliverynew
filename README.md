@@ -254,6 +254,19 @@ Avec `PLATFORM_DOMAIN` (ex. `jibiat.com`), une seule installation sert toutes le
   console dans le navigateur (même adresse) ;
 - premier super administrateur : `php artisan app:create-super-admin`.
 
+**Mise en service** (DNS Cloudflare, certificat `*.jibiat.com`, ISPConfig ou Nginx) : guide pas à pas dans
+[`docs/PLATEFORME.md`](docs/PLATEFORME.md), script `deploy/platform.sh`.
+
+- `php artisan platform:status` : adresses de la console et des entreprises, points à corriger (aucun super
+  administrateur, adresse invalide) ; `--rename=ancienne:nouvelle` change l'adresse d'une entreprise.
+- Temps réel : sans `VITE_REVERB_HOST`, l'interface se connecte à Reverb sur l'adresse ouverte (chaque adresse
+  relaie `/app/`).
+- `TRUSTED_PROXIES=cloudflare` : adresse IP réelle des visiteurs derrière le proxy Cloudflare (sinon les limites de
+  tentatives par adresse IP seraient partagées par tous) ; ou une liste d'adresses de mandataires.
+- Limites de l'espace connecté, par minute : `PLATFORM_USER_RATE_LIMIT` par compte (300) et
+  `PLATFORM_COMPANY_RATE_LIMIT` pour toute une entreprise (3000), pour qu'une entreprise très active ne ralentisse
+  pas les autres.
+
 ### Paie des livreurs : plans de rémunération
 
 **Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de

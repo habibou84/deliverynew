@@ -81,6 +81,22 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('verification-sms', fn (Request $request) => Limit::perHour(10)->by('sms:'.$request->ip()));
 
+        // Espace connecté : quota par compte et par entreprise
+        RateLimiter::for('tenant', function (Request $request) {
+            $user = $request->user();
+
+            if (! $user) {
+                return Limit::perMinute((int) config('platform.limits.user_per_minute'))->by('tenant-ip:'.$request->ip());
+            }
+
+            return array_filter([
+                Limit::perMinute((int) config('platform.limits.user_per_minute'))->by('tenant-user:'.$user->id),
+                $user->company_id
+                    ? Limit::perMinute((int) config('platform.limits.company_per_minute'))->by('tenant-company:'.$user->company_id)
+                    : null,
+            ]);
+        });
+
         RateLimiter::for('public-api', function (Request $request) {
             $key = (string) ($request->bearerToken() ?? $request->header('X-Api-Key'));
 

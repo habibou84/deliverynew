@@ -97,7 +97,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         ->middleware('throttle:30,1')
         ->name('tracking.show');
 
-    Route::middleware(['auth:sanctum', 'active'])->group(function () {
+    Route::middleware(['auth:sanctum', 'active', 'throttle:tenant'])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::post('company/logo', [BrandingController::class, 'upload'])->name('company.logo.store');

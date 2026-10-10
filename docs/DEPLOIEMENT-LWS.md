@@ -10,6 +10,8 @@ applications livreur et marchand (PWA), temps réel, notifications push.
 
 Dans les deux cas : PostgreSQL, Redis, Horizon (files d'attente), Reverb (temps réel), tâches planifiées.
 
+Ensuite, pour servir plusieurs entreprises (une adresse chacune sur `jibiat.com`) : [PLATEFORME.md](PLATEFORME.md).
+
 ## Avant de commencer
 
 | Il faut | Pourquoi |
