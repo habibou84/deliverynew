@@ -5,7 +5,7 @@ import http from '../bootstrap/axios'
 // un livreur au-delà du délai de l'entreprise (badge du menu « Courses »)
 export const useDispatchCountStore = defineStore('dispatchCounts', {
   state: () => ({
-    counts: { to_confirm: 0, to_pickup: 0, to_deliver: 0, late: { pickup: 0, delivery: 0, total: 0 } },
+    counts: { to_confirm: 0, to_pickup: 0, to_deliver: 0, unassigned: 0, late: { pickup: 0, delivery: 0, total: 0 } },
     version: 0,
   }),
   actions: {

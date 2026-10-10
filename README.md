@@ -226,8 +226,14 @@ de l'entreprise (**Paramètres** : 30 min pour le ramassage, 1 h pour la livrais
 - le dispatch reçoit une alerte sonore regroupée (une fois par course et par statut), les administrateurs une
   seconde alerte après trois fois le délai (`orders:unassigned`, chaque minute).
 
+L'onglet **« 🛵 Sans livreur »** regroupe les deux étapes, **de la plus ancienne attente à la plus récente**
+(`GET /orders?queue=unassigned&awaiting=pickup|delivery`), avec un filtre Les deux / Ramassage / Livraison. Avec la
+sélection groupée, « Selon la course » assigne en une fois le ramassage des courses à ramasser et la livraison des
+colis à livrer au livreur choisi.
+
 Le délai part de l'entrée dans le statut (un désassignement le relance) ; une livraison prévue un autre jour ne
-compte qu'à partir de ce jour. Les commandes d'entrepôt ne demandent pas de ramassage.
+compte qu'à partir de ce jour. Les commandes d'entrepôt ne demandent pas de ramassage ; un report qui a déjà son
+livreur de livraison n'est pas compté.
 
 ### Boutique en ligne du marchand (page de commande)
 

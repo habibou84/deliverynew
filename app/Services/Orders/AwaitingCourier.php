@@ -2,6 +2,7 @@
 
 namespace App\Services\Orders;
 
+use App\Enums\AssignmentType;
 use App\Enums\OrderStatus;
 use App\Enums\Role;
 use App\Models\Company;
@@ -33,9 +34,36 @@ class AwaitingCourier
     {
         return match (true) {
             $order->status === OrderStatus::Confirmed && $order->pickup_hub_id === null => self::PICKUP,
-            in_array($order->status, self::DELIVERY_STATUSES, true) && ! $order->return_requested => self::DELIVERY,
+            in_array($order->status, self::DELIVERY_STATUSES, true) && ! $order->return_requested
+                // Un report peut déjà avoir son livreur tout en restant « reporté »
+                && ! ($order->status === OrderStatus::Rescheduled && $this->hasDeliveryCourier($order)) => self::DELIVERY,
             default => null,
         };
+    }
+
+    private function hasDeliveryCourier(Order $order): bool
+    {
+        return $order->assignments()->active()->where('type', AssignmentType::Delivery->value)->exists();
+    }
+
+    /**
+     * Requête des courses qui attendent un livreur (avant le contrôle du jour prévu) :
+     * file « Sans livreur » de la liste et alertes. $stage : pickup, delivery ou null (les deux).
+     */
+    public static function scope(Builder $query, ?string $stage = null): Builder
+    {
+        return $query->where(function (Builder $q) use ($stage) {
+            if ($stage !== self::DELIVERY) {
+                $q->orWhere(fn (Builder $q) => $q->where('status', OrderStatus::Confirmed->value)->whereNull('pickup_hub_id'));
+            }
+            if ($stage !== self::PICKUP) {
+                $q->orWhere(fn (Builder $q) => $q->whereIn('status', OrderStatus::values(self::DELIVERY_STATUSES))
+                    ->where('return_requested', false)
+                    ->whereDoesntHave('assignments', fn ($a) => $a->active()->where('type', AssignmentType::Delivery->value)));
+            }
+        })
+            // Livraison prévue un autre jour : pas encore en attente
+            ->where(fn (Builder $q) => $q->whereNull('delivery_scheduled_date')->orWhereDate('delivery_scheduled_date', '<=', today()));
     }
 
     /**
@@ -89,11 +117,7 @@ class AwaitingCourier
      */
     public function waiting(Company $company): Collection
     {
-        return Order::withoutGlobalScopes()
-            ->where('company_id', $company->id)
-            ->where(fn (Builder $q) => $q
-                ->where(fn (Builder $q) => $q->where('status', OrderStatus::Confirmed->value)->whereNull('pickup_hub_id'))
-                ->orWhere(fn (Builder $q) => $q->whereIn('status', OrderStatus::values(self::DELIVERY_STATUSES))->where('return_requested', false)))
+        return self::scope(Order::withoutGlobalScopes()->where('company_id', $company->id))
             ->get()
             ->map(fn (Order $order) => ($state = $this->describe($order, $company)) ? ['order' => $order, ...$state] : null)
             ->filter()

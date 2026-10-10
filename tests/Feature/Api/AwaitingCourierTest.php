@@ -91,6 +91,31 @@ class AwaitingCourierTest extends TestCase
         $this->assertSame(60, $this->awaiting($later)['minutes']);
     }
 
+    public function test_unassigned_queue_lists_pickups_and_deliveries_oldest_first(): void
+    {
+        Sanctum::actingAs($this->dispatcher);
+        $pickup = $this->confirmedOrder();
+        $this->travel(30)->minutes();
+        $delivery = $this->confirmedOrder();
+        $delivery->forceFill(['status' => OrderStatus::PickedUp])->save();
+        $this->confirmedOrder(['delivery_scheduled_date' => today()->addDays(3)->toDateString()]);
+
+        // Report qui a déjà son livreur de livraison : pas « sans livreur »
+        $planned = $this->confirmedOrder();
+        $planned->forceFill(['status' => OrderStatus::AtHub])->save();
+        app(OrderDispatcher::class)->assign($this->dispatcher, $planned, AssignmentType::Delivery, $this->courierB);
+        $planned->refresh()->forceFill(['status' => OrderStatus::Rescheduled, 'delivery_scheduled_date' => today()->toDateString()])->save();
+        $this->assertNull($this->awaiting($planned));
+        $this->travel(5)->minutes();
+
+        $codes = fn (string $query) => collect($this->getJson('/api/v1/orders?queue=unassigned'.$query)->assertOk()->json('data'))->pluck('id')->all();
+        $this->assertSame([$pickup->id, $delivery->id], $codes(''));
+        $this->assertSame([$pickup->id], $codes('&awaiting=pickup'));
+        $this->assertSame([$delivery->id], $codes('&awaiting=delivery'));
+        $this->getJson('/api/v1/orders?queue=unassigned&awaiting=autre')->assertJsonValidationErrors('awaiting');
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.unassigned', 2);
+    }
+
     public function test_dispatch_is_alerted_once_then_admins(): void
     {
         $order = $this->confirmedOrder();

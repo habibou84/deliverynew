@@ -26,6 +26,19 @@
       </button>
     </div>
 
+    <!-- Sans livreur : ramassage, livraison ou les deux ; de la plus ancienne attente à la plus récente -->
+    <div v-if="filters.queue === 'unassigned'" class="flex flex-wrap items-center gap-2 text-sm">
+      <span class="text-gray-600">Afficher :</span>
+      <button
+        v-for="a in AWAITING" :key="a.value" type="button"
+        :class="['rounded-full px-3 py-1 ring-1', filters.awaiting === a.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
+        @click="setAwaiting(a.value)"
+      >
+        {{ a.label }}
+      </button>
+      <span class="text-gray-500">· de la plus ancienne attente à la plus récente</span>
+    </div>
+
     <div class="card p-3 grid grid-cols-2 md:grid-cols-6 gap-2">
       <input v-model="filters.search" class="input col-span-2" placeholder="Code, téléphone, nom, référence…" @input="debouncedLoad">
       <select v-model="filters.status" class="input" @change="load(1)">
@@ -54,6 +67,7 @@
         <span class="mx-1 h-6 w-px bg-blue-200" aria-hidden="true" />
       </template>
       <select v-model="bulk.type" class="input w-auto">
+        <option v-if="filters.queue === 'unassigned'" value="auto">Selon la course (ramassage ou livraison)</option>
         <option value="pickup">Ramassage</option>
         <option value="delivery">Livraison</option>
         <option value="return">Retour</option>
@@ -156,6 +170,7 @@ const queues = [
   { value: 'to_pickup', label: 'À ramasser' },
   { value: 'to_prepare', label: 'À préparer' },
   { value: 'to_deliver', label: 'À livrer' },
+  { value: 'unassigned', label: '🛵 Sans livreur' },
   { value: 'to_decide', label: 'À décider' },
   { value: 'scheduled', label: 'Reportées' },
   { value: 'incidents', label: 'Incidents' },
@@ -168,6 +183,8 @@ const filters = reactive({
   status: '',
   merchant_id: route.query.merchant_id || '',
   courier_id: route.query.courier_id || '',
+  // File « Sans livreur » : pickup, delivery ou les deux
+  awaiting: route.query.awaiting || '',
   from: '',
   to: '',
 })
@@ -178,7 +195,12 @@ const loading = ref(false)
 const merchants = ref([])
 const couriers = ref([])
 const selected = ref([])
-const bulk = reactive({ type: 'pickup', courier_id: null })
+const bulk = reactive({ type: route.query.queue === 'unassigned' ? 'auto' : 'pickup', courier_id: null })
+const AWAITING = [
+  { value: '', label: 'Les deux' },
+  { value: 'pickup', label: 'Ramassage' },
+  { value: 'delivery', label: 'Livraison' },
+]
 const assigning = ref(false)
 const confirming = ref(false)
 // Courses sélectionnées encore en attente de validation
@@ -190,9 +212,11 @@ const allSelected = computed(() => orders.value.length > 0 && selected.value.len
 // Compteurs des files et courses en attente d'un livreur depuis trop longtemps
 const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
-const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_deliver: 'to_deliver' }
+const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_deliver: 'to_deliver', unassigned: 'unassigned' }
 const tabCount = (queue) => (isDispatch.value && COUNTED[queue] ? dispatchCounts.counts[COUNTED[queue]] : 0)
-const tabLate = (queue) => (isDispatch.value ? { to_pickup: dispatchCounts.counts.late.pickup, to_deliver: dispatchCounts.counts.late.delivery }[queue] || 0 : 0)
+const tabLate = (queue) => (isDispatch.value
+  ? { to_pickup: dispatchCounts.counts.late.pickup, to_deliver: dispatchCounts.counts.late.delivery, unassigned: dispatchCounts.counts.late.total }[queue] || 0
+  : 0)
 
 // Durée d'attente lisible : 25 min, 1 h 05, 2 j 3 h
 function duration(minutes) {
@@ -228,8 +252,16 @@ function debouncedLoad() {
 
 function setQueue(value) {
   filters.queue = value
-  bulk.type = { to_deliver: 'delivery', incidents: 'delivery', to_return: 'return' }[value] || 'pickup'
+  filters.awaiting = ''
+  bulk.type = { to_deliver: 'delivery', incidents: 'delivery', to_return: 'return', unassigned: 'auto' }[value] || 'pickup'
   router.replace({ query: value ? { queue: value } : {} })
+  load(1)
+}
+
+function setAwaiting(value) {
+  filters.awaiting = value
+  bulk.type = value || 'auto'
+  router.replace({ query: { queue: 'unassigned', ...(value ? { awaiting: value } : {}) } })
   load(1)
 }
 
@@ -274,7 +306,21 @@ async function bulkConfirm() {
 async function bulkAssign() {
   assigning.value = true
   try {
-    const { data } = await http.post('/orders/bulk-assign', { order_ids: selected.value, ...bulk })
+    // « Selon la course » : ramassage pour les courses à ramasser, livraison pour les colis à livrer
+    const groups = bulk.type === 'auto'
+      ? Object.entries(selected.value.reduce((acc, id) => {
+        const stage = orders.value.find((o) => o.id === id)?.awaiting_courier?.stage || 'pickup'
+        ;(acc[stage] ||= []).push(id)
+        return acc
+      }, {}))
+      : [[bulk.type, selected.value]]
+    const result = { assigned: [], errors: {} }
+    for (const [type, ids] of groups) {
+      const { data } = await http.post('/orders/bulk-assign', { order_ids: ids, type, courier_id: bulk.courier_id })
+      result.assigned.push(...data.data.assigned)
+      Object.assign(result.errors, data.data.errors)
+    }
+    const data = { data: result }
     const errors = Object.entries(data.data.errors)
     if (data.data.assigned.length) toasts.success(`${data.data.assigned.length} course(s) assignée(s).`)
     errors.forEach(([id, message]) => {
