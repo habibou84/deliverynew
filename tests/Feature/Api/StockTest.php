@@ -196,7 +196,7 @@ class StockTest extends TestCase
         // Pas plus que le disponible
         $this->postJson('/api/v1/orders', [
             'recipient_phone' => '0707070707', 'delivery_zone_id' => $this->yopougon->id,
-            'pickup_hub_id' => $this->hub->id, 'items' => [['product_id' => $this->dress->id, 'quantity' => 4]],
+            'pickup_hub_id' => $this->hub->id, 'items' => [['product_id' => $this->dress->id, 'quantity' => 4]], 'fee_payer' => 'recipient',
         ])->assertJsonValidationErrors('items');
 
         $this->as($this->dispatcher)->postJson("/api/v1/orders/{$order->id}/status", ['status' => 'confirmed'])->assertOk()
@@ -302,7 +302,7 @@ class StockTest extends TestCase
         $foreign = Product::create(['company_id' => $this->company->id, 'merchant_id' => Merchant::factory()->create(['company_id' => $this->company->id])->id, 'name' => 'Autre']);
         $this->postJson('/api/v1/orders', [
             'recipient_phone' => '0707070707', 'delivery_zone_id' => $this->yopougon->id,
-            'items' => [['product_id' => $foreign->id, 'quantity' => 1]],
+            'items' => [['product_id' => $foreign->id, 'quantity' => 1]], 'fee_payer' => 'merchant',
         ])->assertJsonValidationErrors('items.0.product_id');
     }
 
