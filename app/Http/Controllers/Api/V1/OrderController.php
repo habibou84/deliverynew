@@ -102,6 +102,8 @@ class OrderController extends Controller
             'late' => $awaiting->lateCounts($request->user()->company),
             // Tableau de bord : en attente d'un livreur, par étape
             'waiting' => $awaiting->summary($request->user()->company),
+            // Heure limite du jour : passée ou non, et courses encore sans livreur
+            'cutoff' => $awaiting->cutoff($request->user()->company),
         ]]);
     }
 

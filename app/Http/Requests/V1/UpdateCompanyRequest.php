@@ -54,6 +54,8 @@ class UpdateCompanyRequest extends FormRequest
             'tagline' => ['sometimes', 'nullable', 'string', 'max:160'],
             'merchant_signup' => ['sometimes', 'boolean'],
             'pickup_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
+            // Heure limite du jour (HH:MM, heure de l'entreprise) ; vide = aucune
+            'daily_cutoff_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'delivery_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
         ];
@@ -66,6 +68,7 @@ class UpdateCompanyRequest extends FormRequest
             'phone' => 'téléphone',
             'address' => 'adresse',
             'status' => 'statut',
+            'daily_cutoff_time' => 'heure limite du jour',
         ];
     }
 }

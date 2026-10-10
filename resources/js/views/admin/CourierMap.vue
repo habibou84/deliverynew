@@ -7,6 +7,7 @@
         <span class="flex items-center gap-1"><i class="legend bg-emerald-600" /> Disponible</span>
         <span class="flex items-center gap-1"><i class="legend bg-slate-400" /> Hors service</span>
         <label class="flex items-center gap-2"><input v-model="showOffDuty" type="checkbox"> Afficher les livreurs hors service</label>
+        <label class="flex items-center gap-2"><input v-model="showPickups" type="checkbox"> <i class="legend-square" /> Ramassages sans livreur ({{ pickups.length }})</label>
       </div>
     </div>
 
@@ -58,6 +59,34 @@
 
       <!-- Livreurs en direct -->
       <aside v-else class="card divide-y max-h-[75vh] overflow-y-auto">
+        <!-- Ramassages sans livreur : les livreurs en service les plus proches -->
+        <section v-if="showPickups && pickups.length" class="bg-orange-50/60">
+          <h2 class="px-3 pt-3 pb-1 text-sm font-semibold">📦 Ramassages sans livreur ({{ pickups.length }})</h2>
+          <div v-for="p in pickups" :key="p.order_id" :class="['px-3 py-2 border-t border-orange-100', selectedPickup === p.order_id ? 'bg-orange-100' : '']">
+            <button type="button" class="w-full text-left" @click="focusPickup(p)">
+              <span class="flex items-center justify-between gap-2 text-sm">
+                <span class="font-medium truncate">{{ p.merchant || 'Marchand' }}</span>
+                <span :class="['text-xs whitespace-nowrap', p.late ? 'text-red-700 font-semibold' : 'text-gray-500']">{{ p.late ? '⏰ ' : '' }}{{ waitDuration(p.minutes) }}</span>
+              </span>
+              <span class="block text-xs text-gray-600 truncate"><span class="font-mono">{{ p.tracking_code }}</span> · {{ p.zone_name }}<span v-if="p.address"> · {{ p.address }}</span></span>
+              <span v-if="p.after_cutoff" class="text-xs text-red-700">🕒 Heure limite du jour passée</span>
+            </button>
+            <p v-if="p.lat === null" class="text-xs text-amber-700 mt-1">Position du marchand inconnue : pas de livreur proche calculé.</p>
+            <p v-else-if="!p.nearest.length" class="text-xs text-gray-500 mt-1">Aucun livreur en service localisé.</p>
+            <div v-else class="mt-1 flex flex-wrap gap-1">
+              <button
+                v-for="n in p.nearest" :key="n.id" type="button"
+                class="rounded-full bg-white px-2 py-0.5 text-xs ring-1 ring-slate-300 hover:ring-blue-500 disabled:opacity-50"
+                :disabled="assigning === p.order_id"
+                :title="`Assigner le ramassage à ${n.name}`"
+                @click="assign(p, n)"
+              >
+                🛵 {{ n.name }} · {{ formatKm(n.km) }}<span v-if="n.missions" class="text-gray-500"> · {{ n.missions }} mission{{ n.missions > 1 ? 's' : '' }}</span>
+                <span v-if="isStale(n)" class="text-amber-700" :title="`Position ${ago(n.last_location_at)} : le livreur a pu bouger depuis`"> · position ancienne</span>
+              </button>
+            </div>
+          </div>
+        </section>
         <div v-for="c in listed" :key="c.id" :class="['p-3 hover:bg-slate-50', selectedId === c.id ? 'bg-sky-50' : '']">
           <button type="button" class="w-full text-left" @click="focus(c)">
             <div class="flex items-center justify-between gap-2">
@@ -86,11 +115,12 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import http from '../../bootstrap/axios'
+import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useEcho } from '../../bootstrap/echo'
 import { useAuthStore } from '../../stores/auth'
 import { orderChanges } from '../../composables/useRealtime'
-import { today } from '../../utils/format'
+import { useToastStore } from '../../stores/toasts'
+import { today, waitDuration } from '../../utils/format'
 
 // Au-delà, la position est considérée comme ancienne (téléphone éteint, réseau coupé…)
 const STALE_MINUTES = 15
@@ -103,6 +133,15 @@ const echo = useEcho()
 
 const mapEl = ref(null)
 const couriers = ref([])
+// Ramassages sans livreur (position chez le marchand, livreurs les plus proches)
+const pickups = ref([])
+const showPickups = ref(true)
+const selectedPickup = ref(null)
+const assigning = ref(null)
+const toasts = useToastStore()
+const pickupMarkers = new Map()
+let pickupLayer = null
+let linksLayer = null
 const loaded = ref(false)
 const showOffDuty = ref(false)
 const selectedId = ref(null)
@@ -189,10 +228,90 @@ function render() {
     }
   }
 
-  // Cadrage automatique au premier affichage
-  if (!fitted && located.value.length) {
-    map.fitBounds(L.latLngBounds(located.value.map((c) => [c.lat, c.lng])), { padding: [40, 40], maxZoom: 15, animate: false })
+  renderPickups()
+
+  // Cadrage automatique au premier affichage (livreurs et ramassages en attente)
+  const points = [...located.value.map((c) => [c.lat, c.lng]), ...(showPickups.value ? locatedPickups.value.map((p) => [p.lat, p.lng]) : [])]
+  if (!fitted && points.length) {
+    map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 15, animate: false })
     fitted = true
+  }
+}
+
+const locatedPickups = computed(() => pickups.value.filter((p) => p.lat !== null && p.lng !== null))
+
+function pickupIcon(p) {
+  return L.divIcon({
+    className: '',
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+    popupAnchor: [0, -16],
+    html: `<div class="pickup-pin${p.late ? ' is-late' : ''}">📦</div>`,
+  })
+}
+
+function pickupPopup(p) {
+  const nearest = p.nearest.length
+    ? `<br>Plus proches : ${p.nearest.map((n) => `${escape(n.name)} (${escape(formatKm(n.km))})`).join(', ')}`
+    : ''
+
+  return `<strong>📦 ${escape(p.merchant || 'Marchand')}</strong> · sans livreur depuis ${escape(waitDuration(p.minutes))}<br>
+    <a href="/admin/courses/${p.order_id}" data-order="${p.order_id}">${escape(p.tracking_code)}</a> · ${escape(p.zone_name || '')}${p.address ? ` · ${escape(p.address)}` : ''}${nearest}`
+}
+
+function renderPickups() {
+  if (!map || !pickupLayer) return
+  const shown = showPickups.value ? locatedPickups.value : []
+  const ids = new Set(shown.map((p) => p.order_id))
+
+  for (const [id, marker] of pickupMarkers) {
+    if (!ids.has(id)) {
+      marker.remove()
+      pickupMarkers.delete(id)
+    }
+  }
+  for (const p of shown) {
+    const marker = pickupMarkers.get(p.order_id)
+    if (marker) marker.setLatLng([p.lat, p.lng]).setIcon(pickupIcon(p)).setPopupContent(pickupPopup(p))
+    else pickupMarkers.set(p.order_id, L.marker([p.lat, p.lng], { icon: pickupIcon(p), title: p.merchant, zIndexOffset: -100 }).bindPopup(pickupPopup(p)).addTo(pickupLayer))
+  }
+  if (!showPickups.value) linksLayer?.clearLayers()
+}
+
+// Ramassage choisi : traits pointillés vers les livreurs les plus proches
+function focusPickup(p) {
+  selectedPickup.value = p.order_id
+  linksLayer.clearLayers()
+  const marker = pickupMarkers.get(p.order_id)
+  if (!marker) return
+
+  const bounds = [[p.lat, p.lng]]
+  for (const n of p.nearest) {
+    const c = couriers.value.find((x) => x.id === n.id)
+    if (c?.lat == null) continue
+    L.polyline([[p.lat, p.lng], [c.lat, c.lng]], { color: '#ea580c', weight: 2, dashArray: '6 6' }).addTo(linksLayer)
+    bounds.push([c.lat, c.lng])
+  }
+  map.flyToBounds(L.latLngBounds(bounds), { padding: [60, 60], maxZoom: 16, duration: 0.6 })
+  marker.openPopup()
+}
+
+function formatKm(km) {
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${String(km).replace('.', ',')} km`
+}
+
+async function assign(p, n) {
+  assigning.value = p.order_id
+  try {
+    await http.post(`/orders/${p.order_id}/assign`, { type: 'pickup', courier_id: n.id })
+    toasts.success(`Ramassage ${p.tracking_code} assigné à ${n.name}.`)
+    linksLayer.clearLayers()
+    selectedPickup.value = null
+    await load()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    assigning.value = null
   }
 }
 
@@ -206,7 +325,9 @@ function focus(c) {
 }
 
 async function load() {
-  couriers.value = (await http.get('/couriers/map')).data.data
+  const { data } = await http.get('/couriers/map')
+  couriers.value = data.data
+  pickups.value = data.pickups || []
   loaded.value = true
   now.value = Date.now()
 }
@@ -245,6 +366,8 @@ function drawTrack(fit) {
   const t = track.value
   if (!map || !t) return
   map.removeLayer(liveLayer)
+  map.removeLayer(pickupLayer)
+  map.removeLayer(linksLayer)
   trackLayer.clearLayers()
 
   const line = t.points.map((p) => [p[0], p[1]])
@@ -283,6 +406,8 @@ function closeTrack() {
   track.value = null
   trackLayer.clearLayers()
   liveLayer.addTo(map)
+  pickupLayer.addTo(map)
+  linksLayer.addTo(map)
   router.replace({ query: {} })
   render()
 }
@@ -302,7 +427,7 @@ function onLocation(payload) {
   now.value = Date.now()
 }
 
-watch([couriers, showOffDuty, now], render, { deep: true })
+watch([couriers, pickups, showOffDuty, showPickups, now], render, { deep: true })
 watch(orderChanges, load)
 
 const channel = auth.user?.company_id ? `company.${auth.user.company_id}` : null
@@ -315,6 +440,8 @@ onMounted(async () => {
     maxZoom: 19,
     attribution: '&copy; contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(map)
+  pickupLayer = L.layerGroup().addTo(map)
+  linksLayer = L.layerGroup().addTo(map)
   liveLayer = L.layerGroup().addTo(map)
   trackLayer = L.layerGroup().addTo(map)
 
@@ -377,6 +504,29 @@ onBeforeUnmount(() => {
   color: #fff;
   font: 600 12px system-ui, sans-serif;
   text-align: center;
+}
+
+.legend-square {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 0.2rem;
+  background: #ea580c;
+}
+
+:deep(.pickup-pin) {
+  width: 30px;
+  height: 30px;
+  border-radius: 0.4rem;
+  border: 2px solid #fff;
+  background: #fb923c;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.4);
+  font: 14px/26px system-ui, sans-serif;
+  text-align: center;
+}
+
+:deep(.pickup-pin.is-late) {
+  background: #dc2626;
 }
 
 :deep(.courier-pin.is-stale) {

@@ -27,6 +27,11 @@
         <h2 class="font-semibold">🛵 En attente d'un livreur</h2>
         <RouterLink :to="{ path: '/admin/courses', query: { queue: 'unassigned' } }" class="text-sm text-blue-600">Tout voir et assigner</RouterLink>
       </div>
+      <p v-if="cutoff?.passed && cutoff.count" class="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white">
+        🕒 Il est plus de {{ cutoff.time }} : {{ cutoff.count }} course{{ cutoff.count > 1 ? 's' : '' }} du jour
+        {{ cutoff.count > 1 ? 'n\'ont' : 'n\'a' }} toujours pas de livreur et risque{{ cutoff.count > 1 ? 'nt' : '' }} de ne pas être livrée{{ cutoff.count > 1 ? 's' : '' }} aujourd'hui.
+      </p>
+      <p v-else-if="cutoff && !cutoff.passed" class="text-xs text-gray-500">Heure limite du jour : {{ cutoff.time }}.</p>
       <p v-if="!waitingTotal" class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">✓ Toutes les courses à ramasser et à livrer ont un livreur.</p>
       <div v-else class="grid sm:grid-cols-2 gap-3">
         <RouterLink
@@ -104,6 +109,7 @@ const waiting = computed(() => [
   { stage: 'pickup', label: 'À assigner au ramassage', ...dispatchCounts.counts.waiting?.pickup },
   { stage: 'delivery', label: 'À assigner à la livraison', ...dispatchCounts.counts.waiting?.delivery },
 ])
+const cutoff = computed(() => dispatchCounts.counts.cutoff)
 const waitingTotal = computed(() => waiting.value.reduce((n, w) => n + (w.count || 0), 0))
 
 const duration = waitDuration

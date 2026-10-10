@@ -2,8 +2,12 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\OrderStatus;
+use App\Enums\Role;
 use App\Events\CourierLocationUpdated;
 use App\Models\CourierLocation;
+use App\Models\Merchant;
+use App\Services\Orders\OrderWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
@@ -124,5 +128,38 @@ class CourierMapTest extends TestCase
         $this->assertSame(0, CourierLocation::count());
 
         Carbon::setTestNow();
+    }
+
+    public function test_waiting_pickups_are_shown_with_the_nearest_couriers(): void
+    {
+        // Marchand à Riviera ; A en service à ~1 km, B en service à ~5 km, un troisième hors service tout près
+        $this->merchant->update(['pickup_lat' => 5.3600, 'pickup_lng' => -3.9700]);
+        $this->courierA->update(['is_available' => true, 'current_lat' => 5.3690, 'current_lng' => -3.9700, 'last_location_at' => now()]);
+        $this->courierB->update(['is_available' => true, 'current_lat' => 5.3150, 'current_lng' => -3.9700, 'last_location_at' => now()]);
+        $offDuty = $this->userWithRole(Role::Courier, ['name' => 'Yao Repos'])->courier;
+        $offDuty->update(['is_available' => false, 'current_lat' => 5.3601, 'current_lng' => -3.9700]);
+
+        $order = app(OrderWorkflow::class)->transition($this->dispatcher, $this->createOrder(), OrderStatus::Confirmed);
+        // Sans position (ni sur la course ni chez le marchand) : listée, sans livreur proche
+        $otherMerchant = Merchant::factory()->create(['company_id' => $this->company->id, 'pickup_zone_id' => $this->cocody->id]);
+        app(OrderWorkflow::class)->transition($this->dispatcher, $this->createOrder([], null, $otherMerchant), OrderStatus::Confirmed);
+
+        Sanctum::actingAs($this->dispatcher);
+        $pickups = collect($this->getJson('/api/v1/couriers/map')->assertOk()->json('pickups'));
+        $this->assertCount(2, $pickups);
+
+        $located = $pickups->firstWhere('order_id', $order->id);
+        $this->assertSame('Boutique Test', $located['merchant']);
+        $this->assertSame([5.36, -3.97], [$located['lat'], $located['lng']]);
+        $this->assertSame([$this->courierA->id, $this->courierB->id], array_column($located['nearest'], 'id'));
+        $this->assertEquals([1, 5], array_column($located['nearest'], 'km')); // km arrondis à 0,1
+
+        $unlocated = $pickups->firstWhere('order_id', '!=', $order->id);
+        $this->assertNull($unlocated['lat']);
+        $this->assertSame([], $unlocated['nearest']);
+
+        // Assigné depuis la carte : le ramassage disparaît
+        $this->postJson("/api/v1/orders/{$order->id}/assign", ['type' => 'pickup', 'courier_id' => $this->courierA->id])->assertOk();
+        $this->assertNull(collect($this->getJson('/api/v1/couriers/map')->json('pickups'))->firstWhere('order_id', $order->id));
     }
 }

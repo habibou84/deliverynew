@@ -79,6 +79,15 @@
             (une fois par course) ; les administrateurs sont prévenus après trois fois ce délai. Une livraison prévue un autre jour ne compte
             qu'à partir de ce jour. 0 = pas d'alerte.
           </p>
+          <div class="sm:col-span-2">
+            <label class="label" for="cutoff">Heure limite du jour</label>
+            <input id="cutoff" v-model="form.daily_cutoff_time" type="time" class="input w-32">
+            <p class="text-xs text-gray-500 mt-1">
+              Passé cette heure, les courses du jour encore sans livreur (ramassage ou livraison) risquent de ne pas être livrées
+              aujourd'hui : elles sont signalées dans la liste et le tableau de bord, et les administrateurs et le dispatch reçoivent
+              une alerte (une fois par jour). Vide = pas d'heure limite.
+            </p>
+          </div>
         </div>
       </fieldset>
 
@@ -103,7 +112,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
 
-const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes']
+const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time']
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -147,8 +156,11 @@ async function save() {
   saving.value = true
   error.value = ''
   try {
-    // L'accroche peut être vidée ; les autres champs vides sont ignorés
-    const payload = Object.fromEntries(Object.entries(form.value).filter(([k, v]) => k === 'tagline' || (v !== null && v !== '')))
+    // L'accroche et l'heure limite peuvent être vidées ; les autres champs vides sont ignorés
+    const clearable = ['tagline', 'daily_cutoff_time']
+    const payload = Object.fromEntries(Object.entries(form.value)
+      .filter(([k, v]) => clearable.includes(k) || (v !== null && v !== ''))
+      .map(([k, v]) => [k, k === 'daily_cutoff_time' ? v || null : v]))
     await http.patch(`/companies/${auth.user.company_id}`, payload)
     await auth.fetchUser()
     toasts.success('Paramètres enregistrés.')

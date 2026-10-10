@@ -33,6 +33,7 @@ class Company extends Model
         'field_alert_reminder_minutes',
         'parcel_hold_alert_hours',
         'pickup_assign_alert_minutes',
+        'daily_cutoff_time',
         'delivery_assign_alert_minutes',
         'status',
     ];
@@ -51,6 +52,7 @@ class Company extends Model
             'field_alert_reminder_minutes' => 'integer',
             'parcel_hold_alert_hours' => 'integer',
             'pickup_assign_alert_minutes' => 'integer',
+            'cutoff_alerted_on' => 'date:Y-m-d',
             'delivery_assign_alert_minutes' => 'integer',
             'status' => CompanyStatus::class,
         ];

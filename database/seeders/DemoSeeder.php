@@ -80,6 +80,9 @@ class DemoSeeder extends Seeder
                 'pickup_zone_id' => $cocody->id,
                 'pickup_address' => 'Riviera 2, rue des Jardins',
                 'pickup_landmark' => 'Face pharmacie des Jardins',
+                // Riviera 2 : position du ramassage sur la carte des livreurs
+                'pickup_lat' => 5.3631,
+                'pickup_lng' => -3.9735,
             ],
         );
         $this->user($company, Role::MerchantOwner, 'Mariam Koné', '0500000001', 'boutique@livraison.test', $merchant);

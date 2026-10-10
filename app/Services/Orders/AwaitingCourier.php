@@ -20,7 +20,8 @@ use Illuminate\Support\Facades\Notification;
  *  - livraison : colis récupéré, à l'entrepôt ou reporté à aujourd'hui, sans livreur.
  * Le délai part de l'entrée dans le statut (ou du jour prévu de livraison s'il est plus
  * tard) ; au-delà du seuil de l'entreprise, la course est « en retard » et le dispatch
- * est alerté, puis les administrateurs après trois fois le seuil.
+ * est alerté, puis les administrateurs après trois fois le seuil. Passé l'heure limite
+ * du jour de l'entreprise, une alerte rappelle les courses du jour encore sans livreur.
  */
 class AwaitingCourier
 {
@@ -88,7 +89,7 @@ class AwaitingCourier
     /**
      * État affiché dans la liste des courses (null si la course n'attend pas de livreur).
      *
-     * @return array{stage: string, since: string, minutes: int, late: bool, threshold_minutes: int}|null
+     * @return array{stage: string, since: string, minutes: int, late: bool, threshold_minutes: int, after_cutoff: bool, cutoff_time: ?string}|null
      */
     public function describe(Order $order, Company $company): ?array
     {
@@ -107,6 +108,40 @@ class AwaitingCourier
             'minutes' => $minutes,
             'late' => $threshold > 0 && $minutes >= $threshold,
             'threshold_minutes' => $threshold,
+            // Heure limite du jour passée : la course risque de ne pas partir aujourd'hui
+            'after_cutoff' => $this->cutoffPassed($company),
+            'cutoff_time' => $company->daily_cutoff_time,
+        ];
+    }
+
+    /**
+     * L'heure limite du jour de l'entreprise est-elle passée (heure locale) ?
+     */
+    public function cutoffPassed(Company $company): bool
+    {
+        if (! $company->daily_cutoff_time) {
+            return false;
+        }
+
+        return now($company->timezone ?: config('app.timezone'))->format('H:i') >= $company->daily_cutoff_time;
+    }
+
+    /**
+     * Heure limite pour le tableau de bord : l'heure, si elle est passée, et le nombre de
+     * courses encore sans livreur (null si l'entreprise n'a pas d'heure limite).
+     *
+     * @return array{time: string, passed: bool, count: int}|null
+     */
+    public function cutoff(Company $company): ?array
+    {
+        if (! $company->daily_cutoff_time) {
+            return null;
+        }
+
+        return [
+            'time' => $company->daily_cutoff_time,
+            'passed' => $this->cutoffPassed($company),
+            'count' => $this->waiting($company)->count(),
         ];
     }
 
@@ -164,7 +199,7 @@ class AwaitingCourier
      */
     public function alert(): int
     {
-        $sent = 0;
+        $sent = $this->alertCutoff();
 
         Company::query()->where('status', 'active')
             ->where(fn ($q) => $q->where('pickup_assign_alert_minutes', '>', 0)->orWhere('delivery_assign_alert_minutes', '>', 0))
@@ -187,6 +222,51 @@ class AwaitingCourier
                         Order::withoutGlobalScopes()->whereKey($escalate->pluck('order.id'))->update(['unassigned_escalated_at' => now()]);
                     }
                 }
+            });
+
+        return $sent;
+    }
+
+    /**
+     * Heure limite du jour passée : une alerte par jour aux administrateurs et au dispatch,
+     * avec les courses encore sans livreur (ramassage et livraison).
+     */
+    private function alertCutoff(): int
+    {
+        $sent = 0;
+
+        Company::query()->where('status', 'active')->whereNotNull('daily_cutoff_time')
+            ->each(function (Company $company) use (&$sent) {
+                $today = now($company->timezone ?: config('app.timezone'))->toDateString();
+                if (! $this->cutoffPassed($company) || $company->cutoff_alerted_on?->toDateString() === $today) {
+                    return;
+                }
+                $company->forceFill(['cutoff_alerted_on' => $today])->save();
+
+                $waiting = $this->waiting($company)->sortByDesc('minutes');
+                if ($waiting->isEmpty()) {
+                    return;
+                }
+
+                $users = User::forCompany($company->id)->where('status', 'active')->role([Role::Admin->value, Role::Dispatcher->value])->get();
+                if ($users->isEmpty()) {
+                    return;
+                }
+
+                $pickup = $waiting->where('stage', self::PICKUP)->count();
+                $delivery = $waiting->where('stage', self::DELIVERY)->count();
+                $count = $waiting->count();
+                $codes = $waiting->pluck('order.tracking_code')->take(5)->implode(', ').($count > 5 ? '…' : '');
+
+                Notification::send($users, new OrderAlert(
+                    $waiting->first()['order'],
+                    'unassigned_cutoff',
+                    "⏰ {$company->daily_cutoff_time} passées : ".($count > 1 ? "{$count} courses du jour" : '1 course du jour').' toujours sans livreur',
+                    collect(["{$pickup} à ramasser" => $pickup, "{$delivery} à livrer" => $delivery])->filter()->keys()->implode(' · ')
+                        ." : {$codes}. Elles risquent de ne pas être livrées aujourd'hui.",
+                    ['severity' => 'alert', 'count' => $count, 'href' => '/admin/courses?queue=unassigned'],
+                ));
+                $sent++;
             });
 
         return $sent;
