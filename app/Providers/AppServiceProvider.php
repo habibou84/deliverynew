@@ -69,6 +69,12 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(10)->by('vs-hour:'.$request->ip()),
         ]);
 
+        // Commandes sur les pages des marchands (sans compte) : contre les robots
+        RateLimiter::for('shop-order', fn (Request $request) => [
+            Limit::perMinute(5)->by('shop-min:'.$request->ip()),
+            Limit::perHour(30)->by('shop-hour:'.$request->ip()),
+        ]);
+
         RateLimiter::for('verification-sms', fn (Request $request) => Limit::perHour(10)->by('sms:'.$request->ip()));
 
         RateLimiter::for('public-api', function (Request $request) {

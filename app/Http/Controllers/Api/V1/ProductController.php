@@ -115,6 +115,8 @@ class ProductController extends Controller
             'weight_kg' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:500'],
             'low_stock_threshold' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000'],
             'is_active' => ['sometimes', 'boolean'],
+            // Proposé sur la page de commande du marchand
+            'shop_visible' => ['sometimes', 'boolean'],
         ];
     }
 }

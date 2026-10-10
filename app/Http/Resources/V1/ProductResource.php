@@ -36,6 +36,8 @@ class ProductResource extends JsonResource
             'sku' => $this->sku,
             'name' => $this->name,
             'description' => $this->description,
+            'photo_url' => $this->photoUrl(),
+            'shop_visible' => $this->shop_visible,
             'price' => $this->price,
             'weight_kg' => $this->weight_kg,
             'low_stock_threshold' => $this->low_stock_threshold,

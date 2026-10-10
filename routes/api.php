@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\MerchantNotificationController;
+use App\Http\Controllers\Api\V1\MerchantShopController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OrderActionController;
@@ -23,12 +24,14 @@ use App\Http\Controllers\Api\V1\ParcelController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\ProductController;
+use App\Http\Controllers\Api\V1\ProductPhotoController;
 use App\Http\Controllers\Api\V1\PushSubscriptionController;
 use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\ReturnSlipController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\SignupController;
 use App\Http\Controllers\Api\V1\StockMovementController;
 use App\Http\Controllers\Api\V1\StorageContractController;
@@ -77,6 +80,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('verifications/{token}', [VerificationController::class, 'show'])->middleware('throttle:90,1')->name('verifications.show');
     Route::post('verifications/{token}/sms', [VerificationController::class, 'sms'])->middleware('throttle:verification-sms')->name('verifications.sms');
     Route::post('verifications/{token}/code', [VerificationController::class, 'code'])->middleware('throttle:20,1')->name('verifications.code');
+
+    // Page de commande publique d'un marchand (/b/{lien}) : catalogue, devis, commande
+    Route::get('shops/{slug}', [ShopController::class, 'show'])->middleware('throttle:60,1')->name('shops.show');
+    Route::post('shops/{slug}/quote', [ShopController::class, 'quote'])->middleware('throttle:60,1')->name('shops.quote');
+    Route::post('shops/{slug}/orders', [ShopController::class, 'order'])->middleware('throttle:shop-order')->name('shops.order');
 
     // Nom, logo et accroche de l'entreprise de livraison (pages de connexion)
     Route::get('branding', [BrandingController::class, 'show'])->name('branding.show');
@@ -202,6 +210,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Stock (droits vérifiés par ProductPolicy et dans les contrôleurs)
         Route::apiResource('products', ProductController::class);
+        Route::post('products/{product}/photo', [ProductPhotoController::class, 'store'])->middleware('throttle:30,1')->name('products.photo.store');
+        Route::delete('products/{product}/photo', [ProductPhotoController::class, 'destroy'])->name('products.photo.destroy');
+        // Réglages de la page de commande du marchand
+        Route::get('shop', [MerchantShopController::class, 'show'])->name('shop.show');
+        Route::patch('shop', [MerchantShopController::class, 'update'])->name('shop.update');
         Route::get('stock/movements', [StockMovementController::class, 'index'])->name('stock.movements.index');
         Route::post('stock/movements', [StockMovementController::class, 'store'])->name('stock.movements.store');
         Route::apiResource('storage-contracts', StorageContractController::class)->except('show');
