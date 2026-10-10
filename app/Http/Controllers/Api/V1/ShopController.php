@@ -10,6 +10,7 @@ use App\Rules\PhoneNumber;
 use App\Services\Shop\ShopCheckout;
 use App\Support\Branding;
 use App\Support\PhoneNumber as Phone;
+use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -89,7 +90,7 @@ class ShopController extends Controller
 
     private function merchant(string $slug): Merchant
     {
-        $merchant = Merchant::query()->where('shop_slug', mb_strtolower($slug))->where('shop_enabled', true)->first();
+        $merchant = app(Tenancy::class)->restrict(Merchant::query()->where('shop_slug', mb_strtolower($slug))->where('shop_enabled', true))->first();
         abort_if($merchant === null || ! $merchant->isActive() || ! $merchant->company?->isActive(), 404, 'Boutique introuvable.');
 
         return $merchant;

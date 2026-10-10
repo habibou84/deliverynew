@@ -72,7 +72,7 @@ class MerchantShopController extends Controller
             'shop_intro' => $merchant->shop_intro,
             'shop_fee_payer' => ShopCheckout::feePayer($merchant)->value,
             'suggested_slug' => $merchant->shop_slug ?? self::freeSlug($merchant),
-            'url' => $merchant->shop_slug ? url("/b/{$merchant->shop_slug}") : null,
+            'url' => $merchant->shop_slug ? $merchant->company->url("/b/{$merchant->shop_slug}") : null,
         ];
     }
 

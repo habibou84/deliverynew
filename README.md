@@ -214,6 +214,25 @@ Chaque page accepte tous les comptes : après connexion, chacun arrive dans son 
 et l'accroche se règlent dans **Paramètres > Logo et page d'accueil** ; `BRANDING_COMPANY` (slug ou identifiant)
 désigne l'entreprise affichée si plusieurs partagent l'installation (par défaut : la première entreprise active).
 
+### Plateforme multi-entreprises (une adresse par entreprise)
+
+Avec `PLATFORM_DOMAIN` (ex. `jibiat.com`), une seule installation sert toutes les entreprises de livraison,
+**chacune à son adresse** `{slug}.jibiat.com` (le slug de l'entreprise) :
+
+| Adresse | Contenu |
+|---|---|
+| `jibiat.com`, `www.jibiat.com` | Présentation de la plateforme (pas d'API) |
+| `admin.jibiat.com` | Console du super administrateur (seul ce compte peut s'y connecter) |
+| `{slug}.jibiat.com` | L'entreprise : pages publiques (logo, inscription des marchands, mot de passe oublié, suivi, boutiques, application installable à son nom) et espaces équipe, marchand et livreur |
+| autre sous-domaine | « Aucune entreprise à cette adresse » ; entreprise suspendue : « service suspendu » |
+
+- Un compte ne se connecte et ne s'utilise qu'à l'adresse de son entreprise (un jeton présenté ailleurs est refusé).
+- Suivi des colis, boutiques et photos de produits : seulement ceux de l'entreprise de l'adresse.
+- Les liens envoyés par WhatsApp et SMS (suivi, fiche de course, bon de retour, boutique) et `tracking_url` de l'API
+  publique utilisent l'adresse de l'entreprise (`Company::url()`), plus `APP_URL`.
+- Webhooks entrants (WhatsApp) et API publique (clé d'API) fonctionnent à toutes les adresses.
+- Sans `PLATFORM_DOMAIN`, rien ne change : une seule entreprise, désignée par `BRANDING_COMPANY`.
+
 ### Paie des livreurs : plans de rémunération
 
 **Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de

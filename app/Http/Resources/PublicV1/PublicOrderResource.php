@@ -22,7 +22,7 @@ class PublicOrderResource extends JsonResource
             'merchant_reference' => $this->merchant_reference,
             'status' => $this->status->value,
             'status_label' => $this->statusLabel(),
-            'tracking_url' => url('/suivi/'.$this->tracking_code),
+            'tracking_url' => $this->company->url('/suivi/'.$this->tracking_code),
             'delivery_code' => $this->delivery_code,
             'recipient' => [
                 'name' => $this->recipient_name,

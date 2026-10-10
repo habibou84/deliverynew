@@ -19,9 +19,10 @@ class AuthController extends Controller
     {
         $login = trim($request->string('login'));
 
+        // Plateforme : seulement les comptes de l'entreprise de l'adresse
         $user = str_contains($login, '@')
-            ? User::where('email', mb_strtolower($login))->first()
-            : User::where('phone', PhoneNumber::normalize($login))->first();
+            ? User::loginableHere()->where('email', mb_strtolower($login))->first()
+            : User::loginableHere()->where('phone', PhoneNumber::normalize($login))->first();
 
         if (! $user || ! Hash::check($request->string('password'), $user->password)) {
             throw ValidationException::withMessages([

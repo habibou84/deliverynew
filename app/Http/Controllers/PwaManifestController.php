@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -33,7 +34,8 @@ class PwaManifestController extends Controller
 
         return response()->json([
             'id' => "/{$app}",
-            'name' => config('app.name').' · '.$config['suffix'],
+            // Sur la plateforme : le nom de l'entreprise de l'adresse
+            'name' => ((Tenancy::enabled() ? app(Tenancy::class)->company()?->name : null) ?? config('app.name')).' · '.$config['suffix'],
             'short_name' => $config['short_name'],
             'description' => $config['description'],
             'lang' => 'fr',

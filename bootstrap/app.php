@@ -4,6 +4,7 @@ use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\EnsureApiScope;
 use App\Http\Middleware\EnsureIdempotency;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\ResolveTenant;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -31,6 +32,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ['prefix' => 'api', 'middleware' => ['auth:sanctum', 'active']],
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Entreprise désignée par l'adresse (plateforme multi-entreprises)
+        $middleware->prepend(ResolveTenant::class);
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
             'api.key' => AuthenticateApiKey::class,

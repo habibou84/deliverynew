@@ -205,7 +205,7 @@ class ReturnSlips
 
     public function url(ReturnSlip $slip): string
     {
-        return url("/bon-de-retour/{$slip->id}");
+        return $slip->company->url("/bon-de-retour/{$slip->id}");
     }
 
     private function assertReturnable(Order $order, Courier $courier): void
