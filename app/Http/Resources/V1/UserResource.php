@@ -45,6 +45,9 @@ class UserResource extends JsonResource
             'merchant' => $this->whenLoaded('merchant', fn () => $this->merchant ? [
                 'id' => $this->merchant->id,
                 'business_name' => $this->merchant->business_name,
+                // Rappel dans l'application tant que le lieu de ramassage n'est pas localisé
+                'has_pickup_location' => $this->merchant->hasPickupLocation(),
+                'pickup_location_source' => $this->merchant->pickup_location_source,
             ] : null),
             'courier' => $this->whenLoaded('courier', fn () => $this->courier ? [
                 'id' => $this->courier->id,

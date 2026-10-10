@@ -28,6 +28,10 @@ class MerchantResource extends JsonResource
             'pickup_landmark' => $this->pickup_landmark,
             'pickup_lat' => $this->pickup_lat,
             'pickup_lng' => $this->pickup_lng,
+            // merchant (sur place), staff (agence) ou courier (estimée d'après les ramassages)
+            'pickup_location_source' => $this->pickup_location_source,
+            'pickup_located_at' => $this->pickup_located_at,
+            'pickup_location_accuracy' => $this->pickup_location_accuracy,
             'default_fee_payer' => $this->default_fee_payer,
             'status' => $this->status,
             'source' => $this->source,

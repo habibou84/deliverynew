@@ -25,7 +25,12 @@
               </span>
             </td>
             <td class="p-2">{{ m.contact_name }}<div class="text-xs text-gray-500">{{ m.phone }}</div></td>
-            <td class="p-2">{{ m.pickup_zone?.name || '—' }}<div class="text-xs text-gray-500">{{ m.pickup_address }}</div></td>
+            <td class="p-2">
+              {{ m.pickup_zone?.name || '—' }}<div class="text-xs text-gray-500">{{ m.pickup_address }}</div>
+              <div :class="['text-xs', m.pickup_lat == null ? 'text-amber-700' : m.pickup_location_source === 'courier' ? 'text-sky-700' : 'text-emerald-700']">
+                {{ m.pickup_lat == null ? '⚠ sans position' : `📍 ${SOURCES[m.pickup_location_source] || 'localisé'}` }}
+              </div>
+            </td>
             <td class="p-2">{{ m.default_fee_payer === 'recipient' ? 'Destinataire' : 'Marchand' }}</td>
             <td class="p-2">{{ m.orders_count }}</td>
             <td class="p-2"><span :class="m.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ m.status === 'active' ? 'Actif' : 'Suspendu' }}</span></td>
@@ -58,6 +63,15 @@
         </div>
         <div><label class="label">Adresse de ramassage</label><input v-model="form.data.pickup_address" class="input"></div>
         <div><label class="label">Repère</label><input v-model="form.data.pickup_landmark" class="input"></div>
+        <fieldset class="border rounded p-3 space-y-2">
+          <legend class="text-sm font-medium px-1">Position de ramassage (carte des livreurs)</legend>
+          <p v-if="form.source && !locationChanged" class="text-xs text-gray-600">
+            {{ form.source === 'courier' ? 'Estimée d\'après les ramassages des livreurs' : form.source === 'merchant' ? 'Indiquée par le marchand depuis sa boutique' : 'Saisie par l\'agence' }}
+          </p>
+          <p class="text-xs text-gray-500">Collez le lien Google Maps envoyé par le marchand (« Partager » → « Copier le lien »), ou placez le repère sur la carte.</p>
+          <LocationPicker v-model="form.location" allow-link height="h-56" gps-label="📍 Ma position (sur place)" />
+          <button v-if="form.location" type="button" class="text-xs text-red-600" @click="form.location = null">Retirer la position</button>
+        </fieldset>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="label">Grille tarifaire</label>
@@ -97,9 +111,10 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import LocationPicker from '../../components/LocationPicker.vue'
 import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
@@ -113,7 +128,9 @@ const search = ref('')
 const route = useRoute()
 // Lien de la notification « Nouvel e-commerçant » : ?nouveaux=1
 const onlySignups = ref(!!route.query.nouveaux)
-const form = reactive({ open: false, id: null, data: {}, owner: {}, error: '', saving: false })
+const form = reactive({ open: false, id: null, data: {}, owner: {}, error: '', saving: false, location: null, initialLocation: null, source: null })
+const SOURCES = { merchant: 'par le marchand', staff: 'par l\'agence', courier: 'estimée (livreurs)' }
+const locationChanged = computed(() => form.location?.lat !== form.initialLocation?.lat || form.location?.lng !== form.initialLocation?.lng)
 
 const FIELDS = ['business_name', 'contact_name', 'phone', 'whatsapp_phone', 'email', 'pickup_zone_id', 'pickup_address',
   'pickup_landmark', 'pricing_grid_id', 'default_fee_payer', 'status', 'notes']
@@ -141,6 +158,9 @@ function openForm(merchant = null) {
   form.data.default_fee_payer ??= 'merchant'
   form.data.status ??= 'active'
   form.owner = { name: '', phone: '', password: '' }
+  form.location = merchant?.pickup_lat != null ? { lat: merchant.pickup_lat, lng: merchant.pickup_lng, accuracy: null } : null
+  form.initialLocation = form.location ? { ...form.location } : null
+  form.source = merchant?.pickup_location_source ?? null
   form.error = ''
   form.open = true
 }
@@ -151,8 +171,11 @@ async function save() {
   try {
     const payload = Object.fromEntries(Object.entries(form.data).filter(([k, v]) => v !== '' && (v !== null || form.id) && !(k === 'status' && !form.id)))
     if (!form.id && form.owner.phone) payload.owner = { ...form.owner, name: form.owner.name || form.data.contact_name || form.data.business_name }
-    if (form.id) await http.patch(`/merchants/${form.id}`, payload)
-    else await http.post('/merchants', payload)
+    const { data } = form.id ? await http.patch(`/merchants/${form.id}`, payload) : await http.post('/merchants', payload)
+    // Position : seulement si elle a changé (garde la source « marchand » ou « livreurs » sinon)
+    if (locationChanged.value) {
+      await http.put(`/merchants/${data.data.id}/pickup-location`, { lat: form.location?.lat ?? null, lng: form.location?.lng ?? null })
+    }
     form.open = false
     toasts.success('E-commerçant enregistré.')
     load()

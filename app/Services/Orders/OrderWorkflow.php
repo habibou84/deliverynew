@@ -14,6 +14,7 @@ use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\User;
 use App\Services\Finance\FinanceRecorder;
+use App\Services\Merchants\MerchantLocation;
 use App\Services\Stock\StockKeeper;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
@@ -29,6 +30,7 @@ class OrderWorkflow
         private readonly OrderJournal $journal,
         private readonly FinanceRecorder $finance,
         private readonly StockKeeper $stock,
+        private readonly MerchantLocation $locations,
     ) {}
 
     /**
@@ -89,6 +91,11 @@ class OrderWorkflow
                     'shipping_reference' => $to === OrderStatus::Delivered && $order->is_shipping ? $order->shipping_reference : null,
                 ], fn ($v) => $v !== null),
             ]);
+
+            // Colis récupéré avec la position du livreur : la position du marchand s'affine
+            if ($to === OrderStatus::PickedUp && isset($context['lat'], $context['lng']) && $order->merchant) {
+                $this->locations->learn($order->merchant);
+            }
 
             return $order;
         });

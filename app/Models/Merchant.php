@@ -32,6 +32,9 @@ class Merchant extends Model
         'pickup_landmark',
         'pickup_lat',
         'pickup_lng',
+        'pickup_location_source',
+        'pickup_located_at',
+        'pickup_location_accuracy',
         'pricing_grid_id',
         'default_fee_payer',
         'status',
@@ -49,9 +52,22 @@ class Merchant extends Model
             'status' => MerchantStatus::class,
             'pickup_lat' => 'float',
             'pickup_lng' => 'float',
+            'pickup_located_at' => 'datetime',
+            'pickup_location_accuracy' => 'integer',
             'shop_enabled' => 'boolean',
             'shop_fee_payer' => FeePayer::class,
         ];
+    }
+
+    public const LOCATION_MERCHANT = 'merchant';
+
+    public const LOCATION_STAFF = 'staff';
+
+    public const LOCATION_COURIER = 'courier';
+
+    public function hasPickupLocation(): bool
+    {
+        return $this->pickup_lat !== null && $this->pickup_lng !== null;
     }
 
     protected function phone(): Attribute
