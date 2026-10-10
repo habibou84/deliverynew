@@ -10,6 +10,7 @@ use App\Models\Courier;
 use App\Models\CourierLocation;
 use App\Models\Hub;
 use App\Models\Merchant;
+use App\Models\PayPlan;
 use App\Models\PricingGrid;
 use App\Models\PricingRule;
 use App\Models\Product;
@@ -53,9 +54,12 @@ class DemoSeeder extends Seeder
         $this->user($company, Role::Courier, 'Koffi Livreur', '0700000004', null);
         $this->user($company, Role::Courier, 'Awa Livreuse', '0700000005', null);
 
-        // Rémunération à la course des livreurs de démonstration
-        Courier::withoutGlobalScopes()->where('company_id', $company->id)
-            ->update(['pickup_commission' => 300, 'delivery_commission' => 500, 'return_commission' => 400]);
+        // Rémunération à la course des livreurs de démonstration (plan par défaut)
+        $plan = PayPlan::defaultFor($company->id)
+            ?? PayPlan::withoutGlobalScopes()->create(['company_id' => $company->id, 'name' => 'Plan standard', 'is_default' => true]);
+        foreach (['pickup' => 300, 'delivery' => 500, 'failed_attempt' => 200, 'return' => 400] as $event => $amount) {
+            $plan->rules()->create(['event' => $event, 'calc' => 'fixed', 'amount' => $amount]);
+        }
 
         // Positions de démonstration pour la carte des livreurs (Cocody et Plateau)
         foreach (['+2250700000004' => [5.3598, -3.9875], '+2250700000005' => [5.3236, -4.0187]] as $phone => [$lat, $lng]) {

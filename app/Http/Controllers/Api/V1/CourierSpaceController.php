@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\AssignmentType;
+use App\Enums\EarningType;
 use App\Events\CourierLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CourierResource;
 use App\Http\Resources\V1\OrderAssignmentResource;
+use App\Models\CourierEarning;
 use App\Models\CourierMessage;
 use App\Models\OrderAssignment;
 use App\Services\Couriers\CourierTracker;
+use App\Services\Finance\CourierPay;
 use App\Services\Orders\OrderDispatcher;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -18,7 +22,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
  */
 class CourierSpaceController extends Controller
 {
-    public function missions(Request $request): AnonymousResourceCollection
+    public function missions(Request $request, CourierPay $pay): AnonymousResourceCollection
     {
         $courier = $request->user()->courier;
         abort_if($courier === null, 403, 'Profil livreur introuvable.');
@@ -44,6 +48,21 @@ class CourierSpaceController extends Controller
             ->whereIn('order_id', $assignments->pluck('order_id'))
             ->groupBy('order_id')->selectRaw('order_id, COUNT(*) AS total')->pluck('total', 'order_id');
         $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('unread_messages', (int) ($unread[$a->order_id] ?? 0)));
+
+        // Gain : attendu selon le plan pour une mission en cours, acquis pour une mission terminée
+        if ($request->boolean('history')) {
+            $earned = CourierEarning::where('courier_id', $courier->id)->whereIn('order_id', $assignments->pluck('order_id'))
+                ->whereIn('type', [EarningType::Pickup, EarningType::Delivery, EarningType::FailedAttempt, EarningType::Return])
+                ->get(['order_id', 'type', 'amount'])
+                ->groupBy(fn (CourierEarning $e) => $e->order_id.'-'.match ($e->type) {
+                    EarningType::Pickup => AssignmentType::Pickup->value,
+                    EarningType::Return => AssignmentType::Return->value,
+                    default => AssignmentType::Delivery->value,
+                });
+            $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('gain', $earned->get($a->order_id.'-'.$a->type->value)?->sum('amount') ?: null));
+        } else {
+            $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('gain', $pay->expectedFor($courier, $a->type, $a->order)));
+        }
 
         return OrderAssignmentResource::collection($assignments)->additional(['meta' => [
             // Toutes consignes non lues (y compris sur des missions terminées)

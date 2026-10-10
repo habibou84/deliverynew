@@ -100,6 +100,7 @@ const menu = computed(() => [
   { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
   { to: '/admin/zones', icon: '🗺️', label: 'Zones', permission: 'settings.manage' },
   { to: '/admin/tarifs', icon: '🏷️', label: 'Tarifs', permission: 'settings.manage' },
+  { to: '/admin/paie-livreurs', icon: '🧾', label: 'Paie des livreurs', permission: 'settings.manage' },
   { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
   { to: '/admin/messages', icon: '💬', label: 'Messages', permission: 'orders.dispatch' },
   { to: '/admin/integrations', icon: '🔌', label: 'Intégrations (API)', permission: 'integrations.manage' },

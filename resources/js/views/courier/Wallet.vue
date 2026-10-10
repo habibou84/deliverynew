@@ -42,6 +42,20 @@
       </div>
     </section>
 
+    <details v-if="wallet.earnings?.length" class="m-card">
+      <summary class="p-4 font-semibold cursor-pointer">Détail de mes gains à recevoir</summary>
+      <div class="divide-y border-t">
+        <div v-for="e in wallet.earnings" :key="e.id" class="p-4 flex justify-between gap-3">
+          <div class="min-w-0">
+            <p class="font-medium truncate">{{ e.description }}</p>
+            <p v-if="e.detail" class="text-xs text-slate-600">{{ e.detail }}</p>
+            <p class="text-xs text-slate-500">{{ dateTime(e.created_at) }}</p>
+          </div>
+          <p :class="['font-semibold whitespace-nowrap', signedClass(e.amount)]">{{ e.amount > 0 ? '+ ' : '' }}{{ money(e.amount) }}</p>
+        </div>
+      </div>
+    </details>
+
     <section v-if="wallet.advances?.length" class="space-y-2">
       <h2 class="font-semibold">Avances reçues de la caisse</h2>
       <div class="m-card divide-y">

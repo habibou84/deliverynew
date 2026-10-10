@@ -214,6 +214,26 @@ Chaque page accepte tous les comptes : après connexion, chacun arrive dans son 
 et l'accroche se règlent dans **Paramètres > Logo et page d'accueil** ; `BRANDING_COMPANY` (slug ou identifiant)
 désigne l'entreprise affichée si plusieurs partagent l'installation (par défaut : la première entreprise active).
 
+### Paie des livreurs : plans de rémunération
+
+**Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de
+**règles** qui s'additionnent à chaque étape d'une course :
+
+- **étapes** : ramassage, livraison réussie, tentative de livraison ratée (payée une fois par course et par jour),
+  retour au marchand, remise au transporteur (expédition ; sans règle propre, celles de la livraison s'appliquent) ;
+- **calculs** : montant fixe, % des frais de livraison, % du montant encaissé, grille par zone (zone, sinon sa
+  commune, sinon « Autres zones ») ;
+- **conditions** : zones, express, fragile, type de véhicule, motif d'échec (tentative ratée) ;
+- **ramassage** par colis, ou par passage (les colis suivants du même marchand dans les 3 h ne rapportent que le
+  montant « colis supplémentaire ») ; **minimum** et **plafond** par étape.
+
+Le **plan par défaut** s'applique aux livreurs sans plan ; un plan peut être attribué à plusieurs livreurs
+(page Livreurs), et « Personnaliser pour ce livreur » crée un **plan personnel** copié de son plan actuel. Modèles
+prêts à l'emploi : fixe par course, pourcentage des frais, par zone, plan vide (salarié). Chaque gain garde son
+plan, sa règle et le détail du calcul (« 40 % de 2 500 F ») : modifier un plan ne change jamais les gains acquis.
+Le livreur voit son gain prévu sur chaque mission et le détail de ses gains à recevoir dans sa caisse. Les anciennes
+commissions par livreur ont été reprises en plans personnels à la migration.
+
 ### Courses sans livreur
 
 Une course **validée sans livreur de ramassage**, ou un colis **récupéré / à l'entrepôt / reporté à aujourd'hui sans
@@ -357,14 +377,15 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/orders/{id}/assign`, `/orders/bulk-assign` | `orders.dispatch` (missions ramassage / livraison / retour) |
 | POST | `/orders/bulk-confirm` | `orders.dispatch` : validation groupée des courses en attente (`order_ids`) ; renvoie `confirmed` et les refus course par course (`errors`) |
 | POST | `/orders/{id}/notes`, `/return-request`, `/attachments` | notes, demande de retour, photo de preuve |
-| GET | `/courier/missions` · POST `/courier/assignments/{id}/accept\|refuse` · PATCH `/courier/status` | livreur |
+| GET | `/courier/missions` (`gain` : prévu selon le plan, ou acquis avec `history=1`) · POST `/courier/assignments/{id}/accept\|refuse` · PATCH `/courier/status` | livreur |
 | GET | `/reports/summary`, `/incident-reasons`, `/recipients`, `/notifications` | connecté |
 | GET | `/tracking/{code}` | **public** (suivi destinataire, 30 req/min) |
 | GET | `/finance/cash`, `/finance/couriers/{id}/collections`, `/finance/remittances` · POST `/finance/remittances` | caisse : argent chez les livreurs et versements (`finance.view` / `finance.manage`) |
 | GET | `/finance/merchants`, `/finance/merchants/{id}/ledger` · POST `.../adjustments` | soldes et grand livre (le marchand voit le sien) |
 | GET/POST | `/finance/payouts`, `/finance/payouts/{id}` · POST `.../pay`, `.../cancel` | reversements aux marchands |
 | GET/POST | `/finance/couriers/{id}/earnings`, `/finance/courier-payouts` · POST `.../pay`, `.../cancel` | paie des livreurs |
-| GET | `/courier/wallet` | livreur : à verser (encaissé + avances − frais payés), gains non payés |
+| CRUD | `/pay-plans` (création : `name` + `template` `fixed`/`percent`/`zone`/`empty`, `copy_from`, ou `courier_id` pour un plan personnel) ; PATCH avec `rules[]` remplace les règles | `settings.manage` : plans de rémunération des livreurs ; PATCH `/couriers/{id}` `pay_plan_id` (null = plan par défaut) |
+| GET | `/courier/wallet` | livreur : à verser (encaissé + avances − frais payés), gains non payés et leur détail (`earnings[].detail`) |
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |
 | GET/PUT | `/merchants/{id}/notifications` | messages WhatsApp du marchand (événements, points quotidien et hebdomadaire, numéro) : le marchand ou `merchants.manage` |

@@ -16,8 +16,8 @@
             {{ c.is_available ? 'Disponible' : 'Indisponible' }}
           </span>
         </div>
-        <p v-if="c.delivery_commission || c.pickup_commission" class="text-xs text-gray-500">
-          Commission : {{ money(c.pickup_commission) }} ramassage · {{ money(c.delivery_commission) }} livraison
+        <p class="text-xs text-gray-500">
+          Paie : {{ c.pay_plan ? c.pay_plan.name : 'plan par défaut' }}<span v-if="c.pay_plan?.personal"> (personnel)</span>
         </p>
         <p class="text-sm text-gray-600">{{ VEHICLES[c.vehicle_type] }} {{ c.vehicle_plate ? `· ${c.vehicle_plate}` : '' }} · <strong>{{ c.active_assignments_count }}</strong> mission(s) en cours</p>
         <p class="text-sm">Zones : {{ c.zones.map((z) => z.name).join(', ') || 'toutes' }}</p>
@@ -41,14 +41,18 @@
           </select>
         </div>
         <div><label class="label">Immatriculation</label><input v-model="form.data.vehicle_plate" class="input"></div>
-        <fieldset class="border rounded p-3">
-          <legend class="text-sm font-medium px-1">Rémunération par course (F) · 0 si salarié</legend>
-          <div class="grid grid-cols-3 gap-2">
-            <div><label class="label">Ramassage</label><input v-model.number="form.data.pickup_commission" type="number" min="0" class="input"></div>
-            <div><label class="label">Livraison</label><input v-model.number="form.data.delivery_commission" type="number" min="0" class="input"></div>
-            <div><label class="label">Retour</label><input v-model.number="form.data.return_commission" type="number" min="0" class="input"></div>
-          </div>
-        </fieldset>
+        <div v-if="canPay">
+          <label class="label" for="courier-plan">Plan de paie</label>
+          <select id="courier-plan" v-model="form.data.pay_plan_id" class="input">
+            <option :value="null">Plan par défaut{{ defaultPlan ? ` (${defaultPlan.name})` : '' }}</option>
+            <option v-for="p in planOptions" :key="p.id" :value="p.id">{{ p.name }}{{ p.personal ? ' (personnel)' : '' }}</option>
+          </select>
+          <p class="text-xs text-gray-500 mt-1">
+            Les gains déjà acquis ne changent pas.
+            <button type="button" class="text-blue-600" @click="customize">{{ personalPlan ? 'Modifier son plan personnel' : 'Personnaliser pour ce livreur' }}</button>
+            · <RouterLink to="/admin/paie-livreurs" class="text-blue-600">Gérer les plans</RouterLink>
+          </p>
+        </div>
         <div>
           <label class="label">Zones desservies</label>
           <div class="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto border rounded p-2">
@@ -67,11 +71,12 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
-import { dateTime, mapsLink, money, telLink } from '../../utils/format'
+import { dateTime, mapsLink, telLink } from '../../utils/format'
 
 const VEHICLES = { moto: 'Moto', velo: 'Vélo', voiture: 'Voiture', tricycle: 'Tricycle', pieton: 'À pied' }
 
@@ -79,6 +84,22 @@ const auth = useAuthStore()
 const couriers = ref([])
 const zones = ref([])
 const form = reactive({ open: false, id: null, data: {}, error: '' })
+const router = useRouter()
+const plans = ref([])
+const canPay = computed(() => auth.can('settings.manage'))
+const defaultPlan = computed(() => plans.value.find((p) => p.is_default))
+const personalPlan = computed(() => plans.value.find((p) => p.personal && p.courier?.id === form.id))
+// Plans partagés et plan personnel de ce livreur
+const planOptions = computed(() => plans.value.filter((p) => !p.is_default && (!p.personal || p.courier?.id === form.id) || p.id === form.data.pay_plan_id))
+
+async function customize() {
+  try {
+    const plan = personalPlan.value ?? (await http.post('/pay-plans', { courier_id: form.id })).data.data
+    router.push({ path: '/admin/paie-livreurs', query: { plan: plan.id } })
+  } catch (e) {
+    form.error = apiErrorMessage(e)
+  }
+}
 
 async function load() {
   couriers.value = (await http.get('/couriers')).data.data
@@ -89,9 +110,7 @@ function openForm(c) {
   form.data = {
     vehicle_type: c.vehicle_type,
     vehicle_plate: c.vehicle_plate,
-    pickup_commission: c.pickup_commission,
-    delivery_commission: c.delivery_commission,
-    return_commission: c.return_commission,
+    ...(canPay.value ? { pay_plan_id: c.pay_plan_id } : {}),
     is_available: c.is_available,
     notes: c.notes,
     zone_ids: c.zones.map((z) => z.id),
@@ -113,5 +132,6 @@ async function save() {
 onMounted(async () => {
   load()
   zones.value = (await http.get('/zones')).data.data
+  if (canPay.value) plans.value = (await http.get('/pay-plans')).data.data
 })
 </script>

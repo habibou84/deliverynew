@@ -386,10 +386,13 @@ class FinanceController extends Controller
 
         return response()->json(['data' => [
             ...$this->payroll->summary($courier),
-            'earned_today' => (int) $courier->earnings()->whereIn('type', ['pickup', 'delivery', 'return'])->whereDate('created_at', today())->sum('amount'),
+            'earned_today' => (int) $courier->earnings()->whereIn('type', ['pickup', 'delivery', 'failed_attempt', 'return'])->whereDate('created_at', today())->sum('amount'),
             ...$this->courierExtras($courier),
             'collections' => $courier->collections()->inCourierHands()->with('order:id,tracking_code,recipient_name,merchant_id')
                 ->orderBy('collected_at')->get()->map(fn ($c) => $this->collectionData($c)),
+            // Détail des gains à recevoir (montant, calcul selon le plan)
+            'earnings' => $courier->earnings()->with('order:id,tracking_code')->whereNull('payout_id')->latest('id')->limit(50)->get()
+                ->map(fn ($e) => $this->earningData($e)),
             'recent_payouts' => $courier->payouts()->where('status', 'paid')->latest('paid_at')->limit(5)->get()
                 ->map(fn ($p) => ['reference' => $p->reference, 'amount' => $p->amount, 'paid_at' => $p->paid_at]),
         ]]);
@@ -546,6 +549,8 @@ class FinanceController extends Controller
             'type_label' => $e->type->label(),
             'amount' => $e->amount,
             'description' => $e->description,
+            // Calcul du gain selon le plan (ex. « 40 % de 2 500 F »)
+            'detail' => $e->detail,
             'tracking_code' => $e->order?->tracking_code,
             'created_at' => $e->created_at,
         ];

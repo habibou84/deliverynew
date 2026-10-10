@@ -31,7 +31,7 @@ class ShippingTest extends TestCase
         parent::setUp();
         $this->buildWorld();
         $this->cashier = $this->userWithRole(Role::Cashier);
-        $this->courierB->update(['delivery_commission' => 500]);
+        $this->payPlan(['delivery' => 500], $this->courierB);
 
         $this->station = Zone::factory()->create([
             'company_id' => $this->company->id,

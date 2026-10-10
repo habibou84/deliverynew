@@ -22,9 +22,7 @@ class Courier extends Model
         'user_id',
         'vehicle_type',
         'vehicle_plate',
-        'pickup_commission',
-        'delivery_commission',
-        'return_commission',
+        'pay_plan_id',
         'is_available',
         'current_lat',
         'current_lng',
@@ -37,9 +35,6 @@ class Courier extends Model
         return [
             'vehicle_type' => VehicleType::class,
             'is_available' => 'boolean',
-            'pickup_commission' => 'integer',
-            'delivery_commission' => 'integer',
-            'return_commission' => 'integer',
             'current_lat' => 'float',
             'current_lng' => 'float',
             'last_location_at' => 'datetime',
@@ -79,6 +74,14 @@ class Courier extends Model
     public function payouts(): HasMany
     {
         return $this->hasMany(CourierPayout::class);
+    }
+
+    /**
+     * Plan choisi pour ce livreur (null : plan par défaut de l'entreprise).
+     */
+    public function payPlan(): BelongsTo
+    {
+        return $this->belongsTo(PayPlan::class);
     }
 
     public function earnings(): HasMany
