@@ -18,7 +18,7 @@ class CourierEarning extends Model
     public const UPDATED_AT = null;
 
     protected $fillable = [
-        'company_id', 'courier_id', 'type', 'amount', 'order_id', 'pay_plan_id', 'pay_plan_rule_id', 'remittance_id', 'payout_id', 'description', 'detail', 'created_by',
+        'company_id', 'courier_id', 'type', 'amount', 'order_id', 'pay_plan_id', 'pay_plan_rule_id', 'remittance_id', 'payout_id', 'description', 'detail', 'period_start', 'period_end', 'created_by',
     ];
 
     protected function casts(): array
@@ -26,6 +26,8 @@ class CourierEarning extends Model
         return [
             'type' => EarningType::class,
             'amount' => 'integer',
+            'period_start' => 'date:Y-m-d',
+            'period_end' => 'date:Y-m-d',
         ];
     }
 

@@ -54,9 +54,25 @@ class PayPlanTemplates
                 ],
             ],
             [
+                'key' => 'salaried',
+                'name' => 'Salarié',
+                'description' => 'Un salaire fixe chaque mois, sans paiement par course ; les retenues ne prennent pas plus de 30 % de la paie.',
+                'plan' => ['pickup_mode' => PayPlan::PICKUP_PER_PARCEL, 'base_salary' => 100000, 'pay_period' => 'monthly', 'deduction_cap_percent' => 30],
+                'rules' => [],
+            ],
+            [
+                'key' => 'mixed',
+                'name' => 'Mixte',
+                'description' => 'Un salaire de base chaque mois, plus une prime pour chaque livraison réussie.',
+                'plan' => ['pickup_mode' => PayPlan::PICKUP_PER_PARCEL, 'base_salary' => 50000, 'pay_period' => 'monthly', 'deduction_cap_percent' => 30],
+                'rules' => [
+                    self::fixed(PayEvent::Delivery, 300),
+                ],
+            ],
+            [
                 'key' => 'empty',
                 'name' => 'Plan vide',
-                'description' => 'Aucune règle : pour un livreur salarié, ou pour tout construire vous-même.',
+                'description' => 'Aucune règle : pour tout construire vous-même.',
                 'plan' => ['pickup_mode' => PayPlan::PICKUP_PER_PARCEL],
                 'rules' => [],
             ],

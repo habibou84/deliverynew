@@ -229,7 +229,7 @@ class CourierPayTest extends TestCase
         $this->as($this->admin);
 
         $this->getJson('/api/v1/pay-plans')->assertOk()
-            ->assertJsonCount(4, 'meta.templates')
+            ->assertJsonCount(6, 'meta.templates')
             ->assertJsonPath('data.0.is_default', true);
 
         $id = $this->postJson('/api/v1/pay-plans', ['name' => 'Motos', 'template' => 'percent'])->assertCreated()
@@ -253,6 +253,23 @@ class CourierPayTest extends TestCase
             ->assertJsonValidationErrors('rules.0.percent');
         $this->patchJson("/api/v1/pay-plans/{$id}", ['rules' => [['event' => 'delivery', 'calc' => 'zone_grid', 'zone_amounts' => [999999 => 10]]]])
             ->assertJsonValidationErrors('rules.0.zone_amounts');
+    }
+
+    public function test_percent_is_only_checked_for_percent_rules(): void
+    {
+        $plan = $this->payPlan(['delivery' => 500]);
+        $this->as($this->admin);
+
+        // Pourcentage resté dans le formulaire d'une règle à montant fixe : ignoré
+        $this->patchJson("/api/v1/pay-plans/{$plan->id}", ['rules' => [
+            ['event' => 'pickup', 'calc' => 'fixed', 'amount' => 300, 'percent' => 500, 'zone_amounts' => ['x' => 'y']],
+        ]])->assertOk()->assertJsonPath('data.rules.0.percent', null)->assertJsonPath('data.rules.0.amount', 300);
+
+        $this->patchJson("/api/v1/pay-plans/{$plan->id}", ['rules' => [
+            ['event' => 'pickup', 'calc' => 'fixed', 'amount' => 300],
+            ['event' => 'delivery', 'calc' => 'percent_fee', 'percent' => 150],
+        ]])->assertJsonValidationErrors(['rules.1.percent' => 'pourcentage'])
+            ->assertJsonMissingValidationErrors('rules.0.percent');
     }
 
     public function test_default_plan_switch_and_deletion(): void

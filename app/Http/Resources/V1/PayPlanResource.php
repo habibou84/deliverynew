@@ -26,6 +26,10 @@ class PayPlanResource extends JsonResource
             'pickup_extra_parcel_amount' => $this->pickup_extra_parcel_amount,
             'min_amount' => $this->min_amount,
             'max_amount' => $this->max_amount,
+            'base_salary' => $this->base_salary,
+            'pay_period' => $this->pay_period,
+            'pay_period_label' => $this->periodLabel(),
+            'deduction_cap_percent' => $this->deduction_cap_percent,
             'couriers_count' => $this->whenCounted('couriers'),
             'rules' => $this->whenLoaded('rules', fn () => $this->rules->map(fn ($rule) => [
                 'id' => $rule->id,

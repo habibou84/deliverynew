@@ -9,24 +9,28 @@ use App\Models\OrderExpense;
 
 /**
  * Ce qu'un livreur doit à la caisse : l'argent encaissé, plus les avances reçues,
- * moins les frais qu'il a payés pour les courses. Négatif : la caisse lui doit de l'argent.
+ * moins les frais qu'il a payés pour les courses et la paie qu'il a gardée sur l'encaissé.
+ * Négatif : la caisse lui doit de l'argent.
  */
 class CourierCash
 {
     /**
-     * @return array{collected: int, advances: int, expenses: int, due: int}
+     * @return array{collected: int, advances: int, expenses: int, pay_kept: int, due: int}
      */
     public function balance(Courier $courier): array
     {
         $collected = (int) $courier->collections()->inCourierHands()->sum('amount_collected');
-        $advances = (int) $courier->advances()->unsettled()->sum('amount');
+        $advances = (int) $courier->advances()->unsettled()->cash()->sum('amount');
         $expenses = (int) $courier->expenses()->owedToCourier()->sum('amount');
+        // Paie que le livreur garde sur l'argent encaissé (montants négatifs)
+        $payKept = -(int) $courier->advances()->unsettled()->whereNotNull('courier_payout_id')->sum('amount');
 
         return [
             'collected' => $collected,
             'advances' => $advances,
             'expenses' => $expenses,
-            'due' => $collected + $advances - $expenses,
+            'pay_kept' => $payKept,
+            'due' => $collected + $advances - $expenses - $payKept,
         ];
     }
 

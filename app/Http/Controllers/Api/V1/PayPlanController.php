@@ -39,6 +39,7 @@ class PayPlanController extends Controller
             'meta' => [
                 'events' => collect(PayEvent::cases())->map(fn (PayEvent $e) => ['value' => $e->value, 'label' => $e->label()]),
                 'calcs' => collect(PayCalc::cases())->map(fn (PayCalc $c) => ['value' => $c->value, 'label' => $c->label()]),
+                'periods' => collect(PayPlan::PERIODS)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values(),
                 'templates' => collect(PayPlanTemplates::all())->map(fn ($t) => ['key' => $t['key'], 'name' => $t['name'], 'description' => $t['description']]),
             ],
         ]);
@@ -76,7 +77,7 @@ class PayPlanController extends Controller
             };
 
             if ($source) {
-                $attributes = $source->only(['pickup_mode', 'pickup_extra_parcel_amount', 'min_amount', 'max_amount']);
+                $attributes = $source->only(['pickup_mode', 'pickup_extra_parcel_amount', 'min_amount', 'max_amount', 'base_salary', 'pay_period', 'deduction_cap_percent']);
                 $rules = $source->rules->map(fn ($r) => [
                     'event' => $r->event->value, 'calc' => $r->calc->value, 'amount' => $r->amount, 'percent' => $r->percent,
                     'zone_amounts' => $r->zone_amounts, 'conditions' => $r->conditions, 'label' => $r->label,
@@ -113,12 +114,16 @@ class PayPlanController extends Controller
             'pickup_extra_parcel_amount' => ['sometimes', 'integer', 'min:0', 'max:1000000'],
             'min_amount' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000'],
             'max_amount' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000', 'gte:min_amount'],
+            'base_salary' => ['sometimes', 'integer', 'min:0', 'max:100000000'],
+            'pay_period' => ['sometimes', 'nullable', Rule::in(array_keys(PayPlan::PERIODS))],
+            'deduction_cap_percent' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100'],
             'rules' => ['sometimes', 'array', 'max:100'],
             'rules.*.event' => ['required', Rule::enum(PayEvent::class)],
             'rules.*.calc' => ['required', Rule::enum(PayCalc::class)],
             'rules.*.amount' => ['nullable', 'integer', 'min:0', 'max:1000000'],
-            'rules.*.percent' => ['nullable', 'required_if:rules.*.calc,percent_fee,percent_collected', 'numeric', 'min:0', 'max:100'],
-            'rules.*.zone_amounts' => ['nullable', 'array'],
+            // Pourcentage et grille ne comptent que pour leur calcul : ignorés sinon
+            'rules.*.percent' => ['exclude_unless:rules.*.calc,percent_fee,percent_collected', 'required', 'numeric', 'min:0', 'max:100'],
+            'rules.*.zone_amounts' => ['exclude_unless:rules.*.calc,zone_grid', 'nullable', 'array'],
             'rules.*.zone_amounts.*' => ['integer', 'min:0', 'max:1000000'],
             'rules.*.label' => ['nullable', 'string', 'max:100'],
             'rules.*.conditions' => ['nullable', 'array'],
@@ -130,8 +135,29 @@ class PayPlanController extends Controller
             'rules.*.conditions.vehicle_types.*' => [Rule::enum(VehicleType::class)],
             'rules.*.conditions.incident_reason_ids' => ['nullable', 'array'],
             'rules.*.conditions.incident_reason_ids.*' => ['integer', Rule::exists('incident_reasons', 'id')->where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $companyId))],
+        ], [], [
+            'rules.*.event' => 'étape',
+            'rules.*.calc' => 'calcul',
+            'rules.*.amount' => 'montant',
+            'rules.*.percent' => 'pourcentage',
+            'rules.*.zone_amounts' => 'grille par zone',
+            'rules.*.zone_amounts.*' => 'montant de la zone',
+            'rules.*.label' => 'libellé',
+            'rules.*.conditions.zone_ids.*' => 'zone',
+            'rules.*.conditions.vehicle_types.*' => 'véhicule',
+            'rules.*.conditions.incident_reason_ids.*' => 'motif d\'échec',
+            'pickup_extra_parcel_amount' => 'montant par colis supplémentaire',
+            'min_amount' => 'minimum',
+            'max_amount' => 'plafond',
+            'base_salary' => 'salaire de base',
+            'pay_period' => 'période de paie',
+            'deduction_cap_percent' => 'plafond des retenues',
         ]);
 
+        $period = array_key_exists('pay_period', $data) ? $data['pay_period'] : $payPlan->pay_period;
+        if (($data['base_salary'] ?? $payPlan->base_salary) > 0 && $period === null) {
+            throw ValidationException::withMessages(['pay_period' => 'Choisissez la période de paie : le salaire de base est versé à chaque période.']);
+        }
         if (($data['is_default'] ?? false) && $payPlan->courier_id !== null) {
             throw ValidationException::withMessages(['is_default' => 'Un plan personnel ne peut pas être le plan par défaut.']);
         }

@@ -146,17 +146,18 @@
         <h2 class="font-semibold p-4 border-b">Fiches de paie</h2>
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-gray-600">
-            <tr><th class="p-2">Référence</th><th class="p-2">Livreur</th><th class="p-2 text-right">Montant</th><th class="p-2">Statut</th><th /></tr>
+            <tr><th class="p-2">Référence</th><th class="p-2">Livreur</th><th class="p-2">Période</th><th class="p-2 text-right">Montant</th><th class="p-2">Statut</th><th /></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="p in courierPayouts" :key="p.id">
               <td class="p-2 font-mono text-xs">{{ p.reference }}</td>
               <td class="p-2">{{ p.courier_name }}</td>
+              <td class="p-2 whitespace-nowrap text-gray-600">{{ date(p.period_start) }} → {{ date(p.period_end) }}<span v-if="p.automatic" title="Préparée automatiquement en fin de période"> ⏱</span></td>
               <td :class="['p-2 text-right font-semibold', signedClass(p.amount)]">{{ money(p.amount) }}</td>
               <td class="p-2"><PayoutBadge :status="p.status" :label="p.status_label" /></td>
               <td class="p-2 text-right"><button class="text-blue-600" @click="openCourierPayout(p)">Détail</button></td>
             </tr>
-            <tr v-if="!courierPayouts.length"><td colspan="5" class="p-4 text-center text-gray-500">Aucune fiche de paie.</td></tr>
+            <tr v-if="!courierPayouts.length"><td colspan="6" class="p-4 text-center text-gray-500">Aucune fiche de paie.</td></tr>
           </tbody>
         </table>
       </div>
@@ -210,15 +211,15 @@
         </ul>
         <ul v-if="remit.advances.length || remit.expenses.length" class="border rounded divide-y text-sm">
           <li v-for="a in remit.advances" :key="`a${a.id}`" class="flex items-center gap-2 p-2">
-            <span class="flex-1">💵 Avance : {{ a.reason }} <span class="text-xs text-gray-500">{{ dateTime(a.given_at) }}</span></span>
-            <span class="font-medium">+ {{ money(a.amount) }}</span>
+            <span class="flex-1">{{ a.pay_kept ? '🧾' : '💵 Avance :' }} {{ a.reason }} <span class="text-xs text-gray-500">{{ dateTime(a.given_at) }}</span></span>
+            <span :class="['font-medium', a.amount < 0 ? 'text-emerald-700' : '']">{{ a.amount < 0 ? '−' : '+' }} {{ money(Math.abs(a.amount)) }}</span>
           </li>
           <li v-for="e in remit.expenses" :key="`e${e.id}`" class="flex items-center gap-2 p-2">
             <span class="font-mono text-xs">{{ e.tracking_code }}</span>
             <span class="flex-1">{{ e.description }}</span>
             <span class="font-medium text-emerald-700">− {{ money(e.amount) }}</span>
           </li>
-          <li class="p-2 text-xs text-gray-500">Avances et frais payés par le livreur : toujours réglés avec ce versement.</li>
+          <li class="p-2 text-xs text-gray-500">Avances, frais payés par le livreur et paie gardée sur l'encaissé : toujours réglés avec ce versement.</li>
         </ul>
         <template v-if="remitHasCash">
         <p class="text-sm">
@@ -292,16 +293,27 @@
     <!-- Fiche de paie -->
     <Modal :open="courierPayout.open" :title="`Paie ${courierPayout.data?.reference || ''}`" @close="courierPayout.open = false">
       <div v-if="courierPayout.data" class="space-y-3 text-sm">
-        <p>{{ courierPayout.data.courier_name }} · {{ date(courierPayout.data.period_start) }} → {{ date(courierPayout.data.period_end) }}</p>
+        <p>
+          {{ courierPayout.data.courier_name }} · {{ date(courierPayout.data.period_start) }} → {{ date(courierPayout.data.period_end) }}
+          <span v-if="courierPayout.data.automatic" class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-gray-600">fin de période</span>
+        </p>
         <ul class="border rounded divide-y max-h-64 overflow-y-auto">
-          <li v-for="e in courierPayout.data.earnings" :key="e.id" class="flex justify-between p-2">
-            <span>{{ e.type_label }} <span class="text-gray-500">{{ e.tracking_code || e.description }}</span></span>
-            <span :class="signedClass(e.amount)">{{ money(e.amount) }}</span>
+          <li v-for="e in courierPayout.data.earnings" :key="e.id" class="flex justify-between gap-2 p-2">
+            <span>
+              {{ e.type_label }} <span class="text-gray-500">{{ e.tracking_code || e.description }}</span>
+              <span v-if="e.detail" class="block text-xs text-gray-500">{{ e.detail }}</span>
+            </span>
+            <span :class="['whitespace-nowrap', signedClass(e.amount)]">{{ money(e.amount) }}</span>
           </li>
         </ul>
-        <p class="text-lg">Total : <strong>{{ money(courierPayout.data.amount) }}</strong></p>
+        <div class="space-y-0.5">
+          <p class="flex justify-between text-gray-600"><span>Gains (courses, salaire, primes)</span><span>{{ money(payslipTotals.gains) }}</span></p>
+          <p v-if="payslipTotals.deductions" class="flex justify-between text-gray-600"><span>Retenues</span><span class="text-red-600">− {{ money(payslipTotals.deductions) }}</span></p>
+          <p class="text-lg flex justify-between"><span>Total à payer</span><strong>{{ money(courierPayout.data.amount) }}</strong></p>
+        </div>
         <PayForm
           v-if="courierPayout.data.status === 'draft' && canManage"
+          compensation
           @pay="(p) => payCourierPayout(p)"
           @cancel="cancelCourierPayout"
         />
@@ -358,6 +370,16 @@ const advance = reactive({ open: false, courier: null, amount: null, reason: 'Fr
 const ledger = reactive({ open: false, merchant: null, entries: [], adjust: { amount: null, description: '' }, error: '' })
 const adjust = reactive({ open: false, courier: null, amount: null, description: '', error: '' })
 const courierPayout = reactive({ open: false, data: null })
+// Gains et retenues de la fiche ; un report de retenue réduit les retenues
+const payslipTotals = computed(() => {
+  const lines = courierPayout.data?.earnings || []
+  const carried = lines.filter((e) => e.type === 'carryover').reduce((s, e) => s + e.amount, 0)
+  const others = lines.filter((e) => e.type !== 'carryover')
+  return {
+    gains: others.filter((e) => e.amount > 0).reduce((s, e) => s + e.amount, 0),
+    deductions: -others.filter((e) => e.amount < 0).reduce((s, e) => s + e.amount, 0) - carried,
+  }
+})
 
 // Montant dû par le livreur, frais d'expédition avancés déduits ; négatif : la caisse lui doit de l'argent
 // Encaissements cochés + avances reçues − frais payés ; négatif : la caisse doit de l'argent au livreur

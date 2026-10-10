@@ -29,6 +29,7 @@
           <div class="flex-1 min-w-48">
             <label class="label" for="plan-name">Nom du plan</label>
             <input id="plan-name" v-model="plan.name" class="input" maxlength="100">
+            <p v-if="errors.name" class="field-error has-error">{{ errors.name[0] }}</p>
           </div>
           <span class="text-sm text-gray-600 pb-2">
             <template v-if="plan.is_default">Plan par défaut : livreurs sans plan attribué</template>
@@ -43,6 +44,38 @@
         </div>
       </div>
 
+      <div class="card p-4 space-y-3">
+        <h2 class="font-semibold">Salaire et période de paie</h2>
+        <p class="text-sm text-gray-600">
+          Avec une période, une fiche de paie est préparée automatiquement pour chaque livreur à la fin de la période
+          (salaire de base, gains des courses, primes et retenues), prête à payer depuis la Caisse.
+          « À la demande » : la caisse prépare la fiche quand elle veut.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <div>
+            <label class="label" for="period">Période de paie</label>
+            <select id="period" v-model="plan.pay_period" class="input w-auto">
+              <option :value="null">À la demande</option>
+              <option v-for="p in meta.periods" :key="p.value" :value="p.value">{{ p.label }}</option>
+            </select>
+            <p v-if="errors.pay_period" class="field-error has-error">{{ errors.pay_period[0] }}</p>
+          </div>
+          <div>
+            <label class="label" for="salary">Salaire de base par période (F)</label>
+            <input id="salary" v-model.number="plan.base_salary" type="number" min="0" class="input w-40">
+            <p class="text-xs text-gray-500 mt-1">0 : pas de salaire (payé à la course).</p>
+            <p v-if="errors.base_salary" class="field-error has-error">{{ errors.base_salary[0] }}</p>
+          </div>
+          <div>
+            <label class="label" for="cap">Plafond des retenues (%)</label>
+            <input id="cap" v-model.number="plan.deduction_cap_percent" type="number" min="0" max="100" class="input w-28" placeholder="Aucun">
+            <p class="text-xs text-gray-500 mt-1 max-w-xs">Part maximale des gains d'une fiche que les retenues (manques, colis perdus…) peuvent prendre ; le reste passe sur la fiche suivante.</p>
+            <p v-if="errors.deduction_cap_percent" class="field-error has-error">{{ errors.deduction_cap_percent[0] }}</p>
+          </div>
+        </div>
+        <p v-if="plan.base_salary > 0" class="text-xs text-gray-500">Un livreur arrivé en cours de période touche le salaire au prorata des jours.</p>
+      </div>
+
       <!-- Règles par étape -->
       <div v-for="ev in meta.events" :key="ev.value" class="card p-4 space-y-3">
         <div class="flex items-center justify-between gap-2">
@@ -53,7 +86,10 @@
         <p v-else-if="!rulesOf(ev.value).length" class="text-sm text-gray-500">Rien n'est payé à cette étape.</p>
         <p v-if="ev.value === 'failed_attempt'" class="text-xs text-gray-500">Payée une seule fois par course et par jour.</p>
 
-        <div v-for="rule in rulesOf(ev.value)" :key="rule.key" class="rounded-lg border p-3 space-y-3">
+        <div v-for="rule in rulesOf(ev.value)" :key="rule.key" :class="['rounded-lg border p-3 space-y-3', ruleErrors(rule).length ? 'border-red-400 bg-red-50/40 has-error' : '']">
+          <ul v-if="ruleErrors(rule).length" class="field-error space-y-0.5">
+            <li v-for="m in ruleErrors(rule)" :key="m">{{ m }}</li>
+          </ul>
           <div class="flex flex-wrap items-end gap-2">
             <div>
               <label class="label">Calcul</label>
@@ -147,6 +183,7 @@
         <div v-if="plan.pickup_mode === 'per_visit'">
           <label class="label" for="extra">Par colis supplémentaire (F)</label>
           <input id="extra" v-model.number="plan.pickup_extra_parcel_amount" type="number" min="0" class="input w-32">
+          <p v-if="errors.pickup_extra_parcel_amount" class="field-error has-error">{{ errors.pickup_extra_parcel_amount[0] }}</p>
         </div>
       </div>
 
@@ -163,6 +200,7 @@
             <input id="max" v-model.number="plan.max_amount" type="number" min="0" class="input w-32">
           </div>
         </div>
+        <p v-for="k in ['min_amount', 'max_amount']" v-show="errors[k]" :key="k" class="field-error has-error">{{ errors[k]?.[0] }}</p>
       </div>
 
       <div class="sticky bottom-0 bg-white/90 backdrop-blur py-3 flex items-center gap-3">
@@ -190,7 +228,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
@@ -203,13 +241,15 @@ const router = useRouter()
 const toasts = useToastStore()
 
 const plans = ref([])
-const meta = ref({ events: [], calcs: [], templates: [] })
+const meta = ref({ events: [], calcs: [], templates: [], periods: [] })
 const zones = ref([])
 const reasons = ref([])
 const planId = ref(null)
 const plan = ref(null)
 const saving = ref(false)
 const error = ref('')
+// Erreurs de validation par champ (« rules.2.percent » → règle n° 3)
+const errors = ref({})
 const creator = reactive({ open: false, name: '', template: 'fixed', error: '' })
 let nextKey = 1
 
@@ -234,6 +274,7 @@ function select(id) {
   planId.value = found.id
   plan.value = editable(found)
   error.value = ''
+  errors.value = {}
   router.replace({ query: { plan: found.id } })
 }
 
@@ -262,6 +303,11 @@ function setZoneAmount(rule, zoneId, value) {
   else rule.zone_amounts[zoneId] = Number(value)
 }
 
+function ruleErrors(rule) {
+  const prefix = `rules.${plan.value.rules.indexOf(rule)}.`
+  return Object.entries(errors.value).filter(([k]) => k.startsWith(prefix)).map(([, m]) => m[0])
+}
+
 function hasConditions(rule) {
   const c = rule.conditions
   return c.express || c.fragile || c.vehicle_types.length || c.zone_ids.length || (rule.event === 'failed_attempt' && c.incident_reason_ids.length)
@@ -286,11 +332,14 @@ function payload(p) {
     pickup_extra_parcel_amount: p.pickup_extra_parcel_amount || 0,
     min_amount: blank(p.min_amount),
     max_amount: blank(p.max_amount),
+    base_salary: p.base_salary || 0,
+    pay_period: p.pay_period || null,
+    deduction_cap_percent: blank(p.deduction_cap_percent),
     rules: p.rules.map((r) => ({
       event: r.event,
       calc: r.calc,
       amount: r.amount || 0,
-      percent: blank(r.percent),
+      percent: r.calc === 'percent_fee' || r.calc === 'percent_collected' ? blank(r.percent) : null,
       label: r.label || null,
       zone_amounts: r.calc === 'zone_grid' ? r.zone_amounts : null,
       conditions: {
@@ -307,12 +356,18 @@ function payload(p) {
 async function save() {
   saving.value = true
   error.value = ''
+  errors.value = {}
   try {
     await http.patch(`/pay-plans/${plan.value.id}`, payload(plan.value))
     await load(plan.value.id)
     toasts.success('Plan enregistré.')
   } catch (e) {
-    error.value = apiErrorMessage(e)
+    errors.value = e.response?.status === 422 ? e.response.data.errors ?? {} : {}
+    const count = Object.keys(errors.value).length
+    error.value = count ? `${count > 1 ? `${count} erreurs à corriger` : '1 erreur à corriger'} : voir en rouge ci-dessus.` : apiErrorMessage(e)
+    // Amène la première erreur à l'écran
+    await nextTick()
+    document.querySelector('.has-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   } finally {
     saving.value = false
   }

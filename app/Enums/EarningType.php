@@ -14,6 +14,10 @@ enum EarningType: string
     // Retenue pour un colis perdu par le livreur (montant négatif)
     case LostParcel = 'lost_parcel';
     case Adjustment = 'adjustment';
+    // Salaire de base d'une période (plan salarié ou mixte)
+    case Salary = 'salary';
+    // Retenue au-delà du plafond : sortie de cette fiche (+), reprise sur la suivante (−)
+    case Carryover = 'carryover';
 
     public function label(): string
     {
@@ -25,6 +29,8 @@ enum EarningType: string
             self::Shortfall => 'Manque de caisse',
             self::LostParcel => 'Retenue colis perdu',
             self::Adjustment => 'Ajustement',
+            self::Salary => 'Salaire de base',
+            self::Carryover => 'Retenue reportée',
         };
     }
 }

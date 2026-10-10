@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Services\Couriers\ParcelCustody;
 use App\Services\Finance\CashDesk;
 use App\Services\Finance\CourierCash;
+use App\Services\Finance\CourierPay;
 use App\Services\Finance\CourierPayroll;
 use App\Services\Finance\MerchantPayouts;
 use Illuminate\Http\JsonResponse;
@@ -363,9 +364,14 @@ class FinanceController extends Controller
     public function payCourierPayout(Request $request, CourierPayout $courierPayout): JsonResponse
     {
         $this->authorizeStaff($request, manage: true);
-        $data = $this->validatePayment($request);
+        $data = $request->validate([
+            // « compensation » : le livreur garde sa paie sur l'argent encaissé
+            'method' => ['required', Rule::in([...array_column(PaymentMethod::cases(), 'value'), CourierPayroll::COMPENSATION])],
+            'transaction_ref' => ['nullable', 'string', 'max:100'],
+        ], [], ['method' => 'mode de paiement', 'transaction_ref' => 'référence']);
 
-        $payout = $this->payroll->markPaid($request->user(), $courierPayout, PaymentMethod::from($data['method']), $data['transaction_ref'] ?? null);
+        $method = $data['method'] === CourierPayroll::COMPENSATION ? CourierPayroll::COMPENSATION : PaymentMethod::from($data['method']);
+        $payout = $this->payroll->markPaid($request->user(), $courierPayout, $method, $data['transaction_ref'] ?? null);
 
         return response()->json(['data' => $this->courierPayoutData($payout->load('courier.user'), withEarnings: true)]);
     }
@@ -390,12 +396,37 @@ class FinanceController extends Controller
             ...$this->courierExtras($courier),
             'collections' => $courier->collections()->inCourierHands()->with('order:id,tracking_code,recipient_name,merchant_id')
                 ->orderBy('collected_at')->get()->map(fn ($c) => $this->collectionData($c)),
+            // Fiches de paie préparées, pas encore payées
+            'pending_payslips' => $courier->payouts()->where('status', 'draft')->orderBy('id')->get()
+                ->map(fn ($p) => ['reference' => $p->reference, 'amount' => $p->amount, 'period_start' => $p->period_start?->toDateString(), 'period_end' => $p->period_end?->toDateString()]),
+            // Sa paie : salaire de base et prochaine fiche selon la période du plan
+            'pay' => $this->courierPayInfo($courier),
             // Détail des gains à recevoir (montant, calcul selon le plan)
             'earnings' => $courier->earnings()->with('order:id,tracking_code')->whereNull('payout_id')->latest('id')->limit(50)->get()
                 ->map(fn ($e) => $this->earningData($e)),
             'recent_payouts' => $courier->payouts()->where('status', 'paid')->latest('paid_at')->limit(5)->get()
                 ->map(fn ($p) => ['reference' => $p->reference, 'amount' => $p->amount, 'paid_at' => $p->paid_at]),
         ]]);
+    }
+
+    /**
+     * @return array{base_salary: int, period_label: ?string, next_payslip: ?string}|null
+     */
+    private function courierPayInfo(Courier $courier): ?array
+    {
+        $plan = app(CourierPay::class)->planFor($courier);
+        if ($plan === null || ($plan->base_salary === 0 && $plan->pay_period === null)) {
+            return null;
+        }
+
+        $period = $plan->periodContaining(today());
+
+        return [
+            'base_salary' => $plan->base_salary,
+            'period_label' => $plan->periodLabel(),
+            // Fiche préparée le lendemain de la fin de période
+            'next_payslip' => $period ? $period[1]->addDay()->toDateString() : null,
+        ];
     }
 
     // ───────────── Outils ─────────────
@@ -476,6 +507,8 @@ class FinanceController extends Controller
             'id' => $a->id,
             'amount' => $a->amount,
             'reason' => $a->reason,
+            // Paie gardée sur l'encaissé (montant négatif) plutôt qu'avance de la caisse
+            'pay_kept' => $a->courier_payout_id !== null,
             'order_id' => $a->order_id,
             'tracking_code' => $a->order?->tracking_code,
             'given_at' => $a->given_at,
@@ -568,7 +601,9 @@ class FinanceController extends Controller
             'amount' => $p->amount,
             'status' => $p->status,
             'status_label' => $p->status->label(),
-            'method_label' => $p->method?->label(),
+            'automatic' => $p->automatic,
+            'compensated' => $p->compensated,
+            'method_label' => $p->compensated ? 'gardé sur l\'encaissé' : $p->method?->label(),
             'transaction_ref' => $p->transaction_ref,
             'paid_at' => $p->paid_at,
             'created_at' => $p->created_at,
