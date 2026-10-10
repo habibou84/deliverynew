@@ -117,8 +117,9 @@ class PayPlanController extends Controller
             'rules.*.event' => ['required', Rule::enum(PayEvent::class)],
             'rules.*.calc' => ['required', Rule::enum(PayCalc::class)],
             'rules.*.amount' => ['nullable', 'integer', 'min:0', 'max:1000000'],
-            'rules.*.percent' => ['nullable', 'required_if:rules.*.calc,percent_fee,percent_collected', 'numeric', 'min:0', 'max:100'],
-            'rules.*.zone_amounts' => ['nullable', 'array'],
+            // Pourcentage et grille ne comptent que pour leur calcul : ignorés sinon
+            'rules.*.percent' => ['exclude_unless:rules.*.calc,percent_fee,percent_collected', 'required', 'numeric', 'min:0', 'max:100'],
+            'rules.*.zone_amounts' => ['exclude_unless:rules.*.calc,zone_grid', 'nullable', 'array'],
             'rules.*.zone_amounts.*' => ['integer', 'min:0', 'max:1000000'],
             'rules.*.label' => ['nullable', 'string', 'max:100'],
             'rules.*.conditions' => ['nullable', 'array'],
@@ -130,6 +131,20 @@ class PayPlanController extends Controller
             'rules.*.conditions.vehicle_types.*' => [Rule::enum(VehicleType::class)],
             'rules.*.conditions.incident_reason_ids' => ['nullable', 'array'],
             'rules.*.conditions.incident_reason_ids.*' => ['integer', Rule::exists('incident_reasons', 'id')->where(fn ($q) => $q->whereNull('company_id')->orWhere('company_id', $companyId))],
+        ], [], [
+            'rules.*.event' => 'étape',
+            'rules.*.calc' => 'calcul',
+            'rules.*.amount' => 'montant',
+            'rules.*.percent' => 'pourcentage',
+            'rules.*.zone_amounts' => 'grille par zone',
+            'rules.*.zone_amounts.*' => 'montant de la zone',
+            'rules.*.label' => 'libellé',
+            'rules.*.conditions.zone_ids.*' => 'zone',
+            'rules.*.conditions.vehicle_types.*' => 'véhicule',
+            'rules.*.conditions.incident_reason_ids.*' => 'motif d\'échec',
+            'pickup_extra_parcel_amount' => 'montant par colis supplémentaire',
+            'min_amount' => 'minimum',
+            'max_amount' => 'plafond',
         ]);
 
         if (($data['is_default'] ?? false) && $payPlan->courier_id !== null) {

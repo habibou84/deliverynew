@@ -29,6 +29,7 @@
           <div class="flex-1 min-w-48">
             <label class="label" for="plan-name">Nom du plan</label>
             <input id="plan-name" v-model="plan.name" class="input" maxlength="100">
+            <p v-if="errors.name" class="field-error has-error">{{ errors.name[0] }}</p>
           </div>
           <span class="text-sm text-gray-600 pb-2">
             <template v-if="plan.is_default">Plan par défaut : livreurs sans plan attribué</template>
@@ -53,7 +54,10 @@
         <p v-else-if="!rulesOf(ev.value).length" class="text-sm text-gray-500">Rien n'est payé à cette étape.</p>
         <p v-if="ev.value === 'failed_attempt'" class="text-xs text-gray-500">Payée une seule fois par course et par jour.</p>
 
-        <div v-for="rule in rulesOf(ev.value)" :key="rule.key" class="rounded-lg border p-3 space-y-3">
+        <div v-for="rule in rulesOf(ev.value)" :key="rule.key" :class="['rounded-lg border p-3 space-y-3', ruleErrors(rule).length ? 'border-red-400 bg-red-50/40 has-error' : '']">
+          <ul v-if="ruleErrors(rule).length" class="field-error space-y-0.5">
+            <li v-for="m in ruleErrors(rule)" :key="m">{{ m }}</li>
+          </ul>
           <div class="flex flex-wrap items-end gap-2">
             <div>
               <label class="label">Calcul</label>
@@ -147,6 +151,7 @@
         <div v-if="plan.pickup_mode === 'per_visit'">
           <label class="label" for="extra">Par colis supplémentaire (F)</label>
           <input id="extra" v-model.number="plan.pickup_extra_parcel_amount" type="number" min="0" class="input w-32">
+          <p v-if="errors.pickup_extra_parcel_amount" class="field-error has-error">{{ errors.pickup_extra_parcel_amount[0] }}</p>
         </div>
       </div>
 
@@ -163,6 +168,7 @@
             <input id="max" v-model.number="plan.max_amount" type="number" min="0" class="input w-32">
           </div>
         </div>
+        <p v-for="k in ['min_amount', 'max_amount']" v-show="errors[k]" :key="k" class="field-error has-error">{{ errors[k]?.[0] }}</p>
       </div>
 
       <div class="sticky bottom-0 bg-white/90 backdrop-blur py-3 flex items-center gap-3">
@@ -190,7 +196,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
@@ -210,6 +216,8 @@ const planId = ref(null)
 const plan = ref(null)
 const saving = ref(false)
 const error = ref('')
+// Erreurs de validation par champ (« rules.2.percent » → règle n° 3)
+const errors = ref({})
 const creator = reactive({ open: false, name: '', template: 'fixed', error: '' })
 let nextKey = 1
 
@@ -234,6 +242,7 @@ function select(id) {
   planId.value = found.id
   plan.value = editable(found)
   error.value = ''
+  errors.value = {}
   router.replace({ query: { plan: found.id } })
 }
 
@@ -260,6 +269,11 @@ function removeRule(rule) {
 function setZoneAmount(rule, zoneId, value) {
   if (value === '') delete rule.zone_amounts[zoneId]
   else rule.zone_amounts[zoneId] = Number(value)
+}
+
+function ruleErrors(rule) {
+  const prefix = `rules.${plan.value.rules.indexOf(rule)}.`
+  return Object.entries(errors.value).filter(([k]) => k.startsWith(prefix)).map(([, m]) => m[0])
 }
 
 function hasConditions(rule) {
@@ -290,7 +304,7 @@ function payload(p) {
       event: r.event,
       calc: r.calc,
       amount: r.amount || 0,
-      percent: blank(r.percent),
+      percent: r.calc === 'percent_fee' || r.calc === 'percent_collected' ? blank(r.percent) : null,
       label: r.label || null,
       zone_amounts: r.calc === 'zone_grid' ? r.zone_amounts : null,
       conditions: {
@@ -307,12 +321,18 @@ function payload(p) {
 async function save() {
   saving.value = true
   error.value = ''
+  errors.value = {}
   try {
     await http.patch(`/pay-plans/${plan.value.id}`, payload(plan.value))
     await load(plan.value.id)
     toasts.success('Plan enregistré.')
   } catch (e) {
-    error.value = apiErrorMessage(e)
+    errors.value = e.response?.status === 422 ? e.response.data.errors ?? {} : {}
+    const count = Object.keys(errors.value).length
+    error.value = count ? `${count > 1 ? `${count} erreurs à corriger` : '1 erreur à corriger'} : voir en rouge ci-dessus.` : apiErrorMessage(e)
+    // Amène la première erreur à l'écran
+    await nextTick()
+    document.querySelector('.has-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   } finally {
     saving.value = false
   }
