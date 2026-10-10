@@ -110,11 +110,13 @@
           <input id="items" v-model.number="form.items_amount" type="number" min="0" step="50" class="input">
         </div>
         <div>
-          <label class="label" for="payer">Frais de livraison payés par</label>
-          <select id="payer" v-model="form.fee_payer" class="input">
-            <option value="merchant">Moi (déduits du reversement)</option>
+          <label class="label" for="payer">Frais de livraison payés par <span class="text-red-600">*</span></label>
+          <select id="payer" v-model="form.fee_payer" :class="['input', errors.fee_payer ? 'border-red-500 ring-1 ring-red-500' : '']" required>
+            <option :value="null" disabled>Choisissez…</option>
+            <option value="merchant">{{ isMerchant ? 'Moi (déduits du reversement)' : 'Le marchand (déduits du reversement)' }}</option>
             <option value="recipient">Le destinataire (ajoutés à l'encaissement)</option>
           </select>
+          <p v-if="errors.fee_payer" class="field-error">{{ errors.fee_payer[0] }}</p>
         </div>
         <div>
           <label class="label" for="ref">Référence commande</label>
@@ -190,7 +192,8 @@ const form = reactive({
   delivery_time_slot: null,
   description: '',
   items_amount: 0,
-  fee_payer: 'merchant',
+  // Aucun choix par défaut : qui paie la livraison doit être indiqué
+  fee_payer: null,
   merchant_reference: '',
   weight_kg: null,
   is_express: false,
@@ -253,8 +256,6 @@ onMounted(async () => {
 })
 
 watch(() => form.merchant_id, (id) => {
-  const merchant = merchants.value.find((m) => m.id === id)
-  if (merchant) form.fee_payer = merchant.default_fee_payer
   items.value = []
   loadProducts()
 })
@@ -320,6 +321,13 @@ async function submit() {
   saving.value = true
   error.value = ''
   errors.value = {}
+  if (!form.fee_payer) {
+    errors.value = { fee_payer: ['Indiquez qui paie la livraison : le marchand ou le client.'] }
+    error.value = errors.value.fee_payer[0]
+    saving.value = false
+    document.getElementById('payer')?.focus()
+    return
+  }
   try {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null))
     if (isMerchant.value) delete payload.merchant_id

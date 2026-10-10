@@ -90,7 +90,9 @@ class StoreOrderRequest extends FormRequest
             'merchant_note' => ['nullable', 'string', 'max:1000'],
 
             'items_amount' => ['nullable', 'integer', 'min:0', 'max:100000000'],
-            'fee_payer' => ['nullable', Rule::enum(FeePayer::class)],
+            // Saisie dans l'application ou le back-office : choix explicite, jamais par défaut
+            // (API publique : réglage habituel du marchand si absent)
+            'fee_payer' => [Rule::requiredIf(! $this->is('api/public/*')), 'nullable', Rule::enum(FeePayer::class)],
 
             // Articles : produits du stock (réservés) ou articles libres
             'items' => ['nullable', 'array', 'max:50'],
@@ -99,6 +101,11 @@ class StoreOrderRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:10000'],
             'items.*.unit_price' => ['nullable', 'integer', 'min:0', 'max:100000000'],
         ];
+    }
+
+    public function messages(): array
+    {
+        return ['fee_payer.required' => 'Indiquez qui paie la livraison : le marchand ou le client.'];
     }
 
     public function attributes(): array

@@ -127,8 +127,8 @@
         </div>
         <p class="text-xs text-slate-500 mt-1">Mettez 0 si le client a déjà payé.</p>
       </div>
-      <div>
-        <p class="m-label">Qui paie la livraison ?</p>
+      <div id="fee-payer" :class="['rounded-2xl', feePayerMissing ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
+        <p class="m-label">Qui paie la livraison ? <span class="text-red-600">*</span></p>
         <ChoiceChips
           v-model="form.fee_payer"
           :columns="2"
@@ -138,6 +138,7 @@
             { value: 'merchant', label: 'Moi', icon: '🏪', description: 'déduite de mon paiement' },
           ]"
         />
+        <p v-if="feePayerMissing" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison : le client ou vous.</p>
       </div>
       <div>
         <label class="m-label" for="desc">Que contient le colis ?</label>
@@ -234,7 +235,8 @@ const blank = () => ({
   delivery_landmark: '',
   delivery_scheduled_date: null,
   items_amount: 0,
-  fee_payer: 'recipient',
+  // Aucun choix par défaut : le marchand doit indiquer qui paie la livraison
+  fee_payer: null,
   description: '',
   is_express: false,
   is_fragile: false,
@@ -376,6 +378,12 @@ function next() {
     error.value = 'Choisissez les articles à prendre à l\'entrepôt.'
     return
   }
+  if (step.value === 2 && !form.fee_payer) {
+    feePayerMissing.value = true
+    error.value = 'Choisissez qui paie la livraison : le client ou vous.'
+    document.getElementById('fee-payer')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
+  }
   if (step.value === 1 && when.value === 'other' && !form.delivery_scheduled_date) {
     error.value = 'Choisissez la date de livraison.'
     return
@@ -399,14 +407,16 @@ async function submit() {
     const field = Object.keys(e.response?.data?.errors || {})[0] || ''
     if (field.startsWith('recipient')) step.value = 0
     else if (field.startsWith('delivery')) step.value = 1
-    else if (field.startsWith('items') || field === 'pickup_hub_id') step.value = 2
+    else if (field.startsWith('items') || field === 'pickup_hub_id' || field === 'fee_payer') step.value = 2
+    if (field === 'fee_payer') feePayerMissing.value = true
   } finally {
     saving.value = false
   }
 }
 
 function reset() {
-  Object.assign(form, blank(), { fee_payer: defaultFeePayer.value })
+  Object.assign(form, blank())
+  feePayerMissing.value = false
   created.value = null
   quote.value = null
   source.value = null
@@ -415,7 +425,9 @@ function reset() {
   step.value = 0
 }
 
-const defaultFeePayer = ref('recipient')
+// Choix « qui paie la livraison » oublié : encadré en rouge jusqu'au choix
+const feePayerMissing = ref(false)
+watch(() => form.fee_payer, (value) => { if (value) feePayerMissing.value = false })
 
 async function loadStock() {
   const [p, h] = await Promise.all([
@@ -427,14 +439,7 @@ async function loadStock() {
 }
 
 onMounted(async () => {
-  const [z, m] = await Promise.all([
-    http.get('/zones'),
-    http.get(`/merchants/${auth.user.merchant_id}`).catch(() => null),
-  ])
-  zones.value = z.data.data
-  // Réglage habituel du marchand pour le payeur des frais de livraison
-  defaultFeePayer.value = m?.data.data.default_fee_payer || 'recipient'
-  form.fee_payer = defaultFeePayer.value
+  zones.value = (await http.get('/zones')).data.data
   loadStock()
 })
 </script>
