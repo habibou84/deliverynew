@@ -331,6 +331,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET/POST/PATCH | `/orders` (filtres `queue` dont `to_prepare`, `status[]`, `merchant_id`, `hub_id`, `courier_id`, `search`…) ; création avec `items[]` et `pickup_hub_id` | personnel, ou le marchand pour ses courses |
 | POST | `/orders/{id}/status` | changement de statut (règles par rôle dans `OrderWorkflow`) |
 | POST | `/orders/{id}/assign`, `/orders/bulk-assign` | `orders.dispatch` (missions ramassage / livraison / retour) |
+| POST | `/orders/bulk-confirm` | `orders.dispatch` : validation groupée des courses en attente (`order_ids`) ; renvoie `confirmed` et les refus course par course (`errors`) |
 | POST | `/orders/{id}/notes`, `/return-request`, `/attachments` | notes, demande de retour, photo de preuve |
 | GET | `/courier/missions` · POST `/courier/assignments/{id}/accept\|refuse` · PATCH `/courier/status` | livreur |
 | GET | `/reports/summary`, `/incident-reasons`, `/recipients`, `/notifications` | connecté |

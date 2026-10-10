@@ -38,9 +38,15 @@
       Filtré sur un livreur · <button class="text-blue-600" @click="filters.courier_id = ''; load(1)">retirer le filtre</button>
     </p>
 
-    <!-- Assignation groupée -->
+    <!-- Actions groupées : validation, assignation -->
     <div v-if="isStaff && selected.length" class="card p-3 flex flex-wrap items-center gap-2 bg-blue-50 border-blue-200">
       <span class="text-sm font-medium">{{ selected.length }} sélectionnée(s)</span>
+      <template v-if="auth.can('orders.dispatch') && pendingSelected.length">
+        <button class="btn-success" :disabled="confirming" @click="bulkConfirm">
+          {{ confirming ? 'Validation…' : `✅ Valider (${pendingSelected.length})` }}
+        </button>
+        <span class="mx-1 h-6 w-px bg-blue-200" aria-hidden="true" />
+      </template>
       <select v-model="bulk.type" class="input w-auto">
         <option value="pickup">Ramassage</option>
         <option value="delivery">Livraison</option>
@@ -160,6 +166,9 @@ const couriers = ref([])
 const selected = ref([])
 const bulk = reactive({ type: 'pickup', courier_id: null })
 const assigning = ref(false)
+const confirming = ref(false)
+// Courses sélectionnées encore en attente de validation
+const pendingSelected = computed(() => selected.value.filter((id) => orders.value.find((o) => o.id === id)?.status === 'pending'))
 const highlighted = ref(null)
 
 const allSelected = computed(() => orders.value.length > 0 && selected.value.length === orders.value.length)
@@ -206,6 +215,26 @@ function decided(order) {
 
 function open(order) {
   router.push(`${auth.homeRoute}/courses/${order.id}`)
+}
+
+async function bulkConfirm() {
+  const count = pendingSelected.value.length
+  if (!window.confirm(`Valider ${count} course(s) en attente ?`)) return
+  confirming.value = true
+  try {
+    const { data } = await http.post('/orders/bulk-confirm', { order_ids: pendingSelected.value })
+    if (data.data.confirmed.length) toasts.success(`${data.data.confirmed.length} course(s) validée(s).`)
+    Object.entries(data.data.errors).forEach(([id, message]) => {
+      const code = orders.value.find((o) => o.id === Number(id))?.tracking_code || id
+      toasts.error(`${code} : ${message}`)
+    })
+    // Encore affichées (file « Toutes ») : elles restent sélectionnées, prêtes à être assignées
+    await load(meta.value?.current_page || 1)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    confirming.value = false
+  }
 }
 
 async function bulkAssign() {

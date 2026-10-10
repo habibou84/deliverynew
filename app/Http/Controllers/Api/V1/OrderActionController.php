@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\AssignmentType;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
+use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\TransitionOrderRequest;
 use App\Http\Resources\V1\OrderResource;
@@ -17,6 +18,7 @@ use App\Services\Orders\OrderJournal;
 use App\Services\Orders\OrderLosses;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\OrderWorkflow;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -115,6 +117,43 @@ class OrderActionController extends Controller
             AssignmentType::from($data['type']),
             Courier::findOrFail($data['courier_id']),
         );
+
+        return response()->json(['data' => $result]);
+    }
+
+    /**
+     * Validation groupée des courses en attente (comme l'assignation groupée) :
+     * chaque course est validée seule ; les refus sont renvoyés course par course.
+     */
+    public function bulkConfirm(Request $request): JsonResponse
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate([
+            'order_ids' => ['required', 'array', 'min:1', 'max:200'],
+            'order_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $result = ['confirmed' => [], 'errors' => []];
+
+        foreach (Order::whereIn('id', $data['order_ids'])->get() as $order) {
+            if ($order->status !== OrderStatus::Pending) {
+                $result['errors'][$order->id] = "Déjà « {$order->statusLabel()} » : pas à valider.";
+
+                continue;
+            }
+
+            try {
+                $this->workflow->transition($request->user(), $order, OrderStatus::Confirmed);
+                $result['confirmed'][] = $order->id;
+            } catch (BusinessRuleException|AuthorizationException $e) {
+                $result['errors'][$order->id] = $e->getMessage();
+            }
+        }
+
+        foreach (array_diff($data['order_ids'], $result['confirmed'], array_keys($result['errors'])) as $missing) {
+            $result['errors'][$missing] = 'Course introuvable.';
+        }
 
         return response()->json(['data' => $result]);
     }

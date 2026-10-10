@@ -237,6 +237,35 @@ class OrderLifecycleTest extends TestCase
         $this->assertSame('Course introuvable.', $result['errors'][999999]);
     }
 
+    public function test_bulk_confirmation_validates_pending_orders(): void
+    {
+        $a = $this->createOrder();
+        $b = $this->createOrder();
+        $cancelled = $this->createOrder();
+        $this->as($this->merchantUser)->move($cancelled, 'cancelled')->assertOk();
+
+        // Réservé au dispatch
+        $this->as($this->merchantUser)->postJson('/api/v1/orders/bulk-confirm', ['order_ids' => [$a->id]])->assertForbidden();
+        $this->as($this->courierA->user)->postJson('/api/v1/orders/bulk-confirm', ['order_ids' => [$a->id]])->assertForbidden();
+
+        $result = $this->as($this->dispatcher)->postJson('/api/v1/orders/bulk-confirm', [
+            'order_ids' => [$a->id, $b->id, $cancelled->id, 999999],
+        ])->assertOk()->json('data');
+
+        $this->assertEqualsCanonicalizing([$a->id, $b->id], $result['confirmed']);
+        $this->assertStringContainsString('pas à valider', $result['errors'][$cancelled->id]);
+        $this->assertSame('Course introuvable.', $result['errors'][999999]);
+        $this->assertSame('confirmed', $a->fresh()->status->value);
+        $this->assertSame('cancelled', $cancelled->fresh()->status->value);
+        // Journal : même événement qu'une validation à l'unité
+        $this->assertTrue($a->events()->where('to_status', 'confirmed')->where('actor_id', $this->dispatcher->id)->exists());
+
+        // Déjà validée : signalée, pas revalidée
+        $again = $this->postJson('/api/v1/orders/bulk-confirm', ['order_ids' => [$a->id]])->json('data');
+        $this->assertSame([], $again['confirmed']);
+        $this->assertArrayHasKey($a->id, $again['errors']);
+    }
+
     public function test_delivery_code_is_required_when_the_company_demands_it(): void
     {
         $this->company->update(['require_delivery_code' => true]);
