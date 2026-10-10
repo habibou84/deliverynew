@@ -28,6 +28,17 @@ class PwaManifestTest extends TestCase
             ->assertJsonPath('id', '/marchand');
     }
 
+    public function test_manifest_icons_exist_outside_the_apache_icons_alias(): void
+    {
+        foreach (['livreur', 'marchand'] as $app) {
+            foreach ($this->get("/manifest/{$app}.webmanifest")->json('icons') as $icon) {
+                // Sous Debian, Apache sert /icons/ depuis /usr/share/apache2/icons : l'icône serait introuvable
+                $this->assertStringStartsNotWith('/icons/', $icon['src']);
+                $this->assertFileExists(public_path($icon['src']));
+            }
+        }
+    }
+
     public function test_back_office_has_no_manifest(): void
     {
         // Pas de route : la page de l'application (HTML) est servie à la place

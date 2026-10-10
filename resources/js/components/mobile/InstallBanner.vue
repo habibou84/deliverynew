@@ -1,6 +1,6 @@
 <template>
   <div v-if="visible" class="m-card p-4 flex items-start gap-3 text-left text-slate-900" :style="{ '--app-color': color }">
-    <img :src="`/icons/${app}-192.png`" alt="" class="h-12 w-12 rounded-xl">
+    <img :src="`/app-icons/${app}-192.png`" alt="" class="h-12 w-12 rounded-xl">
     <div class="flex-1 text-sm">
       <p class="font-semibold">Installer l'application {{ app === 'livreur' ? 'livreur' : '' }}</p>
 

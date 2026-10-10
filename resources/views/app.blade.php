@@ -12,8 +12,8 @@
     <title>{{ config('app.name', 'Livraison') }}</title>
     @if ($pwa)
         <link rel="manifest" href="{{ route('pwa.manifest', $pwa, false) }}">
-        <link rel="apple-touch-icon" href="/icons/{{ $pwa }}-apple-180.png">
-        <link rel="icon" type="image/svg+xml" href="/icons/{{ $pwa }}.svg">
+        <link rel="apple-touch-icon" href="/app-icons/{{ $pwa }}-apple-180.png">
+        <link rel="icon" type="image/svg+xml" href="/app-icons/{{ $pwa }}.svg">
     @endif
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">

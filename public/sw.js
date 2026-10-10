@@ -5,7 +5,8 @@
  * - Icônes et manifestes : cache puis mise à jour en arrière-plan.
  * - API, temps réel : jamais mis en cache (données toujours fraîches).
  */
-const VERSION = 'v1'
+// Changer la version vide les anciens caches (v2 : icônes déplacées dans /app-icons, /icons étant réservé par Apache)
+const VERSION = 'v2'
 const SHELL = `shell-${VERSION}`
 const ASSETS = `assets-${VERSION}`
 const SHELL_KEY = '/__app-shell'
@@ -59,7 +60,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  if (url.pathname.startsWith('/icons/') || url.pathname.startsWith('/manifest/')) {
+  if (url.pathname.startsWith('/app-icons/') || url.pathname.startsWith('/manifest/')) {
     event.respondWith((async () => {
       const cache = await caches.open(ASSETS)
       const cached = await cache.match(request)
@@ -86,8 +87,8 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(self.registration.showNotification(data.title || 'Nouvelle notification', {
     body: data.body || '',
-    icon: `/icons/${app}-192.png`,
-    badge: `/icons/${app}-192.png`,
+    icon: `/app-icons/${app}-192.png`,
+    badge: `/app-icons/${app}-192.png`,
     tag: data.tag,
     renotify: Boolean(data.tag),
     requireInteraction: Boolean(data.urgent),
