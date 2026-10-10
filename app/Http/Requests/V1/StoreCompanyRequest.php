@@ -47,8 +47,9 @@ class StoreCompanyRequest extends FormRequest
             // Premier administrateur de l'entreprise (facultatif)
             'admin' => ['nullable', 'array'],
             'admin.name' => ['required_with:admin', 'string', 'max:255'],
-            'admin.phone' => ['required_with:admin', 'string', new PhoneNumber, Rule::unique('users', 'phone')],
-            'admin.email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
+            // Nouvelle entreprise : aucun compte encore, le numéro peut servir ailleurs
+            'admin.phone' => ['required_with:admin', 'string', new PhoneNumber],
+            'admin.email' => ['nullable', 'email', 'max:255'],
             'admin.password' => ['required_with:admin', 'string', Password::min(8)],
         ];
     }

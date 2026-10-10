@@ -33,7 +33,7 @@ class CreateSuperAdmin extends Command
         $validator = Validator::make($data, [
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', new PhoneNumber],
-            'email' => ['nullable', 'email', 'unique:users,email'],
+            'email' => ['nullable', 'email', User::uniqueIn(null, 'email')],
             'password' => ['required', 'string', 'min:12'],
         ]);
 
@@ -45,7 +45,7 @@ class CreateSuperAdmin extends Command
             return self::FAILURE;
         }
 
-        if (User::withTrashed()->where('phone', Phone::normalize($data['phone']))->exists()) {
+        if (User::takenIn(null, 'phone', Phone::normalize($data['phone']))) {
             $this->error('Ce numéro de téléphone est déjà utilisé.');
 
             return self::FAILURE;

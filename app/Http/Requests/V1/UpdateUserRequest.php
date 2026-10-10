@@ -4,6 +4,7 @@ namespace App\Http\Requests\V1;
 
 use App\Enums\Role;
 use App\Enums\UserStatus;
+use App\Models\User;
 use App\Rules\PhoneNumber;
 use App\Support\PhoneNumber as Phone;
 use Illuminate\Foundation\Http\FormRequest;
@@ -47,8 +48,8 @@ class UpdateUserRequest extends FormRequest
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'phone' => ['sometimes', 'required', 'string', new PhoneNumber, Rule::unique('users', 'phone')->ignore($user)],
-            'email' => ['sometimes', 'nullable', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
+            'phone' => ['sometimes', 'required', 'string', new PhoneNumber, User::uniqueIn($user->company_id, 'phone')->ignore($user)],
+            'email' => ['sometimes', 'nullable', 'email', 'max:255', User::uniqueIn($user->company_id, 'email')->ignore($user)],
             'password' => ['sometimes', 'required', 'string', Password::min(8)],
             'role' => ['sometimes', 'required', Rule::in(Role::values(Role::assignableBy($this->user())))],
             'status' => ['sometimes', 'required', new Enum(UserStatus::class)],

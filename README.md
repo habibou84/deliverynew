@@ -227,6 +227,11 @@ Avec `PLATFORM_DOMAIN` (ex. `jibiat.com`), une seule installation sert toutes le
 | autre sous-domaine | « Aucune entreprise à cette adresse » ; entreprise suspendue : « service suspendu » |
 
 - Un compte ne se connecte et ne s'utilise qu'à l'adresse de son entreprise (un jeton présenté ailleurs est refusé).
+- **Numéro et e-mail uniques par entreprise** : un livreur qui travaille pour deux entreprises, ou un marchand client
+  de deux entreprises, a un compte dans chacune (mot de passe propre à chaque compte). Sans plateforme, si un numéro
+  a un compte dans plusieurs entreprises, la connexion retient celui dont le mot de passe correspond ; s'il y en a
+  plusieurs, il faut se connecter depuis l'adresse de son entreprise. Les super administrateurs (sans entreprise)
+  restent uniques entre eux.
 - Suivi des colis, boutiques et photos de produits : seulement ceux de l'entreprise de l'adresse.
 - Les liens envoyés par WhatsApp et SMS (suivi, fiche de course, bon de retour, boutique) et `tracking_url` de l'API
   publique utilisent l'adresse de l'entreprise (`Company::url()`), plus `APP_URL`.

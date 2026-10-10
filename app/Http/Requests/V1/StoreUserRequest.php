@@ -30,6 +30,7 @@ class StoreUserRequest extends FormRequest
     public function rules(): array
     {
         $actor = $this->user();
+        $companyId = $actor->isSuperAdmin() ? (int) $this->input('company_id') : $actor->company_id;
 
         return [
             'company_id' => [
@@ -39,8 +40,9 @@ class StoreUserRequest extends FormRequest
                 Rule::exists('companies', 'id'),
             ],
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', new PhoneNumber, Rule::unique('users', 'phone')],
-            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
+            // Unique dans l'entreprise du compte (un même numéro peut servir dans une autre entreprise)
+            'phone' => ['required', 'string', new PhoneNumber, User::uniqueIn($companyId, 'phone')],
+            'email' => ['nullable', 'email', 'max:255', User::uniqueIn($companyId, 'email')],
             'password' => ['required', 'string', Password::min(8)],
             'role' => ['required', Rule::in(Role::values(Role::assignableBy($actor)))],
         ];

@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -161,5 +163,23 @@ class User extends Authenticatable
             Tenancy::PLATFORM => $query->whereRaw('1 = 0'),
             default => $query,
         };
+    }
+
+    /**
+     * Règle « déjà utilisé » propre à une entreprise (null : super administrateurs).
+     */
+    public static function uniqueIn(?int $companyId, string $column): Unique
+    {
+        return Rule::unique('users', $column)->where(fn ($q) => $companyId === null ? $q->whereNull('company_id') : $q->where('company_id', $companyId));
+    }
+
+    /**
+     * Numéro ou e-mail déjà utilisé dans l'entreprise (comptes supprimés compris).
+     */
+    public static function takenIn(?int $companyId, string $column, ?string $value): bool
+    {
+        return filled($value) && static::query()->withoutGlobalScopes()->withTrashed()
+            ->when($companyId === null, fn ($q) => $q->whereNull('company_id'), fn ($q) => $q->where('company_id', $companyId))
+            ->where($column, $value)->exists();
     }
 }

@@ -29,8 +29,12 @@ class PasswordResetController extends Controller
         $data = $request->validate(['phone' => ['required', 'string', new PhoneNumber]], [], ['phone' => 'téléphone']);
         $phone = Phone::normalize($data['phone']);
 
-        $user = User::loginableHere()->where('phone', $phone)->first();
-        $company = $user?->company ?? Branding::company();
+        // Plusieurs entreprises sur une seule adresse (sans plateforme) : celle de la page d'accueil d'abord
+        $company = Branding::company();
+        $users = User::loginableHere()->where('phone', $phone)->with('company')->get();
+        $user = $users->count() > 1 ? ($users->firstWhere('company_id', $company?->id) ?? $users->first()) : $users->first();
+        $user = $user?->fresh();
+        $company = $user?->company ?? $company;
         abort_if($company === null, 404);
 
         [$verification, $token] = $this->verifier->start($company, PhoneVerification::PASSWORD_RESET, $phone, $user, null, $request->ip());

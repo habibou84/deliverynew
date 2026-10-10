@@ -19,12 +19,24 @@ class AuthController extends Controller
     {
         $login = trim($request->string('login'));
 
-        // Plateforme : seulement les comptes de l'entreprise de l'adresse
-        $user = str_contains($login, '@')
-            ? User::loginableHere()->where('email', mb_strtolower($login))->first()
-            : User::loginableHere()->where('phone', PhoneNumber::normalize($login))->first();
+        // Plateforme : seulement les comptes de l'entreprise de l'adresse. Un même numéro peut
+        // avoir un compte dans plusieurs entreprises : on garde celui dont le mot de passe correspond.
+        $matches = (str_contains($login, '@')
+            ? User::loginableHere()->where('email', mb_strtolower($login))
+            : User::loginableHere()->where('phone', PhoneNumber::normalize($login)))
+            ->with('company')
+            ->get()
+            ->filter(fn (User $u) => Hash::check($request->string('password'), $u->password));
 
-        if (! $user || ! Hash::check($request->string('password'), $user->password)) {
+        if ($matches->count() > 1) {
+            throw ValidationException::withMessages([
+                'login' => 'Ce numéro a un compte dans plusieurs entreprises : connectez-vous depuis l\'adresse de votre entreprise.',
+            ]);
+        }
+
+        // Rechargé seul : ses relations (permissions, entreprise) se chargent normalement
+        $user = $matches->first()?->fresh();
+        if (! $user) {
             throw ValidationException::withMessages([
                 'login' => 'Identifiant ou mot de passe incorrect.',
             ]);

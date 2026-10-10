@@ -75,12 +75,12 @@ class SignupController extends Controller
             'password' => 'mot de passe',
         ]);
 
-        if (User::withTrashed()->where('phone', $data['phone'])->exists()
+        if (User::takenIn($company->id, 'phone', $data['phone'])
             || Merchant::forCompany($company->id)->where('phone', $data['phone'])->exists()) {
             throw new BusinessRuleException('Ce numéro a déjà un compte. Connectez-vous, ou utilisez « Mot de passe oublié ».', 'phone');
         }
 
-        if (filled($data['email'] ?? null) && User::withTrashed()->where('email', mb_strtolower($data['email']))->exists()) {
+        if (User::takenIn($company->id, 'email', filled($data['email'] ?? null) ? mb_strtolower($data['email']) : null)) {
             throw new BusinessRuleException('Cette adresse e-mail est déjà utilisée.', 'email');
         }
 

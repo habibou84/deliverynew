@@ -4,6 +4,7 @@ namespace App\Http\Requests\V1;
 
 use App\Enums\FeePayer;
 use App\Models\Merchant;
+use App\Models\User;
 use App\Rules\PhoneNumber;
 use App\Support\PhoneNumber as Phone;
 use Illuminate\Foundation\Http\FormRequest;
@@ -57,8 +58,8 @@ class StoreMerchantRequest extends FormRequest
             // Compte de connexion du marchand (facultatif)
             'owner' => ['nullable', 'array'],
             'owner.name' => ['required_with:owner', 'string', 'max:255'],
-            'owner.phone' => ['required_with:owner', 'string', new PhoneNumber, Rule::unique('users', 'phone')],
-            'owner.email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
+            'owner.phone' => ['required_with:owner', 'string', new PhoneNumber, User::uniqueIn($this->user()->company_id, 'phone')],
+            'owner.email' => ['nullable', 'email', 'max:255', User::uniqueIn($this->user()->company_id, 'email')],
             'owner.password' => ['required_with:owner', 'string', Password::min(8)],
         ];
     }
