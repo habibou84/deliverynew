@@ -17,8 +17,8 @@ class CourierPayout extends Model
     use BelongsToCompany;
 
     protected $fillable = [
-        'company_id', 'courier_id', 'reference', 'period_start', 'period_end', 'amount', 'status',
-        'method', 'transaction_ref', 'created_by', 'paid_by', 'paid_at',
+        'company_id', 'courier_id', 'reference', 'period_start', 'period_end', 'amount', 'status', 'automatic',
+        'method', 'compensated', 'transaction_ref', 'created_by', 'paid_by', 'paid_at',
     ];
 
     protected function casts(): array
@@ -29,6 +29,8 @@ class CourierPayout extends Model
             'period_start' => 'date:Y-m-d',
             'period_end' => 'date:Y-m-d',
             'amount' => 'integer',
+            'automatic' => 'boolean',
+            'compensated' => 'boolean',
             'paid_at' => 'datetime',
         ];
     }

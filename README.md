@@ -229,10 +229,26 @@ désigne l'entreprise affichée si plusieurs partagent l'installation (par défa
 
 Le **plan par défaut** s'applique aux livreurs sans plan ; un plan peut être attribué à plusieurs livreurs
 (page Livreurs), et « Personnaliser pour ce livreur » crée un **plan personnel** copié de son plan actuel. Modèles
-prêts à l'emploi : fixe par course, pourcentage des frais, par zone, plan vide (salarié). Chaque gain garde son
+prêts à l'emploi : fixe par course, pourcentage des frais, par zone, salarié, mixte, plan vide. Chaque gain garde son
 plan, sa règle et le détail du calcul (« 40 % de 2 500 F ») : modifier un plan ne change jamais les gains acquis.
 Le livreur voit son gain prévu sur chaque mission et le détail de ses gains à recevoir dans sa caisse. Les anciennes
 commissions par livreur ont été reprises en plans personnels à la migration.
+
+**Salaire, périodes et fiches automatiques.** Un plan peut aussi avoir :
+
+- un **salaire de base** par période (livreur salarié, ou mixte avec des règles par course), au prorata des jours
+  pour un livreur arrivé en cours de période ;
+- une **période de paie** : chaque semaine (lundi → dimanche), chaque quinzaine (1er → 15, 16 → fin du mois) ou
+  chaque mois. Chaque nuit, `payroll:close` (00:20) prépare la fiche des périodes terminées : salaire, gains des
+  courses, primes et retenues de la période. Une seule fiche par livreur et par période, même annulée.
+  « À la demande » : la caisse prépare la fiche quand elle veut (« Préparer la paie ») ;
+- un **plafond des retenues** (%) : les retenues (manques de caisse, colis perdus…) ne prennent pas plus que ce
+  pourcentage des gains d'une fiche ; le reste est reporté sur la fiche suivante (« Retenue reportée »).
+
+Une fiche peut être payée en **gardant le montant sur l'argent encaissé** : le livreur le garde sur l'argent des
+clients qu'il a en main, et le verse en moins lors de son prochain point à la caisse (refusé s'il n'a pas assez
+d'argent en main). Le livreur voit dans sa caisse son salaire, sa période, la date de sa prochaine fiche et ses
+fiches prêtes en attente de paiement. Modèles : « Salarié » et « Mixte » en plus des modèles à la course.
 
 ### Courses sans livreur
 
@@ -383,8 +399,8 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET | `/finance/cash`, `/finance/couriers/{id}/collections`, `/finance/remittances` · POST `/finance/remittances` | caisse : argent chez les livreurs et versements (`finance.view` / `finance.manage`) |
 | GET | `/finance/merchants`, `/finance/merchants/{id}/ledger` · POST `.../adjustments` | soldes et grand livre (le marchand voit le sien) |
 | GET/POST | `/finance/payouts`, `/finance/payouts/{id}` · POST `.../pay`, `.../cancel` | reversements aux marchands |
-| GET/POST | `/finance/couriers/{id}/earnings`, `/finance/courier-payouts` · POST `.../pay`, `.../cancel` | paie des livreurs |
-| CRUD | `/pay-plans` (création : `name` + `template` `fixed`/`percent`/`zone`/`empty`, `copy_from`, ou `courier_id` pour un plan personnel) ; PATCH avec `rules[]` remplace les règles | `settings.manage` : plans de rémunération des livreurs ; PATCH `/couriers/{id}` `pay_plan_id` (null = plan par défaut) |
+| GET/POST | `/finance/couriers/{id}/earnings`, `/finance/courier-payouts` · POST `.../pay` (`method` : mode de paiement, ou `compensation` pour la paie gardée sur l'encaissé), `.../cancel` | paie des livreurs |
+| CRUD | `/pay-plans` (création : `name` + `template` `fixed`/`percent`/`zone`/`empty`, `copy_from`, ou `courier_id` pour un plan personnel) ; PATCH avec `rules[]` remplace les règles ; `base_salary`, `pay_period` (`weekly`, `biweekly`, `monthly`, null), `deduction_cap_percent` | `settings.manage` : plans de rémunération des livreurs ; PATCH `/couriers/{id}` `pay_plan_id` (null = plan par défaut) |
 | GET | `/courier/wallet` | livreur : à verser (encaissé + avances − frais payés), gains non payés et leur détail (`earnings[].detail`) |
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |

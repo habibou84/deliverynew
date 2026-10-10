@@ -4,10 +4,11 @@
     <section class="rounded-2xl p-5 text-white" :style="{ backgroundColor: 'var(--app-color)' }">
       <p class="text-sm opacity-80">{{ wallet.cash_in_hand >= 0 ? 'À verser à la caisse' : 'La caisse vous doit' }}</p>
       <p class="text-4xl font-bold mt-1">{{ money(Math.abs(wallet.cash_in_hand)) }}</p>
-      <div v-if="wallet.balance && (wallet.balance.advances || wallet.balance.expenses)" class="mt-3 space-y-1 text-sm opacity-90">
+      <div v-if="wallet.balance && (wallet.balance.advances || wallet.balance.expenses || wallet.balance.pay_kept)" class="mt-3 space-y-1 text-sm opacity-90">
         <div class="flex justify-between"><span>Encaissé</span><span>{{ money(wallet.balance.collected) }}</span></div>
         <div v-if="wallet.balance.advances" class="flex justify-between"><span>+ Avances de la caisse</span><span>{{ money(wallet.balance.advances) }}</span></div>
         <div v-if="wallet.balance.expenses" class="flex justify-between"><span>− Frais payés pour les courses</span><span>{{ money(wallet.balance.expenses) }}</span></div>
+        <div v-if="wallet.balance.pay_kept" class="flex justify-between"><span>− Paie gardée sur l'encaissé</span><span>{{ money(wallet.balance.pay_kept) }}</span></div>
       </div>
     </section>
 
@@ -42,6 +43,19 @@
       </div>
     </section>
 
+    <div v-for="p in wallet.pending_payslips || []" :key="p.reference" class="m-card p-4 flex justify-between gap-3 bg-emerald-50">
+      <div class="min-w-0">
+        <p class="font-medium">🧾 Fiche de paie prête</p>
+        <p class="text-xs text-slate-600">{{ date(p.period_start) }} → {{ date(p.period_end) }} · {{ p.reference }} · en attente de paiement</p>
+      </div>
+      <p :class="['font-bold whitespace-nowrap', signedClass(p.amount)]">{{ money(p.amount) }}</p>
+    </div>
+
+    <p v-if="wallet.pay" class="m-card p-4 text-sm text-slate-600">
+      <template v-if="wallet.pay.base_salary">Salaire de base : <strong>{{ money(wallet.pay.base_salary) }}</strong> · </template>
+      <template v-if="wallet.pay.period_label">Paie : {{ wallet.pay.period_label.toLowerCase() }}<template v-if="wallet.pay.next_payslip"> · prochaine fiche le <strong>{{ date(wallet.pay.next_payslip) }}</strong></template></template>
+    </p>
+
     <details v-if="wallet.earnings?.length" class="m-card">
       <summary class="p-4 font-semibold cursor-pointer">Détail de mes gains à recevoir</summary>
       <div class="divide-y border-t">
@@ -56,10 +70,10 @@
       </div>
     </details>
 
-    <section v-if="wallet.advances?.length" class="space-y-2">
+    <section v-if="cashAdvances.length" class="space-y-2">
       <h2 class="font-semibold">Avances reçues de la caisse</h2>
       <div class="m-card divide-y">
-        <div v-for="a in wallet.advances" :key="a.id" class="p-4 flex justify-between gap-3">
+        <div v-for="a in cashAdvances" :key="a.id" class="p-4 flex justify-between gap-3">
           <div class="min-w-0">
             <p class="font-medium truncate">{{ a.reason }}</p>
             <p class="text-xs text-slate-500">{{ dateTime(a.given_at) }}<span v-if="a.tracking_code"> · {{ a.tracking_code }}</span></p>
@@ -128,6 +142,8 @@ const stale = ref(false)
 const error = ref('')
 const parcelsToReturn = computed(() => (wallet.value?.parcels || []).filter((p) => !p.on_the_road))
 const onTheRoad = computed(() => (wallet.value?.parcels || []).filter((p) => p.on_the_road))
+// Avances réelles de la caisse (la paie gardée sur l'encaissé figure dans le solde)
+const cashAdvances = computed(() => (wallet.value?.advances || []).filter((a) => !a.pay_kept))
 
 async function load() {
   error.value = ''

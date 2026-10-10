@@ -229,7 +229,7 @@ class CourierPayTest extends TestCase
         $this->as($this->admin);
 
         $this->getJson('/api/v1/pay-plans')->assertOk()
-            ->assertJsonCount(4, 'meta.templates')
+            ->assertJsonCount(6, 'meta.templates')
             ->assertJsonPath('data.0.is_default', true);
 
         $id = $this->postJson('/api/v1/pay-plans', ['name' => 'Motos', 'template' => 'percent'])->assertCreated()

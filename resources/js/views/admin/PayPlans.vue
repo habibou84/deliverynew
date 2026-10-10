@@ -44,6 +44,38 @@
         </div>
       </div>
 
+      <div class="card p-4 space-y-3">
+        <h2 class="font-semibold">Salaire et période de paie</h2>
+        <p class="text-sm text-gray-600">
+          Avec une période, une fiche de paie est préparée automatiquement pour chaque livreur à la fin de la période
+          (salaire de base, gains des courses, primes et retenues), prête à payer depuis la Caisse.
+          « À la demande » : la caisse prépare la fiche quand elle veut.
+        </p>
+        <div class="flex flex-wrap gap-3">
+          <div>
+            <label class="label" for="period">Période de paie</label>
+            <select id="period" v-model="plan.pay_period" class="input w-auto">
+              <option :value="null">À la demande</option>
+              <option v-for="p in meta.periods" :key="p.value" :value="p.value">{{ p.label }}</option>
+            </select>
+            <p v-if="errors.pay_period" class="field-error has-error">{{ errors.pay_period[0] }}</p>
+          </div>
+          <div>
+            <label class="label" for="salary">Salaire de base par période (F)</label>
+            <input id="salary" v-model.number="plan.base_salary" type="number" min="0" class="input w-40">
+            <p class="text-xs text-gray-500 mt-1">0 : pas de salaire (payé à la course).</p>
+            <p v-if="errors.base_salary" class="field-error has-error">{{ errors.base_salary[0] }}</p>
+          </div>
+          <div>
+            <label class="label" for="cap">Plafond des retenues (%)</label>
+            <input id="cap" v-model.number="plan.deduction_cap_percent" type="number" min="0" max="100" class="input w-28" placeholder="Aucun">
+            <p class="text-xs text-gray-500 mt-1 max-w-xs">Part maximale des gains d'une fiche que les retenues (manques, colis perdus…) peuvent prendre ; le reste passe sur la fiche suivante.</p>
+            <p v-if="errors.deduction_cap_percent" class="field-error has-error">{{ errors.deduction_cap_percent[0] }}</p>
+          </div>
+        </div>
+        <p v-if="plan.base_salary > 0" class="text-xs text-gray-500">Un livreur arrivé en cours de période touche le salaire au prorata des jours.</p>
+      </div>
+
       <!-- Règles par étape -->
       <div v-for="ev in meta.events" :key="ev.value" class="card p-4 space-y-3">
         <div class="flex items-center justify-between gap-2">
@@ -209,7 +241,7 @@ const router = useRouter()
 const toasts = useToastStore()
 
 const plans = ref([])
-const meta = ref({ events: [], calcs: [], templates: [] })
+const meta = ref({ events: [], calcs: [], templates: [], periods: [] })
 const zones = ref([])
 const reasons = ref([])
 const planId = ref(null)
@@ -300,6 +332,9 @@ function payload(p) {
     pickup_extra_parcel_amount: p.pickup_extra_parcel_amount || 0,
     min_amount: blank(p.min_amount),
     max_amount: blank(p.max_amount),
+    base_salary: p.base_salary || 0,
+    pay_period: p.pay_period || null,
+    deduction_cap_percent: blank(p.deduction_cap_percent),
     rules: p.rules.map((r) => ({
       event: r.event,
       calc: r.calc,
