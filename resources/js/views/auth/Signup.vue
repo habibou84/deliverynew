@@ -138,7 +138,8 @@ function finish(response) {
   if (response.session) {
     auth.startSession(response.session)
     toasts.success(`Bienvenue chez ${branding.name} ! Votre compte est ouvert.`)
-    router.replace(auth.homeRoute)
+    // Étape facultative : où récupérer les colis (« Plus tard » possible)
+    router.replace(auth.user?.merchant_id ? { path: '/marchand/lieu-de-ramassage', query: { bienvenue: 1 } } : auth.homeRoute)
   } else {
     // Session déjà ouverte depuis un autre onglet ou appareil
     toasts.success('Votre compte est ouvert : connectez-vous.')

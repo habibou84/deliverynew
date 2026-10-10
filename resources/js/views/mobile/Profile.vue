@@ -16,6 +16,13 @@
     <RouterLink v-if="auth.user?.merchant_id && auth.can('integrations.manage')" to="/marchand/boutique" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
       <span class="font-medium">🛍️ Ma boutique en ligne<span class="block text-sm font-normal text-slate-500">Un lien de commande à partager sur WhatsApp et les réseaux</span></span><span class="text-slate-400">›</span>
     </RouterLink>
+    <RouterLink v-if="auth.user?.merchant_id" to="/marchand/lieu-de-ramassage" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
+      <span class="font-medium">📍 Lieu de ramassage
+        <span :class="['block text-sm font-normal', auth.user.merchant?.has_pickup_location ? 'text-slate-500' : 'text-amber-700']">
+          {{ !auth.user.merchant?.has_pickup_location ? 'Position à indiquer' : auth.user.merchant.pickup_location_source === 'courier' ? 'Estimée par nos livreurs : à vérifier' : 'Position enregistrée' }}
+        </span>
+      </span><span class="text-slate-400">›</span>
+    </RouterLink>
     <RouterLink v-if="auth.user?.merchant_id" to="/marchand/stock" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
       <span class="font-medium">📦 Mon stock</span><span class="text-slate-400">›</span>
     </RouterLink>

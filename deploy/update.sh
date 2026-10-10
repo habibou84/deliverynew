@@ -33,6 +33,8 @@ as_app "npm ci --no-audit --no-fund && npm run build"
 step "Migrations et caches"
 as_app "php artisan migrate --force"
 as_app "php artisan db:seed --class=RolesAndPermissionsSeeder --force"
+# Positions des marchands d'après les ramassages déjà faits (sans effet si rien de nouveau)
+as_app "php artisan merchants:locate"
 as_app "php artisan optimize"
 
 step "Redémarrage des processus"

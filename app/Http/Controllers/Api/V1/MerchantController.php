@@ -58,6 +58,7 @@ class MerchantController extends Controller
 
         $merchant = DB::transaction(function () use ($data, $request) {
             $merchant = Merchant::create(Arr::except($data, 'owner'));
+            self::trackLocationSource($merchant);
 
             if (! empty($data['owner'])) {
                 $owner = User::create([
@@ -89,6 +90,7 @@ class MerchantController extends Controller
     public function update(UpdateMerchantRequest $request, Merchant $merchant): MerchantResource
     {
         $merchant->update($request->validated());
+        self::trackLocationSource($merchant);
 
         // Un marchand suspendu ne peut plus se connecter
         if ($merchant->wasChanged('status') && ! $merchant->isActive()) {
@@ -98,6 +100,20 @@ class MerchantController extends Controller
         }
 
         return MerchantResource::make($merchant->load(['pickupZone', 'users.roles']));
+    }
+
+    /**
+     * Position saisie ou retirée par l'agence (fiche ou API) : source et date.
+     */
+    private static function trackLocationSource(Merchant $merchant): void
+    {
+        if (! $merchant->wasChanged(['pickup_lat', 'pickup_lng']) && ! $merchant->wasRecentlyCreated) {
+            return;
+        }
+
+        $merchant->forceFill($merchant->hasPickupLocation()
+            ? ['pickup_location_source' => Merchant::LOCATION_STAFF, 'pickup_located_at' => now(), 'pickup_location_accuracy' => null]
+            : ['pickup_location_source' => null, 'pickup_located_at' => null, 'pickup_location_accuracy' => null])->save();
     }
 
     /**

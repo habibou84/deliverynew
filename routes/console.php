@@ -16,6 +16,8 @@ Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('reports:send')->everyFiveMinutes()->withoutOverlapping();
 // Fiches de paie des livreurs à la fin de chaque période (prêtes à payer le matin)
 Schedule::command('payroll:close')->dailyAt('00:20')->withoutOverlapping();
+// Position des marchands d'après les ramassages des livreurs (rattrapage)
+Schedule::command('merchants:locate')->dailyAt('03:10')->withoutOverlapping();
 Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class, CourierLocation::class]])->daily();
 Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();

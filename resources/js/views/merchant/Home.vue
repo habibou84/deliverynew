@@ -7,6 +7,20 @@
 
     <InstallBanner app="marchand" />
 
+    <!-- Rappel tant que le lieu de ramassage n'est pas localisé -->
+    <RouterLink
+      v-if="auth.user?.merchant && !auth.user.merchant.has_pickup_location"
+      to="/marchand/lieu-de-ramassage"
+      class="tap m-card p-4 flex items-center gap-3 bg-amber-50 ring-1 ring-amber-200 active:bg-amber-100"
+    >
+      <span class="text-2xl">📍</span>
+      <span class="flex-1 text-sm">
+        <strong class="block">Indiquez où récupérer vos colis</strong>
+        Depuis votre boutique, en un geste : vos ramassages seront plus rapides.
+      </span>
+      <span class="text-slate-400">›</span>
+    </RouterLink>
+
     <!-- Choix de la période -->
     <div class="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar" role="radiogroup" aria-label="Période">
       <button

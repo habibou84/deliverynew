@@ -293,6 +293,19 @@ sans livreur portent la pastille « 🕒 Après 15:00 », le tableau de bord aff
 15:00 : 3 courses du jour n'ont toujours pas de livreur… ») et les administrateurs et le dispatch reçoivent une
 alerte, une fois par jour (`orders:unassigned`, `GET /orders/counts` → `cutoff`).
 
+**Position de ramassage des marchands**, nécessaire à la carte. Elle vient de trois sources, notées sur la fiche :
+
+- **le marchand** (« 📍 Lieu de ramassage » dans son application) : depuis sa boutique, « Je suis à ma boutique »
+  prend la position GPS du téléphone (précision affichée), et le repère se corrige sur la carte. Proposé juste après
+  l'inscription (« Plus tard » possible), puis rappelé sur l'accueil tant que la position manque ;
+- **l'agence** (fiche du marchand) : repère sur la carte, lien Google Maps collé (même un lien court « Partager »)
+  ou coordonnées écrites, ou position actuelle si l'agent est sur place (`PUT /merchants/{id}/pickup-location`,
+  `POST /geo/link`) ;
+- **les livreurs** : à chaque « Récupéré », la position GPS du livreur affine celle du marchand. Après 2 ramassages
+  concordants (à moins de 150 m), la position est remplie automatiquement, marquée « estimée ». Elle ne remplace
+  jamais une position donnée par le marchand ou l'agence. `merchants:locate` (chaque nuit, et à chaque `deploy/update.sh`)
+  rattrape les marchands déjà ramassés.
+
 **Carte des livreurs** : les ramassages sans livreur apparaissent chez le marchand (position de la course, sinon
 celle du marchand), en rouge s'ils sont en retard. Le panneau liste pour chacun les trois livreurs en service les
 plus proches à vol d'oiseau (distance, missions en cours, position ancienne signalée) : un clic trace les traits
