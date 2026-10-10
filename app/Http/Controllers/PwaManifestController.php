@@ -43,10 +43,11 @@ class PwaManifestController extends Controller
             'orientation' => 'portrait',
             'background_color' => '#f8fafc',
             'theme_color' => $config['theme_color'],
+            // Pas de /icons/ : sous Debian, Apache le réserve à ses propres icônes (Alias /icons/)
             'icons' => [
-                ['src' => "/icons/{$app}-192.png", 'sizes' => '192x192', 'type' => 'image/png'],
-                ['src' => "/icons/{$app}-512.png", 'sizes' => '512x512', 'type' => 'image/png'],
-                ['src' => "/icons/{$app}-maskable-512.png", 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
+                ['src' => "/app-icons/{$app}-192.png", 'sizes' => '192x192', 'type' => 'image/png'],
+                ['src' => "/app-icons/{$app}-512.png", 'sizes' => '512x512', 'type' => 'image/png'],
+                ['src' => "/app-icons/{$app}-maskable-512.png", 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'maskable'],
             ],
         ], 200, ['Content-Type' => 'application/manifest+json'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }

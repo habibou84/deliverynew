@@ -165,6 +165,7 @@ Les scripts peuvent être **relancés sans risque** : base, `.env` et clés sont
 | Notifications ou WhatsApp qui ne partent pas | `supervisorctl status` (livraison-horizon), `tail <application>/storage/logs/horizon.log` |
 | Relances et alertes automatiques absentes | `cat /etc/cron.d/livraison` |
 | Erreur 401 sur toutes les pages après connexion | `CGIPassAuth On` manquant dans les directives Apache |
+| Pas de proposition d'installation, icône cassée | `https://<domaine>/app-icons/marchand-192.png` doit afficher l'icône ; sinon relancer `deploy/update.sh` |
 
 Architecture installée (ISPConfig) :
 

@@ -59,6 +59,6 @@ export function applyAppTheme(path) {
   const link = (rel) => () => Object.assign(document.createElement('link'), { rel })
 
   set('link[rel="manifest"]', link('manifest'), 'href', `/manifest/${app}.webmanifest`)
-  set('link[rel="apple-touch-icon"]', link('apple-touch-icon'), 'href', `/icons/${app}-apple-180.png`)
+  set('link[rel="apple-touch-icon"]', link('apple-touch-icon'), 'href', `/app-icons/${app}-apple-180.png`)
   set('meta[name="theme-color"]', () => Object.assign(document.createElement('meta'), { name: 'theme-color' }), 'content', THEMES[app])
 }
