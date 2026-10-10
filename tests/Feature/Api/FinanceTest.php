@@ -26,8 +26,8 @@ class FinanceTest extends TestCase
         parent::setUp();
         $this->buildWorld();
         $this->cashier = $this->userWithRole(Role::Cashier);
-        $this->courierA->update(['pickup_commission' => 300, 'delivery_commission' => 500, 'return_commission' => 400]);
-        $this->courierB->update(['pickup_commission' => 300, 'delivery_commission' => 500]);
+        $this->payPlan(['pickup' => 300, 'delivery' => 500, 'return' => 400], $this->courierA);
+        $this->payPlan(['pickup' => 300, 'delivery' => 500], $this->courierB);
     }
 
     private function as(User $user): static

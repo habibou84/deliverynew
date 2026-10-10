@@ -2,10 +2,12 @@
 
 namespace App\Services\Finance;
 
+use App\Enums\AssignmentType;
 use App\Enums\EarningType;
 use App\Enums\ExpenseType;
 use App\Enums\LedgerEntryType;
 use App\Enums\OrderStatus;
+use App\Enums\PayEvent;
 use App\Enums\PaymentMethod;
 use App\Models\CashCollection;
 use App\Models\Courier;
@@ -26,7 +28,10 @@ use App\Models\User;
  */
 class FinanceRecorder
 {
-    public function __construct(private readonly OrderExpenses $expenses) {}
+    public function __construct(
+        private readonly OrderExpenses $expenses,
+        private readonly CourierPay $pay,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $context
@@ -36,10 +41,13 @@ class FinanceRecorder
         $courier = $assignment?->courier;
 
         match ($to) {
-            OrderStatus::PickedUp => $this->earn($courier, EarningType::Pickup, $courier?->pickup_commission, $order),
+            OrderStatus::PickedUp => $this->pay->record($courier, PayEvent::Pickup, $order),
             OrderStatus::Delivered => $this->delivered($order, $courier, $context, $actor),
             OrderStatus::Returned => $this->returned($order, $courier, $actor),
             OrderStatus::Lost => $this->lost($order, $context, $actor),
+            // Déplacement du livreur pour une livraison qui n'a pas abouti (échec ou report sur place)
+            OrderStatus::DeliveryFailed, OrderStatus::Rescheduled => $assignment?->type === AssignmentType::Delivery
+                ? $this->pay->record($courier, PayEvent::FailedAttempt, $order) : null,
             default => null,
         };
     }
@@ -84,7 +92,7 @@ class FinanceRecorder
             ], journal: false);
         }
 
-        $this->earn($courier, EarningType::Delivery, $courier?->delivery_commission, $order);
+        $this->pay->record($courier, $order->is_shipping ? PayEvent::Shipping : PayEvent::Delivery, $order);
     }
 
     private function returned(Order $order, ?Courier $courier, User $actor): void
@@ -94,7 +102,7 @@ class FinanceRecorder
 
         $this->ledger($order, LedgerEntryType::ReturnFee, -$fee, $actor, "Frais de retour ({$percent} % des frais de livraison)");
 
-        $this->earn($courier, EarningType::Return, $courier?->return_commission, $order);
+        $this->pay->record($courier, PayEvent::Return, $order);
     }
 
     /**
@@ -134,22 +142,6 @@ class FinanceRecorder
             'order_id' => $order->id,
             'description' => $description,
             'created_by' => $actor->id,
-        ]);
-    }
-
-    private function earn(?Courier $courier, EarningType $type, ?int $amount, Order $order): void
-    {
-        if ($courier === null || ! $amount) {
-            return;
-        }
-
-        CourierEarning::create([
-            'company_id' => $courier->company_id,
-            'courier_id' => $courier->id,
-            'type' => $type,
-            'amount' => $amount,
-            'order_id' => $order->id,
-            'description' => $type->label().' '.$order->tracking_code,
         ]);
     }
 }

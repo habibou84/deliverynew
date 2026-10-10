@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\Order;
+use App\Models\PayPlan;
 use App\Models\PricingGrid;
 use App\Models\PricingRule;
 use App\Models\User;
@@ -92,6 +93,29 @@ trait BuildsDeliveryWorld
             'price' => $price,
             'is_symmetric' => $symmetric,
         ]);
+    }
+
+    /**
+     * Plan de rémunération : personnel au livreur indiqué, sinon plan par défaut de l'entreprise.
+     * $rules : [événement => montant fixe] ou liste de règles complètes.
+     */
+    protected function payPlan(array $rules, ?Courier $courier = null, array $attributes = []): PayPlan
+    {
+        $plan = PayPlan::withoutGlobalScopes()->create([
+            'company_id' => $this->company->id,
+            'courier_id' => $courier?->id,
+            'name' => $courier ? 'Plan personnel' : 'Plan standard',
+            'is_default' => $courier === null,
+            ...$attributes,
+        ]);
+
+        foreach ($rules as $event => $rule) {
+            $plan->rules()->create(is_array($rule) ? $rule : ['event' => $event, 'calc' => 'fixed', 'amount' => $rule]);
+        }
+
+        $courier?->update(['pay_plan_id' => $plan->id]);
+
+        return $plan->load('rules');
     }
 
     protected function userWithRole(Role $role, array $attributes = [], ?Company $company = null): User

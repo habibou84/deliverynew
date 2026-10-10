@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\Permission;
 use App\Enums\VehicleType;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CourierResource;
@@ -27,7 +28,7 @@ class CourierController extends Controller
         ]);
 
         $couriers = Courier::query()
-            ->with(['user', 'zones'])
+            ->with(['user', 'zones', 'payPlan'])
             ->withCount('activeAssignments')
             ->whereHas('user', fn ($q) => $q->where('status', 'active'))
             ->when($request->has('available'), fn ($q) => $q->where('is_available', $request->boolean('available')))
@@ -89,7 +90,7 @@ class CourierController extends Controller
 
     public function show(Courier $courier): CourierResource
     {
-        return CourierResource::make($courier->load(['user', 'zones'])->loadCount('activeAssignments'));
+        return CourierResource::make($courier->load(['user', 'zones', 'payPlan'])->loadCount('activeAssignments'));
     }
 
     public function update(Request $request, Courier $courier): CourierResource
@@ -97,14 +98,17 @@ class CourierController extends Controller
         $data = $request->validate([
             'vehicle_type' => ['sometimes', Rule::enum(VehicleType::class)],
             'vehicle_plate' => ['sometimes', 'nullable', 'string', 'max:30'],
-            'pickup_commission' => ['sometimes', 'integer', 'min:0', 'max:100000'],
-            'delivery_commission' => ['sometimes', 'integer', 'min:0', 'max:100000'],
-            'return_commission' => ['sometimes', 'integer', 'min:0', 'max:100000'],
+            // Plan partagé de l'entreprise, ou plan personnel de ce livreur ; null = plan par défaut
+            'pay_plan_id' => ['sometimes', 'nullable', 'integer', Rule::exists('pay_plans', 'id')->where('company_id', $courier->company_id)
+                ->where(fn ($q) => $q->whereNull('courier_id')->orWhere('courier_id', $courier->id))],
             'is_available' => ['sometimes', 'boolean'],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'zone_ids' => ['sometimes', 'array'],
             'zone_ids.*' => ['integer', Rule::exists('zones', 'id')->where('company_id', $courier->company_id)],
         ]);
+
+        // La rémunération relève des réglages de l'entreprise
+        abort_if(array_key_exists('pay_plan_id', $data) && ! $request->user()->can(Permission::SettingsManage->value), 403, 'Seul un administrateur peut changer le plan de paie.');
 
         $courier->update(collect($data)->except('zone_ids')->all());
 
@@ -112,6 +116,6 @@ class CourierController extends Controller
             $courier->zones()->sync($data['zone_ids']);
         }
 
-        return CourierResource::make($courier->load(['user', 'zones'])->loadCount('activeAssignments'));
+        return CourierResource::make($courier->load(['user', 'zones', 'payPlan'])->loadCount('activeAssignments'));
     }
 }

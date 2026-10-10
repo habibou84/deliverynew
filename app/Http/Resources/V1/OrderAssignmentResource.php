@@ -28,6 +28,8 @@ class OrderAssignmentResource extends JsonResource
             'completed_at' => $this->completed_at,
             'refusal_reason' => $this->refusal_reason,
             'unread_messages' => $this->when($this->resource->getAttribute('unread_messages') !== null, fn () => $this->resource->getAttribute('unread_messages')),
+            // Espace livreur : gain attendu (mission en cours) ou acquis (mission terminée)
+            'gain' => $this->when($this->resource->hasAttribute('gain'), fn () => $this->resource->getAttribute('gain')),
             'order' => OrderResource::make($this->whenLoaded('order')),
         ];
     }
