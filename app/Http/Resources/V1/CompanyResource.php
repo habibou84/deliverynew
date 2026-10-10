@@ -32,6 +32,8 @@ class CompanyResource extends JsonResource
             'return_fee_percent' => $this->return_fee_percent,
             'field_alert_reminder_minutes' => $this->field_alert_reminder_minutes,
             'parcel_hold_alert_hours' => $this->parcel_hold_alert_hours,
+            'pickup_assign_alert_minutes' => $this->pickup_assign_alert_minutes,
+            'delivery_assign_alert_minutes' => $this->delivery_assign_alert_minutes,
             'tagline' => $this->tagline,
             'merchant_signup' => $this->merchant_signup,
             'logo_url' => Branding::logoUrl($this->resource),

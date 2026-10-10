@@ -104,6 +104,9 @@ class Order extends Model
             'hold_alerted_at' => 'datetime',
             'returned_at' => 'datetime',
             'cancelled_at' => 'datetime',
+            'status_changed_at' => 'datetime',
+            'unassigned_alerted_at' => 'datetime',
+            'unassigned_escalated_at' => 'datetime',
         ];
     }
 
@@ -113,6 +116,16 @@ class Order extends Model
             $order->tracking_code ??= static::generateTrackingCode();
             $order->delivery_code ??= str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
             $order->status ??= OrderStatus::Pending;
+        });
+
+        // Heure d'entrée dans le statut : base du délai « sans livreur » ; un nouveau statut
+        // relance le décompte et les alertes
+        static::saving(function (Order $order) {
+            if (! $order->exists || $order->isDirty('status')) {
+                $order->status_changed_at = now();
+                $order->unassigned_alerted_at = null;
+                $order->unassigned_escalated_at = null;
+            }
         });
     }
 

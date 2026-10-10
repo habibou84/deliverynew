@@ -53,6 +53,8 @@ class UpdateCompanyRequest extends FormRequest
             'parcel_hold_alert_hours' => ['sometimes', 'integer', 'min:0', 'max:168'],
             'tagline' => ['sometimes', 'nullable', 'string', 'max:160'],
             'merchant_signup' => ['sometimes', 'boolean'],
+            'pickup_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
+            'delivery_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
         ];
     }

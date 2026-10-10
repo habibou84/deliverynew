@@ -55,6 +55,7 @@ import Toasts from '../components/Toasts.vue'
 import AlertSoundToggle from '../components/AlertSoundToggle.vue'
 import { useFieldReportStore } from '../stores/fieldReports'
 import { useHeldParcelStore } from '../stores/heldParcels'
+import { useDispatchCountStore } from '../stores/dispatchCounts'
 import { branding, loadBranding } from '../composables/useBranding'
 
 const sidebarOpen = ref(false)
@@ -69,11 +70,14 @@ loadBranding()
 // Colis restés trop longtemps chez un livreur : badge du menu
 const fieldReports = useFieldReportStore()
 const heldParcels = useHeldParcelStore()
+// Courses qui attendent un livreur au-delà du délai : badge du menu « Courses »
+const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
 let countsTimer
 function fetchCounts() {
   fieldReports.fetchCounts().catch(() => {})
   heldParcels.fetchCounts().catch(() => {})
+  dispatchCounts.fetchCounts().catch(() => {})
 }
 onMounted(() => {
   if (!isDispatch.value) return
@@ -84,7 +88,7 @@ onBeforeUnmount(() => clearInterval(countsTimer))
 
 const menu = computed(() => [
   { to: '/admin', icon: '🏠', label: 'Tableau de bord' },
-  { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view' },
+  { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
   { to: '/admin/courses/nouvelle', icon: '➕', label: 'Nouvelle course', permission: 'orders.create' },
   { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
   { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage' },

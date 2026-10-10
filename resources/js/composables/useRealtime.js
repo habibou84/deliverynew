@@ -6,6 +6,7 @@ import { useToastStore } from '../stores/toasts'
 import { useFieldReportStore } from '../stores/fieldReports'
 import { useCourierMessageStore } from '../stores/courierMessages'
 import { useHeldParcelStore } from '../stores/heldParcels'
+import { useDispatchCountStore } from '../stores/dispatchCounts'
 import { desktopNotify, playAlertSound } from './useAlertSound'
 import router from '../router'
 
@@ -32,6 +33,7 @@ export function useRealtime() {
   const fieldReports = useFieldReportStore()
   const courierMessages = useCourierMessageStore()
   const heldParcels = useHeldParcelStore()
+  const dispatchCounts = useDispatchCountStore()
 
   echo.private(userChannel).notification((n) => {
     notifications.receive(n)
@@ -53,6 +55,15 @@ export function useRealtime() {
       desktopNotify(n.title, n.body, () => router.push(href))
       heldParcels.received()
       toasts.push(n.body, 'error', { title: n.title, timeout: 20000, href })
+      return
+    }
+
+    // Courses restées sans livreur (ramassage, livraison) : son, notification du bureau, toast vers la file
+    if (n.kind?.startsWith('unassigned_')) {
+      playAlertSound('alert')
+      desktopNotify(n.title, n.body, () => router.push(n.href))
+      dispatchCounts.received()
+      toasts.push(n.body, 'error', { title: n.title, timeout: 20000, href: n.href })
       return
     }
 

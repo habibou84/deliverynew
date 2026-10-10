@@ -10,6 +10,7 @@ use App\Http\Requests\V1\UpdateOrderRequest;
 use App\Http\Resources\V1\OrderResource;
 use App\Models\Merchant;
 use App\Models\Order;
+use App\Services\Orders\AwaitingCourier;
 use App\Services\Orders\OrderService;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
@@ -77,6 +78,24 @@ class OrderController extends Controller
             ->paginate($request->integer('per_page', 30));
 
         return OrderResource::collection($orders);
+    }
+
+    /**
+     * Compteurs du dispatch : courses à valider, à ramasser, à livrer, et celles qui
+     * attendent un livreur au-delà du délai de l'entreprise.
+     */
+    public function counts(Request $request, AwaitingCourier $awaiting): JsonResponse
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $count = fn (string $queue) => $this->applyQueue(Order::query(), $queue)->count();
+
+        return response()->json(['data' => [
+            'to_confirm' => $count('to_confirm'),
+            'to_pickup' => $count('to_pickup'),
+            'to_deliver' => $count('to_deliver'),
+            'late' => $awaiting->lateCounts($request->user()->company),
+        ]]);
     }
 
     public function store(StoreOrderRequest $request): JsonResponse
