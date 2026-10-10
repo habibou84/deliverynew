@@ -79,6 +79,7 @@ class ParcelCustody
         return DB::transaction(function () use ($actor, $courier, $orderIds) {
             $orders = Order::query()->whereIn('id', $orderIds)
                 ->where('held_by_courier_id', $courier->id)
+                ->orderBy('id') // ordre stable de la liste des colis rendus (PostgreSQL ne garantit aucun ordre)
                 ->lockForUpdate()
                 ->get();
 

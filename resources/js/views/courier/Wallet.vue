@@ -56,6 +56,28 @@
       <template v-if="wallet.pay.period_label">Paie : {{ wallet.pay.period_label.toLowerCase() }}<template v-if="wallet.pay.next_payslip"> · prochaine fiche le <strong>{{ date(wallet.pay.next_payslip) }}</strong></template></template>
     </p>
 
+    <section v-if="wallet.pay?.objectives?.length" class="m-card p-4 space-y-3">
+      <h2 class="font-semibold">🎯 Mes objectifs de la période</h2>
+      <div v-for="o in wallet.pay.objectives" :key="o.metric" class="space-y-1">
+        <div class="flex justify-between text-sm">
+          <span>{{ o.label }}</span>
+          <strong>{{ o.value }}{{ o.metric === 'success_rate' ? ' %' : '' }}</strong>
+        </div>
+        <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${Math.min(100, (o.value / o.tiers[o.tiers.length - 1].threshold) * 100)}%` }" />
+        </div>
+        <p class="text-xs text-slate-600">
+          <span v-for="(t, i) in o.tiers" :key="t.threshold">
+            <span :class="t.reached ? 'text-emerald-700 font-semibold' : ''">{{ t.reached ? '✓ ' : '' }}{{ t.threshold }}{{ o.metric === 'success_rate' ? ' %' : '' }} → {{ money(t.amount) }}</span><span v-if="i < o.tiers.length - 1"> · </span>
+          </span>
+        </p>
+        <p v-if="o.metric === 'success_rate' && o.min_count && o.attempts < o.min_count" class="text-xs text-slate-500">
+          Compte à partir de {{ o.min_count }} livraisons tentées ({{ o.attempts }} pour l'instant).
+        </p>
+      </div>
+      <p class="text-xs text-slate-500">Seul le palier le plus haut atteint est payé, sur la fiche de fin de période.</p>
+    </section>
+
     <details v-if="wallet.earnings?.length" class="m-card">
       <summary class="p-4 font-semibold cursor-pointer">Détail de mes gains à recevoir</summary>
       <div class="divide-y border-t">

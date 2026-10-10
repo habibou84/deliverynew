@@ -250,6 +250,20 @@ clients qu'il a en main, et le verse en moins lors de son prochain point à la c
 d'argent en main). Le livreur voit dans sa caisse son salaire, sa période, la date de sa prochaine fiche et ses
 fiches prêtes en attente de paiement. Modèles : « Salarié » et « Mixte » en plus des modèles à la course.
 
+**Jours, heures, primes et simulateur.**
+
+- Une règle peut ne s'appliquer que **certains jours** (ex. samedi et dimanche) et/ou dans une **plage horaire**
+  (ex. 22:00 → 06:00, qui passe minuit), à l'heure de l'étape et dans le fuseau horaire de l'entreprise.
+- **Primes d'objectifs** par période de paie : livraisons réussies, ramassages, taux de livraisons réussies (à partir
+  d'un nombre minimal de livraisons tentées), jours travaillés. Pour un même objectif, seul le palier le plus haut
+  atteint est payé ; des objectifs différents s'additionnent. Les primes sont ajoutées à la fiche de fin de période
+  (une fois par période) ; le livreur suit sa progression dans « Ma caisse ». Les indicateurs viennent du journal des
+  courses (étapes faites par la mission du livreur).
+- **Simulateur** (éditeur de plan, réglages même non enregistrés) : « Une course » calcule le gain d'une étape fictive
+  (zone, frais, encaissé, véhicule, jour et heure, express, fragile, motif d'échec) ligne par ligne ; « Rejouer une
+  période » reprend l'activité réelle de chaque livreur sur une période de paie passée et la compare à ce qu'il a
+  réellement gagné (`POST /pay-plans/simulate`).
+
 ### Courses sans livreur
 
 Une course **validée sans livreur de ramassage**, ou un colis **récupéré / à l'entrepôt / reporté à aujourd'hui sans
@@ -400,7 +414,7 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | GET | `/finance/merchants`, `/finance/merchants/{id}/ledger` · POST `.../adjustments` | soldes et grand livre (le marchand voit le sien) |
 | GET/POST | `/finance/payouts`, `/finance/payouts/{id}` · POST `.../pay`, `.../cancel` | reversements aux marchands |
 | GET/POST | `/finance/couriers/{id}/earnings`, `/finance/courier-payouts` · POST `.../pay` (`method` : mode de paiement, ou `compensation` pour la paie gardée sur l'encaissé), `.../cancel` | paie des livreurs |
-| CRUD | `/pay-plans` (création : `name` + `template` `fixed`/`percent`/`zone`/`empty`, `copy_from`, ou `courier_id` pour un plan personnel) ; PATCH avec `rules[]` remplace les règles ; `base_salary`, `pay_period` (`weekly`, `biweekly`, `monthly`, null), `deduction_cap_percent` | `settings.manage` : plans de rémunération des livreurs ; PATCH `/couriers/{id}` `pay_plan_id` (null = plan par défaut) |
+| CRUD | `/pay-plans` (création : `name` + `template` `fixed`/`percent`/`zone`/`empty`, `copy_from`, ou `courier_id` pour un plan personnel) ; PATCH avec `rules[]` remplace les règles ; `base_salary`, `pay_period` (`weekly`, `biweekly`, `monthly`, null), `deduction_cap_percent`, `bonuses[]` ; POST `/pay-plans/simulate` (`mode` : `scenario` ou `replay`) | `settings.manage` : plans de rémunération des livreurs ; PATCH `/couriers/{id}` `pay_plan_id` (null = plan par défaut) |
 | GET | `/courier/wallet` | livreur : à verser (encaissé + avances − frais payés), gains non payés et leur détail (`earnings[].detail`) |
 | POST | `/finance/couriers/{id}/advances` | `finance.manage` : avance de caisse au livreur (frais de gare…) |
 | POST | `/orders/{id}/expenses` · `/orders/{id}/expenses/{expense}/cancel` | frais d'une course : le livreur de la course, ou dispatch / caisse (payé par, à la charge de) ; annulation par le personnel |

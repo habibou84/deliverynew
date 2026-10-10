@@ -63,10 +63,15 @@ class PayPlanTemplates
             [
                 'key' => 'mixed',
                 'name' => 'Mixte',
-                'description' => 'Un salaire de base chaque mois, plus une prime pour chaque livraison réussie.',
+                'description' => 'Un salaire de base chaque mois, une prime pour chaque livraison réussie et des primes d\'objectifs (paliers de livraisons, taux de réussite).',
                 'plan' => ['pickup_mode' => PayPlan::PICKUP_PER_PARCEL, 'base_salary' => 50000, 'pay_period' => 'monthly', 'deduction_cap_percent' => 30],
                 'rules' => [
                     self::fixed(PayEvent::Delivery, 300),
+                ],
+                'bonuses' => [
+                    ['metric' => 'deliveries', 'threshold' => 150, 'amount' => 10000],
+                    ['metric' => 'deliveries', 'threshold' => 250, 'amount' => 25000],
+                    ['metric' => 'success_rate', 'threshold' => 90, 'min_count' => 50, 'amount' => 5000],
                 ],
             ],
             [

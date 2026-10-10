@@ -23,6 +23,7 @@ use App\Services\Finance\CourierCash;
 use App\Services\Finance\CourierPay;
 use App\Services\Finance\CourierPayroll;
 use App\Services\Finance\MerchantPayouts;
+use App\Services\Finance\PayBonuses;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -410,7 +411,7 @@ class FinanceController extends Controller
     }
 
     /**
-     * @return array{base_salary: int, period_label: ?string, next_payslip: ?string}|null
+     * @return array{base_salary: int, period_label: ?string, next_payslip: ?string, objectives: list<array<string, mixed>>}|null
      */
     private function courierPayInfo(Courier $courier): ?array
     {
@@ -420,12 +421,18 @@ class FinanceController extends Controller
         }
 
         $period = $plan->periodContaining(today());
+        $plan->loadMissing('bonuses');
+        $bonuses = app(PayBonuses::class);
 
         return [
             'base_salary' => $plan->base_salary,
             'period_label' => $plan->periodLabel(),
             // Fiche préparée le lendemain de la fin de période
             'next_payslip' => $period ? $period[1]->addDay()->toDateString() : null,
+            // Primes d'objectifs : où il en est sur la période en cours
+            'objectives' => $period && $plan->bonuses->isNotEmpty()
+                ? $bonuses->progress($plan, $bonuses->measure($courier, $period[0], $period[1]))
+                : [],
         ];
     }
 

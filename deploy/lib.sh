@@ -80,8 +80,20 @@ fetch_code() {
         as_user "git clone --branch '$BRANCH' '$REPO' '$APP_DIR'"
     else
         info "Déjà cloné : mise à jour."
-        as_app "git fetch origin '$BRANCH' && git checkout '$BRANCH' && git pull --ff-only origin '$BRANCH'"
+        sync_code
     fi
+}
+
+# Aligne le code du serveur sur la branche de GitHub. Le serveur ne fait que suivre la
+# branche : si elle a été réécrite (rebase, push forcé), on reprend la version de GitHub
+# au lieu d'échouer. Les modifications locales de fichiers suivis bloquent la mise à jour.
+sync_code() {
+    as_app "git fetch origin '+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH'"
+    if [[ -n "$(as_app "git status --porcelain --untracked-files=no")" ]]; then
+        as_app "git status --short --untracked-files=no"
+        fail "des fichiers du code ont été modifiés sur le serveur (ci-dessus) : annulez-les (cd $APP_DIR && git checkout -- .) puis relancez."
+    fi
+    as_app "git checkout -q '$BRANCH' && git reset -q --hard 'origin/$BRANCH'"
 }
 
 # .env de production (créé une seule fois, conservé ensuite)

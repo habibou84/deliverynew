@@ -31,6 +31,14 @@ class PayPlanResource extends JsonResource
             'pay_period_label' => $this->periodLabel(),
             'deduction_cap_percent' => $this->deduction_cap_percent,
             'couriers_count' => $this->whenCounted('couriers'),
+            'bonuses' => $this->whenLoaded('bonuses', fn () => $this->bonuses->map(fn ($b) => [
+                'id' => $b->id,
+                'metric' => $b->metric->value,
+                'threshold' => $b->threshold,
+                'min_count' => $b->min_count,
+                'amount' => $b->amount,
+                'label' => $b->label,
+            ])->values()),
             'rules' => $this->whenLoaded('rules', fn () => $this->rules->map(fn ($rule) => [
                 'id' => $rule->id,
                 'event' => $rule->event->value,
