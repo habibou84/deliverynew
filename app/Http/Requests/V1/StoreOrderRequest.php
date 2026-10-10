@@ -5,14 +5,39 @@ namespace App\Http\Requests\V1;
 use App\Enums\FeePayer;
 use App\Models\Order;
 use App\Rules\PhoneNumber;
+use App\Services\Orders\ZoneResolver;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreOrderRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return $this->user()->can('create', Order::class);
+    }
+
+    /** @var array<string, string> zones données par leur nom et non reconnues */
+    private array $zoneErrors = [];
+
+    /**
+     * Zones données par leur nom (« delivery_zone »: « Cocody ») : remplacées par leur identifiant.
+     */
+    protected function prepareForValidation(): void
+    {
+        $this->zoneErrors = app(ZoneResolver::class)->resolveInto($this, $this->user()->company_id);
+    }
+
+    /**
+     * @return array<int, callable>
+     */
+    public function after(): array
+    {
+        return [function (Validator $validator) {
+            foreach ($this->zoneErrors as $field => $message) {
+                $validator->errors()->add($field, $message);
+            }
+        }];
     }
 
     /**
@@ -36,6 +61,7 @@ class StoreOrderRequest extends FormRequest
             // Commande préparée dans un entrepôt (produits en stock chez l'entreprise)
             'pickup_hub_id' => ['nullable', 'integer', Rule::exists('hubs', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'pickup_zone_id' => ['nullable', 'integer', $zone],
+            'pickup_zone' => ['nullable', 'string', 'max:150'],
             'pickup_address' => ['nullable', 'string', 'max:500'],
             'pickup_landmark' => ['nullable', 'string', 'max:255'],
             'pickup_contact_name' => ['nullable', 'string', 'max:255'],
@@ -46,7 +72,9 @@ class StoreOrderRequest extends FormRequest
             'recipient_name' => ['nullable', 'string', 'max:255'],
             'recipient_phone' => ['required', 'string', new PhoneNumber],
             'recipient_phone2' => ['nullable', 'string', new PhoneNumber],
-            'delivery_zone_id' => ['required', 'integer', $zone],
+            // Identifiant de zone, ou son nom (« Cocody », « Yopougon Siporex »)
+            'delivery_zone_id' => ['required_without:delivery_zone', 'nullable', 'integer', $zone],
+            'delivery_zone' => ['nullable', 'string', 'max:150'],
             'delivery_address' => ['nullable', 'string', 'max:500'],
             'delivery_landmark' => ['nullable', 'string', 'max:255'],
             'delivery_lat' => ['nullable', 'numeric', 'between:-90,90'],

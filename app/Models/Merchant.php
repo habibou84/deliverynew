@@ -36,6 +36,9 @@ class Merchant extends Model
         'default_fee_payer',
         'status',
         'notes',
+        'shop_slug',
+        'shop_enabled',
+        'shop_intro',
     ];
 
     protected function casts(): array
@@ -45,6 +48,7 @@ class Merchant extends Model
             'status' => MerchantStatus::class,
             'pickup_lat' => 'float',
             'pickup_lng' => 'float',
+            'shop_enabled' => 'boolean',
         ];
     }
 

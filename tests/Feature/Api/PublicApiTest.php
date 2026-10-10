@@ -118,6 +118,29 @@ class PublicApiTest extends TestCase
         $this->assertSame(2, Order::count());
     }
 
+    public function test_zones_can_be_given_by_name(): void
+    {
+        $this->rule($this->grid, $this->cocody, $this->angre, 1200);
+        $this->zone('Riviera 2', $this->cocody);
+        $this->zone('Riviera 3', $this->cocody);
+
+        $this->newOrder(['delivery_zone_id' => null, 'delivery_zone' => 'Yopougon Siporex'], 'nom-1')->assertCreated()
+            ->assertJsonPath('data.delivery.zone_id', $this->yopougon->id);
+        $this->newOrder(['delivery_zone_id' => null, 'delivery_zone' => 'cocody angre'], 'nom-2')->assertCreated()
+            ->assertJsonPath('data.delivery.zone_id', $this->angre->id);
+
+        $this->newOrder(['delivery_zone_id' => null, 'delivery_zone' => 'Marcory'], 'nom-3')->assertUnprocessable()
+            ->assertJsonPath('errors.delivery_zone.0', fn ($m) => str_contains($m, 'Zone inconnue'))
+            ->assertJsonMissingValidationErrors('delivery_zone_id');
+        $this->newOrder(['delivery_zone_id' => null, 'delivery_zone' => 'Riviera'], 'nom-4')->assertUnprocessable()
+            ->assertJsonPath('errors.delivery_zone.0', fn ($m) => str_contains($m, 'Riviera 2') && str_contains($m, 'Riviera 3'));
+        $this->newOrder(['delivery_zone_id' => null], 'nom-5')->assertJsonValidationErrors('delivery_zone_id');
+
+        // L'identifiant reste prioritaire, et le devis accepte aussi le nom
+        $this->newOrder(['delivery_zone' => 'Marcory'], 'nom-6')->assertCreated();
+        $this->api('POST', 'quotes', ['delivery_zone' => 'Yopougon'])->assertOk()->assertJsonPath('data.total', 1500);
+    }
+
     public function test_orders_are_read_tracked_and_cancelled(): void
     {
         $code = $this->newOrder()->json('data.tracking_code');

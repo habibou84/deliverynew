@@ -214,6 +214,22 @@ Chaque page accepte tous les comptes : après connexion, chacun arrive dans son 
 et l'accroche se règlent dans **Paramètres > Logo et page d'accueil** ; `BRANDING_COMPANY` (slug ou identifiant)
 désigne l'entreprise affichée si plusieurs partagent l'installation (par défaut : la première entreprise active).
 
+### Boutique en ligne du marchand (page de commande)
+
+Chaque e-commerçant ouvre, depuis **Profil › Ma boutique en ligne**, une page de commande à son nom
+(`/b/{lien}`, par ex. `/b/awa-mode`) à partager dans ses statuts WhatsApp, sur Facebook, Instagram ou TikTok :
+
+- **Le client** voit les articles (photo, prix, « Épuisé »), choisit sa commune, voit le prix de la livraison
+  (« offerte » si le marchand la paie), puis commande avec son nom, son téléphone et son adresse, sans compte,
+  en paiement à la livraison. Il reçoit son code de suivi.
+- **La commande devient une course** (source `shop`), avec le montant à encaisser, et le marchand reçoit une
+  notification « Nouvelle commande sur votre boutique ».
+- **Stock** : un article dont le stock est suivi est réservé ; le colis part de l'emplacement qui a tout (un
+  entrepôt en priorité, sinon chez le marchand). Un article sans stock suivi est un simple article ramassé chez le
+  marchand.
+- **Côté marchand** : ouverture et fermeture, lien personnalisable, présentation, articles (nom, prix, photo PNG,
+  JPEG ou WebP, « En boutique »). Limites : 5 commandes par minute et 30 par heure par adresse IP, champ piège à robots.
+
 ### Inscription des e-commerçants et mot de passe oublié
 
 Depuis la page d'accueil, **Créer mon compte** (`/inscription`) : boutique, responsable, téléphone, commune et
@@ -290,6 +306,8 @@ Authentification : en-tête `Authorization: Bearer <jeton>`.
 | POST | `/auth/login` | public (`login` = téléphone ou e-mail, `password`, `device_name`) ; 5 essais/minute |
 | GET | `/auth/me` | connecté : profil, entreprise, permissions |
 | POST | `/auth/logout` | connecté : révoque le jeton de l'appareil courant |
+| GET | `/shops/{lien}` · POST `/shops/{lien}/quote` · POST `/shops/{lien}/orders` | public : page de commande d'un marchand (catalogue, devis, commande) |
+| GET/PATCH | `/shop` · POST/DELETE `/products/{id}/photo` | marchand (`integrations.manage` / `stock.manage`) : réglages de la boutique, photo d'un article |
 | GET | `/signup` | public : inscriptions ouvertes, zones de ramassage |
 | POST | `/signup` | public : demande d'inscription → `token` et état de la vérification |
 | POST | `/password/forgot` | public (`phone`) → `token` et état de la vérification |

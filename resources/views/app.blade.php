@@ -1,6 +1,7 @@
 @php
     // Application installable selon l'espace : livreur ou e-commerçant (l'admin n'est pas une PWA)
-    $pwa = request()->is('livreur*') ? 'livreur' : (request()->is('admin*') ? null : 'marchand');
+    // Pages des clients (boutique d'un marchand, suivi d'un colis) : pas d'application à installer
+    $pwa = request()->is('livreur*') ? 'livreur' : (request()->is('admin*', 'b/*', 'suivi*') ? null : 'marchand');
     $theme = ['livreur' => '#1d4ed8', 'marchand' => '#047857'][$pwa] ?? '#0f172a';
 @endphp
 <!DOCTYPE html>

@@ -27,6 +27,7 @@ const routes = [
   // Ancienne adresse de connexion
   { path: '/login', redirect: (to) => ({ path: '/', query: to.query }) },
   // Pages publiques (destinataire)
+  { path: '/b/:slug', name: 'shop', component: () => import('../views/shop/ShopPage.vue'), meta: { public: true } },
   { path: '/suivi/:code?', name: 'tracking', component: () => import('../views/Tracking.vue'), meta: { public: true } },
   {
     path: '/etiquette/:id',
@@ -97,6 +98,7 @@ const routes = [
       { path: 'courses', component: () => import('../views/merchant/Orders.vue'), meta: { title: 'Mes courses' } },
       { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true } },
       { path: 'courses/import', component: () => import('../views/merchant/OrderImport.vue'), meta: { title: 'Importer des courses', back: true, permission: 'orders.create' } },
+      { path: 'boutique', component: () => import('../views/merchant/Shop.vue'), meta: { title: 'Ma boutique en ligne', back: true, permission: 'integrations.manage' } },
       { path: 'integrations', component: () => import('../views/merchant/Integrations.vue'), meta: { title: 'Intégrations', back: true, permission: 'integrations.manage' } },
       { path: 'courses/:id(\\d+)', component: () => import('../views/merchant/OrderView.vue'), meta: { title: 'Course', back: true } },
       { path: 'stock', component: () => import('../views/merchant/Stock.vue'), meta: { title: 'Mon stock' } },

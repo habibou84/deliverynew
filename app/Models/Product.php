@@ -14,7 +14,7 @@ class Product extends Model
     use BelongsToCompany, SoftDeletes;
 
     protected $fillable = [
-        'company_id', 'merchant_id', 'sku', 'name', 'description', 'price', 'weight_kg', 'low_stock_threshold', 'is_active',
+        'company_id', 'merchant_id', 'sku', 'name', 'description', 'price', 'weight_kg', 'low_stock_threshold', 'is_active', 'shop_visible',
     ];
 
     protected function casts(): array
@@ -24,7 +24,16 @@ class Product extends Model
             'weight_kg' => 'float',
             'low_stock_threshold' => 'integer',
             'is_active' => 'boolean',
+            'shop_visible' => 'boolean',
         ];
+    }
+
+    /**
+     * Adresse de la photo (le paramètre change avec le fichier : cache navigateur long).
+     */
+    public function photoUrl(): ?string
+    {
+        return $this->photo_path ? "/produits/{$this->id}/photo?v=".substr(md5($this->photo_path), 0, 10) : null;
     }
 
     public function merchant(): BelongsTo
