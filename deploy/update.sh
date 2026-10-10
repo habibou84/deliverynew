@@ -22,7 +22,7 @@ as_app "php artisan down --retry=30 || true"
 trap 'as_app "php artisan up"' EXIT
 
 step "Code (branche $BRANCH)"
-as_app "git pull --ff-only origin '$BRANCH'"
+sync_code
 
 step "Dépendances PHP"
 as_app "composer install --no-dev --optimize-autoloader --no-interaction --no-progress"
