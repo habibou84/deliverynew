@@ -68,6 +68,9 @@ class MerchantShopTest extends TestCase
             ->assertJsonPath('data.url', url('/b/boutique-test'));
         $this->patchJson('/api/v1/shop', ['shop_slug' => 'Awa Mode Chic', 'shop_intro' => 'Pagnes et robes'])->assertOk()
             ->assertJsonPath('data.shop_slug', 'awa-mode-chic');
+        $this->getJson('/api/v1/shop')->assertJsonPath('data.shop_fee_payer', 'recipient');
+        $this->patchJson('/api/v1/shop', ['shop_fee_payer' => 'merchant'])->assertOk()->assertJsonPath('data.shop_fee_payer', 'merchant');
+        $this->patchJson('/api/v1/shop', ['shop_fee_payer' => 'personne'])->assertJsonValidationErrors('shop_fee_payer');
 
         $other = $this->merchant->replicate(['shop_slug'])->fill(['phone' => '0599999999', 'shop_slug' => 'pris']);
         $other->save();
@@ -96,11 +99,18 @@ class MerchantShopTest extends TestCase
     {
         Notification::fake();
 
-        $this->postJson('/api/v1/shops/boutique-test/quote', ['zone_id' => $this->yopougon->id, 'items' => [['product_id' => $this->dress->id, 'quantity' => 2]]])
+        // Par défaut, le client de la boutique paie la livraison
+        $quote = ['zone_id' => $this->yopougon->id, 'items' => [['product_id' => $this->dress->id, 'quantity' => 2]]];
+        $this->postJson('/api/v1/shops/boutique-test/quote', $quote)
             ->assertOk()->assertJsonPath('data.items_total', 30000)->assertJsonPath('data.delivery_fee', 1500)
-            ->assertJsonPath('data.total', 30000); // livraison payée par le marchand
+            ->assertJsonPath('data.fee_payer', 'recipient')->assertJsonPath('data.total', 31500);
 
-        $this->merchant->update(['default_fee_payer' => 'recipient']);
+        // Livraison offerte par le marchand sur sa boutique
+        $this->merchant->update(['shop_fee_payer' => 'merchant']);
+        $this->postJson('/api/v1/shops/boutique-test/quote', $quote)->assertJsonPath('data.fee_payer', 'merchant')->assertJsonPath('data.total', 30000);
+
+        // Réglage propre à la boutique : indépendant de celui des autres courses du marchand
+        $this->merchant->update(['shop_fee_payer' => 'recipient', 'default_fee_payer' => 'merchant']);
         $response = $this->postJson('/api/v1/shops/boutique-test/orders', $this->orderData([
             'items' => [['product_id' => $this->dress->id, 'quantity' => 2], ['product_id' => $this->bag->id, 'quantity' => 1]],
         ]))->assertCreated()->assertJsonPath('data.total', 39500);
@@ -111,6 +121,7 @@ class MerchantShopTest extends TestCase
         $this->assertSame($this->cocody->id, $order->pickup_zone_id);
         $this->assertNull($order->pickup_hub_id);
         $this->assertSame(38000, $order->items_amount);
+        $this->assertSame('recipient', $order->fee_payer->value);
         $this->assertStringContainsString('Appelez avant de passer', $order->merchant_note);
         $this->assertCount(2, $order->items);
         // Le sac (stock suivi) est réservé, la robe est un simple article
