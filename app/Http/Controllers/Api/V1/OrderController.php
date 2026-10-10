@@ -37,7 +37,9 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_prepare', 'to_deliver', 'to_decide', 'scheduled', 'to_return', 'incidents'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents'])],
+            // File « Sans livreur » : ramassage, livraison ou les deux
+            'awaiting' => ['nullable', Rule::in([AwaitingCourier::PICKUP, AwaitingCourier::DELIVERY])],
             'merchant_id' => ['nullable', 'integer'],
             'hub_id' => ['nullable', 'integer'],
             'courier_id' => ['nullable', 'integer'],
@@ -52,7 +54,9 @@ class OrderController extends Controller
             ->visibleTo($request->user())
             ->with(self::LIST_RELATIONS)
             ->when($request->filled('status'), fn ($q) => $q->whereIn('status', $request->input('status')))
-            ->when($request->filled('queue'), fn ($q) => $this->applyQueue($q, $request->string('queue')))
+            ->when($request->filled('queue') && $request->input('queue') !== 'unassigned', fn ($q) => $this->applyQueue($q, $request->string('queue')))
+            // Sans livreur : de la plus ancienne attente à la plus récente
+            ->when($request->input('queue') === 'unassigned', fn ($q) => AwaitingCourier::scope($q, $request->input('awaiting'))->orderBy('status_changed_at'))
             ->when($request->filled('merchant_id'), fn ($q) => $q->where('merchant_id', $request->integer('merchant_id')))
             ->when($request->filled('hub_id'), fn ($q) => $q->where('pickup_hub_id', $request->integer('hub_id')))
             ->when($request->filled('courier_id'), fn ($q) => $q->where(fn ($q) => $q
@@ -94,6 +98,7 @@ class OrderController extends Controller
             'to_confirm' => $count('to_confirm'),
             'to_pickup' => $count('to_pickup'),
             'to_deliver' => $count('to_deliver'),
+            'unassigned' => AwaitingCourier::scope(Order::query())->count(),
             'late' => $awaiting->lateCounts($request->user()->company),
         ]]);
     }
