@@ -226,6 +226,9 @@ de l'entreprise (**Paramètres** : 30 min pour le ramassage, 1 h pour la livrais
 - le dispatch reçoit une alerte sonore regroupée (une fois par course et par statut), les administrateurs une
   seconde alerte après trois fois le délai (`orders:unassigned`, chaque minute).
 
+Le **tableau de bord** du dispatch affiche un encadré « 🛵 En attente d'un livreur » : à assigner au ramassage et à
+la livraison, nombre en retard et attente la plus longue (`GET /orders/counts` → `waiting`), avec un lien vers la file.
+
 L'onglet **« 🛵 Sans livreur »** regroupe les deux étapes, **de la plus ancienne attente à la plus récente**
 (`GET /orders?queue=unassigned&awaiting=pickup|delivery`), avec un filtre Les deux / Ramassage / Livraison. Avec la
 sélection groupée, « Selon la course » assigne en une fois le ramassage des courses à ramasser et la livraison des

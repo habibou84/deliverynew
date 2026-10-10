@@ -139,6 +139,24 @@ class AwaitingCourier
     }
 
     /**
+     * Encadré du tableau de bord : par étape, nombre de courses en attente, en retard,
+     * et attente la plus longue (minutes).
+     *
+     * @return array<string, array{count: int, late: int, oldest_minutes: ?int, threshold_minutes: int}>
+     */
+    public function summary(Company $company): array
+    {
+        $waiting = $this->waiting($company);
+
+        return collect([self::PICKUP, self::DELIVERY])->mapWithKeys(fn (string $stage) => [$stage => [
+            'count' => $waiting->where('stage', $stage)->count(),
+            'late' => $waiting->where('stage', $stage)->where('late', true)->count(),
+            'oldest_minutes' => $waiting->where('stage', $stage)->max('minutes'),
+            'threshold_minutes' => $this->threshold($company, $stage),
+        ]])->all();
+    }
+
+    /**
      * Alertes : dispatch au-delà du seuil (une fois par course et par statut), puis
      * administrateurs au-delà de trois fois le seuil. Regroupées par étape.
      *

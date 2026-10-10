@@ -47,7 +47,9 @@ class AwaitingCourierTest extends TestCase
         $this->travel(31)->minutes();
         $this->assertTrue($this->awaiting($order)['late']);
         $this->assertSame(31, $this->awaiting($order)['minutes']);
-        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.late.pickup', 1)->assertJsonPath('data.late.delivery', 0);
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.late.pickup', 1)->assertJsonPath('data.late.delivery', 0)
+            ->assertJsonPath('data.waiting.pickup', ['count' => 1, 'late' => 1, 'oldest_minutes' => 31, 'threshold_minutes' => 30])
+            ->assertJsonPath('data.waiting.delivery', ['count' => 0, 'late' => 0, 'oldest_minutes' => null, 'threshold_minutes' => 60]);
         $this->assertTrue(collect($this->getJson('/api/v1/orders?queue=to_pickup')->json('data'))->first()['awaiting_courier']['late']);
 
         // Assignée : plus en attente
