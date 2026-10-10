@@ -17,6 +17,12 @@
         @click="setQueue(q.value)"
       >
         {{ q.label }}
+        <span v-if="tabCount(q.value)" :class="['ml-1 rounded-full px-1.5 text-xs font-semibold', filters.queue === q.value ? 'bg-white/20' : 'bg-slate-100 text-slate-700']">{{ tabCount(q.value) }}</span>
+        <span
+          v-if="tabLate(q.value)"
+          class="ml-1 rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white"
+          :title="`${tabLate(q.value)} course(s) sans livreur depuis trop longtemps`"
+        >⏰ {{ tabLate(q.value) }}</span>
       </button>
     </div>
 
@@ -82,7 +88,7 @@
             v-for="o in orders"
             v-else
             :key="o.id"
-            :class="['hover:bg-slate-50 cursor-pointer', highlighted === o.id ? 'bg-yellow-50' : '']"
+            :class="['hover:bg-slate-50 cursor-pointer', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : '']"
             @click="open(o)"
           >
             <td v-if="isStaff" class="p-2" @click.stop><input v-model="selected" type="checkbox" :value="o.id" :aria-label="`Sélectionner ${o.tracking_code}`"></td>
@@ -95,6 +101,13 @@
             <td class="p-2 whitespace-nowrap">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}</td>
             <td class="p-2">
               <StatusBadge :status="o.status" :label="o.status_label" />
+              <div
+                v-if="o.awaiting_courier"
+                :class="['mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', o.awaiting_courier.late ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-800']"
+                :title="`Seuil d'alerte : ${duration(o.awaiting_courier.threshold_minutes)}`"
+              >
+                {{ o.awaiting_courier.late ? '⏰' : '🛵' }} Sans livreur · {{ o.awaiting_courier.stage === 'pickup' ? 'ramassage' : 'livraison' }} · {{ duration(o.awaiting_courier.minutes) }}
+              </div>
               <div v-if="o.last_incident && ['delivery_failed', 'rescheduled'].includes(o.status)" class="text-xs text-red-600 mt-0.5">{{ o.last_incident.label }}</div>
               <div v-if="o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)" class="text-xs text-rose-600">Retour demandé</div>
               <div v-if="o.status === 'rescheduled' && o.delivery.scheduled_date" :class="['text-xs', o.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-gray-600']">📅 {{ o.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(o.delivery.scheduled_date) }}</div>
@@ -126,6 +139,7 @@ import Pagination from '../../components/Pagination.vue'
 import OrderDecision from '../../components/OrderDecision.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
+import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
 import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
 
@@ -173,6 +187,25 @@ const highlighted = ref(null)
 
 const allSelected = computed(() => orders.value.length > 0 && selected.value.length === orders.value.length)
 
+// Compteurs des files et courses en attente d'un livreur depuis trop longtemps
+const dispatchCounts = useDispatchCountStore()
+const isDispatch = computed(() => auth.can('orders.dispatch'))
+const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_deliver: 'to_deliver' }
+const tabCount = (queue) => (isDispatch.value && COUNTED[queue] ? dispatchCounts.counts[COUNTED[queue]] : 0)
+const tabLate = (queue) => (isDispatch.value ? { to_pickup: dispatchCounts.counts.late.pickup, to_deliver: dispatchCounts.counts.late.delivery }[queue] || 0 : 0)
+
+// Durée d'attente lisible : 25 min, 1 h 05, 2 j 3 h
+function duration(minutes) {
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours >= 24) return `${Math.floor(hours / 24)} j ${hours % 24} h`
+  const rest = minutes % 60
+  return rest ? `${hours} h ${String(rest).padStart(2, '0')}` : `${hours} h`
+}
+
+// Alerte « sans livreur » reçue : la liste se met à jour
+watch(() => dispatchCounts.version, () => load(meta.value?.current_page || 1))
+
 async function load(page = 1) {
   loading.value = orders.value.length === 0
   const params = { page }
@@ -183,6 +216,7 @@ async function load(page = 1) {
   orders.value = data.data
   meta.value = data.meta
   loading.value = false
+  if (isDispatch.value) dispatchCounts.fetchCounts().catch(() => {})
   selected.value = selected.value.filter((id) => orders.value.some((o) => o.id === id))
 }
 

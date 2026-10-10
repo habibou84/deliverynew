@@ -65,6 +65,21 @@
           <input id="hold-alert" v-model.number="form.parcel_hold_alert_hours" type="number" min="0" max="168" class="input w-24">
           <p class="text-xs text-gray-500 mt-1">Alerte sonore au dispatch, une fois par colis, et colis signalé en rouge dans « Colis chez les livreurs ». 0 = jamais.</p>
         </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="label" for="pickup-alert">Alerter quand une course validée reste sans livreur de ramassage plus de (minutes)</label>
+            <input id="pickup-alert" v-model.number="form.pickup_assign_alert_minutes" type="number" min="0" max="1440" class="input w-24">
+          </div>
+          <div>
+            <label class="label" for="delivery-alert">Alerter quand un colis récupéré reste sans livreur de livraison plus de (minutes)</label>
+            <input id="delivery-alert" v-model.number="form.delivery_assign_alert_minutes" type="number" min="0" max="1440" class="input w-24">
+          </div>
+          <p class="sm:col-span-2 text-xs text-gray-500 -mt-1">
+            Au-delà, la course passe en rouge dans la liste, le compteur du menu « Courses » augmente et le dispatch reçoit une alerte sonore
+            (une fois par course) ; les administrateurs sont prévenus après trois fois ce délai. Une livraison prévue un autre jour ne compte
+            qu'à partir de ce jour. 0 = pas d'alerte.
+          </p>
+        </div>
       </fieldset>
 
       <fieldset class="space-y-3 border-t pt-4">
@@ -88,7 +103,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
 
-const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours']
+const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes']
 
 const auth = useAuthStore()
 const toasts = useToastStore()

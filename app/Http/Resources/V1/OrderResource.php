@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1;
 
 use App\Models\Order;
+use App\Services\Orders\AwaitingCourier;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -107,6 +108,11 @@ class OrderResource extends JsonResource
                 ...$this->courierSummary($this->holder),
                 'since' => $this->held_since,
             ] : null),
+            // Sans livreur de ramassage ou de livraison : depuis quand, en retard ou non (dispatch)
+            'awaiting_courier' => $this->when(
+                $user?->merchant_id === null && ! $isCourier && $user?->company !== null,
+                fn () => app(AwaitingCourier::class)->describe($this->resource, $user->company),
+            ),
             'attempts_count' => $this->attempts_count,
             'max_attempts' => $this->max_attempts,
             'return_requested' => $this->return_requested,

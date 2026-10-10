@@ -32,6 +32,8 @@ class Company extends Model
         'merchant_signup',
         'field_alert_reminder_minutes',
         'parcel_hold_alert_hours',
+        'pickup_assign_alert_minutes',
+        'delivery_assign_alert_minutes',
         'status',
     ];
 
@@ -48,6 +50,8 @@ class Company extends Model
             'merchant_signup' => 'boolean',
             'field_alert_reminder_minutes' => 'integer',
             'parcel_hold_alert_hours' => 'integer',
+            'pickup_assign_alert_minutes' => 'integer',
+            'delivery_assign_alert_minutes' => 'integer',
             'status' => CompanyStatus::class,
         ];
     }

@@ -18,4 +18,6 @@ Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class, CourierLocation::class]])->daily();
 Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();
 Schedule::command('parcels:overdue')->everyFifteenMinutes()->withoutOverlapping();
+// Courses sans livreur de ramassage ou de livraison au-delà du délai de l'entreprise
+Schedule::command('orders:unassigned')->everyMinute()->withoutOverlapping();
 Schedule::command('orders:due-today')->dailyAt('06:50')->withoutOverlapping();

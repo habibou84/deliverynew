@@ -214,6 +214,21 @@ Chaque page accepte tous les comptes : après connexion, chacun arrive dans son 
 et l'accroche se règlent dans **Paramètres > Logo et page d'accueil** ; `BRANDING_COMPANY` (slug ou identifiant)
 désigne l'entreprise affichée si plusieurs partagent l'installation (par défaut : la première entreprise active).
 
+### Courses sans livreur
+
+Une course **validée sans livreur de ramassage**, ou un colis **récupéré / à l'entrepôt / reporté à aujourd'hui sans
+livreur de livraison**, porte dans la liste une pastille « 🛵 Sans livreur · ramassage · 25 min ». Au-delà du délai
+de l'entreprise (**Paramètres** : 30 min pour le ramassage, 1 h pour la livraison par défaut ; 0 = pas d'alerte) :
+
+- la pastille et la ligne passent au rouge (« ⏰ ») ;
+- les onglets « À ramasser » et « À livrer » affichent leur nombre de courses et, en rouge, celles en retard ;
+  le menu « Courses » affiche le total en retard (`GET /orders/counts`) ;
+- le dispatch reçoit une alerte sonore regroupée (une fois par course et par statut), les administrateurs une
+  seconde alerte après trois fois le délai (`orders:unassigned`, chaque minute).
+
+Le délai part de l'entrée dans le statut (un désassignement le relance) ; une livraison prévue un autre jour ne
+compte qu'à partir de ce jour. Les commandes d'entrepôt ne demandent pas de ramassage.
+
 ### Boutique en ligne du marchand (page de commande)
 
 Chaque e-commerçant ouvre, depuis **Profil › Ma boutique en ligne**, une page de commande à son nom
