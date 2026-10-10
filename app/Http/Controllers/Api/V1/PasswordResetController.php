@@ -29,7 +29,7 @@ class PasswordResetController extends Controller
         $data = $request->validate(['phone' => ['required', 'string', new PhoneNumber]], [], ['phone' => 'téléphone']);
         $phone = Phone::normalize($data['phone']);
 
-        $user = User::where('phone', $phone)->first();
+        $user = User::loginableHere()->where('phone', $phone)->first();
         $company = $user?->company ?? Branding::company();
         abort_if($company === null, 404);
 

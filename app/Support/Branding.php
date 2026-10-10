@@ -15,6 +15,11 @@ class Branding
 {
     public static function company(): ?Company
     {
+        // Plateforme : l'entreprise de l'adresse (aucune sur la présentation ou la console)
+        if (Tenancy::enabled()) {
+            return app(Tenancy::class)->company();
+        }
+
         $wanted = config('app.branding_company');
 
         $query = Company::query()->where('status', CompanyStatus::Active->value);

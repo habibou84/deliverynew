@@ -69,7 +69,7 @@ class OrderMessages
                     $merchant->business_name,
                     $order->cod_amount > 0 ? Money::format($order->cod_amount) : 'rien, déjà payé',
                     $order->delivery_code,
-                    url('/suivi/'.$code),
+                    $order->company->url('/suivi/'.$code),
                 ]);
                 break;
 
@@ -127,7 +127,7 @@ class OrderMessages
             $order->tracking_code,
             $recipient,
             $details,
-            url('/marchand/courses/'.$order->id),
+            $order->company->url('/marchand/courses/'.$order->id),
         ], $order);
     }
 

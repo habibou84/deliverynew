@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CompanyStatus;
+use App\Support\Tenancy;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -66,5 +67,13 @@ class Company extends Model
     public function isActive(): bool
     {
         return $this->status === CompanyStatus::Active;
+    }
+
+    /**
+     * Lien vers une page de l'entreprise : son adresse sur la plateforme, sinon APP_URL.
+     */
+    public function url(string $path = ''): string
+    {
+        return Tenancy::baseUrl($this).($path === '' ? '' : '/'.ltrim($path, '/'));
     }
 }

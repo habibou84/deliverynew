@@ -340,7 +340,7 @@ class Conversation
             "✅ Course *{$order->tracking_code}* enregistrée.",
             'Code de livraison : '.$order->delivery_code,
             'Le client paiera : '.Money::format($order->cod_amount),
-            'Suivi : '.url('/suivi/'.$order->tracking_code),
+            'Suivi : '.$order->company->url('/suivi/'.$order->tracking_code),
         ]), ['new' => '📦 Autre course', 'menu' => 'Menu']);
     }
 
@@ -419,7 +419,7 @@ class Conversation
             '👤 '.($order->recipient_name ?: PhoneNumber::display($order->recipient_phone)),
             $order->status === OrderStatus::Rescheduled && $order->delivery_scheduled_date ? 'Nouvelle date : '.$order->delivery_scheduled_date->format('d/m/Y') : null,
             $order->status === OrderStatus::Delivered ? 'Encaissé : '.Money::format((int) $order->collected_amount) : 'À encaisser : '.Money::format($order->cod_amount),
-            'Détail : '.url('/marchand/courses/'.$order->id),
+            'Détail : '.$order->company->url('/marchand/courses/'.$order->id),
         ]);
         $this->reply(implode("\n", $lines));
     }

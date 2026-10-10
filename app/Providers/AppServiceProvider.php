@@ -12,6 +12,7 @@ use App\Services\Messaging\Gateways\WhatsAppGateway;
 use App\Services\WhatsApp\ClaudeOrderParser;
 use App\Services\WhatsApp\HeuristicOrderParser;
 use App\Services\WhatsApp\OrderMessageParser;
+use App\Support\Tenancy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -27,6 +28,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Entreprise de l'adresse : une par requête
+        $this->app->scoped(Tenancy::class);
+
         $this->app->bind(WhatsAppGateway::class, fn () => match (config('messaging.whatsapp.driver')) {
             'meta' => new MetaCloudGateway,
             default => new LogWhatsAppGateway,

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Support\PhoneNumber;
+use App\Support\Tenancy;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -144,5 +145,21 @@ class User extends Authenticatable
     public function pushSubscriptions(): HasMany
     {
         return $this->hasMany(PushSubscription::class);
+    }
+
+    /**
+     * Comptes qui peuvent se connecter à cette adresse : ceux de l'entreprise de
+     * l'adresse, ou le super administrateur sur la console (plateforme).
+     */
+    public function scopeLoginableHere(Builder $query): Builder
+    {
+        $tenancy = app(Tenancy::class);
+
+        return match ($tenancy->zone()) {
+            Tenancy::COMPANY => $query->where('company_id', $tenancy->company()?->id ?? 0),
+            Tenancy::CONSOLE => $query->whereNull('company_id'),
+            Tenancy::PLATFORM => $query->whereRaw('1 = 0'),
+            default => $query,
+        };
     }
 }
