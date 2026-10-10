@@ -288,6 +288,16 @@ Le délai part de l'entrée dans le statut (un désassignement le relance) ; une
 compte qu'à partir de ce jour. Les commandes d'entrepôt ne demandent pas de ramassage ; un report qui a déjà son
 livreur de livraison n'est pas compté.
 
+**Heure limite du jour** (Paramètres, heure de l'entreprise, vide = aucune) : passé cette heure, les courses encore
+sans livreur portent la pastille « 🕒 Après 15:00 », le tableau de bord affiche un bandeau rouge (« Il est plus de
+15:00 : 3 courses du jour n'ont toujours pas de livreur… ») et les administrateurs et le dispatch reçoivent une
+alerte, une fois par jour (`orders:unassigned`, `GET /orders/counts` → `cutoff`).
+
+**Carte des livreurs** : les ramassages sans livreur apparaissent chez le marchand (position de la course, sinon
+celle du marchand), en rouge s'ils sont en retard. Le panneau liste pour chacun les trois livreurs en service les
+plus proches à vol d'oiseau (distance, missions en cours, position ancienne signalée) : un clic trace les traits
+vers eux, un autre assigne le ramassage (`GET /couriers/map` → `pickups`).
+
 ### Boutique en ligne du marchand (page de commande)
 
 Chaque e-commerçant ouvre, depuis **Profil › Ma boutique en ligne**, une page de commande à son nom

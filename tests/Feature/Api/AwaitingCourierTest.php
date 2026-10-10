@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Notifications\OrderAlert;
 use App\Services\Orders\OrderDispatcher;
 use App\Services\Orders\OrderWorkflow;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
@@ -168,5 +169,62 @@ class AwaitingCourierTest extends TestCase
         Sanctum::actingAs($this->merchantUser);
         $this->getJson('/api/v1/orders/counts')->assertForbidden();
         $this->assertNull(collect($this->getJson('/api/v1/orders')->json('data'))->first()['awaiting_courier'] ?? null);
+    }
+
+    public function test_daily_cutoff_flags_waiting_orders_and_alerts_once_a_day(): void
+    {
+        // Heure limite à 15:00, heure de Paris (UTC+1 le 1er décembre)
+        $this->company->update(['daily_cutoff_time' => '15:00', 'timezone' => 'Europe/Paris', 'pickup_assign_alert_minutes' => 0, 'delivery_assign_alert_minutes' => 0]);
+        $this->travelTo(CarbonImmutable::parse('2026-12-01 12:00', 'UTC'));
+        $order = $this->confirmedOrder();
+        Notification::fake();
+        Sanctum::actingAs($this->dispatcher);
+
+        $this->assertFalse($this->awaiting($order)['after_cutoff']);
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.cutoff', ['time' => '15:00', 'passed' => false, 'count' => 1]);
+        $this->travelTo(CarbonImmutable::parse('2026-12-01 13:59', 'UTC')); // 14:59 à Paris
+        $this->artisan('orders:unassigned')->assertSuccessful();
+        Notification::assertNothingSent();
+
+        $this->travelTo(CarbonImmutable::parse('2026-12-01 14:05', 'UTC')); // 15:05 à Paris
+        $state = $this->awaiting($order);
+        $this->assertTrue($state['after_cutoff']);
+        $this->assertSame('15:00', $state['cutoff_time']);
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.cutoff.passed', true);
+
+        $this->artisan('orders:unassigned')->assertSuccessful();
+        $cutoffAlerts = fn () => Notification::sent($this->dispatcher, OrderAlert::class, fn (OrderAlert $n) => $n->kind === 'unassigned_cutoff')->count();
+        $this->assertSame(1, $cutoffAlerts());
+        Notification::assertSentTo($this->admin, OrderAlert::class, fn (OrderAlert $n) => $n->kind === 'unassigned_cutoff'
+            && $n->title === '⏰ 15:00 passées : 1 course du jour toujours sans livreur'
+            && str_contains($n->body, '1 à ramasser') && str_contains($n->body, $order->tracking_code));
+
+        // Une seule fois par jour
+        $this->travel(2)->hours();
+        $this->artisan('orders:unassigned')->assertSuccessful();
+        $this->assertSame(1, $cutoffAlerts());
+
+        // Le lendemain, la course attend toujours : nouvelle alerte
+        $this->travelTo(CarbonImmutable::parse('2026-12-02 14:30', 'UTC'));
+        $this->artisan('orders:unassigned')->assertSuccessful();
+        $this->assertSame(2, $cutoffAlerts());
+    }
+
+    public function test_no_cutoff_alert_when_every_order_has_a_courier_and_setting_validation(): void
+    {
+        $this->company->update(['daily_cutoff_time' => '15:00']);
+        $order = $this->confirmedOrder();
+        app(OrderDispatcher::class)->assign($this->dispatcher, $order, AssignmentType::Pickup, $this->courierA);
+        Notification::fake();
+        $this->travelTo(today()->setTime(16, 0));
+
+        $this->artisan('orders:unassigned')->assertSuccessful();
+        Notification::assertNothingSent();
+
+        Sanctum::actingAs($this->admin);
+        $this->patchJson("/api/v1/companies/{$this->company->id}", ['daily_cutoff_time' => '25:00'])->assertJsonValidationErrors('daily_cutoff_time');
+        $this->patchJson("/api/v1/companies/{$this->company->id}", ['daily_cutoff_time' => null])->assertOk()->assertJsonPath('data.daily_cutoff_time', null);
+        Sanctum::actingAs($this->dispatcher);
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.cutoff', null);
     }
 }

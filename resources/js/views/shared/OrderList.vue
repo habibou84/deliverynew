@@ -122,6 +122,13 @@
               >
                 {{ o.awaiting_courier.late ? '⏰' : '🛵' }} Sans livreur · {{ o.awaiting_courier.stage === 'pickup' ? 'ramassage' : 'livraison' }} · {{ duration(o.awaiting_courier.minutes) }}
               </div>
+              <div
+                v-if="o.awaiting_courier?.after_cutoff"
+                class="mt-1 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 whitespace-nowrap"
+                :title="`Heure limite du jour (${o.awaiting_courier.cutoff_time}) passée : risque de ne pas être livrée aujourd'hui`"
+              >
+                🕒 Après {{ o.awaiting_courier.cutoff_time }}
+              </div>
               <div v-if="o.last_incident && ['delivery_failed', 'rescheduled'].includes(o.status)" class="text-xs text-red-600 mt-0.5">{{ o.last_incident.label }}</div>
               <div v-if="o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)" class="text-xs text-rose-600">Retour demandé</div>
               <div v-if="o.status === 'rescheduled' && o.delivery.scheduled_date" :class="['text-xs', o.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-gray-600']">📅 {{ o.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(o.delivery.scheduled_date) }}</div>
