@@ -227,6 +227,9 @@ Chaque e-commerçant ouvre, depuis **Profil › Ma boutique en ligne**, une page
 - **Stock** : un article dont le stock est suivi est réservé ; le colis part de l'emplacement qui a tout (un
   entrepôt en priorité, sinon chez le marchand). Un article sans stock suivi est un simple article ramassé chez le
   marchand.
+- **Livraison** : le marchand choisit qui la paie pour les commandes de sa boutique (réglage propre à la boutique,
+  indépendant des autres courses) : **le client** (par défaut : prix selon la commune, ajouté au total) ou **lui-même**
+  (« Livraison offerte », prix retiré de ses reversements).
 - **Côté marchand** : ouverture et fermeture, lien personnalisable, présentation, articles (nom, prix, photo PNG,
   JPEG ou WebP, « En boutique »). Limites : 5 commandes par minute et 30 par heure par adresse IP, champ piège à robots.
 

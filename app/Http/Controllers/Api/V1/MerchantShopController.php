@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\FeePayer;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
+use App\Services\Shop\ShopCheckout;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -33,6 +35,7 @@ class MerchantShopController extends Controller
             'shop_slug' => ['sometimes', 'nullable', 'string', 'min:3', 'max:60', 'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/',
                 Rule::unique('merchants', 'shop_slug')->ignore($merchant->id)],
             'shop_intro' => ['sometimes', 'nullable', 'string', 'max:300'],
+            'shop_fee_payer' => ['sometimes', Rule::enum(FeePayer::class)],
         ], ['shop_slug.unique' => 'Ce lien est déjà pris : choisissez-en un autre.'], ['shop_slug' => 'lien de la boutique', 'shop_intro' => 'présentation']);
 
         $merchant->fill($data);
@@ -67,6 +70,7 @@ class MerchantShopController extends Controller
             'shop_enabled' => $merchant->shop_enabled,
             'shop_slug' => $merchant->shop_slug,
             'shop_intro' => $merchant->shop_intro,
+            'shop_fee_payer' => ShopCheckout::feePayer($merchant)->value,
             'suggested_slug' => $merchant->shop_slug ?? self::freeSlug($merchant),
             'url' => $merchant->shop_slug ? url("/b/{$merchant->shop_slug}") : null,
         ];

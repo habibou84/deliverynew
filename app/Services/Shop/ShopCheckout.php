@@ -52,6 +52,14 @@ class ShopCheckout
     }
 
     /**
+     * Qui paie la livraison des commandes de la boutique (réglage propre à la boutique).
+     */
+    public static function feePayer(Merchant $merchant): FeePayer
+    {
+        return $merchant->shop_fee_payer ?? FeePayer::Recipient;
+    }
+
+    /**
      * Quantité qu'on peut commander : null si le stock n'est pas suivi.
      */
     public static function available(Product $product): ?int
@@ -69,7 +77,7 @@ class ShopCheckout
     {
         $plan = $this->plan($merchant, $rows);
         $fee = $this->pricing->quote($merchant, $plan['pickup_zone'], $zone)->total();
-        $payer = $merchant->default_fee_payer ?? FeePayer::Merchant;
+        $payer = self::feePayer($merchant);
 
         return [
             'items_total' => $plan['items_total'],
@@ -98,6 +106,7 @@ class ShopCheckout
                 'delivery_landmark' => $data['landmark'] ?? null,
                 'merchant_note' => filled($data['note'] ?? null) ? 'Message du client : '.$data['note'] : null,
                 'items' => $plan['items'],
+                'fee_payer' => self::feePayer($merchant)->value,
             ], 'shop');
         });
 

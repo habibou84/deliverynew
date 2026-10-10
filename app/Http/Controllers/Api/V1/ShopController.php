@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\FeePayer;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Models\Product;
@@ -33,7 +32,7 @@ class ShopController extends Controller
             'name' => $merchant->business_name,
             'intro' => $merchant->shop_intro,
             'contact_phone' => $merchant->whatsapp_phone ?? $merchant->phone,
-            'fee_payer' => ($merchant->default_fee_payer ?? FeePayer::Merchant)->value,
+            'fee_payer' => ShopCheckout::feePayer($merchant)->value,
             'delivery_company' => ['name' => $company->name, 'logo_url' => Branding::logoUrl($company)],
             'products' => $this->checkout->catalog($merchant)->map(fn (Product $p) => [
                 'id' => $p->id,

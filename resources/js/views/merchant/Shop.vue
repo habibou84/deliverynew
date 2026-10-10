@@ -44,6 +44,22 @@
         </form>
       </section>
 
+      <!-- Livraison des commandes de la boutique -->
+      <section class="m-card p-4 space-y-3">
+        <h2 class="font-semibold">Qui paie la livraison des commandes de la boutique ?</h2>
+        <div class="grid gap-2" role="radiogroup" aria-label="Qui paie la livraison">
+          <button
+            v-for="o in FEE_PAYERS" :key="o.value" type="button" role="radio" :aria-checked="settings.shop_fee_payer === o.value"
+            :class="['tap rounded-xl p-3 text-left ring-1 transition', settings.shop_fee_payer === o.value ? 'ring-2 ring-[var(--app-color)] bg-emerald-50' : 'ring-slate-200 bg-white']"
+            @click="setFeePayer(o.value)"
+          >
+            <span class="block font-medium">{{ o.label }}</span>
+            <span class="block text-sm text-slate-500">{{ o.text }}</span>
+          </button>
+        </div>
+        <p class="text-xs text-slate-500">Ce choix ne concerne que la boutique en ligne : vos autres courses gardent leur réglage habituel.</p>
+      </section>
+
       <!-- Articles -->
       <section class="space-y-3">
         <div class="flex items-center justify-between">
@@ -123,6 +139,24 @@ const copied = ref(false)
 const products = ref([])
 const uploading = ref(null)
 const editor = reactive({ open: false, id: null, name: '', price: null, description: '', photo: null, saving: false, error: '' })
+
+const FEE_PAYERS = [
+  { value: 'recipient', label: '🧾 Le client', text: 'Le prix de la livraison, selon sa commune, s\'ajoute au total qu\'il paie au livreur.' },
+  { value: 'merchant', label: '🎁 Moi (livraison offerte)', text: 'Le client voit « Livraison offerte » ; le prix est retiré de vos reversements.' },
+]
+
+async function setFeePayer(value) {
+  if (settings.value.shop_fee_payer === value) return
+  const previous = settings.value.shop_fee_payer
+  settings.value.shop_fee_payer = value
+  try {
+    apply((await http.patch('/shop', { shop_fee_payer: value })).data.data)
+    toasts.success(value === 'merchant' ? 'Livraison offerte à vos clients.' : 'La livraison est payée par vos clients.')
+  } catch (e) {
+    settings.value.shop_fee_payer = previous
+    toasts.error(apiErrorMessage(e))
+  }
+}
 
 const shareLink = computed(() => `https://wa.me/?text=${encodeURIComponent(`Commandez chez ${auth.user?.merchant?.business_name ?? 'nous'} : ${settings.value?.url} (paiement à la livraison)`)}`)
 
