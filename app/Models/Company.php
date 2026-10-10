@@ -8,6 +8,8 @@ use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class Company extends Model
 {
@@ -75,5 +77,50 @@ class Company extends Model
     public function url(string $path = ''): string
     {
         return Tenancy::baseUrl($this).($path === '' ? '' : '/'.ltrim($path, '/'));
+    }
+
+    /**
+     * Adresse de l'entreprise (sous-domaine) : minuscules, chiffres et tirets, 3 à 40
+     * caractères, ni réservée (www, admin…) ni déjà prise.
+     *
+     * @return list<mixed>
+     */
+    public static function slugRules(?self $ignore = null): array
+    {
+        return [
+            'string', 'min:3', 'max:40', 'regex:/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/',
+            Rule::notIn(config('platform.reserved_subdomains')),
+            Rule::unique('companies', 'slug')->ignore($ignore),
+        ];
+    }
+
+    /**
+     * Adresse libre proposée à partir du nom (« Rapide Express » → rapide-express).
+     */
+    public static function freeSlug(string $name): string
+    {
+        $base = trim(substr(Str::slug($name), 0, 36), '-');
+        $base = strlen($base) >= 3 && ! in_array($base, config('platform.reserved_subdomains'), true) ? $base : 'entreprise';
+        $slug = $base;
+        for ($i = 2; static::query()->where('slug', $slug)->exists(); $i++) {
+            $slug = $base.'-'.$i;
+        }
+
+        return $slug;
+    }
+
+    public function merchants(): HasMany
+    {
+        return $this->hasMany(Merchant::class);
+    }
+
+    public function orders(): HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function couriers(): HasMany
+    {
+        return $this->hasMany(Courier::class);
     }
 }

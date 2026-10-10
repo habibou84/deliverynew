@@ -47,6 +47,11 @@ class ResolveTenant
                 : response()->view('platform.home', ['domain' => Tenancy::domain()]);
         }
 
+        // Console : directement le tableau des entreprises
+        if ($this->tenancy->zone() === Tenancy::CONSOLE && ! $api && $request->path() === '/') {
+            return redirect('/console');
+        }
+
         return $next($request);
     }
 }

@@ -3,10 +3,10 @@
 namespace App\Http\Requests\V1;
 
 use App\Enums\CompanyStatus;
+use App\Models\Company;
 use App\Rules\PhoneNumber;
 use App\Support\PhoneNumber as Phone;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 
 class UpdateCompanyRequest extends FormRequest
@@ -41,7 +41,8 @@ class UpdateCompanyRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'slug' => ['sometimes', 'required', 'string', 'max:100', 'alpha_dash', Rule::unique('companies', 'slug')->ignore($this->route('company'))],
+            'slug' => ['sometimes', 'required', ...Company::slugRules($this->route('company'))],
+            'timezone' => ['sometimes', 'required', 'timezone:all'],
             'phone' => ['sometimes', 'nullable', 'string', new PhoneNumber],
             'email' => ['sometimes', 'nullable', 'email', 'max:255'],
             'address' => ['sometimes', 'nullable', 'string', 'max:1000'],

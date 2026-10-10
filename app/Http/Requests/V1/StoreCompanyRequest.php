@@ -6,7 +6,6 @@ use App\Models\Company;
 use App\Rules\PhoneNumber;
 use App\Support\PhoneNumber as Phone;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class StoreCompanyRequest extends FormRequest
@@ -37,7 +36,9 @@ class StoreCompanyRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['nullable', 'string', 'max:100', 'alpha_dash', Rule::unique('companies', 'slug')],
+            // Adresse : {slug}.jibiat.com (proposée d'après le nom si vide)
+            'slug' => ['nullable', ...Company::slugRules()],
+            'timezone' => ['nullable', 'timezone:all'],
             'phone' => ['nullable', 'string', new PhoneNumber],
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string', 'max:1000'],
