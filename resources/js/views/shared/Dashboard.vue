@@ -21,6 +21,32 @@
       </RouterLink>
     </div>
 
+    <!-- En attente d'un livreur (dispatch) : ramassage et livraison, retards, attente la plus longue -->
+    <section v-if="!isMerchant && auth.can('orders.dispatch') && dispatchCounts.loaded" class="card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold">🛵 En attente d'un livreur</h2>
+        <RouterLink :to="{ path: '/admin/courses', query: { queue: 'unassigned' } }" class="text-sm text-blue-600">Tout voir et assigner</RouterLink>
+      </div>
+      <p v-if="!waitingTotal" class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">✓ Toutes les courses à ramasser et à livrer ont un livreur.</p>
+      <div v-else class="grid sm:grid-cols-2 gap-3">
+        <RouterLink
+          v-for="w in waiting" :key="w.stage"
+          :to="{ path: '/admin/courses', query: { queue: 'unassigned', awaiting: w.stage } }"
+          :class="['rounded-xl border p-4 hover:shadow transition', w.late ? 'border-red-300 bg-red-50' : w.count ? 'border-amber-300 bg-amber-50' : 'border-slate-200']"
+        >
+          <p class="text-sm text-gray-600">{{ w.label }}</p>
+          <p class="mt-1 flex items-baseline gap-2">
+            <span class="text-3xl font-bold">{{ w.count }}</span>
+            <span v-if="w.late" class="rounded-full bg-red-600 px-2 py-0.5 text-xs font-semibold text-white">⏰ {{ w.late }} en retard</span>
+          </p>
+          <p v-if="w.count" :class="['text-sm mt-1', w.late ? 'text-red-700 font-medium' : 'text-gray-600']">
+            La plus ancienne : {{ duration(w.oldest_minutes) }}<span v-if="w.threshold_minutes" class="text-gray-500 font-normal"> · alerte après {{ duration(w.threshold_minutes) }}</span>
+          </p>
+          <p v-else class="text-sm mt-1 text-emerald-700">Aucune en attente</p>
+        </RouterLink>
+      </div>
+    </section>
+
     <div v-if="summary" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
       <StatCard title="Total" :value="summary.counts.total" icon="📦" />
       <StatCard title="Livrés" :value="summary.counts.delivered" icon="✅" />
@@ -65,11 +91,22 @@ import http from '../../bootstrap/axios'
 import StatCard from '../../components/StatCard.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
+import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import { orderChanges } from '../../composables/useRealtime'
-import { money, today } from '../../utils/format'
+import { money, today, waitDuration } from '../../utils/format'
 
 const auth = useAuthStore()
 const isMerchant = computed(() => !!auth.user?.merchant_id)
+
+// En attente d'un livreur : mêmes compteurs que le menu (rafraîchis chaque minute et à chaque alerte)
+const dispatchCounts = useDispatchCountStore()
+const waiting = computed(() => [
+  { stage: 'pickup', label: 'À assigner au ramassage', ...dispatchCounts.counts.waiting?.pickup },
+  { stage: 'delivery', label: 'À assigner à la livraison', ...dispatchCounts.counts.waiting?.delivery },
+])
+const waitingTotal = computed(() => waiting.value.reduce((n, w) => n + (w.count || 0), 0))
+
+const duration = waitDuration
 
 const period = reactive({ from: isMerchantStart(), to: today() })
 const summary = ref(null)
@@ -104,6 +141,7 @@ async function loadRecent() {
 }
 
 function refresh() {
+  if (!isMerchant.value && auth.can('orders.dispatch')) dispatchCounts.fetchCounts().catch(() => {})
   loadSummary()
   loadQueues()
   loadRecent()

@@ -100,6 +100,8 @@ class OrderController extends Controller
             'to_deliver' => $count('to_deliver'),
             'unassigned' => AwaitingCourier::scope(Order::query())->count(),
             'late' => $awaiting->lateCounts($request->user()->company),
+            // Tableau de bord : en attente d'un livreur, par étape
+            'waiting' => $awaiting->summary($request->user()->company),
         ]]);
     }
 

@@ -155,7 +155,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
-import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
+import { date, dateTime, money, STATUS_LABELS, waitDuration } from '../../utils/format'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -218,14 +218,7 @@ const tabLate = (queue) => (isDispatch.value
   ? { to_pickup: dispatchCounts.counts.late.pickup, to_deliver: dispatchCounts.counts.late.delivery, unassigned: dispatchCounts.counts.late.total }[queue] || 0
   : 0)
 
-// Durée d'attente lisible : 25 min, 1 h 05, 2 j 3 h
-function duration(minutes) {
-  if (minutes < 60) return `${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours >= 24) return `${Math.floor(hours / 24)} j ${hours % 24} h`
-  const rest = minutes % 60
-  return rest ? `${hours} h ${String(rest).padStart(2, '0')}` : `${hours} h`
-}
+const duration = waitDuration
 
 // Alerte « sans livreur » reçue : la liste se met à jour
 watch(() => dispatchCounts.version, () => load(meta.value?.current_page || 1))
