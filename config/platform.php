@@ -15,6 +15,13 @@ return [
     // Protocole des liens envoyés (WhatsApp, SMS) vers l'adresse de l'entreprise
     'scheme' => env('PLATFORM_SCHEME', 'https'),
 
+    // Requêtes par minute sur l'espace connecté : par compte, et pour toute une entreprise
+    // (une entreprise très active ne doit pas ralentir les autres)
+    'limits' => [
+        'user_per_minute' => (int) env('PLATFORM_USER_RATE_LIMIT', 300),
+        'company_per_minute' => (int) env('PLATFORM_COMPANY_RATE_LIMIT', 3000),
+    ],
+
     // Sous-domaines qui ne peuvent pas être attribués à une entreprise
     'reserved_subdomains' => ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp', 'ws', 'socket', 'static', 'cdn', 'docs', 'status', 'support', 'aide', 'blog'],
 ];
