@@ -120,21 +120,23 @@ EOF
 }
 
 ispconfig_steps() {
-    step "À faire dans ISPConfig : Sites > Site web de l'application"
+    step "À faire dans ISPConfig (Sites > Website)"
     cat <<EOF
 
-    1. Onglet « Domaine » :
-         Domaine          : $D        (remplace l'ancien nom ; le dossier du site ne change pas)
-         Auto-Subdomain   : *.$D      (choix « *. »)
-         SSL              : coché
-         Let's Encrypt SSL: DÉCOCHÉ    (il ne sait pas couvrir *.$D)
+    Deux sites : « $D » pour votre site de présentation (www.$D compris), et le site de
+    l'application, sous son nom actuel (ne le renommez pas), qui reçoit toutes les autres
+    adresses (*.$D : $ADMIN.$D et les entreprises).
 
-    2. Onglet « SSL » : collez le certificat d'origine Cloudflare (docs/PLATEFORME.md, étape 2)
-         SSL Key          : la clé privée
-         SSL Certificate  : le certificat
-         SSL Action       : « Save Certificate »
+    A. Site de l'application
+       1. Onglet « Domain » : SSL coché, Let's Encrypt SSL DÉCOCHÉ (il ne couvre pas *.$D).
+       2. Onglet « SSL » : collez le certificat d'origine Cloudflare (docs/PLATEFORME.md, étape 2)
+            SSL Key : la clé privée · SSL Certificate : le certificat · SSL Action : « Save Certificate »
+       3. Onglet « Options », champ « Apache Directives » : ajoutez en première ligne
+            ServerAlias *.$D
 
-    3. Onglet « Options » : les directives Apache restent les mêmes.
+    B. Site « $D » (présentation)
+       Onglet « Domain » : Auto-Subdomain « www. », SSL coché ; certificat : Let's Encrypt
+       ou le même certificat d'origine que l'application (onglet « SSL »).
 
     Enregistrez puis attendez une minute qu'ISPConfig régénère Apache.
 EOF
@@ -153,7 +155,8 @@ fi
 step "Configuration (.env)"
 env_set PLATFORM_DOMAIN "$D"
 env_set PLATFORM_SCHEME https
-env_set APP_URL "https://$D"
+# Adresse de secours des liens : la console (jibiat.com peut être un site de présentation à part)
+env_set APP_URL "https://$ADMIN.$D"
 # Temps réel : chaque adresse relaie /app/ vers Reverb, l'interface s'y connecte directement
 env_set VITE_REVERB_HOST ""
 env_set VITE_REVERB_PORT 443
@@ -162,7 +165,7 @@ if [[ "$CLOUDFLARE" == "1" ]]; then
     # Adresse IP réelle des visiteurs (limites de tentatives, journaux)
     env_set TRUSTED_PROXIES cloudflare
 fi
-info "PLATFORM_DOMAIN=$D, APP_URL=https://$D$([[ "$CLOUDFLARE" == "1" ]] && echo ', TRUSTED_PROXIES=cloudflare')"
+info "PLATFORM_DOMAIN=$D, APP_URL=https://$ADMIN.$D$([[ "$CLOUDFLARE" == "1" ]] && echo ', TRUSTED_PROXIES=cloudflare')"
 
 step "Interface et caches"
 as_app "npm run build"
@@ -180,7 +183,6 @@ as_app "php artisan platform:status" || true
 
 cat <<EOF
 
-    Présentation : https://$D
     Console      : https://$ADMIN.$D   (super administrateur)
     Entreprises  : https://<adresse>.$D
 

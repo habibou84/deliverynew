@@ -5,7 +5,7 @@ en **plateforme multi-entreprises** :
 
 | Adresse | Pour qui |
 |---|---|
-| `https://jibiat.com` | Page de présentation (invite les entreprises à vous contacter) |
+| `https://jibiat.com` | Votre site de présentation (site à part dans ISPConfig) |
 | `https://admin.jibiat.com` | Console du super administrateur : entreprises, assistance |
 | `https://express.jibiat.com` | Une entreprise : marchands sur `/`, équipe sur `/admin`, livreurs sur `/livreur` |
 
@@ -13,8 +13,8 @@ Une seule installation sert toutes les entreprises : un seul code, une seule bas
 mise à jour. Chaque nouvelle entreprise créée dans la console reçoit aussitôt son adresse, sans
 rien toucher sur le serveur ni dans les DNS.
 
-Comptez environ une heure, dont l'attente de la propagation DNS. Le site est indisponible à
-l'ancienne adresse dès l'étape 3.
+Comptez environ une heure, dont l'attente de la propagation DNS. L'application quitte son
+ancienne adresse (ex. `test.jibiat.com`) à l'étape 4, quand chaque entreprise reçoit la sienne.
 
 ---
 
@@ -70,14 +70,24 @@ Gardez la clé privée pour vous : elle ne doit circuler ni par e-mail ni par me
 
 ---
 
-## Étape 3 — Le site dans ISPConfig
+## Étape 3 — Les sites dans ISPConfig
 
-ISPConfig > **Sites** > **Website** > le site de l'application (le site existant) :
+Deux sites web, chacun avec son rôle :
+
+| Site ISPConfig | Adresses servies | Contenu |
+|---|---|---|
+| `jibiat.com` | `jibiat.com`, `www.jibiat.com` | Votre site de présentation (WordPress ou autre) |
+| Le site de l'application, sous son nom actuel (ex. `test.jibiat.com`) | toutes les autres : `admin.jibiat.com`, `express.jibiat.com`… | L'application |
+
+**Ne renommez pas le site de l'application** : il reçoit les sous-domaines par la directive
+ci-dessous. (Apache lit les sites par ordre alphabétique de leur nom : `jibiat.com` passe avant
+`test.jibiat.com`, donc `www.jibiat.com` reste au site de présentation.)
+
+### 3.1 Le site de l'application
+
+ISPConfig > **Sites** > **Website** > le site de l'application :
 
 1. Onglet **Domain** :
-   - **Domain** : `jibiat.com` (remplace l'ancien nom ; le dossier du site et l'application ne
-     bougent pas) ;
-   - **Auto-Subdomain** : `*.` ;
    - **SSL** : coché ;
    - **Let's Encrypt SSL** : **décoché** (Let's Encrypt via ISPConfig ne sait pas couvrir
      `*.jibiat.com` ; le certificat Cloudflare le remplace).
@@ -87,9 +97,23 @@ ISPConfig > **Sites** > **Website** > le site de l'application (le site existant
    - **SSL Certificate** : contenu de `jibiat-cert.pem` ;
    - **SSL Bundle** : vide ;
    - **SSL Action** : **Save Certificate**.
-4. **Save**. L'onglet **Options** (directives Apache) ne change pas.
+4. Onglet **Options**, champ **Apache Directives** : ajoutez en **première ligne**, sans toucher
+   au reste :
+   ```
+   ServerAlias *.jibiat.com
+   ```
+5. **Save**.
+
+### 3.2 Le site de présentation `jibiat.com`
+
+Onglet **Domain** : **Auto-Subdomain** `www.`, **SSL** coché. Pour le certificat : Let's Encrypt
+(case cochée), ou le même certificat d'origine que l'application, collé dans l'onglet **SSL**.
 
 Attendez une minute qu'ISPConfig régénère Apache.
+
+> Sans site de présentation, un seul site suffit : celui de l'application, renommé `jibiat.com`
+> avec **Auto-Subdomain** `*.` (et sans la directive `ServerAlias`). La page `jibiat.com` est
+> alors celle de la plateforme, qui invite les entreprises à vous contacter.
 
 ---
 
@@ -109,7 +133,7 @@ PLATFORM_DOMAIN=jibiat.com bash <dossier>/deploy/platform.sh
 Le script :
 
 - vérifie que `jibiat.com`, `admin.jibiat.com` et une adresse d'entreprise au hasard répondent ;
-- règle le `.env` : `PLATFORM_DOMAIN=jibiat.com`, `APP_URL=https://jibiat.com`,
+- règle le `.env` : `PLATFORM_DOMAIN=jibiat.com`, `APP_URL=https://admin.jibiat.com`,
   `TRUSTED_PROXIES=cloudflare`, temps réel sur l'adresse ouverte ;
 - recompile l'interface et redémarre les processus ;
 - affiche les adresses de la console et des entreprises, et ce qu'il reste à corriger.
@@ -141,7 +165,7 @@ Ce compte ne se connecte **que** sur `https://admin.jibiat.com`.
 
 ## Étape 5 — Vérifications
 
-1. `https://jibiat.com` : page de présentation de la plateforme.
+1. `https://jibiat.com` et `https://www.jibiat.com` : votre site de présentation.
 2. `https://admin.jibiat.com` : connexion du super administrateur, liste des entreprises.
 3. `https://express.jibiat.com/admin` : connexion de l'équipe de l'entreprise.
 4. `https://express.jibiat.com/livreur` et `https://express.jibiat.com` : livreurs et marchands.
@@ -202,7 +226,7 @@ quelques secondes. La console du super administrateur n'a pas de limite d'entrep
 | « Trop de tentatives » pour tout le monde | `TRUSTED_PROXIES=cloudflare` absent du `.env` : tous les visiteurs semblent venir de Cloudflare |
 | Mise à jour de l'application non visible sur les téléphones | Fermer et rouvrir l'application ; le fichier `sw.js` n'est jamais mis en cache |
 
-Revenir à une seule entreprise : videz `PLATFORM_DOMAIN` dans le `.env`, remettez le domaine
+Revenir à une seule entreprise : videz `PLATFORM_DOMAIN` dans le `.env`, retirez la directive
 d'origine dans ISPConfig, puis `bash <dossier>/deploy/update.sh`.
 
 ---
