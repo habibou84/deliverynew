@@ -219,6 +219,11 @@ Console `https://admin.jibiat.com` > **Nouvelle entreprise** : nom, adresse (ex.
 premier administrateur. L'adresse `https://eclair.jibiat.com` fonctionne immédiatement :
 l'enregistrement DNS `*` et le certificat `*.jibiat.com` la couvrent déjà.
 
+Les entreprises peuvent aussi **s'inscrire seules** sur `https://admin.jibiat.com/creer-mon-entreprise`
+(essai gratuit, adresse et espace créés aussitôt). Mettez ce lien sur votre site de présentation
+`jibiat.com` (bouton « Essayer gratuitement »). Dans la console, **Entreprises** > « Inscription en
+ligne » : **Fermer** pour la suspendre ; il faut au moins une formule active dans **Formules**.
+
 ---
 
 ## Limites par entreprise

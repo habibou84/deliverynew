@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\PublicV1\PublicApiController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\CompanySignupController;
 use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
@@ -86,6 +87,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('verifications/{token}', [VerificationController::class, 'show'])->middleware('throttle:90,1')->name('verifications.show');
     Route::post('verifications/{token}/sms', [VerificationController::class, 'sms'])->middleware('throttle:verification-sms')->name('verifications.sms');
     Route::post('verifications/{token}/code', [VerificationController::class, 'code'])->middleware('throttle:20,1')->name('verifications.code');
+
+    // Inscription d'une entreprise de livraison en libre-service (adresse de la console)
+    Route::get('company-signup', [CompanySignupController::class, 'options'])->middleware('throttle:60,1')->name('company-signup.options');
+    Route::get('company-signup/slug', [CompanySignupController::class, 'slug'])->middleware('throttle:60,1')->name('company-signup.slug');
+    Route::post('company-signup', [CompanySignupController::class, 'store'])->middleware('throttle:company-signup')->name('company-signup.store');
 
     // Page de commande publique d'un marchand (/b/{lien}) : catalogue, devis, commande
     Route::get('shops/{slug}', [ShopController::class, 'show'])->middleware('throttle:60,1')->name('shops.show');

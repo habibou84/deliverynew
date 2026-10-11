@@ -7,6 +7,7 @@ use App\Models\PlatformInvoice;
 use App\Models\PlatformPayment;
 use App\Models\PlatformSetting;
 use App\Services\Platform\Billing;
+use App\Services\Platform\CompanySignup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -89,7 +90,11 @@ class ConsoleBillingController extends Controller
 
     public function settings(): JsonResponse
     {
-        return response()->json(['data' => self::documentSettings()]);
+        return response()->json(['data' => [
+            ...self::documentSettings(),
+            // Inscription des entreprises en libre-service (ouverte par défaut)
+            'company_signup' => CompanySignup::enabledInConsole(),
+        ]]);
     }
 
     public function updateSettings(Request $request): JsonResponse
@@ -97,7 +102,12 @@ class ConsoleBillingController extends Controller
         $data = $request->validate([
             'payment_instructions' => ['nullable', 'string', 'max:2000'],
             'invoice_issuer' => ['nullable', 'string', 'max:1000'],
-        ], [], ['payment_instructions' => 'instructions de paiement', 'invoice_issuer' => 'émetteur des factures']);
+            'company_signup' => ['sometimes', 'boolean'],
+        ], [], ['payment_instructions' => 'instructions de paiement', 'invoice_issuer' => 'émetteur des factures', 'company_signup' => 'inscription en ligne']);
+
+        if (array_key_exists('company_signup', $data)) {
+            PlatformSetting::put('company_signup', $data['company_signup'] ? '1' : '0');
+        }
 
         foreach (['payment_instructions', 'invoice_issuer'] as $key) {
             if (array_key_exists($key, $data)) {

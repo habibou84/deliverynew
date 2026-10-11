@@ -10,6 +10,7 @@ use App\Models\PlatformInvoice;
 use App\Models\SupportSession;
 use App\Models\User;
 use App\Services\Platform\Billing;
+use App\Services\Platform\CompanySignup;
 use App\Services\Platform\Subscription;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
@@ -29,6 +30,7 @@ class ConsoleController extends Controller
         $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::enum(CompanyStatus::class)],
+            'source' => ['nullable', Rule::in([CompanySignup::SOURCE])],
         ]);
 
         $companies = $this->withActivity(Company::query()->with('plan'))
@@ -36,6 +38,7 @@ class ConsoleController extends Controller
                 ->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($request->string('search')).'%'])
                 ->orWhere('slug', 'like', '%'.mb_strtolower($request->string('search')).'%')))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when($request->filled('source'), fn ($q) => $q->where('source', $request->string('source')))
             ->orderBy('name')
             ->get();
 
@@ -51,6 +54,7 @@ class ConsoleController extends Controller
                     'active' => (clone $all)->where('status', CompanyStatus::Active->value)->count(),
                     'orders_month' => (int) $companies->sum('orders_month_count'),
                     'on_trial' => $companies->filter(fn (Company $c) => $c->onTrial())->count(),
+                    'signups_month' => (clone $all)->where('source', CompanySignup::SOURCE)->where('created_at', '>=', now()->startOfMonth())->count(),
                 ],
             ],
         ]);
@@ -160,6 +164,8 @@ class ConsoleController extends Controller
             'plan' => $c->plan ? ['id' => $c->plan->id, 'name' => $c->plan->name] : null,
             'trial_ends_at' => $c->trial_ends_at?->toDateString(),
             'on_trial' => $c->onTrial(),
+            // Inscrite seule en ligne (null : créée dans la console)
+            'source' => $c->source,
             'created_at' => $c->created_at,
         ];
     }

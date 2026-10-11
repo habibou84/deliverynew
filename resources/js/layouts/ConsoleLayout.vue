@@ -11,6 +11,7 @@
           </nav>
         </div>
         <div class="flex items-center gap-3 text-sm">
+          <NotificationBell class="[&>button]:hover:bg-white/10" />
           <span class="text-slate-300">{{ auth.user?.name }}</span>
           <button class="rounded bg-white/10 px-3 py-1.5 hover:bg-white/20" @click="logout">Déconnexion</button>
         </div>
@@ -24,6 +25,7 @@
 
 <script setup>
 import { useRouter } from 'vue-router'
+import NotificationBell from '../components/NotificationBell.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
