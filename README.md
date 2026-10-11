@@ -254,6 +254,61 @@ Avec `PLATFORM_DOMAIN` (ex. `jibiat.com`), une seule installation sert toutes le
   console dans le navigateur (même adresse) ;
 - premier super administrateur : `php artisan app:create-super-admin`.
 
+**Mise en service** (DNS Cloudflare, certificat `*.jibiat.com`, ISPConfig ou Nginx) : guide pas à pas dans
+[`docs/PLATEFORME.md`](docs/PLATEFORME.md), script `deploy/platform.sh`.
+
+- `php artisan platform:status` : adresses de la console et des entreprises, points à corriger (aucun super
+  administrateur, adresse invalide) ; `--rename=ancienne:nouvelle` change l'adresse d'une entreprise.
+- Temps réel : sans `VITE_REVERB_HOST`, l'interface se connecte à Reverb sur l'adresse ouverte (chaque adresse
+  relaie `/app/`).
+- `TRUSTED_PROXIES=cloudflare` : adresse IP réelle des visiteurs derrière le proxy Cloudflare (sinon les limites de
+  tentatives par adresse IP seraient partagées par tous) ; ou une liste d'adresses de mandataires.
+- Limites de l'espace connecté, par minute : `PLATFORM_USER_RATE_LIMIT` par compte (300) et
+  `PLATFORM_COMPANY_RATE_LIMIT` pour toute une entreprise (3000), pour qu'une entreprise très active ne ralentisse
+  pas les autres.
+
+### Abonnements des entreprises : formules et limites
+
+Le super administrateur définit les **formules** dans la console (`/console/formules`, `console/plans`) :
+forfait mensuel, courses incluses par mois, prix de chaque course au-delà, livreurs actifs au plus, modules inclus.
+« Créer Essentiel, Pro et Entreprise » propose trois formules de départ à ajuster. Une formule retirée reste
+attribuée aux entreprises qui l'ont.
+
+- **Chaque entreprise** a une formule (fiche de la console, ou dès sa création) et un **essai gratuit**
+  (`PLATFORM_TRIAL_DAYS`, 30 jours par défaut) dont la fin se modifie dans la console. **Sans formule, aucune limite**
+  (installations existantes, entreprise unique).
+- **Modules** (`App\Enums\PlatformFeature`) : commandes par WhatsApp (`whatsapp_bot`), API et webhooks (`api`), stock et
+  entrepôt (`stock`), boutiques en ligne (`shop`). Hors formule : routes refusées en 403 (middleware `feature:…`),
+  API publique refusée, webhooks non envoyés, boutiques publiques introuvables, bot WhatsApp désactivé ; menus et pages
+  masqués dans les applications (`company.features` de `/auth/me`). Les produits restent accessibles avec le stock
+  **ou** les boutiques (catalogue).
+- **Livreurs actifs** : au-delà du maximum de la formule, création ou réactivation d'un livreur refusée (422).
+- **Courses** : jamais bloquées ; celles du mois au-delà des courses incluses sont comptées en dépassement
+  (hors courses annulées ou refusées).
+- **« Mon abonnement »** (`GET /subscription`, administrateurs) : formule, essai, consommation du mois (courses,
+  livreurs), estimation du mois (forfait + dépassement ; offert pendant l'essai) et modules.
+
+### Abonnements des entreprises : factures et paiements
+
+- **Facture mensuelle** (`billing:invoice`, le 1er à 01:30 pour le mois écoulé ; ou « Générer » dans la console,
+  `console/invoices/generate`) pour chaque entreprise active qui a une formule : forfait **au prorata** des jours hors
+  essai (et depuis la création de l'entreprise), courses incluses au même prorata, courses en plus × prix de la formule
+  (hors courses annulées ou refusées). Une seule facture par entreprise et par mois ; rien quand le mois est entièrement
+  en essai. Numéro `FAC-AAAAMM-0001` (`PLATFORM_INVOICE_PREFIX`), échéance à 10 jours (`PLATFORM_INVOICE_DUE_DAYS`).
+- **Paiements** enregistrés par le super administrateur (Mobile Money, virement, espèces, autre ; référence ; paiement
+  partiel possible ; facture payée quand le reste est nul). Une facture sans paiement peut être annulée.
+- **Impayés progressifs** (`App\Services\Platform\Billing`) : échéance passée → rappel ; J+7
+  (`PLATFORM_BILLING_WARNING_DAYS`) → bandeau orange dans le back-office ; J+15 (`PLATFORM_BILLING_RESTRICT_DAYS`) →
+  **plus de nouvelles courses** (back-office, application marchand, API, boutiques, WhatsApp), tout le reste
+  consultable ; tout reprend dès le paiement. `company.billing_state` (`ok`, `due`, `warning`, `restricted`) dans
+  `/auth/me` pour les administrateurs.
+- **Rappels** (`billing:remind`, chaque matin à 08:05) : une notification aux administrateurs de l'entreprise à
+  l'émission, à l'échéance, à l'alerte et à la restriction (une fois par étape).
+- **Console « Facturation »** : revenu mensuel récurrent (abonnements hors essai), encaissé du mois, reste à encaisser,
+  factures en retard ; liste filtrable, encaissement, annulation ; **mentions des factures** (émetteur, comment payer).
+- **Entreprise** : « Mon abonnement » affiche le reste à payer, comment payer et les factures ; **facture imprimable**
+  (et enregistrable en PDF depuis le navigateur).
+
 ### Paie des livreurs : plans de rémunération
 
 **Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de
@@ -416,6 +471,8 @@ On se connecte avec le **téléphone** (format local `07 xx xx xx xx` ou interna
 php artisan migrate --force
 php artisan db:seed --class=RolesAndPermissionsSeeder --force   # à chaque déploiement (idempotent)
 php artisan app:create-super-admin                               # première installation
+php artisan user:password 0700000000                             # changer un mot de passe (déconnecte le compte)
+php artisan app:demo-accounts --suspend                          # suspendre les comptes au mot de passe de démonstration
 ```
 
 **Mise en ligne sur un VPS (LWS ou autre)** : voir [docs/DEPLOIEMENT-LWS.md](docs/DEPLOIEMENT-LWS.md).

@@ -24,7 +24,9 @@ as_user() {
 # Même chose, dans le dossier de l'application
 as_app() { as_user "cd '$APP_DIR' && $*"; }
 
-env_get() { grep -E "^$1=" "$APP_DIR/.env" | tail -n1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
+# Valeur d'un réglage du .env ; vide (sans erreur) s'il est absent, par exemple dans un .env
+# plus ancien que le réglage
+env_get() { { grep -E "^$1=" "$APP_DIR/.env" || true; } | tail -n1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
 
 env_set() {
     local key="$1" value="$2"
@@ -211,6 +213,9 @@ EOF
     Comptes de démonstration (mot de passe « password », à changer) :
       07 00 00 00 01 administrateur · 07 00 00 00 02 dispatcher · 07 00 00 00 03 caissier
       07 00 00 00 04 et 05 livreurs · 05 00 00 00 01 marchand · 07 00 00 00 06 agent d'entrepôt
+      Super administrateur : 07 00 00 00 00
+    Avant la mise en service : php artisan user:password 0700000000, puis
+    php artisan app:demo-accounts --suspend (comptes au mot de passe « password »)
 EOF
     else
         echo "    Créez le premier compte : cd $APP_DIR && sudo -u $APP_USER php artisan app:create-super-admin"

@@ -43,9 +43,13 @@
       <div class="card p-4 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="font-semibold">Courses par WhatsApp</h2>
-          <RouterLink to="/admin/whatsapp/simulateur" class="btn-secondary">Ouvrir le simulateur</RouterLink>
+          <RouterLink v-if="auth.hasFeature('whatsapp_bot')" to="/admin/whatsapp/simulateur" class="btn-secondary">Ouvrir le simulateur</RouterLink>
         </div>
-        <label class="flex items-start gap-2 text-sm">
+        <p v-if="!auth.hasFeature('whatsapp_bot')" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+          Les commandes par WhatsApp ne sont pas incluses dans votre formule.
+          <RouterLink v-if="auth.user?.company?.plan" to="/admin/abonnement" class="font-medium underline">Voir mon abonnement</RouterLink>
+        </p>
+        <label v-else class="flex items-start gap-2 text-sm">
           <input :checked="s.whatsapp_orders" type="checkbox" class="mt-1" @change="saveOption('whatsapp_orders', $event.target.checked)">
           <span>Les e-commerçants peuvent créer des courses en écrivant à ce numéro
             <span class="block text-gray-500">
@@ -144,7 +148,10 @@
 import { onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
+import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
+
+const auth = useAuthStore()
 
 const TEMPLATE_STATUS = {
   approved: ['Approuvé', 'bg-emerald-100 text-emerald-800'],

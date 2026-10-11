@@ -45,6 +45,53 @@
         <button class="btn-primary" :disabled="saving">Enregistrer</button>
       </form>
 
+      <!-- Abonnement : formule, essai, consommation du mois -->
+      <div class="card p-4 space-y-3 lg:col-span-2">
+        <h2 class="font-semibold">🧾 Abonnement</h2>
+        <div class="grid md:grid-cols-2 gap-6">
+          <SubscriptionSummary :summary="company.subscription" />
+          <form class="space-y-3" @submit.prevent="saveSubscription">
+            <div>
+              <label class="label" for="s-plan">Formule</label>
+              <select id="s-plan" v-model="sub.plan_id" class="input">
+                <option :value="null">Sans formule (aucune limite)</option>
+                <option v-for="p in plans" :key="p.id" :value="p.id" :disabled="!p.is_active && p.id !== company.plan?.id">
+                  {{ p.name }} · {{ money(p.price_monthly) }} / mois{{ p.is_active ? '' : ' (retirée)' }}
+                </option>
+              </select>
+            </div>
+            <div>
+              <label class="label" for="s-trial">Fin de l'essai gratuit</label>
+              <input id="s-trial" v-model="sub.trial_ends_at" type="date" class="input">
+              <p class="text-xs text-gray-500 mt-1">Vide : pas d'essai. Date incluse ; la facturation commence le lendemain.</p>
+            </div>
+            <p v-if="subError" class="field-error">{{ subError }}</p>
+            <button class="btn-primary" :disabled="subSaving">Enregistrer</button>
+          </form>
+        </div>
+        <div class="border-t pt-3">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h3 class="font-medium">Factures</h3>
+            <span v-if="company.billing.amount_due" class="text-sm">
+              Reste à payer : <strong>{{ money(company.billing.amount_due) }}</strong>
+              <span v-if="company.billing.state === 'restricted'" class="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700">courses suspendues</span>
+            </span>
+          </div>
+          <table v-if="company.invoices.length" class="w-full text-sm">
+            <tbody class="divide-y">
+              <tr v-for="i in company.invoices" :key="i.id">
+                <td class="py-1 font-mono"><RouterLink :to="`/console/factures/${i.id}`" class="text-blue-600">{{ i.number }}</RouterLink></td>
+                <td class="py-1">{{ i.period }}</td>
+                <td class="py-1 text-right">{{ money(i.total) }}</td>
+                <td class="py-1 text-right">{{ i.status === 'void' ? '—' : money(i.balance) }}</td>
+                <td class="py-1 text-right"><InvoiceStatus :invoice="i" /></td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="text-sm text-gray-500">Aucune facture. Les factures sont créées le 1er de chaque mois pour le mois écoulé (Facturation).</p>
+        </div>
+      </div>
+
       <!-- Assistance -->
       <div class="card p-4 space-y-3">
         <h2 class="font-semibold">🛟 Assistance</h2>
@@ -82,8 +129,10 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatCard from '../../components/StatCard.vue'
+import InvoiceStatus from '../../components/InvoiceStatus.vue'
+import SubscriptionSummary from '../../components/SubscriptionSummary.vue'
 import { useToastStore } from '../../stores/toasts'
-import { dateTime } from '../../utils/format'
+import { dateTime, money } from '../../utils/format'
 
 const ROLES = { admin: 'Administrateur', dispatcher: 'Dispatch', cashier: 'Caisse', hub_agent: 'Entrepôt' }
 
@@ -97,12 +146,17 @@ const saving = ref(false)
 const support = reactive({ user_id: null, reason: '' })
 const supportError = ref('')
 const opening = ref(false)
+const plans = ref([])
+const sub = reactive({ plan_id: null, trial_ends_at: '' })
+const subError = ref('')
+const subSaving = ref(false)
 
 const active = computed(() => company.value?.status === 'active')
 
 async function load() {
   company.value = (await http.get(`/console/companies/${route.params.id}`)).data.data
   domain.value = company.value.domain
+  Object.assign(sub, { plan_id: company.value.plan?.id ?? null, trial_ends_at: company.value.trial_ends_at || '' })
   Object.assign(edit, {
     name: company.value.name, slug: company.value.slug, phone: company.value.phone || '',
     email: company.value.email || '', timezone: company.value.timezone || 'Africa/Abidjan',
@@ -123,6 +177,20 @@ async function save() {
     editError.value = apiErrorMessage(e)
   } finally {
     saving.value = false
+  }
+}
+
+async function saveSubscription() {
+  subSaving.value = true
+  subError.value = ''
+  try {
+    await http.patch(`/companies/${company.value.id}`, { plan_id: sub.plan_id, trial_ends_at: sub.trial_ends_at || null })
+    await load()
+    toasts.success('Abonnement enregistré.')
+  } catch (e) {
+    subError.value = apiErrorMessage(e)
+  } finally {
+    subSaving.value = false
   }
 }
 
@@ -157,5 +225,8 @@ async function openSupport() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  plans.value = (await http.get('/console/plans')).data.data
+})
 </script>

@@ -61,13 +61,15 @@ const routes = [
       { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },
       { path: 'tarifs', component: () => import('../views/admin/Pricing.vue'), meta: { permission: 'settings.manage' } },
       { path: 'paie-livreurs', component: () => import('../views/admin/PayPlans.vue'), meta: { permission: 'settings.manage' } },
-      { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage' } },
+      { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage', feature: 'stock' } },
       { path: 'caisse', component: () => import('../views/admin/Finance.vue'), meta: { permission: 'finance.view' } },
       { path: 'caisse/reversements/:id(\\d+)', component: shared.payoutDetail, meta: { permission: 'finance.view' } },
       { path: 'parametres', component: () => import('../views/admin/Settings.vue'), meta: { permission: 'settings.manage' } },
-      { path: 'integrations', component: () => import('../views/admin/Integrations.vue'), meta: { permission: 'integrations.manage' } },
+      { path: 'integrations', component: () => import('../views/admin/Integrations.vue'), meta: { permission: 'integrations.manage', feature: 'api' } },
+      { path: 'abonnement', component: () => import('../views/admin/Subscription.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp', component: () => import('../views/admin/WhatsApp.vue'), meta: { permission: 'settings.manage' } },
-      { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage', feature: 'whatsapp_bot' } },
       { path: 'messages', component: () => import('../views/admin/Messages.vue'), meta: { permission: 'orders.dispatch' } },
     ],
   },
@@ -79,7 +81,7 @@ const routes = [
     children: [
       { path: '', name: 'livreur', component: () => import('../views/courier/Missions.vue'), meta: { title: 'Mes missions' } },
       { path: 'missions/:id(\\d+)', component: () => import('../views/courier/MissionDetail.vue'), meta: { title: 'Mission', back: true } },
-      { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage' } },
+      { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage', feature: 'stock' } },
       { path: 'caisse', component: () => import('../views/courier/Wallet.vue'), meta: { title: 'Ma caisse' } },
       { path: 'messages', component: () => import('../views/courier/Messages.vue'), meta: { title: 'Consignes de l\'agence', back: true } },
       { path: 'retours/:id(\\d+)', component: () => import('../views/courier/ReturnHandOver.vue'), meta: { title: 'Remise au marchand', back: true } },
@@ -97,6 +99,9 @@ const routes = [
     children: [
       { path: '', name: 'console', component: () => import('../views/console/Companies.vue') },
       { path: 'entreprises/:id(\\d+)', component: () => import('../views/console/Company.vue') },
+      { path: 'formules', component: () => import('../views/console/Plans.vue') },
+      { path: 'facturation', component: () => import('../views/console/Billing.vue') },
+      { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue') },
     ],
   },
   // Application e-commerçant (PWA mobile)
@@ -109,10 +114,10 @@ const routes = [
       { path: 'courses', component: () => import('../views/merchant/Orders.vue'), meta: { title: 'Mes courses' } },
       { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true } },
       { path: 'courses/import', component: () => import('../views/merchant/OrderImport.vue'), meta: { title: 'Importer des courses', back: true, permission: 'orders.create' } },
-      { path: 'boutique', component: () => import('../views/merchant/Shop.vue'), meta: { title: 'Ma boutique en ligne', back: true, permission: 'integrations.manage' } },
-      { path: 'integrations', component: () => import('../views/merchant/Integrations.vue'), meta: { title: 'Intégrations', back: true, permission: 'integrations.manage' } },
+      { path: 'boutique', component: () => import('../views/merchant/Shop.vue'), meta: { title: 'Ma boutique en ligne', back: true, permission: 'integrations.manage', feature: 'shop' } },
+      { path: 'integrations', component: () => import('../views/merchant/Integrations.vue'), meta: { title: 'Intégrations', back: true, permission: 'integrations.manage', feature: 'api' } },
       { path: 'courses/:id(\\d+)', component: () => import('../views/merchant/OrderView.vue'), meta: { title: 'Course', back: true } },
-      { path: 'stock', component: () => import('../views/merchant/Stock.vue'), meta: { title: 'Mon stock' } },
+      { path: 'stock', component: () => import('../views/merchant/Stock.vue'), meta: { title: 'Mon stock', feature: 'stock' } },
       { path: 'lieu-de-ramassage', component: () => import('../views/merchant/PickupLocation.vue'), meta: { title: 'Lieu de ramassage', back: true } },
       { path: 'paiements', component: () => import('../views/merchant/Payments.vue'), meta: { title: 'Paiements', permission: 'finance.view' } },
       { path: 'paiements/:id(\\d+)', component: () => import('../views/merchant/PayoutView.vue'), meta: { title: 'Relevé', back: true, permission: 'finance.view' } },
@@ -155,7 +160,10 @@ router.beforeEach(async (to) => {
   const roles = to.matched.map((r) => r.meta.roles).filter(Boolean).at(-1)
   const permission = to.meta.permission
 
-  if (to.meta.guest || to.path === '/' || (roles && !roles.includes(auth.role)) || (permission && !auth.can(permission))) {
+  // Module non inclus dans la formule de l'entreprise : retour à l'accueil de l'espace
+  const missingFeature = to.meta.feature && !auth.hasFeature(to.meta.feature)
+
+  if (to.meta.guest || to.path === '/' || (roles && !roles.includes(auth.role)) || (permission && !auth.can(permission)) || missingFeature) {
     return auth.homeRoute === to.path ? true : auth.homeRoute
   }
 

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\PlatformInvoice;
 use App\Models\User;
 use App\Services\Messaging\Gateways\LogSmsGateway;
 use App\Services\Messaging\Gateways\LogWhatsAppGateway;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -61,6 +63,9 @@ class AppServiceProvider extends ServiceProvider
         // Le super administrateur de la plateforme a tous les droits
         Gate::before(fn (User $user) => $user->isSuperAdmin() ? true : null);
 
+        // Factures de la plateforme : {invoice} dans les routes de la console et de l'abonnement
+        Route::model('invoice', PlatformInvoice::class);
+
         RateLimiter::for('login', fn (Request $request) => [
             Limit::perMinute(5)->by(mb_strtolower((string) $request->input('login')).'|'.$request->ip()),
             Limit::perMinute(20)->by($request->ip()),
@@ -80,6 +85,22 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         RateLimiter::for('verification-sms', fn (Request $request) => Limit::perHour(10)->by('sms:'.$request->ip()));
+
+        // Espace connecté : quota par compte et par entreprise
+        RateLimiter::for('tenant', function (Request $request) {
+            $user = $request->user();
+
+            if (! $user) {
+                return Limit::perMinute((int) config('platform.limits.user_per_minute'))->by('tenant-ip:'.$request->ip());
+            }
+
+            return array_filter([
+                Limit::perMinute((int) config('platform.limits.user_per_minute'))->by('tenant-user:'.$user->id),
+                $user->company_id
+                    ? Limit::perMinute((int) config('platform.limits.company_per_minute'))->by('tenant-company:'.$user->company_id)
+                    : null,
+            ]);
+        });
 
         RateLimiter::for('public-api', function (Request $request) {
             $key = (string) ($request->bearerToken() ?? $request->header('X-Api-Key'));

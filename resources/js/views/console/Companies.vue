@@ -5,9 +5,10 @@
       <button class="btn-primary" @click="openCreate">+ Nouvelle entreprise</button>
     </div>
 
-    <div v-if="meta.totals" class="grid grid-cols-3 gap-3">
+    <div v-if="meta.totals" class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <StatCard title="Entreprises" :value="meta.totals.companies" icon="🏢" />
       <StatCard title="Actives" :value="meta.totals.active" icon="✅" />
+      <StatCard title="En essai gratuit" :value="meta.totals.on_trial" icon="🎁" />
       <StatCard title="Courses ce mois" :value="meta.totals.orders_month" icon="📦" />
     </div>
 
@@ -25,7 +26,7 @@
         <thead class="bg-slate-50 text-left text-gray-600">
           <tr>
             <th class="p-2">Entreprise</th><th class="p-2">Adresse</th><th class="p-2 text-right">Marchands</th><th class="p-2 text-right">Livreurs</th>
-            <th class="p-2 text-right">Courses du mois</th><th class="p-2">Dernière course</th><th class="p-2">Statut</th>
+            <th class="p-2 text-right">Courses du mois</th><th class="p-2">Dernière course</th><th class="p-2">Formule</th><th class="p-2">Statut</th>
           </tr>
         </thead>
         <tbody class="divide-y">
@@ -37,12 +38,16 @@
             <td class="p-2 text-right font-semibold">{{ c.orders_month_count }}</td>
             <td class="p-2 text-gray-600">{{ c.last_order_at ? dateTime(c.last_order_at) : '—' }}</td>
             <td class="p-2">
+              <span v-if="c.plan">{{ c.plan.name }}</span><span v-else class="text-gray-400">Sans formule</span>
+              <span v-if="c.on_trial" class="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">essai → {{ date(c.trial_ends_at) }}</span>
+            </td>
+            <td class="p-2">
               <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', c.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700']">
                 {{ c.status === 'active' ? 'Active' : 'Suspendue' }}
               </span>
             </td>
           </tr>
-          <tr v-if="loaded && !companies.length"><td colspan="7" class="p-6 text-center text-gray-500">Aucune entreprise.</td></tr>
+          <tr v-if="loaded && !companies.length"><td colspan="8" class="p-6 text-center text-gray-500">Aucune entreprise.</td></tr>
         </tbody>
       </table>
     </div>
@@ -70,6 +75,15 @@
             </select>
           </div>
         </div>
+        <div>
+          <label class="label" for="c-plan">Formule</label>
+          <select id="c-plan" v-model="form.plan_id" class="input">
+            <option :value="null">Sans formule (aucune limite)</option>
+            <option v-for="p in plans" :key="p.id" :value="p.id">{{ p.name }} · {{ money(p.price_monthly) }} / mois</option>
+          </select>
+          <p v-if="form.plan_id && trialDays" class="text-xs text-gray-500 mt-1">Essai gratuit de {{ trialDays }} jours, puis facturation mensuelle.</p>
+          <p v-if="!plans.length" class="text-xs text-gray-500 mt-1"><RouterLink to="/console/formules" class="text-blue-600">Créer les formules</RouterLink> pour les proposer ici.</p>
+        </div>
         <fieldset class="border rounded p-3 space-y-2">
           <legend class="text-sm font-medium px-1">Premier administrateur</legend>
           <div class="grid grid-cols-2 gap-3">
@@ -93,7 +107,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
 import StatCard from '../../components/StatCard.vue'
 import { useToastStore } from '../../stores/toasts'
-import { dateTime } from '../../utils/format'
+import { date, dateTime, money } from '../../utils/format'
 
 const TIMEZONES = [
   { value: 'Africa/Abidjan', label: 'Côte d\'Ivoire, Sénégal, Mali… (GMT)' },
@@ -110,7 +124,10 @@ const meta = ref({})
 const loaded = ref(false)
 const search = ref('')
 const status = ref('')
-const form = reactive({ open: false, name: '', slug: '', slugTouched: false, phone: '', timezone: 'Africa/Abidjan', admin: {}, error: '', saving: false })
+const form = reactive({ open: false, name: '', slug: '', slugTouched: false, phone: '', timezone: 'Africa/Abidjan', plan_id: null, admin: {}, error: '', saving: false })
+// Formules proposées aux nouvelles entreprises
+const plans = ref([])
+const trialDays = ref(0)
 
 function host(url) {
   return url.replace(/^https?:\/\//, '')
@@ -129,8 +146,11 @@ function debouncedLoad() {
   timer = setTimeout(load, 300)
 }
 
-function openCreate() {
-  Object.assign(form, { open: true, name: '', slug: '', slugTouched: false, phone: '', timezone: 'Africa/Abidjan', admin: { name: '', phone: '', password: '' }, error: '' })
+async function openCreate() {
+  Object.assign(form, { open: true, name: '', slug: '', slugTouched: false, phone: '', timezone: 'Africa/Abidjan', plan_id: null, admin: { name: '', phone: '', password: '' }, error: '' })
+  const { data } = await http.get('/console/plans')
+  plans.value = data.data.filter((p) => p.is_active)
+  trialDays.value = data.meta.trial_days
 }
 
 // Adresse proposée d'après le nom, tant qu'elle n'a pas été modifiée
@@ -144,7 +164,7 @@ async function create() {
   form.error = ''
   try {
     const { data } = await http.post('/companies', {
-      name: form.name, slug: form.slug, phone: form.phone || null, timezone: form.timezone, admin: form.admin,
+      name: form.name, slug: form.slug, phone: form.phone || null, timezone: form.timezone, plan_id: form.plan_id, admin: form.admin,
     })
     form.open = false
     toasts.success(`Entreprise créée : ${data.data.name}.`)

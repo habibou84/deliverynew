@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use App\Enums\CompanyStatus;
+use App\Enums\PlatformFeature;
 use App\Support\Tenancy;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -39,6 +41,8 @@ class Company extends Model
         'daily_cutoff_time',
         'delivery_assign_alert_minutes',
         'status',
+        'plan_id',
+        'trial_ends_at',
     ];
 
     protected function casts(): array
@@ -58,6 +62,7 @@ class Company extends Model
             'cutoff_alerted_on' => 'date:Y-m-d',
             'delivery_assign_alert_minutes' => 'integer',
             'status' => CompanyStatus::class,
+            'trial_ends_at' => 'date:Y-m-d',
         ];
     }
 
@@ -107,6 +112,37 @@ class Company extends Model
         }
 
         return $slug;
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
+    }
+
+    /**
+     * Module inclus dans la formule ; sans formule, l'entreprise a tout (aucune limite).
+     */
+    public function hasFeature(PlatformFeature $feature): bool
+    {
+        return $this->plan_id === null || (bool) $this->loadMissing('plan')->plan?->includes($feature);
+    }
+
+    /**
+     * Modules disponibles pour l'entreprise.
+     *
+     * @return list<string>
+     */
+    public function features(): array
+    {
+        return array_values(array_map(
+            fn (PlatformFeature $f) => $f->value,
+            array_filter(PlatformFeature::cases(), fn (PlatformFeature $f) => $this->hasFeature($f)),
+        ));
+    }
+
+    public function onTrial(): bool
+    {
+        return $this->trial_ends_at !== null && $this->trial_ends_at->toDateString() >= now($this->timezone)->toDateString();
     }
 
     public function merchants(): HasMany

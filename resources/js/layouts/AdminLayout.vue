@@ -2,7 +2,7 @@
   <div class="flex h-screen bg-gray-100">
     <aside
       :class="[
-        'fixed md:relative z-40 w-64 h-full bg-slate-900 text-white transition-all duration-300 flex flex-col',
+        'fixed md:relative z-40 w-64 h-full bg-slate-900 text-white transition-all duration-300 flex flex-col print:hidden',
         sidebarOpen ? 'left-0' : '-left-64 md:left-0'
       ]"
     >
@@ -19,7 +19,7 @@
     <div v-if="sidebarOpen" class="fixed inset-0 bg-black/40 z-30 md:hidden" @click="sidebarOpen = false" />
 
     <div class="flex-1 flex flex-col min-w-0">
-      <header class="flex items-center justify-between bg-white shadow px-4 py-2 gap-2">
+      <header class="flex items-center justify-between bg-white shadow px-4 py-2 gap-2 print:hidden">
         <div class="flex items-center gap-2">
           <button class="md:hidden p-2 rounded bg-slate-900 text-white" aria-label="Menu" @click="sidebarOpen = true">☰</button>
           <form class="hidden md:block" @submit.prevent="quickSearch">
@@ -44,7 +44,16 @@
         <button class="rounded bg-white/20 px-3 py-1 font-medium hover:bg-white/30" @click="logout">Terminer la session</button>
       </div>
 
-      <main class="flex-1 overflow-y-auto p-4 md:p-6">
+      <!-- Abonnement : facture de la plateforme en retard (administrateurs) -->
+      <RouterLink
+        v-if="billingBanner"
+        to="/admin/abonnement"
+        :class="['block px-4 py-2 text-sm print:hidden', billingBanner.cls]"
+      >
+        {{ billingBanner.text }} <span class="font-medium underline">Voir mon abonnement</span>
+      </RouterLink>
+
+      <main class="flex-1 overflow-y-auto p-4 md:p-6 print:overflow-visible">
         <RouterView />
       </main>
     </div>
@@ -81,6 +90,13 @@ const heldParcels = useHeldParcelStore()
 // Courses qui attendent un livreur au-delà du délai : badge du menu « Courses »
 const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
+
+// Bandeau d'impayé : échéance passée, alerte (J+7), création de courses suspendue (J+15)
+const billingBanner = computed(() => ({
+  due: { cls: 'bg-amber-50 text-amber-900', text: 'Une facture de votre abonnement est arrivée à échéance.' },
+  warning: { cls: 'bg-amber-500 text-white', text: 'Facture d\'abonnement en retard : sans paiement, la création de courses sera bientôt suspendue.' },
+  restricted: { cls: 'bg-red-600 text-white', text: 'Création de courses suspendue : une facture de votre abonnement est impayée. Tout le reste reste consultable.' },
+})[auth.user?.company?.billing_state] ?? null)
 let countsTimer
 function fetchCounts() {
   fieldReports.fetchCounts().catch(() => {})
@@ -99,7 +115,7 @@ const menu = computed(() => [
   { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
   { to: '/admin/courses/nouvelle', icon: '➕', label: 'Nouvelle course', permission: 'orders.create' },
   { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
-  { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage' },
+  { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
   { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
   { to: '/admin/colis-livreurs', icon: '🎒', label: 'Colis chez les livreurs', permission: 'orders.dispatch', badge: heldParcels.counts.overdue },
   { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },
@@ -111,10 +127,12 @@ const menu = computed(() => [
   { to: '/admin/paie-livreurs', icon: '🧾', label: 'Paie des livreurs', permission: 'settings.manage' },
   { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
   { to: '/admin/messages', icon: '💬', label: 'Messages', permission: 'orders.dispatch' },
-  { to: '/admin/integrations', icon: '🔌', label: 'Intégrations (API)', permission: 'integrations.manage' },
+  { to: '/admin/integrations', icon: '🔌', label: 'Intégrations (API)', permission: 'integrations.manage', feature: 'api' },
   { to: '/admin/whatsapp', icon: '📱', label: 'WhatsApp', permission: 'settings.manage' },
   { to: '/admin/parametres', icon: '⚙️', label: 'Paramètres', permission: 'settings.manage' },
-].filter((item) => !item.permission || auth.can(item.permission)))
+  // Seulement pour une entreprise abonnée à une formule (plateforme)
+  ...(auth.user?.company?.plan ? [{ to: '/admin/abonnement', icon: '🧾', label: 'Mon abonnement', permission: 'settings.manage' }] : []),
+].filter((item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature))))
 
 function quickSearch() {
   router.push({ path: '/admin/courses', query: { search: search.value } })
