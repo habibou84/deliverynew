@@ -12,6 +12,7 @@ use App\Http\Resources\V1\ZoneResource;
 use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\Order;
+use App\Models\OrderAttachment;
 use App\Models\Product;
 use App\Models\Zone;
 use App\Services\Orders\OrderService;
@@ -22,7 +23,9 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * API publique d'un marchand (/api/public/v1), authentifiée par clé API.
@@ -30,7 +33,7 @@ use Illuminate\Validation\Rule;
  */
 class PublicApiController extends Controller
 {
-    private const RELATIONS = ['deliveryZone', 'items', 'lastIncidentReason'];
+    private const RELATIONS = ['deliveryZone', 'pickupZone', 'items', 'lastIncidentReason', 'attachments'];
 
     public function zones(): AnonymousResourceCollection
     {
@@ -73,10 +76,17 @@ class PublicApiController extends Controller
         return PublicOrderResource::collection($orders);
     }
 
+    /**
+     * Applications partenaires reconnues (en-tête X-Client-App) : la course garde leur nom comme origine, pour
+     * mesurer le volume qu'elles apportent.
+     */
+    public const CLIENT_APPS = ['jibiat-marchand' => 'ecommerce_app'];
+
     public function store(StoreOrderRequest $request, OrderService $service): JsonResponse
     {
         $user = $request->user();
-        $order = $service->create($user, Merchant::findOrFail($user->merchant_id), $request->validated(), 'api');
+        $source = self::CLIENT_APPS[strtolower((string) $request->header('X-Client-App'))] ?? 'api';
+        $order = $service->create($user, Merchant::findOrFail($user->merchant_id), $request->validated(), $source);
 
         return PublicOrderResource::make($order->fresh()->load(self::RELATIONS))->response()->setStatusCode(201);
     }
@@ -127,6 +137,16 @@ class PublicApiController extends Controller
             ->paginate($request->integer('per_page', 50));
 
         return ProductResource::collection($products);
+    }
+
+    /**
+     * Photo de preuve (ramassage, livraison, incident), servie par un lien signé de PublicOrderResource.
+     */
+    public function attachment(int $attachment): StreamedResponse
+    {
+        $model = OrderAttachment::query()->findOrFail($attachment);
+
+        return Storage::disk($model->disk)->response($model->path);
     }
 
     private function query(Request $request): Builder
