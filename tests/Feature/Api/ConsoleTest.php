@@ -130,6 +130,6 @@ class ConsoleTest extends TestCase
     public function test_console_address_opens_the_companies_board(): void
     {
         $this->get('http://admin.jibiat.test/')->assertRedirect('/console');
-        $this->get('http://admin.jibiat.test/console')->assertOk();
+        $this->withoutVite()->get('http://admin.jibiat.test/console')->assertOk();
     }
 }
