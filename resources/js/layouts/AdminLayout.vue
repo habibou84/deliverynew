@@ -99,7 +99,7 @@ const menu = computed(() => [
   { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
   { to: '/admin/courses/nouvelle', icon: '➕', label: 'Nouvelle course', permission: 'orders.create' },
   { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
-  { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage' },
+  { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
   { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
   { to: '/admin/colis-livreurs', icon: '🎒', label: 'Colis chez les livreurs', permission: 'orders.dispatch', badge: heldParcels.counts.overdue },
   { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },
@@ -111,10 +111,12 @@ const menu = computed(() => [
   { to: '/admin/paie-livreurs', icon: '🧾', label: 'Paie des livreurs', permission: 'settings.manage' },
   { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
   { to: '/admin/messages', icon: '💬', label: 'Messages', permission: 'orders.dispatch' },
-  { to: '/admin/integrations', icon: '🔌', label: 'Intégrations (API)', permission: 'integrations.manage' },
+  { to: '/admin/integrations', icon: '🔌', label: 'Intégrations (API)', permission: 'integrations.manage', feature: 'api' },
   { to: '/admin/whatsapp', icon: '📱', label: 'WhatsApp', permission: 'settings.manage' },
   { to: '/admin/parametres', icon: '⚙️', label: 'Paramètres', permission: 'settings.manage' },
-].filter((item) => !item.permission || auth.can(item.permission)))
+  // Seulement pour une entreprise abonnée à une formule (plateforme)
+  ...(auth.user?.company?.plan ? [{ to: '/admin/abonnement', icon: '🧾', label: 'Mon abonnement', permission: 'settings.manage' }] : []),
+].filter((item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature))))
 
 function quickSearch() {
   router.push({ path: '/admin/courses', query: { search: search.value } })

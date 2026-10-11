@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\EnsureApiScope;
+use App\Http\Middleware\EnsureFeature;
 use App\Http\Middleware\EnsureIdempotency;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\ResolveTenant;
@@ -38,6 +39,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => EnsureUserIsActive::class,
             'api.key' => AuthenticateApiKey::class,
             'api.scope' => EnsureApiScope::class,
+            'feature' => EnsureFeature::class,
             'idempotent' => EnsureIdempotency::class,
             'role' => RoleMiddleware::class,
             'permission' => PermissionMiddleware::class,

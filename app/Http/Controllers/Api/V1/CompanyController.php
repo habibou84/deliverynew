@@ -45,6 +45,10 @@ class CompanyController extends Controller
                 // Champs laissés vides : valeurs par défaut (fuseau Africa/Abidjan…)
                 ...collect($data)->except('admin')->reject(fn ($v) => $v === null)->all(),
                 'slug' => $data['slug'] ?? Company::freeSlug($data['name']),
+                // Avec une formule : essai gratuit, sauf date choisie
+                'trial_ends_at' => $data['trial_ends_at'] ?? (isset($data['plan_id']) && config('platform.trial_days') > 0
+                    ? now()->addDays((int) config('platform.trial_days'))->toDateString()
+                    : null),
             ]);
 
             $provisioner->provision($company);

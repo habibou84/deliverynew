@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\ConsoleController;
+use App\Http\Controllers\Api\V1\ConsolePlanController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
@@ -38,6 +39,7 @@ use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\SignupController;
 use App\Http\Controllers\Api\V1\StockMovementController;
 use App\Http\Controllers\Api\V1\StorageContractController;
+use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VerificationController;
@@ -118,6 +120,15 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('companies/{company}', 'show')->name('companies.show');
             Route::post('companies/{company}/support-session', 'supportSession')->middleware('throttle:10,1')->name('companies.support');
         });
+        Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsolePlanController::class)->group(function () {
+            Route::get('plans', 'index')->name('plans.index');
+            Route::post('plans', 'store')->name('plans.store');
+            Route::post('plans/suggested', 'suggested')->name('plans.suggested');
+            Route::patch('plans/{plan}', 'update')->name('plans.update');
+        });
+
+        // Formule, essai et consommation du mois de l'entreprise
+        Route::get('subscription', [SubscriptionController::class, 'show'])->middleware('can:settings.manage')->name('subscription.show');
 
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
         Route::apiResource('companies', CompanyController::class)->except('destroy');
@@ -150,7 +161,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('whatsapp/settings', [WhatsAppSettingsController::class, 'update'])->name('whatsapp.settings.update');
             Route::post('whatsapp/test', [WhatsAppSettingsController::class, 'test'])->middleware('throttle:10,1')->name('whatsapp.test');
             Route::post('whatsapp/templates/sync', [WhatsAppSettingsController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
-            Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware('throttle:60,1')->name('whatsapp.simulate');
+            Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware(['throttle:60,1', 'feature:whatsapp_bot'])->name('whatsapp.simulate');
         });
 
         // Remontées terrain des livreurs (notes, problèmes) : consultation et suivi par le dispatch
@@ -218,28 +229,36 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/expenses/{expense}/cancel', [OrderExpenseController::class, 'cancel'])->name('orders.expenses.cancel');
         Route::get('orders/{order}/attachments/{attachment}', [OrderActionController::class, 'showAttachment'])->name('orders.attachments.show');
 
-        // Clés de l'API publique (le marchand pour lui-même, l'administration pour un marchand)
-        Route::get('api-keys', [ApiKeyController::class, 'index'])->name('api-keys.index');
-        Route::post('api-keys', [ApiKeyController::class, 'store'])->name('api-keys.store');
-        Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->name('api-keys.destroy');
+        // Clés de l'API publique et webhooks sortants : module « API et webhooks »
+        Route::middleware('feature:api')->group(function () {
+            // Le marchand pour lui-même, l'administration pour un marchand
+            Route::get('api-keys', [ApiKeyController::class, 'index'])->name('api-keys.index');
+            Route::post('api-keys', [ApiKeyController::class, 'store'])->name('api-keys.store');
+            Route::delete('api-keys/{apiKey}', [ApiKeyController::class, 'destroy'])->name('api-keys.destroy');
 
-        // Webhooks sortants
-        Route::apiResource('webhooks', WebhookController::class)->except('show');
-        Route::post('webhooks/{webhook}/secret', [WebhookController::class, 'rotateSecret'])->name('webhooks.secret');
-        Route::post('webhooks/{webhook}/test', [WebhookController::class, 'test'])->middleware('throttle:10,1')->name('webhooks.test');
-        Route::get('webhooks/{webhook}/deliveries', [WebhookController::class, 'deliveries'])->name('webhooks.deliveries');
-        Route::post('webhook-deliveries/{delivery}/redeliver', [WebhookController::class, 'redeliver'])->middleware('throttle:30,1')->name('webhook-deliveries.redeliver');
+            Route::apiResource('webhooks', WebhookController::class)->except('show');
+            Route::post('webhooks/{webhook}/secret', [WebhookController::class, 'rotateSecret'])->name('webhooks.secret');
+            Route::post('webhooks/{webhook}/test', [WebhookController::class, 'test'])->middleware('throttle:10,1')->name('webhooks.test');
+            Route::get('webhooks/{webhook}/deliveries', [WebhookController::class, 'deliveries'])->name('webhooks.deliveries');
+            Route::post('webhook-deliveries/{delivery}/redeliver', [WebhookController::class, 'redeliver'])->middleware('throttle:30,1')->name('webhook-deliveries.redeliver');
+        });
 
-        // Stock (droits vérifiés par ProductPolicy et dans les contrôleurs)
-        Route::apiResource('products', ProductController::class);
-        Route::post('products/{product}/photo', [ProductPhotoController::class, 'store'])->middleware('throttle:30,1')->name('products.photo.store');
-        Route::delete('products/{product}/photo', [ProductPhotoController::class, 'destroy'])->name('products.photo.destroy');
+        // Produits : catalogue de la boutique ou stock en entrepôt (droits vérifiés par ProductPolicy)
+        Route::middleware('feature:stock,shop')->group(function () {
+            Route::apiResource('products', ProductController::class);
+            Route::post('products/{product}/photo', [ProductPhotoController::class, 'store'])->middleware('throttle:30,1')->name('products.photo.store');
+            Route::delete('products/{product}/photo', [ProductPhotoController::class, 'destroy'])->name('products.photo.destroy');
+        });
         // Réglages de la page de commande du marchand
-        Route::get('shop', [MerchantShopController::class, 'show'])->name('shop.show');
-        Route::patch('shop', [MerchantShopController::class, 'update'])->name('shop.update');
-        Route::get('stock/movements', [StockMovementController::class, 'index'])->name('stock.movements.index');
-        Route::post('stock/movements', [StockMovementController::class, 'store'])->name('stock.movements.store');
-        Route::apiResource('storage-contracts', StorageContractController::class)->except('show');
+        Route::middleware('feature:shop')->group(function () {
+            Route::get('shop', [MerchantShopController::class, 'show'])->name('shop.show');
+            Route::patch('shop', [MerchantShopController::class, 'update'])->name('shop.update');
+        });
+        Route::middleware('feature:stock')->group(function () {
+            Route::get('stock/movements', [StockMovementController::class, 'index'])->name('stock.movements.index');
+            Route::post('stock/movements', [StockMovementController::class, 'store'])->name('stock.movements.store');
+            Route::apiResource('storage-contracts', StorageContractController::class)->except('show');
+        });
 
         Route::get('reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
 

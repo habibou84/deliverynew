@@ -232,7 +232,8 @@ function pickProduct(item) {
 
 async function loadProducts() {
   products.value = []
-  if (!merchantId.value) return
+  // Produits : catalogue ou stock, selon la formule de l'entreprise
+  if (!merchantId.value || !(auth.hasFeature('stock') || auth.hasFeature('shop'))) return
   products.value = (await http.get('/products', { params: { merchant_id: merchantId.value, per_page: 200 } })).data.data
 }
 

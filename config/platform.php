@@ -22,6 +22,9 @@ return [
         'company_per_minute' => (int) env('PLATFORM_COMPANY_RATE_LIMIT', 3000),
     ],
 
+    // Essai gratuit des nouvelles entreprises créées avec une formule (jours ; 0 = aucun)
+    'trial_days' => (int) env('PLATFORM_TRIAL_DAYS', 30),
+
     // Sous-domaines qui ne peuvent pas être attribués à une entreprise
     'reserved_subdomains' => ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp', 'ws', 'socket', 'static', 'cdn', 'docs', 'status', 'support', 'aide', 'blog'],
 ];
