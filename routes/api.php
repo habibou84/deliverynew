@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ApiScope;
+use App\Http\Controllers\Api\PublicV1\PublicAccountController;
 use App\Http\Controllers\Api\PublicV1\PublicApiController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -71,7 +72,23 @@ Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:pu
     Route::post('orders/{trackingCode}/cancel', 'cancel')->middleware($write)->name('orders.cancel');
     Route::get('reports/summary', 'summary')->middleware($read)->name('reports.summary');
     Route::get('products', 'products')->middleware('api.scope:'.ApiScope::StockRead->value)->name('products');
+
+    // Compte du marchand : identité, adresses webhook, reversements
+    Route::controller(PublicAccountController::class)->group(function () {
+        $webhooks = 'api.scope:'.ApiScope::WebhooksWrite->value;
+        $payouts = 'api.scope:'.ApiScope::PayoutsRead->value;
+        Route::get('me', 'me')->name('me');
+        Route::get('webhooks', 'webhooks')->middleware($webhooks)->name('webhooks.index');
+        Route::post('webhooks', 'storeWebhook')->middleware($webhooks)->name('webhooks.store');
+        Route::delete('webhooks/{webhook}', 'destroyWebhook')->middleware($webhooks)->whereNumber('webhook')->name('webhooks.destroy');
+        Route::get('payouts', 'payouts')->middleware($payouts)->name('payouts.index');
+        Route::get('payouts/{reference}', 'payout')->middleware($payouts)->name('payouts.show');
+    });
 });
+
+// Photo de preuve d'une course (lien signé et temporaire renvoyé par l'API publique, sans clé)
+Route::get('public/v1/attachments/{attachment}', [PublicApiController::class, 'attachment'])
+    ->middleware('signed')->whereNumber('attachment')->name('public.attachments.show');
 
 Route::prefix('v1')->name('v1.')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])

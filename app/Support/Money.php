@@ -2,13 +2,8 @@
 
 namespace App\Support;
 
-class Money
-{
-    /**
-     * 12500 → « 12 500 F » (espace ordinaire : certains téléphones affichent mal l'espace insécable dans les SMS).
-     */
-    public static function format(int $amount): string
-    {
-        return number_format($amount, 0, ',', ' ').' F';
-    }
-}
+/**
+ * Relais vers le paquet commun habibou84/socle (même code que Jibiat Marchand).
+ * 12500 → « 12 500 F ».
+ */
+class Money extends \Jibiat\Socle\Money {}

@@ -41,7 +41,7 @@ class WebhookDispatcher
             return;
         }
 
-        $order = $order->fresh(['deliveryZone', 'items', 'lastIncidentReason']);
+        $order = $order->fresh(['deliveryZone', 'pickupZone', 'items', 'lastIncidentReason', 'attachments']);
         $data = [
             'order' => (new PublicOrderResource($order))->resolve(),
             'change' => [

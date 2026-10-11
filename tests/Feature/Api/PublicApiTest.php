@@ -54,7 +54,7 @@ class PublicApiTest extends TestCase
         $this->assertMatchesRegularExpression('/^lv_[a-z0-9]{8}_[A-Za-z0-9]{40}$/', $plain);
         $this->assertStringNotContainsString(substr($plain, 12), json_encode(ApiKey::find($response->json('data.id'))));
 
-        $this->getJson('/api/v1/api-keys')->assertOk()->assertJsonCount(2, 'data')->assertJsonCount(3, 'scopes');
+        $this->getJson('/api/v1/api-keys')->assertOk()->assertJsonCount(2, 'data')->assertJsonCount(5, 'scopes');
         $this->postJson('/api/v1/api-keys', ['name' => 'X', 'scopes' => ['admin:all']])->assertJsonValidationErrors('scopes.0');
 
         $this->api('GET', 'orders', key: $plain)->assertOk();

@@ -11,7 +11,13 @@ info:
     Envoyez-la à chaque requête : `Authorization: Bearer lv_xxxxxxxx_…` (ou en-tête `X-Api-Key`).
 
     Portées : `orders:read` (lire les courses et le point), `orders:write` (créer, annuler),
-    `stock:read` (produits et stock). Les zones, entrepôts et devis sont accessibles à toute clé.
+    `stock:read` (produits et stock), `webhooks:write` (gérer ses adresses webhook par l'API),
+    `payouts:read` (reversements et leur détail). Les zones, entrepôts, devis et `GET /me` sont
+    accessibles à toute clé.
+
+    ## Applications partenaires
+    Une application qui agit pour le marchand peut s'identifier avec l'en-tête `X-Client-App`
+    (`jibiat-marchand` pour Jibiat Marchand) : les courses qu'elle crée gardent cette origine.
 
     ## Idempotence
     `POST /orders` exige l'en-tête `Idempotency-Key` (par exemple un UUID par commande). Une requête
@@ -27,7 +33,7 @@ info:
     `403` portée manquante ou compte suspendu, `404` course introuvable, `422` données invalides ou règle métier.
 
     ## Webhooks
-    Déclarez une adresse HTTPS dans **Profil › Intégrations** pour recevoir les événements
+    Déclarez une adresse HTTPS dans **Profil › Intégrations** (ou par `POST /webhooks`) pour recevoir les événements
     `order.created`, `order.status_changed`, `order.incident`, `payout.paid` et `stock.low`.
     Chaque envoi est un `POST` JSON `{ id, event, created_at, data }` avec les en-têtes
     `X-Webhook-Id`, `X-Webhook-Event`, `X-Webhook-Timestamp` et
@@ -43,6 +49,7 @@ tags:
   - name: Référentiels
   - name: Courses
   - name: Stock
+  - name: Compte
 paths:
   /zones:
     get:
@@ -252,6 +259,161 @@ paths:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Product' }
+  /me:
+    get:
+      tags: [Compte]
+      summary: Identité du marchand, de l'entreprise de livraison et de la clé
+      responses:
+        '200':
+          description: Compte
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      merchant:
+                        type: object
+                        properties:
+                          id: { type: integer }
+                          business_name: { type: string }
+                          contact_name: { type: [string, 'null'] }
+                          phone: { type: [string, 'null'] }
+                          status: { type: string }
+                          default_fee_payer: { type: [string, 'null'] }
+                      company:
+                        type: object
+                        properties:
+                          name: { type: string }
+                          slug: { type: string }
+                          url: { type: string, format: uri }
+                          phone: { type: [string, 'null'] }
+                      key:
+                        type: object
+                        properties:
+                          name: { type: string }
+                          prefix: { type: string }
+                          scopes: { type: array, items: { type: string } }
+                          expires_at: { type: [string, 'null'], format: date-time }
+                      webhook_events: { type: array, items: { type: string } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /webhooks:
+    get:
+      tags: [Compte]
+      summary: Adresses webhook du marchand
+      description: Portée `webhooks:write`.
+      responses:
+        '200':
+          description: Adresses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Webhook' } }
+    post:
+      tags: [Compte]
+      summary: Déclarer une adresse webhook
+      description: Portée `webhooks:write`. Le secret de signature n'est renvoyé qu'une fois, dans cette réponse.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url, events]
+              properties:
+                url: { type: string, format: uri }
+                events: { type: array, items: { type: string, enum: [order.created, order.status_changed, order.incident, payout.paid, stock.low] } }
+                description: { type: string, maxLength: 255 }
+      responses:
+        '201':
+          description: Adresse créée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Webhook' }
+                  secret: { type: string, example: whsec_… }
+        '422': { $ref: '#/components/responses/ValidationError' }
+  /webhooks/{webhook}:
+    delete:
+      tags: [Compte]
+      summary: Supprimer une adresse webhook
+      description: Portée `webhooks:write`.
+      parameters:
+        - { name: webhook, in: path, required: true, schema: { type: integer } }
+      responses:
+        '204': { description: Supprimée }
+        '404': { description: Adresse introuvable }
+  /payouts:
+    get:
+      tags: [Compte]
+      summary: Reversements au marchand
+      description: Portée `payouts:read`.
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 100, default: 30 } }
+      responses:
+        '200':
+          description: Reversements, du plus récent au plus ancien
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Payout' } }
+  /payouts/{reference}:
+    get:
+      tags: [Compte]
+      summary: Détail d'un reversement (écritures et courses concernées)
+      description: Portée `payouts:read`. Sert au rapprochement des reversements avec les commandes.
+      parameters:
+        - { name: reference, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Reversement
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/Payout' }
+                      - type: object
+                        properties:
+                          entries:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                type: { type: string }
+                                amount: { type: integer, description: 'Positif : dû au marchand ; négatif : frais retenus' }
+                                description: { type: [string, 'null'] }
+                                order:
+                                  type: [object, 'null']
+                                  properties:
+                                    tracking_code: { type: string }
+                                    merchant_reference: { type: [string, 'null'] }
+                                created_at: { type: string, format: date-time }
+        '404': { description: Reversement introuvable }
+  /attachments/{attachment}:
+    get:
+      tags: [Courses]
+      summary: Photo de preuve d'une course
+      description: Lien signé et temporaire (24 h) donné dans `proof.photos[].url` d'une course ; ne demande pas de clé.
+      security: []
+      parameters:
+        - { name: attachment, in: path, required: true, schema: { type: integer } }
+        - { name: expires, in: query, required: true, schema: { type: integer } }
+        - { name: signature, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Image }
+        '403': { description: Lien expiré ou invalide }
 components:
   securitySchemes:
     bearer:
@@ -356,6 +518,16 @@ components:
             address: { type: [string, 'null'] }
             landmark: { type: [string, 'null'] }
             scheduled_date: { type: [string, 'null'], format: date }
+        pickup:
+          type: object
+          properties:
+            hub_id: { type: [integer, 'null'] }
+            zone_id: { type: [integer, 'null'] }
+            zone_name: { type: [string, 'null'] }
+            address: { type: [string, 'null'] }
+            landmark: { type: [string, 'null'] }
+            contact_name: { type: [string, 'null'] }
+            phone: { type: [string, 'null'] }
         from_warehouse: { type: boolean }
         description: { type: [string, 'null'] }
         items:
@@ -390,6 +562,19 @@ components:
               incident: { type: [string, 'null'] }
               rescheduled_to: { type: [string, 'null'], format: date }
               at: { type: string, format: date-time }
+        proof:
+          type: object
+          description: Preuves de la course (photos prises par le livreur)
+          properties:
+            delivered_at: { type: [string, 'null'], format: date-time }
+            photos:
+              type: array
+              items:
+                type: object
+                properties:
+                  type: { type: string, enum: [photo_pickup, photo_delivery, photo_incident] }
+                  url: { type: string, format: uri, description: 'Lien signé valable 24 h' }
+                  taken_at: { type: string, format: date-time }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         delivered_at: { type: [string, 'null'], format: date-time }
@@ -413,3 +598,31 @@ components:
               on_hand: { type: integer }
               reserved: { type: integer }
               available: { type: integer }
+    Webhook:
+      type: object
+      properties:
+        id: { type: integer }
+        url: { type: string, format: uri }
+        events: { type: array, items: { type: string } }
+        description: { type: [string, 'null'] }
+        is_active: { type: boolean }
+        consecutive_failures: { type: integer }
+        created_at: { type: string, format: date-time }
+    Payout:
+      type: object
+      properties:
+        reference: { type: string }
+        status: { type: string }
+        period_start: { type: [string, 'null'], format: date }
+        period_end: { type: [string, 'null'], format: date }
+        total_collected: { type: integer }
+        total_fees: { type: integer }
+        total_shipping_fees: { type: integer }
+        total_other_fees: { type: integer }
+        total_storage_fees: { type: integer }
+        total_adjustments: { type: integer }
+        net_amount: { type: integer }
+        method: { type: [string, 'null'] }
+        transaction_ref: { type: [string, 'null'] }
+        paid_at: { type: [string, 'null'], format: date-time }
+        created_at: { type: string, format: date-time }

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "f325bee0a6e340be9bfdd38d93f1c186",
+    "content-hash": "fa7f51366d3d93e9de0872f392471e73",
     "packages": [
         {
             "name": "anthropic-ai/sdk",
@@ -1300,6 +1300,65 @@
                 }
             ],
             "time": "2026-08-24T09:15:32+00:00"
+        },
+        {
+            "name": "habibou84/socle",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/habibou84/socle.git",
+                "reference": "fa6217529e808d4711d268aae76f989bde009f0b"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/habibou84/socle/zipball/fa6217529e808d4711d268aae76f989bde009f0b",
+                "reference": "fa6217529e808d4711d268aae76f989bde009f0b",
+                "shasum": ""
+            },
+            "require": {
+                "illuminate/contracts": "^12.0",
+                "illuminate/support": "^12.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^11.5"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Jibiat\\Socle\\SocleServiceProvider"
+                    ]
+                },
+                "branch-alias": {
+                    "dev-main": "1.0.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Jibiat\\Socle\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Jibiat\\Socle\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Briques communes à Jibiat (livraison) et Jibiat Marchand : montants, téléphones, SMS, signature des webhooks.",
+            "support": {
+                "source": "https://github.com/habibou84/socle/tree/main",
+                "issues": "https://github.com/habibou84/socle/issues"
+            },
+            "time": "2026-10-11T12:10:31+00:00"
         },
         {
             "name": "laravel/framework",
@@ -9928,7 +9987,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "habibou84/socle": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

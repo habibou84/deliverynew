@@ -3,9 +3,13 @@
 namespace App\Services\Messaging\Gateways;
 
 use App\Services\Messaging\MessagingException;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
+use Jibiat\Socle\Sms\SmsException;
+use Jibiat\Socle\Sms\TwilioSmsGateway as SocleTwilio;
 
+/**
+ * Envoi par Twilio, assuré par le paquet commun habibou84/socle ; les erreurs deviennent des MessagingException
+ * (réessayables si la panne est passagère).
+ */
 class TwilioSmsGateway implements SmsGateway
 {
     public function send(string $to, string $text): string
@@ -17,23 +21,9 @@ class TwilioSmsGateway implements SmsGateway
         }
 
         try {
-            $response = Http::withBasicAuth($sid, $token)->asForm()->timeout(15)
-                ->post("https://api.twilio.com/2010-04-01/Accounts/{$sid}/Messages.json", [
-                    'To' => $to,
-                    'From' => $from,
-                    'Body' => $text,
-                ]);
-        } catch (ConnectionException $e) {
-            throw new MessagingException('Twilio injoignable : '.$e->getMessage(), retryable: true);
+            return (new SocleTwilio($sid, $token, $from))->send($to, $text);
+        } catch (SmsException $e) {
+            throw new MessagingException('Twilio : '.$e->getMessage(), retryable: $e->retryable);
         }
-
-        if ($response->failed()) {
-            throw new MessagingException(
-                'Twilio : '.($response->json('message') ?? 'erreur HTTP '.$response->status()),
-                retryable: $response->serverError() || $response->status() === 429,
-            );
-        }
-
-        return (string) $response->json('sid');
     }
 }
