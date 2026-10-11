@@ -20,8 +20,9 @@
     <div class="card">
         <p><strong>Vous travaillez avec une entreprise de livraison ?</strong><br>
             Ouvrez l'adresse qu'elle vous a donnée, par exemple <code>votre-entreprise.{{ $domain }}</code>.</p>
+        @php($signupUrl = config('platform.scheme').'://'.config('platform.admin_subdomain').'.'.$domain.'/creer-mon-entreprise')
         <p><strong>Vous êtes une entreprise de livraison ?</strong><br>
-            Contactez-nous pour ouvrir votre espace.</p>
+            <a href="{{ $signupUrl }}">Créez votre espace</a> en 2 minutes, avec {{ config('platform.trial_days') }} jours d'essai gratuit.</p>
     </div>
 </main>
 </body>

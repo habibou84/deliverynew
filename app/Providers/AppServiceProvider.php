@@ -84,6 +84,12 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(30)->by('shop-hour:'.$request->ip()),
         ]);
 
+        // Inscription des entreprises en libre-service
+        RateLimiter::for('company-signup', fn (Request $request) => [
+            Limit::perMinute(5)->by('cs-min:'.$request->ip()),
+            Limit::perHour(10)->by('cs-hour:'.$request->ip()),
+        ]);
+
         RateLimiter::for('verification-sms', fn (Request $request) => Limit::perHour(10)->by('sms:'.$request->ip()));
 
         // Espace connecté : quota par compte et par entreprise

@@ -23,6 +23,8 @@ const routes = [
   { path: '/livreur/connexion', name: 'login-courier', component: () => import('../views/auth/CourierLogin.vue'), meta: { guest: true } },
   // Inscription des e-commerçants et mot de passe oublié (numéro vérifié par WhatsApp ou SMS)
   { path: '/inscription', name: 'signup', component: () => import('../views/auth/Signup.vue'), meta: { guest: true } },
+  // Inscription d'une entreprise de livraison (adresse de la console : admin.jibiat.com/creer-mon-entreprise)
+  { path: '/creer-mon-entreprise', name: 'company-signup', component: () => import('../views/auth/CompanySignup.vue'), meta: { public: true } },
   { path: '/mot-de-passe-oublie', name: 'forgot-password', component: () => import('../views/auth/ForgotPassword.vue'), meta: { guest: true } },
   // Ancienne adresse de connexion
   { path: '/login', redirect: (to) => ({ path: '/', query: to.query }) },

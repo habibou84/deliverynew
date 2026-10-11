@@ -12,12 +12,29 @@
       <StatCard title="Courses ce mois" :value="meta.totals.orders_month" icon="📦" />
     </div>
 
+    <div class="card flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+      <p>
+        <span class="font-medium">Inscription en ligne :</span>{{ ' ' }}
+        <template v-if="signupOpen === null">…</template>
+        <template v-else-if="signupOpen">
+          ouverte sur <a :href="signupUrl" target="_blank" rel="noopener" class="text-blue-600">{{ host(signupUrl) }}</a>
+          <span v-if="meta.totals?.signups_month" class="text-gray-500"> · {{ meta.totals.signups_month }} ce mois</span>
+        </template>
+        <template v-else>fermée (les entreprises sont créées ici)</template>
+      </p>
+      <button class="btn-secondary !py-1" :disabled="signupOpen === null" @click="toggleSignup">{{ signupOpen ? 'Fermer' : 'Ouvrir' }}</button>
+    </div>
+
     <div class="flex flex-wrap gap-2">
       <input v-model="search" class="input w-64" placeholder="Nom ou adresse…" aria-label="Rechercher" @input="debouncedLoad">
       <select v-model="status" class="input w-auto" aria-label="Statut" @change="load">
         <option value="">Toutes</option>
         <option value="active">Actives</option>
         <option value="suspended">Suspendues</option>
+      </select>
+      <select v-model="source" class="input w-auto" aria-label="Origine" @change="load">
+        <option value="">Toutes origines</option>
+        <option value="signup">Inscrites en ligne</option>
       </select>
     </div>
 
@@ -31,7 +48,10 @@
         </thead>
         <tbody class="divide-y">
           <tr v-for="c in companies" :key="c.id" class="hover:bg-slate-50 cursor-pointer" @click="$router.push(`/console/entreprises/${c.id}`)">
-            <td class="p-2 font-medium">{{ c.name }}</td>
+            <td class="p-2 font-medium">
+              {{ c.name }}
+              <span v-if="c.source === 'signup'" class="ml-1 whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 text-xs font-normal text-violet-800" :title="`Inscrite le ${date(c.created_at)}`">en ligne</span>
+            </td>
             <td class="p-2"><a :href="c.url" target="_blank" rel="noopener" class="text-blue-600" @click.stop>{{ host(c.url) }}</a></td>
             <td class="p-2 text-right">{{ c.merchants_count }}</td>
             <td class="p-2 text-right">{{ c.couriers_count }}</td>
@@ -124,6 +144,10 @@ const meta = ref({})
 const loaded = ref(false)
 const search = ref('')
 const status = ref('')
+const source = ref('')
+// Inscription des entreprises en libre-service (réglage de la plateforme)
+const signupOpen = ref(null)
+const signupUrl = `${window.location.origin}/creer-mon-entreprise`
 const form = reactive({ open: false, name: '', slug: '', slugTouched: false, phone: '', timezone: 'Africa/Abidjan', plan_id: null, admin: {}, error: '', saving: false })
 // Formules proposées aux nouvelles entreprises
 const plans = ref([])
@@ -134,7 +158,7 @@ function host(url) {
 }
 
 async function load() {
-  const { data } = await http.get('/console/companies', { params: { search: search.value || undefined, status: status.value || undefined } })
+  const { data } = await http.get('/console/companies', { params: { search: search.value || undefined, status: status.value || undefined, source: source.value || undefined } })
   companies.value = data.data
   meta.value = data.meta
   loaded.value = true
@@ -176,5 +200,18 @@ async function create() {
   }
 }
 
-onMounted(load)
+async function toggleSignup() {
+  try {
+    const { data } = await http.put('/console/settings', { company_signup: !signupOpen.value })
+    signupOpen.value = data.data.company_signup
+    toasts.success(signupOpen.value ? 'Inscription en ligne ouverte.' : 'Inscription en ligne fermée.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+onMounted(async () => {
+  await load()
+  signupOpen.value = (await http.get('/console/settings')).data.data.company_signup
+})
 </script>

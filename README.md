@@ -309,6 +309,22 @@ attribuée aux entreprises qui l'ont.
 - **Entreprise** : « Mon abonnement » affiche le reste à payer, comment payer et les factures ; **facture imprimable**
   (et enregistrable en PDF depuis le navigateur).
 
+### Inscription des entreprises en libre-service
+
+- Page **`https://admin.jibiat.com/creer-mon-entreprise`** (lien depuis la connexion de la console et la page de
+  présentation) : nom, **adresse** `{slug}.jibiat.com` proposée d'après le nom et vérifiée pendant la saisie
+  (`GET /api/v1/company-signup/slug`), **formule** parmi celles proposées, compte administrateur (nom, téléphone,
+  e-mail facultatif, mot de passe), acceptation de la facturation après l'essai.
+- À l'envoi (`POST /api/v1/company-signup`, service `App\Services\Platform\CompanySignup`) : entreprise créée avec
+  **l'essai gratuit** (`PLATFORM_TRIAL_DAYS`), espace préparé (communes, grille tarifaire, plan de paie), premier
+  administrateur ; la **session s'ouvre directement** sur l'adresse de l'entreprise (jeton dans le fragment `#session=`,
+  jamais envoyé au serveur). Le super administrateur est prévenu (cloche de la console).
+- **Garde-fous** : seulement depuis l'adresse de la console ; un numéro n'ouvre qu'une entreprise en ligne (un seul
+  essai) ; 3 inscriptions par jour et par connexion, 5 par minute et 10 par heure ; champ invisible contre les robots.
+- **Console** : entreprises marquées « en ligne » (filtre « Inscrites en ligne », nombre du mois) ; bouton
+  **Ouvrir / Fermer** l'inscription (`console/settings`, `company_signup`, ouverte par défaut). Fermée aussi tant
+  qu'aucune formule n'est proposée.
+
 ### Paie des livreurs : plans de rémunération
 
 **Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de
