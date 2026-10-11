@@ -25,6 +25,15 @@ return [
     // Essai gratuit des nouvelles entreprises créées avec une formule (jours ; 0 = aucun)
     'trial_days' => (int) env('PLATFORM_TRIAL_DAYS', 30),
 
+    // Factures mensuelles des entreprises : échéance après émission, puis alerte (bandeau) et
+    // restriction (plus de nouvelles courses) après l'échéance, en jours
+    'billing' => [
+        'invoice_prefix' => env('PLATFORM_INVOICE_PREFIX', 'FAC'),
+        'due_days' => (int) env('PLATFORM_INVOICE_DUE_DAYS', 10),
+        'warning_after_days' => (int) env('PLATFORM_BILLING_WARNING_DAYS', 7),
+        'restrict_after_days' => (int) env('PLATFORM_BILLING_RESTRICT_DAYS', 15),
+    ],
+
     // Sous-domaines qui ne peuvent pas être attribués à une entreprise
     'reserved_subdomains' => ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp', 'ws', 'socket', 'static', 'cdn', 'docs', 'status', 'support', 'aide', 'blog'],
 ];

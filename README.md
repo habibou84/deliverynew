@@ -288,6 +288,27 @@ attribuée aux entreprises qui l'ont.
 - **« Mon abonnement »** (`GET /subscription`, administrateurs) : formule, essai, consommation du mois (courses,
   livreurs), estimation du mois (forfait + dépassement ; offert pendant l'essai) et modules.
 
+### Abonnements des entreprises : factures et paiements
+
+- **Facture mensuelle** (`billing:invoice`, le 1er à 01:30 pour le mois écoulé ; ou « Générer » dans la console,
+  `console/invoices/generate`) pour chaque entreprise active qui a une formule : forfait **au prorata** des jours hors
+  essai (et depuis la création de l'entreprise), courses incluses au même prorata, courses en plus × prix de la formule
+  (hors courses annulées ou refusées). Une seule facture par entreprise et par mois ; rien quand le mois est entièrement
+  en essai. Numéro `FAC-AAAAMM-0001` (`PLATFORM_INVOICE_PREFIX`), échéance à 10 jours (`PLATFORM_INVOICE_DUE_DAYS`).
+- **Paiements** enregistrés par le super administrateur (Mobile Money, virement, espèces, autre ; référence ; paiement
+  partiel possible ; facture payée quand le reste est nul). Une facture sans paiement peut être annulée.
+- **Impayés progressifs** (`App\Services\Platform\Billing`) : échéance passée → rappel ; J+7
+  (`PLATFORM_BILLING_WARNING_DAYS`) → bandeau orange dans le back-office ; J+15 (`PLATFORM_BILLING_RESTRICT_DAYS`) →
+  **plus de nouvelles courses** (back-office, application marchand, API, boutiques, WhatsApp), tout le reste
+  consultable ; tout reprend dès le paiement. `company.billing_state` (`ok`, `due`, `warning`, `restricted`) dans
+  `/auth/me` pour les administrateurs.
+- **Rappels** (`billing:remind`, chaque matin à 08:05) : une notification aux administrateurs de l'entreprise à
+  l'émission, à l'échéance, à l'alerte et à la restriction (une fois par étape).
+- **Console « Facturation »** : revenu mensuel récurrent (abonnements hors essai), encaissé du mois, reste à encaisser,
+  factures en retard ; liste filtrable, encaissement, annulation ; **mentions des factures** (émetteur, comment payer).
+- **Entreprise** : « Mon abonnement » affiche le reste à payer, comment payer et les factures ; **facture imprimable**
+  (et enregistrable en PDF depuis le navigateur).
+
 ### Paie des livreurs : plans de rémunération
 
 **Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de

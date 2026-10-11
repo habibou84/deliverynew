@@ -84,12 +84,14 @@ class AwaitingCourierTest extends TestCase
     public function test_orders_planned_for_another_day_and_warehouse_orders_do_not_wait(): void
     {
         Sanctum::actingAs($this->dispatcher);
-        $later = $this->confirmedOrder(['delivery_scheduled_date' => today()->addDays(2)->toDateString()]);
+        // Date prévue calculée une fois : avancer de 3 h peut changer de jour (tests lancés le soir)
+        $planned = today()->addDays(2);
+        $later = $this->confirmedOrder(['delivery_scheduled_date' => $planned->toDateString()]);
         $this->travel(3)->hours();
         $this->assertNull($this->awaiting($later));
 
         // Le jour prévu, l'attente part du début de la journée
-        $this->travelTo(today()->addDays(2)->setTime(1, 0));
+        $this->travelTo($planned->copy()->setTime(1, 0));
         $this->assertSame('pickup', $this->awaiting($later)['stage']);
         $this->assertSame(60, $this->awaiting($later)['minutes']);
     }

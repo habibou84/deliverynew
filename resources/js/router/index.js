@@ -67,6 +67,7 @@ const routes = [
       { path: 'parametres', component: () => import('../views/admin/Settings.vue'), meta: { permission: 'settings.manage' } },
       { path: 'integrations', component: () => import('../views/admin/Integrations.vue'), meta: { permission: 'integrations.manage', feature: 'api' } },
       { path: 'abonnement', component: () => import('../views/admin/Subscription.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp', component: () => import('../views/admin/WhatsApp.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage', feature: 'whatsapp_bot' } },
       { path: 'messages', component: () => import('../views/admin/Messages.vue'), meta: { permission: 'orders.dispatch' } },
@@ -99,6 +100,8 @@ const routes = [
       { path: '', name: 'console', component: () => import('../views/console/Companies.vue') },
       { path: 'entreprises/:id(\\d+)', component: () => import('../views/console/Company.vue') },
       { path: 'formules', component: () => import('../views/console/Plans.vue') },
+      { path: 'facturation', component: () => import('../views/console/Billing.vue') },
+      { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue') },
     ],
   },
   // Application e-commerçant (PWA mobile)

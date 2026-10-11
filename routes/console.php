@@ -19,6 +19,9 @@ Schedule::command('payroll:close')->dailyAt('00:20')->withoutOverlapping();
 // Position des marchands d'après les ramassages des livreurs (rattrapage)
 Schedule::command('merchants:locate')->dailyAt('03:10')->withoutOverlapping();
 Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();
+// Abonnements des entreprises : factures du mois écoulé, puis rappels d'impayés chaque matin
+Schedule::command('billing:invoice')->monthlyOn(1, '01:30')->withoutOverlapping();
+Schedule::command('billing:remind')->dailyAt('08:05')->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class, CourierLocation::class]])->daily();
 Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();
 Schedule::command('parcels:overdue')->everyFifteenMinutes()->withoutOverlapping();
