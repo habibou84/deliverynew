@@ -213,6 +213,9 @@ EOF
     Comptes de démonstration (mot de passe « password », à changer) :
       07 00 00 00 01 administrateur · 07 00 00 00 02 dispatcher · 07 00 00 00 03 caissier
       07 00 00 00 04 et 05 livreurs · 05 00 00 00 01 marchand · 07 00 00 00 06 agent d'entrepôt
+      Super administrateur : 07 00 00 00 00
+    Avant la mise en service : php artisan user:password 0700000000, puis
+    php artisan app:demo-accounts --suspend (comptes au mot de passe « password »)
 EOF
     else
         echo "    Créez le premier compte : cd $APP_DIR && sudo -u $APP_USER php artisan app:create-super-admin"

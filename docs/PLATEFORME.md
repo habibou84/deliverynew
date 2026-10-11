@@ -161,6 +161,27 @@ sudo -u <utilisateur du site> php artisan app:create-super-admin
 
 Ce compte ne se connecte **que** sur `https://admin.jibiat.com`.
 
+### Mots de passe et comptes de démonstration
+
+Un serveur installé avec les données de démonstration (`DEMO=1`, par défaut) contient des comptes
+dont le mot de passe est `password`, dont un super administrateur (`07 00 00 00 00`). À faire
+avant d'accueillir de vraies entreprises :
+
+```bash
+cd <dossier>
+# Changer un mot de passe (demandé deux fois, jamais écrit dans l'historique) ; le compte est déconnecté
+sudo -u <utilisateur du site> php artisan user:password 0700000000
+
+# Lister les comptes qui ont encore le mot de passe « password », puis les suspendre
+sudo -u <utilisateur du site> php artisan app:demo-accounts
+sudo -u <utilisateur du site> php artisan app:demo-accounts --suspend
+```
+
+`--suspend` ne touche jamais aux super administrateurs (ce serait perdre l'accès à la console) :
+changez leur mot de passe avec `user:password`. Un compte suspendu se réactive depuis le
+back-office (Utilisateurs). Si un numéro a un compte dans plusieurs entreprises, `user:password`
+demande laquelle : `--company=express`, ou `--company=console` pour un super administrateur.
+
 ---
 
 ## Étape 5 — Vérifications
@@ -184,8 +205,9 @@ Ce compte ne se connecte **que** sur `https://admin.jibiat.com`.
 - **Liens de suivi déjà envoyés** aux destinataires : ils pointent vers l'ancienne adresse et ne
   s'ouvrent plus. Les nouveaux messages utilisent la nouvelle adresse.
 - **WhatsApp (Meta)** : dans le tableau de bord Meta, l'URL du webhook devient
-  `https://jibiat.com/api/webhooks/whatsapp` (elle répond à n'importe quelle adresse de la
-  plateforme ; le jeton de vérification ne change pas).
+  `https://admin.jibiat.com/api/webhooks/whatsapp` (elle répond à toutes les adresses de
+  l'application, mais pas à `jibiat.com` quand c'est un site de présentation à part ; le jeton de
+  vérification ne change pas).
 - **API publique** : les marchands qui l'utilisent changent seulement l'adresse de base
   (`https://express.jibiat.com/api/public/v1`) ; leurs clés restent valables.
 

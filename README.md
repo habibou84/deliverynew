@@ -429,6 +429,8 @@ On se connecte avec le **téléphone** (format local `07 xx xx xx xx` ou interna
 php artisan migrate --force
 php artisan db:seed --class=RolesAndPermissionsSeeder --force   # à chaque déploiement (idempotent)
 php artisan app:create-super-admin                               # première installation
+php artisan user:password 0700000000                             # changer un mot de passe (déconnecte le compte)
+php artisan app:demo-accounts --suspend                          # suspendre les comptes au mot de passe de démonstration
 ```
 
 **Mise en ligne sur un VPS (LWS ou autre)** : voir [docs/DEPLOIEMENT-LWS.md](docs/DEPLOIEMENT-LWS.md).
