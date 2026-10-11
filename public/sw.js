@@ -5,8 +5,9 @@
  * - Icônes et manifestes : cache puis mise à jour en arrière-plan.
  * - API, temps réel : jamais mis en cache (données toujours fraîches).
  */
-// Changer la version vide les anciens caches (v2 : icônes déplacées dans /app-icons, /icons étant réservé par Apache)
-const VERSION = 'v2'
+// Changer la version vide les anciens caches (v2 : icônes déplacées dans /app-icons, /icons étant réservé par Apache ;
+// v3 : seule l'application est gardée pour le hors ligne, plus la documentation de l'API)
+const VERSION = 'v3'
 const SHELL = `shell-${VERSION}`
 const ASSETS = `assets-${VERSION}`
 const SHELL_KEY = '/__app-shell'
@@ -34,7 +35,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       try {
         const response = await fetch(request)
-        if (response.ok) {
+        // Seule la page de l'application sert hors ligne (pas la documentation de l'API,
+        // ni la page « service suspendu »)
+        if (response.ok && (await response.clone().text()).includes('<div id="app">')) {
           const cache = await caches.open(SHELL)
           await cache.put(SHELL_KEY, response.clone())
         }

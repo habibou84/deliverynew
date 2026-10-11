@@ -37,12 +37,7 @@ class PlatformServerTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => '173.245.48.9'])->get('http://rapide.jibiat.test/api/_ip', $headers)
             ->assertSeeText('173.245.48.9 http');
 
-        putenv('TRUSTED_PROXIES=cloudflare');
-        try {
-            config(['trustedproxy.proxies' => (require base_path('config/trustedproxy.php'))['proxies']]);
-        } finally {
-            putenv('TRUSTED_PROXIES');
-        }
+        config(['trustedproxy.proxies' => $this->trustedProxiesFor('cloudflare')]);
 
         // Derrière Cloudflare : adresse réelle du visiteur et HTTPS
         $this->withServerVariables(['REMOTE_ADDR' => '173.245.48.9'])->get('http://rapide.jibiat.test/api/_ip', $headers)
@@ -101,6 +96,33 @@ class PlatformServerTest extends TestCase
         $this->artisan('platform:status --rename=inconnue:express')->expectsOutputToContain('Aucune entreprise')->assertFailed();
         $this->artisan('platform:status --rename=rapide:express')->expectsOutputToContain('remplacée par « express »')->assertSuccessful();
         $this->assertSame('https://express.jibiat.test', $this->company->fresh()->url());
+    }
+
+    /**
+     * Réglage TRUSTED_PROXIES lu par config/trustedproxy.php, quelle que soit la valeur du .env.
+     */
+    private function trustedProxiesFor(string $value): mixed
+    {
+        $saved = [$_SERVER['TRUSTED_PROXIES'] ?? null, $_ENV['TRUSTED_PROXIES'] ?? null, getenv('TRUSTED_PROXIES')];
+        $_SERVER['TRUSTED_PROXIES'] = $_ENV['TRUSTED_PROXIES'] = $value;
+        putenv("TRUSTED_PROXIES={$value}");
+
+        try {
+            return (require base_path('config/trustedproxy.php'))['proxies'];
+        } finally {
+            [$server, $env, $put] = $saved;
+            if ($server === null) {
+                unset($_SERVER['TRUSTED_PROXIES']);
+            } else {
+                $_SERVER['TRUSTED_PROXIES'] = $server;
+            }
+            if ($env === null) {
+                unset($_ENV['TRUSTED_PROXIES']);
+            } else {
+                $_ENV['TRUSTED_PROXIES'] = $env;
+            }
+            putenv($put === false ? 'TRUSTED_PROXIES' : "TRUSTED_PROXIES={$put}");
+        }
     }
 
     private function secondTenant(): User
