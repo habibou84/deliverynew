@@ -58,6 +58,10 @@ class AuthController extends Controller
     {
         $user->forceFill(['last_login_at' => now()])->save();
 
+        // La réponse décrit l'espace de ce compte (droits, état de l'abonnement) : il est
+        // l'utilisateur de la requête dès maintenant
+        request()->setUserResolver(fn () => $user);
+
         return [
             'token' => $user->createToken($device)->plainTextToken,
             'token_type' => 'Bearer',

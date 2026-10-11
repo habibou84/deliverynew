@@ -6,8 +6,10 @@ use App\Enums\CompanyStatus;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\PlatformInvoice;
 use App\Models\SupportSession;
 use App\Models\User;
+use App\Services\Platform\Billing;
 use App\Services\Platform\Subscription;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
@@ -66,6 +68,9 @@ class ConsoleController extends Controller
             'timezone' => $company->timezone,
             'domain' => Tenancy::enabled() ? Tenancy::domain() : null,
             'subscription' => $subscription->summary($company),
+            'billing' => app(Billing::class)->state($company),
+            'invoices' => PlatformInvoice::query()->where('company_id', $company->id)->orderByDesc('period')->limit(24)->get()
+                ->map(fn (PlatformInvoice $i) => ConsoleBillingController::invoiceData($i))->values(),
             // Comptes de l'équipe qui peuvent servir à l'assistance
             'staff' => User::query()->where('company_id', $company->id)->whereNull('merchant_id')
                 ->whereHas('roles', fn ($q) => $q->whereIn('name', [Role::Admin->value, Role::Dispatcher->value, Role::Cashier->value, Role::HubAgent->value]))

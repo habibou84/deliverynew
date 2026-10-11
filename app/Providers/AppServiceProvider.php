@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\PlatformInvoice;
 use App\Models\User;
 use App\Services\Messaging\Gateways\LogSmsGateway;
 use App\Services\Messaging\Gateways\LogWhatsAppGateway;
@@ -19,6 +20,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -60,6 +62,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Le super administrateur de la plateforme a tous les droits
         Gate::before(fn (User $user) => $user->isSuperAdmin() ? true : null);
+
+        // Factures de la plateforme : {invoice} dans les routes de la console et de l'abonnement
+        Route::model('invoice', PlatformInvoice::class);
 
         RateLimiter::for('login', fn (Request $request) => [
             Limit::perMinute(5)->by(mb_strtolower((string) $request->input('login')).'|'.$request->ip()),

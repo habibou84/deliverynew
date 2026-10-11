@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\PublicV1\PublicApiController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
 use App\Http\Controllers\Api\V1\CourierController;
@@ -126,9 +127,19 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('plans/suggested', 'suggested')->name('plans.suggested');
             Route::patch('plans/{plan}', 'update')->name('plans.update');
         });
+        Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsoleBillingController::class)->group(function () {
+            Route::get('invoices', 'index')->name('invoices.index');
+            Route::post('invoices/generate', 'generate')->name('invoices.generate');
+            Route::get('invoices/{invoice}', 'show')->name('invoices.show');
+            Route::post('invoices/{invoice}/payments', 'pay')->name('invoices.pay');
+            Route::post('invoices/{invoice}/void', 'void')->name('invoices.void');
+            Route::get('settings', 'settings')->name('settings.show');
+            Route::put('settings', 'updateSettings')->name('settings.update');
+        });
 
         // Formule, essai et consommation du mois de l'entreprise
         Route::get('subscription', [SubscriptionController::class, 'show'])->middleware('can:settings.manage')->name('subscription.show');
+        Route::get('subscription/invoices/{invoice}', [SubscriptionController::class, 'invoice'])->middleware('can:settings.manage')->name('subscription.invoice');
 
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
         Route::apiResource('companies', CompanyController::class)->except('destroy');
