@@ -8,10 +8,12 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Jibiat\Socle\Webhooks\WebhookSignature;
 use Throwable;
 
 /**
- * Envoie un webhook signé : en-tête X-Webhook-Signature = sha256=HMAC-SHA256(secret, "<timestamp>.<corps>").
+ * Envoie un webhook signé : en-tête X-Webhook-Signature = sha256=HMAC-SHA256(secret, "<timestamp>.<corps>"), calculé
+ * par le paquet commun habibou84/socle (vérifié avec le même code par Jibiat Marchand).
  * En cas d'échec (pas de réponse 2xx), nouvelle tentative après 1 min, 5 min, 30 min, 2 h puis 6 h.
  */
 class SendWebhook implements ShouldQueue
@@ -59,7 +61,7 @@ class SendWebhook implements ShouldQueue
                     'X-Webhook-Id' => $delivery->event_id,
                     'X-Webhook-Event' => $delivery->event,
                     'X-Webhook-Timestamp' => $timestamp,
-                    'X-Webhook-Signature' => 'sha256='.hash_hmac('sha256', $timestamp.'.'.$body, $subscription->secret),
+                    'X-Webhook-Signature' => WebhookSignature::sign($subscription->secret, (int) $timestamp, $body),
                 ])
                 ->withBody($body, 'application/json')
                 ->post($subscription->url);
