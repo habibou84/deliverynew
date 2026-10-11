@@ -24,7 +24,9 @@ as_user() {
 # Même chose, dans le dossier de l'application
 as_app() { as_user "cd '$APP_DIR' && $*"; }
 
-env_get() { grep -E "^$1=" "$APP_DIR/.env" | tail -n1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
+# Valeur d'un réglage du .env ; vide (sans erreur) s'il est absent, par exemple dans un .env
+# plus ancien que le réglage
+env_get() { { grep -E "^$1=" "$APP_DIR/.env" || true; } | tail -n1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
 
 env_set() {
     local key="$1" value="$2"

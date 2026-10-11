@@ -92,7 +92,7 @@ configure_nginx() {
     fi
 
     step "Nginx : $D et *.$D"
-    sock="$(grep -oP 'fastcgi_pass unix:\K[^;]+' "$conf" | head -n1)"
+    sock="$({ grep -oP 'fastcgi_pass unix:\K[^;]+' "$conf" || true; } | head -n1)"
     port="$(env_get REVERB_SERVER_PORT)"
     [[ -n "$sock" ]] || fail "socket PHP-FPM introuvable dans $conf."
     cp "$conf" "$conf.avant-plateforme"
