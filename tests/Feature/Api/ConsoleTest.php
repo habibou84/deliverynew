@@ -45,7 +45,7 @@ class ConsoleTest extends TestCase
         Sanctum::actingAs($this->root);
         $data = $this->getJson($this->console('/console/companies'))->assertOk()
             ->assertJsonPath('meta.domain', 'jibiat.test')
-            ->assertJsonPath('meta.totals', ['companies' => 2, 'active' => 1, 'orders_month' => 2])
+            ->assertJsonPath('meta.totals', ['companies' => 2, 'active' => 1, 'orders_month' => 2, 'on_trial' => 0])
             ->json('data');
 
         $rapide = collect($data)->firstWhere('slug', 'rapide');

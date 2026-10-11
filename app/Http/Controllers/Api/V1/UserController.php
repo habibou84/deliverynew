@@ -8,7 +8,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreUserRequest;
 use App\Http\Requests\V1\UpdateUserRequest;
 use App\Http\Resources\V1\UserResource;
+use App\Models\Company;
 use App\Models\User;
+use App\Services\Platform\Subscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -54,10 +56,15 @@ class UserController extends Controller
         return UserResource::collection($users);
     }
 
-    public function store(StoreUserRequest $request): JsonResponse
+    public function store(StoreUserRequest $request, Subscription $subscription): JsonResponse
     {
         $actor = $request->user();
         $data = $request->validated();
+
+        // Nombre de livreurs actifs limité par la formule de l'entreprise
+        if ($data['role'] === Role::Courier->value) {
+            $subscription->ensureCourierRoom(Company::findOrFail($actor->isSuperAdmin() ? $data['company_id'] : $actor->company_id));
+        }
 
         $user = DB::transaction(function () use ($actor, $data) {
             $user = User::create([
@@ -86,9 +93,17 @@ class UserController extends Controller
         return UserResource::make($user->load(['roles', 'company']));
     }
 
-    public function update(UpdateUserRequest $request, User $user): UserResource
+    public function update(UpdateUserRequest $request, User $user, Subscription $subscription): UserResource
     {
         $data = $request->validated();
+
+        // Livreur réactivé ou nouveau livreur : dans la limite de la formule
+        $wasCounted = $user->hasRole(Role::Courier->value) && $user->status === UserStatus::Active;
+        $isCourier = isset($data['role']) ? $data['role'] === Role::Courier->value : $user->hasRole(Role::Courier->value);
+        $isActive = isset($data['status']) ? $data['status'] === UserStatus::Active->value : $user->status === UserStatus::Active;
+        if ($isCourier && $isActive && ! $wasCounted && $user->loadMissing('company')->company) {
+            $subscription->ensureCourierRoom($user->company, isset($data['role']) ? 'role' : 'status');
+        }
 
         DB::transaction(function () use ($user, $data) {
             $user->fill(collect($data)->except('role')->all())->save();

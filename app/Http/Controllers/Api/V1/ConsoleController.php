@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\SupportSession;
 use App\Models\User;
+use App\Services\Platform\Subscription;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,7 +29,7 @@ class ConsoleController extends Controller
             'status' => ['nullable', Rule::enum(CompanyStatus::class)],
         ]);
 
-        $companies = $this->withActivity(Company::query())
+        $companies = $this->withActivity(Company::query()->with('plan'))
             ->when($request->filled('search'), fn ($q) => $q->where(fn ($q) => $q
                 ->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($request->string('search')).'%'])
                 ->orWhere('slug', 'like', '%'.mb_strtolower($request->string('search')).'%')))
@@ -47,14 +48,15 @@ class ConsoleController extends Controller
                     'companies' => (clone $all)->count(),
                     'active' => (clone $all)->where('status', CompanyStatus::Active->value)->count(),
                     'orders_month' => (int) $companies->sum('orders_month_count'),
+                    'on_trial' => $companies->filter(fn (Company $c) => $c->onTrial())->count(),
                 ],
             ],
         ]);
     }
 
-    public function show(Company $company): JsonResponse
+    public function show(Company $company, Subscription $subscription): JsonResponse
     {
-        $company = $this->withActivity(Company::query())->findOrFail($company->id);
+        $company = $this->withActivity(Company::query()->with('plan'))->findOrFail($company->id);
 
         return response()->json(['data' => [
             ...$this->companyData($company),
@@ -63,6 +65,7 @@ class ConsoleController extends Controller
             'address' => $company->address,
             'timezone' => $company->timezone,
             'domain' => Tenancy::enabled() ? Tenancy::domain() : null,
+            'subscription' => $subscription->summary($company),
             // Comptes de l'équipe qui peuvent servir à l'assistance
             'staff' => User::query()->where('company_id', $company->id)->whereNull('merchant_id')
                 ->whereHas('roles', fn ($q) => $q->whereIn('name', [Role::Admin->value, Role::Dispatcher->value, Role::Cashier->value, Role::HubAgent->value]))
@@ -149,6 +152,9 @@ class ConsoleController extends Controller
             'orders_total_count' => $c->orders_total_count,
             'orders_month_count' => $c->orders_month_count,
             'last_order_at' => $c->last_order_at,
+            'plan' => $c->plan ? ['id' => $c->plan->id, 'name' => $c->plan->name] : null,
+            'trial_ends_at' => $c->trial_ends_at?->toDateString(),
+            'on_trial' => $c->onTrial(),
             'created_at' => $c->created_at,
         ];
     }

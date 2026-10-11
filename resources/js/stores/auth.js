@@ -36,6 +36,11 @@ export const useAuthStore = defineStore('auth', {
     homeRoute: (state) => homeFor(state.user?.role),
     can: (state) => (permission) =>
       state.user?.role === 'super_admin' || (state.user?.permissions ?? []).includes(permission),
+    // Module inclus dans la formule de l'entreprise (sans entreprise ni formule : tout)
+    hasFeature: (state) => (feature) => {
+      const features = state.user?.company?.features
+      return !Array.isArray(features) || features.includes(feature)
+    },
   },
 
   actions: {

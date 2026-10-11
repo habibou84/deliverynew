@@ -285,6 +285,8 @@ watch(orderChanges, load)
 // Résumé du stock (seulement si le marchand a des produits)
 const stock = reactive({ total: 0, low: 0 })
 async function loadStock() {
+  // Stock : seulement si la formule de l'entreprise l'inclut
+  if (!auth.hasFeature('stock')) return
   try {
     const [all, low] = await Promise.all([
       cachedGet('/products', { params: { per_page: 1 } }),

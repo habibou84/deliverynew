@@ -19,8 +19,8 @@ class UpdateCompanyRequest extends FormRequest
             return false;
         }
 
-        // Le statut et l'identifiant (slug) sont gérés par le super administrateur
-        if ($this->hasAny(['status', 'slug'])) {
+        // Statut, adresse (slug), formule et essai : gérés par le super administrateur
+        if ($this->hasAny(['status', 'slug', 'plan_id', 'trial_ends_at'])) {
             return $this->user()->can('changeStatus', $company);
         }
 
@@ -59,6 +59,9 @@ class UpdateCompanyRequest extends FormRequest
             'daily_cutoff_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'delivery_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
+            // Vide = sans formule (aucune limite)
+            'plan_id' => ['sometimes', 'nullable', 'integer', 'exists:plans,id'],
+            'trial_ends_at' => ['sometimes', 'nullable', 'date_format:Y-m-d'],
         ];
     }
 
@@ -70,6 +73,8 @@ class UpdateCompanyRequest extends FormRequest
             'address' => 'adresse',
             'status' => 'statut',
             'daily_cutoff_time' => 'heure limite du jour',
+            'plan_id' => 'formule',
+            'trial_ends_at' => 'fin de l\'essai',
         ];
     }
 }

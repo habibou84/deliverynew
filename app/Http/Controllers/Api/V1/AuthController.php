@@ -61,13 +61,13 @@ class AuthController extends Controller
         return [
             'token' => $user->createToken($device)->plainTextToken,
             'token_type' => 'Bearer',
-            'user' => UserResource::make($user->load(['company', 'merchant', 'courier']))->withPermissions(),
+            'user' => UserResource::make($user->load(['company.plan', 'merchant', 'courier']))->withPermissions(),
         ];
     }
 
     public function me(Request $request): UserResource
     {
-        return UserResource::make($request->user()->load(['company', 'merchant', 'courier']))->withPermissions();
+        return UserResource::make($request->user()->load(['company.plan', 'merchant', 'courier']))->withPermissions();
     }
 
     public function logout(Request $request): JsonResponse

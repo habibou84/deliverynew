@@ -39,6 +39,10 @@ class CompanyResource extends JsonResource
             'merchant_signup' => $this->merchant_signup,
             'logo_url' => Branding::logoUrl($this->resource),
             'status' => $this->status,
+            // Formule : modules disponibles (menus et pages de l'application)
+            'features' => $this->resource->features(),
+            'plan' => $this->whenLoaded('plan', fn () => $this->plan ? ['id' => $this->plan->id, 'name' => $this->plan->name] : null),
+            'trial_ends_at' => $this->trial_ends_at?->toDateString(),
             'users_count' => $this->whenCounted('users'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

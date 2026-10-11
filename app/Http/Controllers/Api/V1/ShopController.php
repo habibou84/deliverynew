@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\PlatformFeature;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Models\Product;
@@ -91,7 +92,9 @@ class ShopController extends Controller
     private function merchant(string $slug): Merchant
     {
         $merchant = app(Tenancy::class)->restrict(Merchant::query()->where('shop_slug', mb_strtolower($slug))->where('shop_enabled', true))->first();
-        abort_if($merchant === null || ! $merchant->isActive() || ! $merchant->company?->isActive(), 404, 'Boutique introuvable.');
+        // Boutique fermée aussi quand la formule de l'entreprise ne comprend plus les boutiques
+        abort_if($merchant === null || ! $merchant->isActive() || ! $merchant->company?->isActive()
+            || ! $merchant->company->hasFeature(PlatformFeature::Shop), 404, 'Boutique introuvable.');
 
         return $merchant;
     }

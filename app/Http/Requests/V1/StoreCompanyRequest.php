@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Rules\PhoneNumber;
 use App\Support\PhoneNumber as Phone;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class StoreCompanyRequest extends FormRequest
@@ -44,6 +45,9 @@ class StoreCompanyRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:1000'],
             'auto_confirm_orders' => ['boolean'],
             'default_max_attempts' => ['integer', 'min:1', 'max:10'],
+            // Formule proposée (active) ; essai gratuit par défaut (PLATFORM_TRIAL_DAYS)
+            'plan_id' => ['nullable', 'integer', Rule::exists('plans', 'id')->where('is_active', true)],
+            'trial_ends_at' => ['nullable', 'date_format:Y-m-d'],
 
             // Premier administrateur de l'entreprise (facultatif)
             'admin' => ['nullable', 'array'],
@@ -61,6 +65,8 @@ class StoreCompanyRequest extends FormRequest
             'name' => 'nom',
             'phone' => 'téléphone',
             'address' => 'adresse',
+            'plan_id' => 'formule',
+            'trial_ends_at' => 'fin de l\'essai',
             'admin.name' => 'nom de l\'administrateur',
             'admin.phone' => 'téléphone de l\'administrateur',
             'admin.email' => 'e-mail de l\'administrateur',
