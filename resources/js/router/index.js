@@ -49,6 +49,7 @@ const routes = [
     meta: { roles: SPACES.admin },
     children: [
       { path: '', name: 'admin', component: shared.dashboard },
+      { path: 'statistiques', component: () => import('../views/admin/Statistics.vue'), meta: { permission: 'orders.view' } },
       { path: 'courses', component: shared.orders, meta: { permission: 'orders.view' } },
       { path: 'courses/nouvelle', component: shared.orderCreate, meta: { permission: 'orders.create' } },
       { path: 'courses/import', component: () => import('../views/admin/OrderImport.vue'), meta: { permission: 'orders.create' } },

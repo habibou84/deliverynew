@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\V1\ReturnSlipController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\SignupController;
+use App\Http\Controllers\Api\V1\StatisticsController;
 use App\Http\Controllers\Api\V1\StockMovementController;
 use App\Http\Controllers\Api\V1\StorageContractController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
@@ -295,6 +296,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
         });
 
         Route::get('reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
+
+        // Statistiques de l'entreprise (back-office)
+        Route::prefix('stats')->name('stats.')->middleware('can:orders.view')->controller(StatisticsController::class)->group(function () {
+            Route::get('overview', 'overview')->name('overview');
+            Route::get('deliveries', 'deliveries')->name('deliveries');
+            Route::get('couriers', 'couriers')->name('couriers');
+        });
 
         // Caisse et finances (droits vérifiés dans le contrôleur : finance.view / finance.manage)
         Route::prefix('finance')->name('finance.')->controller(FinanceController::class)->group(function () {
