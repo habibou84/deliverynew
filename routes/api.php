@@ -302,6 +302,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('overview', 'overview')->name('overview');
             Route::get('deliveries', 'deliveries')->name('deliveries');
             Route::get('couriers', 'couriers')->name('couriers');
+            Route::get('merchants', 'merchants')->name('merchants');
+            Route::get('zones', 'zones')->name('zones');
+            Route::get('finances', 'finances')->name('finances');
         });
 
         // Caisse et finances (droits vérifiés dans le contrôleur : finance.view / finance.manage)

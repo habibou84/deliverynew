@@ -324,7 +324,17 @@ Menu **📊 Statistiques** du back-office (`orders.view`, personnel seulement), 
   délais habituels (médianes : création → ramassage → livraison), issues de la période.
 - **Livreurs** (`orders.dispatch`) : classement triable et exportable — livrées, ramassages, échecs, réussite, délai,
   jours travaillés, courses par jour ; encaissé, écarts de caisse et gains.
-- Les montants ne sont renvoyés qu'aux comptes qui voient la caisse (`finance.view`).
+- **E-commerçants** (`merchants.view`, `GET /stats/merchants`) : actifs, nouveaux, **à relancer** (plus de course depuis
+  30 jours, bouton WhatsApp), part des 5 premiers ; top et tableau triable (créées, livrées, retournées, réussite,
+  chiffre d'affaires, encaissé, reste à reverser).
+- **Zones** (`GET /stats/zones`) : par commune (les quartiers comptent dans leur commune) — créées, livrées, échecs,
+  réussite des passages, délai médian, frais moyen, chiffre d'affaires ; part de l'expédition ; commune la plus lente.
+- **Finances** (`finance.view`, `GET /stats/finances`) : revenus (frais de livraison, de retour, de stockage du grand livre),
+  dépenses (paie des livreurs, frais de course à la charge de l'entreprise, indemnités de colis perdus), **marge** totale
+  et par course livrée, mois par mois ; frais refacturés à part ; **argent en circulation** (chez les livreurs, à reverser
+  aux marchands, dû par des marchands).
+- Les montants ne sont renvoyés qu'aux comptes qui voient la caisse (`finance.view`). Tableaux triables et exportables
+  (CSV pour Excel).
 
 ### Inscription des entreprises en libre-service
 
