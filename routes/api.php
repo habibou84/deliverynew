@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\ConsolePlanController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
+use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
@@ -159,6 +160,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('invoices/{invoice}/void', 'void')->name('invoices.void');
             Route::get('settings', 'settings')->name('settings.show');
             Route::put('settings', 'updateSettings')->name('settings.update');
+        });
+
+        // Domaine personnalisé de l'entreprise (module de la formule pour le choisir)
+        Route::prefix('company/domain')->name('company.domain.')->middleware('can:settings.manage')->controller(CustomDomainController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::put('/', 'update')->middleware(['feature:custom_domain', 'throttle:10,1'])->name('update');
+            Route::post('check', 'check')->middleware(['feature:custom_domain', 'throttle:10,1'])->name('check');
+            Route::delete('/', 'destroy')->name('destroy');
         });
 
         // Formule, essai et consommation du mois de l'entreprise

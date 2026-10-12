@@ -155,6 +155,9 @@ class ConsoleController extends Controller
             'name' => $c->name,
             'slug' => $c->slug,
             'url' => $c->url(),
+            // Domaine personnalisé (le serveur doit le connaître : voir docs/PLATEFORME.md)
+            'custom_domain' => $c->custom_domain,
+            'custom_domain_status' => $c->custom_domain_status,
             'status' => $c->status,
             'merchants_count' => $c->merchants_count,
             'couriers_count' => $c->couriers_count,

@@ -3,6 +3,9 @@
     // Pages des clients (boutique d'un marchand, suivi d'un colis) : pas d'application à installer
     $pwa = request()->is('livreur*') ? 'livreur' : (request()->is('admin*', 'b/*', 'suivi*') ? null : 'marchand');
     $theme = ['livreur' => '#1d4ed8', 'marchand' => '#047857'][$pwa] ?? '#0f172a';
+    // Marque blanche : sur l'adresse d'une entreprise, son nom ; sinon celui de la plateforme
+    // (sans base de données joignable, le nom de la plateforme : la page doit toujours s'afficher)
+    $siteName = rescue(fn () => \App\Support\Branding::company()?->name, null, false) ?? config('app.name', 'Livraison');
 @endphp
 <!DOCTYPE html>
 <html lang="fr">
@@ -10,7 +13,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="{{ $theme }}">
-    <title>{{ config('app.name', 'Livraison') }}</title>
+    <title>{{ $siteName }}</title>
     @if ($pwa)
         <link rel="manifest" href="{{ route('pwa.manifest', $pwa, false) }}">
         <link rel="apple-touch-icon" href="/app-icons/{{ $pwa }}-apple-180.png">
