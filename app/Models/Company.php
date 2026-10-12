@@ -59,6 +59,7 @@ class Company extends Model
             'merchant_signup' => 'boolean',
             'weekly_report' => 'boolean',
             'weekly_report_sent_at' => 'datetime',
+            'custom_domain_checked_at' => 'datetime',
             'field_alert_reminder_minutes' => 'integer',
             'parcel_hold_alert_hours' => 'integer',
             'pickup_assign_alert_minutes' => 'integer',

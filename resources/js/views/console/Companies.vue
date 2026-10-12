@@ -52,7 +52,10 @@
               {{ c.name }}
               <span v-if="c.source === 'signup'" class="ml-1 whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 text-xs font-normal text-violet-800" :title="`Inscrite le ${date(c.created_at)}`">en ligne</span>
             </td>
-            <td class="p-2"><a :href="c.url" target="_blank" rel="noopener" class="text-blue-600" @click.stop>{{ host(c.url) }}</a></td>
+            <td class="p-2">
+              <a :href="c.url" target="_blank" rel="noopener" class="text-blue-600" @click.stop>{{ host(c.url) }}</a>
+              <span v-if="c.custom_domain_status === 'pending'" class="ml-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800" :title="`Domaine ${c.custom_domain} en attente de vérification`">{{ c.custom_domain }} · en attente</span>
+            </td>
             <td class="p-2 text-right">{{ c.merchants_count }}</td>
             <td class="p-2 text-right">{{ c.couriers_count }}</td>
             <td class="p-2 text-right font-semibold">{{ c.orders_month_count }}</td>

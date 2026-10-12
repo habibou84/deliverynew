@@ -12,6 +12,7 @@ enum PlatformFeature: string
     case Stock = 'stock';
     case Shop = 'shop';
     case AdvancedStats = 'advanced_stats';
+    case CustomDomain = 'custom_domain';
 
     public function label(): string
     {
@@ -21,6 +22,7 @@ enum PlatformFeature: string
             self::Stock => 'Stock et entrepôt',
             self::Shop => 'Boutiques en ligne des marchands',
             self::AdvancedStats => 'Statistiques avancées',
+            self::CustomDomain => 'Domaine personnalisé',
         };
     }
 
@@ -32,6 +34,7 @@ enum PlatformFeature: string
             self::Stock => 'Produits des marchands stockés à l\'entrepôt, mouvements et facturation du stockage.',
             self::Shop => 'Page de commande publique de chaque marchand (catalogue, panier, livraison).',
             self::AdvancedStats => 'Statistiques par zone et finances (revenus, dépenses, marge), export des tableaux vers Excel.',
+            self::CustomDomain => 'L\'entreprise utilise sa propre adresse (ex. livraison.son-entreprise.ci) pour son espace, ses marchands, ses livreurs et ses liens de suivi.',
         };
     }
 

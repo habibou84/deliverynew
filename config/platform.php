@@ -34,6 +34,19 @@ return [
         'restrict_after_days' => (int) env('PLATFORM_BILLING_RESTRICT_DAYS', 15),
     ],
 
+    // Domaines personnalisés des entreprises (ex. livraison.rapide-express.ci) :
+    //  - target : nom vers lequel le client fait pointer son domaine (CNAME), servi par Cloudflare for SaaS ;
+    //  - server_ip : adresse IP à indiquer pour un domaine racine (enregistrement A) ;
+    //  - cloudflare : création automatique du nom d'hôte (jeton « Custom Hostnames : Edit » et zone de PLATFORM_DOMAIN)
+    'custom_domains' => [
+        'target' => env('PLATFORM_CUSTOM_DOMAIN_TARGET'),
+        'server_ip' => env('PLATFORM_SERVER_IP'),
+        'cloudflare' => [
+            'token' => env('CLOUDFLARE_API_TOKEN'),
+            'zone_id' => env('CLOUDFLARE_ZONE_ID'),
+        ],
+    ],
+
     // Sous-domaines qui ne peuvent pas être attribués à une entreprise
     'reserved_subdomains' => ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp', 'ws', 'socket', 'static', 'cdn', 'docs', 'status', 'support', 'aide', 'blog'],
 ];

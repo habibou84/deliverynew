@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 /**
  * Entreprise désignée par l'adresse du site. Sur la plateforme (PLATFORM_DOMAIN) :
  *  - entreprise1.jibiat.com → l'entreprise « entreprise1 » (zone « company ») ;
+ *  - livraison.entreprise1.ci → la même, par son domaine personnalisé (zone « company ») ;
  *  - admin.jibiat.com → la console du super administrateur (zone « console ») ;
  *  - jibiat.com, www.jibiat.com → la présentation de la plateforme (zone « platform »).
  * Sans PLATFORM_DOMAIN : une seule entreprise (zone « single »).
@@ -69,8 +70,13 @@ class Tenancy
         }
 
         $this->zone = self::COMPANY;
-        $slug = str_ends_with($host, ".{$domain}") ? substr($host, 0, -strlen(".{$domain}")) : null;
-        $company = $slug !== null && ! str_contains($slug, '.') ? Company::query()->where('slug', $slug)->first() : null;
+        if (str_ends_with($host, ".{$domain}")) {
+            $slug = substr($host, 0, -strlen(".{$domain}"));
+            $company = ! str_contains($slug, '.') ? Company::query()->where('slug', $slug)->first() : null;
+        } else {
+            // Domaine personnalisé de l'entreprise (avec ou sans « www. »)
+            $company = Company::query()->whereIn('custom_domain', array_unique([$host, preg_replace('/^www\./', '', $host)]))->first();
+        }
 
         if ($company === null) {
             $this->problem = 'unknown';
@@ -119,13 +125,19 @@ class Tenancy
     }
 
     /**
-     * Adresse de base d'une entreprise : son sous-domaine sur la plateforme, sinon APP_URL.
+     * Adresse de base d'une entreprise : son domaine personnalisé vérifié, sinon son
+     * sous-domaine sur la plateforme ; sans plateforme, APP_URL.
      */
     public static function baseUrl(Company $company): string
     {
-        return self::enabled()
-            ? config('platform.scheme').'://'.$company->slug.'.'.self::domain()
-            : rtrim((string) config('app.url'), '/');
+        if (! self::enabled()) {
+            return rtrim((string) config('app.url'), '/');
+        }
+
+        // Domaine personnalisé vérifié : c'est l'adresse donnée aux marchands et aux destinataires
+        return $company->custom_domain && $company->custom_domain_status === 'active'
+            ? config('platform.scheme').'://'.$company->custom_domain
+            : config('platform.scheme').'://'.$company->slug.'.'.self::domain();
     }
 
     private function ensureResolved(): void

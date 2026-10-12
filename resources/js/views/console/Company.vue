@@ -5,6 +5,11 @@
         <RouterLink to="/console" class="text-sm text-blue-600">← Entreprises</RouterLink>
         <h1 class="text-xl font-bold">{{ company.name }}</h1>
         <a :href="company.url" target="_blank" rel="noopener" class="text-sm text-blue-600">{{ company.url.replace(/^https?:\/\//, '') }}</a>
+        <p v-if="company.custom_domain_status === 'pending'" class="mt-1 max-w-xl rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          Domaine <strong>{{ company.custom_domain }}</strong> en attente. Côté serveur : le nom d'hôte doit exister dans Cloudflare
+          (Custom Hostnames, automatique si le jeton Cloudflare est configuré) et dans le site ISPConfig de l'application
+          (<code>ServerAlias {{ company.custom_domain }}</code>). Voir docs/PLATEFORME.md.
+        </p>
       </div>
       <div class="flex items-center gap-2">
         <span :class="['rounded-full px-3 py-1 text-sm font-medium', active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700']">

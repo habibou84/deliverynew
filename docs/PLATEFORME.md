@@ -226,6 +226,52 @@ ligne » : **Fermer** pour la suspendre ; il faut au moins une formule active da
 
 ---
 
+## Domaines personnalisés (marque blanche)
+
+Une entreprise dont la formule inclut « Domaine personnalisé » peut utiliser sa propre adresse,
+par exemple `livraison.rapide-express.ci`, en plus de `rapide-express.jibiat.com`. Sur son
+adresse, l'application porte son nom et son logo ; « Jibiat » n'apparaît pas. Une fois le
+domaine vérifié, les liens envoyés (suivi, boutiques, bons de retour, point de la semaine)
+l'utilisent.
+
+**Comment ça marche** : le client crée chez son fournisseur de domaine un enregistrement
+`CNAME livraison → clients.jibiat.com`. Cloudflare for SaaS reçoit ce trafic, crée le
+certificat HTTPS du client tout seul, et l'envoie à votre serveur avec le nom du client.
+L'application reconnaît l'entreprise par ce nom. Le domaine passe « Actif » dès que
+`https://livraison.rapide-express.ci/.well-known/domain-check` répond avec cette entreprise
+(vérifié toutes les 10 minutes, ou avec le bouton « Vérifier maintenant »).
+
+### Mise en place (une seule fois)
+
+1. **Cloudflare, zone jibiat.com > DNS** : ajoutez `A clients → 180.149.196.70` (proxy orange
+   activé). C'est l'« origine de repli » des domaines clients.
+2. **Cloudflare > SSL/TLS > Custom Hostnames** : activez Cloudflare for SaaS (les 100 premiers
+   domaines sont gratuits), puis **Fallback Origin** = `clients.jibiat.com`.
+3. **Cloudflare > Rules > Configuration Rules** : créez une règle « Domaines clients » :
+   *Hostname does not end with* `jibiat.com` → **SSL : Full**. Le certificat d'origine du serveur
+   couvre `*.jibiat.com`, pas les domaines des clients ; « Full » garde la connexion chiffrée
+   sans exiger ce nom (les adresses en .jibiat.com restent en Full (strict)).
+4. **Fichier .env** du serveur, puis `bash deploy/update.sh` :
+
+   ```
+   PLATFORM_CUSTOM_DOMAIN_TARGET=clients.jibiat.com
+   # Facultatif : création automatique des domaines dans Cloudflare
+   CLOUDFLARE_API_TOKEN=…   # Mon profil > Jetons d'API : « Zone > SSL and Certificates > Edit » sur jibiat.com
+   CLOUDFLARE_ZONE_ID=…     # Tableau de bord de jibiat.com, colonne de droite « Zone ID »
+   ```
+
+### À chaque nouveau domaine
+
+- **Cloudflare** : si le jeton n'est pas configuré, ajoutez le domaine dans
+  *SSL/TLS > Custom Hostnames > Add Custom Hostname* (validation par HTTP). Avec le jeton,
+  c'est automatique.
+- **ISPConfig** : ouvrez le site de l'application > *Options* > *Apache Directives* et ajoutez
+  une ligne `ServerAlias livraison.rapide-express.ci` sous la ligne `ServerAlias *.jibiat.com`.
+  Sans elle, Apache ne sait pas que ce nom va à l'application.
+- La console (fiche de l'entreprise) rappelle ces deux points tant que le domaine est en attente.
+
+---
+
 ## Limites par entreprise
 
 Pour qu'une entreprise très active ne ralentisse pas les autres, l'espace connecté accepte par

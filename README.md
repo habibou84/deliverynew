@@ -364,6 +364,19 @@ Menu **📊 Statistiques** du back-office (`orders.view`, personnel seulement), 
   **Ouvrir / Fermer** l'inscription (`console/settings`, `company_signup`, ouverte par défaut). Fermée aussi tant
   qu'aucune formule n'est proposée.
 
+### Domaine personnalisé et marque blanche
+
+- Module de formule `custom_domain`. L'administrateur choisit son domaine dans **Paramètres** (« Adresse de votre
+  espace ») ; l'écran donne l'enregistrement DNS à créer (`CNAME` vers `PLATFORM_CUSTOM_DOMAIN_TARGET`), l'état et les
+  erreurs lisibles ; « Vérifier maintenant » et vérification automatique (`domains:check`, toutes les 10 minutes, domaines
+  en attente depuis moins de 14 jours). Service `App\Services\Platform\CustomDomains`, API `company/domain`.
+- Actif quand `https://{domaine}/.well-known/domain-check` répond avec l'entreprise : `Tenancy` reconnaît l'entreprise
+  par son domaine (avec ou sans `www.`), `Company::url()` (liens WhatsApp, SMS, API) l'utilise ; les administrateurs sont
+  prévenus. L'adresse `{slug}.jibiat.com` continue de fonctionner.
+- Cloudflare for SaaS : nom d'hôte créé et supprimé automatiquement si `CLOUDFLARE_API_TOKEN` et `CLOUDFLARE_ZONE_ID` sont
+  renseignés. Mise en place du serveur : `docs/PLATEFORME.md`, « Domaines personnalisés ».
+- Marque blanche : sur l'adresse d'une entreprise, le titre des pages est son nom (plus celui de la plateforme).
+
 ### Paie des livreurs : plans de rémunération
 
 **Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de

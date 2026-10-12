@@ -2,6 +2,9 @@
   <div class="max-w-2xl space-y-4">
     <h1 class="text-xl font-bold">Paramètres de l'entreprise</h1>
 
+    <!-- Adresse de l'espace et domaine personnalisé (plateforme) -->
+    <CustomDomainSettings />
+
     <!-- Identité visuelle : page d'accueil des e-commerçants, pages de connexion, en-tête -->
     <section v-if="form" class="card p-4 space-y-3">
       <h2 class="font-semibold">Logo et page d'accueil</h2>
@@ -116,6 +119,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import CustomDomainSettings from '../../components/CustomDomainSettings.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
