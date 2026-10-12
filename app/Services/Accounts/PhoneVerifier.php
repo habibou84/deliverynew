@@ -91,13 +91,9 @@ class PhoneVerifier
      */
     public function whatsappNumber(Company $company): ?string
     {
-        if (config('messaging.whatsapp.driver') !== 'meta') {
-            return null;
-        }
-
         $account = WhatsAppAccount::forCompanyId($company->id);
 
-        return $account?->isConfigured() && filled($account->display_phone)
+        return $account?->isLive() && filled($account->display_phone)
             ? PhoneNumber::normalize($account->display_phone)
             : null;
     }
@@ -112,11 +108,12 @@ class PhoneVerifier
     }
 
     /**
-     * Aucun envoi réel configuré (démonstration) : le code SMS est affiché sur la page.
+     * SMS simulés (démonstration) : le code SMS est affiché sur la page, sinon personne
+     * ne pourrait le lire.
      */
     public function demoMode(): bool
     {
-        return config('messaging.whatsapp.driver') === 'log' && config('messaging.sms.driver') === 'log';
+        return config('messaging.whatsapp.driver') !== 'meta' && config('messaging.sms.driver') === 'log';
     }
 
     /**

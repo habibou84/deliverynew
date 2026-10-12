@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\PlatformInvoice;
 use App\Models\User;
+use App\Services\Messaging\Gateways\AutoWhatsAppGateway;
 use App\Services\Messaging\Gateways\LogSmsGateway;
 use App\Services\Messaging\Gateways\LogWhatsAppGateway;
 use App\Services\Messaging\Gateways\MetaCloudGateway;
@@ -33,9 +34,11 @@ class AppServiceProvider extends ServiceProvider
         // Entreprise de l'adresse : une par requête
         $this->app->scoped(Tenancy::class);
 
+        // WhatsApp : réel pour les numéros connectés (auto), forcé (meta) ou simulé partout (log)
         $this->app->bind(WhatsAppGateway::class, fn () => match (config('messaging.whatsapp.driver')) {
             'meta' => new MetaCloudGateway,
-            default => new LogWhatsAppGateway,
+            'log' => new LogWhatsAppGateway,
+            default => new AutoWhatsAppGateway(new MetaCloudGateway, new LogWhatsAppGateway),
         });
 
         // Messages WhatsApp libres : Claude si une clé API est configurée, sinon analyse par règles

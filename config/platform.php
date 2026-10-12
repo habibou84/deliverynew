@@ -6,6 +6,12 @@
  * l'installation sert une seule entreprise (BRANDING_COMPANY, sinon la première).
  */
 return [
+    // Éditeur de la plateforme (politique de confidentialité, demandes de suppression)
+    'operator' => env('PLATFORM_OPERATOR', env('APP_NAME', 'Jibiat')),
+    'contact_email' => env('PLATFORM_CONTACT_EMAIL'),
+    'contact_phone' => env('PLATFORM_CONTACT_PHONE'),
+    'country' => env('PLATFORM_COUNTRY', 'Côte d\'Ivoire'),
+
     // Domaine de la plateforme, sans « www » (ex. jibiat.com) ; vide = une seule entreprise
     'domain' => env('PLATFORM_DOMAIN'),
 
