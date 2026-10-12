@@ -1,12 +1,17 @@
 <template>
   <section v-if="settings" class="space-y-2">
-    <h2 class="px-1 text-sm font-semibold text-slate-500 uppercase tracking-wide">Messages WhatsApp</h2>
+    <h2 class="px-1 text-sm font-semibold text-slate-500 uppercase tracking-wide">Mes notifications</h2>
+
+    <!-- Notifications sur ce téléphone : remplacent WhatsApp quand elles sont activées -->
+    <PushSettings v-if="settings.push_first" audience="merchant" />
+
+    <p v-if="onPhone || !settings.push_first" class="px-1 text-sm text-slate-500">{{ deliveryHint }}</p>
 
     <div class="m-card divide-y">
       <button type="button" class="tap w-full p-4 flex items-center gap-3 text-left active:bg-slate-50" @click="openPhone">
         <span class="text-2xl">💬</span>
         <span class="flex-1">
-          <span class="block text-sm text-slate-500">Envoyés au</span>
+          <span class="block text-sm text-slate-500">{{ onPhone ? 'WhatsApp de secours' : 'Messages WhatsApp envoyés au' }}</span>
           <span class="block font-medium">{{ settings.messaging_phone || 'Aucun numéro' }}</span>
         </span>
         <span class="text-sm font-medium text-[var(--app-color)]">Modifier</span>
@@ -17,7 +22,7 @@
       <ToggleRow
         v-for="e in settings.events"
         :key="e.event"
-        :model-value="e.whatsapp"
+        :model-value="e.enabled"
         :label="e.label"
         :description="HINTS[e.event]"
         @update:model-value="setEvent(e, $event)"
@@ -61,11 +66,13 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import BottomSheet from './BottomSheet.vue'
 import ChoiceChips from './ChoiceChips.vue'
+import PushSettings from './PushSettings.vue'
 import ToggleRow from './ToggleRow.vue'
+import { push } from '../../composables/usePush'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
@@ -75,6 +82,7 @@ const HINTS = {
   'order.delivered': 'Avec le montant encaissé',
   'order.incident': 'Client injoignable, refus, report…',
   'payout.paid': 'Quand votre argent est envoyé',
+  'order.returned': 'Quand vos colis non livrés vous sont rapportés',
 }
 const WEEKDAYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
 const DAILY_TIMES = ['18:00', '19:00', '20:00', '21:00', '22:00', '07:00']
@@ -89,6 +97,25 @@ const phoneError = ref('')
 const saving = ref(false)
 
 const url = () => `/merchants/${auth.user.merchant_id}/notifications`
+
+// Messages reçus en notification (gratuit pour l'entreprise) dès qu'un téléphone est abonné
+const onPhone = computed(() => settings.value?.push_first && settings.value.push_devices > 0)
+const deliveryHint = computed(() => (onPhone.value
+  ? `📱 Vos messages arrivent en notification sur ${settings.value.push_devices > 1 ? `vos ${settings.value.push_devices} appareils` : 'votre téléphone'}. WhatsApp ne sert que si elle n'arrive pas.`
+  : '💬 Vos messages arrivent par WhatsApp.'))
+
+async function load() {
+  try {
+    settings.value = (await http.get(url())).data.data
+  } catch {
+    settings.value = null // hors ligne : la section est masquée
+  }
+}
+
+// Notifications activées ou coupées sur ce téléphone : le nombre d'appareils change
+watch(() => push.subscribed, (now, before) => {
+  if (settings.value && now !== before) load()
+})
 
 async function save(payload, success = 'Enregistré.') {
   saving.value = true
@@ -105,7 +132,7 @@ async function save(payload, success = 'Enregistré.') {
 }
 
 function setEvent(e, value) {
-  e.whatsapp = value // réactif tout de suite, corrigé par la réponse en cas d'erreur
+  e.enabled = value // réactif tout de suite, corrigé par la réponse en cas d'erreur
   save({ events: { [e.event]: value } }, value ? `« ${e.label} » activé.` : `« ${e.label} » désactivé.`)
 }
 
@@ -133,11 +160,5 @@ async function savePhone() {
   }
 }
 
-onMounted(async () => {
-  try {
-    settings.value = (await http.get(url())).data.data
-  } catch {
-    settings.value = null // hors ligne : la section est masquée
-  }
-})
+onMounted(load)
 </script>

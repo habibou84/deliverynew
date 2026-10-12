@@ -7,13 +7,15 @@ use App\Enums\ReportFrequency;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Rules\PhoneNumber;
+use App\Services\Push\WebPush;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Messages WhatsApp reçus par un marchand : événements et points d'activité programmés.
+ * Messages reçus par un marchand (notification sur son téléphone ou WhatsApp) :
+ * événements et points d'activité programmés.
  */
 class MerchantNotificationController extends Controller
 {
@@ -50,7 +52,7 @@ class MerchantNotificationController extends Controller
             foreach ($data['events'] ?? [] as $event => $enabled) {
                 $merchant->notificationPreferences()->updateOrCreate(
                     ['event' => $event],
-                    ['company_id' => $merchant->company_id, 'channels' => $enabled ? ['whatsapp'] : []],
+                    ['company_id' => $merchant->company_id, 'channels' => $enabled ? ['push', 'whatsapp'] : []],
                 );
             }
 
@@ -85,10 +87,13 @@ class MerchantNotificationController extends Controller
         return [
             'whatsapp_phone' => $merchant->whatsapp_phone,
             'messaging_phone' => $merchant->messagingPhone(),
+            // Notification sur le téléphone d'abord (gratuit), WhatsApp à défaut
+            'push_first' => WebPush::enabled() && (bool) $merchant->company?->merchant_push_first,
+            'push_devices' => $merchant->pushSubscriptions()->count(),
             'events' => array_map(fn (NotificationEvent $e) => [
                 'event' => $e->value,
                 'label' => $e->label(),
-                'whatsapp' => $merchant->wantsWhatsApp($e),
+                'enabled' => $merchant->wantsNotification($e),
             ], NotificationEvent::cases()),
             'reports' => collect(ReportFrequency::cases())->mapWithKeys(function (ReportFrequency $f) use ($merchant) {
                 $report = $merchant->scheduledReports->firstWhere('frequency', $f);

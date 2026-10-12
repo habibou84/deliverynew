@@ -6,6 +6,8 @@ import { pwa } from './usePwa'
 export const push = reactive({
   supported: typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window,
   serverEnabled: false,
+  // E-commerçant dont les messages passent en notification (sinon WhatsApp seulement)
+  merchantMessages: false,
   permission: typeof Notification !== 'undefined' ? Notification.permission : 'default',
   subscribed: false,
   busy: false,
@@ -42,6 +44,7 @@ export async function initPush() {
   try {
     const { data } = await http.get('/push')
     push.serverEnabled = data.data.enabled
+    push.merchantMessages = Boolean(data.data.merchant_messages)
     publicKey = data.data.public_key
   } catch {
     return

@@ -6,6 +6,7 @@
     </div>
 
     <InstallBanner app="marchand" />
+    <PushInvite />
 
     <!-- Rappel tant que le lieu de ramassage n'est pas localisé -->
     <RouterLink
@@ -175,6 +176,7 @@ import { cachedGet } from '../../composables/useCachedApi'
 import OrderCard from '../../components/mobile/OrderCard.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
+import PushInvite from '../../components/mobile/PushInvite.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'

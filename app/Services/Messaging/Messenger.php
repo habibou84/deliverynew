@@ -12,11 +12,12 @@ use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
+use App\Services\Push\WebPush;
 use App\Support\PhoneNumber;
 
 /**
- * Point d'entrée unique des messages WhatsApp et SMS : enregistre le message
- * dans le journal puis le confie à la file d'attente.
+ * Point d'entrée unique des messages WhatsApp, SMS et notifications push aux marchands :
+ * enregistre le message dans le journal puis le confie à la file d'attente.
  */
 class Messenger
 {
@@ -27,14 +28,100 @@ class Messenger
      */
     public function toMerchant(Merchant $merchant, NotificationEvent $event, WhatsAppTemplate $template, array $params, ?Order $order = null): ?OutboundMessage
     {
-        if (! $merchant->wantsWhatsApp($event)) {
+        if (! $merchant->wantsNotification($event)) {
             return null;
         }
 
-        return $this->whatsapp($merchant->company_id, $merchant->messagingPhone(), 'merchant', $template, $params, [
-            'event' => $event->value,
+        return $this->merchantMessage($merchant, $event->value, $template, $params, ['order_id' => $order?->id]);
+    }
+
+    /**
+     * Message au marchand : notification sur son téléphone quand il l'a activée dans
+     * l'application (gratuit), sinon WhatsApp. Une notification qu'aucun appareil
+     * n'a reçue repart par WhatsApp (voir fallbackToWhatsApp).
+     *
+     * @param  list<string|int>  $params
+     * @param  array<string, mixed>  $context
+     */
+    public function merchantMessage(Merchant $merchant, string $event, WhatsAppTemplate $template, array $params, array $context = []): ?OutboundMessage
+    {
+        $context = [...$context, 'event' => $event, 'merchant_id' => $merchant->id];
+
+        if (! $this->pushFirst($merchant)) {
+            return $this->whatsapp($merchant->company_id, $merchant->messagingPhone(), 'merchant', $template, $params, $context);
+        }
+
+        $params = array_map(fn ($p) => self::cleanParameter((string) $p), $params);
+
+        $message = OutboundMessage::create([
+            ...$context,
+            'company_id' => $merchant->company_id,
+            'channel' => MessageChannel::Push,
+            'to' => PhoneNumber::normalize($merchant->messagingPhone()) ?? '',
+            'recipient_type' => 'merchant',
+            'template_name' => $template->value,
+            'payload' => $params,
+            'body' => $template->render($params),
+            'status' => MessageStatus::Queued,
+        ]);
+
+        SendOutboundMessage::dispatch($message)->afterCommit();
+
+        return $message;
+    }
+
+    private function pushFirst(Merchant $merchant): bool
+    {
+        return WebPush::enabled()
+            && (Company::find($merchant->company_id)?->merchant_push_first ?? false)
+            && $merchant->pushSubscriptions()->exists();
+    }
+
+    /**
+     * Contenu de la notification push d'un message au marchand.
+     *
+     * @return array{title: string, body: string, url: string, tag: string}
+     */
+    public static function pushPayload(OutboundMessage $message): array
+    {
+        $template = WhatsAppTemplate::tryFrom((string) $message->template_name);
+
+        // « Bonjour Boutique Awa, le colis… » → « Le colis… » : le titre suffit à situer, et
+        // la notification ouvre déjà la bonne page (liens et formules de politesse retirés)
+        $body = preg_replace('/^Bonjour [^,]*, /u', '', $message->body);
+        $body = preg_replace('/[^.]*https?:\/\/\S+ \./u', '', $body);
+        $body = trim(preg_replace('/\s*Merci( de votre confiance)?\.$/u', '', $body));
+
+        return [
+            'title' => $template?->notificationTitle() ?? 'Nouveau message',
+            'body' => mb_strtoupper(mb_substr($body, 0, 1)).mb_substr($body, 1),
+            'url' => match (true) {
+                $message->order_id !== null => '/marchand/courses/'.$message->order_id,
+                $message->event === NotificationEvent::PayoutPaid->value => '/marchand/paiements',
+                str_starts_with((string) $message->event, 'report.') => '/marchand/statistiques',
+                default => '/marchand',
+            },
+            'tag' => ($message->event ?? 'message').'-'.($message->order_id ?? $message->id),
+        ];
+    }
+
+    /**
+     * WhatsApp de repli quand la notification n'est arrivée sur aucun appareil du marchand.
+     */
+    public function fallbackToWhatsApp(OutboundMessage $message): ?OutboundMessage
+    {
+        $template = WhatsAppTemplate::tryFrom((string) $message->template_name);
+        $merchant = Merchant::withoutGlobalScopes()->find($message->merchant_id);
+
+        if ($message->channel !== MessageChannel::Push || $template === null || $merchant === null || $message->fallback()->exists()) {
+            return null;
+        }
+
+        return $this->whatsapp($message->company_id, $merchant->messagingPhone(), 'merchant', $template, $message->payload ?? [], [
+            'event' => $message->event,
+            'order_id' => $message->order_id,
             'merchant_id' => $merchant->id,
-            'order_id' => $order?->id,
+            'fallback_for_id' => $message->id,
         ]);
     }
 

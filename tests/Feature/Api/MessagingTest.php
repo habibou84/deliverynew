@@ -106,8 +106,8 @@ class MessagingTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.events.1.event', 'order.picked_up')
-            ->assertJsonPath('data.events.1.whatsapp', true)
-            ->assertJsonPath('data.events.2.whatsapp', false);
+            ->assertJsonPath('data.events.1.enabled', true)
+            ->assertJsonPath('data.events.2.enabled', false);
 
         $order = $this->outForDelivery($this->createOrder());
         $this->move($order, 'delivered')->assertOk();

@@ -22,6 +22,8 @@ class PushSubscriptionController extends Controller
             'enabled' => WebPush::enabled(),
             'public_key' => WebPush::enabled() ? config('services.webpush.public_key') : null,
             'devices' => PushSubscription::where('user_id', $request->user()->id)->count(),
+            // E-commerçant : ses messages arrivent en notification plutôt que sur WhatsApp
+            'merchant_messages' => $request->user()->merchant_id !== null && (bool) $request->user()->company?->merchant_push_first,
         ]]);
     }
 
@@ -75,7 +77,11 @@ class PushSubscriptionController extends Controller
         $subscriptions = PushSubscription::where('user_id', $request->user()->id)->get();
         abort_if($subscriptions->isEmpty(), 422, 'Aucun appareil abonné : activez d\'abord les notifications.');
 
-        $home = $request->user()->isCourier() ? '/livreur' : '/';
+        $home = match (true) {
+            $request->user()->isCourier() => '/livreur',
+            $request->user()->merchant_id !== null => '/marchand',
+            default => '/',
+        };
         $sent = $subscriptions->filter(fn (PushSubscription $s) => $push->send($s, [
             'title' => '🔔 Notifications activées',
             'body' => 'Vous serez prévenu même téléphone en veille.',

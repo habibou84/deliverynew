@@ -29,12 +29,20 @@ import { disablePush, enablePush, initPush, needsInstallFirst, push, testPush } 
 import { useToastStore } from '../../stores/toasts'
 import { apiErrorMessage } from '../../bootstrap/axios'
 
+// audience : « courier » (missions) ou « merchant » (suivi des colis, à la place de WhatsApp)
+const props = defineProps({ audience: { type: String, default: 'courier' } })
+
 const toasts = useToastStore()
 const testing = ref(false)
 
 const status = computed(() => {
   if (!push.supported) return needsInstallFirst() ? 'Installez d\'abord l\'application (Partager → Sur l\'écran d\'accueil).' : 'Ce navigateur ne gère pas les notifications.'
   if (push.permission === 'denied') return 'Bloquées : autorisez les notifications dans les réglages du navigateur.'
+  if (props.audience === 'merchant') {
+    return push.subscribed
+      ? 'Activées : colis livrés, incidents et reversements arrivent ici, même téléphone en veille.'
+      : 'Désactivées : vos messages arrivent par WhatsApp.'
+  }
   return push.subscribed ? 'Activées : nouvelles missions et consignes, même téléphone en veille.' : 'Désactivées : vous ne serez prévenu que l\'application ouverte.'
 })
 

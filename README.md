@@ -165,6 +165,20 @@ ouvre la mission). Web Push standard (VAPID, chiffrement `aes128gcm`), implémen
 - **iPhone** : iOS 16.4 minimum et application **installée sur l'écran d'accueil** ; l'app le signale au livreur.
 - Les abonnements expirés (réponse 404/410) sont supprimés automatiquement ; la déconnexion retire celui de l'appareil.
 
+### Notifications des e-commerçants (à la place de WhatsApp)
+
+Un e-commerçant qui active les notifications dans son application (invitation sur l'**Accueil**, ou **Profil** >
+**Mes notifications**) reçoit ses messages en **notification gratuite** au lieu de WhatsApp : course validée, colis
+récupéré, livré ou expédié, incident, reversement, bon de retour, point d'activité. Toucher la notification ouvre la
+course, les paiements ou les statistiques.
+
+- Il garde le choix des messages reçus ; le numéro WhatsApp sert **de secours** : une notification qu'aucun de ses
+  appareils n'a reçue (application désinstallée, notifications coupées) repart aussitôt par WhatsApp, puis par SMS
+  si WhatsApp échoue aussi.
+- Réglage de l'entreprise dans **WhatsApp** > **Envois** (activé par défaut), avec le nombre d'e-commerçants déjà
+  passés aux notifications. Les destinataires des colis, qui n'ont pas l'application, restent prévenus par WhatsApp.
+- Le journal des messages les affiche avec 📱 (filtre « Notifications »).
+
 ### Carte des livreurs
 
 **Carte des livreurs** (back-office, droit `orders.dispatch`) montre la dernière position de chaque livreur, ses
