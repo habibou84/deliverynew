@@ -46,11 +46,26 @@ class Statistics
 
     private string $tz;
 
+    // Statistiques d'un seul e-commerçant (son application) ; null = toute l'entreprise
+    private ?int $merchantId = null;
+
     public function for(Company $company): self
     {
         $clone = clone $this;
         $clone->company = $company;
         $clone->tz = $company->timezone ?: config('app.timezone');
+        $clone->merchantId = null;
+
+        return $clone;
+    }
+
+    /**
+     * Les courses d'un seul e-commerçant (vue d'ensemble, livraisons, zones).
+     */
+    public function forMerchant(Merchant $merchant): self
+    {
+        $clone = $this->for($merchant->company);
+        $clone->merchantId = $merchant->id;
 
         return $clone;
     }
@@ -478,9 +493,18 @@ class Statistics
      */
     private function ordersBetween(string $column, CarbonInterface $from, CarbonInterface $to, array $columns): Collection
     {
-        return Order::forCompany($this->company->id)
+        return $this->orders()
             ->whereBetween($column, $this->utcRange($from, $to))
             ->get($columns);
+    }
+
+    /**
+     * Courses de l'entreprise, ou du seul e-commerçant choisi.
+     */
+    private function orders()
+    {
+        return Order::forCompany($this->company->id)
+            ->when($this->merchantId !== null, fn ($q) => $q->where('merchant_id', $this->merchantId));
     }
 
     /**
@@ -489,7 +513,7 @@ class Statistics
     private function failureEvents(CarbonInterface $from, CarbonInterface $to)
     {
         return OrderEvent::query()
-            ->whereIn('order_events.order_id', Order::forCompany($this->company->id)->select('id'))
+            ->whereIn('order_events.order_id', $this->orders()->select('id'))
             ->where('order_events.type', OrderEventType::Incident->value)
             ->where('order_events.from_status', OrderStatus::OutForDelivery->value)
             ->whereIn('order_events.to_status', self::FAILURE_STATUSES)

@@ -14,6 +14,8 @@ Artisan::command('inspire', function () {
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
 Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('reports:send')->everyFiveMinutes()->withoutOverlapping();
+// Point de la semaine des administrateurs : vérifié toutes les 15 minutes, envoyé le lundi à 7 h 30 (heure de l'entreprise)
+Schedule::command('reports:weekly')->everyFifteenMinutes()->withoutOverlapping();
 // Fiches de paie des livreurs à la fin de chaque période (prêtes à payer le matin)
 Schedule::command('payroll:close')->dailyAt('00:20')->withoutOverlapping();
 // Position des marchands d'après les ramassages des livreurs (rattrapage)

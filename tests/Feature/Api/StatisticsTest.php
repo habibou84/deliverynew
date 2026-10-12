@@ -9,6 +9,7 @@ use App\Models\IncidentReason;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\OrderExpense;
+use App\Models\Plan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
@@ -228,5 +229,48 @@ class StatisticsTest extends TestCase
         // Réservé aux comptes qui voient la caisse
         Sanctum::actingAs($this->dispatcher);
         $this->getJson('/api/v1/stats/finances')->assertForbidden();
+    }
+
+    public function test_merchant_sees_only_their_own_statistics(): void
+    {
+        $this->activity();
+        // Une course d'une autre boutique de l'entreprise : jamais comptée
+        $other = Merchant::factory()->create(['company_id' => $this->company->id, 'pickup_zone_id' => $this->cocody->id]);
+        $this->createOrder([], $this->admin, $other);
+
+        Sanctum::actingAs($this->merchantUser);
+        $data = $this->getJson('/api/v1/merchant/stats')->assertOk()->json('data');
+
+        $this->assertSame([3, 2, 1], [$data['kpis']['created'], $data['kpis']['delivered'], $data['kpis']['failed_attempts']]);
+        $this->assertSame(20000, $data['kpis']['collected']);
+        $this->assertEquals(50, $data['first_attempt_rate']);
+        $this->assertSame('Yopougon', $data['zones'][0]['name']);
+        $this->assertSame(1, $data['failure_reasons'][0]['count']);
+        $this->assertCount(14, $data['series']);
+
+        // Employé de la boutique sans accès aux paiements : pas de montants
+        Sanctum::actingAs($this->userWithRole(Role::MerchantStaff, ['merchant_id' => $this->merchant->id]));
+        $this->getJson('/api/v1/merchant/stats')->assertOk()->assertJsonPath('data.kpis.collected', null);
+
+        // Personnel de l'entreprise : pas de « mes statistiques »
+        Sanctum::actingAs($this->admin);
+        $this->getJson('/api/v1/merchant/stats')->assertForbidden();
+    }
+
+    public function test_advanced_statistics_depend_on_the_plan(): void
+    {
+        $basic = Plan::create(['name' => 'Essentiel', 'price_monthly' => 25000, 'features' => [], 'is_active' => true, 'position' => 1]);
+        $this->company->update(['plan_id' => $basic->id]);
+
+        Sanctum::actingAs($this->admin->fresh());
+        $this->getJson('/api/v1/stats/overview')->assertOk();
+        $this->getJson('/api/v1/stats/merchants')->assertOk();
+        $this->getJson('/api/v1/stats/zones')->assertForbidden();
+        $this->getJson('/api/v1/stats/finances')->assertForbidden();
+
+        $basic->update(['features' => ['advanced_stats']]);
+        Sanctum::actingAs($this->admin->fresh());
+        $this->getJson('/api/v1/stats/zones')->assertOk();
+        $this->getJson('/api/v1/stats/finances')->assertOk();
     }
 }

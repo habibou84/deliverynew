@@ -335,6 +335,18 @@ Menu **📊 Statistiques** du back-office (`orders.view`, personnel seulement), 
   aux marchands, dû par des marchands).
 - Les montants ne sont renvoyés qu'aux comptes qui voient la caisse (`finance.view`). Tableaux triables et exportables
   (CSV pour Excel).
+- **Statistiques avancées** (module de formule `advanced_stats`) : onglets Zones et Finances et export CSV. Sans le
+  module, les onglets restent visibles avec un cadenas et un lien vers « Mon abonnement » ; l'API répond 403. La migration
+  ajoute le module à toutes les formules existantes (personne ne perd d'écran) : retirez-le dans la console > Formules
+  des formules d'entrée de gamme.
+- **Point de la semaine** (`reports:weekly`, vérifié toutes les 15 minutes, envoyé le lundi à 7 h 30 heure de
+  l'entreprise, une fois par semaine) : aux administrateurs, par WhatsApp (modèle `point_semaine_gerant`, à faire
+  approuver par Meta) et dans la cloche — courses créées et livrées, taux de livraison, chiffre d'affaires comparés à la
+  semaine d'avant, e-commerçants à relancer, lien vers les statistiques. Réglage « Point de la semaine » dans Paramètres
+  (activé par défaut) ; rien n'est envoyé une semaine sans activité.
+- **Application e-commerçant** : « 📊 Mes statistiques » (`GET /api/v1/merchant/stats`) — taux de livraison avec
+  l'évolution, réussite au premier passage, passages ratés et leurs motifs, communes de livraison, délais, courbe par
+  jour ; montants (encaissé, frais) pour les comptes qui voient les paiements.
 
 ### Inscription des entreprises en libre-service
 

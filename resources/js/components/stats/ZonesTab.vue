@@ -18,7 +18,7 @@
       </section>
     </div>
 
-    <SortableTable title="Détail par commune" :columns="columns" :rows="data.zones" initial-sort="delivered" :filename="`zones_${period}.csv`">
+    <SortableTable :exportable="exportable" title="Détail par commune" :columns="columns" :rows="data.zones" initial-sort="delivered" :filename="`zones_${period}.csv`">
       <template #name="{ row }">
         <span class="font-medium">{{ row.name }}</span>
         <span v-if="row.is_shipping" class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">expédition</span>
@@ -43,6 +43,7 @@ import { SERIES } from './chart'
 const props = defineProps({
   data: { type: Object, required: true },
   withAmounts: { type: Boolean, default: false },
+  exportable: { type: Boolean, default: true },
 })
 
 const period = computed(() => `${props.data.period.from}_${props.data.period.to}`)

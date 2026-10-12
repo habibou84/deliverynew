@@ -115,6 +115,7 @@ const routes = [
     children: [
       { path: '', name: 'marchand', component: () => import('../views/merchant/Home.vue') },
       { path: 'courses', component: () => import('../views/merchant/Orders.vue'), meta: { title: 'Mes courses' } },
+      { path: 'statistiques', component: () => import('../views/merchant/Stats.vue'), meta: { title: 'Mes statistiques', back: true } },
       { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true } },
       { path: 'courses/import', component: () => import('../views/merchant/OrderImport.vue'), meta: { title: 'Importer des courses', back: true, permission: 'orders.create' } },
       { path: 'boutique', component: () => import('../views/merchant/Shop.vue'), meta: { title: 'Ma boutique en ligne', back: true, permission: 'integrations.manage', feature: 'shop' } },

@@ -38,6 +38,7 @@ class CompanyResource extends JsonResource
             'delivery_assign_alert_minutes' => $this->delivery_assign_alert_minutes,
             'tagline' => $this->tagline,
             'merchant_signup' => $this->merchant_signup,
+            'weekly_report' => $this->weekly_report,
             'logo_url' => Branding::logoUrl($this->resource),
             'status' => $this->status,
             // Formule : modules disponibles (menus et pages de l'application)
