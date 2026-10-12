@@ -62,6 +62,12 @@
       </div>
     </section>
 
+    <RouterLink to="/marchand/statistiques" class="tap m-card p-4 flex items-center gap-3 text-sm active:bg-slate-50">
+      <span class="text-2xl">📊</span>
+      <span class="flex-1"><strong class="block">Mes statistiques</strong><span class="text-slate-500">Taux de livraison, motifs d'échec, communes</span></span>
+      <span class="text-slate-400">›</span>
+    </RouterLink>
+
     <!-- Courses qui demandent une action (quelle que soit la date) -->
     <section v-if="alerts.length" class="space-y-2">
       <h2 class="font-semibold text-red-700">⚠️ À traiter ({{ alerts.length }})</h2>

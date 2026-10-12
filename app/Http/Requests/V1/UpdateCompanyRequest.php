@@ -54,6 +54,7 @@ class UpdateCompanyRequest extends FormRequest
             'parcel_hold_alert_hours' => ['sometimes', 'integer', 'min:0', 'max:168'],
             'tagline' => ['sometimes', 'nullable', 'string', 'max:160'],
             'merchant_signup' => ['sometimes', 'boolean'],
+            'weekly_report' => ['sometimes', 'boolean'],
             'pickup_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
             // Heure limite du jour (HH:MM, heure de l'entreprise) ; vide = aucune
             'daily_cutoff_time' => ['sometimes', 'nullable', 'date_format:H:i'],

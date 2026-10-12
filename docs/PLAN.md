@@ -286,6 +286,7 @@ Algorithme : grille spécifique du marchand si elle existe, sinon grille par dé
 | Échec de livraison ou de ramassage, report | Marchand (l'admin est alerté dans l'application) | `incident_livraison` |
 | Point quotidien / hebdomadaire | Marchand | `rapport_activite` |
 | Reversement effectué | Marchand | `reversement_effectue` |
+| Point de la semaine (lundi matin) | Administrateurs de l'entreprise | `point_semaine_gerant` |
 
 Fonctionnement : le journal de la course appelle `OrderMessages`, qui passe par `Messenger` : le message est inscrit dans `outbound_messages`, puis le job `SendOutboundMessage` l'envoie (file `messages`, 3 tentatives pour les erreurs passagères). Les webhooks de statut Meta (envoyé, reçu, lu, échec) mettent à jour `outbound_messages`. En cas d'échec définitif (par exemple numéro sans WhatsApp), un SMS de même texte part une seule fois. Le marchand choisit ses messages dans son application ; les textes des modèles sont dans `App\Enums\WhatsAppTemplate` et affichés, prêts à copier, dans Paramètres > WhatsApp.
 

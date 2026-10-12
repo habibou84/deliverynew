@@ -20,6 +20,7 @@ enum WhatsAppTemplate: string
     case ShippedRecipient = 'colis_expedie_client';
     case ReturnSlip = 'bon_de_retour';
     case ReturnHanded = 'retour_remis';
+    case ManagerReport = 'point_semaine_gerant';
 
     public const LANGUAGE = 'fr';
 
@@ -37,6 +38,7 @@ enum WhatsAppTemplate: string
             self::ShippedRecipient => 'Bonjour {{1}}, votre colis de {{2}} a été expédié par {{3}} (ticket {{4}}). Récupérez-le à l\'arrivée auprès du transporteur. Merci de votre confiance.',
             self::ReturnSlip => 'Bonjour {{1}}, notre livreur {{2}} vous rapporte {{3}} colis non livré(s) (bon de retour {{4}}). Détail du bon : {{5}} . Merci.',
             self::ReturnHanded => 'Bonjour {{1}}, {{2}} colis vous ont été rendus (bon de retour {{3}}), reçus par {{4}}. Détail du bon : {{5}} . Merci.',
+            self::ManagerReport => 'Bonjour {{1}}, voici le point de la semaine {{2}} pour {{3}} : {{4}} courses créées ({{5}}), {{6}} livrées, taux de livraison {{7}}. Chiffre d\'affaires : {{8}} ({{9}}). E-commerçants à relancer : {{10}}. Toutes les statistiques : {{11}} .',
         };
     }
 
@@ -54,6 +56,7 @@ enum WhatsAppTemplate: string
             self::ShippedRecipient => 'Au destinataire, quand son colis est déposé à la gare',
             self::ReturnSlip => 'Au marchand, quand un bon de retour de ses colis est confié à un livreur',
             self::ReturnHanded => 'Au marchand, quand ses colis lui ont été rendus (bon de retour signé)',
+            self::ManagerReport => 'Aux administrateurs de l\'entreprise, point de la semaine (lundi matin)',
         };
     }
 
@@ -76,6 +79,7 @@ enum WhatsAppTemplate: string
             self::ShippedRecipient => ['Awa', 'Boutique Chic', 'UTB Adjamé', 'A-15234'],
             self::ReturnSlip => ['Boutique Chic', 'Koffi', '4', 'BR-261009-00012', 'https://exemple.ci/bon-de-retour/12'],
             self::ReturnHanded => ['Boutique Chic', '4', 'BR-261009-00012', 'Mariam Koné', 'https://exemple.ci/bon-de-retour/12'],
+            self::ManagerReport => ['Awa', 'du 05/10 au 11/10', 'Rapide Express', '312', '+12 %', '287', '94 %', '430 500 F', '+8 %', '3', 'https://exemple.ci/admin/statistiques'],
         };
     }
 

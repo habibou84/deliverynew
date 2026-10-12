@@ -229,6 +229,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('merchants/{merchant}/users', [MerchantController::class, 'storeUser'])->name('merchants.users.store');
         Route::put('merchants/{merchant}/pickup-location', [MerchantLocationController::class, 'update'])->name('merchants.pickup-location');
         Route::get('merchant/pickup-location', [MerchantLocationController::class, 'mine'])->name('merchant.pickup-location');
+        // Statistiques de l'e-commerçant (son application)
+        Route::get('merchant/stats', [StatisticsController::class, 'merchant'])->middleware('can:orders.view')->name('merchant.stats');
         Route::put('merchant/pickup-location', [MerchantLocationController::class, 'updateMine'])->name('merchant.pickup-location.update');
         // Lien Google Maps collé → coordonnées
         Route::post('geo/link', [MerchantLocationController::class, 'resolveLink'])->middleware('throttle:20,1')->name('geo.link');
@@ -303,8 +305,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('deliveries', 'deliveries')->name('deliveries');
             Route::get('couriers', 'couriers')->name('couriers');
             Route::get('merchants', 'merchants')->name('merchants');
-            Route::get('zones', 'zones')->name('zones');
-            Route::get('finances', 'finances')->name('finances');
+            // Statistiques avancées : selon la formule de l'entreprise
+            Route::get('zones', 'zones')->middleware('feature:advanced_stats')->name('zones');
+            Route::get('finances', 'finances')->middleware('feature:advanced_stats')->name('finances');
         });
 
         // Caisse et finances (droits vérifiés dans le contrôleur : finance.view / finance.manage)

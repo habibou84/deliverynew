@@ -2,7 +2,7 @@
   <section class="card overflow-x-auto">
     <div class="flex items-center justify-between gap-2 p-4 pb-2">
       <h2 class="font-semibold">{{ title }}</h2>
-      <button v-if="rows.length" class="text-sm text-blue-600" @click="exportCsv">Exporter</button>
+      <button v-if="exportable && rows.length" class="text-sm text-blue-600" @click="exportCsv">Exporter</button>
     </div>
     <table class="w-full text-sm">
       <thead class="bg-slate-50 text-left text-slate-600">
@@ -42,6 +42,8 @@ const props = defineProps({
   initialSort: { type: String, default: '' },
   filename: { type: String, default: 'statistiques.csv' },
   empty: { type: String, default: 'Rien sur la période.' },
+  // Export Excel (statistiques avancées)
+  exportable: { type: Boolean, default: true },
 })
 
 const sort = reactive({ key: props.initialSort, dir: 'desc' })

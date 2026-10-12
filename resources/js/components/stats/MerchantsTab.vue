@@ -28,7 +28,7 @@
       </section>
     </div>
 
-    <SortableTable title="Tous les e-commerçants actifs" :columns="columns" :rows="data.merchants" initial-sort="created" :filename="`e-commercants_${period}.csv`">
+    <SortableTable :exportable="exportable" title="Tous les e-commerçants actifs" :columns="columns" :rows="data.merchants" initial-sort="created" :filename="`e-commercants_${period}.csv`">
       <template #success_rate="{ row }">
         <span v-if="row.success_rate !== null" :class="row.success_rate >= 90 ? 'text-emerald-700' : row.success_rate < 75 ? 'text-red-600' : ''">{{ row.success_rate }} %</span>
         <span v-else>—</span>
@@ -48,6 +48,7 @@ import SortableTable from './SortableTable.vue'
 const props = defineProps({
   data: { type: Object, required: true },
   withAmounts: { type: Boolean, default: false },
+  exportable: { type: Boolean, default: true },
 })
 
 const period = computed(() => `${props.data.period.from}_${props.data.period.to}`)

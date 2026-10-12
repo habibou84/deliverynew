@@ -11,6 +11,7 @@ enum PlatformFeature: string
     case Api = 'api';
     case Stock = 'stock';
     case Shop = 'shop';
+    case AdvancedStats = 'advanced_stats';
 
     public function label(): string
     {
@@ -19,6 +20,7 @@ enum PlatformFeature: string
             self::Api => 'API et webhooks',
             self::Stock => 'Stock et entrepôt',
             self::Shop => 'Boutiques en ligne des marchands',
+            self::AdvancedStats => 'Statistiques avancées',
         };
     }
 
@@ -29,6 +31,7 @@ enum PlatformFeature: string
             self::Api => 'Clés d\'API et webhooks pour relier les sites des marchands (WooCommerce…).',
             self::Stock => 'Produits des marchands stockés à l\'entrepôt, mouvements et facturation du stockage.',
             self::Shop => 'Page de commande publique de chaque marchand (catalogue, panier, livraison).',
+            self::AdvancedStats => 'Statistiques par zone et finances (revenus, dépenses, marge), export des tableaux vers Excel.',
         };
     }
 

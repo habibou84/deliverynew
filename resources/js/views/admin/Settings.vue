@@ -42,6 +42,14 @@
       </fieldset>
 
       <fieldset class="space-y-3 border-t pt-4">
+        <legend class="font-semibold">Point de la semaine</legend>
+        <label class="flex items-start gap-2 text-sm">
+          <input v-model="form.weekly_report" type="checkbox" class="mt-1">
+          <span>Envoyer le point de la semaine aux administrateurs<span class="block text-gray-500">Chaque lundi vers 7 h 30, par WhatsApp et dans la cloche : courses, taux de livraison, chiffre d'affaires comparés à la semaine d'avant, e-commerçants à relancer.</span></span>
+        </label>
+      </fieldset>
+
+      <fieldset class="space-y-3 border-t pt-4">
         <legend class="font-semibold">Courses</legend>
         <label class="flex items-start gap-2 text-sm">
           <input v-model="form.auto_confirm_orders" type="checkbox" class="mt-1">
@@ -112,7 +120,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
 
-const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time']
+const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'weekly_report', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time']
 
 const auth = useAuthStore()
 const toasts = useToastStore()

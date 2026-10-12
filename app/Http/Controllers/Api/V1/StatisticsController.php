@@ -65,6 +65,37 @@ class StatisticsController extends Controller
         return response()->json(['data' => $this->stats($request)->finances($from, $to)]);
     }
 
+    /**
+     * Application de l'e-commerçant : ses propres courses (vue d'ensemble, qualité des
+     * livraisons, communes de livraison). Montants pour les comptes qui voient ses paiements.
+     */
+    public function merchant(Request $request): JsonResponse
+    {
+        $merchant = $request->user()->merchant;
+        abort_if($merchant === null, 403);
+        [$from, $to] = $this->period($request);
+
+        $stats = $this->statistics->forMerchant($merchant);
+        $withAmounts = $this->withAmounts($request);
+        $overview = $stats->overview($from, $to, $withAmounts);
+        $deliveries = $stats->deliveries($from, $to);
+
+        return response()->json(['data' => [
+            'period' => $overview['period'],
+            'previous_period' => $overview['previous_period'],
+            'kpis' => $overview['kpis'],
+            'previous_kpis' => $overview['previous_kpis'],
+            'series' => $overview['series'],
+            'first_attempt_rate' => $deliveries['first_attempt_rate'],
+            'same_day_rate' => $deliveries['same_day_rate'],
+            'delays' => $deliveries['delays'],
+            'failure_reasons' => $deliveries['failure_reasons'],
+            'outcomes' => $deliveries['outcomes'],
+            'zones' => collect($stats->zones($from, $to, false)['zones'])->take(8)
+                ->map(fn (array $z) => collect($z)->only(['id', 'name', 'delivered', 'failed', 'success_rate'])->all())->values(),
+        ]]);
+    }
+
     private function stats(Request $request): Statistics
     {
         // Personnel de l'entreprise seulement (pas les e-commerçants)
