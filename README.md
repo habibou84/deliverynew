@@ -309,6 +309,23 @@ attribuée aux entreprises qui l'ont.
 - **Entreprise** : « Mon abonnement » affiche le reste à payer, comment payer et les factures ; **facture imprimable**
   (et enregistrable en PDF depuis le navigateur).
 
+### Statistiques de l'entreprise
+
+Menu **📊 Statistiques** du back-office (`orders.view`, personnel seulement), service
+`App\Services\Reports\Statistics`, API `GET /api/v1/stats/{overview,deliveries,couriers}?from=AAAA-MM-JJ&to=AAAA-MM-JJ`
+(par défaut le mois en cours, un an au plus ; dates dans le fuseau de l'entreprise). Chaque événement compte à sa date
+(créée le jour de sa création, livrée le jour de sa livraison…).
+
+- **Vue d'ensemble** : courses créées et livrées, taux de livraison (livrées parmi les courses terminées : livrées,
+  retournées, perdues), échecs, retours et annulations, chiffre d'affaires (frais de livraison des courses livrées),
+  encaissé, frais moyen, avec la **comparaison à la période précédente** de même durée ; courbe par jour (tableau et export
+  CSV), chiffre d'affaires par jour, **heures de pointe** (jour de la semaine × heure).
+- **Livraisons** : réussite au premier passage, passages par course livrée, livrées le jour même, **motifs d'échec**,
+  délais habituels (médianes : création → ramassage → livraison), issues de la période.
+- **Livreurs** (`orders.dispatch`) : classement triable et exportable — livrées, ramassages, échecs, réussite, délai,
+  jours travaillés, courses par jour ; encaissé, écarts de caisse et gains.
+- Les montants ne sont renvoyés qu'aux comptes qui voient la caisse (`finance.view`).
+
 ### Inscription des entreprises en libre-service
 
 - Page **`https://admin.jibiat.com/creer-mon-entreprise`** (lien depuis la connexion de la console et la page de

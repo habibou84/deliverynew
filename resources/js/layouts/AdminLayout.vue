@@ -112,6 +112,7 @@ onBeforeUnmount(() => clearInterval(countsTimer))
 
 const menu = computed(() => [
   { to: '/admin', icon: '🏠', label: 'Tableau de bord' },
+  { to: '/admin/statistiques', icon: '📊', label: 'Statistiques', permission: 'orders.view' },
   { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
   { to: '/admin/courses/nouvelle', icon: '➕', label: 'Nouvelle course', permission: 'orders.create' },
   { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
