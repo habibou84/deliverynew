@@ -2,9 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\EarningType;
 use App\Enums\Role;
+use App\Models\CourierEarning;
 use App\Models\IncidentReason;
+use App\Models\Merchant;
 use App\Models\Order;
+use App\Models\OrderExpense;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
@@ -148,5 +152,81 @@ class StatisticsTest extends TestCase
         // Période trop longue
         Sanctum::actingAs($this->admin);
         $this->getJson('/api/v1/stats/overview?from=2024-01-01&to=2026-10-14')->assertJsonValidationErrors('from');
+    }
+
+    public function test_merchants_activity_and_merchants_to_relaunch(): void
+    {
+        // Une boutique qui a commandé il y a deux mois, plus depuis
+        $sleeping = Merchant::factory()->create(['company_id' => $this->company->id, 'business_name' => 'Boutique Endormie', 'pickup_zone_id' => $this->cocody->id]);
+        $this->travel(-60)->days();
+        $this->createOrder([], $this->admin, $sleeping);
+        $this->travel(60)->days();
+
+        $this->activity();
+
+        Sanctum::actingAs($this->admin);
+        $data = $this->getJson('/api/v1/stats/merchants')->assertOk()->json('data');
+
+        $this->assertCount(1, $data['merchants']);
+        $row = $data['merchants'][0];
+        $this->assertSame(['Boutique Test', 3, 2, 0], [$row['name'], $row['created'], $row['delivered'], $row['returned']]);
+        $this->assertEquals(100, $row['success_rate']);
+        $this->assertSame(20000, $row['collected']);
+        $this->assertNotNull($row['to_pay']);
+
+        $this->assertSame(['Boutique Endormie'], array_column($data['inactive'], 'name'));
+        $this->assertSame(60, $data['inactive'][0]['days']);
+        $this->assertSame(1, $data['totals']['active']);
+        $this->assertSame(1, $data['totals']['inactive']);
+        $this->assertEquals(100, $data['totals']['top5_share']);
+
+        // Sans accès à la caisse : pas de montants ; sans accès aux marchands : rien
+        Sanctum::actingAs($this->dispatcher);
+        $this->getJson('/api/v1/stats/merchants')->assertOk()->assertJsonPath('data.merchants.0.revenue', null)->assertJsonPath('data.totals.to_pay', null);
+        Sanctum::actingAs($this->userWithRole(Role::Cashier));
+        $this->getJson('/api/v1/stats/merchants')->assertOk();
+    }
+
+    public function test_zones_grouped_by_commune(): void
+    {
+        $this->activity();
+        // Livraison dans un quartier : compte dans sa commune
+        $this->rule($this->grid, $this->cocody, $this->angre, 1000);
+        $this->pickedUpOrder()->update(['delivery_zone_id' => $this->angre->id]);
+
+        Sanctum::actingAs($this->admin);
+        $rows = collect($this->getJson('/api/v1/stats/zones')->assertOk()->json('data.zones'))->keyBy('name');
+
+        $this->assertSame([3, 2, 1], [$rows['Yopougon']['created'], $rows['Yopougon']['delivered'], $rows['Yopougon']['failed']]);
+        $this->assertEquals(66.7, $rows['Yopougon']['success_rate']);
+        $this->assertSame(Order::first()->delivery_fee + Order::first()->surcharges_total, $rows['Yopougon']['average_fee']);
+        $this->assertSame(1, $rows['Cocody']['created']);
+        $this->assertArrayNotHasKey('Angré', $rows->all());
+    }
+
+    public function test_finances_revenue_costs_margin_and_circulation(): void
+    {
+        $this->activity();
+        $fees = 2 * (Order::first()->delivery_fee + Order::first()->surcharges_total);
+
+        CourierEarning::create(['company_id' => $this->company->id, 'courier_id' => $this->courierB->id, 'type' => EarningType::Delivery, 'amount' => 700, 'description' => 'Livraison']);
+        OrderExpense::create(['company_id' => $this->company->id, 'order_id' => Order::first()->id, 'type' => 'transport', 'amount' => 300, 'paid_by' => 'company', 'billed_to' => 'company']);
+
+        Sanctum::actingAs($this->admin);
+        $data = $this->getJson('/api/v1/stats/finances')->assertOk()->json('data');
+
+        $this->assertSame($fees, $data['revenue']['delivery']);
+        $this->assertSame($fees, $data['revenue']['total']);
+        $this->assertSame(['courier_pay' => 700, 'expenses' => 300, 'lost_compensations' => 0, 'total' => 1000], $data['costs']);
+        $this->assertSame($fees - 1000, $data['margin']);
+        $this->assertSame((int) round(($fees - 1000) / 2), $data['margin_per_order']);
+        $this->assertSame([['month' => '2026-10', 'revenue' => $fees, 'costs' => 1000, 'margin' => $fees - 1000]], $data['months']);
+        // Les 20 000 F encaissés sont encore chez la livreuse
+        $this->assertSame(20000, $data['circulation']['with_couriers']);
+        $this->assertSame(20000 - $fees, $data['circulation']['to_merchants']);
+
+        // Réservé aux comptes qui voient la caisse
+        Sanctum::actingAs($this->dispatcher);
+        $this->getJson('/api/v1/stats/finances')->assertForbidden();
     }
 }

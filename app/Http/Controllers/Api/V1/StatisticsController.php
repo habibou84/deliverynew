@@ -11,7 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Statistiques de l'entreprise (back-office) : vue d'ensemble, livraisons, livreurs.
+ * Statistiques de l'entreprise (back-office) : vue d'ensemble, livraisons, livreurs,
+ * e-commerçants, zones, finances.
  * Les montants (chiffre d'affaires, encaissements, gains) sont réservés aux comptes
  * qui voient la caisse.
  */
@@ -39,6 +40,29 @@ class StatisticsController extends Controller
         [$from, $to] = $this->period($request);
 
         return response()->json(['data' => $this->stats($request)->couriers($from, $to, $this->withAmounts($request))]);
+    }
+
+    public function merchants(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can(Permission::MerchantsView->value), 403);
+        [$from, $to] = $this->period($request);
+
+        return response()->json(['data' => $this->stats($request)->merchants($from, $to, $this->withAmounts($request))]);
+    }
+
+    public function zones(Request $request): JsonResponse
+    {
+        [$from, $to] = $this->period($request);
+
+        return response()->json(['data' => $this->stats($request)->zones($from, $to, $this->withAmounts($request))]);
+    }
+
+    public function finances(Request $request): JsonResponse
+    {
+        abort_unless($this->withAmounts($request), 403);
+        [$from, $to] = $this->period($request);
+
+        return response()->json(['data' => $this->stats($request)->finances($from, $to)]);
     }
 
     private function stats(Request $request): Statistics

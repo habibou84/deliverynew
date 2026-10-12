@@ -16,11 +16,12 @@
       </div>
     </div>
 
-    <nav class="flex gap-1 border-b">
+    <nav ref="tabBar" class="flex gap-1 overflow-x-auto border-b">
       <button
         v-for="t in tabs"
         :key="t.key"
-        :class="['-mb-px border-b-2 px-4 py-2 text-sm font-medium', tab === t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800']"
+        :data-tab="t.key"
+        :class="['-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium', tab === t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800']"
         @click="selectTab(t.key)"
       >{{ t.label }}</button>
     </nav>
@@ -164,19 +165,26 @@
       </section>
       <p class="text-xs text-slate-500">Délai : médiane entre le ramassage et la livraison. Écart de caisse : manques constatés aux versements de la période. Gains : paie enregistrée sur la période.</p>
     </template>
+
+    <MerchantsTab v-if="tab === 'merchants' && data.merchants" :data="data.merchants" :with-amounts="withAmounts" />
+    <ZonesTab v-if="tab === 'zones' && data.zones" :data="data.zones" :with-amounts="withAmounts" />
+    <FinancesTab v-if="tab === 'finances' && data.finances" :data="data.finances" />
   </div>
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import BarList from '../../components/stats/BarList.vue'
 import ColumnChart from '../../components/stats/ColumnChart.vue'
 import Heatmap from '../../components/stats/Heatmap.vue'
+import FinancesTab from '../../components/stats/FinancesTab.vue'
 import KpiTile from '../../components/stats/KpiTile.vue'
 import LineChart from '../../components/stats/LineChart.vue'
-import { SERIES, compact, shortDate } from '../../components/stats/chart'
+import MerchantsTab from '../../components/stats/MerchantsTab.vue'
+import ZonesTab from '../../components/stats/ZonesTab.vue'
+import { SERIES, compact, downloadCsv, shortDate } from '../../components/stats/chart'
 import { useAuthStore } from '../../stores/auth'
 import { date, money, today, waitDuration } from '../../utils/format'
 
@@ -212,15 +220,18 @@ const tabs = computed(() => [
   { key: 'overview', label: 'Vue d\'ensemble' },
   { key: 'deliveries', label: 'Livraisons' },
   ...(auth.can('orders.dispatch') ? [{ key: 'couriers', label: 'Livreurs' }] : []),
+  ...(auth.can('merchants.view') ? [{ key: 'merchants', label: 'E-commerçants' }] : []),
+  { key: 'zones', label: 'Zones' },
+  ...(auth.can('finance.view') ? [{ key: 'finances', label: 'Finances' }] : []),
 ])
-const ENDPOINTS = { overview: '/stats/overview', deliveries: '/stats/deliveries', couriers: '/stats/couriers' }
+const ENDPOINTS = Object.fromEntries(['overview', 'deliveries', 'couriers', 'merchants', 'zones', 'finances'].map((k) => [k, `/stats/${k}`]))
 
 const preset = ref(PRESETS[route.query.periode] ? route.query.periode : 'month')
 const [initialFrom, initialTo] = PRESETS[preset.value].range()
 const from = ref(initialFrom)
 const to = ref(initialTo)
 const tab = ref(tabs.value.some((t) => t.key === route.query.onglet) ? route.query.onglet : 'overview')
-const data = reactive({ overview: null, deliveries: null, couriers: null })
+const data = reactive(Object.fromEntries(Object.keys(ENDPOINTS).map((k) => [k, null])))
 const loading = ref(false)
 const error = ref('')
 const showTable = ref(false)
@@ -245,7 +256,7 @@ async function load() {
 }
 
 function reloadAll() {
-  data.overview = data.deliveries = data.couriers = null
+  Object.keys(data).forEach((k) => { data[k] = null })
   load()
 }
 
@@ -263,6 +274,16 @@ function selectTab(key) {
   tab.value = key
   if (!data[key]) load()
 }
+
+// Petit écran : l'onglet actif reste visible dans la barre (défilement horizontal seulement)
+const tabBar = ref(null)
+async function revealTab() {
+  await nextTick()
+  const button = tabBar.value?.querySelector(`[data-tab="${tab.value}"]`)
+  if (button) tabBar.value.scrollLeft = Math.max(0, button.offsetLeft - tabBar.value.offsetLeft - 16)
+}
+onMounted(revealTab)
+watch(tab, revealTab)
 
 watch([tab, preset], () => router.replace({ query: { ...route.query, onglet: tab.value, periode: preset.value === 'custom' ? undefined : preset.value } }))
 
@@ -312,16 +333,8 @@ const sortedCouriers = computed(() => {
   })
 })
 
-// Export CSV lisible par Excel (séparateur « ; », accents conservés)
 function download(name, rows) {
-  const csv = rows.map((r) => r.map((v) => {
-    const text = v === null || v === undefined ? '' : String(v)
-    return /[";\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
-  }).join(';')).join('\n')
-  const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
-  const a = Object.assign(document.createElement('a'), { href: url, download: `${name}_${from.value}_${to.value}.csv` })
-  a.click()
-  URL.revokeObjectURL(url)
+  downloadCsv(`${name}_${from.value}_${to.value}.csv`, rows)
 }
 function exportSeries() {
   const amounts = ov.value.kpis.revenue !== null

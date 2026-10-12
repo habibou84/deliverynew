@@ -38,3 +38,15 @@ export function labelIndexes(n, max = 7) {
   if (out.at(-1) !== n - 1) out.push(n - 1)
   return out
 }
+
+// Export CSV lisible par Excel (séparateur « ; », accents conservés)
+export function downloadCsv(filename, rows) {
+  const csv = rows.map((r) => r.map((v) => {
+    const text = v === null || v === undefined ? '' : String(v)
+    return /[";\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  }).join(';')).join('\n')
+  const url = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }))
+  const a = Object.assign(document.createElement('a'), { href: url, download: filename })
+  a.click()
+  URL.revokeObjectURL(url)
+}

@@ -2,21 +2,29 @@
 
 namespace App\Services\Reports;
 
+use App\Enums\LedgerEntryType;
+use App\Enums\MerchantStatus;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\CourierEarning;
 use App\Models\CourierRemittance;
+use App\Models\Merchant;
+use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\OrderEvent;
+use App\Models\OrderExpense;
+use App\Models\Zone;
+use App\Services\Finance\CourierCash;
+use App\Services\Finance\MerchantPayouts;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
  * Statistiques de l'entreprise sur une période (dates dans son fuseau horaire) :
- * vue d'ensemble, qualité des livraisons, performance des livreurs.
+ * vue d'ensemble, qualité des livraisons, livreurs, e-commerçants, zones, finances.
  *
  * Chaque événement compte à sa date : une course est « créée » le jour de sa création,
  * « livrée » le jour de sa livraison, etc. Les calculs se font en PHP sur les seules
@@ -27,6 +35,9 @@ class Statistics
 {
     // Courses retenues pour le calcul (au-delà, la période est trop longue)
     public const MAX_DAYS = 366;
+
+    // E-commerçant « inactif » : plus de course depuis ce nombre de jours
+    public const INACTIVE_DAYS = 30;
 
     // Échecs de livraison : la course quitte « En chemin » avec un motif
     private const FAILURE_STATUSES = [OrderStatus::DeliveryFailed->value, OrderStatus::Rescheduled->value];
@@ -211,6 +222,228 @@ class Statistics
                 'active_couriers' => $rows->filter(fn (array $r) => $r['days_worked'] > 0)->count(),
             ],
         ];
+    }
+
+    /**
+     * E-commerçants : volume, réussite et chiffre d'affaires de chacun ; nouveaux,
+     * actifs, et ceux qui ne commandent plus (à relancer).
+     *
+     * @return array<string, mixed>
+     */
+    public function merchants(CarbonInterface $from, CarbonInterface $to, bool $withAmounts): array
+    {
+        $created = $this->ordersBetween('created_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
+        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id', 'merchant_id', 'delivery_fee', 'surcharges_total', 'collected_amount'])->groupBy('merchant_id');
+        $returned = $this->ordersBetween('returned_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
+        $lost = $this->ordersBetween('lost_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
+        $cancelled = $this->ordersBetween('cancelled_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
+        $lastOrder = Order::forCompany($this->company->id)->groupBy('merchant_id')->selectRaw('merchant_id, MAX(created_at) AS last_at')->pluck('last_at', 'merchant_id');
+        $balances = $withAmounts ? app(MerchantPayouts::class)->summaries() : [];
+
+        [$start, $end] = $this->utcRange($from, $to);
+        $inactiveSince = now()->subDays(self::INACTIVE_DAYS);
+
+        $merchants = Merchant::forCompany($this->company->id)->get(['id', 'business_name', 'contact_name', 'phone', 'status', 'created_at']);
+
+        $rows = $merchants->map(function (Merchant $m) use ($created, $delivered, $returned, $lost, $cancelled, $lastOrder, $balances, $withAmounts) {
+            $own = $delivered->get($m->id, collect());
+            $finished = $own->count() + ($returned[$m->id] ?? 0) + ($lost[$m->id] ?? 0);
+
+            return [
+                'id' => $m->id,
+                'name' => $m->business_name,
+                'created' => $created[$m->id] ?? 0,
+                'delivered' => $own->count(),
+                'returned' => $returned[$m->id] ?? 0,
+                'cancelled' => $cancelled[$m->id] ?? 0,
+                'success_rate' => $this->rate($own->count(), $finished),
+                'revenue' => $withAmounts ? (int) $own->sum(fn (Order $o) => $o->delivery_fee + $o->surcharges_total) : null,
+                'collected' => $withAmounts ? (int) $own->sum('collected_amount') : null,
+                // Reste à lui reverser (négatif : il doit de l'argent à l'entreprise)
+                'to_pay' => $withAmounts ? (int) ($balances[$m->id]['unpaid_total'] ?? 0) : null,
+                'last_order_at' => isset($lastOrder[$m->id]) ? CarbonImmutable::parse($lastOrder[$m->id], 'UTC')->toIso8601String() : null,
+            ];
+        });
+
+        $active = $rows->filter(fn (array $r) => $r['created'] + $r['delivered'] > 0)
+            ->sortBy([['created', 'desc'], ['delivered', 'desc'], ['name', 'asc']])->values();
+
+        // À relancer : actifs, qui ont déjà commandé, mais plus depuis INACTIVE_DAYS jours
+        $inactive = $merchants
+            ->filter(fn (Merchant $m) => $m->status === MerchantStatus::Active && isset($lastOrder[$m->id])
+                && CarbonImmutable::parse($lastOrder[$m->id], 'UTC')->lessThan($inactiveSince))
+            ->map(fn (Merchant $m) => [
+                'id' => $m->id,
+                'name' => $m->business_name,
+                'contact_name' => $m->contact_name,
+                'phone' => $m->phone,
+                'last_order_at' => CarbonImmutable::parse($lastOrder[$m->id], 'UTC')->toIso8601String(),
+                'days' => (int) CarbonImmutable::parse($lastOrder[$m->id], 'UTC')->diffInDays(now()),
+            ])
+            ->sortBy('days')->values();
+
+        return [
+            'period' => $this->period($from, $to),
+            'merchants' => $active,
+            'inactive' => $inactive,
+            'inactive_days' => self::INACTIVE_DAYS,
+            'totals' => [
+                'active' => $active->filter(fn (array $r) => $r['created'] > 0)->count(),
+                'new' => $merchants->filter(fn (Merchant $m) => $m->created_at->betweenIncluded($start, $end))->count(),
+                'inactive' => $inactive->count(),
+                'total' => $merchants->where('status', MerchantStatus::Active)->count(),
+                // Part des courses des 5 premiers : dépendance à quelques gros clients
+                'top5_share' => $this->rate($active->sortByDesc('created')->take(5)->sum('created'), $active->sum('created')),
+                'to_pay' => $withAmounts ? (int) collect($balances)->sum(fn ($b) => max(0, $b['unpaid_total'])) : null,
+            ],
+        ];
+    }
+
+    /**
+     * Zones de livraison, regroupées par commune (le quartier compte dans sa commune).
+     *
+     * @return array<string, mixed>
+     */
+    public function zones(CarbonInterface $from, CarbonInterface $to, bool $withAmounts): array
+    {
+        $zones = Zone::forCompany($this->company->id)->get(['id', 'name', 'parent_id', 'is_shipping']);
+        $communeOf = $zones->mapWithKeys(fn (Zone $z) => [$z->id => $z->parent_id ?? $z->id]);
+        $commune = fn (?int $zoneId) => $zoneId === null ? null : ($communeOf[$zoneId] ?? $zoneId);
+
+        $created = $this->ordersBetween('created_at', $from, $to, ['id', 'delivery_zone_id'])->countBy(fn (Order $o) => $commune($o->delivery_zone_id));
+        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id', 'delivery_zone_id', 'picked_up_at', 'delivered_at', 'delivery_fee', 'surcharges_total'])
+            ->groupBy(fn (Order $o) => $commune($o->delivery_zone_id));
+        $returned = $this->ordersBetween('returned_at', $from, $to, ['id', 'delivery_zone_id'])->countBy(fn (Order $o) => $commune($o->delivery_zone_id));
+        $lost = $this->ordersBetween('lost_at', $from, $to, ['id', 'delivery_zone_id'])->countBy(fn (Order $o) => $commune($o->delivery_zone_id));
+        $failed = $this->failureEvents($from, $to)
+            ->join('orders', 'orders.id', '=', 'order_events.order_id')
+            ->get(['order_events.id', 'orders.delivery_zone_id'])
+            ->countBy(fn ($e) => $commune($e->delivery_zone_id));
+
+        $rows = $zones->whereNull('parent_id')->map(function (Zone $z) use ($created, $delivered, $returned, $lost, $failed, $withAmounts) {
+            $own = $delivered->get($z->id, collect());
+            $revenue = (int) $own->sum(fn (Order $o) => $o->delivery_fee + $o->surcharges_total);
+
+            return [
+                'id' => $z->id,
+                'name' => $z->name,
+                'is_shipping' => (bool) $z->is_shipping,
+                'created' => $created[$z->id] ?? 0,
+                'delivered' => $own->count(),
+                'failed' => $failed[$z->id] ?? 0,
+                'returned' => $returned[$z->id] ?? 0,
+                // Réussite des passages chez les destinataires de la commune
+                'success_rate' => $this->rate($own->count(), $own->count() + ($failed[$z->id] ?? 0)),
+                'lost' => $lost[$z->id] ?? 0,
+                'delivery_minutes' => $this->median($own->map(fn (Order $o) => $o->picked_up_at && $o->delivered_at->greaterThanOrEqualTo($o->picked_up_at) ? (int) round($o->picked_up_at->diffInMinutes($o->delivered_at)) : null)),
+                'revenue' => $withAmounts ? $revenue : null,
+                'average_fee' => $withAmounts && $own->count() ? (int) round($revenue / $own->count()) : null,
+            ];
+        })
+            ->filter(fn (array $r) => $r['created'] + $r['delivered'] + $r['failed'] + $r['returned'] > 0)
+            ->sortBy([['delivered', 'desc'], ['created', 'desc'], ['name', 'asc']])
+            ->values();
+
+        $shipping = $rows->where('is_shipping', true);
+
+        return [
+            'period' => $this->period($from, $to),
+            'zones' => $rows,
+            'totals' => [
+                'zones' => $rows->count(),
+                'delivered' => $rows->sum('delivered'),
+                // Part des courses livrées par expédition (gares, transporteurs vers l'intérieur)
+                'shipping_share' => $this->rate($shipping->sum('delivered'), $rows->sum('delivered')),
+            ],
+        ];
+    }
+
+    /**
+     * Finances : revenus, dépenses et marge de la période ; argent en circulation
+     * aujourd'hui (chez les livreurs, à reverser aux marchands).
+     *
+     * @return array<string, mixed>
+     */
+    public function finances(CarbonInterface $from, CarbonInterface $to): array
+    {
+        [$start, $end] = $this->utcRange($from, $to);
+
+        $ledger = MerchantLedgerEntry::forCompany($this->company->id)->whereBetween('created_at', [$start, $end])
+            ->groupBy('type')->selectRaw('type, SUM(amount) AS total')->pluck('total', 'type');
+        $entry = fn (LedgerEntryType $type) => (int) ($ledger[$type->value] ?? 0);
+
+        $revenue = [
+            'delivery' => -$entry(LedgerEntryType::DeliveryFee),
+            'returns' => -$entry(LedgerEntryType::ReturnFee),
+            'storage' => -$entry(LedgerEntryType::StorageFee),
+        ];
+        $costs = [
+            // Paie des livreurs enregistrée sur la période (retenues déduites)
+            'courier_pay' => (int) CourierEarning::forCompany($this->company->id)->whereBetween('created_at', [$start, $end])->sum('amount'),
+            // Frais de course pris en charge par l'entreprise (non refacturés)
+            'expenses' => (int) OrderExpense::forCompany($this->company->id)->active()->where('billed_to', 'company')->whereBetween('created_at', [$start, $end])->sum('amount'),
+            'lost_compensations' => $entry(LedgerEntryType::LostCompensation),
+        ];
+        $revenueTotal = array_sum($revenue);
+        $costTotal = array_sum($costs);
+        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id'])->count();
+
+        // Argent en circulation, à cet instant
+        $courierCash = collect(app(CourierCash::class)->balances());
+        $merchantBalances = collect(app(MerchantPayouts::class)->summaries());
+
+        return [
+            'period' => $this->period($from, $to),
+            'revenue' => [...$revenue, 'total' => $revenueTotal],
+            'costs' => [...$costs, 'total' => $costTotal],
+            'margin' => $revenueTotal - $costTotal,
+            'margin_rate' => $revenueTotal > 0 ? round(($revenueTotal - $costTotal) / $revenueTotal * 100, 1) : null,
+            'margin_per_order' => $delivered ? (int) round(($revenueTotal - $costTotal) / $delivered) : null,
+            'delivered' => $delivered,
+            // Frais avancés puis refacturés aux marchands : ni revenu ni dépense
+            'rebilled' => -$entry(LedgerEntryType::ShippingFee) - $entry(LedgerEntryType::OtherFee),
+            'months' => $this->monthly($from, $to),
+            'circulation' => [
+                'with_couriers' => (int) $courierCash->sum(fn ($b) => max(0, $b['due'])),
+                'to_merchants' => (int) $merchantBalances->sum(fn ($b) => max(0, $b['unpaid_total'])),
+                'to_merchants_available' => (int) $merchantBalances->sum(fn ($b) => max(0, $b['available'])),
+                'owed_by_merchants' => (int) -$merchantBalances->sum(fn ($b) => min(0, $b['unpaid_total'])),
+            ],
+        ];
+    }
+
+    /**
+     * Revenus et dépenses mois par mois sur la période.
+     *
+     * @return list<array{month: string, revenue: int, costs: int, margin: int}>
+     */
+    private function monthly(CarbonInterface $from, CarbonInterface $to): array
+    {
+        [$start, $end] = $this->utcRange($from, $to);
+        $month = fn ($moment) => CarbonImmutable::parse($moment, 'UTC')->setTimezone($this->tz)->format('Y-m');
+
+        $months = [];
+        for ($m = CarbonImmutable::parse($from->toDateString())->startOfMonth(); $m->lessThanOrEqualTo(CarbonImmutable::parse($to->toDateString())); $m = $m->addMonth()) {
+            $months[$m->format('Y-m')] = ['month' => $m->format('Y-m'), 'revenue' => 0, 'costs' => 0, 'margin' => 0];
+        }
+        $add = function (string $key, string $field, int $amount) use (&$months) {
+            if (isset($months[$key])) {
+                $months[$key][$field] += $amount;
+            }
+        };
+
+        MerchantLedgerEntry::forCompany($this->company->id)->whereBetween('created_at', [$start, $end])
+            ->whereIn('type', [LedgerEntryType::DeliveryFee->value, LedgerEntryType::ReturnFee->value, LedgerEntryType::StorageFee->value, LedgerEntryType::LostCompensation->value])
+            ->get(['type', 'amount', 'created_at'])
+            ->each(fn ($e) => $e->type === LedgerEntryType::LostCompensation
+                ? $add($month($e->created_at), 'costs', (int) $e->amount)
+                : $add($month($e->created_at), 'revenue', -(int) $e->amount));
+        CourierEarning::forCompany($this->company->id)->whereBetween('created_at', [$start, $end])->get(['amount', 'created_at'])
+            ->each(fn ($e) => $add($month($e->created_at), 'costs', (int) $e->amount));
+        OrderExpense::forCompany($this->company->id)->active()->where('billed_to', 'company')->whereBetween('created_at', [$start, $end])->get(['amount', 'created_at'])
+            ->each(fn ($e) => $add($month($e->created_at), 'costs', (int) $e->amount));
+
+        return array_values(array_map(fn ($m) => [...$m, 'margin' => $m['revenue'] - $m['costs']], $months));
     }
 
     /**
