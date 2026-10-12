@@ -17,7 +17,8 @@ class WhatsAppAccount extends Model
 
     protected $fillable = [
         'company_id', 'owner_type', 'owner_id', 'provider', 'waba_id', 'phone_number_id',
-        'display_phone', 'access_token', 'status',
+        'display_phone', 'access_token', 'status', 'verified_name', 'quality_rating', 'last_error',
+        'connected_at', 'webhook_subscribed_at',
     ];
 
     protected $hidden = ['access_token'];
@@ -26,6 +27,8 @@ class WhatsAppAccount extends Model
     {
         return [
             'access_token' => 'encrypted',
+            'connected_at' => 'datetime',
+            'webhook_subscribed_at' => 'datetime',
         ];
     }
 
@@ -37,6 +40,20 @@ class WhatsAppAccount extends Model
     public function isConfigured(): bool
     {
         return filled($this->phone_number_id) && filled($this->access_token);
+    }
+
+    /**
+     * Envois réels pour ce numéro ? WHATSAPP_DRIVER=meta : dès qu'il est renseigné ;
+     * « log » : jamais (simulation partout) ; « auto » (défaut) : une fois sa connexion
+     * vérifiée auprès de Meta. Sinon, l'entreprise reste en simulation.
+     */
+    public function isLive(): bool
+    {
+        return match (config('messaging.whatsapp.driver')) {
+            'meta' => $this->isConfigured(),
+            'log' => false,
+            default => $this->isConfigured() && $this->status === 'connected',
+        };
     }
 
     public static function forCompanyId(int $companyId): ?self

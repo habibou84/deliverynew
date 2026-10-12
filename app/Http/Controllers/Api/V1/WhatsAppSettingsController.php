@@ -13,6 +13,7 @@ use App\Rules\PhoneNumber;
 use App\Services\Messaging\Gateways\WhatsAppGateway;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\Messenger;
+use App\Services\Messaging\WhatsAppConnection;
 use App\Services\WhatsApp\Conversation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\DB;
  */
 class WhatsAppSettingsController extends Controller
 {
+    public function __construct(private readonly WhatsAppConnection $connection) {}
+
     public function show(Request $request): JsonResponse
     {
         return response()->json(['data' => $this->settings($this->company($request))]);
@@ -63,12 +66,54 @@ class WhatsAppSettingsController extends Controller
                 if (filled($data['account']['access_token'] ?? null)) {
                     $account->access_token = $data['account']['access_token'];
                 }
-                $account->status = $account->isConfigured() ? 'connected' : 'pending';
                 $account->save();
             }
         });
 
+        // Numéro modifié : vérification immédiate auprès de Meta (envois réels si tout est bon)
+        if (isset($data['account']) && ($account = WhatsAppAccount::forCompanyId($company->id))) {
+            $this->connection->connect($account);
+        }
+
         return response()->json(['data' => $this->settings($company->fresh())]);
+    }
+
+    /**
+     * Vérifie à nouveau la connexion du numéro (jeton, identifiants, abonnement).
+     */
+    public function connect(Request $request): JsonResponse
+    {
+        $company = $this->company($request);
+        $account = WhatsAppAccount::forCompanyId($company->id);
+        abort_if($account === null, 422, 'Renseignez d\'abord le numéro WhatsApp.');
+
+        $this->connection->connect($account);
+
+        return response()->json(['data' => $this->settings($company->fresh())]);
+    }
+
+    /**
+     * Soumet à Meta les modèles de messages pas encore approuvés ni en validation.
+     */
+    public function submitTemplates(Request $request): JsonResponse
+    {
+        $company = $this->company($request);
+        $account = WhatsAppAccount::forCompanyId($company->id);
+        abort_if($account === null, 422, 'Renseignez d\'abord le numéro WhatsApp.');
+
+        try {
+            $results = $this->connection->submitTemplates($account);
+        } catch (MessagingException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        return response()->json([
+            'data' => $this->settings($company->fresh()),
+            'meta' => [
+                'submitted' => count(array_filter($results, fn ($r) => $r === 'ok')),
+                'errors' => array_filter($results, fn ($r) => $r !== 'ok'),
+            ],
+        ]);
     }
 
     /**
@@ -173,6 +218,12 @@ class WhatsAppSettingsController extends Controller
 
         return [
             'driver' => config('messaging.whatsapp.driver'),
+            // Mode de l'entreprise : envois réels, simulation (numéro pas encore connecté) ou simulation imposée par le serveur
+            'mode' => match (true) {
+                config('messaging.whatsapp.driver') === 'log' => 'forced_simulation',
+                (bool) $account?->isLive() => 'live',
+                default => 'simulation',
+            },
             'sms_driver' => config('messaging.sms.driver'),
             'webhook_url' => route('webhooks.whatsapp.handle'),
             'webhook_ready' => filled(config('messaging.whatsapp.app_secret')) && filled(config('messaging.whatsapp.verify_token')),
@@ -186,6 +237,11 @@ class WhatsAppSettingsController extends Controller
                 'waba_id' => $account?->waba_id,
                 'has_access_token' => filled($account?->access_token),
                 'status' => $account->status ?? 'pending',
+                'verified_name' => $account?->verified_name,
+                'quality_rating' => $account?->quality_rating,
+                'last_error' => $account?->last_error,
+                'connected_at' => $account?->connected_at,
+                'webhook_subscribed_at' => $account?->webhook_subscribed_at,
             ],
             'templates' => array_map(fn (WhatsAppTemplate $t) => [
                 'name' => $t->value,

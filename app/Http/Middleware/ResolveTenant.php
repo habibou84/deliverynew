@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 class ResolveTenant
 {
     // Routes indépendantes de l'adresse : l'entreprise vient du message ou de la clé d'API
-    private const ANY_HOST = ['api/webhooks/*', 'api/public/*', 'up'];
+    private const ANY_HOST = ['api/webhooks/*', 'api/public/*', 'up', 'confidentialite'];
 
     public function __construct(private Tenancy $tenancy) {}
 

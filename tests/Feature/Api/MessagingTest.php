@@ -300,12 +300,20 @@ class MessagingTest extends TestCase
         $this->as($this->merchantUser)->getJson('/api/v1/whatsapp/settings')->assertForbidden();
         $this->as($this->dispatcher)->getJson('/api/v1/whatsapp/settings')->assertForbidden();
 
+        // Meta confirme le numéro et l'abonnement aux messages reçus
+        Http::fake([
+            '*/1234?*' => Http::response(['display_phone_number' => '+225 07 00 00 00 99', 'verified_name' => 'Rapide Express', 'quality_rating' => 'GREEN']),
+            '*/987/subscribed_apps' => Http::response(['success' => true]),
+        ]);
+
         $this->as($this->admin)->putJson('/api/v1/whatsapp/settings', [
             'notify_recipients' => false,
             'account' => ['display_phone' => '0700000099', 'phone_number_id' => '1234', 'waba_id' => '987', 'access_token' => 'tok'],
         ])->assertOk()
             ->assertJsonPath('data.notify_recipients', false)
             ->assertJsonPath('data.account.status', 'connected')
+            ->assertJsonPath('data.account.verified_name', 'Rapide Express')
+            ->assertJsonPath('data.account.quality_rating', 'green')
             ->assertJsonPath('data.account.has_access_token', true)
             ->assertJsonMissingPath('data.account.access_token')
             ->assertJsonPath('data.templates.2.name', 'colis_en_route');

@@ -8,23 +8,42 @@
     <p v-if="loadError" class="field-error">{{ loadError }}</p>
 
     <template v-if="s">
-      <div v-if="s.driver !== 'meta'" class="rounded-lg bg-amber-50 text-amber-900 p-4 text-sm">
-        <strong>Mode simulation.</strong> Aucun message n'est réellement envoyé : ils sont enregistrés dans le
-        <RouterLink to="/admin/messages" class="underline">journal des messages</RouterLink> et dans les logs.
-        Pour envoyer pour de vrai, renseignez le numéro ci-dessous puis mettez <code>WHATSAPP_DRIVER=meta</code> dans le fichier <code>.env</code>.
+      <!-- État : envois réels ou simulation, pour cette entreprise -->
+      <div :class="['rounded-lg p-4 text-sm', s.mode === 'live' ? 'bg-emerald-50 text-emerald-900' : 'bg-amber-50 text-amber-900']">
+        <template v-if="s.mode === 'live'">
+          <p class="font-semibold">✅ WhatsApp connecté : les messages partent pour de vrai.</p>
+          <p>
+            {{ s.account.verified_name || 'Numéro' }} · {{ s.account.display_phone }}
+            <span v-if="s.account.quality_rating"> · qualité <strong :class="QUALITY[s.account.quality_rating]?.[1]">{{ QUALITY[s.account.quality_rating]?.[0] || s.account.quality_rating }}</strong></span>
+            · modèles approuvés : <strong>{{ approvedCount }}/{{ s.templates.length }}</strong>
+            · messages reçus : <strong>{{ s.account.webhook_subscribed_at ? 'branchés' : 'non branchés' }}</strong>
+          </p>
+        </template>
+        <template v-else-if="s.mode === 'forced_simulation'">
+          <p class="font-semibold">Mode simulation imposé par le serveur.</p>
+          <p>Aucun message n'est envoyé (<code>WHATSAPP_DRIVER=log</code>). Pour les envois réels, mettez <code>WHATSAPP_DRIVER=auto</code> dans le fichier <code>.env</code>.</p>
+        </template>
+        <template v-else>
+          <p class="font-semibold">Mode simulation : votre numéro n'est pas encore connecté.</p>
+          <p>
+            Les messages sont seulement inscrits dans le <RouterLink to="/admin/messages" class="underline">journal des messages</RouterLink>.
+            Renseignez votre numéro WhatsApp Business ci-dessous : dès que Meta le confirme, les envois deviennent réels.
+          </p>
+        </template>
       </div>
 
       <!-- Numéro -->
       <form class="card p-4 space-y-4" @submit.prevent="saveAccount">
         <div class="flex items-center justify-between gap-2">
           <h2 class="font-semibold">Numéro WhatsApp Business (API Cloud de Meta)</h2>
-          <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', s.account.status === 'connected' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700']">
-            {{ s.account.status === 'connected' ? 'Configuré' : 'À configurer' }}
+          <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', ACCOUNT_STATUS[s.account.status]?.[1] || 'bg-slate-100 text-slate-700']">
+            {{ ACCOUNT_STATUS[s.account.status]?.[0] || 'À configurer' }}
           </span>
         </div>
         <p class="text-sm text-gray-500">
           Ces informations se trouvent dans Meta for Developers, rubrique WhatsApp &gt; Configuration de l'API.
           Utilisez un jeton d'accès permanent (utilisateur système), pas le jeton temporaire de 24 h.
+          À l'enregistrement, nous vérifions le numéro auprès de Meta et branchons les messages reçus.
         </p>
         <div class="grid sm:grid-cols-2 gap-3">
           <div><label class="label" for="wa-phone">Numéro affiché</label><input id="wa-phone" v-model="account.display_phone" class="input" placeholder="07 00 00 00 00"></div>
@@ -35,8 +54,12 @@
             <input id="wa-token" v-model="account.access_token" type="password" autocomplete="off" class="input" :placeholder="s.account.has_access_token ? 'Enregistré (laisser vide pour le garder)' : ''">
           </div>
         </div>
+        <p v-if="s.account.last_error" class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{{ s.account.last_error }}</p>
         <p v-if="accountError" class="field-error">{{ accountError }}</p>
-        <button class="btn-primary" :disabled="saving">Enregistrer le numéro</button>
+        <div class="flex flex-wrap gap-2">
+          <button class="btn-primary" :disabled="saving">{{ saving ? 'Vérification auprès de Meta…' : 'Enregistrer et vérifier' }}</button>
+          <button v-if="s.account.has_access_token" type="button" class="btn-secondary" :disabled="saving" @click="reconnect">Vérifier à nouveau</button>
+        </div>
       </form>
 
       <!-- Courses reçues sur WhatsApp -->
@@ -115,19 +138,24 @@
       <div class="card p-4 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="font-semibold">Modèles de messages</h2>
-          <button class="btn-secondary" :disabled="syncing" @click="sync">Vérifier l'approbation chez Meta</button>
+          <div class="flex flex-wrap gap-2">
+            <button v-if="s.mode === 'live' && approvedCount < s.templates.length" class="btn-primary" :disabled="submitting" @click="submitTemplates">
+              {{ submitting ? 'Envoi à Meta…' : 'Soumettre les modèles à Meta' }}
+            </button>
+            <button class="btn-secondary" :disabled="syncing" @click="sync">Vérifier l'approbation chez Meta</button>
+          </div>
         </div>
         <p class="text-sm text-gray-500">
           Hors conversation ouverte par le client, WhatsApp n'accepte que des modèles approuvés par Meta.
-          Créez chacun d'eux dans le gestionnaire WhatsApp : catégorie <strong>Utilitaire</strong>, langue <strong>Français</strong>,
-          nom et texte exactement comme ci-dessous. L'approbation prend de quelques minutes à 48 h.
+          Une fois le numéro connecté, « Soumettre les modèles à Meta » les crée tous pour vous (catégorie Utilitaire, Français).
+          L'approbation prend de quelques minutes à 48 h ; revenez ensuite vérifier leur état.
         </p>
         <ul class="divide-y">
           <li v-for="t in s.templates" :key="t.name" class="py-3 space-y-1 text-sm">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="font-mono font-medium">{{ t.name }}</span>
               <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', TEMPLATE_STATUS[t.status]?.[1] || 'bg-slate-100 text-slate-700']">
-                {{ TEMPLATE_STATUS[t.status]?.[0] || t.status }}<template v-if="s.driver !== 'meta' && t.status !== 'unknown'"> (simulation)</template>
+                {{ TEMPLATE_STATUS[t.status]?.[0] || t.status }}<template v-if="s.mode !== 'live' && t.status !== 'unknown'"> (simulation)</template>
               </span>
             </div>
             <p class="text-gray-500">{{ t.description }}</p>
@@ -145,7 +173,7 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -162,6 +190,19 @@ const TEMPLATE_STATUS = {
   unknown: ['À créer chez Meta', 'bg-slate-100 text-slate-700'],
 }
 
+const ACCOUNT_STATUS = {
+  connected: ['Connecté', 'bg-emerald-100 text-emerald-800'],
+  error: ['Erreur de connexion', 'bg-red-100 text-red-700'],
+  pending: ['À configurer', 'bg-slate-100 text-slate-700'],
+}
+
+// Note de qualité du numéro chez Meta
+const QUALITY = {
+  green: ['bonne', 'text-emerald-700'],
+  yellow: ['moyenne', 'text-amber-700'],
+  red: ['faible', 'text-red-700'],
+}
+
 const toasts = useToastStore()
 const s = ref(null)
 const loadError = ref('')
@@ -169,6 +210,8 @@ const account = reactive({ display_phone: '', phone_number_id: '', waba_id: '', 
 const accountError = ref('')
 const saving = ref(false)
 const syncing = ref(false)
+const submitting = ref(false)
+const approvedCount = computed(() => (s.value?.templates || []).filter((t) => t.status === 'approved').length)
 const testing = ref(false)
 const testPhone = ref('')
 const testResult = ref(null)
@@ -197,11 +240,40 @@ async function saveAccount() {
   try {
     const payload = Object.fromEntries(Object.entries(account).map(([k, v]) => [k, v || null]))
     apply((await http.put('/whatsapp/settings', { account: payload })).data.data)
-    toasts.success('Numéro enregistré.')
+    if (s.value.account.status === 'connected') toasts.success('Numéro connecté : les envois sont réels.')
+    else if (s.value.account.status !== 'error') toasts.success('Numéro enregistré.')
   } catch (e) {
     accountError.value = apiErrorMessage(e)
   } finally {
     saving.value = false
+  }
+}
+
+async function reconnect() {
+  saving.value = true
+  accountError.value = ''
+  try {
+    apply((await http.post('/whatsapp/connect')).data.data)
+    if (s.value.account.status === 'connected') toasts.success('Numéro connecté.')
+  } catch (e) {
+    accountError.value = apiErrorMessage(e)
+  } finally {
+    saving.value = false
+  }
+}
+
+async function submitTemplates() {
+  submitting.value = true
+  try {
+    const { data } = await http.post('/whatsapp/templates/submit')
+    apply(data.data)
+    const errors = Object.entries(data.meta.errors || {})
+    if (errors.length) toasts.error(`${errors.length} modèle(s) refusé(s) à l'envoi : ${errors.map(([name, error]) => `${name} (${error})`).join(' ; ')}`)
+    else toasts.success(`${data.meta.submitted} modèle(s) envoyé(s) à Meta pour validation.`)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    submitting.value = false
   }
 }
 

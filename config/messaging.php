@@ -7,14 +7,15 @@ return [
     | WhatsApp
     |--------------------------------------------------------------------------
     |
-    | « log » : aucun envoi réel, les messages sont écrits dans le journal
-    | (développement, démonstration). « meta » : API Cloud de Meta, avec le
-    | numéro configuré par chaque entreprise dans Paramètres > WhatsApp.
+    | « auto » (défaut) : chaque entreprise envoie pour de vrai dès que son
+    | numéro est connecté (Paramètres > WhatsApp, vérifié auprès de Meta) ;
+    | les autres restent en simulation. « log » : simulation partout
+    | (développement). « meta » : envois réels dès qu'un numéro est renseigné.
     |
     */
 
     'whatsapp' => [
-        'driver' => env('WHATSAPP_DRIVER', 'log'),
+        'driver' => env('WHATSAPP_DRIVER', 'auto'),
         'graph_url' => env('WHATSAPP_GRAPH_URL', 'https://graph.facebook.com'),
         'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v21.0'),
         // Application Meta : signature des webhooks et vérification de l'abonnement

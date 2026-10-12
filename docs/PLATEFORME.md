@@ -272,6 +272,41 @@ L'application reconnaît l'entreprise par ce nom. Le domaine passe « Actif » d
 
 ---
 
+## WhatsApp : application Meta (une seule pour toute la plateforme)
+
+Une application Meta « Jibiat » sert à toutes les entreprises : chacune y branche son propre numéro.
+
+1. **business.facebook.com** : créez le portefeuille d'entreprise Jibiat et lancez la **vérification
+   de l'entreprise** (Paramètres > Centre de sécurité) : c'est le plus long, commencez tôt.
+2. **developers.facebook.com** : *Créer une app* > cas d'usage WhatsApp (ou type Business), nom « Jibiat »,
+   rattachée au portefeuille. Ajoutez le produit **WhatsApp** (Meta fournit un numéro de test gratuit).
+3. *Paramètres de l'app > Général* :
+   - **URL de la politique de confidentialité** : `https://admin.jibiat.com/confidentialite`
+   - **URL des instructions de suppression des données** : `https://admin.jibiat.com/confidentialite#suppression`
+   - notez la **clé secrète** de l'app.
+4. *WhatsApp > Configuration* : URL de rappel `https://admin.jibiat.com/api/webhooks/whatsapp`,
+   jeton de vérification = une phrase de votre choix ; abonnez le champ **messages**.
+5. Fichier `.env` du serveur, puis `bash deploy/update.sh` :
+
+   ```
+   WHATSAPP_DRIVER=auto
+   WHATSAPP_APP_SECRET=…        # clé secrète de l'étape 3
+   WHATSAPP_VERIFY_TOKEN=…      # jeton de l'étape 4
+   PLATFORM_OPERATOR=Jibiat
+   PLATFORM_CONTACT_EMAIL=contact@jibiat.com
+   ```
+
+6. Pour chaque entreprise (la vôtre d'abord) : dans Meta Business, *Utilisateurs système* > créez un utilisateur
+   système administrateur, donnez-lui accès à l'app et au compte WhatsApp, générez un **jeton permanent** avec
+   `whatsapp_business_management` et `whatsapp_business_messaging`. Dans l'espace de l'entreprise,
+   **WhatsApp** : identifiant du numéro, WABA ID, jeton, puis **Enregistrer et vérifier**, puis
+   **Soumettre les modèles à Meta**.
+
+L'assistant « Connecter WhatsApp » (étape W2, Embedded Signup) évitera l'étape 6 aux entreprises clientes ;
+il demande que Meta ait vérifié l'entreprise Jibiat et accordé les autorisations (App Review).
+
+---
+
 ## Limites par entreprise
 
 Pour qu'une entreprise très active ne ralentisse pas les autres, l'espace connecté accepte par

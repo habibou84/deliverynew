@@ -71,15 +71,21 @@ Hors ligne, l'application s'ouvre et affiche les dernières données connues ; l
 
 ### WhatsApp et SMS
 
-Par défaut, rien n'est réellement envoyé (`WHATSAPP_DRIVER=log`, `SMS_DRIVER=log`) : les messages apparaissent dans
-**Messages** (back-office), sur la fiche colis et dans `storage/logs/laravel.log`.
+Le mode réel ou simulation se décide **entreprise par entreprise** (`WHATSAPP_DRIVER=auto`, par défaut) : une
+entreprise dont le numéro est connecté (vérifié auprès de Meta) envoie de vrais messages ; les autres restent en
+simulation (messages visibles dans **Messages**, sur la fiche colis et dans `storage/logs/laravel.log`).
+`WHATSAPP_DRIVER=log` impose la simulation partout (développement) ; `meta` envoie dès qu'un numéro est renseigné.
 
 Pour envoyer de vrais messages :
 
-1. Chez Meta : compte Business vérifié, application avec le produit WhatsApp, numéro ajouté, jeton d'accès permanent (utilisateur système).
-2. Dans le back-office, **WhatsApp** : saisir l'identifiant du numéro, l'identifiant WABA et le jeton ; envoyer un message de test.
-3. Créer dans le gestionnaire WhatsApp chacun des modèles affichés sur cette page (catégorie Utilitaire, langue Français, texte identique), puis « Vérifier l'approbation chez Meta ».
-4. Dans `.env` : `WHATSAPP_DRIVER=meta`, `WHATSAPP_APP_SECRET` (secret de l'application Meta) et `WHATSAPP_VERIFY_TOKEN` (chaîne de votre choix) ; abonner l'adresse du webhook indiquée sur la page au champ `messages`.
+1. Une fois pour la plateforme : l'application Meta et le webhook (`docs/PLATEFORME.md`, « WhatsApp : application Meta ») ;
+   `WHATSAPP_APP_SECRET` et `WHATSAPP_VERIFY_TOKEN` dans `.env`.
+2. Dans le back-office, **WhatsApp** : identifiant du numéro, identifiant WABA et jeton permanent, puis « Enregistrer et
+   vérifier ». L'application interroge Meta (`App\Services\Messaging\WhatsAppConnection`) : nom vérifié, note de qualité,
+   erreurs expliquées (jeton expiré, identifiant introuvable, autorisations) ; elle abonne l'application Meta au compte
+   WhatsApp (messages reçus et accusés). Connecté = envois réels pour cette entreprise.
+3. « Soumettre les modèles à Meta » crée tous les modèles (Utilitaire, Français, avec exemples) ; « Vérifier l'approbation
+   chez Meta » relève leur état.
 5. SMS de repli (facultatif) : `SMS_DRIVER=twilio` avec `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM` ; `SMS_DRIVER=none` pour le désactiver.
 
 #### Courses par WhatsApp
@@ -377,6 +383,14 @@ Menu **📊 Statistiques** du back-office (`orders.view`, personnel seulement), 
   renseignés. Mise en place du serveur : `docs/PLATEFORME.md`, « Domaines personnalisés ».
 - Marque blanche : sur l'adresse d'une entreprise, le titre des pages est son nom (plus celui de la plateforme).
 
+### Politique de confidentialité
+
+Page publique `/confidentialite` (toutes les adresses, y compris la présentation), exigée par Meta pour publier
+l'application WhatsApp : données traitées, rôles (l'entreprise de livraison responsable, la plateforme sous-traitante),
+prestataires (Meta, SMS, Anthropic si activé, Cloudflare), durées, droits (loi ivoirienne n° 2013-450, ARTCI) et
+section `#suppression` (URL d'instructions de suppression des données demandée par Meta). Éditeur et contact :
+`PLATFORM_OPERATOR`, `PLATFORM_CONTACT_EMAIL`, `PLATFORM_CONTACT_PHONE`. Texte à faire relire avant publication.
+
 ### Paie des livreurs : plans de rémunération
 
 **Paie des livreurs** (`settings.manage`) : chaque entreprise compose ses plans. Un plan est une liste de
@@ -508,8 +522,9 @@ Vérification du numéro, valable 30 minutes :
 2. **SMS** (secours) : code à 6 chiffres, uniquement vers les mobiles ivoiriens (01, 05, 07), 5 essais par code,
    un renvoi par minute, 3 SMS par numéro et par heure ; le code n'est pas écrit dans le journal des messages.
 
-Limites : 5 demandes par numéro et par heure, 3 par minute et 10 par heure par adresse IP. Sans aucun envoi réel
-(`WHATSAPP_DRIVER=log` et `SMS_DRIVER=log`), le code SMS s'affiche sur la page (**mode démonstration**).
+Limites : 5 demandes par numéro et par heure, 3 par minute et 10 par heure par adresse IP. Quand les SMS sont simulés
+(`SMS_DRIVER=log`), le code SMS s'affiche sur la page (**mode démonstration**). La vérification par WhatsApp n'est
+proposée que si le numéro de l'entreprise est connecté.
 Les inscriptions se ferment dans **Paramètres > E-commerçants** (la page d'accueil propose alors le contact WhatsApp).
 
 **Mot de passe oublié ?** (lien sous chaque formulaire de connexion, `/mot-de-passe-oublie`) : même vérification
