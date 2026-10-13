@@ -52,6 +52,23 @@ class MarketingSiteTest extends TestCase
         $this->get('http://www.jibiat.test/tarifs')->assertOk()->assertSee('Des tarifs simples')->assertSee('Jusqu&#039;à 5 livreurs actifs', false);
     }
 
+    public function test_features_page_details_each_area(): void
+    {
+        $this->plan();
+
+        $this->get('http://jibiat.test/fonctionnalites')
+            ->assertOk()
+            ->assertSee('Tout ce dont votre entreprise de livraison a besoin')
+            ->assertSee('href="#caisse"', false)
+            ->assertSee('Paie des livreurs')
+            ->assertSee('Application e-commerçant')
+            ->assertSee('votre-entreprise.jibiat.test')
+            ->assertSee('https://admin.jibiat.test/creer-mon-entreprise', false);
+
+        // Le menu et l'accueil y mènent
+        $this->get('http://jibiat.test/')->assertSee('href="/fonctionnalites"', false);
+    }
+
     public function test_closed_signup_keeps_prices_and_offers_contact(): void
     {
         $this->plan();

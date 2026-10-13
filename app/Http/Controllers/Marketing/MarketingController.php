@@ -14,11 +14,11 @@ use Illuminate\Support\Collection;
 
 /**
  * Site de présentation, sur l'adresse principale de la plateforme (jibiat.com) :
- * accueil et tarifs. Les tarifs viennent des formules de la console.
+ * accueil, fonctionnalités et tarifs. Les tarifs viennent des formules de la console.
  */
 class MarketingController extends Controller
 {
-    public const PAGES = ['' => 'home', 'tarifs' => 'pricing'];
+    public const PAGES = ['' => 'home', 'fonctionnalites' => 'features', 'tarifs' => 'pricing'];
 
     public function __construct(private readonly CompanySignup $signup) {}
 
