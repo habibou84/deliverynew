@@ -25,6 +25,7 @@ class PlatformTenancyTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutVite();
         config(['platform.domain' => 'jibiat.test']);
         $this->buildWorld();
         $this->company->update(['slug' => 'rapide', 'name' => 'Rapide Express', 'merchant_signup' => true]);
@@ -59,7 +60,8 @@ class PlatformTenancyTest extends TestCase
     public function test_platform_address_unknown_and_suspended_companies(): void
     {
         $this->get($this->at('', '/'))->assertOk()->assertSee('votre-entreprise.jibiat.test');
-        $this->get($this->at('www', '/admin'))->assertOk()->assertSee('Vous êtes une entreprise de livraison');
+        // Espace d'une entreprise demandé sur l'adresse de la plateforme : page qui oriente vers la bonne adresse
+        $this->get($this->at('www', '/admin'))->assertNotFound()->assertSee('votre-entreprise.jibiat.test');
         $this->getJson($this->at('', '/api/v1/branding'))->assertNotFound();
 
         $this->get($this->at('inconnue', '/'))->assertNotFound()->assertSee('Aucune entreprise à cette adresse.');

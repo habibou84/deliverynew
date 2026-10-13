@@ -202,6 +202,8 @@ onMounted(async () => {
   } catch {
     options.value = { open: false, plans: [] }
   }
-  if (options.value.plans?.length) form.plan_id = options.value.plans[0].id
+  // Formule choisie sur la page des tarifs (?formule=…), sinon la première
+  const chosen = Number(new URLSearchParams(window.location.search).get('formule'))
+  if (options.value.plans?.length) form.plan_id = options.value.plans.find((p) => p.id === chosen)?.id ?? options.value.plans[0].id
 })
 </script>

@@ -5,7 +5,7 @@ en **plateforme multi-entreprises** :
 
 | Adresse | Pour qui |
 |---|---|
-| `https://jibiat.com` | Votre site de présentation (site à part dans ISPConfig) |
+| `https://jibiat.com` | Le site de présentation : accueil, tarifs (servi par l'application, voir « Site de présentation ») |
 | `https://admin.jibiat.com` | Console du super administrateur : entreprises, assistance |
 | `https://express.jibiat.com` | Une entreprise : marchands sur `/`, équipe sur `/admin`, livreurs sur `/livreur` |
 
@@ -304,6 +304,29 @@ Une application Meta « Jibiat » sert à toutes les entreprises : chacune y bra
 
 L'assistant « Connecter WhatsApp » (étape W2, Embedded Signup) évitera l'étape 6 aux entreprises clientes ;
 il demande que Meta ait vérifié l'entreprise Jibiat et accordé les autorisations (App Review).
+
+---
+
+## Site de présentation (jibiat.com)
+
+L'application sert elle-même le site de présentation sur `jibiat.com` et `www.jibiat.com` : accueil
+(`/`), tarifs (`/tarifs`) et confidentialité. Les tarifs sont ceux des **formules actives** de la
+console ; les boutons « Essai gratuit » mènent à `admin.jibiat.com/creer-mon-entreprise` (formule
+présélectionnée), « Demander une démo » ouvre WhatsApp.
+
+Pour que `jibiat.com` arrive sur l'application, une seule fois dans ISPConfig :
+
+1. Si un site `jibiat.com` à part existe (étape 3.2) et que vous n'en avez plus besoin :
+   **Sites** > **Website** > `jibiat.com` > supprimez-le (sauvegardez son contenu avant si besoin).
+2. Site de l'application > onglet **Options** > **Apache Directives**, sous la ligne `ServerAlias *.jibiat.com` :
+   ```
+   ServerAlias jibiat.com www.jibiat.com
+   ```
+3. **Save**, attendez une minute, puis ouvrez `https://jibiat.com`.
+
+Réglages dans le `.env` (puis `php artisan optimize`) : `MARKETING_WHATSAPP` (numéro WhatsApp
+commercial, `+2250703686876` par défaut) et `PLATFORM_TRIAL_DAYS` (durée de l'essai affichée).
+Les avis clients se modifient dans `config/marketing.php`.
 
 ---
 
