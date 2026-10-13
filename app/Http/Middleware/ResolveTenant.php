@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\Marketing\MarketingController;
 use App\Support\Tenancy;
 use Closure;
 use Illuminate\Http\Request;
@@ -44,7 +45,7 @@ class ResolveTenant
         if ($this->tenancy->zone() === Tenancy::PLATFORM) {
             return $api
                 ? response()->json(['message' => 'Ouvrez l\'adresse de votre entreprise de livraison.'], 404)
-                : response()->view('platform.home', ['domain' => Tenancy::domain()]);
+                : app(MarketingController::class)->show($request);
         }
 
         // Console : directement le tableau des entreprises

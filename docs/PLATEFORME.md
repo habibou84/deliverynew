@@ -5,7 +5,7 @@ en **plateforme multi-entreprises** :
 
 | Adresse | Pour qui |
 |---|---|
-| `https://jibiat.com` | Votre site de présentation (site à part dans ISPConfig) |
+| `https://jibiat.com` | Le site de présentation : accueil, tarifs (servi par l'application, voir « Site de présentation ») |
 | `https://admin.jibiat.com` | Console du super administrateur : entreprises, assistance |
 | `https://express.jibiat.com` | Une entreprise : marchands sur `/`, équipe sur `/admin`, livreurs sur `/livreur` |
 
@@ -304,6 +304,55 @@ Une application Meta « Jibiat » sert à toutes les entreprises : chacune y bra
 
 L'assistant « Connecter WhatsApp » (étape W2, Embedded Signup) évitera l'étape 6 aux entreprises clientes ;
 il demande que Meta ait vérifié l'entreprise Jibiat et accordé les autorisations (App Review).
+
+---
+
+## Site de présentation (jibiat.com)
+
+L'application sert elle-même le site de présentation sur `jibiat.com` et `www.jibiat.com` : accueil
+(`/`), tarifs (`/tarifs`) et confidentialité. Les tarifs sont ceux des **formules actives** de la
+console ; les boutons « Essai gratuit » mènent à `admin.jibiat.com/creer-mon-entreprise` (formule
+présélectionnée), « Demander une démo » ouvre WhatsApp.
+
+Pour que `jibiat.com` arrive sur l'application, une seule fois dans ISPConfig :
+
+1. Si un site `jibiat.com` à part existe (étape 3.2) et que vous n'en avez plus besoin :
+   **Sites** > **Website** > `jibiat.com` > supprimez-le (sauvegardez son contenu avant si besoin).
+2. Site de l'application > onglet **Options** > **Apache Directives**, sous la ligne `ServerAlias *.jibiat.com` :
+   ```
+   ServerAlias jibiat.com www.jibiat.com
+   ```
+3. **Save**, attendez une minute, puis ouvrez `https://jibiat.com`.
+
+Réglages dans le `.env` (puis `php artisan optimize`) : `MARKETING_WHATSAPP` (numéro WhatsApp
+commercial, `+2250703686876` par défaut) et `PLATFORM_TRIAL_DAYS` (durée de l'essai affichée).
+Les avis clients se modifient dans `config/marketing.php`.
+
+---
+
+## Reprise depuis l'ancienne application (Laravel 5.8)
+
+E-commerçants et livreurs d'une entreprise passent sur la plateforme avec **le même numéro et le même mot de passe**
+(hachages bcrypt repris tels quels). Aucun message n'est envoyé pendant l'import. Les commandes ne sont pas reprises.
+
+1. Créez l'entreprise sur la plateforme (console ou inscription) et ses **zones** : la commune de chaque e-commerçant
+   (« city ») sert à choisir sa zone de ramassage.
+2. Dans le phpMyAdmin de l'ancienne base de l'entreprise : cochez **clients**, **livreurs** et **users**, puis
+   *Exporter* > méthode *Personnalisée* > format **SQL**, *structure et données*. Envoyez le fichier sur le serveur
+   (SFTP), hors du dossier web, par exemple dans `/root/imports/`.
+3. Simulation, puis import :
+
+   ```bash
+   cd /var/www/clients/client0/web2/web/livraison
+   sudo -u "$(stat -c %U .env)" php artisan legacy:import rapide-express /root/imports/rapide.sql --dry-run
+   sudo -u "$(stat -c %U .env)" php artisan legacy:import rapide-express /root/imports/rapide.sql
+   ```
+
+Le rapport liste les lignes non importées (numéro invalide, numéro déjà présent) et les points à vérifier : commune
+non reconnue (zone à choisir sur la fiche), compte sans mot de passe repris (« Mot de passe oublié », ou
+`php artisan user:password`), livreur suspendu faute de place dans la formule. Relancer l'import ne crée pas de
+doublon. Les livreurs « inactive » sont importés suspendus ; les comptes de l'équipe (administrateurs, opérateurs)
+ne sont pas repris : recréez-les dans **Utilisateurs**. Supprimez le fichier d'export après l'import.
 
 ---
 
