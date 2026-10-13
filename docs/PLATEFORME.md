@@ -307,6 +307,32 @@ il demande que Meta ait vérifié l'entreprise Jibiat et accordé les autorisati
 
 ---
 
+## Reprise depuis l'ancienne application (Laravel 5.8)
+
+E-commerçants et livreurs d'une entreprise passent sur la plateforme avec **le même numéro et le même mot de passe**
+(hachages bcrypt repris tels quels). Aucun message n'est envoyé pendant l'import. Les commandes ne sont pas reprises.
+
+1. Créez l'entreprise sur la plateforme (console ou inscription) et ses **zones** : la commune de chaque e-commerçant
+   (« city ») sert à choisir sa zone de ramassage.
+2. Dans le phpMyAdmin de l'ancienne base de l'entreprise : cochez **clients**, **livreurs** et **users**, puis
+   *Exporter* > méthode *Personnalisée* > format **SQL**, *structure et données*. Envoyez le fichier sur le serveur
+   (SFTP), hors du dossier web, par exemple dans `/root/imports/`.
+3. Simulation, puis import :
+
+   ```bash
+   cd /var/www/clients/client0/web2/web/livraison
+   sudo -u "$(stat -c %U .env)" php artisan legacy:import rapide-express /root/imports/rapide.sql --dry-run
+   sudo -u "$(stat -c %U .env)" php artisan legacy:import rapide-express /root/imports/rapide.sql
+   ```
+
+Le rapport liste les lignes non importées (numéro invalide, numéro déjà présent) et les points à vérifier : commune
+non reconnue (zone à choisir sur la fiche), compte sans mot de passe repris (« Mot de passe oublié », ou
+`php artisan user:password`), livreur suspendu faute de place dans la formule. Relancer l'import ne crée pas de
+doublon. Les livreurs « inactive » sont importés suspendus ; les comptes de l'équipe (administrateurs, opérateurs)
+ne sont pas repris : recréez-les dans **Utilisateurs**. Supprimez le fichier d'export après l'import.
+
+---
+
 ## Limites par entreprise
 
 Pour qu'une entreprise très active ne ralentisse pas les autres, l'espace connecté accepte par
