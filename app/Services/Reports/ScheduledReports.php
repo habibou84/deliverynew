@@ -50,7 +50,7 @@ class ScheduledReports
 
                 // Rien à signaler : on n'envoie pas de rapport vide
                 if ($data['counts']['total'] > 0) {
-                    $this->messenger->whatsapp($merchant->company_id, $merchant->messagingPhone(), 'merchant', WhatsAppTemplate::ActivityReport, [
+                    $this->messenger->merchantMessage($merchant, 'report.'.$report->frequency->value, WhatsAppTemplate::ActivityReport, [
                         $merchant->business_name,
                         $label,
                         $data['counts']['total'],
@@ -61,7 +61,7 @@ class ScheduledReports
                         Money::format($data['amounts']['fees']),
                         Money::format($data['amounts']['shipping_fees'] + $data['amounts']['other_fees']),
                         Money::format($data['amounts']['net_to_merchant']),
-                    ], ['event' => 'report.'.$report->frequency->value, 'merchant_id' => $merchant->id]);
+                    ]);
                     $sent++;
                 }
 

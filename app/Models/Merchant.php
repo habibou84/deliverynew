@@ -8,6 +8,7 @@ use App\Enums\NotificationEvent;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\PhoneNumber;
 use Database\Factories\MerchantFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -126,13 +127,21 @@ class Merchant extends Model
     }
 
     /**
-     * Le marchand veut-il recevoir cet événement sur WhatsApp ?
+     * Le marchand veut-il être prévenu de cet événement (notification ou WhatsApp) ?
      */
-    public function wantsWhatsApp(NotificationEvent $event): bool
+    public function wantsNotification(NotificationEvent $event): bool
     {
         $preference = $this->loadMissing('notificationPreferences')->notificationPreferences->firstWhere('event', $event);
 
-        return $preference ? in_array('whatsapp', $preference->channels, true) : $event->enabledByDefault();
+        return $preference ? $preference->channels !== [] : $event->enabledByDefault();
+    }
+
+    /**
+     * Appareils (téléphones, navigateurs) des comptes du marchand abonnés aux notifications push.
+     */
+    public function pushSubscriptions(): Builder
+    {
+        return PushSubscription::whereIn('user_id', User::withoutGlobalScopes()->where('merchant_id', $this->id)->select('id'));
     }
 
     /**

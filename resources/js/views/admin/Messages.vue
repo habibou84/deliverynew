@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h1 class="text-xl font-bold">Messages WhatsApp et SMS</h1>
+      <h1 class="text-xl font-bold">Messages WhatsApp, SMS et notifications</h1>
       <RouterLink v-if="auth.can('settings.manage')" to="/admin/whatsapp" class="btn-secondary">Paramètres WhatsApp</RouterLink>
     </div>
 
@@ -18,6 +18,7 @@
         <option value="">Tous canaux</option>
         <option value="whatsapp">WhatsApp</option>
         <option value="sms">SMS</option>
+        <option value="push">Notifications</option>
       </select>
       <input v-model="search" type="search" class="input w-56" placeholder="Téléphone ou code colis" aria-label="Rechercher" @input="debouncedLoad">
     </div>

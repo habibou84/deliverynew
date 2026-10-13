@@ -26,6 +26,7 @@ Table companies {
   return_fee_percent smallint [default: 100]
   notify_recipients boolean [default: true, note: 'WhatsApp au destinataire : colis en route + code']
   sms_fallback boolean [default: true, note: 'SMS si le WhatsApp n\'est pas remis']
+  merchant_push_first boolean [default: true, note: 'Messages aux e-commerçants en notification push, WhatsApp à défaut']
   whatsapp_orders boolean [default: true, note: 'création de course en écrivant au numéro WhatsApp']
   field_alert_reminder_minutes smallint [default: 10, note: 'relance des problèmes des livreurs sans suite (0 = jamais)']
   parcel_hold_alert_hours smallint [default: 24, note: 'alerte des colis restés chez un livreur (0 = jamais)']
@@ -741,7 +742,7 @@ Table notification_preferences {
 Table outbound_messages {
   id bigint [pk, increment]
   company_id bigint [ref: > companies.id, not null]
-  channel varchar [not null, note: 'whatsapp | sms']
+  channel varchar [not null, note: 'whatsapp | sms | push']
   whatsapp_account_id bigint [ref: > whatsapp_accounts.id]
   to varchar [not null, note: 'E.164']
   recipient_type varchar [not null, note: 'merchant | recipient | test']
@@ -751,7 +752,7 @@ Table outbound_messages {
   body text [not null, note: 'texte rendu : journal et SMS de repli']
   order_id bigint [ref: > orders.id]
   merchant_id bigint [ref: > merchants.id]
-  fallback_for_id bigint [ref: > outbound_messages.id, note: 'SMS de repli de ce message WhatsApp']
+  fallback_for_id bigint [ref: > outbound_messages.id, note: 'Repli : SMS d\'un WhatsApp, ou WhatsApp d\'une notification push']
   status varchar [default: 'queued', note: 'queued | sent | delivered | read | failed']
   provider_message_id varchar [unique]
   error text

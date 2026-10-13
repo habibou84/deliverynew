@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\MerchantStatus;
 use App\Enums\WhatsAppTemplate;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\OutboundMessageResource;
 use App\Models\Company;
+use App\Models\Merchant;
 use App\Models\MetaTemplate;
 use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
@@ -14,6 +16,7 @@ use App\Services\Messaging\Gateways\WhatsAppGateway;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\Messenger;
 use App\Services\Messaging\WhatsAppConnection;
+use App\Services\Push\WebPush;
 use App\Services\WhatsApp\Conversation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,6 +42,7 @@ class WhatsAppSettingsController extends Controller
         $data = $request->validate([
             'notify_recipients' => ['sometimes', 'boolean'],
             'sms_fallback' => ['sometimes', 'boolean'],
+            'merchant_push_first' => ['sometimes', 'boolean'],
             'whatsapp_orders' => ['sometimes', 'boolean'],
             'account' => ['sometimes', 'array'],
             'account.display_phone' => ['nullable', 'string', new PhoneNumber],
@@ -53,7 +57,7 @@ class WhatsAppSettingsController extends Controller
         ]);
 
         DB::transaction(function () use ($company, $data) {
-            $company->update(array_intersect_key($data, array_flip(['notify_recipients', 'sms_fallback', 'whatsapp_orders'])));
+            $company->update(array_intersect_key($data, array_flip(['notify_recipients', 'sms_fallback', 'merchant_push_first', 'whatsapp_orders'])));
 
             if (isset($data['account'])) {
                 $account = WhatsAppAccount::forCompanyId($company->id) ?? new WhatsAppAccount([
@@ -229,6 +233,13 @@ class WhatsAppSettingsController extends Controller
             'webhook_ready' => filled(config('messaging.whatsapp.app_secret')) && filled(config('messaging.whatsapp.verify_token')),
             'notify_recipients' => $company->notify_recipients,
             'sms_fallback' => $company->sms_fallback,
+            'merchant_push_first' => $company->merchant_push_first,
+            'push_enabled' => WebPush::enabled(),
+            // E-commerçants prévenus sur leur téléphone (au moins un appareil abonné)
+            'merchants_with_push' => Merchant::where('company_id', $company->id)
+                ->whereHas('users', fn ($q) => $q->whereHas('pushSubscriptions'))
+                ->count(),
+            'merchants_total' => Merchant::where('company_id', $company->id)->where('status', MerchantStatus::Active)->count(),
             'whatsapp_orders' => $company->whatsapp_orders,
             'ai_parser' => filled(config('messaging.ai.api_key')),
             'account' => [

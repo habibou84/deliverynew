@@ -26,7 +26,7 @@ class MessageController extends Controller
 
         $request->validate([
             'status' => ['nullable', Rule::enum(MessageStatus::class)],
-            'channel' => ['nullable', 'in:whatsapp,sms'],
+            'channel' => ['nullable', 'in:whatsapp,sms,push'],
             'search' => ['nullable', 'string', 'max:50'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);

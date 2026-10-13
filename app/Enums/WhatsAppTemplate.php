@@ -42,6 +42,26 @@ enum WhatsAppTemplate: string
         };
     }
 
+    /**
+     * Titre de la notification push quand le message part sur le téléphone du marchand.
+     */
+    public function notificationTitle(): string
+    {
+        return match ($this) {
+            self::OrderConfirmed => '📋 Course validée',
+            self::OrderPickedUp => '📦 Colis récupéré',
+            self::OutForDelivery => '🛵 Colis en route',
+            self::OrderDelivered => '✅ Colis livré',
+            self::DeliveryIncident => '⚠️ Incident de livraison',
+            self::PayoutPaid => '💰 Reversement effectué',
+            self::ActivityReport => '📊 Votre point d\'activité',
+            self::Shipped, self::ShippedRecipient => '🚌 Colis expédié',
+            self::ReturnSlip => '↩️ Colis en retour',
+            self::ReturnHanded => '↩️ Colis rendus',
+            self::ManagerReport => '📊 Point de la semaine',
+        };
+    }
+
     public function description(): string
     {
         return match ($this) {

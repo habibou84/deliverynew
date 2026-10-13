@@ -1,11 +1,13 @@
 <template>
   <span :class="['inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', CLASSES[message.status]]" :title="message.error || ''">
-    {{ message.channel === 'sms' ? 'SMS · ' : '' }}{{ message.status_label }}
+    {{ PREFIX[message.channel] || '' }}{{ message.channel === 'push' && message.status === 'sent' ? 'Notifiée' : message.status_label }}
   </span>
 </template>
 
 <script setup>
 defineProps({ message: { type: Object, required: true } })
+
+const PREFIX = { sms: 'SMS · ', push: '📱 ' }
 
 const CLASSES = {
   queued: 'bg-slate-100 text-slate-700',

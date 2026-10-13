@@ -44,13 +44,32 @@ class WebPush
      */
     public function send(PushSubscription $subscription, array $payload, int $ttl = 3600, string $urgency = 'high'): bool
     {
-        $body = $this->encrypt(
-            json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-            self::unb64($subscription->p256dh),
-            self::unb64($subscription->auth),
-        );
+        return $this->post($subscription, $payload, $ttl, $urgency) !== 'gone';
+    }
 
+    /**
+     * Envoie une notification et indique si le service push l'a acceptée.
+     *
+     * @param  array<string, mixed>  $payload  { title, body, url, tag }
+     */
+    public function deliver(PushSubscription $subscription, array $payload, int $ttl = 86400, string $urgency = 'normal'): bool
+    {
+        return $this->post($subscription, $payload, $ttl, $urgency) === 'ok';
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return 'ok'|'gone'|'error'
+     */
+    private function post(PushSubscription $subscription, array $payload, int $ttl, string $urgency): string
+    {
         try {
+            $body = $this->encrypt(
+                json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                self::unb64($subscription->p256dh),
+                self::unb64($subscription->auth),
+            );
+
             $response = Http::timeout(10)
                 ->withHeaders([
                     'Authorization' => $this->vapidHeader($subscription->endpoint),
@@ -63,23 +82,25 @@ class WebPush
         } catch (Throwable $e) {
             Log::warning('Web Push : envoi impossible', ['subscription' => $subscription->id, 'error' => $e->getMessage()]);
 
-            return true;
+            return 'error';
         }
 
         // Abonnement expiré ou révoqué par l'utilisateur : on l'oublie
         if (in_array($response->status(), [404, 410], true)) {
             $subscription->delete();
 
-            return false;
+            return 'gone';
         }
 
         if ($response->successful()) {
             $subscription->forceFill(['last_used_at' => now()])->saveQuietly();
-        } else {
-            Log::warning('Web Push : refusé', ['subscription' => $subscription->id, 'status' => $response->status(), 'body' => mb_substr($response->body(), 0, 300)]);
+
+            return 'ok';
         }
 
-        return true;
+        Log::warning('Web Push : refusé', ['subscription' => $subscription->id, 'status' => $response->status(), 'body' => mb_substr($response->body(), 0, 300)]);
+
+        return 'error';
     }
 
     /**
