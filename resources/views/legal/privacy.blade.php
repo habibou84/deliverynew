@@ -1,7 +1,6 @@
 @php
-    $operator = config('platform.operator');
-    $email = config('platform.contact_email');
-    $phone = config('platform.contact_phone');
+    $operator = config('marketing.legal.name') ?: config('platform.operator');
+    $email = config('platform.contact_email') ?: config('marketing.legal.email');
     $country = config('platform.country');
     // Sur l'adresse d'une entreprise de livraison : elle est responsable des données de ses clients
     $company = rescue(fn () => \App\Support\Branding::company(), null, false);
@@ -109,7 +108,6 @@
         <li>e-commerçant ou livreur : demandez la fermeture de votre compte à votre entreprise de livraison ;</li>
         <li>destinataire d'un colis, ou à défaut de réponse : écrivez-nous
             @if ($email) à <a href="mailto:{{ $email }}?subject=Suppression%20de%20mes%20donn%C3%A9es">{{ $email }}</a>@endif
-            @if ($phone) {{ $email ? 'ou' : '' }} au {{ $phone }}@endif
             en indiquant votre numéro de téléphone.</li>
     </ul>
     <p>
@@ -125,9 +123,10 @@
 
     <h2>10. Contact</h2>
     <p>
-        {{ $operator }}@if ($email) · <a href="mailto:{{ $email }}">{{ $email }}</a>@endif @if ($phone) · {{ $phone }}@endif
+        {{ $operator }} · {{ config('marketing.legal.address') }}@if ($email) · <a href="mailto:{{ $email }}">{{ $email }}</a>@endif
     </p>
-    <p class="muted">Cette politique peut évoluer ; la date de mise à jour figure en haut de la page.</p>
+    <p class="muted">Cette politique peut évoluer ; la date de mise à jour figure en haut de la page.
+        Voir aussi les <a href="/conditions">conditions générales d'utilisation</a>.</p>
 </main>
 </body>
 </html>

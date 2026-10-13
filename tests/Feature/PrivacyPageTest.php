@@ -27,6 +27,24 @@ class PrivacyPageTest extends TestCase
         $this->get('http://rapide.jibiat.test/confidentialite')->assertOk()->assertSee('Rapide Express');
 
         // Présentation de la plateforme : la page est servie, pas la page d'accueil
-        $this->get('http://jibiat.test/confidentialite')->assertOk()->assertSee('Supprimer vos données');
+        $this->get('http://jibiat.test/confidentialite')->assertOk()->assertSee('Supprimer vos données')->assertSee('href="/conditions"', false);
+    }
+
+    public function test_terms_are_public_on_every_address(): void
+    {
+        config(['platform.domain' => 'jibiat.test', 'platform.trial_days' => 30, 'platform.contact_email' => null, 'marketing.legal.rccm' => 'CI-ABJ-2026-B-12345']);
+        Company::factory()->create(['slug' => 'rapide', 'name' => 'Rapide Express']);
+
+        $this->get('http://jibiat.test/conditions')->assertOk()
+            ->assertSee("Conditions générales d'utilisation et de vente", false)
+            ->assertSee('Jibiat SARL')
+            ->assertSee('CI-ABJ-2026-B-12345')
+            ->assertSee('mailto:contact@jibiat.com', false)
+            ->assertSee("30 jours d'essai gratuit", false)
+            ->assertSee('payable sous 10 jours');
+
+        // Adresse d'une entreprise : elle est nommée comme fournisseur du service de livraison
+        $this->get('http://rapide.jibiat.test/conditions')->assertOk()->assertSee('Rapide Express');
+        $this->get('http://admin.jibiat.test/conditions')->assertOk();
     }
 }

@@ -19,8 +19,9 @@ Route::get('/.well-known/domain-check', fn () => response()->json([
     'slug' => app(Tenancy::class)->company()?->slug,
 ]))->middleware('throttle:60,1')->name('domain.check');
 
-// Politique de confidentialité (exigée par Meta pour WhatsApp), sur toutes les adresses
+// Politique de confidentialité (exigée par Meta pour WhatsApp) et conditions générales, sur toutes les adresses
 Route::view('/confidentialite', 'legal.privacy')->name('privacy');
+Route::view('/conditions', 'legal.terms')->name('terms');
 
 // Documentation de l'API publique (spécification : public/docs/openapi.yaml)
 Route::view('/developpeurs/api', 'api-docs')->name('api.docs');
