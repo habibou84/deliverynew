@@ -12,7 +12,22 @@
         <span class="truncate">{{ auth.user?.company?.name || 'Administration' }}</span>
       </div>
       <nav class="p-3 space-y-1 flex-1 overflow-y-auto" @click="sidebarOpen = false">
-        <SidebarItem v-for="item in menu" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" />
+        <RouterLink
+          v-if="auth.can('orders.create')"
+          to="/admin/courses/nouvelle"
+          class="mb-3 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 font-semibold hover:bg-emerald-500"
+        >
+          ➕ Nouvelle course
+        </RouterLink>
+        <SidebarItem v-for="item in menu.top" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" />
+        <SidebarGroup
+          v-for="group in menu.groups"
+          :id="group.id"
+          :key="group.id"
+          :label="group.label"
+          :items="group.items"
+          :default-open="!group.closed"
+        />
       </nav>
     </aside>
 
@@ -66,6 +81,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useRealtime } from '../composables/useRealtime'
+import SidebarGroup from '../components/SidebarGroup.vue'
 import SidebarItem from '../components/SidebarItem.vue'
 import NotificationBell from '../components/NotificationBell.vue'
 import Toasts from '../components/Toasts.vue'
@@ -110,30 +126,70 @@ onMounted(() => {
 })
 onBeforeUnmount(() => clearInterval(countsTimer))
 
-const menu = computed(() => [
-  { to: '/admin', icon: '🏠', label: 'Tableau de bord' },
-  { to: '/admin/statistiques', icon: '📊', label: 'Statistiques', permission: 'orders.view' },
-  { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
-  { to: '/admin/courses/nouvelle', icon: '➕', label: 'Nouvelle course', permission: 'orders.create' },
-  { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
-  { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
-  { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
-  { to: '/admin/colis-livreurs', icon: '🎒', label: 'Colis chez les livreurs', permission: 'orders.dispatch', badge: heldParcels.counts.overdue },
-  { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },
-  { to: '/admin/carte', icon: '📍', label: 'Carte des livreurs', permission: 'orders.dispatch' },
-  { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
-  { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
-  { to: '/admin/zones', icon: '🗺️', label: 'Zones', permission: 'settings.manage' },
-  { to: '/admin/tarifs', icon: '🏷️', label: 'Tarifs', permission: 'settings.manage' },
-  { to: '/admin/paie-livreurs', icon: '🧾', label: 'Paie des livreurs', permission: 'settings.manage' },
-  { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
-  { to: '/admin/messages', icon: '💬', label: 'Messages', permission: 'orders.dispatch' },
-  { to: '/admin/integrations', icon: '🔌', label: 'Intégrations (API)', permission: 'integrations.manage', feature: 'api' },
-  { to: '/admin/whatsapp', icon: '📱', label: 'WhatsApp', permission: 'settings.manage' },
-  { to: '/admin/parametres', icon: '⚙️', label: 'Paramètres', permission: 'settings.manage' },
-  // Seulement pour une entreprise abonnée à une formule (plateforme)
-  ...(auth.user?.company?.plan ? [{ to: '/admin/abonnement', icon: '🧾', label: 'Mon abonnement', permission: 'settings.manage' }] : []),
-].filter((item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature))))
+// Menu en rubriques ; une entrée sans droit ni module disparaît, une rubrique vide aussi
+const visible = (item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature))
+const menu = computed(() => {
+  const groups = [
+    {
+      id: 'operations',
+      label: 'Opérations',
+      items: [
+        { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
+        { to: '/admin/carte', icon: '📍', label: 'Carte des livreurs', permission: 'orders.dispatch' },
+        { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
+        { to: '/admin/colis-livreurs', icon: '🎒', label: 'Colis chez les livreurs', permission: 'orders.dispatch', badge: heldParcels.counts.overdue },
+        { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },
+      ],
+    },
+    {
+      id: 'finances',
+      label: 'Finances',
+      items: [
+        { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
+        { to: '/admin/paie-livreurs', icon: '🧾', label: 'Paie des livreurs', permission: 'settings.manage' },
+      ],
+    },
+    {
+      id: 'clients',
+      label: 'Clients',
+      items: [
+        { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
+        { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
+        { to: '/admin/messages', icon: '💬', label: 'Messages', permission: 'orders.dispatch' },
+      ],
+    },
+    {
+      id: 'equipe',
+      label: 'Équipe',
+      items: [
+        { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
+        { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
+      ],
+    },
+    {
+      id: 'configuration',
+      label: 'Configuration',
+      closed: true,
+      items: [
+        { to: '/admin/zones', icon: '🗺️', label: 'Zones', permission: 'settings.manage' },
+        { to: '/admin/tarifs', icon: '🏷️', label: 'Tarifs', permission: 'settings.manage' },
+        { to: '/admin/whatsapp', icon: '📱', label: 'WhatsApp', permission: 'settings.manage' },
+        { to: '/admin/integrations', icon: '🔌', label: 'Intégrations (API)', permission: 'integrations.manage', feature: 'api' },
+        { to: '/admin/parametres', icon: '⚙️', label: 'Paramètres', permission: 'settings.manage' },
+        // Seulement pour une entreprise abonnée à une formule (plateforme)
+        ...(auth.user?.company?.plan ? [{ to: '/admin/abonnement', icon: '🧾', label: 'Mon abonnement', permission: 'settings.manage' }] : []),
+      ],
+    },
+  ]
+
+  return {
+    top: [
+      { to: '/admin', icon: '🏠', label: 'Tableau de bord' },
+      { to: '/admin/statistiques', icon: '📊', label: 'Statistiques', permission: 'orders.view' },
+    ].filter(visible),
+    groups: groups.map((g) => ({ ...g, items: g.items.filter(visible) })).filter((g) => g.items.length),
+  }
+})
 
 function quickSearch() {
   router.push({ path: '/admin/courses', query: { search: search.value } })
