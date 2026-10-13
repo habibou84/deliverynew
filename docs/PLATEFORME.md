@@ -326,7 +326,14 @@ Pour que `jibiat.com` arrive sur l'application, une seule fois dans ISPConfig :
 
 Réglages dans le `.env` (puis `php artisan optimize`) : `MARKETING_WHATSAPP` (numéro WhatsApp
 commercial, `+2250703686876` par défaut) et `PLATFORM_TRIAL_DAYS` (durée de l'essai affichée).
-Les avis clients se modifient dans `config/marketing.php`.
+Les avis clients se modifient dans `config/marketing.php`. Le numéro WhatsApp n'est jamais affiché : seuls
+les boutons l'utilisent.
+
+**Conditions générales** : `/conditions` (et `/confidentialite`), sur toutes les adresses, liées depuis le pied
+de page, l'inscription des entreprises et celle des e-commerçants. L'éditeur se règle dans le `.env` :
+`LEGAL_NAME` (Jibiat SARL par défaut), `LEGAL_ADDRESS`, `LEGAL_EMAIL` (contact@jibiat.com) et `LEGAL_RCCM`
+(affiché quand il est renseigné). Les délais de paiement cités viennent des réglages de facturation
+(`PLATFORM_INVOICE_DUE_DAYS`, `PLATFORM_BILLING_WARNING_DAYS`, `PLATFORM_BILLING_RESTRICT_DAYS`).
 
 ---
 

@@ -47,7 +47,11 @@ class MarketingSiteTest extends TestCase
             ->assertSee('Boutiques en ligne des marchands')
             ->assertSee('Express DS')
             ->assertSee('Quel bonheur')
-            ->assertDontSee('Ancienne');
+            ->assertDontSee('Ancienne')
+            // Numéro WhatsApp jamais affiché, seulement utilisé par les boutons
+            ->assertDontSee('07 03 68 68 76')
+            ->assertSee('href="/conditions"', false)
+            ->assertSee('© '.date('Y').' Jibiat SARL', false);
 
         $this->get('http://www.jibiat.test/tarifs')->assertOk()->assertSee('Des tarifs simples')->assertSee('Jusqu&#039;à 5 livreurs actifs', false);
     }

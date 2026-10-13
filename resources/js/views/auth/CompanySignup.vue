@@ -101,7 +101,10 @@
 
           <label class="flex items-start gap-2 text-sm text-slate-600">
             <input v-model="form.accept_terms" type="checkbox" class="mt-0.5">
-            <span>J'accepte d'être facturé selon la formule choisie à la fin de l'essai gratuit (paiement mensuel), sauf si j'arrête avant.</span>
+            <span>
+              J'accepte les <a href="/conditions" target="_blank" rel="noopener" class="font-medium text-blue-600 underline">conditions générales</a>
+              et d'être facturé selon la formule choisie à la fin de l'essai gratuit (paiement mensuel), sauf si j'arrête avant.
+            </span>
           </label>
           <p v-if="errors.accept_terms" class="-mt-3 text-sm text-red-600">{{ errors.accept_terms }}</p>
 

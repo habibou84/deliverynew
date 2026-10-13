@@ -268,7 +268,7 @@
                 @endif
                 @if ($demoUrl)
                     <a href="{{ $demoUrl }}" class="inline-flex items-center justify-center gap-2 rounded-xl px-7 py-3.5 font-semibold text-white ring-1 ring-white/50 hover:bg-white/10" rel="noopener" target="_blank">
-                        <x-marketing.icon name="whatsapp" class="size-5" /> +225 {{ $whatsappDisplay }}
+                        <x-marketing.icon name="whatsapp" class="size-5" /> Nous écrire sur WhatsApp
                     </a>
                 @endif
             </div>

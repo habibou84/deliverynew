@@ -78,13 +78,13 @@
                 <p class="font-semibold text-white">Contact</p>
                 @if ($whatsappUrl)
                     <a href="{{ $whatsappUrl }}" class="flex items-center gap-2 hover:text-white" rel="noopener" target="_blank">
-                        <x-marketing.icon name="whatsapp" class="size-4" /> WhatsApp : +225 {{ $whatsappDisplay }}
+                        <x-marketing.icon name="whatsapp" class="size-4" /> Nous écrire sur WhatsApp
                     </a>
                 @endif
                 @if ($contactEmail)
                     <a href="mailto:{{ $contactEmail }}" class="block hover:text-white">{{ $contactEmail }}</a>
                 @endif
-                <p>Abidjan, Côte d'Ivoire</p>
+                <p>{{ config('marketing.legal.address') }}</p>
             </div>
             <div class="space-y-2 text-sm">
                 <p class="font-semibold text-white">Liens</p>
@@ -93,11 +93,12 @@
                 @if ($signupUrl)
                     <a href="{{ $signupUrl }}" class="block hover:text-white">Créer mon entreprise</a>
                 @endif
+                <a href="/conditions" class="block hover:text-white">Conditions générales</a>
                 <a href="/confidentialite" class="block hover:text-white">Confidentialité</a>
             </div>
         </div>
         <div class="border-t border-white/10">
-            <p class="mx-auto max-w-6xl px-4 py-6 text-xs sm:px-6">© {{ date('Y') }} Jibiat. Tous droits réservés.</p>
+            <p class="mx-auto max-w-6xl px-4 py-6 text-xs sm:px-6">© {{ date('Y') }} {{ config('marketing.legal.name') }}. Tous droits réservés.</p>
         </div>
     </footer>
 </body>

@@ -43,10 +43,9 @@ class MarketingController extends Controller
             'signupUrl' => $open ? config('platform.scheme').'://'.config('platform.admin_subdomain').'.'.$domain.'/creer-mon-entreprise' : null,
             'trialDays' => (int) config('platform.trial_days'),
             'plans' => $this->plans(),
-            'whatsappDisplay' => PhoneNumber::display($whatsapp),
             'whatsappUrl' => $whatsapp !== '' ? 'https://wa.me/'.ltrim($whatsapp, '+') : null,
             'demoUrl' => $whatsapp !== '' ? 'https://wa.me/'.ltrim($whatsapp, '+').'?text='.rawurlencode('Bonjour, je souhaite une démonstration du logiciel de livraison Jibiat pour mon entreprise.') : null,
-            'contactEmail' => config('platform.contact_email'),
+            'contactEmail' => config('platform.contact_email') ?: config('marketing.legal.email'),
             'testimonials' => config('marketing.testimonials', []),
         ];
     }

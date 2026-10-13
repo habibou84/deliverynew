@@ -8,6 +8,15 @@ return [
     // Numéro WhatsApp commercial : bouton « Demander une démo » et pied de page
     'whatsapp' => env('MARKETING_WHATSAPP', '+2250703686876'),
 
+    // Éditeur de la plateforme (conditions générales, pied de page)
+    'legal' => [
+        'name' => env('LEGAL_NAME', 'Jibiat SARL'),
+        'address' => env('LEGAL_ADDRESS', 'Abidjan, Côte d\'Ivoire'),
+        'email' => env('LEGAL_EMAIL', 'contact@jibiat.com'),
+        // Numéro au registre du commerce (RCCM), affiché dans les conditions générales s'il est renseigné
+        'rccm' => env('LEGAL_RCCM'),
+    ],
+
     // Avis de clients affichés sur l'accueil
     'testimonials' => [
         ['author' => 'Express DS', 'quote' => 'Application très pratique, j\'ai multiplié ma productivité par 2.'],

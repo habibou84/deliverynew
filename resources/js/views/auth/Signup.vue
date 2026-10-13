@@ -63,6 +63,10 @@
           <button type="submit" :disabled="busy" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 font-semibold text-white shadow-sm disabled:opacity-60">
             {{ busy ? 'Un instant…' : 'Continuer' }}
           </button>
+          <p class="text-center text-xs text-slate-500">
+            En continuant, vous acceptez les <a href="/conditions" target="_blank" rel="noopener" class="underline">conditions générales</a>
+            et la <a href="/confidentialite" target="_blank" rel="noopener" class="underline">politique de confidentialité</a>.
+          </p>
           <p class="text-center text-sm text-slate-600">Déjà client ? <RouterLink to="/" class="font-semibold text-emerald-700 hover:underline">Se connecter</RouterLink></p>
         </form>
       </div>
