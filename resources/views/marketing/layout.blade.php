@@ -30,7 +30,7 @@
             </a>
 
             <div class="hidden items-center gap-8 text-sm font-medium text-slate-300 md:flex">
-                <a href="/#fonctionnalites" class="hover:text-white">Fonctionnalités</a>
+                <a href="/fonctionnalites" class="hover:text-white">Fonctionnalités</a>
                 <a href="/#applications" class="hover:text-white">Applications</a>
                 <a href="/tarifs" class="hover:text-white">Tarifs</a>
                 <a href="/#questions" class="hover:text-white">Questions</a>
@@ -48,7 +48,7 @@
                         <x-marketing.icon name="menu" class="size-5" />
                     </summary>
                     <div class="absolute right-0 mt-2 w-56 rounded-2xl bg-white p-2 text-sm font-medium text-slate-700 shadow-xl ring-1 ring-slate-200">
-                        <a href="/#fonctionnalites" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Fonctionnalités</a>
+                        <a href="/fonctionnalites" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Fonctionnalités</a>
                         <a href="/#applications" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Applications</a>
                         <a href="/tarifs" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Tarifs</a>
                         <a href="/#questions" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Questions</a>
@@ -88,6 +88,7 @@
             </div>
             <div class="space-y-2 text-sm">
                 <p class="font-semibold text-white">Liens</p>
+                <a href="/fonctionnalites" class="block hover:text-white">Fonctionnalités</a>
                 <a href="/tarifs" class="block hover:text-white">Tarifs</a>
                 @if ($signupUrl)
                     <a href="{{ $signupUrl }}" class="block hover:text-white">Créer mon entreprise</a>

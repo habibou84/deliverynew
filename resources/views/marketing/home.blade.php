@@ -168,7 +168,10 @@
                     </div>
                 @endforeach
             </div>
-            <p class="mt-8 text-center text-sm text-slate-400">Certaines fonctions dépendent de la formule choisie. <a href="/tarifs" class="font-medium text-brand-400 hover:text-brand-300">Voir les tarifs</a></p>
+            <div class="mt-10 flex flex-col items-center gap-3">
+                <a href="/fonctionnalites" class="btn-ghost text-white ring-white/25 hover:bg-white/10">Voir toutes les fonctionnalités <x-marketing.icon name="arrow" class="size-5" /></a>
+                <p class="text-sm text-slate-400">Certaines fonctions dépendent de la formule choisie. <a href="/tarifs" class="font-medium text-brand-400 hover:text-brand-300">Voir les tarifs</a></p>
+            </div>
         </div>
     </section>
 
