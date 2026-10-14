@@ -3,6 +3,7 @@
 namespace App\Services\Messaging;
 
 use App\Enums\WhatsAppTemplate;
+use App\Models\Company;
 use App\Models\WhatsAppAccount;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -15,13 +16,77 @@ use Illuminate\Support\Facades\Http;
  *  - vérifie le numéro et le jeton (nom affiché, note de qualité) ;
  *  - abonne l'application Meta de la plateforme au compte WhatsApp, pour recevoir
  *    les messages et les accusés de réception ;
- *  - soumet les modèles de messages à Meta et relève leur état.
+ *  - soumet les modèles de messages à Meta et relève leur état ;
+ *  - bouton « Connecter WhatsApp » (inscription intégrée de Meta) : tout cela en un clic.
  * Une connexion réussie fait passer l'entreprise en envois réels (WHATSAPP_DRIVER=auto).
  */
 class WhatsAppConnection
 {
     // Modèle déjà existant chez Meta (même nom et même langue) : rien à faire
     private const TEMPLATE_EXISTS_SUBCODES = [2388023, 2388024];
+
+    /**
+     * Bouton « Connecter WhatsApp » disponible : application Meta et configuration
+     * « Facebook Login for Business » renseignées sur le serveur.
+     */
+    public static function signupAvailable(): bool
+    {
+        return filled(config('messaging.whatsapp.app_id'))
+            && filled(config('messaging.whatsapp.signup_config_id'))
+            && filled(config('messaging.whatsapp.app_secret'));
+    }
+
+    /**
+     * Fin de l'inscription intégrée de Meta : l'entreprise a autorisé Jibiat sur son compte
+     * WhatsApp Business et choisi son numéro. Le code d'autorisation est échangé contre un
+     * jeton, le numéro est activé pour l'API Cloud, vérifié, abonné aux messages reçus, et
+     * les modèles de messages sont soumis à Meta.
+     */
+    public function completeSignup(Company $company, string $code, string $phoneNumberId, string $wabaId): WhatsAppAccount
+    {
+        if (! self::signupAvailable()) {
+            throw new MessagingException('Le bouton « Connecter WhatsApp » n\'est pas encore configuré sur ce serveur.');
+        }
+
+        $token = $this->exchangeCode($code);
+
+        $account = WhatsAppAccount::forCompanyId($company->id)
+            ?? new WhatsAppAccount(['company_id' => $company->id, 'owner_type' => 'company']);
+
+        // Nouveau numéro : nouveau code PIN d'activation
+        if ($account->phone_number_id !== $phoneNumberId || blank($account->registration_pin)) {
+            $account->registration_pin = (string) random_int(100000, 999999);
+        }
+
+        $account->fill([
+            'phone_number_id' => $phoneNumberId,
+            'waba_id' => $wabaId,
+            'status' => 'pending',
+            'last_error' => null,
+            'connected_via' => 'embedded_signup',
+        ]);
+        $account->access_token = $token;
+        $account->save();
+
+        $registration = $this->register($account);
+        $this->connect($account);
+
+        if ($account->status !== 'connected') {
+            return $account;
+        }
+
+        if ($registration !== null) {
+            $account->forceFill(['last_error' => 'Numéro connecté, mais son activation a échoué : '.$registration])->save();
+        }
+
+        try {
+            $this->submitTemplates($account);
+        } catch (MessagingException) {
+            // Les modèles pourront être soumis depuis la page WhatsApp
+        }
+
+        return $account;
+    }
 
     /**
      * Vérifie le numéro auprès de Meta et met à jour son état ; renvoie le compte.
@@ -56,6 +121,51 @@ class WhatsAppConnection
         $this->subscribe($account);
 
         return $account;
+    }
+
+    /**
+     * Échange le code d'autorisation de l'inscription intégrée contre un jeton d'accès
+     * au compte WhatsApp Business de l'entreprise.
+     */
+    private function exchangeCode(string $code): string
+    {
+        $base = rtrim(config('messaging.whatsapp.graph_url'), '/').'/'.config('messaging.whatsapp.graph_version');
+
+        try {
+            $response = $this->call(fn () => Http::baseUrl($base)->acceptJson()->timeout(15)->get('oauth/access_token', [
+                'client_id' => config('messaging.whatsapp.app_id'),
+                'client_secret' => config('messaging.whatsapp.app_secret'),
+                'code' => $code,
+            ]));
+        } catch (MessagingException $e) {
+            // Code expiré (quelques minutes), déjà utilisé ou application mal configurée
+            throw new MessagingException('Autorisation de Meta refusée ou expirée : recommencez la connexion. ('.$e->getMessage().')');
+        }
+
+        $token = $response?->json('access_token');
+        if (blank($token)) {
+            throw new MessagingException('Meta n\'a pas renvoyé d\'accès au compte WhatsApp. Recommencez la connexion.');
+        }
+
+        return $token;
+    }
+
+    /**
+     * Active le numéro pour l'API Cloud (avec son code PIN de vérification en deux étapes).
+     * Renvoie null si c'est fait, sinon le message d'erreur.
+     */
+    private function register(WhatsAppAccount $account): ?string
+    {
+        try {
+            $this->call(fn () => $this->client($account)->post("{$account->phone_number_id}/register", [
+                'messaging_product' => 'whatsapp',
+                'pin' => $account->registration_pin,
+            ]));
+
+            return null;
+        } catch (MessagingException $e) {
+            return $this->explain($e);
+        }
     }
 
     /**

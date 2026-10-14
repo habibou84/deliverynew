@@ -274,36 +274,51 @@ L'application reconnaît l'entreprise par ce nom. Le domaine passe « Actif » d
 
 ## WhatsApp : application Meta (une seule pour toute la plateforme)
 
-Une application Meta « Jibiat » sert à toutes les entreprises : chacune y branche son propre numéro.
+Une application Meta « Jibiat » sert à toutes les entreprises : chacune y branche son propre numéro,
+en un clic avec le bouton **Connecter WhatsApp** (inscription intégrée de Meta, « Embedded Signup »).
 
-1. **business.facebook.com** : créez le portefeuille d'entreprise Jibiat et lancez la **vérification
-   de l'entreprise** (Paramètres > Centre de sécurité) : c'est le plus long, commencez tôt.
-2. **developers.facebook.com** : *Créer une app* > cas d'usage WhatsApp (ou type Business), nom « Jibiat »,
-   rattachée au portefeuille. Ajoutez le produit **WhatsApp** (Meta fournit un numéro de test gratuit).
-3. *Paramètres de l'app > Général* :
-   - **URL de la politique de confidentialité** : `https://admin.jibiat.com/confidentialite`
-   - **URL des instructions de suppression des données** : `https://admin.jibiat.com/confidentialite#suppression`
-   - notez la **clé secrète** de l'app.
-4. *WhatsApp > Configuration* : URL de rappel `https://admin.jibiat.com/api/webhooks/whatsapp`,
-   jeton de vérification = une phrase de votre choix ; abonnez le champ **messages**.
-5. Fichier `.env` du serveur, puis `bash deploy/update.sh` :
+### 1. Application Meta (une fois)
+
+1. **business.facebook.com** : portefeuille d'entreprise Jibiat **vérifié** (Paramètres > Centre de sécurité).
+2. **developers.facebook.com** > *Créer une app* : nom « Jibiat », e-mail `contact@jibiat.com`, cas d'usage
+   **Communiquer avec vos clients sur WhatsApp**, portefeuille Jibiat.
+3. *Paramètres de l'app > Général* : domaine `jibiat.com` ; confidentialité `https://jibiat.com/confidentialite` ;
+   conditions `https://jibiat.com/conditions` ; suppression des données `https://jibiat.com/confidentialite#suppression` ;
+   icône 1024 × 1024 ; catégorie « Entreprise et pages ». Notez la **clé secrète** et l'**identifiant de l'app**.
+4. *WhatsApp > Configuration* : URL de rappel `https://admin.jibiat.com/api/webhooks/whatsapp`, jeton de vérification
+   = une phrase de votre choix ; abonnez le champ **messages**.
+5. **Facebook Login for Business** (ajouter le produit) > *Configurations* > *Créer* : variante **WhatsApp Embedded Signup**,
+   autorisations `whatsapp_business_management` et `whatsapp_business_messaging`. Notez l'**identifiant de configuration**.
+   Dans ses *Paramètres* : connexion OAuth Web et SDK JavaScript activés, domaines autorisés `jibiat.com` (et, si Meta
+   l'exige, l'adresse de chaque entreprise ou son domaine personnalisé).
+6. Activez le statut de **fournisseur de technologie** (Tech Provider) proposé dans le tableau de bord WhatsApp de l'app.
+7. Publiez l'app (**Live**) : sans cela, Meta n'envoie pas les messages reçus des vrais numéros.
+8. Fichier `.env` du serveur (jamais sur GitHub), puis `php artisan config:clear` :
 
    ```
    WHATSAPP_DRIVER=auto
-   WHATSAPP_APP_SECRET=…        # clé secrète de l'étape 3
-   WHATSAPP_VERIFY_TOKEN=…      # jeton de l'étape 4
-   PLATFORM_OPERATOR=Jibiat
-   PLATFORM_CONTACT_EMAIL=contact@jibiat.com
+   WHATSAPP_APP_ID=…            # identifiant de l'app (étape 3)
+   WHATSAPP_APP_SECRET=…        # clé secrète (étape 3)
+   WHATSAPP_VERIFY_TOKEN=…      # phrase de l'étape 4
+   WHATSAPP_SIGNUP_CONFIG_ID=…  # identifiant de configuration (étape 5)
    ```
 
-6. Pour chaque entreprise (la vôtre d'abord) : dans Meta Business, *Utilisateurs système* > créez un utilisateur
-   système administrateur, donnez-lui accès à l'app et au compte WhatsApp, générez un **jeton permanent** avec
-   `whatsapp_business_management` et `whatsapp_business_messaging`. Dans l'espace de l'entreprise,
-   **WhatsApp** : identifiant du numéro, WABA ID, jeton, puis **Enregistrer et vérifier**, puis
-   **Soumettre les modèles à Meta**.
+### 2. Validation de Meta (App Review)
 
-L'assistant « Connecter WhatsApp » (étape W2, Embedded Signup) évitera l'étape 6 aux entreprises clientes ;
-il demande que Meta ait vérifié l'entreprise Jibiat et accordé les autorisations (App Review).
+Avant validation, le bouton ne fonctionne que pour les comptes de l'app (administrateurs, testeurs) et leurs propres
+entreprises. Testez-le avec votre entreprise, filmez le parcours (bouton, fenêtre Meta, numéro connecté dans Jibiat,
+message reçu), puis demandez l'**accès avancé** à `whatsapp_business_management` et `whatsapp_business_messaging`.
+Une fois validé, toutes les entreprises clientes peuvent se connecter seules.
+
+### 3. Chaque entreprise : Paramètres > WhatsApp > Connecter WhatsApp
+
+La fenêtre de Meta : connexion Facebook, choix ou création du compte WhatsApp Business, ajout du numéro (code par SMS).
+Jibiat échange ensuite l'autorisation contre un jeton propre à l'entreprise, active le numéro (code PIN gardé chiffré),
+le vérifie, l'abonne aux messages reçus et soumet les modèles de messages. Le numéro ne doit pas être utilisé dans
+l'application WhatsApp d'un téléphone ; l'entreprise ajoute un moyen de paiement dans Meta (messages facturés à son compte).
+
+**Saisie manuelle (avancé)**, dans la même page : identifiant du numéro, WABA ID et jeton permanent d'un utilisateur
+système (Meta Business > Utilisateurs système) — utile sans le bouton ou pour un numéro déjà branché.
 
 ---
 

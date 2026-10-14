@@ -211,6 +211,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('whatsapp/test', [WhatsAppSettingsController::class, 'test'])->middleware('throttle:10,1')->name('whatsapp.test');
             Route::post('whatsapp/templates/sync', [WhatsAppSettingsController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
             Route::post('whatsapp/connect', [WhatsAppSettingsController::class, 'connect'])->middleware('throttle:20,1')->name('whatsapp.connect');
+            Route::post('whatsapp/embedded-signup', [WhatsAppSettingsController::class, 'embeddedSignup'])->middleware('throttle:10,1')->name('whatsapp.embedded-signup');
             Route::post('whatsapp/templates/submit', [WhatsAppSettingsController::class, 'submitTemplates'])->middleware('throttle:5,1')->name('whatsapp.templates.submit');
             Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware(['throttle:60,1', 'feature:whatsapp_bot'])->name('whatsapp.simulate');
         });

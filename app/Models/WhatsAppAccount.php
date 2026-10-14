@@ -18,15 +18,16 @@ class WhatsAppAccount extends Model
     protected $fillable = [
         'company_id', 'owner_type', 'owner_id', 'provider', 'waba_id', 'phone_number_id',
         'display_phone', 'access_token', 'status', 'verified_name', 'quality_rating', 'last_error',
-        'connected_at', 'webhook_subscribed_at',
+        'connected_at', 'connected_via', 'webhook_subscribed_at', 'registration_pin',
     ];
 
-    protected $hidden = ['access_token'];
+    protected $hidden = ['access_token', 'registration_pin'];
 
     protected function casts(): array
     {
         return [
             'access_token' => 'encrypted',
+            'registration_pin' => 'encrypted',
             'connected_at' => 'datetime',
             'webhook_subscribed_at' => 'datetime',
         ];

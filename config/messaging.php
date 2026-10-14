@@ -21,6 +21,10 @@ return [
         // Application Meta : signature des webhooks et vérification de l'abonnement
         'app_secret' => env('WHATSAPP_APP_SECRET'),
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
+        // Bouton « Connecter WhatsApp » (inscription intégrée) : identifiant de l'application Meta
+        // et de sa configuration « Facebook Login for Business ». Sans eux, saisie manuelle seulement.
+        'app_id' => env('WHATSAPP_APP_ID'),
+        'signup_config_id' => env('WHATSAPP_SIGNUP_CONFIG_ID'),
     ],
 
     /*
