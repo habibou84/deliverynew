@@ -69,6 +69,19 @@ class MarketingSiteTest extends TestCase
             ->assertSee('votre-entreprise.jibiat.test')
             ->assertSee('https://admin.jibiat.test/creer-mon-entreprise', false);
 
+        // Vidéos de démonstration hébergées sur le site
+        foreach (['course-de-a-a-z', 'caisse', 'livreur', 'ecommercant', 'whatsapp', 'statistiques'] as $video) {
+            $this->assertFileExists(public_path("marketing/videos/{$video}.mp4"));
+            $this->assertFileExists(public_path("marketing/videos/{$video}.jpg"));
+        }
+        $this->get('http://jibiat.test/fonctionnalites')
+            ->assertSee('src="/marketing/videos/caisse.mp4"', false)
+            ->assertSee('src="/marketing/videos/whatsapp.mp4"', false)
+            ->assertSee('poster="/marketing/videos/livreur.jpg"', false);
+        $this->get('http://jibiat.test/')
+            ->assertSee('src="/marketing/videos/course-de-a-a-z.mp4"', false)
+            ->assertSee('preload="none"', false);
+
         // Le menu et l'accueil y mènent
         $this->get('http://jibiat.test/')->assertSee('href="/fonctionnalites"', false);
     }

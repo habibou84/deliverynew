@@ -88,6 +88,19 @@
         </div>
     </section>
 
+    {{-- Démonstration en vidéo --}}
+    <section id="video" class="scroll-mt-20 py-20">
+        <div class="mx-auto max-w-5xl px-4 sm:px-6">
+            <div class="mx-auto max-w-2xl text-center">
+                <p class="font-semibold text-brand-600">Voir Jibiat en action</p>
+                <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Une course de A à Z, en une minute</h2>
+                <p class="mt-4 text-lg text-slate-600">L'e-commerçant crée la course, l'agence assigne le livreur, le livreur livre et encaisse, la caisse reçoit l'argent et l'e-commerçant est payé.</p>
+            </div>
+            <x-marketing.video name="course-de-a-a-z" title="Une course de A à Z" class="mt-10" />
+            <p class="mt-6 text-center"><a href="/fonctionnalites" class="font-semibold text-brand-600 hover:text-brand-700">Toutes les vidéos sur la page Fonctionnalités →</a></p>
+        </div>
+    </section>
+
     {{-- Les trois applications --}}
     <section id="applications" class="scroll-mt-20 py-20">
         <div class="mx-auto max-w-6xl px-4 sm:px-6">
