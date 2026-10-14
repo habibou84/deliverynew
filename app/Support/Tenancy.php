@@ -128,6 +128,16 @@ class Tenancy
      * Adresse de base d'une entreprise : son domaine personnalisé vérifié, sinon son
      * sous-domaine sur la plateforme ; sans plateforme, APP_URL.
      */
+    /**
+     * Adresse de la plateforme (jibiat.com) ; sans plateforme, l'adresse de l'application.
+     */
+    public static function platformUrl(): string
+    {
+        return self::enabled()
+            ? config('platform.scheme').'://'.self::domain()
+            : rtrim((string) config('app.url'), '/');
+    }
+
     public static function baseUrl(Company $company): string
     {
         if (! self::enabled()) {

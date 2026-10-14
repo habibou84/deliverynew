@@ -51,6 +51,7 @@ use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VerificationController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
+use App\Http\Controllers\Api\V1\WhatsAppSignupController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
@@ -121,6 +122,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('shops/{slug}', [ShopController::class, 'show'])->middleware('throttle:60,1')->name('shops.show');
     Route::post('shops/{slug}/quote', [ShopController::class, 'quote'])->middleware('throttle:60,1')->name('shops.quote');
     Route::post('shops/{slug}/orders', [ShopController::class, 'order'])->middleware('throttle:shop-order')->name('shops.order');
+
+    // Bouton « Connecter WhatsApp » : page de jibiat.com ouverte avec un ticket de l'espace de l'entreprise
+    Route::post('whatsapp-signup/session', [WhatsAppSignupController::class, 'session'])->middleware('throttle:30,1')->name('whatsapp-signup.session');
+    Route::post('whatsapp-signup/complete', [WhatsAppSignupController::class, 'complete'])->middleware('throttle:10,1')->name('whatsapp-signup.complete');
 
     // Nom, logo et accroche de l'entreprise de livraison (pages de connexion)
     Route::get('branding', [BrandingController::class, 'show'])->name('branding.show');
@@ -211,7 +216,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('whatsapp/test', [WhatsAppSettingsController::class, 'test'])->middleware('throttle:10,1')->name('whatsapp.test');
             Route::post('whatsapp/templates/sync', [WhatsAppSettingsController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
             Route::post('whatsapp/connect', [WhatsAppSettingsController::class, 'connect'])->middleware('throttle:20,1')->name('whatsapp.connect');
-            Route::post('whatsapp/embedded-signup', [WhatsAppSettingsController::class, 'embeddedSignup'])->middleware('throttle:10,1')->name('whatsapp.embedded-signup');
+            Route::post('whatsapp/signup-ticket', [WhatsAppSignupController::class, 'ticket'])->middleware('throttle:10,1')->name('whatsapp.signup-ticket');
             Route::post('whatsapp/templates/submit', [WhatsAppSettingsController::class, 'submitTemplates'])->middleware('throttle:5,1')->name('whatsapp.templates.submit');
             Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware(['throttle:60,1', 'feature:whatsapp_bot'])->name('whatsapp.simulate');
         });
