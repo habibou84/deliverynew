@@ -129,12 +129,12 @@ class Tenancy
      * sous-domaine sur la plateforme ; sans plateforme, APP_URL.
      */
     /**
-     * Adresse de la console (admin.jibiat.com) ; sans plateforme, l'adresse de l'application.
+     * Adresse de la plateforme (jibiat.com) ; sans plateforme, l'adresse de l'application.
      */
-    public static function consoleUrl(): string
+    public static function platformUrl(): string
     {
         return self::enabled()
-            ? config('platform.scheme').'://'.config('platform.admin_subdomain').'.'.self::domain()
+            ? config('platform.scheme').'://'.self::domain()
             : rtrim((string) config('app.url'), '/');
     }
 

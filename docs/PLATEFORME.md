@@ -290,8 +290,8 @@ en un clic avec le bouton **Connecter WhatsApp** (inscription intégrée de Meta
 5. **Facebook Login for Business** (ajouter le produit) > *Configurations* > *Créer* : variante **WhatsApp Embedded Signup**,
    autorisations `whatsapp_business_management` et `whatsapp_business_messaging`. Notez l'**identifiant de configuration**.
    Dans ses *Paramètres* : connexion OAuth Web et SDK JavaScript activés ; domaines autorisés pour le SDK JavaScript :
-   `https://admin.jibiat.com` (seule adresse à déclarer : la fenêtre de Meta s'ouvre toujours depuis la console,
-   quelle que soit l'adresse de l'entreprise).
+   `https://jibiat.com` (seule adresse à déclarer : la fenêtre de Meta s'ouvre toujours depuis l'adresse de la
+   plateforme, quelle que soit l'adresse de l'entreprise).
 6. Activez le statut de **fournisseur de technologie** (Tech Provider) proposé dans le tableau de bord WhatsApp de l'app.
 7. Publiez l'app (**Live**) : sans cela, Meta n'envoie pas les messages reçus des vrais numéros.
 8. Fichier `.env` du serveur (jamais sur GitHub), puis `php artisan config:clear` :
@@ -313,7 +313,7 @@ Une fois validé, toutes les entreprises clientes peuvent se connecter seules.
 
 ### 3. Chaque entreprise : Paramètres > WhatsApp > Connecter WhatsApp
 
-Une fenêtre s'ouvre sur `admin.jibiat.com/connecter-whatsapp` (ticket chiffré valable 20 minutes, lié à l'utilisateur
+Une fenêtre s'ouvre sur `jibiat.com/connecter-whatsapp` (ticket chiffré valable 20 minutes, lié à l'utilisateur
 et à son entreprise), puis la fenêtre de Meta : connexion Facebook, choix ou création du compte WhatsApp Business, ajout du numéro (code par SMS).
 Jibiat échange ensuite l'autorisation contre un jeton propre à l'entreprise, active le numéro (code PIN gardé chiffré),
 le vérifie, l'abonne aux messages reçus et soumet les modèles de messages. Le numéro ne doit pas être utilisé dans

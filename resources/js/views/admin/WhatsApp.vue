@@ -294,7 +294,7 @@ async function saveAccount() {
   }
 }
 
-// Bouton « Connecter WhatsApp » : la fenêtre de Meta s'ouvre depuis la console (seule adresse
+// Bouton « Connecter WhatsApp » : la fenêtre de Meta s'ouvre depuis jibiat.com (seule adresse
 // déclarée chez Facebook), dans une fenêtre à part ; elle prévient cette page à la fin.
 async function oneClick() {
   signupError.value = ''

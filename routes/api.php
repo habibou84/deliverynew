@@ -123,7 +123,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::post('shops/{slug}/quote', [ShopController::class, 'quote'])->middleware('throttle:60,1')->name('shops.quote');
     Route::post('shops/{slug}/orders', [ShopController::class, 'order'])->middleware('throttle:shop-order')->name('shops.order');
 
-    // Bouton « Connecter WhatsApp » : page de la console ouverte avec un ticket de l'espace de l'entreprise
+    // Bouton « Connecter WhatsApp » : page de jibiat.com ouverte avec un ticket de l'espace de l'entreprise
     Route::post('whatsapp-signup/session', [WhatsAppSignupController::class, 'session'])->middleware('throttle:30,1')->name('whatsapp-signup.session');
     Route::post('whatsapp-signup/complete', [WhatsAppSignupController::class, 'complete'])->middleware('throttle:10,1')->name('whatsapp-signup.complete');
 

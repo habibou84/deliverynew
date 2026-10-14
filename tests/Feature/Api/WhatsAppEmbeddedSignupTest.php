@@ -137,19 +137,28 @@ class WhatsAppEmbeddedSignupTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_meta_window_always_opens_from_the_console_address(): void
+    public function test_meta_window_always_opens_from_the_platform_address(): void
     {
+        $this->withoutVite();
         config(['platform.domain' => 'jibiat.test', 'platform.scheme' => 'https']);
         $this->company->update(['slug' => 'express-ds']);
         Sanctum::actingAs($this->admin);
 
-        // Une seule adresse à déclarer chez Facebook : la console, quelle que soit l'entreprise
+        // Une seule adresse à déclarer chez Facebook : jibiat.com, quelle que soit l'entreprise
         $url = $this->postJson('http://express-ds.jibiat.test/api/v1/whatsapp/signup-ticket')->assertOk()->json('data.url');
-        $this->assertStringStartsWith('https://admin.jibiat.test/connecter-whatsapp#', $url);
+        $this->assertStringStartsWith('https://jibiat.test/connecter-whatsapp#', $url);
+
+        // La page s'ouvre sur l'adresse de la plateforme, sans invitation à installer une application
+        $this->get('http://jibiat.test/connecter-whatsapp')->assertOk()
+            ->assertSee('<div id="app">', false)
+            ->assertDontSee('rel="manifest"', false);
 
         $this->app['auth']->forgetGuards();
-        $this->postJson('http://admin.jibiat.test/api/v1/whatsapp-signup/session', ['ticket' => substr($url, strpos($url, '#') + 1)])
+        $this->postJson('http://jibiat.test/api/v1/whatsapp-signup/session', ['ticket' => substr($url, strpos($url, '#') + 1)])
             ->assertOk()->assertJsonPath('data.origin', 'http://express-ds.jibiat.test');
+
+        // Le reste de l'adresse de la plateforme ne change pas : site de présentation, pas d'API
+        $this->getJson('http://jibiat.test/api/v1/whatsapp/settings')->assertNotFound();
     }
 
     public function test_button_requires_server_configuration_and_settings_permission(): void

@@ -19,6 +19,10 @@ class ResolveTenant
     // Routes indépendantes de l'adresse : l'entreprise vient du message ou de la clé d'API
     private const ANY_HOST = ['api/webhooks/*', 'api/public/*', 'up', 'confidentialite', 'conditions'];
 
+    // Adresse de la plateforme (jibiat.com) : bouton « Connecter WhatsApp » des entreprises, seule
+    // adresse déclarée chez Facebook (page de l'application et ses deux appels, avec ticket)
+    private const PLATFORM_APP = ['connecter-whatsapp', 'api/v1/whatsapp-signup/*'];
+
     public function __construct(private Tenancy $tenancy) {}
 
     public function handle(Request $request, Closure $next): Response
@@ -40,6 +44,10 @@ class ResolveTenant
             return $api
                 ? response()->json(['message' => $message], $status)
                 : response()->view('platform.unavailable', ['message' => $message, 'domain' => Tenancy::domain()], $status);
+        }
+
+        if ($this->tenancy->zone() === Tenancy::PLATFORM && $request->is(...self::PLATFORM_APP)) {
+            return $next($request);
         }
 
         if ($this->tenancy->zone() === Tenancy::PLATFORM) {

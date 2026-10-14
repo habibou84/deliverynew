@@ -17,9 +17,9 @@ use Illuminate\Support\Facades\Crypt;
  * Bouton « Connecter WhatsApp » (inscription intégrée de Meta).
  *
  * Facebook n'ouvre sa fenêtre que depuis des adresses déclarées une à une dans l'application
- * Meta : elle s'ouvre donc toujours depuis la console (admin.jibiat.com), quelle que soit
- * l'adresse de l'entreprise. L'espace de l'entreprise remet un ticket chiffré et de courte
- * durée ; la page de la console s'en sert à la place d'une session.
+ * Meta : elle s'ouvre donc toujours depuis l'adresse de la plateforme (jibiat.com), quelle que
+ * soit l'adresse de l'entreprise. L'espace de l'entreprise remet un ticket chiffré et de courte
+ * durée ; la page de la plateforme s'en sert à la place d'une session.
  */
 class WhatsAppSignupController extends Controller
 {
@@ -44,11 +44,11 @@ class WhatsAppSignupController extends Controller
             'expires' => now()->addMinutes(self::TICKET_MINUTES)->timestamp,
         ]));
 
-        return response()->json(['data' => ['url' => Tenancy::consoleUrl().'/connecter-whatsapp#'.$ticket]]);
+        return response()->json(['data' => ['url' => Tenancy::platformUrl().'/connecter-whatsapp#'.$ticket]]);
     }
 
     /**
-     * Page de la console : entreprise concernée et identifiants publics de l'application Meta.
+     * Page de la plateforme : entreprise concernée et identifiants publics de l'application Meta.
      */
     public function session(Request $request): JsonResponse
     {
