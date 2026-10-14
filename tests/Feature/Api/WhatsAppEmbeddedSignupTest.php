@@ -42,9 +42,23 @@ class WhatsAppEmbeddedSignupTest extends TestCase
         ]);
     }
 
-    private function signup(array $data = [])
+    /** Ticket remis par l'espace de l'entreprise (utilisateur connecté) */
+    private function ticket(): string
     {
-        return $this->postJson('/api/v1/whatsapp/embedded-signup', ['code' => 'code-meta', 'phone_number_id' => '555', 'waba_id' => '777', ...$data]);
+        Sanctum::actingAs($this->admin);
+        $url = $this->postJson('/api/v1/whatsapp/signup-ticket')->assertOk()->json('data.url');
+        $this->assertStringContainsString('/connecter-whatsapp#', $url);
+
+        return substr($url, strpos($url, '#') + 1);
+    }
+
+    /** Page de la console : fin de la fenêtre de Meta, sans session (le ticket suffit) */
+    private function signup(array $data = [], ?string $ticket = null)
+    {
+        $ticket ??= $this->ticket();
+        $this->app['auth']->forgetGuards();
+
+        return $this->postJson('/api/v1/whatsapp-signup/complete', ['ticket' => $ticket, 'code' => 'code-meta', 'phone_number_id' => '555', 'waba_id' => '777', ...$data]);
     }
 
     public function test_one_click_connection_activates_the_number(): void
@@ -58,12 +72,23 @@ class WhatsAppEmbeddedSignupTest extends TestCase
             ->assertJsonPath('data.embedded_signup.config_id', '2222')
             ->assertJsonMissing(['app-secret']);
 
-        $this->signup()->assertOk()
+        // Page de la console : entreprise et identifiants publics, à partir du seul ticket
+        $ticket = $this->ticket();
+        $this->app['auth']->forgetGuards();
+        $this->postJson('/api/v1/whatsapp-signup/session', ['ticket' => $ticket])->assertOk()
+            ->assertJsonPath('data.company', $this->company->name)
+            ->assertJsonPath('data.origin', rtrim(config('app.url'), '/'))
+            ->assertJsonPath('data.embedded_signup.config_id', '2222');
+
+        $this->signup(ticket: $ticket)->assertOk()
+            ->assertJsonPath('data.verified_name', 'Express DS')
+            ->assertJsonPath('data.warning', null);
+
+        Sanctum::actingAs($this->admin);
+        $this->getJson('/api/v1/whatsapp/settings')
             ->assertJsonPath('data.mode', 'live')
             ->assertJsonPath('data.account.status', 'connected')
-            ->assertJsonPath('data.account.verified_name', 'Express DS')
-            ->assertJsonPath('data.account.connected_via', 'embedded_signup')
-            ->assertJsonPath('data.account.last_error', null);
+            ->assertJsonPath('data.account.connected_via', 'embedded_signup');
 
         $account = WhatsAppAccount::forCompanyId($this->company->id);
         $this->assertSame('jeton-entreprise', $account->access_token);
@@ -87,23 +112,56 @@ class WhatsAppEmbeddedSignupTest extends TestCase
     public function test_refused_authorization_changes_nothing(): void
     {
         Http::fake(['*/oauth/access_token*' => Http::response(['error' => ['message' => 'Invalid verification code format.', 'code' => 100]], 400)]);
-        Sanctum::actingAs($this->admin);
 
         $this->signup()->assertStatus(422)->assertJsonPath('message', 'Autorisation de Meta refusée ou expirée : recommencez la connexion. (Meta : Invalid verification code format.)');
         $this->assertNull(WhatsAppAccount::forCompanyId($this->company->id));
     }
 
+    public function test_tickets_are_short_lived_and_tied_to_an_authorised_user(): void
+    {
+        Http::fake();
+        $ticket = $this->ticket();
+
+        // Ticket falsifié
+        $this->postJson('/api/v1/whatsapp-signup/session', ['ticket' => 'faux'])->assertForbidden();
+
+        // Utilisateur qui n'a plus le droit de régler l'entreprise
+        $this->admin->syncRoles(['dispatcher']);
+        $this->postJson('/api/v1/whatsapp-signup/session', ['ticket' => $ticket])->assertForbidden();
+        $this->admin->syncRoles(['admin']);
+        $this->postJson('/api/v1/whatsapp-signup/session', ['ticket' => $ticket])->assertOk();
+
+        // Expiré au bout de 20 minutes
+        $this->travel(21)->minutes();
+        $this->signup(ticket: $ticket)->assertForbidden()->assertJsonPath('message', 'Lien de connexion expiré : recommencez depuis la page WhatsApp de votre espace.');
+        Http::assertNothingSent();
+    }
+
+    public function test_meta_window_always_opens_from_the_console_address(): void
+    {
+        config(['platform.domain' => 'jibiat.test', 'platform.scheme' => 'https']);
+        $this->company->update(['slug' => 'express-ds']);
+        Sanctum::actingAs($this->admin);
+
+        // Une seule adresse à déclarer chez Facebook : la console, quelle que soit l'entreprise
+        $url = $this->postJson('http://express-ds.jibiat.test/api/v1/whatsapp/signup-ticket')->assertOk()->json('data.url');
+        $this->assertStringStartsWith('https://admin.jibiat.test/connecter-whatsapp#', $url);
+
+        $this->app['auth']->forgetGuards();
+        $this->postJson('http://admin.jibiat.test/api/v1/whatsapp-signup/session', ['ticket' => substr($url, strpos($url, '#') + 1)])
+            ->assertOk()->assertJsonPath('data.origin', 'http://express-ds.jibiat.test');
+    }
+
     public function test_button_requires_server_configuration_and_settings_permission(): void
     {
         Http::fake();
+        Sanctum::actingAs($this->dispatcher);
+        $this->postJson('/api/v1/whatsapp/signup-ticket')->assertForbidden();
+
         config(['messaging.whatsapp.signup_config_id' => null]);
         Sanctum::actingAs($this->admin);
-
         $this->getJson('/api/v1/whatsapp/settings')->assertJsonPath('data.embedded_signup', null);
-        $this->signup()->assertStatus(422);
-
-        Sanctum::actingAs($this->dispatcher);
-        $this->signup()->assertForbidden();
+        $this->postJson('/api/v1/whatsapp/signup-ticket')->assertStatus(422);
         Http::assertNothingSent();
     }
 }

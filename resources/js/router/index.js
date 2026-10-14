@@ -18,6 +18,8 @@ const mobile = {
 
 const routes = [
   // Applications Android et iOS : choix de l'entreprise de livraison (code), avant la connexion
+  // Bouton « Connecter WhatsApp » : fenêtre de Meta ouverte depuis la console (ticket de l'espace de l'entreprise)
+  { path: '/connecter-whatsapp', name: 'whatsapp-connect', component: () => import('../views/auth/WhatsAppConnect.vue'), meta: { public: true } },
   { path: '/entreprise', name: 'native-company', component: () => import('../views/auth/NativeCompany.vue'), meta: { public: true } },
   // Pages de connexion : e-commerçants à la racine (page d'accueil du site), équipe et livreurs dans leur espace.
   // Une fois connecté, chacun est renvoyé vers son espace, quelle que soit la page utilisée.

@@ -219,7 +219,6 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
-import { connectWhatsApp } from '../../composables/useMetaSignup'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
@@ -295,17 +294,40 @@ async function saveAccount() {
   }
 }
 
-// Bouton « Connecter WhatsApp » : fenêtre de Meta, puis branchement complet côté serveur
+// Bouton « Connecter WhatsApp » : la fenêtre de Meta s'ouvre depuis la console (seule adresse
+// déclarée chez Facebook), dans une fenêtre à part ; elle prévient cette page à la fin.
 async function oneClick() {
   signupError.value = ''
+  // Fenêtre ouverte tout de suite (clic de l'utilisateur), adresse donnée ensuite : pas de blocage
+  const popup = window.open('', 'jibiat-whatsapp', 'width=560,height=780')
+  if (!popup) {
+    signupError.value = 'Votre navigateur a bloqué la fenêtre : autorisez les fenêtres pop-up pour ce site, puis recommencez.'
+    return
+  }
   signingUp.value = true
   try {
-    const session = await connectWhatsApp(s.value.embedded_signup)
-    const { data } = await http.post('/whatsapp/embedded-signup', session)
-    apply(data.data)
-    toasts.success('WhatsApp connecté : les modèles de messages sont envoyés à Meta pour approbation.')
+    const { data } = await http.post('/whatsapp/signup-ticket')
+    popup.location.href = data.data.url
+    const origin = new URL(data.data.url).origin
+    await new Promise((resolve) => {
+      const onMessage = (event) => {
+        if (event.origin !== origin || event.data?.type !== 'jibiat-whatsapp') return
+        if (event.data.connected) toasts.success('WhatsApp connecté : les modèles de messages sont envoyés à Meta pour approbation.')
+        done()
+      }
+      // Fenêtre fermée sans message : on relit simplement l'état
+      const timer = setInterval(() => { if (popup.closed) done() }, 800)
+      function done() {
+        clearInterval(timer)
+        window.removeEventListener('message', onMessage)
+        resolve()
+      }
+      window.addEventListener('message', onMessage)
+    })
+    await load()
   } catch (e) {
-    signupError.value = e.isAxiosError ? apiErrorMessage(e, 'Connexion à WhatsApp impossible.') : e.message
+    popup.close()
+    signupError.value = apiErrorMessage(e, 'Connexion à WhatsApp impossible.')
   } finally {
     signingUp.value = false
   }
