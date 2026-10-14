@@ -35,6 +35,8 @@ class WhatsAppEmbeddedSignupTest extends TestCase
     {
         Http::fake([
             '*/oauth/access_token*' => Http::response(['access_token' => 'jeton-entreprise', 'token_type' => 'bearer']),
+            '*/debug_token*' => Http::response(['data' => ['is_valid' => true, 'expires_at' => now()->addDays(60)->timestamp]]),
+            '*/777/assigned_users' => Http::response(['success' => true]),
             '*/555/register' => Http::response(['success' => true]),
             '*/777/subscribed_apps' => Http::response(['success' => true]),
             '*/777/message_templates' => Http::response(['id' => '1', 'status' => 'PENDING']),
@@ -100,7 +102,13 @@ class WhatsAppEmbeddedSignupTest extends TestCase
             && $r['client_id'] === '1111' && $r['client_secret'] === 'app-secret' && $r['code'] === 'code-meta');
         Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/555/register')
             && $r['pin'] === $account->registration_pin && $r->hasHeader('Authorization', 'Bearer jeton-entreprise'));
-        Http::assertSentCount(4 + count(WhatsAppTemplate::cases()));
+        Http::assertSentCount(5 + count(WhatsAppTemplate::cases()));
+
+        // Jeton de 60 jours (configuration Meta) : date d'expiration affichée, à renouveler
+        $this->assertFalse($account->platform_token);
+        $this->assertTrue($account->token_expires_at->between(now()->addDays(59), now()->addDays(61)));
+        Sanctum::actingAs($this->admin);
+        $this->assertNotNull($this->getJson('/api/v1/whatsapp/settings')->json('data.account.token_expires_at'));
         $this->assertSame(count(WhatsAppTemplate::cases()), $account->templates()->where('status', 'pending')->count());
 
         // Reconnexion du même numéro : même PIN
@@ -172,5 +180,77 @@ class WhatsAppEmbeddedSignupTest extends TestCase
         $this->getJson('/api/v1/whatsapp/settings')->assertJsonPath('data.embedded_signup', null);
         $this->postJson('/api/v1/whatsapp/signup-ticket')->assertStatus(422);
         Http::assertNothingSent();
+    }
+
+    public function test_platform_system_user_takes_over_the_expiring_token(): void
+    {
+        config(['messaging.whatsapp.system_user_id' => '9999', 'messaging.whatsapp.system_user_token' => 'jeton-plateforme']);
+        $this->fakeMeta();
+
+        $this->signup()->assertOk();
+
+        // Utilisateur système de Jibiat ajouté au compte WhatsApp de l'entreprise, avec le jeton permanent
+        Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/777/assigned_users')
+            && $r['user'] === '9999' && $r['tasks'] === ['MANAGE'] && $r->hasHeader('Authorization', 'Bearer jeton-plateforme'));
+        // Les appels suivants (activation, modèles) utilisent ce jeton permanent
+        Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/555/register') && $r->hasHeader('Authorization', 'Bearer jeton-plateforme'));
+
+        $account = WhatsAppAccount::forCompanyId($this->company->id);
+        $this->assertTrue($account->platform_token);
+        $this->assertSame('jeton-plateforme', $account->apiToken());
+        $this->assertSame('jeton-entreprise', $account->access_token);
+
+        // Plus de date limite à afficher
+        Sanctum::actingAs($this->admin);
+        $this->getJson('/api/v1/whatsapp/settings')->assertJsonPath('data.account.token_expires_at', null);
+
+        // Jeton saisi à la main : il remplace celui de la plateforme
+        $this->putJson('/api/v1/whatsapp/settings', ['account' => ['access_token' => 'jeton-manuel']])->assertOk();
+        $this->assertSame('jeton-manuel', $account->fresh()->apiToken());
+    }
+
+    public function test_expiring_access_is_renewed_by_the_platform_or_announced(): void
+    {
+        $this->fakeMeta();
+        $this->signup()->assertOk();
+        $account = WhatsAppAccount::forCompanyId($this->company->id);
+        $this->assertFalse($account->platform_token);
+
+        // Loin de l'échéance : rien
+        $this->artisan('whatsapp:tokens')->assertSuccessful();
+        $this->assertSame(0, $this->admin->notifications()->count());
+
+        // 7 jours avant : une alerte (une seule) aux administrateurs
+        $this->travel(54)->days();
+        $this->artisan('whatsapp:tokens')->assertSuccessful();
+        $this->artisan('whatsapp:tokens')->assertSuccessful();
+        $this->assertSame(1, $this->admin->notifications()->count());
+        $this->assertSame('whatsapp_access', $this->admin->notifications()->first()->data['kind']);
+        $this->assertSame('connected', $account->fresh()->status);
+
+        // Échéance passée : numéro déconnecté (plus d'envois réels), administrateurs prévenus
+        $this->travel(7)->days();
+        $this->artisan('whatsapp:tokens')->assertSuccessful();
+        $this->assertSame('error', $account->fresh()->status);
+        $this->assertFalse($account->fresh()->isLive());
+        $this->assertSame(2, $this->admin->notifications()->count());
+    }
+
+    public function test_platform_takes_over_existing_connections_once_configured(): void
+    {
+        $this->fakeMeta();
+        $this->signup()->assertOk();
+
+        config(['messaging.whatsapp.system_user_id' => '9999', 'messaging.whatsapp.system_user_token' => 'jeton-plateforme']);
+        $this->artisan('whatsapp:tokens')->assertSuccessful();
+
+        $account = WhatsAppAccount::forCompanyId($this->company->id);
+        $this->assertTrue($account->platform_token);
+
+        // Plus d'alerte ni de déconnexion à l'échéance du jeton de l'entreprise
+        $this->travel(61)->days();
+        $this->artisan('whatsapp:tokens')->assertSuccessful();
+        $this->assertSame('connected', $account->fresh()->status);
+        $this->assertSame(0, $this->admin->notifications()->count());
     }
 }

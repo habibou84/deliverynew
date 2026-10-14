@@ -46,6 +46,10 @@
           <p v-if="s.account.status === 'connected'" class="text-sm text-emerald-900">
             Votre numéro est connecté. Pour en utiliser un autre, connectez-le à nouveau.
           </p>
+          <p v-if="s.account.token_expires_at" class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Meta accorde cet accès jusqu'au {{ new Date(s.account.token_expires_at).toLocaleDateString('fr-FR') }}.
+            Avant cette date, cliquez sur le bouton ci-dessous et reprenez le même numéro pour le renouveler.
+          </p>
           <template v-else>
             <p class="font-medium text-emerald-900">Branchez votre numéro WhatsApp en quelques minutes</p>
             <ol class="list-decimal space-y-1 pl-5 text-sm text-emerald-900">

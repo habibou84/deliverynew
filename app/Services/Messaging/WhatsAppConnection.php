@@ -9,6 +9,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -49,6 +50,7 @@ class WhatsAppConnection
         }
 
         $token = $this->exchangeCode($code);
+        $expiresAt = $this->tokenExpiry($token);
 
         $account = WhatsAppAccount::forCompanyId($company->id)
             ?? new WhatsAppAccount(['company_id' => $company->id, 'owner_type' => 'company']);
@@ -64,9 +66,15 @@ class WhatsAppConnection
             'status' => 'pending',
             'last_error' => null,
             'connected_via' => 'embedded_signup',
+            'token_expires_at' => $expiresAt,
+            'token_warned_at' => null,
+            'platform_token' => false,
         ]);
         $account->access_token = $token;
         $account->save();
+
+        // Jeton de l'entreprise limité dans le temps : la plateforme prend le relais si elle le peut
+        $this->adoptWithPlatform($account);
 
         $registration = $this->register($account);
         $this->connect($account);
@@ -148,6 +156,59 @@ class WhatsAppConnection
         }
 
         return $token;
+    }
+
+    /**
+     * Date d'expiration du jeton remis par Meta (null : il n'expire pas). En cas de doute,
+     * 60 jours, la durée des configurations « WhatsApp Embedded Signup » de Meta.
+     */
+    private function tokenExpiry(string $token): ?Carbon
+    {
+        try {
+            $response = $this->call(fn () => $this->http(config('messaging.whatsapp.app_id').'|'.config('messaging.whatsapp.app_secret'))
+                ->get('debug_token', ['input_token' => $token]));
+        } catch (MessagingException) {
+            return now()->addDays(60);
+        }
+
+        $expires = $response?->json('data.expires_at');
+
+        return match (true) {
+            $expires === 0 => null,
+            is_int($expires) && $expires > 0 => Carbon::createFromTimestamp($expires),
+            default => now()->addDays(60),
+        };
+    }
+
+    /**
+     * Ajoute l'utilisateur système de Jibiat (jeton permanent) au compte WhatsApp Business de
+     * l'entreprise, partagé avec la plateforme lors du bouton « Connecter WhatsApp » : les envois
+     * ne dépendent plus du jeton de l'entreprise et de son expiration. Renvoie false si ce n'est
+     * pas possible (plateforme non configurée, droits manquants) : le jeton de l'entreprise reste utilisé.
+     */
+    public function adoptWithPlatform(WhatsAppAccount $account): bool
+    {
+        $userId = config('messaging.whatsapp.system_user_id');
+        $token = config('messaging.whatsapp.system_user_token');
+
+        if (blank($userId) || blank($token) || blank($account->waba_id) || blank($account->phone_number_id)) {
+            return false;
+        }
+
+        try {
+            $this->call(fn () => $this->http($token)->post("{$account->waba_id}/assigned_users", [
+                'user' => $userId,
+                'tasks' => ['MANAGE'],
+            ]));
+            // Le numéro répond avec le jeton de la plateforme
+            $this->call(fn () => $this->http($token)->get($account->phone_number_id, ['fields' => 'id']));
+        } catch (MessagingException) {
+            return false;
+        }
+
+        $account->forceFill(['platform_token' => true, 'token_warned_at' => null])->save();
+
+        return true;
     }
 
     /**
@@ -251,9 +312,14 @@ class WhatsAppConnection
 
     private function client(WhatsAppAccount $account): PendingRequest
     {
+        return $this->http($account->apiToken());
+    }
+
+    private function http(?string $token): PendingRequest
+    {
         $base = rtrim(config('messaging.whatsapp.graph_url'), '/').'/'.config('messaging.whatsapp.graph_version');
 
-        return Http::baseUrl($base)->withToken($account->access_token)->acceptJson()->timeout(15);
+        return Http::baseUrl($base)->withToken((string) $token)->acceptJson()->timeout(15);
     }
 
     /**
