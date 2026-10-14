@@ -1,5 +1,6 @@
 import { reactive } from 'vue'
 import http from '../bootstrap/axios'
+import { siteUrl } from '../native'
 
 const CACHE_KEY = 'branding'
 
@@ -20,7 +21,8 @@ let loading = null
 export function loadBranding(force = false) {
   if (loading && !force) return loading
   loading = http.get('/branding').then(({ data }) => {
-    Object.assign(branding, data.data, { loaded: true })
+    // Logo servi par le site de l'entreprise (lien absolu pour l'application)
+    Object.assign(branding, data.data, { logo_url: siteUrl(data.data.logo_url), loaded: true })
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(data.data)) } catch { /* stockage indisponible */ }
     if (data.data.name) document.title = data.data.name
   }).catch(() => { branding.loaded = true })

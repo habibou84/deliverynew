@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-slate-50 text-slate-900">
     <!-- En-tête -->
-    <header class="bg-white/90 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
+    <header v-if="!nativeApp" class="bg-white/90 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
       <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
         <BrandLogo size="md" />
         <a href="#suivi" class="shrink-0 rounded-full border border-emerald-600 text-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-50">📍 Suivre un colis</a>
@@ -9,9 +9,10 @@
     </header>
 
     <!-- Présentation et connexion -->
-    <section class="bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 text-white">
+    <!-- Application : la connexion seule, en plein écran -->
+    <section :class="['bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 text-white', { 'min-h-screen': nativeApp }]" :style="nativeApp ? 'padding-top: env(safe-area-inset-top)' : null">
       <div class="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-10 items-center">
-        <div class="space-y-6">
+        <div v-if="!nativeApp" class="space-y-6">
           <p class="inline-block rounded-full bg-white/15 px-3 py-1 text-sm font-medium">Espace e-commerçants</p>
           <h1 class="text-3xl md:text-5xl font-extrabold leading-tight">
             {{ branding.tagline || 'Vos colis livrés vite, vos clients satisfaits.' }}
@@ -40,6 +41,7 @@
             </div>
             <LoginForm tone="merchant" />
             <InstallBanner app="marchand" class="md:hidden" />
+            <NativeCompanySwitch />
             <div v-if="branding.signup_open" class="border-t border-slate-200 pt-5 text-center space-y-2">
               <p class="text-sm text-slate-600">Pas encore client ?</p>
               <RouterLink to="/inscription" class="block w-full rounded-xl border-2 border-emerald-600 py-3 font-semibold text-emerald-700 hover:bg-emerald-50">Créer mon compte gratuitement</RouterLink>
@@ -55,7 +57,7 @@
     </section>
 
     <!-- Comment ça marche -->
-    <section class="max-w-6xl mx-auto px-4 py-12 md:py-16">
+    <section v-if="!nativeApp" class="max-w-6xl mx-auto px-4 py-12 md:py-16">
       <h2 class="text-2xl md:text-3xl font-bold text-center">Comment ça marche ?</h2>
       <ol class="mt-8 grid md:grid-cols-3 gap-6">
         <li v-for="(s, i) in steps" :key="s.title" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -67,7 +69,7 @@
     </section>
 
     <!-- Suivi d'un colis (destinataires) -->
-    <section id="suivi" class="bg-white border-y border-slate-200">
+    <section v-if="!nativeApp" id="suivi" class="bg-white border-y border-slate-200">
       <div class="max-w-3xl mx-auto px-4 py-12 text-center space-y-4">
         <h2 class="text-2xl font-bold">Vous attendez un colis ?</h2>
         <p class="text-slate-600">Entrez le code de suivi reçu par WhatsApp ou SMS (il commence par LV-).</p>
@@ -80,7 +82,7 @@
     </section>
 
     <!-- Contact -->
-    <footer class="bg-slate-900 text-slate-300">
+    <footer v-if="!nativeApp" class="bg-slate-900 text-slate-300">
       <div class="max-w-6xl mx-auto px-4 py-10 grid md:grid-cols-3 gap-6 items-start">
         <div class="space-y-2">
           <BrandLogo size="sm" dark />
@@ -107,6 +109,8 @@ import { useRouter } from 'vue-router'
 import BrandLogo from '../../components/auth/BrandLogo.vue'
 import LoginForm from '../../components/auth/LoginForm.vue'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
+import NativeCompanySwitch from '../../components/auth/NativeCompanySwitch.vue'
+import { nativeApp } from '../../native'
 import { branding, loadBranding, whatsappLink } from '../../composables/useBranding'
 
 const router = useRouter()

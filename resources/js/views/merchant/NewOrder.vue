@@ -216,6 +216,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'
 import { money, today } from '../../utils/format'
+import { siteOrigin } from '../../native'
 
 const steps = [
   { title: 'À qui livrer ?' },
@@ -304,7 +305,7 @@ const codAmount = computed(() => (form.items_amount || 0) + (form.fee_payer === 
 
 const shareLink = computed(() => {
   if (!created.value) return '#'
-  const url = `${window.location.origin}/suivi/${created.value.tracking_code}`
+  const url = `${siteOrigin()}/suivi/${created.value.tracking_code}`
   const text = `Bonjour, votre commande ${auth.user?.merchant?.business_name || ''} est en préparation pour la livraison.\nSuivi : ${url}\nCode de livraison à donner au livreur : ${created.value.delivery_code}`
   const phone = (created.value.recipient.phone || '').replace(/\D/g, '')
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`

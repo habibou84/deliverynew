@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ApiScope;
+use App\Http\Controllers\Api\NativeAppController;
 use App\Http\Controllers\Api\PublicV1\PublicAccountController;
 use App\Http\Controllers\Api\PublicV1\PublicApiController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
@@ -88,6 +89,10 @@ Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:pu
         Route::get('payouts/{reference}', 'payout')->middleware($payouts)->name('payouts.show');
     });
 });
+
+// Applications Android et iOS : entreprise désignée par son code (depuis l'adresse de la plateforme)
+Route::get('public/apps/companies/{code}', [NativeAppController::class, 'company'])
+    ->middleware('throttle:30,1')->where('code', '[A-Za-z0-9-]{1,60}')->name('public.apps.company');
 
 // Photo de preuve d'une course (lien signé et temporaire renvoyé par l'API publique, sans clé)
 Route::get('public/v1/attachments/{attachment}', [PublicApiController::class, 'attachment'])

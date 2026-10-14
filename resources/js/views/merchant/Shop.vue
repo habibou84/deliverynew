@@ -125,10 +125,11 @@ import ToggleRow from '../../components/mobile/ToggleRow.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
+import { siteOrigin } from '../../native'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
-const origin = window.location.host
+const origin = new URL(siteOrigin()).host
 
 const settings = ref(null)
 const slug = ref('')

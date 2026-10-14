@@ -1,10 +1,12 @@
 import { reactive } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
+import { nativeApp } from '../native'
 import { pwa } from './usePwa'
 
 // Notifications push de l'appareil (Web Push) : prévenir le livreur même téléphone en veille.
 export const push = reactive({
-  supported: typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window,
+  // Applications Android et iOS : notifications natives (étape suivante), pas de Web Push
+  supported: !nativeApp && typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window,
   serverEnabled: false,
   // E-commerçant dont les messages passent en notification (sinon WhatsApp seulement)
   merchantMessages: false,

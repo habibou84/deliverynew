@@ -10,6 +10,7 @@
     </div>
     <div class="mt-4 w-full max-w-sm mx-auto">
       <InstallBanner app="livreur" />
+      <NativeCompanySwitch dark class="mt-4" />
     </div>
   </div>
 </template>
@@ -19,6 +20,7 @@ import { onMounted } from 'vue'
 import BrandLogo from '../../components/auth/BrandLogo.vue'
 import LoginForm from '../../components/auth/LoginForm.vue'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
+import NativeCompanySwitch from '../../components/auth/NativeCompanySwitch.vue'
 import { branding, loadBranding } from '../../composables/useBranding'
 
 onMounted(() => loadBranding())

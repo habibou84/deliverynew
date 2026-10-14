@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { SPACES } from '../roles'
+import { allowedInApp, nativeApp, nativeCompany, nativeConfig } from '../native'
 
 const shared = {
   dashboard: () => import('../views/shared/Dashboard.vue'),
@@ -16,6 +17,8 @@ const mobile = {
 }
 
 const routes = [
+  // Applications Android et iOS : choix de l'entreprise de livraison (code), avant la connexion
+  { path: '/entreprise', name: 'native-company', component: () => import('../views/auth/NativeCompany.vue'), meta: { public: true } },
   // Pages de connexion : e-commerçants à la racine (page d'accueil du site), équipe et livreurs dans leur espace.
   // Une fois connecté, chacun est renvoyé vers son espace, quelle que soit la page utilisée.
   { path: '/', name: 'home', component: () => import('../views/auth/MerchantHome.vue'), meta: { guest: true } },
@@ -144,9 +147,16 @@ function loginFor(to) {
 }
 
 router.beforeEach(async (to) => {
-  if (to.meta.public) return true
-
   const auth = useAuthStore()
+
+  // Application : d'abord le code de l'entreprise, puis seulement les pages de son espace
+  if (nativeApp) {
+    if (!nativeCompany()) return to.path === '/entreprise' ? true : '/entreprise'
+    if (!allowedInApp(to.path)) return auth.isAuthenticated ? nativeConfig.home : nativeConfig.login
+    if (to.path === '/' && nativeConfig.login !== '/') return auth.isAuthenticated ? nativeConfig.home : nativeConfig.login
+  }
+
+  if (to.meta.public) return true
 
   if (auth.isAuthenticated && !auth.user) {
     try {
