@@ -83,6 +83,30 @@ class WhatsAppSettingsController extends Controller
     }
 
     /**
+     * Bouton « Connecter WhatsApp » : fin de l'inscription intégrée de Meta (code d'autorisation,
+     * numéro et compte WhatsApp Business choisis par l'entreprise dans la fenêtre de Meta).
+     */
+    public function embeddedSignup(Request $request): JsonResponse
+    {
+        $company = $this->company($request);
+        $data = $request->validate([
+            'code' => ['required', 'string', 'max:2000'],
+            'phone_number_id' => ['required', 'string', 'max:50', 'regex:/^\d+$/'],
+            'waba_id' => ['required', 'string', 'max:50', 'regex:/^\d+$/'],
+        ]);
+
+        try {
+            $account = $this->connection->completeSignup($company, $data['code'], $data['phone_number_id'], $data['waba_id']);
+        } catch (MessagingException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        abort_if($account->status !== 'connected', 422, $account->last_error ?: 'Numéro enregistré, mais pas encore connecté à Meta.');
+
+        return response()->json(['data' => $this->settings($company->fresh())]);
+    }
+
+    /**
      * Vérifie à nouveau la connexion du numéro (jeton, identifiants, abonnement).
      */
     public function connect(Request $request): JsonResponse
@@ -231,6 +255,12 @@ class WhatsAppSettingsController extends Controller
             'sms_driver' => config('messaging.sms.driver'),
             'webhook_url' => route('webhooks.whatsapp.handle'),
             'webhook_ready' => filled(config('messaging.whatsapp.app_secret')) && filled(config('messaging.whatsapp.verify_token')),
+            // Bouton « Connecter WhatsApp » : identifiants publics de l'application Meta (null si non configuré)
+            'embedded_signup' => WhatsAppConnection::signupAvailable() ? [
+                'app_id' => config('messaging.whatsapp.app_id'),
+                'config_id' => config('messaging.whatsapp.signup_config_id'),
+                'graph_version' => config('messaging.whatsapp.graph_version'),
+            ] : null,
             'notify_recipients' => $company->notify_recipients,
             'sms_fallback' => $company->sms_fallback,
             'merchant_push_first' => $company->merchant_push_first,
@@ -252,6 +282,7 @@ class WhatsAppSettingsController extends Controller
                 'quality_rating' => $account?->quality_rating,
                 'last_error' => $account?->last_error,
                 'connected_at' => $account?->connected_at,
+                'connected_via' => $account?->connected_via,
                 'webhook_subscribed_at' => $account?->webhook_subscribed_at,
             ],
             'templates' => array_map(fn (WhatsAppTemplate $t) => [

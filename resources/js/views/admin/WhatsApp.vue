@@ -33,34 +33,65 @@
       </div>
 
       <!-- Numéro -->
-      <form class="card p-4 space-y-4" @submit.prevent="saveAccount">
+      <section class="card p-4 space-y-4">
         <div class="flex items-center justify-between gap-2">
-          <h2 class="font-semibold">Numéro WhatsApp Business (API Cloud de Meta)</h2>
+          <h2 class="font-semibold">Numéro WhatsApp de l'entreprise</h2>
           <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', ACCOUNT_STATUS[s.account.status]?.[1] || 'bg-slate-100 text-slate-700']">
             {{ ACCOUNT_STATUS[s.account.status]?.[0] || 'À configurer' }}
           </span>
         </div>
-        <p class="text-sm text-gray-500">
-          Ces informations se trouvent dans Meta for Developers, rubrique WhatsApp &gt; Configuration de l'API.
-          Utilisez un jeton d'accès permanent (utilisateur système), pas le jeton temporaire de 24 h.
-          À l'enregistrement, nous vérifions le numéro auprès de Meta et branchons les messages reçus.
-        </p>
-        <div class="grid sm:grid-cols-2 gap-3">
-          <div><label class="label" for="wa-phone">Numéro affiché</label><input id="wa-phone" v-model="account.display_phone" class="input" placeholder="07 00 00 00 00"></div>
-          <div><label class="label" for="wa-pnid">Identifiant du numéro (Phone number ID)</label><input id="wa-pnid" v-model="account.phone_number_id" class="input" inputmode="numeric"></div>
-          <div><label class="label" for="wa-waba">Identifiant du compte WhatsApp Business (WABA ID)</label><input id="wa-waba" v-model="account.waba_id" class="input" inputmode="numeric"></div>
-          <div>
-            <label class="label" for="wa-token">Jeton d'accès</label>
-            <input id="wa-token" v-model="account.access_token" type="password" autocomplete="off" class="input" :placeholder="s.account.has_access_token ? 'Enregistré (laisser vide pour le garder)' : ''">
-          </div>
+
+        <!-- Connexion en un clic (inscription intégrée de Meta) -->
+        <div v-if="s.embedded_signup" class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-3">
+          <p v-if="s.account.status === 'connected'" class="text-sm text-emerald-900">
+            Votre numéro est connecté. Pour en utiliser un autre, connectez-le à nouveau.
+          </p>
+          <template v-else>
+            <p class="font-medium text-emerald-900">Branchez votre numéro WhatsApp en quelques minutes</p>
+            <ol class="list-decimal space-y-1 pl-5 text-sm text-emerald-900">
+              <li>Une fenêtre Meta s'ouvre : connectez-vous avec votre compte Facebook.</li>
+              <li>Choisissez ou créez votre entreprise et son compte WhatsApp Business.</li>
+              <li>Ajoutez le numéro de l'entreprise et saisissez le code reçu par SMS.</li>
+            </ol>
+            <p class="text-xs text-emerald-800">
+              Le numéro ne doit pas être utilisé dans l'application WhatsApp d'un téléphone.
+              Les messages sont facturés par Meta sur votre compte : ajoutez-y un moyen de paiement.
+            </p>
+          </template>
+          <p v-if="signupError" class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{{ signupError }}</p>
+          <button type="button" :class="s.account.status === 'connected' ? 'btn-secondary' : 'btn-success'" :disabled="signingUp" @click="oneClick">
+            {{ signingUp ? 'Connexion en cours…' : (s.account.status === 'connected' ? 'Connecter un autre numéro' : 'Connecter WhatsApp') }}
+          </button>
         </div>
+
         <p v-if="s.account.last_error" class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{{ s.account.last_error }}</p>
-        <p v-if="accountError" class="field-error">{{ accountError }}</p>
-        <div class="flex flex-wrap gap-2">
-          <button class="btn-primary" :disabled="saving">{{ saving ? 'Vérification auprès de Meta…' : 'Enregistrer et vérifier' }}</button>
-          <button v-if="s.account.has_access_token" type="button" class="btn-secondary" :disabled="saving" @click="reconnect">Vérifier à nouveau</button>
-        </div>
-      </form>
+
+        <!-- Saisie manuelle : sans bouton (serveur non configuré) ou pour les experts -->
+        <details :open="!s.embedded_signup" class="group">
+          <summary v-if="s.embedded_signup" class="cursor-pointer text-sm text-slate-600 hover:text-slate-900">Saisie manuelle (avancé)</summary>
+          <form class="mt-3 space-y-4" @submit.prevent="saveAccount">
+            <p class="text-sm text-gray-500">
+              Ces informations se trouvent dans Meta for Developers, rubrique WhatsApp &gt; Configuration de l'API.
+              Utilisez un jeton d'accès permanent (utilisateur système), pas le jeton temporaire de 24 h.
+              À l'enregistrement, nous vérifions le numéro auprès de Meta et branchons les messages reçus.
+            </p>
+            <div class="grid sm:grid-cols-2 gap-3">
+              <div><label class="label" for="wa-phone">Numéro affiché</label><input id="wa-phone" v-model="account.display_phone" class="input" placeholder="07 00 00 00 00"></div>
+              <div><label class="label" for="wa-pnid">Identifiant du numéro (Phone number ID)</label><input id="wa-pnid" v-model="account.phone_number_id" class="input" inputmode="numeric"></div>
+              <div><label class="label" for="wa-waba">Identifiant du compte WhatsApp Business (WABA ID)</label><input id="wa-waba" v-model="account.waba_id" class="input" inputmode="numeric"></div>
+              <div>
+                <label class="label" for="wa-token">Jeton d'accès</label>
+                <input id="wa-token" v-model="account.access_token" type="password" autocomplete="off" class="input" :placeholder="s.account.has_access_token ? 'Enregistré (laisser vide pour le garder)' : ''">
+              </div>
+            </div>
+            <p v-if="accountError" class="field-error">{{ accountError }}</p>
+            <div class="flex flex-wrap gap-2">
+              <button class="btn-primary" :disabled="saving">{{ saving ? 'Vérification auprès de Meta…' : 'Enregistrer et vérifier' }}</button>
+              <button v-if="s.account.has_access_token" type="button" class="btn-secondary" :disabled="saving" @click="reconnect">Vérifier à nouveau</button>
+            </div>
+          </form>
+        </details>
+      </section>
 
       <!-- Courses reçues sur WhatsApp -->
       <div class="card p-4 space-y-3">
@@ -188,6 +219,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
+import { connectWhatsApp } from '../../composables/useMetaSignup'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
@@ -220,6 +252,8 @@ const s = ref(null)
 const loadError = ref('')
 const account = reactive({ display_phone: '', phone_number_id: '', waba_id: '', access_token: '' })
 const accountError = ref('')
+const signupError = ref('')
+const signingUp = ref(false)
 const saving = ref(false)
 const syncing = ref(false)
 const submitting = ref(false)
@@ -258,6 +292,22 @@ async function saveAccount() {
     accountError.value = apiErrorMessage(e)
   } finally {
     saving.value = false
+  }
+}
+
+// Bouton « Connecter WhatsApp » : fenêtre de Meta, puis branchement complet côté serveur
+async function oneClick() {
+  signupError.value = ''
+  signingUp.value = true
+  try {
+    const session = await connectWhatsApp(s.value.embedded_signup)
+    const { data } = await http.post('/whatsapp/embedded-signup', session)
+    apply(data.data)
+    toasts.success('WhatsApp connecté : les modèles de messages sont envoyés à Meta pour approbation.')
+  } catch (e) {
+    signupError.value = e.isAxiosError ? apiErrorMessage(e, 'Connexion à WhatsApp impossible.') : e.message
+  } finally {
+    signingUp.value = false
   }
 }
 
