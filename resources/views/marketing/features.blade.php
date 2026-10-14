@@ -4,7 +4,7 @@
 @section('description', 'Dispatch, suivi en direct, caisse, reversements, paie des livreurs, applications livreur et e-commerçant, commandes WhatsApp, statistiques, stock et API : tout Jibiat en détail.')
 
 @php
-    // Domaines fonctionnels : ancre, icône, titre, accroche, points, capture éventuelle, module selon formule
+    // Domaines fonctionnels : ancre, icône, titre, accroche, points, capture ou vidéo éventuelle, module selon formule
     $sections = [
         [
             'id' => 'courses', 'icon' => 'route', 'title' => 'Courses et dispatch',
@@ -21,6 +21,7 @@
                 'Création rapide au bureau, par import Excel ou par les e-commerçants eux-mêmes',
             ],
             'image' => '/marketing/app-courses.webp', 'alt' => 'Liste des courses : statuts, trajets, livreurs et montants à encaisser',
+            'video' => ['course-de-a-a-z', 'Une course de A à Z'],
         ],
         [
             'id' => 'suivi', 'icon' => 'map', 'title' => 'Suivi en direct des livreurs',
@@ -47,6 +48,7 @@
                 'Grand livre de chaque e-commerçant : ce qui lui est dû, à tout moment',
             ],
             'image' => '/marketing/app-caisse.webp', 'alt' => 'Caisse : argent chez les livreurs, versements et reversements',
+            'video' => ['caisse', 'Le point de caisse en 2 minutes'],
         ],
         [
             'id' => 'paie', 'icon' => 'payroll', 'title' => 'Paie des livreurs',
@@ -72,6 +74,7 @@
                 'Ses gains et ses avances, à jour',
             ],
             'image' => '/marketing/app-livreur.webp', 'alt' => 'Application livreur : missions à ramasser et à livrer', 'phone' => true,
+            'video' => ['livreur', 'La journée du livreur'],
         ],
         [
             'id' => 'ecommercant', 'icon' => 'store', 'title' => 'Application e-commerçant',
@@ -86,6 +89,7 @@
                 'Position de ramassage enregistrée pour des livreurs plus rapides',
             ],
             'image' => '/marketing/app-ecommercant.webp', 'alt' => 'Application e-commerçant : courses du jour et colis à traiter', 'phone' => true,
+            'video' => ['ecommercant', 'L\'e-commerçant crée sa course'],
         ],
         [
             'id' => 'whatsapp', 'icon' => 'message', 'title' => 'WhatsApp et notifications',
@@ -100,6 +104,7 @@
                 'Votre propre numéro WhatsApp Business, à votre nom',
             ],
             'module' => 'Commandes par WhatsApp selon la formule',
+            'phone' => true, 'video' => ['whatsapp', 'Les commandes par WhatsApp'],
         ],
         [
             'id' => 'statistiques', 'icon' => 'chart', 'title' => 'Statistiques',
@@ -113,6 +118,7 @@
                 'Export des tableaux vers Excel',
             ],
             'image' => '/marketing/app-statistiques.webp', 'alt' => 'Statistiques : courses par jour, taux de livraison, chiffre d\'affaires',
+            'video' => ['statistiques', 'Vos statistiques'],
             'module' => 'Zones, finances et export selon la formule',
         ],
         [
@@ -175,8 +181,8 @@
     <div class="mx-auto max-w-6xl divide-y divide-slate-200 px-4 sm:px-6">
         @foreach ($sections as $i => $s)
             <section id="{{ $s['id'] }}" class="scroll-mt-20 py-16">
-                <div @class(['grid items-start gap-10', 'lg:grid-cols-2' => isset($s['image']) && ! isset($s['phone']), 'lg:grid-cols-[1fr_auto]' => isset($s['phone'])])>
-                    <div @class(['lg:order-2' => isset($s['image']) && ! isset($s['phone']) && $i % 2 === 1])>
+                <div @class(['grid items-start gap-10', 'lg:grid-cols-2' => (isset($s['image']) || isset($s['video'])) && ! isset($s['phone']), 'lg:grid-cols-[1fr_auto]' => isset($s['phone'])])>
+                    <div @class(['lg:order-2' => (isset($s['image']) || isset($s['video'])) && ! isset($s['phone']) && $i % 2 === 1])>
                         <div class="flex flex-wrap items-center gap-3">
                             <span class="inline-flex size-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600"><x-marketing.icon :name="$s['icon']" /></span>
                             @isset($s['module'])
@@ -185,13 +191,17 @@
                         </div>
                         <h2 class="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">{{ $s['title'] }}</h2>
                         <p class="mt-3 text-lg text-slate-600">{{ $s['intro'] }}</p>
-                        <ul @class(['mt-6 grid gap-x-8 gap-y-3 text-slate-700', 'sm:grid-cols-2' => ! isset($s['image'])])>
+                        <ul @class(['mt-6 grid gap-x-8 gap-y-3 text-slate-700', 'sm:grid-cols-2' => ! isset($s['image']) && ! isset($s['video'])])>
                             @foreach ($s['points'] as $point)
                                 <li class="flex gap-3"><x-marketing.icon name="check" class="mt-0.5 size-5 shrink-0 text-brand-600" /><span>{{ $point }}</span></li>
                             @endforeach
                         </ul>
                     </div>
-                    @isset($s['image'])
+                    @if (isset($s['video']))
+                        <div @class(['lg:pl-6' => isset($s['phone']), 'lg:order-1' => ! isset($s['phone']) && $i % 2 === 1])>
+                            <x-marketing.video :name="$s['video'][0]" :title="$s['video'][1]" :vertical="isset($s['phone'])" />
+                        </div>
+                    @elseif (isset($s['image']))
                         @isset($s['phone'])
                             <div class="flex justify-center lg:pl-6">
                                 <img src="{{ $s['image'] }}" alt="{{ $s['alt'] }}" class="w-56 rounded-[2rem] border-[6px] border-slate-900 shadow-xl" width="390" height="844" loading="lazy">
@@ -201,7 +211,7 @@
                                 <img src="{{ $s['image'] }}" alt="{{ $s['alt'] }}" class="block w-full" width="1440" height="900" loading="lazy">
                             </div>
                         @endisset
-                    @endisset
+                    @endif
                 </div>
             </section>
         @endforeach
