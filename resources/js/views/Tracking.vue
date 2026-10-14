@@ -43,6 +43,7 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import StatusBadge from '../components/StatusBadge.vue'
 import { date, dateTime } from '../utils/format'
+import { siteOrigin } from '../native'
 
 const route = useRoute()
 const router = useRouter()
@@ -55,7 +56,7 @@ async function load() {
   error.value = ''
   tracking.value = null
   try {
-    const { data } = await axios.get(`/api/v1/tracking/${encodeURIComponent(code.value.trim().toUpperCase())}`, { headers: { Accept: 'application/json' } })
+    const { data } = await axios.get(`${siteOrigin()}/api/v1/tracking/${encodeURIComponent(code.value.trim().toUpperCase())}`, { headers: { Accept: 'application/json' } })
     tracking.value = data.data
   } catch (e) {
     error.value = e.response?.status === 404 ? 'Aucun colis trouvé avec ce code.' : 'Service momentanément indisponible.'

@@ -1,6 +1,7 @@
 import Echo from 'laravel-echo'
 import Pusher from 'pusher-js'
 import { TOKEN_KEY } from './axios'
+import { nativeApp, siteOrigin } from '../native'
 
 let echo = null
 
@@ -20,12 +21,12 @@ export function useEcho() {
     key: import.meta.env.VITE_REVERB_APP_KEY,
     // Sans hôte fixe : l'adresse ouverte (chaque entreprise a la sienne, le serveur web
     // y relaie /app/ vers Reverb)
-    wsHost: import.meta.env.VITE_REVERB_HOST || window.location.hostname,
+    wsHost: import.meta.env.VITE_REVERB_HOST || (nativeApp ? new URL(siteOrigin()).hostname : window.location.hostname),
     wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
     wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
     forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
     enabledTransports: ['ws', 'wss'],
-    authEndpoint: '/api/broadcasting/auth',
+    authEndpoint: `${nativeApp ? siteOrigin() : ''}/api/broadcasting/auth`,
     auth: {
       headers: {
         Accept: 'application/json',

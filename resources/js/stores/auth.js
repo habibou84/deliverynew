@@ -3,6 +3,7 @@ import http, { TOKEN_KEY } from '../bootstrap/axios'
 import { disconnectEcho } from '../bootstrap/echo'
 import { homeFor } from '../roles'
 import { clearApiCache } from '../composables/useCachedApi'
+import { nativeConfig } from '../native'
 
 // Profil gardé sur l'appareil pour ouvrir l'application sans réseau (PWA hors ligne)
 const USER_KEY = 'user'
@@ -50,6 +51,12 @@ export const useAuthStore = defineStore('auth', {
         password,
         device_name: navigator.userAgent.slice(0, 100),
       })
+
+      // Application livreur ou e-commerçant : seuls les comptes de son espace s'y connectent
+      if (nativeConfig && !nativeConfig.roles.includes(data.user?.role)) {
+        await http.post('/auth/logout', null, { headers: { Authorization: `Bearer ${data.token}` } }).catch(() => {})
+        throw Object.assign(new Error(nativeConfig.other), { response: { data: { message: nativeConfig.other } } })
+      }
 
       this.startSession(data)
     },

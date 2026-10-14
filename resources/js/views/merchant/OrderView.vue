@@ -173,6 +173,7 @@ import { useToastStore } from '../../stores/toasts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
 import { date, money, telLink, today } from '../../utils/format'
 import { BEFORE_PICKUP, FINAL } from '../../utils/workflow'
+import { siteOrigin } from '../../native'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -206,7 +207,7 @@ const rescheduleDate = computed(() => ({ today: dayOffset(0), tomorrow: dayOffse
 
 const whatsappShare = computed(() => {
   const o = order.value
-  const text = `Bonjour, votre commande ${auth.user?.merchant?.business_name || ''} sera livrée bientôt.\nSuivi : ${window.location.origin}/suivi/${o.tracking_code}\nCode de livraison à donner au livreur : ${o.delivery_code}`
+  const text = `Bonjour, votre commande ${auth.user?.merchant?.business_name || ''} sera livrée bientôt.\nSuivi : ${siteOrigin()}/suivi/${o.tracking_code}\nCode de livraison à donner au livreur : ${o.delivery_code}`
   return `https://wa.me/${o.recipient.phone.replace(/\D/g, '')}?text=${encodeURIComponent(text)}`
 })
 

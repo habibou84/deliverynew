@@ -1,9 +1,11 @@
 import { reactive } from 'vue'
+import { nativeApp } from '../native'
 
 // État partagé : installation de l'application et connexion réseau
 export const pwa = reactive({
   canInstall: false, // Android/Chrome : invite d'installation disponible
-  installed: window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true,
+  // Application des stores : déjà installée, pas d'invitation à installer
+  installed: !!nativeApp || window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true,
   isIos: /iphone|ipad|ipod/i.test(window.navigator.userAgent),
   online: window.navigator.onLine,
 })
@@ -24,7 +26,7 @@ export function setupPwa() {
   window.addEventListener('offline', () => { pwa.online = false })
 
   // Service worker uniquement sur le build de production (pas avec le serveur Vite)
-  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  if (import.meta.env.PROD && !nativeApp && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
   }
 }

@@ -49,6 +49,7 @@ import QRCode from 'qrcode'
 import http from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'
 import { dateTime, money } from '../utils/format'
+import { siteOrigin } from '../native'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -62,7 +63,7 @@ function print() {
 onMounted(async () => {
   order.value = (await http.get(`/orders/${route.params.id}`)).data.data
   // Le QR code mène à la page de suivi publique (scan au ramassage, au dépôt et à la remise)
-  qr.value = await QRCode.toDataURL(`${window.location.origin}/suivi/${order.value.tracking_code}`, { margin: 1, width: 240 })
+  qr.value = await QRCode.toDataURL(`${siteOrigin()}/suivi/${order.value.tracking_code}`, { margin: 1, width: 240 })
 })
 </script>
 
