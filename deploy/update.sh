@@ -1,21 +1,24 @@
 #!/usr/bin/env bash
 #
-# Mise à jour de l'application déjà installée (install.sh ou ispconfig.sh), à lancer en root :
+# Mise à jour de l'application déjà installée (install.sh, ispconfig.sh ou preprod.sh), à lancer en root :
 #
 #   bash /chemin/de/l/application/deploy/update.sh
 #
-# Récupère la dernière version de la branche, met à jour les dépendances, recompile
+# Met à jour l'installation du dossier où se trouve ce script (production ou préproduction) :
+# récupère la dernière version de sa branche, met à jour les dépendances, recompile
 # l'interface, applique les migrations puis redémarre les processus.
+#
+# Changer la branche suivie (une seule fois, ex. production sur la branche « production ») :
+#   BRANCH=production bash /chemin/de/l/application/deploy/update.sh
 
 set -euo pipefail
 
 . "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 [[ $EUID -eq 0 ]] || fail "lancez ce script en root."
-[[ -f "$DEPLOY_CONF" ]] || fail "$DEPLOY_CONF absent : l'application n'a pas été installée avec install.sh ou ispconfig.sh."
-. "$DEPLOY_CONF"
+load_deploy_conf "$(dirname "${BASH_SOURCE[0]}")/.."
 
-BRANCH="$(as_app "git rev-parse --abbrev-ref HEAD")"
+BRANCH="${BRANCH:-$(as_app "git rev-parse --abbrev-ref HEAD")}"
 
 step "Mode maintenance"
 as_app "php artisan down --retry=30 || true"
@@ -43,7 +46,7 @@ for unit in $(systemctl list-units --type=service --state=running --no-legend 'p
     systemctl reload "$unit"
 done
 as_app "php artisan horizon:terminate"
-supervisorctl restart livraison-reverb
+supervisorctl restart "$INSTANCE-reverb"
 supervisorctl status
 
-step "Terminé : $(as_app "git log -1 --format='%h %s'")"
+step "Terminé ($INSTANCE, branche $BRANCH) : $(as_app "git log -1 --format='%h %s'")"

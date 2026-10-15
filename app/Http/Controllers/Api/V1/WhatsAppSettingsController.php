@@ -68,7 +68,9 @@ class WhatsAppSettingsController extends Controller
                 $fields = array_intersect_key($data['account'], array_flip(['display_phone', 'phone_number_id', 'waba_id']));
                 $account->fill($fields);
                 if (filled($data['account']['access_token'] ?? null)) {
+                    // Jeton saisi à la main (permanent) : remplace celui du bouton et de la plateforme
                     $account->access_token = $data['account']['access_token'];
+                    $account->fill(['platform_token' => false, 'token_expires_at' => null, 'token_warned_at' => null]);
                 }
                 $account->save();
             }
@@ -259,6 +261,8 @@ class WhatsAppSettingsController extends Controller
                 'last_error' => $account?->last_error,
                 'connected_at' => $account?->connected_at,
                 'connected_via' => $account?->connected_via,
+                // Accès limité dans le temps (bouton, sans relais de la plateforme) : à renouveler avant cette date
+                'token_expires_at' => $account?->platform_token ? null : $account?->token_expires_at,
                 'webhook_subscribed_at' => $account?->webhook_subscribed_at,
             ],
             'templates' => array_map(fn (WhatsAppTemplate $t) => [

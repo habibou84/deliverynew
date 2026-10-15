@@ -19,6 +19,10 @@ Route::get('/.well-known/domain-check', fn () => response()->json([
     'slug' => app(Tenancy::class)->company()?->slug,
 ]))->middleware('throttle:60,1')->name('domain.check');
 
+// Moteurs de recherche : tout est ouvert en production, tout est fermé ailleurs (préproduction)
+Route::get('/robots.txt', fn () => response("User-agent: *\nDisallow:".(config('platform.indexable') ? '' : ' /')."\n")
+    ->header('Content-Type', 'text/plain; charset=UTF-8'))->name('robots');
+
 // Politique de confidentialité (exigée par Meta pour WhatsApp) et conditions générales, sur toutes les adresses
 Route::view('/confidentialite', 'legal.privacy')->name('privacy');
 Route::view('/conditions', 'legal.terms')->name('terms');

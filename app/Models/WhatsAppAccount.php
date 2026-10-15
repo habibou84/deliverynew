@@ -19,6 +19,7 @@ class WhatsAppAccount extends Model
         'company_id', 'owner_type', 'owner_id', 'provider', 'waba_id', 'phone_number_id',
         'display_phone', 'access_token', 'status', 'verified_name', 'quality_rating', 'last_error',
         'connected_at', 'connected_via', 'webhook_subscribed_at', 'registration_pin',
+        'token_expires_at', 'token_warned_at', 'platform_token',
     ];
 
     protected $hidden = ['access_token', 'registration_pin'];
@@ -30,6 +31,9 @@ class WhatsAppAccount extends Model
             'registration_pin' => 'encrypted',
             'connected_at' => 'datetime',
             'webhook_subscribed_at' => 'datetime',
+            'token_expires_at' => 'datetime',
+            'token_warned_at' => 'datetime',
+            'platform_token' => 'boolean',
         ];
     }
 
@@ -38,9 +42,20 @@ class WhatsAppAccount extends Model
         return $this->hasMany(MetaTemplate::class, 'whatsapp_account_id');
     }
 
+    /**
+     * Jeton utilisé pour appeler Meta : celui de l'utilisateur système de la plateforme
+     * quand il a été ajouté au compte WhatsApp de l'entreprise, sinon celui de l'entreprise.
+     */
+    public function apiToken(): ?string
+    {
+        $platform = config('messaging.whatsapp.system_user_token');
+
+        return $this->platform_token && filled($platform) ? $platform : $this->access_token;
+    }
+
     public function isConfigured(): bool
     {
-        return filled($this->phone_number_id) && filled($this->access_token);
+        return filled($this->phone_number_id) && filled($this->apiToken());
     }
 
     /**

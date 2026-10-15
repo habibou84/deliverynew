@@ -25,6 +25,10 @@ return [
         // et de sa configuration « Facebook Login for Business ». Sans eux, saisie manuelle seulement.
         'app_id' => env('WHATSAPP_APP_ID'),
         'signup_config_id' => env('WHATSAPP_SIGNUP_CONFIG_ID'),
+        // Utilisateur système de Jibiat (jeton permanent) : ajouté au compte WhatsApp de chaque
+        // entreprise connectée par le bouton, pour ne pas dépendre de son jeton de 60 jours.
+        'system_user_id' => env('WHATSAPP_SYSTEM_USER_ID'),
+        'system_user_token' => env('WHATSAPP_SYSTEM_USER_TOKEN'),
     ],
 
     /*

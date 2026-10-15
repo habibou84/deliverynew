@@ -287,14 +287,25 @@ en un clic avec le bouton **Connecter WhatsApp** (inscription intégrée de Meta
    icône 1024 × 1024 ; catégorie « Entreprise et pages ». Notez la **clé secrète** et l'**identifiant de l'app**.
 4. *WhatsApp > Configuration* : URL de rappel `https://admin.jibiat.com/api/webhooks/whatsapp`, jeton de vérification
    = une phrase de votre choix ; abonnez le champ **messages**.
-5. **Facebook Login for Business** (ajouter le produit) > *Configurations* > *Créer* : variante **WhatsApp Embedded Signup**,
-   autorisations `whatsapp_business_management` et `whatsapp_business_messaging`. Notez l'**identifiant de configuration**.
+5. **Facebook Login for Business** (ajouter le produit) > *Configurations* > **Créer à partir d'un modèle** :
+   « WhatsApp Embedded Signup Configuration With 60 Expiration Token » (le bouton *Créer* simple ne propose que la
+   variante « General », qui ne montre pas les écrans WhatsApp). Vérifiez que la variante affichée est
+   **WhatsApp Embedded Signup**, autorisations `whatsapp_business_management` et `whatsapp_business_messaging`.
+   Notez l'**identifiant de configuration**.
    Dans ses *Paramètres* : connexion OAuth Web et SDK JavaScript activés ; domaines autorisés pour le SDK JavaScript :
    `https://jibiat.com` (seule adresse à déclarer : la fenêtre de Meta s'ouvre toujours depuis l'adresse de la
    plateforme, quelle que soit l'adresse de l'entreprise).
 6. Activez le statut de **fournisseur de technologie** (Tech Provider) proposé dans le tableau de bord WhatsApp de l'app.
 7. Publiez l'app (**Live**) : sans cela, Meta n'envoie pas les messages reçus des vrais numéros.
-8. Fichier `.env` du serveur (jamais sur GitHub), puis `php artisan config:clear` :
+8. **Utilisateur système de Jibiat** (jeton permanent) : le jeton remis par le bouton expire au bout de 60 jours.
+   *business.facebook.com > Paramètres > Utilisateurs > Utilisateurs système* > *Ajouter* : nom « Jibiat API »,
+   rôle **Admin**. *Ajouter des éléments* : l'app Jibiat (contrôle total). *Générer un jeton* : app Jibiat,
+   expiration **Jamais**, autorisations `business_management`, `whatsapp_business_management` et
+   `whatsapp_business_messaging`. Notez le jeton et l'**identifiant** de l'utilisateur système (affiché sous son nom).
+   À chaque connexion, Jibiat ajoute cet utilisateur au compte WhatsApp de l'entreprise et utilise son jeton :
+   plus d'expiration. Sans lui, Jibiat prévient les administrateurs de l'entreprise 7 jours avant l'échéance
+   (il suffit de cliquer à nouveau sur « Connecter WhatsApp » avec le même numéro).
+9. Fichier `.env` du serveur (jamais sur GitHub), puis `php artisan config:clear` :
 
    ```
    WHATSAPP_DRIVER=auto
@@ -302,6 +313,8 @@ en un clic avec le bouton **Connecter WhatsApp** (inscription intégrée de Meta
    WHATSAPP_APP_SECRET=…        # clé secrète (étape 3)
    WHATSAPP_VERIFY_TOKEN=…      # phrase de l'étape 4
    WHATSAPP_SIGNUP_CONFIG_ID=…  # identifiant de configuration (étape 5)
+   WHATSAPP_SYSTEM_USER_ID=…    # identifiant de l'utilisateur système (étape 8)
+   WHATSAPP_SYSTEM_USER_TOKEN=… # son jeton permanent (étape 8), à ne jamais partager
    ```
 
 ### 2. Validation de Meta (App Review)

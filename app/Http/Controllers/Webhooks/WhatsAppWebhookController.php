@@ -119,14 +119,14 @@ class WhatsAppWebhookController extends Controller
 
     /**
      * Signature HMAC-SHA256 du corps brut avec le secret de l'application Meta.
-     * Sans secret configuré, les appels ne sont acceptés qu'en développement.
+     * Sans secret configuré, les appels ne sont acceptés qu'en développement (pas en préproduction).
      */
     private function hasValidSignature(Request $request): bool
     {
         $secret = config('messaging.whatsapp.app_secret');
 
         if (blank($secret)) {
-            return ! app()->isProduction();
+            return app()->environment('local', 'testing');
         }
 
         $expected = 'sha256='.hash_hmac('sha256', $request->getContent(), $secret);

@@ -1,11 +1,16 @@
-# Fonctions communes aux scripts d'installation (install.sh, ispconfig.sh) et de mise à jour.
+# Fonctions communes aux scripts d'installation (install.sh, ispconfig.sh, preprod.sh) et de mise à jour.
 # Variables attendues : APP_DIR, APP_USER, TOOLS_HOME (dossier personnel des outils :
 # clé Git, caches Composer et npm), et selon les fonctions : DOMAIN, EMAIL, REPO, BRANCH,
 # DEMO, PHP_BIN, REVERB_PORT.
+#
+# INSTANCE nomme une installation sur le serveur (base, Supervisor, tâches planifiées, réglages de
+# déploiement) : plusieurs installations cohabitent, par exemple la production (« livraison », le nom
+# d'origine) et la préproduction (« jibiat-preprod », deploy/preprod.sh).
 
-DB_NAME="${DB_NAME:-livraison}"
-DB_USER="${DB_USER:-livraison}"
-DEPLOY_CONF=/etc/livraison-deploy.conf
+INSTANCE="${INSTANCE:-livraison}"
+DB_NAME="${DB_NAME:-${INSTANCE//-/_}}"
+DB_USER="${DB_USER:-${INSTANCE//-/_}}"
+DEPLOY_CONF="/etc/$INSTANCE-deploy.conf"
 
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
@@ -119,7 +124,8 @@ write_env() {
     # Bases Redis dédiées (Redis peut déjà servir à d'autres logiciels du serveur)
     env_set REDIS_DB "${REDIS_DB:-0}"
     env_set REDIS_CACHE_DB "${REDIS_CACHE_DB:-1}"
-    env_set REDIS_PREFIX livraison_
+    env_set REDIS_PREFIX "${INSTANCE//-/_}_"
+    env_set HORIZON_PREFIX "${INSTANCE//-/_}_horizon:"
     # Temps réel : Reverb écoute en local, le serveur web le publie en HTTPS sur /app/
     env_set REVERB_APP_ID "$((RANDOM * RANDOM))"
     env_set REVERB_APP_KEY "$(random 10)"
@@ -173,23 +179,42 @@ install_supervisor() {
     step "Supervisor (files d'attente Horizon, temps réel Reverb sur le port local $REVERB_PORT)"
     sed -e "s|__APP_DIR__|$APP_DIR|g" -e "s|__PHP__|$PHP_BIN|g" -e "s|__USER__|$APP_USER|g" \
         -e "s|__REVERB_PORT__|$REVERB_PORT|g" -e "s|__HOME__|$TOOLS_HOME|g" \
-        "$APP_DIR/deploy/supervisor.conf" > /etc/supervisor/conf.d/livraison.conf
+        -e "s|__INSTANCE__|$INSTANCE|g" "$APP_DIR/deploy/supervisor.conf" > "/etc/supervisor/conf.d/$INSTANCE.conf"
     systemctl enable --now supervisor
     supervisorctl reread
     supervisorctl update
-    supervisorctl restart livraison-horizon livraison-reverb
+    supervisorctl restart "$INSTANCE-horizon" "$INSTANCE-reverb"
 }
 
 # Planificateur Laravel (relances, alertes, rapports, facturation) chaque minute
 install_cron() {
     step "Tâches planifiées"
-    echo "* * * * * $APP_USER cd $APP_DIR && $PHP_BIN artisan schedule:run >> /dev/null 2>&1" > /etc/cron.d/livraison
-    chmod 644 /etc/cron.d/livraison
+    echo "* * * * * $APP_USER cd $APP_DIR && $PHP_BIN artisan schedule:run >> /dev/null 2>&1" > "/etc/cron.d/$INSTANCE"
+    chmod 644 "/etc/cron.d/$INSTANCE"
+}
+
+# Réglages de l'installation qui contient ce dossier (update.sh lancé depuis APP_DIR/deploy) : chaque
+# installation du serveur se met à jour depuis son propre dossier. Anciennes installations : « livraison ».
+load_deploy_conf() {
+    local dir conf
+    dir="$(readlink -f "$1")"
+    for conf in /etc/*-deploy.conf; do
+        [[ -f "$conf" ]] || continue
+        INSTANCE=livraison APP_DIR=""
+        . "$conf"
+        if [[ -n "$APP_DIR" && "$(readlink -f "$APP_DIR")" == "$dir" ]]; then
+            DEPLOY_CONF="$conf"
+            return 0
+        fi
+    done
+    fail "aucune installation enregistrée pour $dir (/etc/*-deploy.conf) : installez d'abord l'application (ispconfig.sh, install.sh ou preprod.sh)."
 }
 
 # Paramètres relus par update.sh
 save_deploy_conf() {
     cat > "$DEPLOY_CONF" <<EOF
+INSTANCE=$INSTANCE
+DOMAIN=${DOMAIN:-}
 APP_DIR=$APP_DIR
 APP_USER=$APP_USER
 TOOLS_HOME=$TOOLS_HOME

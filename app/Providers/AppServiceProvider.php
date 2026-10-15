@@ -58,8 +58,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Détecte en développement les requêtes N+1 et les attributs non assignables ignorés
-        Model::preventLazyLoading(! $this->app->isProduction());
-        Model::preventSilentlyDiscardingAttributes(! $this->app->isProduction());
+        // (la préproduction se comporte comme la production)
+        $strict = $this->app->environment('local', 'testing');
+        Model::preventLazyLoading($strict);
+        Model::preventSilentlyDiscardingAttributes($strict);
 
         DB::prohibitDestructiveCommands($this->app->isProduction());
 

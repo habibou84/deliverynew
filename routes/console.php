@@ -26,6 +26,8 @@ Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();
 // Abonnements des entreprises : factures du mois écoulé, puis rappels d'impayés chaque matin
 Schedule::command('billing:invoice')->monthlyOn(1, '01:30')->withoutOverlapping();
 Schedule::command('billing:remind')->dailyAt('08:05')->withoutOverlapping();
+// Accès WhatsApp du bouton « Connecter WhatsApp » (60 jours) : relais par la plateforme ou alerte avant l'échéance
+Schedule::command('whatsapp:tokens')->dailyAt('08:15')->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class, CourierLocation::class]])->daily();
 Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();
 Schedule::command('parcels:overdue')->everyFifteenMinutes()->withoutOverlapping();

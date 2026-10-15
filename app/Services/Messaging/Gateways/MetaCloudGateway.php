@@ -104,7 +104,7 @@ class MetaCloudGateway implements WhatsAppGateway
     {
         $base = rtrim(config('messaging.whatsapp.graph_url'), '/').'/'.config('messaging.whatsapp.graph_version');
 
-        return Http::baseUrl($base)->withToken($account->access_token)->acceptJson()->timeout(15);
+        return Http::baseUrl($base)->withToken($account->apiToken())->acceptJson()->timeout(15);
     }
 
     /**
