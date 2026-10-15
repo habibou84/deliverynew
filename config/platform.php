@@ -12,6 +12,12 @@ return [
     'contact_phone' => env('PLATFORM_CONTACT_PHONE'),
     'country' => env('PLATFORM_COUNTRY', 'Côte d\'Ivoire'),
 
+    // Préproduction fermée au public : code d'accès demandé avant toute page (ignoré en production)
+    'preprod_access_code' => (string) env('PREPROD_ACCESS_CODE', ''),
+
+    // Moteurs de recherche : seule la production est indexée (ailleurs : en-tête noindex et robots.txt fermé)
+    'indexable' => (bool) env('SEARCH_INDEXING', env('APP_ENV') === 'production'),
+
     // Domaine de la plateforme, sans « www » (ex. jibiat.com) ; vide = une seule entreprise
     'domain' => env('PLATFORM_DOMAIN'),
 

@@ -576,6 +576,8 @@ php artisan app:demo-accounts --suspend                          # suspendre les
 `deploy/ispconfig.sh` pour un serveur géré par ISPConfig (Debian 13, Apache), `deploy/install.sh` pour un VPS nu
 (Nginx, PHP 8.3, PostgreSQL, Redis, Horizon, Reverb, cron, HTTPS) ; `deploy/update.sh` met à jour.
 
+**Préproduction** (`preprod.jibiat.com`, code d'accès, non indexée, testée avant chaque mise en production) : voir [docs/PREPRODUCTION.md](docs/PREPRODUCTION.md).
+
 Processus à superviser (Supervisor/systemd) : `php artisan horizon`, `php artisan reverb:start`, et le planificateur (`php artisan schedule:run` chaque minute).
 Les notifications, la diffusion temps réel et les messages WhatsApp/SMS passent par les files `default` et `messages` : sans Horizon (ou `queue:work --queue=default,messages`), ils ne partent pas.
 

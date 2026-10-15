@@ -27,6 +27,11 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-slate-50 text-slate-900 antialiased">
+    @if (app()->environment('staging'))
+        {{-- Préproduction : jamais confondue avec le site des clients --}}
+        <div style="position:fixed;left:.5rem;bottom:.5rem;z-index:9999;pointer-events:none;background:#b45309;color:#fff;font:600 11px/1 system-ui,sans-serif;padding:.35rem .6rem;border-radius:999px;opacity:.9">Préproduction</div>
+    @endif
+
     <div id="app"></div>
 </body>
 </html>

@@ -176,7 +176,7 @@ for unit in $(systemctl list-units --type=service --state=running --no-legend 'p
     systemctl reload "$unit"
 done
 as_app "php artisan horizon:terminate"
-supervisorctl restart livraison-reverb
+supervisorctl restart "${INSTANCE:-livraison}-reverb"
 
 step "Adresses"
 as_app "php artisan platform:status" || true

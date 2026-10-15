@@ -20,6 +20,11 @@
     @stack('head')
 </head>
 <body class="min-h-screen bg-white font-sans text-slate-900 antialiased">
+    @if (app()->environment('staging'))
+        {{-- Préproduction : jamais confondue avec le site des clients --}}
+        <div style="position:fixed;left:.5rem;bottom:.5rem;z-index:9999;pointer-events:none;background:#b45309;color:#fff;font:600 11px/1 system-ui,sans-serif;padding:.35rem .6rem;border-radius:999px;opacity:.9">Préproduction</div>
+    @endif
+
     <a href="#contenu" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-4 focus:py-2">Aller au contenu</a>
 
     <header class="absolute inset-x-0 top-0 z-40">
