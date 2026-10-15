@@ -18,6 +18,8 @@ class PreprodGateTest extends TestCase
     {
         parent::setUp();
         $this->buildWorld();
+        // Pages de l'application rendues sans l'interface compilée (absente en intégration continue)
+        $this->withoutVite();
         config(['platform.domain' => 'preprod.jibiat.test', 'platform.scheme' => 'http', 'platform.preprod_access_code' => 'mangue-2026']);
         $this->company->update(['slug' => 'express-ds']);
     }
