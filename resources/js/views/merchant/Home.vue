@@ -2,132 +2,112 @@
   <div class="space-y-5">
     <div>
       <p class="text-2xl font-bold">Bonjour {{ firstName }} 👋</p>
-      <p class="text-slate-500">{{ isToday ? 'Voici vos courses du jour.' : period.from === period.to ? `Vos courses du ${formatDate(period.from)}.` : `Vos courses du ${formatDate(period.from)} au ${formatDate(period.to)}.` }}</p>
+      <p class="text-slate-500 first-letter:uppercase">{{ todayLabel }}<span v-if="todayCount !== null"> · {{ todayCount ? `${todayCount} course${todayCount > 1 ? 's' : ''} aujourd'hui` : 'aucune course aujourd\'hui' }}</span></p>
     </div>
 
-    <InstallBanner app="marchand" />
-    <PushInvite />
-
-    <!-- Rappel tant que le lieu de ramassage n'est pas localisé -->
-    <RouterLink
-      v-if="auth.user?.merchant && !auth.user.merchant.has_pickup_location"
-      to="/marchand/lieu-de-ramassage"
-      class="tap m-card p-4 flex items-center gap-3 bg-amber-50 ring-1 ring-amber-200 active:bg-amber-100"
-    >
-      <span class="text-2xl">📍</span>
-      <span class="flex-1 text-sm">
-        <strong class="block">Indiquez où récupérer vos colis</strong>
-        Depuis votre boutique, en un geste : vos ramassages seront plus rapides.
-      </span>
-      <span class="text-slate-400">›</span>
-    </RouterLink>
-
-    <!-- Choix de la période -->
-    <div class="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar" role="radiogroup" aria-label="Période">
-      <button
-        v-for="p in presets"
-        :key="p.key"
-        type="button"
-        role="radio"
-        :aria-checked="period.key === p.key"
-        :class="['tap shrink-0 rounded-full px-4 py-2 text-sm font-medium ring-1', period.key === p.key ? 'text-white ring-transparent' : 'bg-white ring-slate-200 text-slate-700']"
-        :style="period.key === p.key ? { backgroundColor: 'var(--app-color)' } : {}"
-        @click="choose(p)"
-      >
-        {{ p.label }}
-      </button>
-      <button
-        type="button"
-        role="radio"
-        :aria-checked="period.key === 'custom'"
-        :class="['tap shrink-0 rounded-full px-4 py-2 text-sm font-medium ring-1', period.key === 'custom' ? 'text-white ring-transparent' : 'bg-white ring-slate-200 text-slate-700']"
-        :style="period.key === 'custom' ? { backgroundColor: 'var(--app-color)' } : {}"
-        @click="openPicker"
-      >
-        📅 {{ period.key === 'custom' ? period.label : 'Choisir les dates' }}
-      </button>
+    <!-- L'action principale : créer une course -->
+    <div v-if="auth.can('orders.create')" class="flex gap-2">
+      <RouterLink to="/marchand/courses/nouvelle" class="tap flex-1 rounded-2xl p-4 text-white flex items-center gap-3 active:opacity-90" :style="{ backgroundColor: 'var(--app-color)' }">
+        <span class="h-10 w-10 shrink-0 rounded-xl bg-white/20 grid place-items-center text-2xl leading-none">+</span>
+        <span><strong class="block text-base">Nouvelle course</strong><span class="text-xs opacity-85">En quelques secondes</span></span>
+      </RouterLink>
+      <RouterLink to="/marchand/courses/nouvelle?coller=1" class="tap w-28 shrink-0 m-card p-3 grid place-items-center text-center text-xs font-semibold text-[var(--app-color)] active:bg-slate-50">
+        <span class="text-2xl leading-none">💬</span>Coller un message WhatsApp
+      </RouterLink>
     </div>
 
-    <!-- Résumé de la période -->
-    <section v-if="summary" class="rounded-2xl p-5 text-white" :style="{ backgroundColor: 'var(--app-color)' }">
-      <p class="text-sm opacity-80">{{ period.label }}</p>
-      <p :class="['text-3xl font-bold mt-1', summary.amounts.net_to_merchant < 0 ? 'opacity-90' : '']">{{ money(summary.amounts.net_to_merchant) }}</p>
-      <p class="text-sm opacity-80">
-        {{ summary.amounts.net_to_merchant < 0 ? 'à régler à l\'agence' : 'à recevoir' }} · {{ money(summary.amounts.collected) }} encaissés
-      </p>
-      <div class="grid grid-cols-4 gap-2 mt-4 text-center">
-        <div><p class="text-xl font-bold">{{ summary.counts.total }}</p><p class="text-xs opacity-80">Courses</p></div>
-        <div><p class="text-xl font-bold">{{ summary.counts.in_progress }}</p><p class="text-xs opacity-80">En cours</p></div>
-        <div><p class="text-xl font-bold">{{ summary.counts.delivered }}</p><p class="text-xs opacity-80">Livrées</p></div>
-        <div><p class="text-xl font-bold">{{ summary.counts.failed + summary.counts.rescheduled }}</p><p class="text-xs opacity-80">Problèmes</p></div>
-      </div>
-    </section>
-
-    <RouterLink to="/marchand/statistiques" class="tap m-card p-4 flex items-center gap-3 text-sm active:bg-slate-50">
-      <span class="text-2xl">📊</span>
-      <span class="flex-1"><strong class="block">Mes statistiques</strong><span class="text-slate-500">Taux de livraison, motifs d'échec, communes</span></span>
-      <span class="text-slate-400">›</span>
-    </RouterLink>
-
-    <!-- Courses qui demandent une action (quelle que soit la date) -->
-    <section v-if="alerts.length" class="space-y-2">
-      <h2 class="font-semibold text-red-700">⚠️ À traiter ({{ alerts.length }})</h2>
+    <!-- Ce qui attend une décision de l'e-commerçant (quelle que soit la date) -->
+    <section v-if="todo" class="space-y-2">
+      <h2 class="text-xs font-bold uppercase tracking-wide text-slate-500">À faire maintenant</h2>
+      <RouterLink
+        v-if="needsPickupLocation"
+        to="/marchand/lieu-de-ramassage"
+        class="tap m-card p-4 flex items-center gap-3 border-l-4 border-amber-400 active:bg-slate-50"
+      >
+        <span class="h-10 w-10 shrink-0 rounded-xl bg-amber-50 grid place-items-center text-xl">📍</span>
+        <span class="flex-1 text-sm"><strong class="block">Indiquez où récupérer vos colis</strong>En un geste, depuis votre boutique : vos ramassages seront plus rapides.</span>
+        <span class="text-slate-400">›</span>
+      </RouterLink>
       <RouterLink
         v-for="o in visibleAlerts"
         :key="o.id"
         :to="`/marchand/courses/${o.id}`"
-        class="block rounded-2xl bg-red-50 ring-1 ring-red-200 p-4 active:bg-red-100"
+        class="tap m-card p-4 flex items-center gap-3 border-l-4 border-amber-400 active:bg-slate-50"
       >
-        <div class="flex justify-between gap-2">
-          <p class="font-semibold">{{ o.recipient.name || o.recipient.phone }}</p>
-          <span class="text-sm text-red-700 font-medium">Agir →</span>
-        </div>
-        <p class="text-sm text-red-700">{{ o.last_incident?.label || o.status_label }}</p>
-        <p class="text-xs text-slate-500 mt-1">{{ o.tracking_code }} · {{ o.delivery.zone_name }}</p>
+        <span class="h-10 w-10 shrink-0 rounded-xl bg-amber-50 grid place-items-center text-xl">⚠️</span>
+        <span class="min-w-0 flex-1 text-sm">
+          <strong class="block truncate">{{ o.last_incident?.label || o.status_label }}</strong>
+          <span class="block truncate text-slate-500">{{ o.recipient.name || o.recipient.phone }} · {{ o.delivery.zone_name }}</span>
+        </span>
+        <span class="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-white" :style="{ backgroundColor: 'var(--app-color)' }">Décider</span>
       </RouterLink>
-      <button v-if="alerts.length > visibleAlerts.length" type="button" class="w-full text-sm font-medium text-red-700 py-1" @click="showAllAlerts = true">
+      <button v-if="alerts.length > visibleAlerts.length" type="button" class="w-full text-sm font-medium text-amber-700 py-1" @click="showAllAlerts = true">
         Voir les {{ alerts.length - visibleAlerts.length }} autres →
       </button>
     </section>
 
-    <!-- Stock : alerte de stock bas -->
-    <RouterLink
-      v-if="stock.total"
-      :to="stock.low ? '/marchand/stock?filtre=bas' : '/marchand/stock'"
-      :class="['tap block m-card p-4 flex items-center justify-between text-sm active:bg-slate-50', stock.low ? 'ring-2 ring-amber-300' : '']"
-    >
-      <span>📦 Mon stock · {{ stock.total }} produit{{ stock.total > 1 ? 's' : '' }}</span>
-      <span :class="stock.low ? 'font-semibold text-amber-700' : 'text-slate-500'">{{ stock.low ? `⚠️ ${stock.low} en stock bas` : 'Voir' }} →</span>
+    <!-- L'argent : un seul montant, en mots simples -->
+    <RouterLink v-if="balance" to="/marchand/paiements" class="tap block rounded-2xl p-5 text-white active:opacity-90" :style="{ backgroundColor: 'var(--app-color)' }">
+      <p class="text-sm opacity-85">{{ balance.available < 0 ? 'Vous devez à l\'agence' : 'On vous doit' }}</p>
+      <p class="text-3xl font-bold mt-0.5">{{ money(Math.abs(balance.available)) }}</p>
+      <p class="text-sm opacity-85">{{ balance.available < 0 ? 'À régler lors de votre prochain point avec l\'agence' : 'Versé lors de votre prochain paiement' }}</p>
+      <div v-if="balance.pending_cash" class="mt-3 pt-3 border-t border-white/20 flex justify-between text-sm">
+        <span class="opacity-85">Encore chez les livreurs</span><strong>{{ money(balance.pending_cash) }}</strong>
+      </div>
+      <p class="mt-2 text-xs font-semibold opacity-90">Voir mes paiements ›</p>
     </RouterLink>
 
-    <!-- Rappel du mois quand on regarde une autre période -->
-    <button v-if="month && period.key !== 'month'" type="button" class="tap w-full m-card p-4 flex items-center justify-between text-sm active:bg-slate-50" @click="choose(presets.find((p) => p.key === 'month'))">
-      <span class="text-slate-500">Ce mois-ci · {{ month.counts.total }} courses</span>
-      <span class="font-semibold">{{ money(month.amounts.net_to_merchant) }} →</span>
-    </button>
-
-    <!-- Point de la période : argent -->
-    <section v-if="summary && (summary.amounts.collected || summary.amounts.fees || summary.amounts.shipping_fees || summary.amounts.other_fees)" class="m-card p-4 space-y-2 text-sm">
-      <h2 class="font-semibold text-base">{{ isToday ? 'Point du jour' : 'Point de la période' }}</h2>
-      <div class="flex justify-between"><span class="text-slate-500">Encaissé</span><span>{{ money(summary.amounts.collected) }}</span></div>
-      <div class="flex justify-between"><span class="text-slate-500">Frais de livraison</span><span>− {{ money(summary.amounts.fees) }}</span></div>
-      <div v-if="summary.amounts.shipping_fees" class="flex justify-between">
-        <span class="text-slate-500">🚌 Frais d'expédition ({{ summary.counts.shipped }} colis)</span><span>− {{ money(summary.amounts.shipping_fees) }}</span>
-      </div>
-      <div v-if="summary.amounts.other_fees" class="flex justify-between">
-        <span class="text-slate-500">💸 Autres frais (transport, emballage…)</span><span>− {{ money(summary.amounts.other_fees) }}</span>
-      </div>
-      <div class="flex justify-between font-semibold text-base border-t pt-2">
-        <span>{{ isToday ? 'Net du jour' : 'Net de la période' }}</span><span :class="signedClass(summary.amounts.net_to_merchant)">{{ money(summary.amounts.net_to_merchant) }}</span>
-      </div>
-    </section>
-
-    <!-- Courses de la période -->
-    <section class="space-y-2">
+    <!-- Mes courses : période, compteurs, liste -->
+    <section class="space-y-3">
       <div class="flex justify-between items-center">
-        <h2 class="font-semibold">{{ isToday ? 'Courses du jour' : 'Courses de la période' }}<span v-if="total" class="text-slate-400 font-normal"> ({{ total }})</span></h2>
-        <RouterLink to="/marchand/courses" class="text-sm font-medium text-[var(--app-color)]">Toutes mes courses</RouterLink>
+        <h2 class="text-xs font-bold uppercase tracking-wide text-slate-500">{{ isToday ? 'Mes courses du jour' : 'Mes courses' }}</h2>
+        <RouterLink to="/marchand/courses" class="text-sm font-semibold text-[var(--app-color)]">Tout voir</RouterLink>
       </div>
+
+      <div class="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar" role="radiogroup" aria-label="Période">
+        <button
+          v-for="p in presets"
+          :key="p.key"
+          type="button"
+          role="radio"
+          :aria-checked="period.key === p.key"
+          :class="['tap shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium ring-1', period.key === p.key ? 'text-white ring-transparent' : 'bg-white ring-slate-200 text-slate-700']"
+          :style="period.key === p.key ? { backgroundColor: 'var(--app-color)' } : {}"
+          @click="choose(p)"
+        >
+          {{ p.label }}
+        </button>
+        <button
+          type="button"
+          role="radio"
+          :aria-checked="period.key === 'custom'"
+          :class="['tap shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium ring-1', period.key === 'custom' ? 'text-white ring-transparent' : 'bg-white ring-slate-200 text-slate-700']"
+          :style="period.key === 'custom' ? { backgroundColor: 'var(--app-color)' } : {}"
+          @click="openPicker"
+        >
+          📅 {{ period.key === 'custom' ? period.label : 'Autre date' }}
+        </button>
+      </div>
+
+      <div v-if="summary" class="grid grid-cols-3 gap-2">
+        <RouterLink to="/marchand/courses?filtre=active" class="tap m-card p-3 text-center active:bg-slate-50">
+          <p class="text-xl font-bold text-blue-700">{{ summary.counts.in_progress }}</p><p class="text-xs text-slate-500">En cours</p>
+        </RouterLink>
+        <RouterLink to="/marchand/courses?filtre=delivered" class="tap m-card p-3 text-center active:bg-slate-50">
+          <p class="text-xl font-bold text-emerald-700">{{ summary.counts.delivered }}</p><p class="text-xs text-slate-500">Livrées</p>
+        </RouterLink>
+        <RouterLink to="/marchand/courses?filtre=problems" :class="['tap m-card p-3 text-center active:bg-slate-50', problems ? 'ring-2 ring-amber-300' : '']">
+          <p :class="['text-xl font-bold', problems ? 'text-amber-700' : 'text-slate-400']">{{ problems }}</p><p class="text-xs text-slate-500">À régler</p>
+        </RouterLink>
+      </div>
+
+      <!-- Argent de la période, en une phrase -->
+      <p v-if="summary && summary.amounts.collected" class="m-card px-4 py-3 text-sm text-slate-600">
+        Les livreurs ont encaissé <strong class="text-slate-900">{{ money(summary.amounts.collected) }}</strong>,
+        moins <strong class="text-slate-900">{{ money(fees) }}</strong> de frais :
+        <strong :class="summary.amounts.net_to_merchant < 0 ? 'text-red-600' : 'text-[var(--app-color)]'">{{ money(summary.amounts.net_to_merchant) }} pour vous</strong>.
+      </p>
+
       <OrderCard v-for="o in orders" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
       <button v-if="hasMore" type="button" class="m-btn-secondary" :disabled="loadingMore" @click="loadOrders(page + 1)">Voir plus</button>
       <EmptyState
@@ -136,9 +116,36 @@
         :title="isToday ? 'Aucune course aujourd\'hui' : 'Aucune course sur cette période'"
         :text="isToday ? 'Créez une course en un instant.' : 'Choisissez d\'autres dates.'"
       >
-        <RouterLink v-if="isToday" to="/marchand/courses/nouvelle" class="m-btn-primary">+ Nouvelle course</RouterLink>
+        <RouterLink v-if="isToday && auth.can('orders.create')" to="/marchand/courses/nouvelle" class="m-btn-primary">+ Nouvelle course</RouterLink>
       </EmptyState>
     </section>
+
+    <!-- Pour aller plus loin -->
+    <section class="space-y-2">
+      <button v-if="month && period.key !== 'month'" type="button" class="tap w-full m-card p-4 flex items-center justify-between text-sm active:bg-slate-50" @click="choose(presets.find((p) => p.key === 'month'))">
+        <span class="text-slate-500">Ce mois-ci · {{ month.counts.total }} courses</span>
+        <span class="font-semibold">{{ money(month.amounts.net_to_merchant) }} →</span>
+      </button>
+      <RouterLink to="/marchand/statistiques" class="tap m-card p-4 flex items-center gap-3 text-sm active:bg-slate-50">
+        <span class="text-2xl">📊</span>
+        <span class="flex-1"><strong class="block">Mes statistiques</strong><span class="text-slate-500">Taux de livraison, motifs d'échec, communes</span></span>
+        <span class="text-slate-400">›</span>
+      </RouterLink>
+      <RouterLink
+        v-if="stock.total"
+        :to="stock.low ? '/marchand/stock?filtre=bas' : '/marchand/stock'"
+        :class="['tap block m-card p-4 flex items-center justify-between text-sm active:bg-slate-50', stock.low ? 'ring-2 ring-amber-300' : '']"
+      >
+        <span>📦 Mon stock · {{ stock.total }} produit{{ stock.total > 1 ? 's' : '' }}</span>
+        <span :class="stock.low ? 'font-semibold text-amber-700' : 'text-slate-500'">{{ stock.low ? `⚠️ ${stock.low} en stock bas` : 'Voir' }} →</span>
+      </RouterLink>
+    </section>
+
+    <!-- Installation et notifications : proposées une fois l'application utilisée -->
+    <template v-if="month && month.counts.total">
+      <InstallBanner app="marchand" />
+      <PushInvite />
+    </template>
 
     <!-- Choix d'une date ou d'un intervalle -->
     <BottomSheet :open="picker.open" title="Choisir les dates" @close="picker.open = false">
@@ -181,12 +188,13 @@ import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'
 import { orderChanges } from '../../composables/useRealtime'
-import { date as formatDate, money, signedClass, today as todayDate } from '../../utils/format'
+import { date as formatDate, money, today as todayDate } from '../../utils/format'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const firstName = computed(() => (auth.user?.name || '').split(' ')[0])
+const todayLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
 // Date locale au format AAAA-MM-JJ, décalée de n jours
 function shift(days) {
@@ -220,6 +228,17 @@ const loadingMore = ref(false)
 const showAllAlerts = ref(false)
 const visibleAlerts = computed(() => (showAllAlerts.value ? alerts.value : alerts.value.slice(0, 2)))
 const picker = reactive({ open: false, mode: 'day', from: shift(0), to: shift(0) })
+// Ce que l'agence doit à l'e-commerçant (Mon argent), si son compte voit l'argent
+const balance = ref(null)
+const todayCount = ref(null)
+
+const needsPickupLocation = computed(() => !!auth.user?.merchant && !auth.user.merchant.has_pickup_location)
+const todo = computed(() => needsPickupLocation.value || alerts.value.length > 0)
+const problems = computed(() => (summary.value ? summary.value.counts.failed + summary.value.counts.rescheduled : 0))
+const fees = computed(() => {
+  const a = summary.value?.amounts || {}
+  return (a.fees || 0) + (a.shipping_fees || 0) + (a.other_fees || 0)
+})
 
 // 2026-10-03 → « 03/10 »
 const short = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
@@ -276,6 +295,7 @@ async function load() {
     summary.value = s.data.data
     month.value = m.data.data
     alerts.value = a.data.data
+    if (isToday.value) todayCount.value = s.data.data.counts.total
   } catch {
     // Hors ligne sans données en cache : l'accueil reste vide, le bandeau hors ligne s'affiche
   } finally {
@@ -289,7 +309,10 @@ if (periode && DATE_RE.test(du || '') && DATE_RE.test(au || '')) {
   setPeriod(presets.some((p) => p.key === periode) ? periode : 'custom', du, au)
 }
 
-watch(orderChanges, load)
+watch(orderChanges, () => {
+  load()
+  loadBalance()
+})
 // Résumé du stock (seulement si le marchand a des produits)
 const stock = reactive({ total: 0, low: 0 })
 async function loadStock() {
@@ -307,8 +330,18 @@ async function loadStock() {
   }
 }
 
+async function loadBalance() {
+  if (!auth.can('finance.view') || !auth.user?.merchant_id) return
+  try {
+    balance.value = (await cachedGet(`/finance/merchants/${auth.user.merchant_id}/ledger`, { params: { per_page: 1 } })).data.summary
+  } catch {
+    // Facultatif : l'accueil reste utilisable sans le solde
+  }
+}
+
 onMounted(() => {
   load()
   loadStock()
+  loadBalance()
 })
 </script>

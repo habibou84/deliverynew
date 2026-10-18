@@ -15,8 +15,8 @@ const tabs = computed(() => [
   { to: '/marchand', label: 'Accueil', icon: HomeIcon, exact: true },
   { to: '/marchand/courses', label: 'Courses', icon: BoxIcon, exact: true },
   { to: '/marchand/courses/nouvelle', label: 'Nouvelle course', primary: true },
-  ...(auth.can('finance.view') ? [{ to: '/marchand/paiements', label: 'Paiements', icon: WalletIcon }] : []),
-  { to: '/marchand/profil', label: 'Profil', icon: UserIcon },
+  ...(auth.can('finance.view') ? [{ to: '/marchand/paiements', label: 'Argent', icon: WalletIcon }] : []),
+  { to: '/marchand/profil', label: 'Moi', icon: UserIcon },
 ])
 
 // Couleur et logo choisis par l'entreprise (Paramètres › Apparence)
