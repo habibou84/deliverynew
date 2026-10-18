@@ -4,7 +4,7 @@
       📋 Coller un message (WhatsApp, SMS…) pour remplir la course
     </button>
     <template v-else>
-      <label :class="mobile ? 'm-label' : 'label'" for="paste-message">Message du client ou de l'e-commerçant</label>
+      <label :class="mobile ? 'm-label' : 'label'" for="paste-message">{{ mobile ? 'Collez ici le message de votre client' : 'Message du client ou de l\'e-commerçant' }}</label>
       <textarea
         id="paste-message"
         ref="area"
@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 
 /**
@@ -36,14 +36,20 @@ import http, { apiErrorMessage } from '../bootstrap/axios'
 const props = defineProps({
   merchantId: { type: Number, default: null },
   mobile: { type: Boolean, default: false },
+  // Ouvert d'emblée (bouton « Coller un message WhatsApp » de l'accueil)
+  startOpen: { type: Boolean, default: false },
 })
 const emit = defineEmits(['parsed'])
 
-const open = ref(false)
+const open = ref(props.startOpen)
 const text = ref('')
 const busy = ref(false)
 const error = ref('')
 const area = ref(null)
+
+onMounted(() => {
+  if (open.value) area.value?.focus()
+})
 
 watch(open, async (value) => {
   if (!value) return
