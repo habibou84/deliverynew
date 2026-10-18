@@ -77,6 +77,7 @@ export const EVENT_LABELS = {
   assigned: 'Mission assignée',
   assignment_accepted: 'Mission acceptée',
   assignment_refused: 'Mission refusée',
+  unassigned: 'Livreur retiré',
   note: 'Note',
   incident: 'Incident',
   return_requested: 'Retour demandé',

@@ -71,38 +71,60 @@
       text="Les nouvelles missions apparaissent ici automatiquement."
     />
 
-    <RouterLink v-for="m in visible" :key="m.id" :to="`/livreur/missions/${m.id}`" class="block m-card p-4 active:bg-slate-50">
-      <div class="flex items-start gap-3">
-        <span :class="['h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl', m.type === 'pickup' ? 'bg-indigo-100' : m.type === 'delivery' ? 'bg-blue-100' : 'bg-rose-100']">
-          {{ m.type === 'pickup' ? '📦' : m.type === 'delivery' ? '🛵' : '↩️' }}
-        </span>
-        <div class="flex-1 min-w-0">
-          <p class="font-semibold truncate">
-            {{ m.type === 'pickup' ? m.order.merchant?.business_name : (m.order.recipient.name || m.order.recipient.phone) }}
-            <span v-if="m.unread_messages" class="ml-1 rounded-full bg-sky-600 px-2 py-0.5 text-xs text-white">💬 {{ m.unread_messages }}</span>
-          </p>
-          <p class="text-sm text-slate-500 truncate">
-            📍 {{ m.type === 'pickup' ? m.order.pickup.zone_name : m.order.delivery.zone_name }}
-            · {{ m.type === 'pickup' ? m.order.pickup.address : m.order.delivery.address }}
-          </p>
-          <div class="flex flex-wrap items-center gap-2 mt-2">
-            <span v-if="m.status === 'assigned'" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">Nouvelle · à accepter</span>
-            <StatusBadge v-else :status="m.order.status" :label="m.order.status_label" />
-            <span v-if="m.order.package.is_express" class="rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5">⚡ Express</span>
-            <span v-if="m.order.is_shipping && m.type === 'delivery'" class="rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">🚌 À expédier</span>
-            <span v-if="m.gain" class="rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold px-2 py-0.5" title="Votre gain prévu">💰 + {{ money(m.gain) }}</span>
+    <!-- Plusieurs colis chez la même boutique : une seule mission -->
+    <template v-for="c in cards" :key="c.key">
+      <RouterLink v-if="c.group" :to="`/livreur/ramassage/${c.key}`" class="block m-card p-4 active:bg-slate-50">
+        <div class="flex items-start gap-3">
+          <span class="h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl bg-indigo-100">🏪</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">{{ c.first.order.merchant?.business_name || c.first.order.pickup.contact_name }} : {{ c.missions.length }} colis</p>
+            <p class="text-sm text-slate-500 truncate">📍 {{ c.first.order.pickup.zone_name }} · {{ c.first.order.pickup.address }}</p>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              <span v-if="c.toAccept" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">{{ c.toAccept }} à accepter</span>
+              <span v-if="c.started" class="rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">En route</span>
+              <span v-if="c.offline" class="rounded-full bg-sky-100 text-sky-800 text-xs font-semibold px-2 py-0.5">⏳ À envoyer</span>
+              <span v-if="c.express" class="rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5">⚡ Express</span>
+              <span v-if="c.gain" class="rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold px-2 py-0.5" title="Votre gain prévu">💰 + {{ money(c.gain) }}</span>
+            </div>
           </div>
+          <span class="text-slate-400 text-xl">›</span>
         </div>
-        <span v-if="m.type === 'delivery' && m.order.amounts.cod_amount" class="font-bold whitespace-nowrap">{{ money(m.order.amounts.cod_amount) }}</span>
-      </div>
-    </RouterLink>
+      </RouterLink>
+      <RouterLink v-else :to="`/livreur/missions/${c.first.id}`" class="block m-card p-4 active:bg-slate-50">
+        <div class="flex items-start gap-3">
+          <span :class="['h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl', c.first.type === 'pickup' ? 'bg-indigo-100' : c.first.type === 'delivery' ? 'bg-blue-100' : 'bg-rose-100']">
+            {{ c.first.type === 'pickup' ? '📦' : c.first.type === 'delivery' ? '🛵' : '↩️' }}
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">
+              {{ c.first.type === 'pickup' ? c.first.order.merchant?.business_name : (c.first.order.recipient.name || c.first.order.recipient.phone) }}
+              <span v-if="c.first.unread_messages" class="ml-1 rounded-full bg-sky-600 px-2 py-0.5 text-xs text-white">💬 {{ c.first.unread_messages }}</span>
+            </p>
+            <p class="text-sm text-slate-500 truncate">
+              📍 {{ c.first.type === 'pickup' ? c.first.order.pickup.zone_name : c.first.order.delivery.zone_name }}
+              · {{ c.first.type === 'pickup' ? c.first.order.pickup.address : c.first.order.delivery.address }}
+            </p>
+            <div class="flex flex-wrap items-center gap-2 mt-2">
+              <span v-if="c.first.status === 'assigned'" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">Nouvelle · à accepter</span>
+              <StatusBadge v-else :status="c.first.order.status" :label="c.first.order.status_label" />
+              <span v-if="c.first.offline" class="rounded-full bg-sky-100 text-sky-800 text-xs font-semibold px-2 py-0.5">⏳ À envoyer</span>
+              <span v-if="c.first.order.package.is_express" class="rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5">⚡ Express</span>
+              <span v-if="c.first.order.is_shipping && c.first.type === 'delivery'" class="rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">🚌 À expédier</span>
+              <span v-if="c.first.gain" class="rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold px-2 py-0.5" title="Votre gain prévu">💰 + {{ money(c.first.gain) }}</span>
+            </div>
+          </div>
+          <span v-if="c.first.type === 'delivery' && c.first.order.amounts.cod_amount" class="font-bold whitespace-nowrap">{{ money(c.first.order.amounts.cod_amount) }}</span>
+        </div>
+      </RouterLink>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { cachedGet } from '../../composables/useCachedApi'
+import { withPending } from '../../composables/useOfflineQueue'
 import { useToastStore } from '../../stores/toasts'
 import StatusBadge from '../../components/StatusBadge.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
@@ -132,13 +154,33 @@ const tabs = [
 ]
 
 const visible = computed(() => missions.value.filter((m) => m.type === tab.value))
+// Ramassages : colis d'une même boutique (même adresse) regroupés en une carte
+const cards = computed(() => {
+  const groups = new Map()
+  for (const m of visible.value) {
+    const key = m.type === 'pickup' && m.pickup_group ? m.pickup_group : `m${m.id}`
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(m)
+  }
+  return [...groups].map(([key, list]) => ({
+    key,
+    group: list.length > 1,
+    first: list[0],
+    missions: list,
+    toAccept: list.filter((m) => m.status === 'assigned').length,
+    started: list.some((m) => m.order.status === 'pickup_in_progress'),
+    offline: list.some((m) => m.offline),
+    express: list.some((m) => m.order.package.is_express),
+    gain: list.reduce((sum, m) => sum + (m.gain || 0), 0),
+  }))
+})
 const count = (type) => missions.value.filter((m) => m.type === type).length
 
 async function load() {
   try {
     const [m, w, r] = await Promise.all([cachedGet('/courier/missions'), cachedGet('/courier/wallet'), cachedGet('/courier/return-slips').catch(() => null)])
     returnSlips.value = r?.data.data || []
-    missions.value = m.data.data
+    missions.value = withPending(m.data.data)
     messages.setUnread(m.data.meta?.unread_messages)
     wallet.value = w.data.data
     stale.value = m.stale || w.stale
@@ -175,6 +217,10 @@ function dismissPushInvite() {
 }
 
 watch(() => notifications.unread, load)
+
+// Actions faites hors connexion envoyées : liste rechargée
+window.addEventListener('offline-synced', load)
+onBeforeUnmount(() => window.removeEventListener('offline-synced', load))
 
 onMounted(() => {
   load()

@@ -102,6 +102,47 @@ class OrderActionController extends Controller
         return $this->detail($request, $order);
     }
 
+    /**
+     * Retire le livreur d'une mission : la course attend un autre livreur.
+     */
+    public function unassign(Request $request, Order $order): OrderResource
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate([
+            'type' => ['required', Rule::enum(AssignmentType::class)],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ], [], ['type' => 'type de mission', 'reason' => 'motif']);
+
+        $this->dispatcher->unassign($request->user(), $order, AssignmentType::from($data['type']), $data['reason'] ?? null);
+
+        return $this->detail($request, $order);
+    }
+
+    /**
+     * Retire le livreur de plusieurs courses (type facultatif : étape en cours de chaque course).
+     */
+    public function bulkUnassign(Request $request): JsonResponse
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate([
+            'order_ids' => ['required', 'array', 'min:1', 'max:200'],
+            'order_ids.*' => ['integer', 'distinct'],
+            'type' => ['nullable', Rule::enum(AssignmentType::class)],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ], [], ['type' => 'type de mission', 'reason' => 'motif']);
+
+        $result = $this->dispatcher->unassignMany(
+            $request->user(),
+            $data['order_ids'],
+            isset($data['type']) ? AssignmentType::from($data['type']) : null,
+            $data['reason'] ?? null,
+        );
+
+        return response()->json(['data' => $result]);
+    }
+
     public function bulkAssign(Request $request): JsonResponse
     {
         Gate::authorize('dispatch', Order::class);
@@ -179,6 +220,30 @@ class OrderActionController extends Controller
         );
 
         return response()->json(['message' => 'Note ajoutée.'], 201);
+    }
+
+    /**
+     * Livraison faite hors connexion avec un code client incorrect : vérifiée auprès du destinataire.
+     */
+    public function verifyDeliveryCode(Request $request, Order $order): OrderResource
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:500']]);
+
+        if ($order->delivery_code_unverified_at === null) {
+            throw new BusinessRuleException('Cette livraison n\'est pas à vérifier.', 'status');
+        }
+
+        DB::transaction(function () use ($request, $order, $data) {
+            $order->forceFill(['delivery_code_unverified_at' => null])->save();
+            $this->journal->record($order, $request->user(), OrderEventType::Note, [
+                'note' => 'Livraison vérifiée auprès du destinataire (code saisi hors connexion incorrect)'.(filled($data['note'] ?? null) ? ' : '.$data['note'] : '.'),
+                'visible_to_merchant' => false,
+            ]);
+        });
+
+        return $this->detail($request, $order);
     }
 
     public function requestReturn(Request $request, Order $order): OrderResource

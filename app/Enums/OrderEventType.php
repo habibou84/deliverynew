@@ -10,6 +10,7 @@ enum OrderEventType: string
     case Assigned = 'assigned';
     case AssignmentAccepted = 'assignment_accepted';
     case AssignmentRefused = 'assignment_refused';
+    case Unassigned = 'unassigned';
     case Note = 'note';
     case Incident = 'incident';
     case ReturnRequested = 'return_requested';

@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\MerchantNotificationController;
 use App\Http\Controllers\Api\V1\MerchantShopController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\OfflineSyncController;
 use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
@@ -270,15 +271,19 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('orders/import/template', [OrderImportController::class, 'template'])->name('orders.import.template');
         Route::post('orders/import', [OrderImportController::class, 'store'])->middleware('throttle:20,1')->name('orders.import');
         Route::post('orders/bulk-assign', [OrderActionController::class, 'bulkAssign'])->name('orders.bulk-assign');
+        Route::post('orders/bulk-unassign', [OrderActionController::class, 'bulkUnassign'])->name('orders.bulk-unassign');
         Route::post('orders/bulk-confirm', [OrderActionController::class, 'bulkConfirm'])->name('orders.bulk-confirm');
         // Avant la ressource : « counts » n'est pas un identifiant de course
         Route::get('orders/counts', [OrderController::class, 'counts'])->name('orders.counts');
+        Route::get('orders/pickup-groups', [OrderController::class, 'pickupGroups'])->name('orders.pickup-groups');
         Route::apiResource('orders', OrderController::class)->except('destroy');
         Route::post('orders/{order}/status', [OrderActionController::class, 'transition'])->name('orders.transition');
         Route::post('orders/{order}/assign', [OrderActionController::class, 'assign'])->name('orders.assign');
+        Route::post('orders/{order}/unassign', [OrderActionController::class, 'unassign'])->name('orders.unassign');
         Route::post('orders/{order}/decision', [OrderActionController::class, 'decide'])->name('orders.decision');
         Route::post('orders/{order}/lost', [OrderActionController::class, 'declareLost'])->name('orders.lost');
         Route::post('orders/{order}/notes', [OrderActionController::class, 'note'])->name('orders.notes');
+        Route::post('orders/{order}/verify-delivery-code', [OrderActionController::class, 'verifyDeliveryCode'])->name('orders.verify-delivery-code');
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
         Route::get('orders/{order}/messages', [MessageController::class, 'forOrder'])->name('orders.messages');
@@ -364,6 +369,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('assignments/{assignment}/accept', [CourierSpaceController::class, 'accept'])->name('assignments.accept');
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
             Route::patch('status', [CourierSpaceController::class, 'updateStatus'])->name('status');
+            // Actions faites hors connexion, envoyées au retour du réseau
+            Route::post('sync', OfflineSyncController::class)->middleware('throttle:120,1')->name('sync');
             Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
             Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
             Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');

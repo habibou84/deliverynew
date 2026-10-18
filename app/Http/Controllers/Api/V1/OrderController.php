@@ -12,6 +12,7 @@ use App\Models\Merchant;
 use App\Models\Order;
 use App\Services\Orders\AwaitingCourier;
 use App\Services\Orders\OrderService;
+use App\Services\Orders\PickupGroups;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -37,7 +38,7 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'code_to_verify'])],
             // File « Sans livreur » : ramassage, livraison ou les deux
             'awaiting' => ['nullable', Rule::in([AwaitingCourier::PICKUP, AwaitingCourier::DELIVERY])],
             'merchant_id' => ['nullable', 'integer'],
@@ -88,6 +89,16 @@ class OrderController extends Controller
      * Compteurs du dispatch : courses à valider, à ramasser, à livrer, et celles qui
      * attendent un livreur au-delà du délai de l'entreprise.
      */
+    /**
+     * Ramassages à assigner, regroupés par client et adresse : un lot s'assigne d'un coup.
+     */
+    public function pickupGroups(Request $request, PickupGroups $groups): JsonResponse
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        return response()->json(['data' => $groups->toAssign($request->user())]);
+    }
+
     public function counts(Request $request, AwaitingCourier $awaiting): JsonResponse
     {
         Gate::authorize('dispatch', Order::class);
@@ -178,6 +189,8 @@ class OrderController extends Controller
             'to_return' => $query->where('return_requested', true)
                 ->whereNotIn('status', OrderStatus::values([OrderStatus::ReturnAssigned, OrderStatus::Returning, OrderStatus::Returned])),
             'incidents' => $query->whereIn('status', OrderStatus::values([OrderStatus::DeliveryFailed, OrderStatus::Rescheduled])),
+            // Livrées hors connexion avec un code client incorrect : à vérifier auprès du destinataire
+            'code_to_verify' => $query->whereNotNull('delivery_code_unverified_at'),
         };
     }
 }

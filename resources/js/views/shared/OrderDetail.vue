@@ -44,6 +44,12 @@
           🚨 Colis déclaré perdu le {{ dateTime(order.lost_at) }}<span v-if="order.lost_reason"> : {{ order.lost_reason }}</span>
         </p>
 
+        <!-- Livrée hors connexion avec un code client incorrect -->
+        <div v-if="order.delivery_code_unverified_at" class="rounded-lg bg-orange-50 ring-1 ring-orange-200 px-4 py-3 text-sm text-orange-900 space-y-2">
+          <p>⚠️ Livrée hors connexion avec un <strong>code client incorrect</strong> : vérifiez la livraison auprès du destinataire.</p>
+          <button v-if="auth.can('orders.dispatch')" class="btn-secondary" @click="verifyDeliveryCode">Livraison vérifiée</button>
+        </div>
+
         <!-- Garde du colis (personnel uniquement) -->
         <p v-if="order.held_by" class="rounded-lg bg-amber-50 ring-1 ring-amber-200 px-4 py-2 text-sm text-amber-900">
           🎒 Colis chez <strong>{{ order.held_by.name }}</strong> depuis le {{ dateTime(order.held_by.since) }}
@@ -107,6 +113,11 @@
           <div class="flex gap-2 flex-wrap">
             <button v-if="order.status === 'pending'" class="btn-success" @click="quickMove('confirmed')">Valider</button>
             <button v-if="order.status === 'pending'" class="btn-secondary" @click="openStatus(['rejected'])">Refuser</button>
+          </div>
+          <!-- Livreurs actuels : retirables (erreur d'assignation, livreur indisponible) -->
+          <div v-for="a in activeAssignments" :key="a.id" class="flex items-center justify-between gap-2 rounded bg-slate-50 px-3 py-2 text-sm">
+            <span>{{ a.type_label }} : <strong>{{ a.courier_name }}</strong> <span class="text-gray-500">· {{ ASSIGNMENT_STATUS[a.status] }}</span></span>
+            <button v-if="canUnassign(a)" class="text-red-700 font-medium whitespace-nowrap" @click="unassign(a)">Retirer</button>
           </div>
           <div v-for="type in assignableTypes" :key="type" class="space-y-1">
             <label class="label">{{ ASSIGNMENT_LABELS[type] }}</label>
@@ -304,6 +315,23 @@ function sortedCouriers(type) {
     || (a.active_assignments_count - b.active_assignments_count))
 }
 
+const activeAssignments = computed(() => (order.value?.assignments || []).filter((a) => ['assigned', 'accepted', 'in_progress'].includes(a.status)))
+// Livreur en route avec le colis (livraison, retour) : l'issue doit d'abord être enregistrée
+const canUnassign = (a) => a.type === 'pickup' || !['out_for_delivery', 'returning'].includes(order.value.status)
+
+async function unassign(a) {
+  const reason = window.prompt(`Retirer ${a.courier_name} de ce ${a.type_label.toLowerCase()} ? Il sera prévenu.\nMotif (facultatif) :`, '')
+  if (reason === null) return
+  try {
+    const { data } = await http.post(`/orders/${order.value.id}/unassign`, { type: a.type, reason: reason.trim() || undefined })
+    order.value = data.data
+    toasts.success('Livreur retiré : la course attend un autre livreur.')
+    loadCouriers()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
 async function assign(type) {
   try {
     const { data } = await http.post(`/orders/${order.value.id}/assign`, { type, courier_id: assignment[type] })
@@ -347,6 +375,18 @@ async function addNote() {
     await http.post(`/orders/${order.value.id}/notes`, { note: note.text, visible_to_merchant: !note.internal })
     note.text = ''
     await load()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function verifyDeliveryCode() {
+  const note = window.prompt('Comment la livraison a-t-elle été vérifiée ? (facultatif)')
+  if (note === null) return
+  try {
+    const { data } = await http.post(`/orders/${order.value.id}/verify-delivery-code`, { note: note || undefined })
+    order.value = data.data
+    toasts.success('Livraison vérifiée.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }

@@ -141,6 +141,96 @@ class OrderDispatcher
     }
 
     /**
+     * Retire le livreur d'une mission (erreur d'assignation, livreur indisponible) : la course revient
+     * à son état d'avant l'assignation et attend un autre livreur. Impossible une fois le livreur en
+     * route avec le colis (livraison ou retour) : il faut d'abord en enregistrer l'issue.
+     */
+    public function unassign(User $actor, Order $order, AssignmentType $type, ?string $reason = null): Order
+    {
+        return DB::transaction(function () use ($actor, $order, $type, $reason) {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            $assignment = $order->activeAssignment($type);
+
+            if ($assignment === null) {
+                throw new BusinessRuleException("Aucun livreur n'est assigné à ce {$this->lower($type)}.", 'type');
+            }
+
+            $from = $order->status;
+            if (in_array($from, [OrderStatus::OutForDelivery, OrderStatus::Returning], true) && $type !== AssignmentType::Pickup) {
+                throw new BusinessRuleException("Le livreur est en route avec le colis : enregistrez d'abord l'issue de la course.", 'type');
+            }
+
+            $assignment->forceFill(['status' => AssignmentStatus::Cancelled, 'completed_at' => now()])->save();
+
+            // Retour à l'état d'avant l'assignation (une course en attente reste validée)
+            $assigned = $type === AssignmentType::Pickup
+                ? [OrderStatus::PickupAssigned, OrderStatus::PickupInProgress]
+                : [self::assignedStatus($type)];
+            if (in_array($from, $assigned, true)) {
+                $before = $assignment->order_status_before;
+                $order->status = match (true) {
+                    $before === null, $before === OrderStatus::Pending, in_array($before, $assigned, true) && $type === AssignmentType::Pickup => OrderStatus::Confirmed,
+                    default => $before,
+                };
+            }
+
+            $order->{$type->courierColumn()} = null;
+            $order->save();
+
+            $courier = $assignment->courier()->with('user')->first();
+            $this->journal->record($order, $actor, OrderEventType::Unassigned, [
+                'assignment_id' => $assignment->id,
+                'from_status' => $from,
+                'to_status' => $order->status,
+                'note' => $reason,
+                'meta' => [
+                    'type' => $type->value,
+                    'type_label' => $type->label(),
+                    'courier_id' => $courier?->id,
+                    'courier_user_id' => $courier?->user_id,
+                    'courier_name' => $courier?->user?->name,
+                ],
+                'visible_to_merchant' => false,
+            ]);
+
+            return $order;
+        });
+    }
+
+    /**
+     * Retire le livreur de plusieurs courses. Sans type : la mission de l'étape en cours (ramassage
+     * avant récupération du colis, retour s'il est assigné, livraison sinon). Les erreurs
+     * n'interrompent pas le lot.
+     *
+     * @param  list<int>  $orderIds
+     * @return array{unassigned: list<int>, errors: array<int, string>}
+     */
+    public function unassignMany(User $actor, array $orderIds, ?AssignmentType $type, ?string $reason = null): array
+    {
+        $result = ['unassigned' => [], 'errors' => []];
+
+        foreach (Order::whereIn('id', $orderIds)->get() as $order) {
+            $stage = $type ?? match (true) {
+                $order->status->isBeforePickup() => AssignmentType::Pickup,
+                in_array($order->status, [OrderStatus::ReturnAssigned, OrderStatus::Returning], true) => AssignmentType::Return,
+                default => AssignmentType::Delivery,
+            };
+            try {
+                $this->unassign($actor, $order, $stage, $reason);
+                $result['unassigned'][] = $order->id;
+            } catch (BusinessRuleException $e) {
+                $result['errors'][$order->id] = $e->getMessage();
+            }
+        }
+
+        foreach (array_diff($orderIds, $result['unassigned'], array_keys($result['errors'])) as $missing) {
+            $result['errors'][$missing] = 'Course introuvable.';
+        }
+
+        return $result;
+    }
+
+    /**
      * Réponse du livreur à une mission : acceptation ou refus motivé.
      */
     public function respond(User $courierUser, OrderAssignment $assignment, bool $accept, ?string $reason = null): OrderAssignment

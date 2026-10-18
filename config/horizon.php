@@ -226,6 +226,14 @@ return [
                 'maxProcesses' => 3,
             ],
         ],
+
+        // Préproduction (APP_ENV=staging) et tout autre environnement : sans cette entrée, Horizon
+        // démarre sans traiter aucune file (temps réel, notifications, messages bloqués)
+        '*' => [
+            'supervisor-1' => [
+                'maxProcesses' => 3,
+            ],
+        ],
     ],
 
     /*
