@@ -64,6 +64,25 @@ class AppearanceTest extends TestCase
         $this->putJson('/api/v1/company/appearance', ['same' => false, 'spaces' => $this->spaces()])->assertForbidden();
     }
 
+    public function test_merchant_app_is_named_after_the_company_by_default(): void
+    {
+        $this->get('/manifest/marchand.webmanifest')
+            ->assertJsonPath('name', $this->company->name)
+            ->assertJsonPath('short_name', $this->company->name);
+        $this->get('/manifest/livreur.webmanifest')->assertJsonPath('short_name', 'Livreur');
+
+        // Ancien nom par défaut enregistré tel quel : le nom de l'entreprise reprend sa place
+        $this->company->update(['appearance' => ['spaces' => ['marchand' => ['app_name' => 'Mes livraisons']]]]);
+        $this->get('/manifest/marchand.webmanifest')->assertJsonPath('short_name', $this->company->name);
+
+        // Nom choisi dans Paramètres › Apparence : il l'emporte
+        Sanctum::actingAs($this->admin);
+        $this->putJson('/api/v1/company/appearance', ['same' => false, 'spaces' => $this->spaces()])->assertOk()
+            ->assertJsonPath('data.spaces.marchand.app_name', 'Express Pro')
+            ->assertJsonPath('data.spaces.marchand.default_app_name', $this->company->name);
+        $this->get('/manifest/marchand.webmanifest')->assertJsonPath('short_name', 'Express Pro');
+    }
+
     public function test_app_icons_come_from_the_logo_or_an_uploaded_image(): void
     {
         // Sans logo ni image : icônes standard

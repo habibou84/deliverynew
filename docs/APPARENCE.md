@@ -4,7 +4,8 @@
 
 - **Couleur de chaque espace** : e-commerçant, livreur, équipe (administration). On choisit parmi les couleurs
   proposées ou une couleur libre. Une alerte s'affiche si la couleur est trop claire pour du texte blanc.
-- **Nom sous l'icône du téléphone** pour les deux applications installables (e-commerçant et livreur).
+- **Nom sous l'icône du téléphone** pour les deux applications installables. Sans réglage : le nom de
+  l'entreprise pour l'application e-commerçant, « Livreur » pour l'application livreur.
 - **Icône des applications** :
   - par défaut, le logo de l'entreprise sur la couleur de l'espace ;
   - on peut aussi envoyer une image carrée (au moins 192 × 192) ;
