@@ -134,6 +134,8 @@ class OrderResource extends JsonResource
             'confirmed_at' => $this->confirmed_at,
             'picked_up_at' => $this->picked_up_at,
             'delivered_at' => $this->delivered_at,
+            // Livrée hors connexion avec un code client incorrect, pas encore vérifiée
+            'delivery_code_unverified_at' => $this->when($user?->merchant_id === null, fn () => $this->delivery_code_unverified_at),
             'returned_at' => $this->returned_at,
             'cancelled_at' => $this->cancelled_at,
             'created_at' => $this->created_at,

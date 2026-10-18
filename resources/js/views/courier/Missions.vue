@@ -88,6 +88,7 @@
           <div class="flex flex-wrap items-center gap-2 mt-2">
             <span v-if="m.status === 'assigned'" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">Nouvelle · à accepter</span>
             <StatusBadge v-else :status="m.order.status" :label="m.order.status_label" />
+            <span v-if="m.offline" class="rounded-full bg-sky-100 text-sky-800 text-xs font-semibold px-2 py-0.5">⏳ À envoyer</span>
             <span v-if="m.order.package.is_express" class="rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5">⚡ Express</span>
             <span v-if="m.order.is_shipping && m.type === 'delivery'" class="rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">🚌 À expédier</span>
             <span v-if="m.gain" class="rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold px-2 py-0.5" title="Votre gain prévu">💰 + {{ money(m.gain) }}</span>
@@ -100,9 +101,10 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { cachedGet } from '../../composables/useCachedApi'
+import { withPending } from '../../composables/useOfflineQueue'
 import { useToastStore } from '../../stores/toasts'
 import StatusBadge from '../../components/StatusBadge.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
@@ -138,7 +140,7 @@ async function load() {
   try {
     const [m, w, r] = await Promise.all([cachedGet('/courier/missions'), cachedGet('/courier/wallet'), cachedGet('/courier/return-slips').catch(() => null)])
     returnSlips.value = r?.data.data || []
-    missions.value = m.data.data
+    missions.value = withPending(m.data.data)
     messages.setUnread(m.data.meta?.unread_messages)
     wallet.value = w.data.data
     stale.value = m.stale || w.stale
@@ -175,6 +177,10 @@ function dismissPushInvite() {
 }
 
 watch(() => notifications.unread, load)
+
+// Actions faites hors connexion envoyées : liste rechargée
+window.addEventListener('offline-synced', load)
+onBeforeUnmount(() => window.removeEventListener('offline-synced', load))
 
 onMounted(() => {
   load()

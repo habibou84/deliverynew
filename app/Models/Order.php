@@ -98,6 +98,7 @@ class Order extends Model
             'prepared_at' => 'datetime',
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'delivery_code_unverified_at' => 'datetime',
             'held_since' => 'datetime',
             'lost_at' => 'datetime',
             'hold_escalated_at' => 'datetime',

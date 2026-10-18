@@ -15,6 +15,7 @@
       <div v-if="!pwa.online" class="bg-amber-500 text-amber-950 text-center text-sm font-medium py-1.5">
         Hors ligne : les informations peuvent ne pas être à jour
       </div>
+      <slot name="banner" />
     </header>
 
     <main class="mx-auto max-w-lg px-4 pt-4 pb-28">

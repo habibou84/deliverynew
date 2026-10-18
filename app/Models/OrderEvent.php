@@ -35,6 +35,8 @@ class OrderEvent extends Model
         'lng',
         'meta',
         'visible_to_merchant',
+        // Action faite hors connexion : heure réelle sur le téléphone, et non celle de l'envoi
+        'created_at',
     ];
 
     protected function casts(): array

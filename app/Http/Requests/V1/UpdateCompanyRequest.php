@@ -49,6 +49,7 @@ class UpdateCompanyRequest extends FormRequest
             'auto_confirm_orders' => ['sometimes', 'boolean'],
             'default_max_attempts' => ['sometimes', 'integer', 'min:1', 'max:10'],
             'require_delivery_code' => ['sometimes', 'boolean'],
+            'offline_courier_actions' => ['sometimes', 'boolean'],
             'return_fee_percent' => ['sometimes', 'integer', 'min:0', 'max:100'],
             'field_alert_reminder_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
             'parcel_hold_alert_hours' => ['sometimes', 'integer', 'min:0', 'max:168'],
