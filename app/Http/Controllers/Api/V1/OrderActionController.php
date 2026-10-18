@@ -181,6 +181,30 @@ class OrderActionController extends Controller
         return response()->json(['message' => 'Note ajoutée.'], 201);
     }
 
+    /**
+     * Livraison faite hors connexion avec un code client incorrect : vérifiée auprès du destinataire.
+     */
+    public function verifyDeliveryCode(Request $request, Order $order): OrderResource
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:500']]);
+
+        if ($order->delivery_code_unverified_at === null) {
+            throw new BusinessRuleException('Cette livraison n\'est pas à vérifier.', 'status');
+        }
+
+        DB::transaction(function () use ($request, $order, $data) {
+            $order->forceFill(['delivery_code_unverified_at' => null])->save();
+            $this->journal->record($order, $request->user(), OrderEventType::Note, [
+                'note' => 'Livraison vérifiée auprès du destinataire (code saisi hors connexion incorrect)'.(filled($data['note'] ?? null) ? ' : '.$data['note'] : '.'),
+                'visible_to_merchant' => false,
+            ]);
+        });
+
+        return $this->detail($request, $order);
+    }
+
     public function requestReturn(Request $request, Order $order): OrderResource
     {
         Gate::authorize('requestReturn', $order);

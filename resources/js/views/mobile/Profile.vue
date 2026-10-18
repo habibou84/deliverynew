@@ -59,6 +59,7 @@ import PushSettings from '../../components/mobile/PushSettings.vue'
 import { forgetPushDevice } from '../../composables/usePush'
 import { useAuthStore } from '../../stores/auth'
 import { pwa } from '../../composables/usePwa'
+import { offlineQueue } from '../../composables/useOfflineQueue'
 import { telLink } from '../../utils/format'
 
 const auth = useAuthStore()
@@ -71,6 +72,8 @@ const initials = computed(() => (auth.user?.name || '?').split(' ').map((p) => p
 const installedLabel = computed(() => (pwa.installed ? 'application installée' : 'web'))
 
 async function logout() {
+  // Actions faites hors connexion pas encore envoyées : elles attendraient la prochaine connexion
+  if (offlineQueue.pending.length && !window.confirm(`${offlineQueue.pending.length} action(s) faite(s) hors connexion ne sont pas encore envoyées. Déconnecté, elles ne partiront que lorsque vous vous reconnecterez sur ce téléphone. Se déconnecter quand même ?`)) return
   await forgetPushDevice()
   const login = auth.role === 'courier' ? '/livreur/connexion' : '/'
   await auth.logout()

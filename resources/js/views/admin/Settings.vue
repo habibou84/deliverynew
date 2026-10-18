@@ -62,6 +62,16 @@
           <input v-model="form.require_delivery_code" type="checkbox" class="mt-1">
           <span>Exiger le code de livraison du destinataire<span class="block text-gray-500">Le destinataire reçoit son code sur WhatsApp quand le livreur part livrer (Paramètres WhatsApp), ou par le marchand.</span></span>
         </label>
+        <label class="flex items-start gap-2 text-sm">
+          <input v-model="form.offline_courier_actions" type="checkbox" class="mt-1">
+          <span>Mode hors connexion des livreurs
+            <span class="block text-gray-500">
+              Sans réseau, le livreur peut quand même enregistrer « récupéré », « en route », « livré » (avec l'encaissement), un échec, un report ou une note :
+              l'application les envoie seule au retour du réseau, à l'heure où ils ont été faits. Une livraison avec un code client faux est gardée
+              mais signalée (file « Codes à vérifier »). Les WhatsApp au client et au marchand partent au retour du réseau.
+            </span>
+          </span>
+        </label>
         <div>
           <label class="label" for="attempts">Nombre maximal de tentatives de livraison</label>
           <input id="attempts" v-model.number="form.default_max_attempts" type="number" min="1" max="10" class="input w-24">
@@ -124,7 +134,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
 
-const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'weekly_report', 'auto_confirm_orders', 'require_delivery_code', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time']
+const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'weekly_report', 'auto_confirm_orders', 'require_delivery_code', 'offline_courier_actions', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time']
 
 const auth = useAuthStore()
 const toasts = useToastStore()

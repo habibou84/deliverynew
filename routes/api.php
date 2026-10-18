@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\MerchantNotificationController;
 use App\Http\Controllers\Api\V1\MerchantShopController;
 use App\Http\Controllers\Api\V1\MessageController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\OfflineSyncController;
 use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
@@ -279,6 +280,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/decision', [OrderActionController::class, 'decide'])->name('orders.decision');
         Route::post('orders/{order}/lost', [OrderActionController::class, 'declareLost'])->name('orders.lost');
         Route::post('orders/{order}/notes', [OrderActionController::class, 'note'])->name('orders.notes');
+        Route::post('orders/{order}/verify-delivery-code', [OrderActionController::class, 'verifyDeliveryCode'])->name('orders.verify-delivery-code');
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
         Route::get('orders/{order}/messages', [MessageController::class, 'forOrder'])->name('orders.messages');
@@ -364,6 +366,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('assignments/{assignment}/accept', [CourierSpaceController::class, 'accept'])->name('assignments.accept');
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
             Route::patch('status', [CourierSpaceController::class, 'updateStatus'])->name('status');
+            // Actions faites hors connexion, envoyées au retour du réseau
+            Route::post('sync', OfflineSyncController::class)->middleware('throttle:120,1')->name('sync');
             Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
             Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
             Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');

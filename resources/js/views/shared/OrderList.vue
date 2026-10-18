@@ -182,6 +182,8 @@ const queues = [
   { value: 'scheduled', label: 'Reportées' },
   { value: 'incidents', label: 'Incidents' },
   { value: 'to_return', label: 'À retourner' },
+  // Livrées hors connexion avec un code client incorrect
+  { value: 'code_to_verify', label: '⚠️ Codes à vérifier' },
 ]
 
 const filters = reactive({

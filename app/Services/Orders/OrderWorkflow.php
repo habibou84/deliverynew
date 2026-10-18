@@ -43,6 +43,8 @@ class OrderWorkflow
      *     cancel_reason?: string|null,
      *     lat?: float|null,
      *     lng?: float|null,
+     *     offline?: bool,
+     *     occurred_at?: Carbon,
      * }  $context
      */
     public function transition(User $actor, Order $order, OrderStatus $to, array $context = []): Order
@@ -74,6 +76,8 @@ class OrderWorkflow
             $this->stock->onTransition($order, $to, $actor);
 
             $this->journal->record($order, $actor, $reason ? OrderEventType::Incident : OrderEventType::StatusChanged, [
+                // Action faite hors connexion : à son heure réelle dans le journal
+                ...(isset($context['occurred_at']) ? ['created_at' => $context['occurred_at']] : []),
                 'assignment_id' => $assignment?->id,
                 'from_status' => $from,
                 'to_status' => $to,
@@ -89,6 +93,8 @@ class OrderWorkflow
                     'shipping_fee' => $to === OrderStatus::Delivered && $order->is_shipping ? $order->shipping_fee : null,
                     'shipping_carrier' => $to === OrderStatus::Delivered && $order->is_shipping ? $order->shipping_carrier : null,
                     'shipping_reference' => $to === OrderStatus::Delivered && $order->is_shipping ? $order->shipping_reference : null,
+                    'offline' => ! empty($context['offline']) ? true : null,
+                    'delivery_code_unverified' => $to === OrderStatus::Delivered && $order->delivery_code_unverified_at ? true : null,
                 ], fn ($v) => $v !== null),
             ]);
 
@@ -259,7 +265,12 @@ class OrderWorkflow
             $code = (string) ($context['delivery_code'] ?? '');
 
             if ($code === '' || ! hash_equals((string) $order->delivery_code, $code)) {
-                throw new BusinessRuleException('Code de livraison incorrect.', 'delivery_code');
+                // Livraison faite hors connexion : le client est déjà parti, la livraison est gardée
+                // mais signalée à l'entreprise (code à vérifier)
+                if (empty($context['offline'])) {
+                    throw new BusinessRuleException('Code de livraison incorrect.', 'delivery_code');
+                }
+                $order->delivery_code_unverified_at = now();
             }
         }
 
@@ -281,7 +292,8 @@ class OrderWorkflow
      */
     private function applyEffects(Order $order, OrderStatus $from, OrderStatus $to, ?IncidentReason $reason, array $context): ?OrderAssignment
     {
-        $now = now();
+        // Action faite hors connexion : horodatée à son heure réelle
+        $now = $context['occurred_at'] ?? now();
         $pickup = $order->activeAssignment(AssignmentType::Pickup);
         $delivery = $order->activeAssignment(AssignmentType::Delivery);
         $return = $order->activeAssignment(AssignmentType::Return);

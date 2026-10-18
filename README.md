@@ -576,6 +576,8 @@ php artisan app:demo-accounts --suspend                          # suspendre les
 `deploy/ispconfig.sh` pour un serveur géré par ISPConfig (Debian 13, Apache), `deploy/install.sh` pour un VPS nu
 (Nginx, PHP 8.3, PostgreSQL, Redis, Horizon, Reverb, cron, HTTPS) ; `deploy/update.sh` met à jour.
 
+**Mode hors connexion des livreurs** (actions gardées sur le téléphone sans réseau, envoyées au retour) : voir [docs/MODE-HORS-CONNEXION.md](docs/MODE-HORS-CONNEXION.md).
+
 **Préproduction** (`preprod.jibiat.com`, code d'accès, non indexée, testée avant chaque mise en production) : voir [docs/PREPRODUCTION.md](docs/PREPRODUCTION.md).
 Mise à jour automatique des serveurs depuis GitHub après chaque fusion : [docs/MISE-A-JOUR-AUTOMATIQUE.md](docs/MISE-A-JOUR-AUTOMATIQUE.md).
 

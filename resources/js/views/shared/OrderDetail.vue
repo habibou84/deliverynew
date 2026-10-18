@@ -44,6 +44,12 @@
           🚨 Colis déclaré perdu le {{ dateTime(order.lost_at) }}<span v-if="order.lost_reason"> : {{ order.lost_reason }}</span>
         </p>
 
+        <!-- Livrée hors connexion avec un code client incorrect -->
+        <div v-if="order.delivery_code_unverified_at" class="rounded-lg bg-orange-50 ring-1 ring-orange-200 px-4 py-3 text-sm text-orange-900 space-y-2">
+          <p>⚠️ Livrée hors connexion avec un <strong>code client incorrect</strong> : vérifiez la livraison auprès du destinataire.</p>
+          <button v-if="auth.can('orders.dispatch')" class="btn-secondary" @click="verifyDeliveryCode">Livraison vérifiée</button>
+        </div>
+
         <!-- Garde du colis (personnel uniquement) -->
         <p v-if="order.held_by" class="rounded-lg bg-amber-50 ring-1 ring-amber-200 px-4 py-2 text-sm text-amber-900">
           🎒 Colis chez <strong>{{ order.held_by.name }}</strong> depuis le {{ dateTime(order.held_by.since) }}
@@ -347,6 +353,18 @@ async function addNote() {
     await http.post(`/orders/${order.value.id}/notes`, { note: note.text, visible_to_merchant: !note.internal })
     note.text = ''
     await load()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function verifyDeliveryCode() {
+  const note = window.prompt('Comment la livraison a-t-elle été vérifiée ? (facultatif)')
+  if (note === null) return
+  try {
+    const { data } = await http.post(`/orders/${order.value.id}/verify-delivery-code`, { note: note || undefined })
+    order.value = data.data
+    toasts.success('Livraison vérifiée.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }

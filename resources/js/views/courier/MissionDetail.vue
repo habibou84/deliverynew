@@ -8,6 +8,9 @@
         <span class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">{{ mission.type_label }}</span>
         <StatusBadge :status="order.status" :label="order.status_label" />
       </div>
+      <p v-if="mission.offline" class="rounded-xl bg-sky-50 text-sky-900 p-3 text-sm">
+        ⏳ Enregistré sur votre téléphone : envoi automatique au retour du réseau.
+      </p>
       <p v-if="shipping" class="rounded-xl bg-indigo-50 text-indigo-900 p-3 font-medium">
         🚌 Expédition : déposez le colis à la gare ou chez le transporteur, payez l'envoi et gardez le ticket.
       </p>
@@ -139,6 +142,7 @@
         <div v-if="auth.user?.company?.require_delivery_code && !shipping">
           <label class="m-label" for="code">Code donné par le client</label>
           <input id="code" v-model="delivery.delivery_code" class="m-input text-center text-3xl font-bold tracking-[0.5em]" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••">
+          <p v-if="offlineEnabled && !pwa.online" class="text-xs text-slate-500 mt-1">Hors connexion : le code sera vérifié au retour du réseau. S'il est faux, l'agence vérifiera la livraison auprès du client.</p>
         </div>
         <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
         <button class="m-btn-success text-lg py-5" :disabled="busy" @click="confirmDelivered">{{ shipping ? '✓ Confirmer l\'expédition' : '✓ Confirmer la livraison' }}</button>
@@ -203,7 +207,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
@@ -214,6 +218,8 @@ import { useAuthStore } from '../../stores/auth'
 import { cachedGet } from '../../composables/useCachedApi'
 import { useToastStore } from '../../stores/toasts'
 import { currentPosition } from '../../composables/useGeolocation'
+import { enqueue, hasPendingFor, isNetworkError, withPending } from '../../composables/useOfflineQueue'
+import { pwa } from '../../composables/usePwa'
 import { date, DELIVERY_PAYMENT_METHODS, mapsLink, money, PAYMENT_METHODS, telLink, today, whatsappLink } from '../../utils/format'
 
 const route = useRoute()
@@ -255,6 +261,8 @@ const expenseOptions = [
 ]
 
 const active = computed(() => ['accepted', 'in_progress'].includes(mission.value?.status))
+// Mode hors connexion de l'entreprise : actions gardées sur le téléphone sans réseau
+const offlineEnabled = computed(() => !!auth.user?.company?.offline_courier_actions)
 const canReportIncident = computed(() => ['pickup_assigned', 'pickup_in_progress', 'out_for_delivery'].includes(order.value?.status))
 
 // Coordonnées utiles selon le type de mission : marchand (ramassage) ou client (livraison, retour au marchand)
@@ -315,22 +323,43 @@ async function load() {
     toasts.error(apiErrorMessage(e))
     return
   }
-  mission.value = data.data.find((m) => m.id === Number(route.params.id)) ?? null
+  mission.value = withPending(data.data).find((m) => m.id === Number(route.params.id)) ?? null
   // Mission terminée ou retirée : retour à la liste
   if (!mission.value) router.replace('/livreur')
 }
 
+/**
+ * Envoie un changement de statut. Sans réseau (mode hors connexion de l'entreprise), l'action est
+ * gardée sur le téléphone et renvoie { offline: true } ; elle partira au retour de la connexion.
+ */
 async function post(status, extra = {}) {
   const position = await currentPosition()
-  return http.post(`/orders/${order.value.id}/status`, { status, ...extra, ...(position || {}) })
+  const payload = { status, ...extra, ...(position || {}) }
+  // Une action déjà en attente pour cette course : la suivante passe après elle
+  if (offlineEnabled.value && (!navigator.onLine || hasPendingFor(order.value.id))) return keep('status', payload)
+  try {
+    const { data } = await http.post(`/orders/${order.value.id}/status`, payload)
+    return { data, offline: false }
+  } catch (e) {
+    if (offlineEnabled.value && isNetworkError(e)) return keep('status', payload)
+    throw e
+  }
 }
+
+function keep(kind, payload) {
+  enqueue({ kind, order_id: order.value.id, tracking_code: order.value.tracking_code, payload })
+  if (kind === 'status') mission.value = withPending([mission.value])[0]
+  return { offline: true }
+}
+
+const OFFLINE_SAVED = 'Enregistré sur le téléphone : envoi automatique au retour du réseau.'
 
 async function move(status) {
   busy.value = true
   try {
-    const { data } = await post(status)
-    toasts.success(data.data.status_label)
-    await load()
+    const result = await post(status)
+    toasts.success(result.offline ? OFFLINE_SAVED : result.data.data.status_label)
+    if (!result.offline) await load()
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -367,11 +396,11 @@ async function confirmDelivered() {
         shipping_reference: delivery.shipping_reference || undefined,
       })
     }
-    await post('delivered', extra)
+    const result = await post('delivered', extra)
     if (shipping.value) rememberCarrier(delivery.shipping_carrier.trim())
     sheet.value = null
-    toasts.success(shipping.value ? 'Expédition enregistrée. Bravo !' : 'Livraison enregistrée. Bravo !')
-    await load()
+    toasts.success(result.offline ? OFFLINE_SAVED : (shipping.value ? 'Expédition enregistrée. Bravo !' : 'Livraison enregistrée. Bravo !'))
+    if (!result.offline) await load()
   } catch (e) {
     sheetError.value = apiErrorMessage(e)
   } finally {
@@ -426,10 +455,10 @@ async function confirmIncident() {
     if (selectedReason.value?.requires_date) {
       extra.rescheduled_to = { tomorrow: dayOffset(1), after: dayOffset(2), other: incident.date }[incident.when]
     }
-    await post(status, extra)
+    const result = await post(status, extra)
     sheet.value = null
-    toasts.success('Problème signalé à l\'agence et au marchand.')
-    await load()
+    toasts.success(result.offline ? OFFLINE_SAVED : 'Problème signalé à l\'agence et au marchand.')
+    if (!result.offline) await load()
   } catch (e) {
     sheetError.value = apiErrorMessage(e)
   } finally {
@@ -462,10 +491,20 @@ async function sendNote() {
   busy.value = true
   try {
     const position = await currentPosition()
-    await http.post(`/orders/${order.value.id}/notes`, { note: noteText.value, ...(position || {}) })
+    const payload = { note: noteText.value, ...(position || {}) }
+    let offline = offlineEnabled.value && !navigator.onLine
+    if (!offline) {
+      try {
+        await http.post(`/orders/${order.value.id}/notes`, payload)
+      } catch (e) {
+        if (!offlineEnabled.value || !isNetworkError(e)) throw e
+        offline = true
+      }
+    }
+    if (offline) keep('note', payload)
     noteText.value = ''
     sheet.value = null
-    toasts.success('Note envoyée.')
+    toasts.success(offline ? OFFLINE_SAVED : 'Note envoyée.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -487,6 +526,11 @@ async function uploadPhoto(e) {
   }
   e.target.value = ''
 }
+
+// Actions hors connexion envoyées : état du serveur rechargé
+const reloadAfterSync = () => load()
+window.addEventListener('offline-synced', reloadAfterSync)
+onBeforeUnmount(() => window.removeEventListener('offline-synced', reloadAfterSync))
 
 onMounted(async () => {
   await load()
