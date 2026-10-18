@@ -48,13 +48,30 @@ class Appearance
             $source = $same ? ($saved['spaces']['marchand'] ?? []) : $own;
             $spaces[$space] = ['color' => self::spaceColor($company, $space)];
             if (in_array($space, self::APPS, true)) {
-                $spaces[$space]['app_name'] = filled($own['app_name'] ?? null) ? $own['app_name'] : self::DEFAULTS[$space]['app_name'];
+                $default = self::defaultAppName($company, $space);
+                // « Mes livraisons » enregistré tel quel (ancien nom par défaut) : remplacé par le nom par défaut
+                $custom = filled($own['app_name'] ?? null) && ! ($space === 'marchand' && $own['app_name'] === self::DEFAULTS['marchand']['app_name']);
+                $spaces[$space]['app_name'] = $custom ? $own['app_name'] : $default;
+                $spaces[$space]['default_app_name'] = $default;
                 $spaces[$space]['custom_icon'] = filled($source['icon_path'] ?? null);
                 $spaces[$space]['icon_url'] = self::iconUrl($company, $space, '192');
             }
         }
 
         return ['same' => $same, 'spaces' => $spaces];
+    }
+
+    /**
+     * Nom sous l'icône sans réglage : le nom de l'entreprise pour l'application e-commerçant
+     * (c'est elle que les e-commerçants reconnaissent), « Livreur » pour l'application livreur.
+     */
+    public static function defaultAppName(?Company $company, string $app): string
+    {
+        if ($app === 'marchand' && filled($company?->name)) {
+            return mb_substr($company->name, 0, 30);
+        }
+
+        return self::DEFAULTS[$app]['app_name'];
     }
 
     /** Couleur d'un espace (celle de l'espace e-commerçant avec « même apparence ») */

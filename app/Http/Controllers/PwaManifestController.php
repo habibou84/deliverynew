@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Support\Appearance;
 use App\Support\Branding;
-use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -32,11 +31,13 @@ class PwaManifestController extends Controller
         // Apparence choisie par l'entreprise (Paramètres › Apparence) : nom, couleur, icônes
         $company = rescue(fn () => Branding::company(), null, false);
         $look = Appearance::for($company)['spaces'][$app];
+        $companyName = $company?->name ?? config('app.name');
 
         return response()->json([
             'id' => "/{$app}",
-            // Sur la plateforme : le nom de l'entreprise de l'adresse
-            'name' => ((Tenancy::enabled() ? app(Tenancy::class)->company()?->name : null) ?? config('app.name')).' · '.$config['suffix'],
+            // Sur la plateforme : le nom de l'entreprise de l'adresse ; l'application e-commerçant porte
+            // simplement ce nom, l'application livreur le complète (« Entreprise · Livreur »)
+            'name' => $app === 'marchand' ? $companyName : $companyName.' · '.$config['suffix'],
             'short_name' => $look['app_name'],
             'description' => $config['description'],
             'lang' => 'fr',
