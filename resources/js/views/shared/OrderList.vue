@@ -81,6 +81,9 @@
           <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.active_assignments_count }} en cours){{ c.is_available ? '' : ' · indisponible' }}</option>
         </select>
         <button class="btn-primary" :disabled="!bulk.courier_id || assigning" @click="bulkAssign">Assigner</button>
+        <button v-if="auth.can('orders.dispatch') && withCourierSelected.length" class="btn-secondary text-red-700" :disabled="assigning" @click="bulkUnassign">
+          Retirer le livreur ({{ withCourierSelected.length }})
+        </button>
         <button class="btn-secondary" @click="selected = []">Annuler</button>
       </div>
 
@@ -225,6 +228,11 @@ const confirming = ref(false)
 // Courses sélectionnées encore en attente de validation
 const pendingSelected = computed(() => selected.value.filter((id) => orders.value.find((o) => o.id === id)?.status === 'pending'))
 const highlighted = ref(null)
+// Courses sélectionnées qui ont un livreur (ramassage, livraison ou retour)
+const withCourierSelected = computed(() => selected.value.filter((id) => {
+  const o = orders.value.find((x) => x.id === id)
+  return o && (o.pickup_courier || o.delivery_courier || o.return_courier)
+}))
 
 const allSelected = computed(() => orders.value.length > 0 && selected.value.length === orders.value.length)
 
@@ -342,6 +350,30 @@ async function bulkAssign() {
     const errors = Object.entries(data.data.errors)
     if (data.data.assigned.length) toasts.success(`${data.data.assigned.length} course(s) assignée(s).`)
     errors.forEach(([id, message]) => {
+      const code = orders.value.find((o) => o.id === Number(id))?.tracking_code || id
+      toasts.error(`${code} : ${message}`)
+    })
+    selected.value = []
+    await load(meta.value?.current_page || 1)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    assigning.value = false
+  }
+}
+
+async function bulkUnassign() {
+  const ids = withCourierSelected.value
+  // « Selon la course » : la mission de l'étape en cours de chaque course
+  const type = bulk.type === 'auto' ? undefined : bulk.type
+  const what = type ? `du ${{ pickup: 'ramassage', delivery: 'livraison', return: 'retour' }[type]}` : 'de l\'étape en cours'
+  const reason = window.prompt(`Retirer le livreur ${what} sur ${ids.length} course(s) ? Les livreurs seront prévenus.\nMotif (facultatif) :`, '')
+  if (reason === null) return
+  assigning.value = true
+  try {
+    const { data } = await http.post('/orders/bulk-unassign', { order_ids: ids, type, reason: reason.trim() || undefined })
+    if (data.data.unassigned.length) toasts.success(`Livreur retiré sur ${data.data.unassigned.length} course(s).`)
+    Object.entries(data.data.errors).forEach(([id, message]) => {
       const code = orders.value.find((o) => o.id === Number(id))?.tracking_code || id
       toasts.error(`${code} : ${message}`)
     })
