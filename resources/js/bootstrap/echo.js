@@ -1,6 +1,6 @@
 import Echo from 'laravel-echo'
 import Pusher from 'pusher-js'
-import { TOKEN_KEY } from './axios'
+import { getToken } from './session'
 import { nativeApp, siteOrigin } from '../native'
 
 let echo = null
@@ -30,7 +30,7 @@ export function useEcho() {
     auth: {
       headers: {
         Accept: 'application/json',
-        Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY)}`,
+        Authorization: `Bearer ${getToken()}`,
       },
     },
   })

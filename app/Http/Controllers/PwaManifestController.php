@@ -39,8 +39,10 @@ class PwaManifestController extends Controller
             'short_name' => $config['short_name'],
             'description' => $config['description'],
             'lang' => 'fr',
-            'start_url' => "/{$app}?source=pwa",
-            'scope' => '/',
+            // « app » : l'application ouverte se verrouille sur son espace (voir resources/js/native)
+            'start_url' => "/{$app}?source=pwa&app={$app}",
+            // Livreur : limitée à son espace. E-commerçant : tout le site, sa connexion est sur « / »
+            'scope' => $app === 'livreur' ? '/livreur' : '/',
             'display' => 'standalone',
             'orientation' => 'portrait',
             'background_color' => '#f8fafc',

@@ -132,6 +132,18 @@ class User extends Authenticatable
         return $this->hasAnyRole([Role::SuperAdmin->value, ...Role::values(Role::staff())]);
     }
 
+    /**
+     * Espace de l'application de ce compte : e-commerçant, livreur, ou équipe (administration et console).
+     */
+    public function space(): string
+    {
+        return match (true) {
+            $this->isCourier() => 'courier',
+            $this->merchant_id !== null => 'merchant',
+            default => 'staff',
+        };
+    }
+
     public function isActive(): bool
     {
         return $this->status === UserStatus::Active

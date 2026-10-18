@@ -20,7 +20,8 @@ class PwaManifestTest extends TestCase
             ->assertOk()
             ->assertHeader('Content-Type', 'application/manifest+json')
             ->assertJsonPath('id', '/livreur')
-            ->assertJsonPath('start_url', '/livreur?source=pwa')
+            ->assertJsonPath('start_url', '/livreur?source=pwa&app=livreur')
+            ->assertJsonPath('scope', '/livreur')
             ->assertJsonPath('display', 'standalone');
 
         $this->get('/manifest/marchand.webmanifest')
