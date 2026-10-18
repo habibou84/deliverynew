@@ -20,10 +20,15 @@ class PreprodGate
 
     public const PATH = '_acces-preproduction';
 
+    /** Manifestes, icônes et logo des applications : rien de privé (nom, couleurs, images) */
+    private const APP_FILES = ['manifest/*', 'branding/icon/*', 'branding/logo'];
+
     public function handle(Request $request, Closure $next): Response
     {
         $code = (string) config('platform.preprod_access_code');
-        if ($code === '' || app()->isProduction() || $request->is('up', 'api/webhooks/*')) {
+        // Fichiers publics des applications installables : le navigateur télécharge le manifeste et les
+        // icônes sans cookie, la page du code rendrait l'application impossible à installer
+        if ($code === '' || app()->isProduction() || $request->is('up', 'api/webhooks/*', ...self::APP_FILES)) {
             return $next($request);
         }
 
