@@ -114,6 +114,11 @@
             <button v-if="order.status === 'pending'" class="btn-success" @click="quickMove('confirmed')">Valider</button>
             <button v-if="order.status === 'pending'" class="btn-secondary" @click="openStatus(['rejected'])">Refuser</button>
           </div>
+          <!-- Livreurs actuels : retirables (erreur d'assignation, livreur indisponible) -->
+          <div v-for="a in activeAssignments" :key="a.id" class="flex items-center justify-between gap-2 rounded bg-slate-50 px-3 py-2 text-sm">
+            <span>{{ a.type_label }} : <strong>{{ a.courier_name }}</strong> <span class="text-gray-500">· {{ ASSIGNMENT_STATUS[a.status] }}</span></span>
+            <button v-if="canUnassign(a)" class="text-red-700 font-medium whitespace-nowrap" @click="unassign(a)">Retirer</button>
+          </div>
           <div v-for="type in assignableTypes" :key="type" class="space-y-1">
             <label class="label">{{ ASSIGNMENT_LABELS[type] }}</label>
             <div class="flex gap-2">
@@ -308,6 +313,23 @@ function sortedCouriers(type) {
   return [...couriers.value].sort((a, b) => (servesZone(b, type) - servesZone(a, type))
     || (b.is_available - a.is_available)
     || (a.active_assignments_count - b.active_assignments_count))
+}
+
+const activeAssignments = computed(() => (order.value?.assignments || []).filter((a) => ['assigned', 'accepted', 'in_progress'].includes(a.status)))
+// Livreur en route avec le colis (livraison, retour) : l'issue doit d'abord être enregistrée
+const canUnassign = (a) => a.type === 'pickup' || !['out_for_delivery', 'returning'].includes(order.value.status)
+
+async function unassign(a) {
+  const reason = window.prompt(`Retirer ${a.courier_name} de ce ${a.type_label.toLowerCase()} ? Il sera prévenu.\nMotif (facultatif) :`, '')
+  if (reason === null) return
+  try {
+    const { data } = await http.post(`/orders/${order.value.id}/unassign`, { type: a.type, reason: reason.trim() || undefined })
+    order.value = data.data
+    toasts.success('Livreur retiré : la course attend un autre livreur.')
+    loadCouriers()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
 }
 
 async function assign(type) {

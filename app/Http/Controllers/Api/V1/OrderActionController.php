@@ -102,6 +102,23 @@ class OrderActionController extends Controller
         return $this->detail($request, $order);
     }
 
+    /**
+     * Retire le livreur d'une mission : la course attend un autre livreur.
+     */
+    public function unassign(Request $request, Order $order): OrderResource
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate([
+            'type' => ['required', Rule::enum(AssignmentType::class)],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ], [], ['type' => 'type de mission', 'reason' => 'motif']);
+
+        $this->dispatcher->unassign($request->user(), $order, AssignmentType::from($data['type']), $data['reason'] ?? null);
+
+        return $this->detail($request, $order);
+    }
+
     public function bulkAssign(Request $request): JsonResponse
     {
         Gate::authorize('dispatch', Order::class);
