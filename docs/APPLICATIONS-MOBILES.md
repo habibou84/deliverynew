@@ -59,6 +59,20 @@ Après avoir changé une icône du site : `python3 mobile/assets.py`.
 Les projets iOS sont prêts (`mobile/*/ios`). Leur compilation demande un Mac : elle se fera par un service
 en ligne (Codemagic ou GitHub Actions macOS) avec le compte Apple Developer de Jibiat SARL.
 
+## Applications installées depuis le navigateur (PWA)
+
+Les deux applications s'installent aussi depuis Chrome, chacune limitée à son espace :
+
+| Application | Lien d'installation | Portée (`scope`) | Connexion |
+|---|---|---|---|
+| Livreur | `/livreur` | `/livreur` | `/livreur/connexion` |
+| E-commerçant | `/marchand` (ou `/`) | `/marchand` | `/marchand/connexion` (même écran que `/`) |
+
+Les portées ne doivent jamais se recouvrir : une application dont la portée est `/` couvre aussi
+`/livreur`, et Chrome affiche alors « application déjà installée » sur le lien de l'autre application.
+Une application installée avant ce réglage (portée `/`) se met à jour d'elle-même sous quelques jours ;
+pour aller plus vite, la désinstaller puis la réinstaller.
+
 ## Étapes suivantes
 
 - Notifications natives (Firebase pour Android, Apple pour iOS) branchées sur les notifications existantes.
