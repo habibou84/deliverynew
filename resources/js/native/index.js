@@ -18,7 +18,7 @@ const APPS = {
   },
   ecommercant: {
     roles: ['merchant_owner', 'merchant_staff'],
-    login: '/',
+    login: '/marchand/connexion',
     home: '/marchand',
     paths: ['/marchand', '/inscription', '/mot-de-passe-oublie', '/suivi'],
     other: 'Cette application est réservée aux e-commerçants. Les livreurs utilisent l\'application « Jibiat Livreur ».',

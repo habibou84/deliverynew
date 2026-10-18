@@ -42,8 +42,9 @@ class PwaManifestController extends Controller
             'lang' => 'fr',
             // « app » : l'application ouverte se verrouille sur son espace (voir resources/js/native)
             'start_url' => "/{$app}?source=pwa&app={$app}",
-            // Livreur : limitée à son espace. E-commerçant : tout le site, sa connexion est sur « / »
-            'scope' => $app === 'livreur' ? '/livreur' : '/',
+            // Chaque application limitée à son espace : des portées qui se recouvrent (« / » contient
+            // /livreur) font croire à Chrome que l'autre application est déjà installée
+            'scope' => "/{$app}",
             'display' => 'standalone',
             'orientation' => 'portrait',
             'background_color' => '#f8fafc',
