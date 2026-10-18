@@ -63,6 +63,15 @@ class PreprodGateTest extends TestCase
         $this->postJson('http://preprod.jibiat.test/api/webhooks/whatsapp', [])->assertDontSee('Saisissez le code', false);
     }
 
+    public function test_apps_stay_installable_behind_the_code(): void
+    {
+        // Le navigateur télécharge le manifeste sans cookie : il doit le recevoir pour proposer l'installation
+        $this->get('http://express-ds.preprod.jibiat.test/manifest/livreur.webmanifest')
+            ->assertOk()->assertHeader('Content-Type', 'application/manifest+json');
+        // Les pages restent protégées
+        $this->get('http://express-ds.preprod.jibiat.test/livreur')->assertStatus(401);
+    }
+
     public function test_preproduction_is_never_indexed(): void
     {
         config(['platform.preprod_access_code' => '', 'platform.indexable' => false]);
