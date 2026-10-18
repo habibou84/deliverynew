@@ -32,18 +32,26 @@
     </div>
 
     <div v-if="error" class="rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm">{{ error }}</div>
+    <p v-if="fromMessage" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">
+      ✨ Course remplie d'après le message : vérifiez chaque étape avant de confirmer.
+    </p>
 
     <!-- 1. Destinataire -->
     <section v-show="step === 0" class="space-y-4">
+      <PasteMessage mobile @parsed="applyParsed" />
       <div class="relative">
         <label class="m-label" for="phone">Téléphone du client *</label>
-        <input id="phone" v-model="form.recipient_phone" class="m-input text-lg" inputmode="tel" autocomplete="off" placeholder="07 00 00 00 00" @input="searchRecipients">
+        <input id="phone" v-model="form.recipient_phone" class="m-input text-lg" inputmode="tel" autocomplete="off" placeholder="07 00 00 00 00" @input="searchRecipients" @blur="checkDuplicates">
         <div v-if="suggestions.length" class="absolute z-20 mt-1 w-full m-card overflow-hidden">
           <button v-for="r in suggestions" :key="r.id" type="button" class="w-full text-left px-4 py-3 active:bg-slate-50 border-b last:border-0" @click="pickRecipient(r)">
             <span class="font-medium">{{ r.name || 'Client' }}</span> · {{ r.phone }}
             <span v-if="r.failed_count" class="block text-xs text-red-600">{{ r.failed_count }} livraison(s) échouée(s)</span>
           </button>
         </div>
+      </div>
+      <div v-if="duplicates.length" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">
+        ⚠️ Vous avez déjà envoyé {{ duplicates.length > 1 ? `${duplicates.length} courses` : 'une course' }} à ce client ces dernières 24 h :
+        <RouterLink v-for="d in duplicates" :key="d.id" :to="`/marchand/courses/${d.id}`" class="underline ml-1">{{ d.tracking_code }} ({{ d.status_label }})</RouterLink>
       </div>
       <div>
         <label class="m-label" for="name">Nom du client</label>
@@ -59,6 +67,7 @@
     <section v-show="step === 1" class="space-y-4">
       <div>
         <label class="m-label" for="zone-search">Commune ou quartier *</label>
+        <p v-if="zoneChoices.length > 1" class="text-sm text-slate-600 mb-2">D'après le message : {{ zoneChoices.map((z) => z.full_name).join(' ou ') }} ?</p>
         <input id="zone-search" v-model="zoneSearch" class="m-input" placeholder="Rechercher…" autocomplete="off">
         <div class="grid grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
           <button
@@ -214,6 +223,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
+import PasteMessage from '../../components/PasteMessage.vue'
 import { useAuthStore } from '../../stores/auth'
 import { money, today } from '../../utils/format'
 import { siteOrigin } from '../../native'
@@ -294,7 +304,10 @@ watch(source, () => {
 
 const filteredZones = computed(() => {
   const term = zoneSearch.value.trim().toLowerCase()
-  return zones.value.filter((z) => !term || z.full_name.toLowerCase().includes(term))
+  const list = zones.value.filter((z) => !term || z.full_name.toLowerCase().includes(term))
+  if (term || !zoneChoices.value.length) return list
+  const first = zoneChoices.value.map((c) => c.id)
+  return [...list.filter((z) => first.includes(z.id)), ...list.filter((z) => !first.includes(z.id))]
 })
 const selectedZone = computed(() => zones.value.find((z) => z.id === form.delivery_zone_id))
 const zoneName = computed(() => selectedZone.value?.full_name || '—')
@@ -363,6 +376,44 @@ function pickRecipient(r) {
     delivery_landmark: r.landmark || '',
   })
   suggestions.value = []
+  checkDuplicates()
+}
+
+// Message collé (WhatsApp, SMS) : champs remplis, à vérifier étape par étape
+const fromMessage = ref(false)
+const zoneChoices = ref([])
+const duplicates = ref([])
+
+function applyParsed(data) {
+  const set = (key, value) => { if (value !== undefined && value !== null && value !== '') form[key] = value }
+  set('recipient_name', data.recipient_name)
+  set('recipient_phone', (data.recipient_phone || '').replace(/^\+225/, ''))
+  set('recipient_phone2', (data.recipient_phone2 || '').replace(/^\+225/, ''))
+  set('delivery_address', data.delivery_address)
+  set('delivery_landmark', data.delivery_landmark)
+  set('items_amount', data.items_amount)
+  set('fee_payer', data.fee_payer)
+  set('description', data.description)
+  set('merchant_note', data.merchant_note)
+  zoneChoices.value = data.zones || []
+  // Communes proposées en tête de liste
+  if (zoneChoices.value.length) {
+    form.delivery_zone_id = zoneChoices.value[0].id
+    zoneSearch.value = ''
+  }
+  fromMessage.value = true
+  checkDuplicates()
+}
+
+// Même client ces dernières 24 h : risque de doublon
+async function checkDuplicates() {
+  duplicates.value = []
+  if (form.recipient_phone.replace(/\D/g, '').length < 8) return
+  try {
+    duplicates.value = (await http.get('/orders/duplicates', { params: { recipient_phone: form.recipient_phone } })).data.data
+  } catch {
+    // Simple alerte : sans réponse, on n'affiche rien
+  }
 }
 
 function next() {
@@ -424,6 +475,9 @@ function reset() {
   Object.keys(picked).forEach((id) => delete picked[id])
   when.value = 'asap'
   step.value = 0
+  fromMessage.value = false
+  zoneChoices.value = []
+  duplicates.value = []
 }
 
 // Choix « qui paie la livraison » oublié : encadré en rouge jusqu'au choix

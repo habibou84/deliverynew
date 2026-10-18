@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OfflineSyncController;
 use App\Http\Controllers\Api\V1\OrderActionController;
 use App\Http\Controllers\Api\V1\OrderController;
+use App\Http\Controllers\Api\V1\OrderDraftController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\ParcelController;
@@ -276,6 +277,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Avant la ressource : « counts » n'est pas un identifiant de course
         Route::get('orders/counts', [OrderController::class, 'counts'])->name('orders.counts');
         Route::get('orders/pickup-groups', [OrderController::class, 'pickupGroups'])->name('orders.pickup-groups');
+        // Aide à la saisie : analyse d'un message collé, doublons du jour
+        Route::post('orders/parse-message', [OrderDraftController::class, 'parse'])->middleware('throttle:30,1')->name('orders.parse-message');
+        Route::get('orders/duplicates', [OrderDraftController::class, 'duplicates'])->name('orders.duplicates');
         Route::apiResource('orders', OrderController::class)->except('destroy');
         Route::post('orders/{order}/status', [OrderActionController::class, 'transition'])->name('orders.transition');
         Route::post('orders/{order}/assign', [OrderActionController::class, 'assign'])->name('orders.assign');
