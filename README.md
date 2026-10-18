@@ -577,6 +577,7 @@ php artisan app:demo-accounts --suspend                          # suspendre les
 (Nginx, PHP 8.3, PostgreSQL, Redis, Horizon, Reverb, cron, HTTPS) ; `deploy/update.sh` met à jour.
 
 **Préproduction** (`preprod.jibiat.com`, code d'accès, non indexée, testée avant chaque mise en production) : voir [docs/PREPRODUCTION.md](docs/PREPRODUCTION.md).
+Mise à jour automatique des serveurs depuis GitHub après chaque fusion : [docs/MISE-A-JOUR-AUTOMATIQUE.md](docs/MISE-A-JOUR-AUTOMATIQUE.md).
 
 Processus à superviser (Supervisor/systemd) : `php artisan horizon`, `php artisan reverb:start`, et le planificateur (`php artisan schedule:run` chaque minute).
 Les notifications, la diffusion temps réel et les messages WhatsApp/SMS passent par les files `default` et `messages` : sans Horizon (ou `queue:work --queue=default,messages`), ils ne partent pas.

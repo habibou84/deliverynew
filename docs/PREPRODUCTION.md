@@ -21,10 +21,15 @@ PR fusionnée ──► main ──► PRÉPRODUCTION : vos tests
                    └──(« Passe en production »)──► production ──► PRODUCTION : vos clients
 ```
 
-1. Une modification fusionnée arrive sur `main`. Mettez à jour la préproduction :
-   `bash /var/www/jibiat-preprod/deploy/update.sh`, puis testez.
+1. Une modification fusionnée arrive sur `main`. La préproduction se met à jour, puis vous testez.
 2. Tests concluants : dites « Passe en production ». Une PR de `main` vers `production` est ouverte puis fusionnée.
-3. Mettez à jour la production, comme d'habitude, avec le `deploy/update.sh` de son dossier.
+3. La production se met à jour.
+
+Avec la mise à jour automatique (`docs/MISE-A-JOUR-AUTOMATIQUE.md`), GitHub fait les étapes 1 et 3 seul, après des
+tests réussis. Sans elle, ou pour relancer à la main :
+
+- préproduction : `bash /var/www/jibiat-preprod/deploy/update.sh` ;
+- production : `bash /var/www/clients/client0/web2/web/livraison/deploy/update.sh`.
 
 Chaque `update.sh` met à jour l'installation du dossier où il se trouve.
 
