@@ -20,6 +20,8 @@ class AppearanceTest extends TestCase
     {
         parent::setUp();
         $this->buildWorld();
+        // Pages de l'application rendues sans l'interface compilée (absente en CI)
+        $this->withoutVite();
         Storage::fake('local');
         config(['app.branding_company' => $this->company->id]);
     }
