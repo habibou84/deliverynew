@@ -1,7 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { SPACES } from '../roles'
-import { allowedInApp, nativeApp, nativeCompany, nativeConfig } from '../native'
+import { allowedInApp, appLock, nativeApp, nativeCompany } from '../native'
+import { spaceForPath } from '../bootstrap/session'
 
 const shared = {
   dashboard: () => import('../views/shared/Dashboard.vue'),
@@ -152,12 +153,18 @@ function loginFor(to) {
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
 
-  // Application : d'abord le code de l'entreprise, puis seulement les pages de son espace
-  if (nativeApp) {
-    if (!nativeCompany()) return to.path === '/entreprise' ? true : '/entreprise'
-    if (!allowedInApp(to.path)) return auth.isAuthenticated ? nativeConfig.home : nativeConfig.login
-    if (to.path === '/' && nativeConfig.login !== '/') return auth.isAuthenticated ? nativeConfig.home : nativeConfig.login
+  // Application Android : d'abord le code de l'entreprise
+  if (nativeApp && !nativeCompany()) return to.path === '/entreprise' ? true : '/entreprise'
+
+  // Application (Android, ou installée depuis le navigateur) : seulement les pages de son espace
+  const lock = appLock()
+  if (lock) {
+    if (!allowedInApp(to.path) || (to.path === '/entreprise' && !nativeApp)) return auth.isAuthenticated ? lock.home : lock.login
+    if (to.path === '/' && lock.login !== '/') return auth.isAuthenticated ? lock.home : lock.login
   }
+
+  // Chaque espace a sa propre session (e-commerçant, livreur, équipe)
+  auth.useSpace(spaceForPath(to.path))
 
   if (to.meta.public) return true
 
