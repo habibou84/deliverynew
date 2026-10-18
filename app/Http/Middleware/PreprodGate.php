@@ -28,7 +28,8 @@ class PreprodGate
         $code = (string) config('platform.preprod_access_code');
         // Fichiers publics des applications installables : le navigateur télécharge le manifeste et les
         // icônes sans cookie, la page du code rendrait l'application impossible à installer
-        if ($code === '' || app()->isProduction() || $request->is('up', 'api/webhooks/*', ...self::APP_FILES)) {
+        // Reprise de l'ancienne application : envoyée par son serveur, protégée par la clé de reprise
+        if ($code === '' || app()->isProduction() || $request->is('up', 'api/webhooks/*', 'api/legacy-import', ...self::APP_FILES)) {
             return $next($request);
         }
 

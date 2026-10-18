@@ -370,14 +370,40 @@ de page, l'inscription des entreprises et celle des e-commerçants. L'éditeur s
 ## Reprise depuis l'ancienne application (Laravel 5.8)
 
 E-commerçants et livreurs d'une entreprise passent sur la plateforme avec **le même numéro et le même mot de passe**
-(hachages bcrypt repris tels quels). Aucun message n'est envoyé pendant l'import. Les commandes ne sont pas reprises.
+(hachages bcrypt repris tels quels). Aucun message n'est envoyé. Les commandes ne sont pas reprises, ni les comptes de
+l'équipe : recréez-les dans **Utilisateurs**.
 
-1. Créez l'entreprise sur la plateforme (console ou inscription) et ses **zones** : la commune de chaque e-commerçant
-   (« city ») sert à choisir sa zone de ramassage.
-2. Dans le phpMyAdmin de l'ancienne base de l'entreprise : cochez **clients**, **livreurs** et **users**, puis
+Ce qui est repris (une ancienne base = une entreprise) :
+
+| Ancienne base | Sur la plateforme |
+|---|---|
+| `clients` + son compte `users` de type `client` (`clients.user_id`, ou `users.client_id`) | e-commerçant + compte propriétaire ; la commune (`city`) choisit la zone de ramassage |
+| autres `users` de type `client` d'un même client (`users.client_id`) | comptes employés de la boutique |
+| `livreurs` + son compte `users` de type `livreur` | livreur (suspendu si `inactive` ou si la formule est pleine) |
+| `clients` ou `livreurs` rattachés à un compte d'un autre type (ex. la fiche client de l'administrateur) | non repris |
+| `users` d'un autre type (`usertype` ni `client` ni `livreur`) | non repris : l'équipe se recrée dans **Utilisateurs** |
+
+Avant tout : créez l'entreprise sur la plateforme et ses **zones**.
+
+### Avec le bouton de l'ancienne application (recommandé)
+
+1. Dans l'espace de l'entreprise : **Paramètres › Reprise de l'ancienne application** › télécharger
+   `JibiatMigrationController.php` (aussi dans `legacy/laravel-5.8/` du dépôt).
+2. Sur le serveur de l'ancienne application : copier le fichier dans `app/Http/Controllers/` et ajouter les deux routes
+   indiquées en tête du fichier dans `routes/web.php` (PHP 7.1 ou plus, extension curl, connexions HTTPS sortantes).
+3. Dans **Paramètres › Reprise**, créer une **clé de reprise** (valable 7 jours, affichée une fois).
+4. Dans l'ancienne application, connecté en administrateur : ouvrir `/jibiat-migration`, coller l'adresse de l'espace
+   (`https://entreprise.jibiat.com`) et la clé, **Simuler**, vérifier le compte rendu, puis **Envoyer**.
+   L'envoi se fait par paquets de 200 (e-commerçants, puis livreurs) vers `POST /api/legacy-import` ; le mot de passe
+   des comptes de l'équipe n'est jamais envoyé.
+5. Une fois terminé : désactiver la clé, retirer les deux routes et le fichier de l'ancienne application.
+
+### Avec un export SQL (sans accès au code de l'ancienne application)
+
+1. Dans le phpMyAdmin de l'ancienne base de l'entreprise : cochez **clients**, **livreurs** et **users**, puis
    *Exporter* > méthode *Personnalisée* > format **SQL**, *structure et données*. Envoyez le fichier sur le serveur
    (SFTP), hors du dossier web, par exemple dans `/root/imports/`.
-3. Simulation, puis import :
+2. Simulation, puis import :
 
    ```bash
    cd /var/www/clients/client0/web2/web/livraison
@@ -385,11 +411,12 @@ E-commerçants et livreurs d'une entreprise passent sur la plateforme avec **le 
    sudo -u "$(stat -c %U .env)" php artisan legacy:import rapide-express /root/imports/rapide.sql
    ```
 
-Le rapport liste les lignes non importées (numéro invalide, numéro déjà présent) et les points à vérifier : commune
-non reconnue (zone à choisir sur la fiche), compte sans mot de passe repris (« Mot de passe oublié », ou
-`php artisan user:password`), livreur suspendu faute de place dans la formule. Relancer l'import ne crée pas de
-doublon. Les livreurs « inactive » sont importés suspendus ; les comptes de l'équipe (administrateurs, opérateurs)
-ne sont pas repris : recréez-les dans **Utilisateurs**. Supprimez le fichier d'export après l'import.
+   Supprimez le fichier d'export après l'import.
+
+Dans les deux cas, le compte rendu liste les lignes non importées (numéro invalide, numéro déjà présent, fiche
+rattachée à un compte de l'équipe) et les points à vérifier : commune non reconnue (zone à choisir sur la fiche),
+compte sans mot de passe repris (« Mot de passe oublié », ou `php artisan user:password`), livreur suspendu faute de
+place dans la formule. Relancer ne crée pas de doublon : un numéro déjà présent est ignoré.
 
 ---
 

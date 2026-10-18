@@ -102,7 +102,7 @@ class LegacyImportTest extends TestCase
         $this->assertSame(UserStatus::Suspended, $aya->status);
         $this->assertSame('Commune : Marcory', $aya->courier->notes);
 
-        // Le compte administrateur de l'ancienne application n'est pas repris
+        // Compte de l'équipe (ni « client » ni « livreur ») : non repris, à recréer
         $this->assertFalse(User::where('phone', '+2250700000099')->exists());
     }
 
@@ -111,6 +111,7 @@ class LegacyImportTest extends TestCase
         $this->import()
             ->expectsTable(['', 'Nombre'], [
                 ['E-commerçants importés', 3],
+                ['Autres comptes des e-commerçants', 0],
                 ['Livreurs importés', '2 (dont 1 suspendu(s))'],
                 ['Lignes non importées', 2],
                 ['Points à vérifier', 4],
@@ -135,6 +136,7 @@ class LegacyImportTest extends TestCase
         $this->import()
             ->expectsTable(['', 'Nombre'], [
                 ['E-commerçants importés', 0],
+                ['Autres comptes des e-commerçants', 0],
                 ['Livreurs importés', 0],
                 ['Lignes non importées', 7],
                 ['Points à vérifier', 0],
