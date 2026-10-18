@@ -19,7 +19,7 @@
     </div>
   </div>
 
-  <div v-else class="space-y-5">
+  <div v-else class="space-y-5 pb-28">
     <!-- Progression -->
     <div>
       <div class="flex justify-between text-sm mb-2">
@@ -88,12 +88,8 @@
         </p>
       </div>
       <div>
-        <label class="m-label" for="address">Adresse</label>
-        <input id="address" v-model="form.delivery_address" class="m-input" placeholder="Rue, résidence, immeuble…">
-      </div>
-      <div>
-        <label class="m-label" for="landmark">Repère</label>
-        <input id="landmark" v-model="form.delivery_landmark" class="m-input" placeholder="Ex. : face à la pharmacie">
+        <label class="m-label" for="address">Adresse et repère</label>
+        <input id="address" v-model="form.delivery_address" class="m-input" placeholder="Ex. : Siporex, résidence Les Palmiers, face pharmacie">
       </div>
       <div>
         <p class="m-label">Livraison souhaitée</p>
@@ -243,7 +239,6 @@ const blank = () => ({
   recipient_phone2: '',
   delivery_zone_id: null,
   delivery_address: '',
-  delivery_landmark: '',
   delivery_scheduled_date: null,
   items_amount: 0,
   // Aucun choix par défaut : le marchand doit indiquer qui paie la livraison
@@ -372,12 +367,14 @@ function pickRecipient(r) {
     recipient_name: r.name || '',
     recipient_phone2: r.phone2 || '',
     delivery_zone_id: r.zone_id,
-    delivery_address: r.address || '',
-    delivery_landmark: r.landmark || '',
+    delivery_address: joinAddress(r.address, r.landmark),
   })
   suggestions.value = []
   checkDuplicates()
 }
+
+// Adresse et repère réunis en un seul champ
+const joinAddress = (...parts) => parts.map((p) => (p || '').trim()).filter(Boolean).join(', ')
 
 // Message collé (WhatsApp, SMS) : champs remplis, à vérifier étape par étape
 const fromMessage = ref(false)
@@ -389,8 +386,7 @@ function applyParsed(data) {
   set('recipient_name', data.recipient_name)
   set('recipient_phone', (data.recipient_phone || '').replace(/^\+225/, ''))
   set('recipient_phone2', (data.recipient_phone2 || '').replace(/^\+225/, ''))
-  set('delivery_address', data.delivery_address)
-  set('delivery_landmark', data.delivery_landmark)
+  set('delivery_address', joinAddress(data.delivery_address, data.delivery_landmark))
   set('items_amount', data.items_amount)
   set('fee_payer', data.fee_payer)
   set('description', data.description)
