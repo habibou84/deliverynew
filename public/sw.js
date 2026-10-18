@@ -2,12 +2,15 @@
  * Service worker des applications e-commerçant et livreur.
  * - Pages : réseau d'abord, sinon la dernière version de l'application (hors ligne).
  * - Fichiers compilés (/build, noms avec empreinte) : cache d'abord.
- * - Icônes et manifestes : cache puis mise à jour en arrière-plan.
+ * - Icônes : cache puis mise à jour en arrière-plan.
+ * - Manifestes : réseau d'abord (une version gardée en cache ferait installer l'application
+ *   avec d'anciens réglages, ex. une portée qui recouvre l'autre application), cache hors ligne.
  * - API, temps réel : jamais mis en cache (données toujours fraîches).
  */
 // Changer la version vide les anciens caches (v2 : icônes déplacées dans /app-icons, /icons étant réservé par Apache ;
-// v3 : seule l'application est gardée pour le hors ligne, plus la documentation de l'API)
-const VERSION = 'v3'
+// v3 : seule l'application est gardée pour le hors ligne, plus la documentation de l'API ;
+// v4 : manifestes en réseau d'abord, les anciens manifestes gardés en cache sont effacés)
+const VERSION = 'v4'
 const SHELL = `shell-${VERSION}`
 const ASSETS = `assets-${VERSION}`
 const SHELL_KEY = '/__app-shell'
@@ -63,7 +66,21 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  if (url.pathname.startsWith('/app-icons/') || url.pathname.startsWith('/manifest/')) {
+  if (url.pathname.startsWith('/manifest/')) {
+    event.respondWith((async () => {
+      const cache = await caches.open(ASSETS)
+      try {
+        const response = await fetch(request)
+        if (response.ok) cache.put(request, response.clone())
+        return response
+      } catch {
+        return (await cache.match(request)) || Response.error()
+      }
+    })())
+    return
+  }
+
+  if (url.pathname.startsWith('/app-icons/')) {
     event.respondWith((async () => {
       const cache = await caches.open(ASSETS)
       const cached = await cache.match(request)
