@@ -4,6 +4,7 @@ namespace App\Notifications\Channels;
 
 use App\Models\PushSubscription;
 use App\Services\Push\WebPush;
+use App\Support\Appearance;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -20,6 +21,9 @@ class WebPushChannel
         }
 
         $payload = $notification->toWebPush($notifiable);
+        // Icône de l'application de l'entreprise (Paramètres › Apparence)
+        $app = str_starts_with((string) ($payload['url'] ?? ''), '/marchand') ? 'marchand' : 'livreur';
+        $payload['icon'] ??= Appearance::iconUrl($notifiable->company ?? null, $app, '192');
 
         PushSubscription::where('user_id', $notifiable->getKey())->get()
             ->each(fn (PushSubscription $subscription) => $this->push->send($subscription, $payload));

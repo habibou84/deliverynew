@@ -58,6 +58,8 @@ class Branding
             'logo_url' => self::logoUrl($company),
             // Inscription en ligne des e-commerçants ouverte
             'signup_open' => (bool) $company?->merchant_signup,
+            // Couleurs des espaces, noms et icônes des applications
+            'appearance' => Appearance::for($company),
         ];
     }
 }

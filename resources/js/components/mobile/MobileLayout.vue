@@ -6,6 +6,8 @@
         <button v-if="route.meta.back" class="h-11 w-11 grid place-items-center rounded-full active:bg-white/15" aria-label="Retour" @click="goBack">
           <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7" /></svg>
         </button>
+        <!-- Logo de l'entreprise (Paramètres › Logo) sur les pages principales -->
+        <img v-if="!route.meta.back && branding.logo_url" :src="branding.logo_url" alt="" class="ml-1 h-8 w-8 shrink-0 rounded-lg bg-white object-contain p-0.5">
         <h1 :class="['flex-1 truncate text-lg font-semibold', route.meta.back ? '' : 'pl-2']">{{ title }}</h1>
         <RouterLink :to="`${base}/notifications`" class="relative h-11 w-11 grid place-items-center rounded-full active:bg-white/15" aria-label="Notifications">
           <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 003.4 0" stroke-linecap="round" stroke-linejoin="round" /></svg>
@@ -58,6 +60,7 @@
 
 <script setup>
 import { computed, onBeforeUnmount, watchEffect } from 'vue'
+import { branding } from '../../composables/useBranding'
 import { useRoute, useRouter } from 'vue-router'
 import Toasts from '../Toasts.vue'
 import { useNotificationStore } from '../../stores/notifications'

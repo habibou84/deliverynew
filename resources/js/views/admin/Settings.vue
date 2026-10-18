@@ -22,8 +22,11 @@
           <p class="text-xs text-gray-500">PNG, JPEG ou WebP, 2 Mo au plus. Fond transparent conseillé (PNG).</p>
         </div>
       </div>
-      <p class="text-xs text-gray-500">Affiché sur la page d'accueil des e-commerçants (adresse du site), les pages de connexion et l'en-tête du back-office.</p>
+      <p class="text-xs text-gray-500">Affiché sur la page d'accueil des e-commerçants (adresse du site), les pages de connexion, l'en-tête de chaque espace et l'icône des applications.</p>
     </section>
+
+    <!-- Couleurs des espaces, noms et icônes des applications -->
+    <AppearanceSettings v-if="form" />
 
     <form v-if="form" class="card p-4 space-y-4" @submit.prevent="save">
       <div class="grid sm:grid-cols-2 gap-3">
@@ -130,6 +133,7 @@
 import { onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import CustomDomainSettings from '../../components/CustomDomainSettings.vue'
+import AppearanceSettings from '../../components/AppearanceSettings.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'

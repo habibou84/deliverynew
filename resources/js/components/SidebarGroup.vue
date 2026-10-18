@@ -2,7 +2,7 @@
   <div class="pt-3">
     <button
       type="button"
-      class="w-full flex items-center gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-slate-400 hover:text-white"
+      class="w-full flex items-center gap-2 px-2 py-1 text-xs font-semibold uppercase tracking-wider text-white/60 hover:text-white"
       :aria-expanded="open"
       @click.stop="toggle"
     >

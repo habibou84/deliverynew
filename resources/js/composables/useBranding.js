@@ -29,6 +29,19 @@ export function loadBranding(force = false) {
   return loading
 }
 
+// Couleurs par défaut des espaces (sans réglage dans Paramètres › Apparence)
+export const DEFAULT_COLORS = { marchand: '#047857', livreur: '#1d4ed8', admin: '#0f172a' }
+
+/** Couleur choisie par l'entreprise pour un espace (marchand, livreur, admin) */
+export function spaceColor(space) {
+  return branding.appearance?.spaces?.[space]?.color || DEFAULT_COLORS[space]
+}
+
+/** Nom de l'application d'un espace (affiché sous l'icône du téléphone) */
+export function spaceAppName(space, fallback) {
+  return branding.appearance?.spaces?.[space]?.app_name || fallback
+}
+
 // Numéro au format wa.me (chiffres seulement, indicatif compris)
 export function whatsappLink(phone, text = '') {
   const digits = String(phone || '').replace(/\D/g, '')

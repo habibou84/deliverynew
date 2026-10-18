@@ -2,11 +2,12 @@
   <div class="flex h-screen bg-gray-100">
     <aside
       :class="[
-        'fixed md:relative z-40 w-64 h-full bg-slate-900 text-white transition-all duration-300 flex flex-col print:hidden',
+        'fixed md:relative z-40 w-64 h-full text-white transition-all duration-300 flex flex-col print:hidden',
         sidebarOpen ? 'left-0' : '-left-64 md:left-0'
       ]"
+      :style="{ backgroundColor: spaceColor('admin') }"
     >
-      <div class="p-4 text-lg font-bold border-b border-slate-700 flex items-center gap-2 min-w-0">
+      <div class="p-4 text-lg font-bold border-b border-white/15 flex items-center gap-2 min-w-0">
         <img v-if="branding.logo_url" :src="branding.logo_url" alt="" class="h-8 w-8 object-contain shrink-0 rounded bg-white p-0.5">
         <span v-else aria-hidden="true">🚚</span>
         <span class="truncate">{{ auth.user?.company?.name || 'Administration' }}</span>
@@ -36,7 +37,7 @@
     <div class="flex-1 flex flex-col min-w-0">
       <header class="flex items-center justify-between bg-white shadow px-4 py-2 gap-2 print:hidden">
         <div class="flex items-center gap-2">
-          <button class="md:hidden p-2 rounded bg-slate-900 text-white" aria-label="Menu" @click="sidebarOpen = true">☰</button>
+          <button class="md:hidden p-2 rounded bg-[var(--admin-color,#0f172a)] text-white" aria-label="Menu" @click="sidebarOpen = true">☰</button>
           <form class="hidden md:block" @submit.prevent="quickSearch">
             <input v-model="search" type="search" placeholder="Code, téléphone…" class="input w-64" aria-label="Rechercher une course">
           </form>
@@ -77,7 +78,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useRealtime } from '../composables/useRealtime'
@@ -89,7 +90,7 @@ import AlertSoundToggle from '../components/AlertSoundToggle.vue'
 import { useFieldReportStore } from '../stores/fieldReports'
 import { useHeldParcelStore } from '../stores/heldParcels'
 import { useDispatchCountStore } from '../stores/dispatchCounts'
-import { branding, loadBranding } from '../composables/useBranding'
+import { branding, loadBranding, spaceColor } from '../composables/useBranding'
 
 const sidebarOpen = ref(false)
 const search = ref('')
@@ -98,6 +99,10 @@ const router = useRouter()
 
 useRealtime()
 loadBranding()
+
+// Boutons principaux aux couleurs de l'espace équipe (Paramètres › Apparence)
+watchEffect(() => document.documentElement.style.setProperty('--admin-color', spaceColor('admin')))
+onBeforeUnmount(() => document.documentElement.style.removeProperty('--admin-color'))
 
 // Remontées terrain à traiter : badge du menu, rafraîchi chaque minute
 // Colis restés trop longtemps chez un livreur : badge du menu

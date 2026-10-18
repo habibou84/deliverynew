@@ -1,8 +1,8 @@
 <template>
   <RouterLink
     :to="to"
-    class="flex items-center gap-2 p-2 rounded hover:bg-slate-700"
-    exact-active-class="bg-slate-700"
+    class="flex items-center gap-2 p-2 rounded hover:bg-white/15"
+    exact-active-class="bg-white/20"
   >
     <span>{{ icon }}</span>
     <span class="flex-1">{{ label }}</span>
