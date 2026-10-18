@@ -26,7 +26,10 @@ class PwaManifestTest extends TestCase
 
         $this->get('/manifest/marchand.webmanifest')
             ->assertOk()
-            ->assertJsonPath('id', '/marchand');
+            ->assertJsonPath('id', '/marchand')
+            ->assertJsonPath('start_url', '/marchand?source=pwa&app=marchand')
+            // Portées séparées : sinon Chrome dit l'autre application « déjà installée »
+            ->assertJsonPath('scope', '/marchand');
     }
 
     public function test_manifest_icons_exist_outside_the_apache_icons_alias(): void

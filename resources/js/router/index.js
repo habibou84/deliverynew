@@ -26,6 +26,9 @@ const routes = [
   // Une fois connecté, chacun est renvoyé vers son espace, quelle que soit la page utilisée.
   { path: '/', name: 'home', component: () => import('../views/auth/MerchantHome.vue'), meta: { guest: true } },
   { path: '/admin/connexion', name: 'login-staff', component: () => import('../views/auth/StaffLogin.vue'), meta: { guest: true } },
+  // Application e-commerçant installée : sa connexion reste dans son espace (/marchand), sinon
+  // Chrome la confond avec l'application livreur (une application couvrant « / » couvre aussi /livreur)
+  { path: '/marchand/connexion', name: 'login-merchant-app', component: () => import('../views/auth/MerchantHome.vue'), meta: { guest: true } },
   { path: '/livreur/connexion', name: 'login-courier', component: () => import('../views/auth/CourierLogin.vue'), meta: { guest: true } },
   // Inscription des e-commerçants et mot de passe oublié (numéro vérifié par WhatsApp ou SMS)
   { path: '/inscription', name: 'signup', component: () => import('../views/auth/Signup.vue'), meta: { guest: true } },
@@ -146,7 +149,7 @@ const router = createRouter({
 
 // Page de connexion de l'espace demandé, avec retour à la page voulue après connexion
 function loginFor(to) {
-  const login = to.path.startsWith('/admin') || to.path.startsWith('/console') ? '/admin/connexion' : to.path.startsWith('/livreur') ? '/livreur/connexion' : '/'
+  const login = appLock()?.login || (to.path.startsWith('/admin') || to.path.startsWith('/console') ? '/admin/connexion' : to.path.startsWith('/livreur') ? '/livreur/connexion' : '/')
   return { path: login, query: to.path !== login && !['/admin', '/livreur', '/marchand', '/console'].includes(to.path) ? { redirect: to.fullPath } : {} }
 }
 
