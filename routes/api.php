@@ -274,6 +274,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/bulk-confirm', [OrderActionController::class, 'bulkConfirm'])->name('orders.bulk-confirm');
         // Avant la ressource : « counts » n'est pas un identifiant de course
         Route::get('orders/counts', [OrderController::class, 'counts'])->name('orders.counts');
+        Route::get('orders/pickup-groups', [OrderController::class, 'pickupGroups'])->name('orders.pickup-groups');
         Route::apiResource('orders', OrderController::class)->except('destroy');
         Route::post('orders/{order}/status', [OrderActionController::class, 'transition'])->name('orders.transition');
         Route::post('orders/{order}/assign', [OrderActionController::class, 'assign'])->name('orders.assign');

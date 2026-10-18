@@ -141,3 +141,24 @@ export function startOfflineSync(onSynced = () => {}) {
   setInterval(() => state.pending.length && navigator.onLine && run(), RETRY_MS)
   run()
 }
+
+/**
+ * Changement de statut d'une course. Sans réseau (mode hors connexion de l'entreprise), l'action est
+ * gardée sur le téléphone et renvoie { offline: true } ; elle partira au retour de la connexion.
+ * @param {{ id: number, tracking_code?: string }} order
+ */
+export async function sendStatus(order, payload, offlineEnabled) {
+  const keep = () => {
+    enqueue({ kind: 'status', order_id: order.id, tracking_code: order.tracking_code, payload })
+    return { offline: true }
+  }
+  // Une action déjà en attente pour cette course : la suivante passe après elle
+  if (offlineEnabled && (!navigator.onLine || hasPendingFor(order.id))) return keep()
+  try {
+    const { data } = await http.post(`/orders/${order.id}/status`, payload)
+    return { data, offline: false }
+  } catch (e) {
+    if (offlineEnabled && isNetworkError(e)) return keep()
+    throw e
+  }
+}

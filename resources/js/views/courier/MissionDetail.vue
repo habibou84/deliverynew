@@ -218,7 +218,7 @@ import { useAuthStore } from '../../stores/auth'
 import { cachedGet } from '../../composables/useCachedApi'
 import { useToastStore } from '../../stores/toasts'
 import { currentPosition } from '../../composables/useGeolocation'
-import { enqueue, hasPendingFor, isNetworkError, withPending } from '../../composables/useOfflineQueue'
+import { enqueue, isNetworkError, sendStatus, withPending } from '../../composables/useOfflineQueue'
 import { pwa } from '../../composables/usePwa'
 import { date, DELIVERY_PAYMENT_METHODS, mapsLink, money, PAYMENT_METHODS, telLink, today, whatsappLink } from '../../utils/format'
 
@@ -328,27 +328,15 @@ async function load() {
   if (!mission.value) router.replace('/livreur')
 }
 
-/**
- * Envoie un changement de statut. Sans réseau (mode hors connexion de l'entreprise), l'action est
- * gardée sur le téléphone et renvoie { offline: true } ; elle partira au retour de la connexion.
- */
 async function post(status, extra = {}) {
   const position = await currentPosition()
-  const payload = { status, ...extra, ...(position || {}) }
-  // Une action déjà en attente pour cette course : la suivante passe après elle
-  if (offlineEnabled.value && (!navigator.onLine || hasPendingFor(order.value.id))) return keep('status', payload)
-  try {
-    const { data } = await http.post(`/orders/${order.value.id}/status`, payload)
-    return { data, offline: false }
-  } catch (e) {
-    if (offlineEnabled.value && isNetworkError(e)) return keep('status', payload)
-    throw e
-  }
+  const result = await sendStatus(order.value, { status, ...extra, ...(position || {}) }, offlineEnabled.value)
+  if (result.offline) mission.value = withPending([mission.value])[0]
+  return result
 }
 
 function keep(kind, payload) {
   enqueue({ kind, order_id: order.value.id, tracking_code: order.value.tracking_code, payload })
-  if (kind === 'status') mission.value = withPending([mission.value])[0]
   return { offline: true }
 }
 
