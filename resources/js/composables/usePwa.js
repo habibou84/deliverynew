@@ -1,5 +1,7 @@
 import { reactive } from 'vue'
 import { nativeApp } from '../native'
+import { spaceForPath } from '../bootstrap/session'
+import { branding, spaceColor } from './useBranding'
 
 // État partagé : installation de l'application et connexion réseau
 export const pwa = reactive({
@@ -40,15 +42,14 @@ export async function promptInstall() {
   return outcome === 'accepted'
 }
 
-const THEMES = { marchand: '#047857', livreur: '#1d4ed8' }
-
 /**
- * Adapte le manifeste et la couleur de la barre du téléphone à l'espace affiché
- * (navigation interne de l'application, sans rechargement de page).
+ * Adapte le manifeste, l'icône et la couleur de la barre du téléphone à l'espace affiché
+ * (navigation interne de l'application, sans rechargement de page), avec la couleur choisie
+ * par l'entreprise (Paramètres › Apparence).
  */
 export function applyAppTheme(path) {
-  const app = path.startsWith('/livreur') ? 'livreur' : path.startsWith('/marchand') ? 'marchand' : null
-  if (!app) return
+  const space = spaceForPath(path)
+  if (!space) return
 
   const set = (selector, create, attr, value) => {
     let el = document.head.querySelector(selector)
@@ -60,7 +61,10 @@ export function applyAppTheme(path) {
   }
   const link = (rel) => () => Object.assign(document.createElement('link'), { rel })
 
-  set('link[rel="manifest"]', link('manifest'), 'href', `/manifest/${app}.webmanifest`)
-  set('link[rel="apple-touch-icon"]', link('apple-touch-icon'), 'href', `/app-icons/${app}-apple-180.png`)
-  set('meta[name="theme-color"]', () => Object.assign(document.createElement('meta'), { name: 'theme-color' }), 'content', THEMES[app])
+  set('meta[name="theme-color"]', () => Object.assign(document.createElement('meta'), { name: 'theme-color' }), 'content', spaceColor(space))
+  // L'espace équipe ne s'installe pas
+  if (space === 'admin') return
+  const icon = branding.appearance?.spaces?.[space]?.icon_url || `/app-icons/${space}-192.png`
+  set('link[rel="manifest"]', link('manifest'), 'href', `/manifest/${space}.webmanifest`)
+  set('link[rel="apple-touch-icon"]', link('apple-touch-icon'), 'href', icon.replace('192.png', 'apple-180.png'))
 }
