@@ -38,7 +38,7 @@
 
     <!-- 1. Destinataire -->
     <section v-show="step === 0" class="space-y-4">
-      <PasteMessage mobile @parsed="applyParsed" />
+      <PasteMessage mobile :start-open="route.query.coller === '1'" @parsed="applyParsed" />
       <div class="relative">
         <label class="m-label" for="phone">Téléphone du client *</label>
         <input id="phone" v-model="form.recipient_phone" class="m-input text-lg" inputmode="tel" autocomplete="off" placeholder="07 00 00 00 00" @input="searchRecipients" @blur="checkDuplicates">
@@ -217,12 +217,15 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import PasteMessage from '../../components/PasteMessage.vue'
 import { useAuthStore } from '../../stores/auth'
 import { money, today } from '../../utils/format'
 import { siteOrigin } from '../../native'
+
+const route = useRoute()
 
 const steps = [
   { title: 'À qui livrer ?' },

@@ -1,17 +1,19 @@
 <template>
   <div class="space-y-4">
     <section v-if="summary" class="rounded-2xl p-5 text-white" :style="{ backgroundColor: 'var(--app-color)' }">
-      <p class="text-sm opacity-80">Disponible pour le prochain paiement</p>
-      <p class="text-4xl font-bold mt-1">{{ money(summary.available) }}</p>
+      <p class="text-sm opacity-80">{{ summary.available < 0 ? 'Vous devez à l\'agence' : 'On vous doit' }}</p>
+      <p class="text-4xl font-bold mt-1">{{ money(Math.abs(summary.available)) }}</p>
+      <p class="text-sm opacity-80">{{ summary.available < 0 ? 'À régler lors de votre prochain point avec l\'agence' : 'Versé lors de votre prochain paiement' }}</p>
       <div class="grid grid-cols-2 gap-3 mt-4 text-sm">
         <div class="rounded-xl bg-white/15 p-3">
-          <p class="opacity-80">En attente</p>
+          <p class="opacity-80">Encore chez les livreurs</p>
           <p class="font-semibold text-lg">{{ money(summary.pending_cash) }}</p>
-          <p class="text-xs opacity-80">argent encore chez le livreur</p>
+          <p class="text-xs opacity-80">encaissé, pas encore remis à l'agence</p>
         </div>
         <div class="rounded-xl bg-white/15 p-3">
-          <p class="opacity-80">Total à recevoir</p>
+          <p class="opacity-80">En tout, à venir</p>
           <p class="font-semibold text-lg">{{ money(summary.unpaid_total) }}</p>
+          <p class="text-xs opacity-80">les deux ensemble</p>
         </div>
       </div>
     </section>
@@ -60,7 +62,7 @@ import { date, dateTime, money, signedClass } from '../../utils/format'
 const auth = useAuthStore()
 const tabs = [
   { value: 'payouts', label: 'Mes paiements' },
-  { value: 'entries', label: 'Opérations' },
+  { value: 'entries', label: 'Détail des mouvements' },
 ]
 const tab = ref('payouts')
 const summary = ref(null)

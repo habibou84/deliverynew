@@ -1,26 +1,41 @@
 <template>
-  <RouterLink :to="to" class="block m-card p-4 active:bg-slate-50">
-    <div class="flex items-start justify-between gap-3">
-      <div class="min-w-0">
+  <div class="m-card overflow-hidden">
+    <RouterLink :to="to" class="flex items-center gap-3 p-4 active:bg-slate-50">
+      <!-- Où en est la course, en une phrase -->
+      <span :class="['h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl', state.bg]" aria-hidden="true">{{ state.icon }}</span>
+      <div class="min-w-0 flex-1">
         <p class="font-semibold truncate">{{ order.recipient.name || order.recipient.phone }}</p>
-        <p class="text-sm text-slate-500 truncate">{{ order.delivery.zone_name }}<span v-if="order.delivery.address"> · {{ order.delivery.address }}</span></p>
+        <p class="text-sm text-slate-500 truncate">{{ place }}</p>
+        <p :class="['text-sm font-medium truncate', state.color]">{{ state.text }}</p>
       </div>
-      <StatusBadge :status="order.status" :label="order.status_label" />
+      <div class="shrink-0 text-right">
+        <p class="font-semibold">{{ money(order.amounts.cod_amount) }}</p>
+        <p class="font-mono text-[11px] text-slate-400">{{ order.tracking_code }}</p>
+      </div>
+    </RouterLink>
+    <!-- Actions directes (ex. appeler le client d'une course à régler) -->
+    <div v-if="$slots.actions" class="flex gap-2 px-4 pb-4">
+      <slot name="actions" />
     </div>
-    <div class="flex items-center justify-between mt-3 text-sm">
-      <span class="font-mono text-xs text-slate-400">{{ order.tracking_code }}</span>
-      <span class="font-semibold">{{ money(order.amounts.cod_amount) }}</span>
-    </div>
-    <p v-if="order.last_incident && ['delivery_failed', 'rescheduled'].includes(order.status)" class="mt-2 text-sm text-red-600">⚠️ {{ order.last_incident.label }}</p>
-  </RouterLink>
+  </div>
 </template>
 
 <script setup>
-import StatusBadge from '../StatusBadge.vue'
+import { computed } from 'vue'
 import { money } from '../../utils/format'
+import { merchantStatus } from '../../utils/merchantStatus'
 
-defineProps({
+const props = defineProps({
   order: { type: Object, required: true },
   to: { type: String, required: true },
+})
+
+const state = computed(() => merchantStatus(props.order))
+
+// « Adjamé, près du marché » plutôt que « Adjamé · Adjamé, près du marché »
+const place = computed(() => {
+  const { zone_name: zone, address } = props.order.delivery
+  if (!address) return zone
+  return zone && !address.toLowerCase().startsWith(zone.toLowerCase()) ? `${zone} · ${address}` : address
 })
 </script>

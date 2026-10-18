@@ -13,6 +13,8 @@
 
     <InstallBanner :app="app" />
 
+    <!-- E-commerçant : sa boutique, ses notifications, puis les outils avancés (usage rare) -->
+    <h2 v-if="auth.user?.merchant_id" class="px-1 text-sm font-semibold text-slate-500 uppercase tracking-wide">Ma boutique</h2>
     <RouterLink v-if="auth.user?.merchant_id && auth.can('integrations.manage') && auth.hasFeature('shop')" to="/marchand/boutique" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
       <span class="font-medium">🛍️ Ma boutique en ligne<span class="block text-sm font-normal text-slate-500">Un lien de commande à partager sur WhatsApp et les réseaux</span></span><span class="text-slate-400">›</span>
     </RouterLink>
@@ -26,17 +28,22 @@
     <RouterLink v-if="auth.user?.merchant_id && auth.hasFeature('stock')" to="/marchand/stock" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
       <span class="font-medium">📦 Mon stock</span><span class="text-slate-400">›</span>
     </RouterLink>
-    <RouterLink v-if="auth.user?.merchant_id && auth.can('orders.create')" to="/marchand/courses/import" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
-      <span class="font-medium">📥 Importer des courses (Excel, CSV)</span><span class="text-slate-400">›</span>
-    </RouterLink>
-    <RouterLink v-if="auth.user?.merchant_id && auth.can('integrations.manage') && auth.hasFeature('api')" to="/marchand/integrations" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
-      <span class="font-medium">🔌 Intégrations (API, webhooks)</span><span class="text-slate-400">›</span>
-    </RouterLink>
 
     <PushSettings v-if="app === 'livreur'" />
 
     <WhatsAppPreferences v-if="auth.user?.merchant_id" />
 
+    <template v-if="auth.user?.merchant_id && (auth.can('orders.create') || (auth.can('integrations.manage') && auth.hasFeature('api')))">
+      <h2 class="px-1 pt-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Outils avancés</h2>
+      <RouterLink v-if="auth.user?.merchant_id && auth.can('orders.create')" to="/marchand/courses/import" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
+        <span class="font-medium">📥 Importer des courses (Excel, CSV)</span><span class="text-slate-400">›</span>
+      </RouterLink>
+      <RouterLink v-if="auth.user?.merchant_id && auth.can('integrations.manage') && auth.hasFeature('api')" to="/marchand/integrations" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
+        <span class="font-medium">🔌 Intégrations (API, webhooks)</span><span class="text-slate-400">›</span>
+      </RouterLink>
+    </template>
+
+    <h2 class="px-1 pt-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Aide</h2>
     <div class="m-card divide-y">
       <div class="p-4 flex justify-between text-sm"><span class="text-slate-500">Entreprise de livraison</span><span class="font-medium">{{ auth.user?.company?.name }}</span></div>
       <div class="p-4 flex justify-between text-sm"><span class="text-slate-500">Rôle</span><span class="font-medium">{{ auth.user?.role_label }}</span></div>
