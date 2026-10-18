@@ -49,6 +49,9 @@ class Company extends Model
         'trial_ends_at',
     ];
 
+    /** Empreinte de la clé de reprise : jamais renvoyée */
+    protected $hidden = ['legacy_import_key_hash'];
+
     protected function casts(): array
     {
         return [
@@ -73,6 +76,8 @@ class Company extends Model
             'delivery_assign_alert_minutes' => 'integer',
             'status' => CompanyStatus::class,
             'trial_ends_at' => 'date:Y-m-d',
+            'legacy_import_key_expires_at' => 'datetime',
+            'legacy_import_used_at' => 'datetime',
         ];
     }
 

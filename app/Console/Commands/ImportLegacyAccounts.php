@@ -49,6 +49,7 @@ class ImportLegacyAccounts extends Command
         $c = $report['counts'];
         $this->table(['', 'Nombre'], [
             ['E-commerçants importés', $c['merchants']],
+            ['Autres comptes des e-commerçants', $c['merchant_users']],
             ['Livreurs importés', $c['couriers'].($c['couriers_suspended'] ? " (dont {$c['couriers_suspended']} suspendu(s))" : '')],
             ['Lignes non importées', count($report['skipped'])],
             ['Points à vérifier', count($report['warnings'])],

@@ -126,6 +126,9 @@
       <p v-if="error" class="field-error">{{ error }}</p>
       <button class="btn-primary" :disabled="saving">Enregistrer</button>
     </form>
+
+    <!-- Reprise des comptes de l'ancienne application -->
+    <LegacyImportSettings v-if="form" />
   </div>
 </template>
 
@@ -134,6 +137,7 @@ import { onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import CustomDomainSettings from '../../components/CustomDomainSettings.vue'
 import AppearanceSettings from '../../components/AppearanceSettings.vue'
+import LegacyImportSettings from '../../components/LegacyImportSettings.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
