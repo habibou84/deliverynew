@@ -25,7 +25,7 @@
             <div v-if="s.app" class="flex flex-col items-center ml-auto">
               <img v-if="iconPreview(s.key)" :src="iconPreview(s.key)" alt="" class="h-11 w-11 rounded-xl object-cover shadow">
               <span v-else class="h-11 w-11 rounded-xl grid place-items-center text-white shadow" :style="{ backgroundColor: colorOf(s.key) }">{{ s.emoji }}</span>
-              <span class="text-[10px] text-slate-700 mt-0.5 max-w-16 truncate">{{ look.spaces[s.key].app_name || s.defaultName }}</span>
+              <span class="text-[10px] text-slate-700 mt-0.5 max-w-16 truncate">{{ look.spaces[s.key].app_name || look.spaces[s.key].default_app_name || s.defaultName }}</span>
             </div>
           </div>
         </div>
@@ -49,7 +49,7 @@
         <template v-if="s.app">
           <div>
             <label class="label" :for="`app-name-${s.key}`">Nom sous l'icône du téléphone</label>
-            <input :id="`app-name-${s.key}`" v-model="look.spaces[s.key].app_name" class="input" maxlength="30" :placeholder="s.defaultName">
+            <input :id="`app-name-${s.key}`" v-model="look.spaces[s.key].app_name" class="input" maxlength="30" :placeholder="look.spaces[s.key].default_app_name || s.defaultName">
           </div>
           <fieldset :disabled="look.same && s.key !== 'marchand'" class="space-y-1">
             <p class="label">Icône de l'application</p>
@@ -85,7 +85,7 @@ import { useToastStore } from '../stores/toasts'
  * Paramètres › Apparence : couleur de chaque espace, nom et icône des applications installables.
  */
 const SPACES = [
-  { key: 'marchand', label: 'Espace e-commerçant', preview: 'Mes livraisons', app: true, defaultName: 'Mes livraisons', emoji: '📦' },
+  { key: 'marchand', label: 'Espace e-commerçant', preview: 'Mes livraisons', app: true, defaultName: 'Nom de l\'entreprise', emoji: '📦' },
   { key: 'livreur', label: 'Espace livreur', preview: 'Mes missions', app: true, defaultName: 'Livreur', emoji: '🛵' },
   { key: 'admin', label: 'Espace équipe', preview: 'Administration', app: false },
 ]
@@ -108,6 +108,12 @@ function tooLight(hex) {
 }
 
 function apply(data) {
+  // Champ vide quand le nom par défaut s'applique (nom de l'entreprise pour l'e-commerçant) : il suit
+  // alors un changement de nom de l'entreprise au lieu d'être enregistré tel quel
+  for (const s of SPACES.filter((x) => x.app)) {
+    const space = data.spaces[s.key]
+    if (space.app_name === space.default_app_name) space.app_name = ''
+  }
   look.value = data
 }
 

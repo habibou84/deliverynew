@@ -49,7 +49,8 @@ class PlatformTenancyTest extends TestCase
         $this->getJson($this->at('eclair', '/api/v1/branding'))->assertOk()->assertJsonPath('data.name', 'Éclair Livraison');
 
         // Application installable au nom de l'entreprise
-        $this->get($this->at('eclair', '/manifest/marchand.webmanifest'))->assertJsonPath('name', 'Éclair Livraison · E-commerçant');
+        $this->get($this->at('eclair', '/manifest/marchand.webmanifest'))->assertJsonPath('name', 'Éclair Livraison')
+            ->assertJsonPath('short_name', 'Éclair Livraison');
 
         // Inscription des marchands : zones de l'entreprise de l'adresse
         $zones = collect($this->getJson($this->at('rapide', '/api/v1/signup'))->json('data.zones'))->pluck('name');
