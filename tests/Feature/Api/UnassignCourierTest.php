@@ -79,4 +79,25 @@ class UnassignCourierTest extends TestCase
         Sanctum::actingAs($this->courierB->user);
         $this->postJson("/api/v1/orders/{$order->id}/unassign", ['type' => 'delivery'])->assertForbidden();
     }
+
+    public function test_couriers_are_removed_from_several_orders_at_once(): void
+    {
+        $a = $this->createOrder();
+        $b = $this->createOrder();
+        $c = $this->createOrder();
+        Sanctum::actingAs($this->dispatcher);
+        $this->postJson('/api/v1/orders/bulk-assign', ['order_ids' => [$a->id, $b->id], 'type' => 'pickup', 'courier_id' => $this->courierA->id])->assertOk();
+
+        // Sans type : la mission de l'étape en cours ; une course sans livreur est signalée
+        $this->postJson('/api/v1/orders/bulk-unassign', ['order_ids' => [$a->id, $b->id, $c->id], 'reason' => 'Livreur malade'])
+            ->assertOk()
+            ->assertJsonPath('data.unassigned', [$a->id, $b->id])
+            ->assertJsonCount(1, 'data.errors');
+
+        $this->assertSame('confirmed', $a->fresh()->status->value);
+        $this->assertNull($b->fresh()->pickup_courier_id);
+
+        Sanctum::actingAs($this->courierA->user);
+        $this->postJson('/api/v1/orders/bulk-unassign', ['order_ids' => [$a->id]])->assertForbidden();
+    }
 }

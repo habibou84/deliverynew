@@ -198,6 +198,39 @@ class OrderDispatcher
     }
 
     /**
+     * Retire le livreur de plusieurs courses. Sans type : la mission de l'étape en cours (ramassage
+     * avant récupération du colis, retour s'il est assigné, livraison sinon). Les erreurs
+     * n'interrompent pas le lot.
+     *
+     * @param  list<int>  $orderIds
+     * @return array{unassigned: list<int>, errors: array<int, string>}
+     */
+    public function unassignMany(User $actor, array $orderIds, ?AssignmentType $type, ?string $reason = null): array
+    {
+        $result = ['unassigned' => [], 'errors' => []];
+
+        foreach (Order::whereIn('id', $orderIds)->get() as $order) {
+            $stage = $type ?? match (true) {
+                $order->status->isBeforePickup() => AssignmentType::Pickup,
+                in_array($order->status, [OrderStatus::ReturnAssigned, OrderStatus::Returning], true) => AssignmentType::Return,
+                default => AssignmentType::Delivery,
+            };
+            try {
+                $this->unassign($actor, $order, $stage, $reason);
+                $result['unassigned'][] = $order->id;
+            } catch (BusinessRuleException $e) {
+                $result['errors'][$order->id] = $e->getMessage();
+            }
+        }
+
+        foreach (array_diff($orderIds, $result['unassigned'], array_keys($result['errors'])) as $missing) {
+            $result['errors'][$missing] = 'Course introuvable.';
+        }
+
+        return $result;
+    }
+
+    /**
      * Réponse du livreur à une mission : acceptation ou refus motivé.
      */
     public function respond(User $courierUser, OrderAssignment $assignment, bool $accept, ?string $reason = null): OrderAssignment

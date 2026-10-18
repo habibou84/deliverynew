@@ -119,6 +119,30 @@ class OrderActionController extends Controller
         return $this->detail($request, $order);
     }
 
+    /**
+     * Retire le livreur de plusieurs courses (type facultatif : étape en cours de chaque course).
+     */
+    public function bulkUnassign(Request $request): JsonResponse
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        $data = $request->validate([
+            'order_ids' => ['required', 'array', 'min:1', 'max:200'],
+            'order_ids.*' => ['integer', 'distinct'],
+            'type' => ['nullable', Rule::enum(AssignmentType::class)],
+            'reason' => ['nullable', 'string', 'max:255'],
+        ], [], ['type' => 'type de mission', 'reason' => 'motif']);
+
+        $result = $this->dispatcher->unassignMany(
+            $request->user(),
+            $data['order_ids'],
+            isset($data['type']) ? AssignmentType::from($data['type']) : null,
+            $data['reason'] ?? null,
+        );
+
+        return response()->json(['data' => $result]);
+    }
+
     public function bulkAssign(Request $request): JsonResponse
     {
         Gate::authorize('dispatch', Order::class);
