@@ -45,6 +45,7 @@ class OrderService
         private readonly PricingService $pricing,
         private readonly OrderJournal $journal,
         private readonly StockKeeper $stock,
+        private readonly PickupGroups $pickups,
     ) {}
 
     /**
@@ -152,6 +153,11 @@ class OrderService
                     'to_status' => OrderStatus::Confirmed,
                     'note' => 'Validation automatique',
                 ]);
+
+                // Livreur déjà prévu chez ce client : le colis lui est ajouté
+                if ($this->pickups->attachToRunningPickup($order)) {
+                    $order = $order->fresh();
+                }
             }
 
             return $order;

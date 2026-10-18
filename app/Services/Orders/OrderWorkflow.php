@@ -31,6 +31,7 @@ class OrderWorkflow
         private readonly FinanceRecorder $finance,
         private readonly StockKeeper $stock,
         private readonly MerchantLocation $locations,
+        private readonly PickupGroups $pickups,
     ) {}
 
     /**
@@ -97,6 +98,11 @@ class OrderWorkflow
                     'delivery_code_unverified' => $to === OrderStatus::Delivered && $order->delivery_code_unverified_at ? true : null,
                 ], fn ($v) => $v !== null),
             ]);
+
+            // Course validée alors qu'un livreur est déjà prévu chez ce client : le colis lui est ajouté
+            if ($from === OrderStatus::Pending && $to === OrderStatus::Confirmed && $this->pickups->attachToRunningPickup($order)) {
+                $order = $order->fresh();
+            }
 
             // Colis récupéré avec la position du livreur : la position du marchand s'affine
             if ($to === OrderStatus::PickedUp && isset($context['lat'], $context['lng']) && $order->merchant) {

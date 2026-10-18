@@ -12,6 +12,7 @@ use App\Models\Merchant;
 use App\Models\Order;
 use App\Services\Orders\AwaitingCourier;
 use App\Services\Orders\OrderService;
+use App\Services\Orders\PickupGroups;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -88,6 +89,16 @@ class OrderController extends Controller
      * Compteurs du dispatch : courses à valider, à ramasser, à livrer, et celles qui
      * attendent un livreur au-delà du délai de l'entreprise.
      */
+    /**
+     * Ramassages à assigner, regroupés par client et adresse : un lot s'assigne d'un coup.
+     */
+    public function pickupGroups(Request $request, PickupGroups $groups): JsonResponse
+    {
+        Gate::authorize('dispatch', Order::class);
+
+        return response()->json(['data' => $groups->toAssign($request->user())]);
+    }
+
     public function counts(Request $request, AwaitingCourier $awaiting): JsonResponse
     {
         Gate::authorize('dispatch', Order::class);
