@@ -3,9 +3,10 @@
 /*
  * Migration vers Jibiat — module pour l'ancienne application (Laravel 5.8, PHP 7.1 ou plus, extension curl).
  *
- * Envoie au nouveau serveur les comptes de l'entreprise : e-commerçants (table clients), livreurs (livreurs)
- * et leurs comptes de connexion (users), puis les comptes de l'équipe. Mêmes numéros, mêmes mots de passe.
- * Rien n'est modifié ni supprimé dans l'ancienne base.
+ * Envoie au nouveau serveur les e-commerçants (table clients) et les livreurs (livreurs) avec leurs comptes
+ * de connexion (users de type « client » ou « livreur »). Mêmes numéros, mêmes mots de passe. Les comptes de
+ * l'équipe (autres types) ne sont pas envoyés : ils se recréent sur Jibiat. Rien n'est modifié ni supprimé
+ * dans l'ancienne base.
  *
  * Installation :
  *   1. Copier ce fichier dans app/Http/Controllers/JibiatMigrationController.php
@@ -35,8 +36,8 @@ class JibiatMigrationController extends Controller
     /** Lignes envoyées par paquet */
     const BATCH = 200;
 
-    /** Ordre d'envoi : les comptes de l'équipe en dernier (ceux qui ne sont ni client ni livreur) */
-    const STEPS = ['clients', 'livreurs', 'staff'];
+    /** Étapes d'envoi et type de compte (« users.usertype ») de chacune */
+    const STEPS = ['clients' => 'client', 'livreurs' => 'livreur'];
 
     public function index()
     {
@@ -45,7 +46,7 @@ class JibiatMigrationController extends Controller
         return response($this->page([
             'clients' => DB::table('clients')->count(),
             'livreurs' => DB::table('livreurs')->count(),
-            'staff' => $this->staffQuery()->count(),
+            'team' => DB::table('users')->whereNotIn(DB::raw('LOWER(TRIM(usertype))'), array_values(self::STEPS))->orWhereNull('usertype')->count(),
         ]));
     }
 
@@ -65,7 +66,7 @@ class JibiatMigrationController extends Controller
         if (strpos($key, 'jbm_') !== 0) {
             return $this->error('Clé de reprise invalide : copiez-la depuis Jibiat › Paramètres › Reprise de l\'ancienne application.');
         }
-        if (! in_array($step, self::STEPS, true)) {
+        if (! isset(self::STEPS[$step])) {
             return $this->error('Étape inconnue.');
         }
         if (! function_exists('curl_init')) {
@@ -107,18 +108,11 @@ class JibiatMigrationController extends Controller
 
     /**
      * Paquet d'une étape : les fiches et les comptes qui leur sont liés (users.id = fiche.user_id,
-     * ou users.client_id / users.livreur_id = fiche.id).
+     * ou users.client_id / users.livreur_id = fiche.id). Un compte d'un autre type (l'administrateur,
+     * rattaché à une fiche client) est envoyé sans son mot de passe : Jibiat ignore alors la fiche.
      */
     private function batch($step, $offset)
     {
-        if ($step === 'staff') {
-            $query = $this->staffQuery();
-            $total = (clone $query)->count();
-            $users = $query->orderBy('id')->offset($offset)->limit(self::BATCH)->get();
-
-            return [['users' => $this->arrays($users)], count($users), $total];
-        }
-
         $table = $step;
         $link = $step === 'clients' ? 'client_id' : 'livreur_id';
         $total = DB::table($table)->count();
@@ -131,31 +125,15 @@ class JibiatMigrationController extends Controller
             if ($userIds) {
                 $query->orWhereIn('id', $userIds);
             }
-        })->get();
+        })->get()->map(function ($user) use ($step) {
+            if (strtolower(trim((string) $user->usertype)) !== self::STEPS[$step]) {
+                $user->password = null;
+            }
+
+            return $user;
+        });
 
         return [[$table => $this->arrays($rows), 'users' => $this->arrays($users)], count($rows), $total];
-    }
-
-    /** Comptes liés à aucun client ni livreur existant : l'équipe (et les comptes orphelins, signalés par Jibiat) */
-    private function staffQuery()
-    {
-        return DB::table('users')
-            ->whereNotIn('id', function ($query) {
-                $query->select('user_id')->from('clients')->whereNotNull('user_id');
-            })
-            ->whereNotIn('id', function ($query) {
-                $query->select('user_id')->from('livreurs')->whereNotNull('user_id');
-            })
-            ->where(function ($query) {
-                $query->whereNull('client_id')->orWhereNotIn('client_id', function ($sub) {
-                    $sub->select('id')->from('clients');
-                });
-            })
-            ->where(function ($query) {
-                $query->whereNull('livreur_id')->orWhereNotIn('livreur_id', function ($sub) {
-                    $sub->select('id')->from('livreurs');
-                });
-            });
     }
 
     /** Lignes en tableaux, textes en UTF-8 (certaines tables anciennes sont en latin1) */
@@ -244,7 +222,7 @@ class JibiatMigrationController extends Controller
 <main>
   <div class="card">
     <h1>Migration vers Jibiat</h1>
-    <p>Envoie les e-commerçants, les livreurs et les comptes de l'équipe vers votre espace Jibiat. Chacun garde son numéro et son mot de passe. Rien n'est modifié dans cette application.</p>
+    <p>Envoie les e-commerçants et les livreurs vers votre espace Jibiat. Chacun garde son numéro et son mot de passe. Les comptes de l'équipe ne sont pas envoyés : recréez-les sur Jibiat. Rien n'est modifié dans cette application.</p>
     <table id="counts"></table>
   </div>
   <div class="card">
@@ -269,8 +247,8 @@ class JibiatMigrationController extends Controller
 <script>
 (function () {
   var counts = {$counts};
-  var labels = { clients: 'E-commerçants (clients)', livreurs: 'Livreurs', staff: 'Comptes de l\'équipe (et comptes sans fiche)' };
-  var steps = ['clients', 'livreurs', 'staff'];
+  var labels = { clients: 'E-commerçants (clients)', livreurs: 'Livreurs', team: 'Comptes de l\'équipe (non envoyés, à recréer sur Jibiat)' };
+  var steps = ['clients', 'livreurs'];
   var el = function (id) { return document.getElementById(id); };
 
   function row(table, cells, head) {
@@ -278,7 +256,7 @@ class JibiatMigrationController extends Controller
     cells.forEach(function (text) { var td = document.createElement(head ? 'th' : 'td'); td.textContent = text; tr.appendChild(td); });
     table.appendChild(tr);
   }
-  steps.forEach(function (s) { row(el('counts'), [labels[s], String(counts[s])]); });
+  ['clients', 'livreurs', 'team'].forEach(function (s) { row(el('counts'), [labels[s], String(counts[s])]); });
 
   try { el('url').value = localStorage.getItem('jibiat-url') || ''; } catch (e) {}
 
@@ -298,7 +276,7 @@ class JibiatMigrationController extends Controller
   function run(dryRun) {
     var url = el('url').value.trim(), key = el('key').value.trim();
     try { localStorage.setItem('jibiat-url', url); } catch (e) {}
-    var totals = { merchants: 0, merchant_users: 0, couriers: 0, couriers_suspended: 0, staff: 0 };
+    var totals = { merchants: 0, merchant_users: 0, couriers: 0, couriers_suspended: 0 };
     var skipped = [], warnings = [];
     el('simulate').disabled = el('send').disabled = true;
     el('status').className = '';
@@ -326,7 +304,6 @@ class JibiatMigrationController extends Controller
       row(el('totals'), ['E-commerçants importés', String(totals.merchants)]);
       row(el('totals'), ['Autres comptes des e-commerçants', String(totals.merchant_users)]);
       row(el('totals'), ['Livreurs importés', totals.couriers + (totals.couriers_suspended ? ' (dont ' + totals.couriers_suspended + ' suspendu(s))' : '')]);
-      row(el('totals'), ['Comptes de l\'équipe importés', String(totals.staff)]);
       [['skipped', skipped], ['warnings', warnings]].forEach(function (pair) {
         if (!pair[1].length) { row(el(pair[0]), ['Aucun']); return; }
         row(el(pair[0]), ['Type', 'N° ancien', 'Nom', 'Raison'], true);

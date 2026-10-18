@@ -21,10 +21,11 @@ use Throwable;
 /**
  * Reprise des comptes de l'ancienne application (Laravel 5.8, une base par entreprise) :
  * e-commerçants (table « clients ») et livreurs (« livreurs »), avec leur compte de
- * connexion (« users »), les autres comptes d'un e-commerçant (employés de la boutique) et
- * les comptes de l'équipe (users liés ni à un client ni à un livreur). Les mots de passe
- * bcrypt sont repris tels quels : chacun garde son numéro et son mot de passe. Aucun
- * message n'est envoyé.
+ * connexion (« users » de type « client » ou « livreur ») et les autres comptes « client »
+ * d'une boutique (ses employés). Les comptes de l'équipe (autres types) ne sont pas repris :
+ * ils se recréent dans la nouvelle application, et une fiche client rattachée à un compte de
+ * l'équipe (le compte client de l'administrateur) est ignorée. Les mots de passe bcrypt sont
+ * repris tels quels : chacun garde son numéro et son mot de passe. Aucun message n'est envoyé.
  *
  * Les lignes arrivent d'un export SQL (commande legacy:import) ou par paquets, envoyées
  * par le bouton de l'ancienne application (voir legacy/laravel-5.8). Un numéro déjà
@@ -32,9 +33,14 @@ use Throwable;
  */
 class LegacyAccountsImporter
 {
+    /** Type du compte de connexion (« users.usertype ») de chaque fiche reprise */
+    private const CLIENT_TYPE = 'client';
+
+    private const COURIER_TYPE = 'livreur';
+
     /** Colonnes lues dans chaque table (absentes d'une ancienne base : null) */
     private const COLUMNS = [
-        'users' => ['id', 'name', 'email', 'phone', 'usertype', 'password', 'created_at', 'livreur_id', 'client_id', 'approved', 'user_group'],
+        'users' => ['id', 'name', 'email', 'phone', 'usertype', 'password', 'created_at', 'livreur_id', 'client_id'],
         'clients' => ['id', 'nom', 'phone', 'city', 'adresse', 'goods_type', 'user_id', 'latitude', 'longitude', 'created_at', 'updated_at'],
         'livreurs' => ['id', 'nom', 'phone', 'adresse', 'city', 'status', 'user_id'],
     ];
@@ -64,58 +70,59 @@ class LegacyAccountsImporter
     public function import(Company $company, SqlDumpReader $dump, bool $dryRun = false): array
     {
         $rows = fn (string $table) => $dump->hasTable($table) ? iterator_to_array($dump->rows($table), false) : [];
+        $users = $rows('users');
 
-        return $this->importRows($company, $rows('users'), $rows('clients'), $rows('livreurs'), true, $dryRun);
+        $report = $this->importRows($company, $users, $rows('clients'), $rows('livreurs'), $dryRun);
+        // Comptes de l'équipe (ni « client » ni « livreur ») : à recréer dans la nouvelle application
+        $report['counts']['staff_not_imported'] = collect($users)
+            ->reject(fn (array $u) => $this->isType($u, self::CLIENT_TYPE) || $this->isType($u, self::COURIER_TYPE))
+            ->count();
+
+        return $report;
     }
 
     /**
      * Lignes de l'ancienne base, valeurs en texte (null pour NULL). Les comptes « users » liés à un
-     * client ou à un livreur de l'envoi sont repris avec lui ; les autres sont des comptes de l'équipe,
-     * repris seulement si $staff (envoi complet, ou paquet « équipe » de l'ancienne application).
+     * client ou à un livreur de l'envoi sont repris avec lui ; les autres ne sont pas repris.
      *
      * @param  list<array<string, string|null>>  $users
      * @param  list<array<string, string|null>>  $clients
      * @param  list<array<string, string|null>>  $livreurs
      * @return array{counts: array<string, int>, skipped: list<array<string, string>>, warnings: list<array<string, string>>}
      */
-    public function importRows(Company $company, array $users, array $clients, array $livreurs, bool $staff, bool $dryRun = false): array
+    public function importRows(Company $company, array $users, array $clients, array $livreurs, bool $dryRun = false): array
     {
-        $this->counts = ['merchants' => 0, 'merchant_users' => 0, 'couriers' => 0, 'couriers_suspended' => 0, 'staff' => 0];
+        $this->counts = ['merchants' => 0, 'merchant_users' => 0, 'couriers' => 0, 'couriers_suspended' => 0];
         $this->skipped = [];
         $this->warnings = [];
         $this->zones = Zone::forCompany($company->id)->active()->with('parent')->get();
 
         [$users, $clients, $livreurs] = [$this->complete($users, 'users'), $this->complete($clients, 'clients'), $this->complete($livreurs, 'livreurs')];
         $users = collect($users)->keyBy('id');
-        $used = [];
 
         DB::beginTransaction();
 
         try {
             foreach ($clients as $client) {
-                $user = $this->accountOf($users, $client['user_id'] ?? null, 'client_id', $client['id']);
-                $used[] = $user['id'] ?? null;
-                // Autres comptes rattachés à la boutique (users.client_id) : ses employés
-                $others = $users->filter(fn (array $u) => ($u['client_id'] ?? null) === $client['id'] && $u['id'] !== ($user['id'] ?? null));
-                array_push($used, ...$others->keys()->map(fn ($id) => (string) $id)->all());
+                $user = $this->accountOf($users, $client['user_id'], 'client_id', $client['id']);
+                if ($user !== null && ! $this->isType($user, self::CLIENT_TYPE)) {
+                    $this->skip('e-commerçant', $client['id'], $this->clean($client['nom']), 'rattaché à un compte de l\'équipe (type « '.($this->clean($user['usertype']) ?? 'aucun').' ») : non repris');
+
+                    continue;
+                }
+                // Autres comptes « client » rattachés à la boutique (users.client_id) : ses employés
+                $others = $users->filter(fn (array $u) => $u['client_id'] === $client['id'] && $u['id'] !== ($user['id'] ?? null) && $this->isType($u, self::CLIENT_TYPE));
                 $this->importMerchant($company, $client, $user, $others->values()->all());
             }
 
             foreach ($livreurs as $courier) {
-                $user = $this->accountOf($users, $courier['user_id'] ?? null, 'livreur_id', $courier['id']);
-                $used[] = $user['id'] ?? null;
-                $this->importCourier($company, $courier, $user);
-            }
+                $user = $this->accountOf($users, $courier['user_id'], 'livreur_id', $courier['id']);
+                if ($user !== null && ! $this->isType($user, self::COURIER_TYPE)) {
+                    $this->skip('livreur', $courier['id'], $this->clean($courier['nom']), 'rattaché à un compte de l\'équipe (type « '.($this->clean($user['usertype']) ?? 'aucun').' ») : non repris');
 
-            if ($staff) {
-                // Ni client ni livreur : administrateurs et opérateurs de l'agence
-                $linked = collect([...$clients, ...$livreurs])->pluck('user_id')->filter()->map(fn ($id) => (string) $id);
-                foreach ($users as $id => $user) {
-                    if (in_array((string) $id, array_filter($used), true) || $linked->contains((string) $id)) {
-                        continue;
-                    }
-                    $this->importStaff($company, $user);
+                    continue;
                 }
+                $this->importCourier($company, $courier, $user);
             }
 
             $dryRun ? DB::rollBack() : DB::commit();
@@ -226,69 +233,6 @@ class LegacyAccountsImporter
     }
 
     /**
-     * Compte de l'équipe : rôle déduit du type de l'ancien compte (« usertype », « user_group »).
-     * Type inconnu, ou compte d'e-commerçant ou de livreur sans fiche : non repris (aucun droit
-     * donné au hasard), à recréer dans Utilisateurs.
-     *
-     * @param  array<string, string|null>  $user
-     */
-    private function importStaff(Company $company, array $user): void
-    {
-        $name = $this->clean($user['name'] ?? null);
-        $type = $this->clean(collect([$user['usertype'] ?? null, $user['user_group'] ?? null])->filter()->implode(' / ')) ?? 'aucun';
-        $role = $this->staffRole($type);
-
-        if ($role === null) {
-            $this->skip('compte équipe', $user['id'], $name, "type « {$type} » non reconnu ou compte sans fiche client/livreur : à recréer dans Utilisateurs");
-
-            return;
-        }
-
-        $phone = PhoneNumber::normalize($user['phone'] ?? null);
-        if ($phone === null) {
-            $this->skip('compte équipe', $user['id'], $name, 'numéro absent ou invalide : « '.($user['phone'] ?? '').' »');
-
-            return;
-        }
-        if (User::takenIn($company->id, 'phone', $phone)) {
-            $this->skip('compte équipe', $user['id'], $name, 'numéro '.PhoneNumber::display($phone).' déjà présent (déjà importé ou compte existant)');
-
-            return;
-        }
-
-        // Compte non validé dans l'ancienne application : suspendu
-        $approved = ! in_array(mb_strtolower((string) ($user['approved'] ?? '')), ['no', 'non', '0', 'false'], true);
-
-        $this->account($company, $user, [
-            'name' => $name ?: 'Équipe '.PhoneNumber::display($phone),
-            'phone' => $phone,
-            'email' => $this->email($company, $user['email'] ?? null),
-            'status' => $approved ? UserStatus::Active : UserStatus::Suspended,
-        ], $role, 'compte équipe', $user['id'], $name);
-
-        if ($role === Role::Admin) {
-            $this->warn('compte équipe', $user['id'], $name, "importé administrateur (type « {$type} ») : vérifiez ses droits dans Utilisateurs");
-        }
-        $this->counts['staff']++;
-    }
-
-    /** Rôle d'un compte de l'équipe d'après son type dans l'ancienne application */
-    private function staffRole(string $type): ?Role
-    {
-        $type = Str::of($type)->lower()->ascii()->toString();
-        $has = fn (array $words) => Str::contains($type, $words);
-
-        return match (true) {
-            // Comptes d'e-commerçant ou de livreur sans fiche : jamais un accès à l'équipe
-            $has(['client', 'livreur', 'courier', 'driver', 'marchand', 'merchant', 'ecom', 'vendeur', 'boutique']) => null,
-            $has(['admin', 'directeur', 'direction', 'patron', 'owner']) => Role::Admin,
-            $has(['caiss', 'compta', 'cash', 'financ', 'tresor']) => Role::Cashier,
-            $has(['operat', 'dispatch', 'agent', 'secret', 'assist', 'staff', 'employ', 'gestion', 'commercial', 'support', 'superviseur']) => Role::Dispatcher,
-            default => null,
-        };
-    }
-
-    /**
      * @param  array<string, string|null>  $courier
      * @param  array<string, string|null>|null  $user
      */
@@ -375,6 +319,12 @@ class LegacyAccountsImporter
     {
         return ($userId !== null ? $users->get($userId) : null)
             ?? $users->first(fn (array $u) => ($u[$backReference] ?? null) !== null && $u[$backReference] === $id);
+    }
+
+    /** Type du compte dans l'ancienne application (« usertype »), sans tenir compte des majuscules */
+    private function isType(array $user, string $type): bool
+    {
+        return mb_strtolower(trim((string) ($user['usertype'] ?? ''))) === $type;
     }
 
     /**

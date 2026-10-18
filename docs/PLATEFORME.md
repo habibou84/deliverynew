@@ -369,17 +369,19 @@ de page, l'inscription des entreprises et celle des e-commerçants. L'éditeur s
 
 ## Reprise depuis l'ancienne application (Laravel 5.8)
 
-E-commerçants, livreurs et comptes de l'équipe d'une entreprise passent sur la plateforme avec **le même numéro et le
-même mot de passe** (hachages bcrypt repris tels quels). Aucun message n'est envoyé. Les commandes ne sont pas reprises.
+E-commerçants et livreurs d'une entreprise passent sur la plateforme avec **le même numéro et le même mot de passe**
+(hachages bcrypt repris tels quels). Aucun message n'est envoyé. Les commandes ne sont pas reprises, ni les comptes de
+l'équipe : recréez-les dans **Utilisateurs**.
 
 Ce qui est repris (une ancienne base = une entreprise) :
 
 | Ancienne base | Sur la plateforme |
 |---|---|
-| `clients` + son compte `users` (`clients.user_id`, ou `users.client_id`) | e-commerçant + compte propriétaire ; la commune (`city`) choisit la zone de ramassage |
-| autres `users` d'un même client (`users.client_id`) | comptes employés de la boutique |
-| `livreurs` + son compte `users` | livreur (suspendu si `inactive` ou si la formule est pleine) |
-| `users` liés à aucun client ni livreur | compte de l'équipe, rôle d'après `usertype` / `user_group` : *admin, directeur…* → Administrateur ; *caisse, compta…* → Caissier ; *opérateur, agent, secrétaire, dispatch…* → Dispatcher ; type inconnu ou compte client/livreur sans fiche → non repris (à recréer dans **Utilisateurs**) ; `approved = no` → suspendu |
+| `clients` + son compte `users` de type `client` (`clients.user_id`, ou `users.client_id`) | e-commerçant + compte propriétaire ; la commune (`city`) choisit la zone de ramassage |
+| autres `users` de type `client` d'un même client (`users.client_id`) | comptes employés de la boutique |
+| `livreurs` + son compte `users` de type `livreur` | livreur (suspendu si `inactive` ou si la formule est pleine) |
+| `clients` ou `livreurs` rattachés à un compte d'un autre type (ex. la fiche client de l'administrateur) | non repris |
+| `users` d'un autre type (`usertype` ni `client` ni `livreur`) | non repris : l'équipe se recrée dans **Utilisateurs** |
 
 Avant tout : créez l'entreprise sur la plateforme et ses **zones**.
 
@@ -392,7 +394,8 @@ Avant tout : créez l'entreprise sur la plateforme et ses **zones**.
 3. Dans **Paramètres › Reprise**, créer une **clé de reprise** (valable 7 jours, affichée une fois).
 4. Dans l'ancienne application, connecté en administrateur : ouvrir `/jibiat-migration`, coller l'adresse de l'espace
    (`https://entreprise.jibiat.com`) et la clé, **Simuler**, vérifier le compte rendu, puis **Envoyer**.
-   L'envoi se fait par paquets de 200 (e-commerçants, livreurs, puis équipe) vers `POST /api/legacy-import`.
+   L'envoi se fait par paquets de 200 (e-commerçants, puis livreurs) vers `POST /api/legacy-import` ; le mot de passe
+   des comptes de l'équipe n'est jamais envoyé.
 5. Une fois terminé : désactiver la clé, retirer les deux routes et le fichier de l'ancienne application.
 
 ### Avec un export SQL (sans accès au code de l'ancienne application)
@@ -410,10 +413,10 @@ Avant tout : créez l'entreprise sur la plateforme et ses **zones**.
 
    Supprimez le fichier d'export après l'import.
 
-Dans les deux cas, le compte rendu liste les lignes non importées (numéro invalide, numéro déjà présent, type de
-compte inconnu) et les points à vérifier : commune non reconnue (zone à choisir sur la fiche), compte sans mot de
-passe repris (« Mot de passe oublié », ou `php artisan user:password`), livreur suspendu faute de place dans la
-formule, compte importé administrateur. Relancer ne crée pas de doublon : un numéro déjà présent est ignoré.
+Dans les deux cas, le compte rendu liste les lignes non importées (numéro invalide, numéro déjà présent, fiche
+rattachée à un compte de l'équipe) et les points à vérifier : commune non reconnue (zone à choisir sur la fiche),
+compte sans mot de passe repris (« Mot de passe oublié », ou `php artisan user:password`), livreur suspendu faute de
+place dans la formule. Relancer ne crée pas de doublon : un numéro déjà présent est ignoré.
 
 ---
 

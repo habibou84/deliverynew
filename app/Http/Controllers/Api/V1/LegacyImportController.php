@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 /**
  * Reprise depuis l'ancienne application (Laravel 5.8) par un bouton : l'administrateur crée une clé
  * (Paramètres), la colle dans la page « Migration vers Jibiat » de l'ancienne application, qui envoie
- * ses comptes par paquets : e-commerçants, livreurs, puis comptes de l'équipe.
+ * ses comptes par paquets : e-commerçants, puis livreurs. Les comptes de l'équipe se recréent.
  */
 class LegacyImportController extends Controller
 {
@@ -58,8 +58,8 @@ class LegacyImportController extends Controller
     }
 
     /**
-     * Paquet envoyé par l'ancienne application. « step » : clients (avec leurs comptes), livreurs
-     * (avec leurs comptes) ou staff (comptes liés ni à un client ni à un livreur).
+     * Paquet envoyé par l'ancienne application. « step » : clients ou livreurs, avec les comptes
+     * « users » qui leur sont liés.
      */
     public function receive(Request $request, LegacyAccountsImporter $importer): JsonResponse
     {
@@ -75,7 +75,7 @@ class LegacyImportController extends Controller
         }
 
         $data = $request->validate([
-            'step' => ['required', 'in:clients,livreurs,staff'],
+            'step' => ['required', 'in:clients,livreurs'],
             'dry_run' => ['sometimes', 'boolean'],
             'users' => ['present', 'array', 'max:'.self::MAX_ROWS * 3],
             'users.*' => ['array'],
@@ -91,7 +91,6 @@ class LegacyImportController extends Controller
             $this->rows($data['users']),
             $step === 'clients' ? $this->rows($data['clients'] ?? []) : [],
             $step === 'livreurs' ? $this->rows($data['livreurs'] ?? []) : [],
-            $step === 'staff',
             (bool) ($data['dry_run'] ?? false),
         );
 

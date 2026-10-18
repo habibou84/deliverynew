@@ -3,8 +3,8 @@
     <div>
       <h2 class="font-semibold">Reprise de l'ancienne application</h2>
       <p class="text-sm text-gray-600">
-        Vos e-commerçants, livreurs et comptes de l'équipe arrivent depuis l'ancienne application avec un bouton,
-        en gardant leur numéro et leur mot de passe. Les commandes ne sont pas reprises.
+        Vos e-commerçants et livreurs arrivent depuis l'ancienne application avec un bouton, en gardant leur numéro
+        et leur mot de passe. Les commandes ne sont pas reprises, ni les comptes de l'équipe : recréez-les dans Utilisateurs.
       </p>
     </div>
 

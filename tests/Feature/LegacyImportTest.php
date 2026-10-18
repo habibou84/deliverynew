@@ -15,7 +15,7 @@ use Tests\TestCase;
 
 /**
  * Reprise des comptes de l'ancienne application (Laravel 5.8) depuis un export phpMyAdmin :
- * e-commerçants, livreurs et comptes de l'équipe gardent leur numéro et leur mot de passe.
+ * e-commerçants et livreurs gardent leur numéro et leur mot de passe.
  */
 class LegacyImportTest extends TestCase
 {
@@ -102,11 +102,8 @@ class LegacyImportTest extends TestCase
         $this->assertSame(UserStatus::Suspended, $aya->status);
         $this->assertSame('Commune : Marcory', $aya->courier->notes);
 
-        // Compte de l'équipe (ni client ni livreur) : repris avec le rôle déduit de son type
-        $admin = User::where('phone', '+2250700000099')->sole();
-        $this->assertTrue($admin->hasRole(Role::Admin->value));
-        $this->assertNull($admin->merchant_id);
-        $this->assertTrue(Hash::check('secret123', $admin->password));
+        // Compte de l'équipe (ni « client » ni « livreur ») : non repris, à recréer
+        $this->assertFalse(User::where('phone', '+2250700000099')->exists());
     }
 
     public function test_report_lists_skipped_rows_and_points_to_check(): void
@@ -116,9 +113,9 @@ class LegacyImportTest extends TestCase
                 ['E-commerçants importés', 3],
                 ['Autres comptes des e-commerçants', 0],
                 ['Livreurs importés', '2 (dont 1 suspendu(s))'],
-                ['Comptes de l\'équipe importés', 1],
                 ['Lignes non importées', 2],
-                ['Points à vérifier', 5],
+                ['Points à vérifier', 4],
+                ['Comptes de l\'équipe non repris (à recréer)', 1],
             ])
             ->assertSuccessful();
     }
@@ -133,7 +130,7 @@ class LegacyImportTest extends TestCase
 
         $this->import()->assertSuccessful();
         $this->assertSame($merchants + 3, Merchant::count());
-        $this->assertSame($users + 6, User::count());
+        $this->assertSame($users + 5, User::count());
 
         // Deuxième passage : tout est déjà là, aucun doublon
         $this->import()
@@ -141,9 +138,9 @@ class LegacyImportTest extends TestCase
                 ['E-commerçants importés', 0],
                 ['Autres comptes des e-commerçants', 0],
                 ['Livreurs importés', 0],
-                ['Comptes de l\'équipe importés', 0],
-                ['Lignes non importées', 8],
+                ['Lignes non importées', 7],
                 ['Points à vérifier', 0],
+                ['Comptes de l\'équipe non repris (à recréer)', 1],
             ])
             ->assertSuccessful();
         $this->assertSame($merchants + 3, Merchant::count());

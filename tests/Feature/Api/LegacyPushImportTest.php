@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\Role;
-use App\Enums\UserStatus;
 use App\Models\Merchant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -14,7 +13,7 @@ use Tests\TestCase;
 
 /**
  * Reprise par le bouton de l'ancienne application : clé créée dans Paramètres, comptes envoyés
- * par paquets (e-commerçants, livreurs, équipe), mêmes numéros et mêmes mots de passe.
+ * par paquets (e-commerçants, livreurs), mêmes numéros et mêmes mots de passe. L'équipe se recrée.
  */
 class LegacyPushImportTest extends TestCase
 {
@@ -44,7 +43,7 @@ class LegacyPushImportTest extends TestCase
     private function user(int $id, string $phone, array $extra = []): array
     {
         return ['id' => $id, 'name' => "Compte {$id}", 'email' => null, 'phone' => $phone, 'usertype' => null, 'password' => self::HASH,
-            'created_at' => '2024-01-01 10:00:00', 'livreur_id' => null, 'client_id' => null, 'approved' => 'yes', 'user_group' => null, ...$extra];
+            'created_at' => '2024-01-01 10:00:00', 'livreur_id' => null, 'client_id' => null, ...$extra];
     }
 
     public function test_clients_couriers_and_staff_arrive_with_their_passwords(): void
@@ -83,28 +82,44 @@ class LegacyPushImportTest extends TestCase
         $this->assertTrue($adamo->isCourier());
         $this->assertTrue(Hash::check('secret123', $adamo->password));
 
-        // Paquet de l'équipe : rôle d'après le type ; type inconnu ou compte client sans fiche : non repris
+        $this->assertNotNull($this->company->fresh()->legacy_import_used_at);
+    }
+
+    public function test_team_accounts_and_the_admin_client_are_not_imported(): void
+    {
+        $key = $this->key();
+
+        // Fiche client de l'administrateur (compte « admin »), et compte de l'équipe rattaché à une boutique
         $this->send($key, [
-            'step' => 'staff',
+            'step' => 'clients',
+            'clients' => [
+                ['id' => 1, 'nom' => 'Agence', 'phone' => '0700000099', 'city' => 'Cocody', 'adresse' => 'Siège', 'user_id' => 1],
+                ['id' => 2, 'nom' => 'Boutique Zen', 'phone' => '0711000000', 'city' => 'Cocody', 'adresse' => 'Angré', 'user_id' => 4],
+            ],
             'users' => [
-                $this->user(1, '0700000099', ['usertype' => 'admin']),
-                $this->user(2, '0700000098', ['usertype' => 'operateur', 'approved' => 'no']),
-                $this->user(3, '0700000097', ['usertype' => 'caissier']),
-                $this->user(4, '0700000096', ['usertype' => 'manager']),
-                $this->user(5, '0700000095', ['usertype' => 'client', 'client_id' => 999]),
+                $this->user(1, '0700000099', ['usertype' => 'admin', 'client_id' => 1]),
+                $this->user(4, '0711000000', ['usertype' => 'client', 'client_id' => 2]),
+                $this->user(2, '0711000001', ['usertype' => 'operateur', 'client_id' => 2]),
             ],
         ])->assertOk()
-            ->assertJsonPath('data.counts.staff', 3)
-            ->assertJsonCount(2, 'data.skipped')
-            ->assertJsonPath('data.warnings.0.reason', 'importé administrateur (type « admin ») : vérifiez ses droits dans Utilisateurs');
+            ->assertJsonPath('data.counts.merchants', 1)
+            ->assertJsonPath('data.counts.merchant_users', 0)
+            ->assertJsonPath('data.skipped.0.reason', 'rattaché à un compte de l\'équipe (type « admin ») : non repris');
 
-        $this->assertTrue(User::where('phone', '+2250700000099')->sole()->hasRole(Role::Admin->value));
-        $operator = User::where('phone', '+2250700000098')->sole();
-        $this->assertTrue($operator->hasRole(Role::Dispatcher->value));
-        $this->assertSame(UserStatus::Suspended, $operator->status);
-        $this->assertTrue(User::where('phone', '+2250700000097')->sole()->hasRole(Role::Cashier->value));
-        $this->assertFalse(User::whereIn('phone', ['+2250700000096', '+2250700000095'])->exists());
-        $this->assertNotNull($this->company->fresh()->legacy_import_used_at);
+        $this->assertFalse(Merchant::where('phone', '+2250700000099')->exists());
+        $this->assertFalse(User::whereIn('phone', ['+2250700000099', '+2250711000001'])->exists());
+        $this->assertTrue(Merchant::where('phone', '+2250711000000')->exists());
+
+        // Livreur rattaché à un compte qui n'est pas « livreur »
+        $this->send($key, [
+            'step' => 'livreurs',
+            'livreurs' => [['id' => 3, 'nom' => 'Chef', 'phone' => '0700000088', 'status' => 'active', 'user_id' => 3]],
+            'users' => [$this->user(3, '0700000088', ['usertype' => 'superviseur', 'livreur_id' => 3])],
+        ])->assertOk()->assertJsonPath('data.counts.couriers', 0)->assertJsonCount(1, 'data.skipped');
+
+        // Plus d'étape « équipe »
+        $this->send($key, ['step' => 'staff', 'users' => []])->assertUnprocessable();
+
     }
 
     public function test_simulation_saves_nothing_and_sending_twice_creates_no_duplicate(): void
@@ -127,7 +142,7 @@ class LegacyPushImportTest extends TestCase
 
     public function test_only_a_valid_key_is_accepted(): void
     {
-        $payload = ['step' => 'staff', 'users' => [$this->user(1, '0700000099', ['usertype' => 'admin'])]];
+        $payload = ['step' => 'livreurs', 'livreurs' => [['id' => 9, 'nom' => 'Koffi', 'phone' => '0700000099', 'status' => 'active', 'user_id' => null]], 'users' => []];
 
         $this->send('jbm_inconnue', $payload)->assertUnauthorized();
         $this->postJson('/api/legacy-import', $payload)->assertUnauthorized();
