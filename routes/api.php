@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
+use App\Http\Controllers\Api\V1\LegacyImportController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\MerchantLocationController;
 use App\Http\Controllers\Api\V1\MerchantNotificationController;
@@ -65,6 +66,9 @@ Route::prefix('webhooks')->name('webhooks.')->group(function () {
     Route::get('whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('whatsapp.verify');
     Route::post('whatsapp', [WhatsAppWebhookController::class, 'handle'])->name('whatsapp.handle');
 });
+
+// Reprise depuis l'ancienne application (Laravel 5.8) : paquets envoyés par son bouton, avec la clé de reprise
+Route::post('legacy-import', [LegacyImportController::class, 'receive'])->middleware('throttle:120,1')->name('legacy-import.receive');
 
 // API publique des marchands (clé API, quota par clé) : contrat documenté dans public/docs/openapi.yaml
 Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:public-api'])->controller(PublicApiController::class)->group(function () {
@@ -181,6 +185,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
         });
 
         // Domaine personnalisé de l'entreprise (module de la formule pour le choisir)
+        // Reprise de l'ancienne application : clé à coller dans son bouton, module à y copier
+        Route::prefix('company/legacy-import')->name('company.legacy-import.')->middleware('can:settings.manage')->controller(LegacyImportController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('key', 'createKey')->middleware('throttle:10,1')->name('key.store');
+            Route::delete('key', 'destroyKey')->name('key.destroy');
+            Route::get('module', 'module')->name('module');
+        });
         Route::prefix('company/domain')->name('company.domain.')->middleware('can:settings.manage')->controller(CustomDomainController::class)->group(function () {
             Route::get('/', 'show')->name('show');
             Route::put('/', 'update')->middleware(['feature:custom_domain', 'throttle:10,1'])->name('update');
