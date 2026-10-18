@@ -278,6 +278,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::apiResource('orders', OrderController::class)->except('destroy');
         Route::post('orders/{order}/status', [OrderActionController::class, 'transition'])->name('orders.transition');
         Route::post('orders/{order}/assign', [OrderActionController::class, 'assign'])->name('orders.assign');
+        Route::post('orders/{order}/unassign', [OrderActionController::class, 'unassign'])->name('orders.unassign');
         Route::post('orders/{order}/decision', [OrderActionController::class, 'decide'])->name('orders.decision');
         Route::post('orders/{order}/lost', [OrderActionController::class, 'declareLost'])->name('orders.lost');
         Route::post('orders/{order}/notes', [OrderActionController::class, 'note'])->name('orders.notes');

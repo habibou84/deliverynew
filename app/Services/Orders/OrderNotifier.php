@@ -45,6 +45,15 @@ class OrderNotifier
                 }
                 break;
 
+            case OrderEventType::Unassigned:
+                // Mission retirée par le dispatch : le livreur est prévenu de ne pas y aller
+                $courierUser = User::find($event->meta['courier_user_id'] ?? null);
+                if ($courierUser) {
+                    $this->send(collect([$courierUser]), $actor, $order, 'mission_removed',
+                        'Mission retirée : '.($event->meta['type_label'] ?? ''), "{$code} · {$merchantName} : n'y allez pas.".$note);
+                }
+                break;
+
             case OrderEventType::AssignmentRefused:
                 $toStaff = ['mission_refused', "Mission refusée {$code}", ($event->actor_name ?? 'Le livreur').' a refusé la mission.'.$note];
                 break;
