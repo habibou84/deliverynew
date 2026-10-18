@@ -1,23 +1,23 @@
 <template>
-  <div class="min-h-screen bg-slate-50 text-slate-900">
+  <div class="min-h-screen bg-slate-50 text-slate-900" :style="{ '--app-color': spaceColor('marchand') }">
     <!-- En-tête -->
     <header v-if="!nativeApp" class="bg-white/90 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
       <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
         <BrandLogo size="md" />
-        <a href="#suivi" class="shrink-0 rounded-full border border-emerald-600 text-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-50">📍 Suivre un colis</a>
+        <a href="#suivi" class="shrink-0 rounded-full border border-[var(--app-color)] text-[var(--app-color)] px-4 py-2 text-sm font-semibold hover:bg-slate-50">📍 Suivre un colis</a>
       </div>
     </header>
 
     <!-- Présentation et connexion -->
     <!-- Application : la connexion seule, en plein écran -->
-    <section :class="['bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 text-white', { 'min-h-screen': nativeApp }]" :style="nativeApp ? 'padding-top: env(safe-area-inset-top)' : null">
+    <section :class="['text-white', { 'min-h-screen': nativeApp }]" :style="{ paddingTop: nativeApp ? 'env(safe-area-inset-top)' : null, background: `linear-gradient(135deg, rgba(0,0,0,.12), rgba(255,255,255,.08)), ${spaceColor('marchand')}` }">
       <div class="max-w-6xl mx-auto px-4 py-10 md:py-16 grid md:grid-cols-2 gap-10 items-center">
         <div v-if="!nativeApp" class="space-y-6">
           <p class="inline-block rounded-full bg-white/15 px-3 py-1 text-sm font-medium">Espace e-commerçants</p>
           <h1 class="text-3xl md:text-5xl font-extrabold leading-tight">
             {{ branding.tagline || 'Vos colis livrés vite, vos clients satisfaits.' }}
           </h1>
-          <p class="text-lg text-emerald-50/90 max-w-xl">
+          <p class="text-lg text-white/90 max-w-xl">
             Créez vos courses en une minute, suivez chaque livraison en temps réel et recevez l'argent encaissé
             auprès de vos clients sans courir après.
           </p>
@@ -26,7 +26,7 @@
               <span class="text-2xl" aria-hidden="true">{{ b.icon }}</span>
               <span>
                 <span class="block font-semibold">{{ b.title }}</span>
-                <span class="block text-sm text-emerald-50/80">{{ b.text }}</span>
+                <span class="block text-sm text-white/80">{{ b.text }}</span>
               </span>
             </li>
           </ul>
@@ -44,11 +44,11 @@
             <NativeCompanySwitch />
             <div v-if="branding.signup_open" class="border-t border-slate-200 pt-5 text-center space-y-2">
               <p class="text-sm text-slate-600">Pas encore client ?</p>
-              <RouterLink to="/inscription" class="block w-full rounded-xl border-2 border-emerald-600 py-3 font-semibold text-emerald-700 hover:bg-emerald-50">Créer mon compte gratuitement</RouterLink>
+              <RouterLink to="/inscription" class="block w-full rounded-xl border-2 border-[var(--app-color)] py-3 font-semibold text-[var(--app-color)] hover:bg-slate-50">Créer mon compte gratuitement</RouterLink>
             </div>
             <p v-else class="text-center text-sm text-slate-600">
               Pas encore client ?
-              <a v-if="contactLink" :href="contactLink" target="_blank" rel="noopener" class="font-semibold text-emerald-700 hover:underline">Ouvrez votre compte</a>
+              <a v-if="contactLink" :href="contactLink" target="_blank" rel="noopener" class="font-semibold text-[var(--app-color)] hover:underline">Ouvrez votre compte</a>
               <span v-else class="font-semibold">Contactez-nous</span>
             </p>
           </div>
@@ -61,7 +61,7 @@
       <h2 class="text-2xl md:text-3xl font-bold text-center">Comment ça marche ?</h2>
       <ol class="mt-8 grid md:grid-cols-3 gap-6">
         <li v-for="(s, i) in steps" :key="s.title" class="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <span class="grid h-10 w-10 place-items-center rounded-full bg-emerald-600 font-bold text-white">{{ i + 1 }}</span>
+          <span class="grid h-10 w-10 place-items-center rounded-full bg-[var(--app-color)] font-bold text-white">{{ i + 1 }}</span>
           <h3 class="mt-4 font-semibold text-lg">{{ s.title }}</h3>
           <p class="mt-1 text-slate-600">{{ s.text }}</p>
         </li>
@@ -75,7 +75,7 @@
         <p class="text-slate-600">Entrez le code de suivi reçu par WhatsApp ou SMS (il commence par LV-).</p>
         <form class="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto" @submit.prevent="track">
           <label class="sr-only" for="tracking-code">Code de suivi</label>
-          <input id="tracking-code" v-model.trim="trackingCode" class="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-base uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500" placeholder="LV-XXXX-XXXX" required>
+          <input id="tracking-code" v-model.trim="trackingCode" class="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-base uppercase focus:outline-none focus:ring-2 focus:ring-[var(--app-color)]" placeholder="LV-XXXX-XXXX" required>
           <button class="rounded-xl bg-slate-900 px-6 py-3 font-semibold text-white hover:bg-slate-700">Suivre</button>
         </form>
       </div>
@@ -111,7 +111,7 @@ import LoginForm from '../../components/auth/LoginForm.vue'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import NativeCompanySwitch from '../../components/auth/NativeCompanySwitch.vue'
 import { nativeApp } from '../../native'
-import { branding, loadBranding, whatsappLink } from '../../composables/useBranding'
+import { branding, loadBranding, whatsappLink, spaceColor } from '../../composables/useBranding'
 
 const router = useRouter()
 const trackingCode = ref('')

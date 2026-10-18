@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\NativeAppController;
 use App\Http\Controllers\Api\PublicV1\PublicAccountController;
 use App\Http\Controllers\Api\PublicV1\PublicApiController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
+use App\Http\Controllers\Api\V1\AppearanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CompanySignupController;
@@ -142,6 +143,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::post('company/logo', [BrandingController::class, 'upload'])->name('company.logo.store');
         Route::delete('company/logo', [BrandingController::class, 'destroy'])->name('company.logo.destroy');
+        // Apparence des espaces : couleurs, noms et icônes des applications
+        Route::get('company/appearance', [AppearanceController::class, 'show'])->name('company.appearance.show');
+        Route::put('company/appearance', [AppearanceController::class, 'update'])->name('company.appearance.update');
+        Route::post('company/appearance/icons/{space}', [AppearanceController::class, 'uploadIcon'])->name('company.appearance.icon.store');
+        Route::delete('company/appearance/icons/{space}', [AppearanceController::class, 'destroyIcon'])->name('company.appearance.icon.destroy');
 
         Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
         Route::post('notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');

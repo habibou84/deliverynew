@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
+use App\Support\Appearance;
 use App\Support\Branding;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -28,6 +30,18 @@ class BrandingController extends Controller
         return Storage::disk('local')->response($path, null, [
             'Cache-Control' => 'public, max-age=31536000, immutable',
             'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /** Icône de l'application : générée pour l'entreprise, sinon l'icône standard */
+    public function icon(string $app, string $variant): BinaryFileResponse
+    {
+        $company = Branding::company();
+        $file = $company ? Appearance::renderIcon($company, $app, $variant) : null;
+
+        return response()->file($file ?? public_path("app-icons/{$app}-{$variant}.png"), [
+            'Content-Type' => 'image/png',
+            'Cache-Control' => 'public, max-age=31536000, immutable',
         ]);
     }
 
