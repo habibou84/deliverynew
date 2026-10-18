@@ -1,7 +1,6 @@
 import axios from 'axios'
-import { nativeApp, nativeConfig, siteOrigin } from '../native'
-
-export const TOKEN_KEY = 'token'
+import { appLock, nativeApp, siteOrigin } from '../native'
+import { currentSpace, getToken, LOGIN_PAGES, setToken } from './session'
 
 const http = axios.create({
   baseURL: '/api/v1',
@@ -14,7 +13,7 @@ const http = axios.create({
 http.interceptors.request.use((config) => {
   // Application : l'API est celle de l'entreprise choisie sur l'appareil
   if (nativeApp) config.baseURL = `${siteOrigin()}/api/v1`
-  const token = localStorage.getItem(TOKEN_KEY)
+  const token = getToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -29,9 +28,9 @@ http.interceptors.response.use(
     const isLogin = error.config?.url?.includes('/auth/login')
 
     if (status === 401 && !isLogin) {
-      localStorage.removeItem(TOKEN_KEY)
+      setToken(null)
       const path = window.location.pathname
-      const login = nativeConfig?.login || (path.startsWith('/admin') ? '/admin/connexion' : path.startsWith('/livreur') ? '/livreur/connexion' : '/')
+      const login = appLock()?.login || LOGIN_PAGES[currentSpace()]
       if (path !== login) {
         window.location.assign(login)
       }

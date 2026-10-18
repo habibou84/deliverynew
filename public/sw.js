@@ -90,7 +90,7 @@ self.addEventListener('push', (event) => {
 
   event.waitUntil(self.registration.showNotification(data.title || 'Nouvelle notification', {
     body: data.body || '',
-    icon: `/app-icons/${app}-192.png`,
+    icon: data.icon || `/app-icons/${app}-192.png`,
     badge: `/app-icons/${app}-192.png`,
     tag: data.tag,
     renotify: Boolean(data.tag),

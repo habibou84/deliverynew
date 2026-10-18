@@ -1,34 +1,19 @@
 import { defineStore } from 'pinia'
-import http, { TOKEN_KEY } from '../bootstrap/axios'
+import http from '../bootstrap/axios'
 import { disconnectEcho } from '../bootstrap/echo'
+import { currentSpace, getCachedUser, getToken, SERVER_SPACES, setCachedUser, setSpace, setToken, spaceForPath } from '../bootstrap/session'
 import { homeFor } from '../roles'
 import { clearApiCache } from '../composables/useCachedApi'
-import { nativeConfig } from '../native'
+import { appLock } from '../native'
 
-// Profil gardé sur l'appareil pour ouvrir l'application sans réseau (PWA hors ligne)
-const USER_KEY = 'user'
-
-function readCachedUser() {
-  try {
-    return JSON.parse(localStorage.getItem(USER_KEY) || 'null')
-  } catch {
-    return null
-  }
-}
-
-function cacheUser(user) {
-  try {
-    if (user) localStorage.setItem(USER_KEY, JSON.stringify(user))
-    else localStorage.removeItem(USER_KEY)
-  } catch {
-    // stockage indisponible : l'application demandera simplement le réseau au démarrage
-  }
-}
+// Profil gardé sur l'appareil (par espace) pour ouvrir l'application sans réseau (PWA hors ligne)
+const readCachedUser = getCachedUser
+const cacheUser = setCachedUser
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
-    token: localStorage.getItem(TOKEN_KEY) || null,
+    token: getToken() || null,
   }),
 
   getters: {
@@ -50,12 +35,15 @@ export const useAuthStore = defineStore('auth', {
         login,
         password,
         device_name: navigator.userAgent.slice(0, 100),
+        // Seuls les comptes de l'espace de cette page de connexion y entrent (contrôlé par le serveur)
+        space: SERVER_SPACES[currentSpace()],
       })
 
-      // Application livreur ou e-commerçant : seuls les comptes de son espace s'y connectent
-      if (nativeConfig && !nativeConfig.roles.includes(data.user?.role)) {
+      // Application livreur ou e-commerçant (installée ou Android) : seuls les comptes de son espace
+      const lock = appLock()
+      if (lock && !lock.roles.includes(data.user?.role)) {
         await http.post('/auth/logout', null, { headers: { Authorization: `Bearer ${data.token}` } }).catch(() => {})
-        throw Object.assign(new Error(nativeConfig.other), { response: { data: { message: nativeConfig.other } } })
+        throw Object.assign(new Error(lock.other), { response: { data: { message: lock.other } } })
       }
 
       this.startSession(data)
@@ -63,10 +51,24 @@ export const useAuthStore = defineStore('auth', {
 
     // Session ouverte par le serveur : connexion, fin d'inscription, nouveau mot de passe
     startSession({ token, user }) {
+      // Rangée dans l'espace du compte (mot de passe oublié, inscription : pages communes)
+      setSpace(spaceForPath(homeFor(user?.role)))
       this.token = token
       this.user = user
-      localStorage.setItem(TOKEN_KEY, token)
+      setToken(token)
       cacheUser(user)
+    },
+
+    /**
+     * Page d'un autre espace (ex. espace livreur ouvert après l'espace e-commerçant) : on reprend la
+     * session de cet espace, jamais celle de l'autre.
+     */
+    useSpace(space) {
+      if (!setSpace(space)) return
+      disconnectEcho()
+      clearApiCache()
+      this.token = getToken() || null
+      this.user = null
     },
 
     /**
@@ -100,7 +102,7 @@ export const useAuthStore = defineStore('auth', {
       disconnectEcho()
       this.user = null
       this.token = null
-      localStorage.removeItem(TOKEN_KEY)
+      setToken(null)
       clearApiCache()
       cacheUser(null)
     },

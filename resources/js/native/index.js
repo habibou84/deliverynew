@@ -27,6 +27,34 @@ const APPS = {
 
 export const nativeConfig = nativeApp ? APPS[nativeApp] : null
 
+// Application installée depuis le navigateur (PWA) : verrouillée sur l'espace d'où elle a été
+// installée, comme les applications Android. Repéré à l'ouverture (adresse de départ du manifeste,
+// ou fenêtre d'application sur une page de l'espace) et gardé pour la durée de la fenêtre.
+const LOCK_KEY = 'app-lock'
+function detectInstalledApp() {
+  if (nativeApp || typeof window === 'undefined') return null
+  try {
+    const saved = sessionStorage.getItem(LOCK_KEY)
+    if (saved) return saved
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
+    const fromManifest = new URLSearchParams(window.location.search).get('app')
+    if (!standalone && !fromManifest) return null
+    const path = window.location.pathname
+    const app = fromManifest === 'livreur' || path.startsWith('/livreur') ? 'livreur'
+      : (fromManifest === 'marchand' || path === '/' || path.startsWith('/marchand') ? 'ecommercant' : null)
+    if (app) sessionStorage.setItem(LOCK_KEY, app)
+    return app
+  } catch {
+    return null
+  }
+}
+const installedApp = detectInstalledApp()
+
+/** Espace auquel l'application est limitée (Android, ou installée depuis le navigateur) ; null sinon */
+export function appLock() {
+  return nativeConfig || (installedApp ? APPS[installedApp] : null)
+}
+
 /** Entreprise choisie sur l'appareil : { code, name, url, logo_url } */
 export function nativeCompany() {
   try {
@@ -75,6 +103,7 @@ export async function findCompany(code) {
 
 /** Chemin autorisé dans cette application (les autres espaces restent sur le site) */
 export function allowedInApp(path) {
-  if (!nativeConfig) return true
-  return path === '/' || path === '/entreprise' || nativeConfig.paths.some((p) => path === p || path.startsWith(`${p}/`))
+  const lock = appLock()
+  if (!lock) return true
+  return path === '/' || path === '/entreprise' || lock.paths.some((p) => path === p || path.startsWith(`${p}/`))
 }

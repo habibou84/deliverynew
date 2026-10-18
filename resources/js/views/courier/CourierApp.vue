@@ -1,5 +1,5 @@
 <template>
-  <MobileLayout base="/livreur" color="#1d4ed8" app-name="Mes missions" :tabs="tabs">
+  <MobileLayout base="/livreur" :color="spaceColor('livreur')" app-name="Mes missions" :tabs="tabs">
     <template #banner>
       <OfflineQueueBanner />
     </template>
@@ -10,6 +10,7 @@
 import { onBeforeUnmount, onMounted } from 'vue'
 import http from '../../bootstrap/axios'
 import MobileLayout from '../../components/mobile/MobileLayout.vue'
+import { loadBranding, spaceColor } from '../../composables/useBranding'
 import OfflineQueueBanner from '../../components/mobile/OfflineQueueBanner.vue'
 import { RouteIcon, UserIcon, WalletIcon } from '../../components/mobile/icons'
 import { currentPosition } from '../../composables/useGeolocation'
@@ -42,4 +43,7 @@ const tabs = [
   { to: '/livreur/caisse', label: 'Caisse', icon: WalletIcon },
   { to: '/livreur/profil', label: 'Profil', icon: UserIcon },
 ]
+
+// Couleur et logo choisis par l'entreprise (Paramètres › Apparence)
+loadBranding()
 </script>
