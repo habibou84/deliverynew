@@ -6,7 +6,7 @@
       </div>
       <div class="min-w-0">
         <p class="font-semibold text-lg truncate">{{ auth.user?.name }}</p>
-        <p class="text-sm text-slate-500">{{ auth.user?.phone }}</p>
+        <p class="text-sm text-slate-500">{{ localPhone(auth.user?.phone) }}</p>
         <p class="text-sm text-slate-500">{{ auth.user?.merchant?.business_name || auth.user?.company?.name }}</p>
       </div>
     </div>
@@ -67,7 +67,7 @@ import { forgetPushDevice } from '../../composables/usePush'
 import { useAuthStore } from '../../stores/auth'
 import { pwa } from '../../composables/usePwa'
 import { offlineQueue } from '../../composables/useOfflineQueue'
-import { telLink } from '../../utils/format'
+import { localPhone, telLink } from '../../utils/format'
 import { appLock } from '../../native'
 
 const auth = useAuthStore()

@@ -12,7 +12,7 @@
         <span class="text-2xl">💬</span>
         <span class="flex-1">
           <span class="block text-sm text-slate-500">{{ onPhone ? 'WhatsApp de secours' : 'Messages WhatsApp envoyés au' }}</span>
-          <span class="block font-medium">{{ settings.messaging_phone || 'Aucun numéro' }}</span>
+          <span class="block font-medium">{{ localPhone(settings.messaging_phone) || 'Aucun numéro' }}</span>
         </span>
         <span class="text-sm font-medium text-[var(--app-color)]">Modifier</span>
       </button>
@@ -74,6 +74,7 @@ import PushSettings from './PushSettings.vue'
 import ToggleRow from './ToggleRow.vue'
 import { push } from '../../composables/usePush'
 import { useAuthStore } from '../../stores/auth'
+import { localPhone } from '../../utils/format'
 import { useToastStore } from '../../stores/toasts'
 
 const HINTS = {

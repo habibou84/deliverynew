@@ -30,8 +30,9 @@
       <h2 class="pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{{ group.label }}</h2>
       <OrderCard v-for="o in group.orders" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`">
         <template v-if="TO_SETTLE.includes(o.status)" #actions>
-          <a :href="telLink(o.recipient.phone)" class="tap flex-1 rounded-xl py-2.5 text-center text-sm font-semibold ring-1 ring-slate-200 active:bg-slate-50">📞 Appeler le client</a>
-          <RouterLink :to="`/marchand/courses/${o.id}`" class="tap flex-1 rounded-xl py-2.5 text-center text-sm font-semibold text-white" :style="{ backgroundColor: 'var(--app-color)' }">Voir et décider</RouterLink>
+          <a :href="telLink(o.recipient.phone)" class="tap flex-1 rounded-xl py-2.5 text-center text-sm font-semibold ring-1 ring-slate-200 active:bg-slate-50">📞 Appeler</a>
+          <RouterLink v-if="o.status === 'delivery_failed'" :to="`/marchand/courses/${o.id}?action=reporter`" class="tap flex-1 rounded-xl py-2.5 text-center text-sm font-semibold ring-1 ring-slate-200 active:bg-slate-50">📅 Reporter</RouterLink>
+          <RouterLink :to="`/marchand/courses/${o.id}`" class="tap flex-1 rounded-xl py-2.5 text-center text-sm font-semibold text-white" :style="{ backgroundColor: 'var(--app-color)' }">Décider</RouterLink>
         </template>
       </OrderCard>
     </section>
@@ -42,10 +43,6 @@
     <p v-if="loading" class="text-center text-slate-400 py-6">Chargement…</p>
     <button v-if="hasMore && !loading" class="m-btn-secondary" @click="load(page + 1)">Voir plus</button>
 
-    <!-- Usage rare : en bas de la liste -->
-    <RouterLink v-if="auth.can('orders.create')" to="/marchand/courses/import" class="block pt-2 text-center text-sm text-slate-500">
-      Beaucoup de courses à créer ? <span class="font-medium text-[var(--app-color)]">Importer un fichier Excel</span>
-    </RouterLink>
   </div>
 </template>
 

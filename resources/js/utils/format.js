@@ -98,6 +98,13 @@ export const ROLE_LABELS = {
   merchant_staff: 'Employé e-commerçant',
 }
 
+/** Numéro ivoirien tel qu'on le tape : +2250700000001 → 07 00 00 00 01 */
+export function localPhone(phone) {
+  if (!phone) return ''
+  const digits = String(phone).replace(/^\+225/, '')
+  return /^\d{10}$/.test(digits) ? digits.replace(/(\d{2})(?=\d)/g, '$1 ') : String(phone)
+}
+
 export function telLink(phone) {
   return phone ? `tel:${phone}` : null
 }
