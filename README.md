@@ -137,6 +137,12 @@ jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
   les colis cochés sont confiés d'un coup au livreur, sans changer leur date de livraison (souvent demain). Le dispatch
   reçoit une alerte quand un livreur qui a déjà travaillé devient libre ou bientôt libre avec des ramassages près de
   lui (`couriers:available`, chaque minute, une alerte par palier et par jour).
+- **Après une mission ramassage** (**Paramètres**) : les colis **restent chez le livreur** jusqu'à leur jour de
+  livraison, **reviennent au dépôt** le soir même, ou **au choix du dispatch** à chaque mission (par défaut). Un colis
+  gardé n'est pas « en retard » avant son jour de livraison ; ce jour-là, sa livraison est confiée automatiquement au
+  livreur qui l'a (`parcels:kept-deliveries`, toutes les 15 min). Confier la livraison à un autre livreur signale une
+  passation. Passé l'**heure de fermeture du dépôt**, le livreur garde les colis jusqu'au matin. Le livreur voit dans
+  **Ma caisse** les colis à garder et ceux à rapporter.
 - **Décider de la suite** (file **À décider** des courses, ou fiche de la course) : un échec de livraison attend
   une décision avant de revenir dans « À livrer » : **relivrer** à une date (aujourd'hui, demain…, livreur
   facultatif), **retourner au marchand** ou, pour une commande d'entrepôt, **remettre en stock**. Le marchand est

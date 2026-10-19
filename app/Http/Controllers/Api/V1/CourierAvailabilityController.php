@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Services\Couriers\CourierAvailability;
+use App\Services\Couriers\PickupCustody;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,11 +15,20 @@ use Illuminate\Http\Request;
  */
 class CourierAvailabilityController extends Controller
 {
-    public function index(Request $request, CourierAvailability $availability): JsonResponse
+    public function index(Request $request, CourierAvailability $availability, PickupCustody $custody): JsonResponse
     {
+        $company = $request->user()->company;
+
         return response()->json([
-            'data' => $availability->board($request->user()->company),
-            'meta' => ['soon' => CourierAvailability::SOON, 'radius_km' => CourierAvailability::RADIUS_KM],
+            'data' => $availability->board($company),
+            'meta' => [
+                'soon' => CourierAvailability::SOON,
+                'radius_km' => CourierAvailability::RADIUS_KM,
+                // Après la mission : garde, dépôt, ou au choix du dispatch
+                'custody' => $custody->setting($company),
+                'depot_closes_at' => $company->depot_closes_at,
+                'depot_closed' => $custody->depotClosed($company),
+            ],
         ]);
     }
 
@@ -32,8 +42,9 @@ class CourierAvailabilityController extends Controller
         $data = $request->validate([
             'order_ids' => ['required', 'array', 'min:1', 'max:100'],
             'order_ids.*' => ['integer', 'distinct'],
-        ], [], ['order_ids' => 'colis']);
+            'custody' => ['nullable', 'in:keep,depot'],
+        ], [], ['order_ids' => 'colis', 'custody' => 'garde des colis']);
 
-        return response()->json(['data' => $availability->assignPickupMission($request->user(), $courier, $data['order_ids'])]);
+        return response()->json(['data' => $availability->assignPickupMission($request->user(), $courier, $data['order_ids'], $data['custody'] ?? null)]);
     }
 }

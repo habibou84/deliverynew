@@ -46,6 +46,7 @@ class CourierAvailability
     public function __construct(
         private readonly OrderDispatcher $dispatcher,
         private readonly OrderJournal $journal,
+        private readonly PickupCustody $custody,
     ) {}
 
     /**
@@ -227,12 +228,15 @@ class CourierAvailability
     /**
      * Mission ramassage : confie d'un coup au livreur les colis choisis. Ceux qu'un autre
      * livreur va déjà chercher sont laissés de côté (pas de réassignation par erreur).
+     * $custody (keep, depot) : choix du dispatch quand l'entreprise le laisse ouvert.
      *
      * @param  list<int>  $orderIds
-     * @return array{assigned: list<int>, errors: array<int, string>}
+     * @return array{assigned: list<int>, errors: array<int, string>, warnings: array<int, string>, custody: string, fallback: bool}
      */
-    public function assignPickupMission(User $actor, Courier $courier, array $orderIds): array
+    public function assignPickupMission(User $actor, Courier $courier, array $orderIds, ?string $custody = null): array
     {
+        $rule = $this->custody->resolve(Company::findOrFail($courier->company_id), $custody);
+
         $taken = Order::whereIn('id', $orderIds)
             ->whereHas('assignments', fn ($q) => $q->active()->where('type', AssignmentType::Pickup->value))
             ->pluck('id')->all();
@@ -244,15 +248,19 @@ class CourierAvailability
 
         if ($result['assigned']) {
             $courier->loadMissing('user');
+            Order::whereIn('id', $result['assigned'])->update(['custody_plan' => $rule['plan']]);
+            $then = $rule['plan'] === Company::CUSTODY_KEEP
+                ? 'Il garde le colis jusqu\'à sa livraison, qui lui sera confiée le jour prévu'.($rule['fallback'] ? ' (dépôt fermé à cette heure)' : '').'.'
+                : 'Il rapporte le colis au dépôt.';
             foreach (Order::whereIn('id', $result['assigned'])->get() as $order) {
                 $this->journal->record($order, $actor, OrderEventType::Note, [
-                    'note' => "Mission ramassage confiée à {$courier->user->name}, libre près de ce client. La date de livraison ne change pas.",
+                    'note' => "Mission ramassage confiée à {$courier->user->name}, libre près de ce client. {$then} La date de livraison ne change pas.",
                     'visible_to_merchant' => false,
                 ]);
             }
         }
 
-        return $result;
+        return [...$result, 'custody' => $rule['plan'], 'fallback' => $rule['fallback']];
     }
 
     /**

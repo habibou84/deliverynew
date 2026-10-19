@@ -80,6 +80,23 @@
             </li>
           </ul>
         </div>
+        <!-- Après le ramassage : garde ou dépôt (réglage de l'entreprise, ou choix ici) -->
+        <div v-if="mission.stops" class="rounded-lg bg-slate-50 p-3 text-sm">
+          <template v-if="custodySetting === 'choose'">
+            <p class="font-medium mb-1">Après le ramassage, le livreur…</p>
+            <label class="flex items-start gap-2 py-0.5">
+              <input v-model="custody" type="radio" value="depot" class="mt-1" :disabled="depotClosed">
+              <span>rapporte les colis au dépôt<span v-if="depotClosed" class="text-amber-700"> (dépôt fermé depuis {{ depotClosesAt }})</span></span>
+            </label>
+            <label class="flex items-start gap-2 py-0.5">
+              <input v-model="custody" type="radio" value="keep" class="mt-1">
+              <span>garde les colis jusqu'à leur livraison, qui lui sera confiée le jour prévu</span>
+            </label>
+          </template>
+          <p v-else-if="custodySetting === 'depot' && !depotClosed">🏢 Le livreur rapporte les colis au dépôt (réglage de l'entreprise).</p>
+          <p v-else-if="custodySetting === 'depot'">🌙 Dépôt fermé depuis {{ depotClosesAt }} : le livreur gardera les colis jusqu'au matin.</p>
+          <p v-else>🌙 Le livreur garde les colis jusqu'à leur livraison, qui lui sera confiée le jour prévu (réglage de l'entreprise).</p>
+        </div>
         <div class="flex justify-end gap-2 pt-1">
           <button type="button" class="btn-secondary" @click="mission = null">Annuler</button>
           <button type="button" class="btn-primary" :disabled="!picked.length || sending" @click="sendMission">Confier {{ picked.length }} colis</button>
@@ -119,6 +136,11 @@ const filters = [{ value: 'ready', label: 'Libres et bientôt libres' }, { value
 const mission = ref(null)
 const picked = ref([])
 const sending = ref(false)
+// Garde ou dépôt après la mission : réglage de l'entreprise (« choose » : choix du dispatch)
+const custodySetting = ref('choose')
+const depotClosesAt = ref(null)
+const depotClosed = ref(false)
+const custody = ref('depot')
 
 const visible = computed(() => (filter.value === 'all' ? couriers.value : couriers.value.filter((c) => ['free', 'soon'].includes(c.state))))
 const counts = computed(() => ({
@@ -153,12 +175,16 @@ async function load() {
   const { data } = await http.get('/couriers/availability')
   couriers.value = data.data
   soon.value = data.meta.soon
+  custodySetting.value = data.meta.custody
+  depotClosesAt.value = data.meta.depot_closes_at
+  depotClosed.value = data.meta.depot_closed
   loaded.value = true
 }
 
 async function openMission(c) {
   mission.value = { ...c, stops: null }
   picked.value = []
+  custody.value = depotClosed.value ? 'keep' : 'depot'
   router.replace({ query: { livreur: c.id } })
   try {
     const { data } = await http.get(`/couriers/${c.id}/availability`)
@@ -173,10 +199,11 @@ async function openMission(c) {
 async function sendMission() {
   sending.value = true
   try {
-    const { data } = await http.post(`/couriers/${mission.value.id}/pickup-mission`, { order_ids: picked.value })
+    const { data } = await http.post(`/couriers/${mission.value.id}/pickup-mission`, { order_ids: picked.value, custody: custodySetting.value === 'choose' ? custody.value : null })
     const done = data.data.assigned.length
     const failed = Object.values(data.data.errors)
-    if (done) toasts.success(`${done} colis confié${done > 1 ? 's' : ''} à ${mission.value.name}.`)
+    const then = data.data.custody === 'keep' ? 'Il les garde jusqu\'à leur livraison.' : 'Il les rapporte au dépôt.'
+    if (done) toasts.success(`${done} colis confié${done > 1 ? 's' : ''} à ${mission.value.name}. ${then}`)
     if (failed.length) toasts.error(`${failed.length} colis non confié${failed.length > 1 ? 's' : ''} : ${[...new Set(failed)].join(' ')}`)
     mission.value = null
     load()

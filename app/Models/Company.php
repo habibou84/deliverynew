@@ -42,6 +42,8 @@ class Company extends Model
         'weekly_report',
         'field_alert_reminder_minutes',
         'parcel_hold_alert_hours',
+        'pickup_mission_custody',
+        'depot_closes_at',
         'pickup_assign_alert_minutes',
         'daily_cutoff_time',
         'delivery_assign_alert_minutes',
@@ -85,6 +87,13 @@ class Company extends Model
     }
 
     /** Modes de validation des courses */
+    /** Après une mission ramassage : le livreur garde les colis, les rapporte au dépôt, ou au choix du dispatch */
+    public const CUSTODY_KEEP = 'keep';
+
+    public const CUSTODY_DEPOT = 'depot';
+
+    public const CUSTODY_CHOOSE = 'choose';
+
     public const VALIDATION_MANUAL = 'manual';
 
     public const VALIDATION_AUTO = 'auto';

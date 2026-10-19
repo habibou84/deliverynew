@@ -145,7 +145,7 @@ class CourierAvailabilityTest extends TestCase
         $two = $this->confirmed();
 
         Sanctum::actingAs($this->dispatcher);
-        $this->postJson("/api/v1/couriers/{$this->courierA->id}/pickup-mission", ['order_ids' => [$one->id, $two->id]])
+        $this->postJson("/api/v1/couriers/{$this->courierA->id}/pickup-mission", ['order_ids' => [$one->id, $two->id], 'custody' => 'depot'])
             ->assertOk()
             ->assertJsonPath('data.assigned', [$one->id, $two->id]);
 
@@ -156,7 +156,7 @@ class CourierAvailabilityTest extends TestCase
         $this->assertStringContainsString('Mission ramassage', $one->events()->latest('id')->first()->note);
 
         // Déjà confié : laissé de côté, pas réassigné à un autre livreur
-        $this->postJson("/api/v1/couriers/{$this->courierB->id}/pickup-mission", ['order_ids' => [$one->id]])
+        $this->postJson("/api/v1/couriers/{$this->courierB->id}/pickup-mission", ['order_ids' => [$one->id], 'custody' => 'depot'])
             ->assertOk()
             ->assertJsonPath('data.assigned', [])
             ->assertJsonPath("data.errors.{$one->id}", 'Un livreur va déjà chercher ce colis.');

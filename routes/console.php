@@ -35,4 +35,6 @@ Schedule::command('parcels:overdue')->everyFifteenMinutes()->withoutOverlapping(
 Schedule::command('orders:unassigned')->everyMinute()->withoutOverlapping();
 // Livreurs libres ou bientôt libres avec des ramassages près d'eux : mission ramassage possible
 Schedule::command('couriers:available')->everyMinute()->withoutOverlapping();
+// Colis gardés par le livreur après une mission ramassage : leur livraison lui est confiée le jour prévu
+Schedule::command('parcels:kept-deliveries')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('orders:due-today')->dailyAt('06:50')->withoutOverlapping();

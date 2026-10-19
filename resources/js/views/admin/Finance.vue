@@ -189,12 +189,13 @@
               <input v-model="remit.returned" type="checkbox" :value="p.id" :aria-label="`Colis ${p.tracking_code} rendu`">
               <span class="font-mono text-xs">{{ p.tracking_code }}</span>
               <span class="flex-1 min-w-0 truncate">{{ p.recipient_name || p.recipient_phone }} <span class="text-xs text-gray-500">· {{ p.merchant }}</span></span>
-              <span class="text-xs text-gray-600 whitespace-nowrap">{{ p.rescheduled_to ? `Reporté au ${date(p.rescheduled_to)}` : (p.incident || p.status_label) }}</span>
-              <span :class="['text-xs whitespace-nowrap', isOld(p.held_since) ? 'text-red-600 font-semibold' : 'text-gray-500']">{{ heldFor(p.held_since) }}</span>
+              <span v-if="p.kept_for" class="text-xs text-indigo-700 whitespace-nowrap">🌙 Gardé pour la livraison du {{ date(p.kept_for) }}</span>
+              <span v-else class="text-xs text-gray-600 whitespace-nowrap">{{ p.rescheduled_to ? `Reporté au ${date(p.rescheduled_to)}` : (p.incident || p.status_label) }}</span>
+              <span :class="['text-xs whitespace-nowrap', !p.kept_for && isOld(p.held_since) ? 'text-red-600 font-semibold' : 'text-gray-500']">{{ heldFor(p.held_since) }}</span>
             </li>
           </ul>
           <p v-if="remitParcels.length - remit.returned.length > 0" class="text-xs text-amber-700">
-            ⚠ {{ remitParcels.length - remit.returned.length }} colis resteront chez le livreur.
+            ⚠ {{ remitParcels.length - remit.returned.length }} colis resteront chez le livreur<template v-if="remitKept.length"> (dont {{ remitKept.length }} gardé{{ remitKept.length > 1 ? 's' : '' }} pour leur livraison)</template>.
           </p>
         </div>
 
@@ -360,6 +361,8 @@ const remit = reactive({ open: false, courier: null, collections: [], advances: 
 const remitHasCash = computed(() => remit.collections.length > 0 || remit.advances.length > 0 || remit.expenses.length > 0)
 const remitOnTheRoad = computed(() => remit.parcels.filter((p) => p.on_the_road))
 const remitParcels = computed(() => remit.parcels.filter((p) => !p.on_the_road))
+// Gardés par le livreur pour leur livraison (mission ramassage) : normalement pas rendus au point
+const remitKept = computed(() => remitParcels.value.filter((p) => p.kept_for && !remit.returned.includes(p.id)))
 const isOld = (since) => since && Date.now() - new Date(since).getTime() > 24 * 3600000
 function heldFor(since) {
   const hours = Math.floor((Date.now() - new Date(since).getTime()) / 3600000)
