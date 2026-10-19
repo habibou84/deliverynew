@@ -28,10 +28,11 @@
 
     <PasteMessage mobile :start-open="route.query.coller === '1'" @parsed="applyParsed" />
 
-    <!-- Client -->
-    <section class="space-y-3">
+    <!-- 1. Le client -->
+    <section class="m-card p-4 space-y-4" aria-labelledby="step-client">
+      <h2 id="step-client" class="m-step"><span class="m-step-num">1</span>Le client</h2>
       <div class="relative">
-        <label class="m-label" for="phone">Téléphone du client *</label>
+        <label class="m-label" for="phone">Téléphone <span class="text-red-600">*</span></label>
         <input id="phone" v-model="form.recipient_phone" :class="['m-input text-lg', missing.phone ? 'ring-2 ring-red-500' : '']" inputmode="tel" autocomplete="jibiat-off" placeholder="07 00 00 00 00" @input="searchRecipients" @blur="checkDuplicates">
       </div>
       <!-- Client déjà livré : nom et adresse en un toucher -->
@@ -51,15 +52,16 @@
         <RouterLink v-for="d in duplicates" :key="d.id" :to="`/marchand/courses/${d.id}`" class="underline ml-1">{{ d.tracking_code }} ({{ d.status_label }})</RouterLink>
       </div>
       <div>
-        <label class="m-label" for="name">Nom du client</label>
+        <label class="m-label" for="name">Nom <span class="font-normal text-slate-500">(facultatif)</span></label>
         <input id="name" v-model="form.recipient_name" class="m-input" autocomplete="jibiat-off" placeholder="Ex. : Jean Kouadio">
       </div>
     </section>
 
-    <!-- Livraison -->
-    <section class="space-y-3">
+    <!-- 2. Où livrer -->
+    <section class="m-card p-4 space-y-4" aria-labelledby="step-where">
+      <h2 id="step-where" class="m-step"><span class="m-step-num">2</span>Où livrer</h2>
       <div id="zone-field">
-        <label class="m-label" for="zone">Commune ou quartier *</label>
+        <label class="m-label" for="zone">Commune ou quartier <span class="text-red-600">*</span></label>
         <p v-if="zoneChoices.length > 1" class="text-sm text-slate-600 mb-2">
           D'après le message :
           <button v-for="z in zoneChoices" :key="z.id" type="button" :class="['tap mr-1 mt-1 rounded-full px-3 py-1 text-sm ring-1', form.delivery_zone_id === z.id ? 'text-white ring-transparent' : 'bg-white ring-slate-200']" :style="form.delivery_zone_id === z.id ? { backgroundColor: 'var(--app-color)' } : {}" @click="form.delivery_zone_id = z.id">{{ z.full_name }}</button>
@@ -77,9 +79,10 @@
       </div>
     </section>
 
-    <!-- Colis et paiement -->
-    <section class="space-y-3">
-      <button v-if="products.length && !showStock" type="button" class="tap w-full m-card px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
+    <!-- 3. L'argent (et les articles du stock) -->
+    <section class="m-card p-4 space-y-4" aria-labelledby="step-money">
+      <h2 id="step-money" class="m-step"><span class="m-step-num">3</span>L'argent</h2>
+      <button v-if="products.length && !showStock" type="button" class="tap w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
         <span>📦 Prendre des articles de mon stock</span><span class="text-slate-400">›</span>
       </button>
       <div v-if="products.length && showStock" class="space-y-3">
@@ -127,8 +130,12 @@
         />
         <p v-if="missing.feePayer" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison : le client ou vous.</p>
       </div>
+    </section>
+
+    <!-- 4. Quand livrer -->
+    <section class="m-card p-4 space-y-4" aria-labelledby="step-when">
+      <h2 id="step-when" class="m-step"><span class="m-step-num">4</span><span>Quand livrer <span class="text-red-600">*</span></span></h2>
       <div id="when-field" :class="['rounded-2xl', missing.date ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
-        <p class="m-label">Quand livrer ? <span class="text-red-600">*</span></p>
         <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de livraison" />
         <p v-if="closed" class="mt-2 text-xs text-slate-500">🌙 {{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
         <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="minDate" class="m-input mt-2" aria-label="Jour de livraison">
@@ -138,12 +145,12 @@
     </section>
 
     <!-- Le reste, seulement si besoin -->
-    <section>
-      <button type="button" class="tap w-full flex items-center justify-between rounded-xl px-1 py-2 text-sm font-semibold text-slate-600" :aria-expanded="showMore" @click="showMore = !showMore">
+    <section class="m-card px-4 py-1">
+      <button type="button" class="tap w-full flex items-center justify-between rounded-xl py-3 text-[15px] font-semibold text-slate-800" :aria-expanded="showMore" @click="showMore = !showMore">
         <span>{{ showMore ? '−' : '＋' }} Contenu du colis, message au livreur…</span>
         <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-500">{{ extrasSummary }}</span>
       </button>
-      <div v-show="showMore" class="space-y-4 pt-2">
+      <div v-show="showMore" class="space-y-4 pt-1 pb-4">
         <div>
           <label class="m-label" for="desc">Que contient le colis ?</label>
           <input id="desc" autocomplete="jibiat-off" v-model="form.description" class="m-input" placeholder="Ex. : 2 robes, 1 sac">
