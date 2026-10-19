@@ -23,6 +23,12 @@ class PreprodGate
     /** Manifestes, icônes et logo des applications : rien de privé (nom, couleurs, images) */
     private const APP_FILES = ['manifest/*', 'branding/icon/*', 'branding/logo'];
 
+    /** Préproduction protégée par le code d'accès (jamais en production) */
+    public static function active(): bool
+    {
+        return (string) config('platform.preprod_access_code') !== '' && ! app()->isProduction();
+    }
+
     public function handle(Request $request, Closure $next): Response
     {
         $code = (string) config('platform.preprod_access_code');
