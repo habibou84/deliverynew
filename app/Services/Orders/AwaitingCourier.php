@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Notification;
  * Courses qui attendent un livreur :
  *  - ramassage : course validée, personne n'est désigné pour aller la chercher ;
  *  - livraison : colis récupéré, à l'entrepôt ou reporté à aujourd'hui, sans livreur.
- * Le délai part de l'entrée dans le statut (ou du jour prévu de livraison s'il est plus
+ * Le délai part de l'entrée dans le statut (ou, pour la livraison, du jour prévu s'il est plus
  * tard) ; au-delà du seuil de l'entreprise, la course est « en retard » et le dispatch
  * est alerté, puis les administrateurs après trois fois le seuil. Passé l'heure limite
  * du jour de l'entreprise, une alerte rappelle les courses du jour encore sans livreur.
@@ -60,11 +60,11 @@ class AwaitingCourier
             if ($stage !== self::PICKUP) {
                 $q->orWhere(fn (Builder $q) => $q->whereIn('status', OrderStatus::values(self::DELIVERY_STATUSES))
                     ->where('return_requested', false)
-                    ->whereDoesntHave('assignments', fn ($a) => $a->active()->where('type', AssignmentType::Delivery->value)));
+                    ->whereDoesntHave('assignments', fn ($a) => $a->active()->where('type', AssignmentType::Delivery->value))
+                    // Livraison prévue un autre jour : pas encore en attente (le ramassage, lui, se fait dès la validation)
+                    ->where(fn (Builder $q) => $q->whereNull('delivery_scheduled_date')->orWhereDate('delivery_scheduled_date', '<=', today())));
             }
-        })
-            // Livraison prévue un autre jour : pas encore en attente
-            ->where(fn (Builder $q) => $q->whereNull('delivery_scheduled_date')->orWhereDate('delivery_scheduled_date', '<=', today()));
+        });
     }
 
     /**
@@ -74,7 +74,8 @@ class AwaitingCourier
     {
         $since = $order->status_changed_at ?? $order->updated_at ?? now();
 
-        if ($order->delivery_scheduled_date !== null && $order->delivery_scheduled_date->copy()->startOfDay()->gt($since)) {
+        // Livraison prévue plus tard : l'attente du livreur de livraison part de ce jour-là
+        if ($this->stage($order) === self::DELIVERY && $order->delivery_scheduled_date !== null && $order->delivery_scheduled_date->copy()->startOfDay()->gt($since)) {
             $since = $order->delivery_scheduled_date->copy()->startOfDay();
         }
 

@@ -21,6 +21,7 @@ enum WhatsAppTemplate: string
     case ReturnSlip = 'bon_de_retour';
     case ReturnHanded = 'retour_remis';
     case ManagerReport = 'point_semaine_gerant';
+    case OrderConfirmedForDate = 'course_validee_date';
 
     public const LANGUAGE = 'fr';
 
@@ -28,6 +29,7 @@ enum WhatsAppTemplate: string
     {
         return match ($this) {
             self::OrderConfirmed => 'Bonjour {{1}}, votre course {{2}} pour {{3}} est validée. Frais de livraison : {{4}}. Notre livreur passe bientôt récupérer le colis.',
+            self::OrderConfirmedForDate => 'Bonjour {{1}}, votre course {{2}} pour {{3}} est validée pour une livraison le {{4}} ({{5}}). Frais de livraison : {{6}}. Notre livreur passe bientôt récupérer le colis.',
             self::OrderPickedUp => 'Bonjour {{1}}, le colis {{2}} pour {{3}} a été récupéré par notre livreur. Il sera livré prochainement.',
             self::OutForDelivery => 'Bonjour {{1}}, votre colis de {{2}} est en route. Montant à payer au livreur : {{3}}. Code de livraison à lui donner : {{4}}. Suivi du colis : {{5}} . Merci de votre confiance.',
             self::OrderDelivered => 'Bonjour {{1}}, le colis {{2}} pour {{3}} a été livré. Montant encaissé : {{4}}. Merci de votre confiance.',
@@ -49,6 +51,7 @@ enum WhatsAppTemplate: string
     {
         return match ($this) {
             self::OrderConfirmed => '📋 Course validée',
+            self::OrderConfirmedForDate => '📅 Course validée pour une date',
             self::OrderPickedUp => '📦 Colis récupéré',
             self::OutForDelivery => '🛵 Colis en route',
             self::OrderDelivered => '✅ Colis livré',
@@ -66,6 +69,7 @@ enum WhatsAppTemplate: string
     {
         return match ($this) {
             self::OrderConfirmed => 'Au marchand, quand sa course est validée',
+            self::OrderConfirmedForDate => 'Au marchand, quand sa course est validée pour un autre jour (date choisie, heure limite passée ou journée fermée)',
             self::OrderPickedUp => 'Au marchand, quand le colis est récupéré',
             self::OutForDelivery => 'Au destinataire, quand le livreur part livrer (avec le code de livraison)',
             self::OrderDelivered => 'Au marchand, quand le colis est livré',
@@ -89,6 +93,7 @@ enum WhatsAppTemplate: string
     {
         return match ($this) {
             self::OrderConfirmed => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Yopougon)', '1 500 F'],
+            self::OrderConfirmedForDate => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Yopougon)', 'mardi 21/10', 'livraisons du jour closes depuis 16:00', '1 500 F'],
             self::OrderPickedUp => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Yopougon)'],
             self::OutForDelivery => ['Awa', 'Boutique Chic', '13 500 F', '4821', 'https://exemple.ci/suivi/LV-7K2M-9PQX'],
             self::OrderDelivered => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Yopougon)', '13 500 F'],

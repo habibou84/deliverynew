@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
 use App\Http\Controllers\Api\V1\CustomDomainController;
+use App\Http\Controllers\Api\V1\DeliveryDayController;
 use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
@@ -284,6 +285,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('couriers', [CourierController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.index');
         Route::get('couriers/{courier}', [CourierController::class, 'show'])->middleware('can:orders.dispatch')->name('couriers.show');
         Route::patch('couriers/{courier}', [CourierController::class, 'update'])->middleware('can:users.manage')->name('couriers.update');
+
+        // Journée de livraison : état (dispatch, marchands), fermeture et réouverture (dispatch)
+        Route::get('delivery-day', [DeliveryDayController::class, 'show'])->name('delivery-day.show');
+        Route::post('delivery-day/close', [DeliveryDayController::class, 'close'])->name('delivery-day.close');
+        Route::post('delivery-day/reopen', [DeliveryDayController::class, 'reopen'])->name('delivery-day.reopen');
 
         // Courses
         Route::get('orders/import/template', [OrderImportController::class, 'template'])->name('orders.import.template');

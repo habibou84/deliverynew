@@ -28,6 +28,7 @@ class Company extends Model
         'currency',
         'timezone',
         'auto_confirm_orders',
+        'validation_mode',
         'default_max_attempts',
         'require_delivery_code',
         'offline_courier_actions',
@@ -73,12 +74,40 @@ class Company extends Model
             'parcel_hold_alert_hours' => 'integer',
             'pickup_assign_alert_minutes' => 'integer',
             'cutoff_alerted_on' => 'date:Y-m-d',
+            'deliveries_closed_on' => 'date:Y-m-d',
+            'deliveries_closed_at' => 'datetime',
             'delivery_assign_alert_minutes' => 'integer',
             'status' => CompanyStatus::class,
             'trial_ends_at' => 'date:Y-m-d',
             'legacy_import_key_expires_at' => 'datetime',
             'legacy_import_used_at' => 'datetime',
         ];
+    }
+
+    /** Modes de validation des courses */
+    public const VALIDATION_MANUAL = 'manual';
+
+    public const VALIDATION_AUTO = 'auto';
+
+    public const VALIDATION_RULES = 'rules';
+
+    protected static function booted(): void
+    {
+        // « auto_confirm_orders » (ancien réglage, toujours accepté par l'API) suit le mode, et inversement
+        static::saving(function (Company $company) {
+            if ($company->isDirty('validation_mode')) {
+                $company->auto_confirm_orders = $company->validation_mode !== self::VALIDATION_MANUAL;
+            } elseif ($company->isDirty('auto_confirm_orders')) {
+                $company->validation_mode = ! $company->auto_confirm_orders ? self::VALIDATION_MANUAL
+                    : ($company->validation_mode === self::VALIDATION_RULES ? self::VALIDATION_RULES : self::VALIDATION_AUTO);
+            }
+        });
+    }
+
+    /** Les courses sont-elles validées dès leur enregistrement ? */
+    public function validatesAutomatically(): bool
+    {
+        return in_array($this->validation_mode ?? self::VALIDATION_MANUAL, [self::VALIDATION_AUTO, self::VALIDATION_RULES], true);
     }
 
     public function users(): HasMany

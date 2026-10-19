@@ -173,9 +173,9 @@ class OrderController extends Controller
             // Commandes d'entrepôt validées, à préparer avant la livraison
             'to_prepare' => $query->where('status', OrderStatus::Confirmed)->whereNotNull('pickup_hub_id'),
             // À livrer aujourd'hui : colis disponibles et reports arrivés à échéance
+            // (colis ramassé pour une livraison un autre jour : pas encore à livrer)
             'to_deliver' => $query->whereIn('status', OrderStatus::values([OrderStatus::PickedUp, OrderStatus::AtHub, OrderStatus::Rescheduled]))
-                ->where(fn ($q) => $q->where('status', '!=', OrderStatus::Rescheduled->value)
-                    ->orWhereNull('delivery_scheduled_date')
+                ->where(fn ($q) => $q->whereNull('delivery_scheduled_date')
                     ->orWhereDate('delivery_scheduled_date', '<=', today()))
                 ->where('return_requested', false)
                 ->whereDoesntHave('assignments', fn ($q) => $q->active()->where('type', AssignmentType::Delivery->value)),
@@ -183,8 +183,9 @@ class OrderController extends Controller
             'to_decide' => $query->where('status', OrderStatus::DeliveryFailed)
                 ->where('return_requested', false)
                 ->whereDoesntHave('assignments', fn ($q) => $q->active()),
-            // Reports à une date future
-            'scheduled' => $query->where('status', OrderStatus::Rescheduled)->whereDate('delivery_scheduled_date', '>', today())
+            // Livraisons prévues un autre jour : reports, et colis ramassés en avance
+            'scheduled' => $query->whereIn('status', OrderStatus::values([OrderStatus::Rescheduled, OrderStatus::PickedUp, OrderStatus::AtHub]))
+                ->whereDate('delivery_scheduled_date', '>', today())
                 ->where('return_requested', false),
             'to_return' => $query->where('return_requested', true)
                 ->whereNotIn('status', OrderStatus::values([OrderStatus::ReturnAssigned, OrderStatus::Returning, OrderStatus::Returned])),
