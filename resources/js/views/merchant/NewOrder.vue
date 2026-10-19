@@ -5,6 +5,7 @@
     <div>
       <p class="text-2xl font-bold">Course enregistrée</p>
       <p class="text-slate-500">{{ created.from_warehouse ? 'L\'agence prépare votre commande à l\'entrepôt.' : 'Nous allons envoyer un livreur récupérer le colis.' }}</p>
+      <p v-if="created.delivery?.scheduled_date" class="mt-1 font-semibold text-slate-700">📅 Livraison prévue le {{ longDay(created.delivery.scheduled_date) }}</p>
     </div>
     <div class="m-card p-4 space-y-1">
       <p class="text-sm text-slate-500">Code de suivi</p>
@@ -19,7 +20,7 @@
     </div>
   </div>
 
-  <form v-else class="space-y-5 pb-60" novalidate @submit.prevent="submit">
+  <form v-else class="space-y-5 pb-60" :style="lifted ? { paddingBottom: '100vh' } : {}" novalidate autocomplete="off" @submit.prevent="submit" @focusin="liftField" @focusout="lifted = false">
     <div v-if="error" class="rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm" role="alert">{{ error }}</div>
     <p v-if="fromMessage" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">
       ✨ Course remplie d'après le message : vérifiez les champs avant d'envoyer.
@@ -31,7 +32,7 @@
     <section class="space-y-3">
       <div class="relative">
         <label class="m-label" for="phone">Téléphone du client *</label>
-        <input id="phone" v-model="form.recipient_phone" :class="['m-input text-lg', missing.phone ? 'ring-2 ring-red-500' : '']" inputmode="tel" autocomplete="off" placeholder="07 00 00 00 00" @input="searchRecipients" @blur="checkDuplicates">
+        <input id="phone" v-model="form.recipient_phone" :class="['m-input text-lg', missing.phone ? 'ring-2 ring-red-500' : '']" inputmode="tel" autocomplete="jibiat-off" placeholder="07 00 00 00 00" @input="searchRecipients" @blur="checkDuplicates">
       </div>
       <!-- Client déjà livré : nom et adresse en un toucher -->
       <div v-for="r in suggestions" :key="r.id" class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 px-3 py-2.5 flex items-center gap-3 text-sm">
@@ -51,7 +52,7 @@
       </div>
       <div>
         <label class="m-label" for="name">Nom du client</label>
-        <input id="name" v-model="form.recipient_name" class="m-input" autocomplete="off" placeholder="Ex. : Jean Kouadio">
+        <input id="name" v-model="form.recipient_name" class="m-input" autocomplete="jibiat-off" placeholder="Ex. : Jean Kouadio">
       </div>
     </section>
 
@@ -72,7 +73,7 @@
       </div>
       <div>
         <label class="m-label" for="address">Adresse et repère</label>
-        <input id="address" v-model="form.delivery_address" class="m-input" placeholder="Ex. : Siporex, résidence Les Palmiers, face pharmacie">
+        <input id="address" autocomplete="jibiat-off" v-model="form.delivery_address" class="m-input" placeholder="Ex. : Siporex, résidence Les Palmiers, face pharmacie">
       </div>
     </section>
 
@@ -108,7 +109,7 @@
       <div>
         <label class="m-label" for="amount">Montant à encaisser chez le client</label>
         <div class="relative">
-          <input id="amount" v-model.number="form.items_amount" type="number" min="0" step="50" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
+          <input id="amount" autocomplete="jibiat-off" v-model.number="form.items_amount" type="number" min="0" step="50" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
           <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
         </div>
         <p class="text-xs text-slate-500 mt-1">Prix des articles, sans la livraison. Mettez 0 si le client a déjà payé.</p>
@@ -126,23 +127,27 @@
         />
         <p v-if="missing.feePayer" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison : le client ou vous.</p>
       </div>
+      <div>
+        <p class="m-label">Livraison souhaitée</p>
+        <!-- Journée fermée (heure limite passée ou fermée par l'agence) : dit avant l'envoi, pas après -->
+        <p v-if="day?.closed" class="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          🌙 Livraisons du jour closes{{ day.reason === 'cutoff' ? ` depuis ${day.cutoff_time}` : '' }} : votre course sera livrée le <strong>{{ longDay(day.next_day) }}</strong>. Le ramassage peut se faire aujourd'hui.
+        </p>
+        <ChoiceChips v-model="when" :options="whenOptions" :columns="3" label="Date de livraison" />
+        <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="day?.closed ? day.next_day : today()" :class="['m-input mt-2', missing.date ? 'ring-2 ring-red-500' : '']" aria-label="Date de livraison">
+      </div>
     </section>
 
     <!-- Le reste, seulement si besoin -->
     <section>
       <button type="button" class="tap w-full flex items-center justify-between rounded-xl px-1 py-2 text-sm font-semibold text-slate-600" :aria-expanded="showMore" @click="showMore = !showMore">
-        <span>{{ showMore ? '−' : '＋' }} Date, contenu du colis, message au livreur…</span>
+        <span>{{ showMore ? '−' : '＋' }} Contenu du colis, message au livreur…</span>
         <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-500">{{ extrasSummary }}</span>
       </button>
       <div v-show="showMore" class="space-y-4 pt-2">
         <div>
-          <p class="m-label">Livraison souhaitée</p>
-          <ChoiceChips v-model="when" :options="whenOptions" :columns="3" label="Date de livraison" />
-          <input v-if="when === 'other'" id="date" v-model="form.delivery_scheduled_date" type="date" :min="today()" :class="['m-input mt-2', missing.date ? 'ring-2 ring-red-500' : '']" aria-label="Date de livraison">
-        </div>
-        <div>
           <label class="m-label" for="desc">Que contient le colis ?</label>
-          <input id="desc" v-model="form.description" class="m-input" placeholder="Ex. : 2 robes, 1 sac">
+          <input id="desc" autocomplete="jibiat-off" v-model="form.description" class="m-input" placeholder="Ex. : 2 robes, 1 sac">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <label :class="['tap flex items-center gap-2 rounded-xl px-4 py-3 ring-1', form.is_express ? 'ring-2 ring-[var(--app-color)]' : 'ring-slate-200 bg-white']">
@@ -154,17 +159,17 @@
         </div>
         <div>
           <label class="m-label" for="note">Message pour le livreur</label>
-          <textarea id="note" v-model="form.merchant_note" rows="2" class="m-input" placeholder="Ex. : appeler avant d'arriver" />
+          <textarea id="note" autocomplete="jibiat-off" v-model="form.merchant_note" rows="2" class="m-input" placeholder="Ex. : appeler avant d'arriver" />
         </div>
         <div>
           <label class="m-label" for="phone2">Autre numéro du client</label>
-          <input id="phone2" v-model="form.recipient_phone2" class="m-input" inputmode="tel" placeholder="Si le premier ne répond pas">
+          <input id="phone2" autocomplete="jibiat-off" v-model="form.recipient_phone2" class="m-input" inputmode="tel" placeholder="Si le premier ne répond pas">
         </div>
       </div>
     </section>
 
     <!-- Prix en direct et envoi -->
-    <div class="fixed bottom-16 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe shadow-[0_-6px_18px_rgba(15,23,42,0.06)]">
+    <div v-show="!keyboardOpen" class="fixed bottom-16 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe shadow-[0_-6px_18px_rgba(15,23,42,0.06)]">
       <div class="mx-auto max-w-lg px-4 pt-3 pb-3 space-y-2">
         <div v-if="quote" class="text-sm space-y-0.5">
           <div class="flex justify-between">
@@ -192,6 +197,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import PasteMessage from '../../components/PasteMessage.vue'
 import ZoneSelect from '../../components/ZoneSelect.vue'
+import { keyboardOpen } from '../../composables/useKeyboard'
 import { useAuthStore } from '../../stores/auth'
 import { money, today } from '../../utils/format'
 import { siteOrigin } from '../../native'
@@ -235,11 +241,14 @@ const hubs = ref([])
 const source = ref(null) // null = chez moi, sinon identifiant de l'entrepôt
 const picked = reactive({})
 
-const whenOptions = [
-  { value: 'asap', label: 'Au plus vite' },
-  { value: 'tomorrow', label: 'Demain' },
+// Journée de livraison de l'agence (validation avec règles)
+const day = ref(null)
+const longDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+const whenOptions = computed(() => [
+  // Journée fermée : « au plus vite » veut dire demain, « Demain » devient inutile
+  ...(day.value?.closed ? [{ value: 'asap', label: 'Au plus vite', description: 'demain' }] : [{ value: 'asap', label: 'Au plus vite' }, { value: 'tomorrow', label: 'Demain' }]),
   { value: 'other', label: 'Autre date' },
-]
+])
 
 // Entrepôts où le marchand a du stock disponible
 const stockHubs = computed(() => hubs.value.filter((h) => products.value.some((p) => p.levels.some((l) => l.hub_id === h.id && l.available > 0))))
@@ -260,10 +269,20 @@ function pick(product, delta) {
   picked[product.id] = Math.max(0, Math.min(availableAt(product), (picked[product.id] || 0) + delta))
   // Le montant à encaisser suit les articles choisis (modifiable ensuite)
   form.items_amount = pickedItems.value.reduce((sum, i) => sum + i.quantity * i.unit_price, 0)
+  fillDescription()
+}
+
+// « Que contient le colis ? » reprend les articles choisis, sauf si le marchand y a écrit autre chose
+let autoDescription = ''
+function fillDescription() {
+  if (form.description && form.description !== autoDescription) return
+  autoDescription = pickedItems.value.map((i) => `${i.quantity} × ${i.name}`).join(', ')
+  form.description = autoDescription
 }
 
 watch(source, () => {
   Object.keys(picked).forEach((id) => delete picked[id])
+  fillDescription()
   fetchQuote()
 })
 
@@ -272,7 +291,6 @@ const zoneName = computed(() => selectedZone.value?.full_name || '—')
 const zoneOf = (recipient) => zones.value.find((z) => z.id === recipient.zone_id)?.full_name
 // Options remplies, rappelées quand la section est repliée
 const extrasSummary = computed(() => [
-  form.delivery_scheduled_date ? `le ${form.delivery_scheduled_date.split('-').reverse().join('/')}` : null,
   form.description,
   form.is_express ? 'Express' : null,
   form.is_fragile ? 'Fragile' : null,
@@ -400,9 +418,23 @@ function validate() {
   ].find(([bad]) => bad)
   if (!first) return true
   error.value = first[2]
-  if (first[1] === 'date') showMore.value = true
   setTimeout(() => document.getElementById(first[1])?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   return false
+}
+
+// Champ touché remonté en haut de l'écran (sous l'en-tête) : le clavier et la liste des communes ont la place en dessous.
+// La marge du bas s'agrandit le temps de la saisie pour que même les derniers champs puissent remonter.
+const lifted = ref(false)
+function liftField(event) {
+  const field = event.target
+  if (!field.matches('input:not([type=checkbox]):not([type=radio]), textarea, select')) return
+  lifted.value = true
+  setTimeout(() => {
+    const header = document.querySelector('header')?.offsetHeight || 56
+    const label = field.id && document.querySelector(`label[for="${field.id}"]`)
+    const top = (label || field).getBoundingClientRect().top
+    window.scrollTo({ top: window.scrollY + top - header - 12, behavior: 'smooth' })
+  }, 250)
 }
 
 async function submit() {
@@ -460,6 +492,7 @@ async function loadStock() {
 }
 
 onMounted(async () => {
+  http.get('/delivery-day').then(({ data }) => { day.value = data.data }).catch(() => {})
   zones.value = (await http.get('/zones')).data.data
   loadStock()
 })

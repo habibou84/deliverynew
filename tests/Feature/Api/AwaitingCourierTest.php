@@ -81,19 +81,30 @@ class AwaitingCourierTest extends TestCase
         $this->assertNull($this->awaiting($order));
     }
 
-    public function test_orders_planned_for_another_day_and_warehouse_orders_do_not_wait(): void
+    public function test_orders_planned_for_another_day_are_picked_up_now_and_delivered_that_day(): void
     {
         Sanctum::actingAs($this->dispatcher);
         // Date prévue calculée une fois : avancer de 3 h peut changer de jour (tests lancés le soir)
         $planned = today()->addDays(2);
         $later = $this->confirmedOrder(['delivery_scheduled_date' => $planned->toDateString()]);
-        $this->travel(3)->hours();
-        $this->assertNull($this->awaiting($later));
 
-        // Le jour prévu, l'attente part du début de la journée
-        $this->travelTo($planned->copy()->setTime(1, 0));
+        // Le ramassage se fait dès la validation
+        $this->travel(3)->hours();
         $this->assertSame('pickup', $this->awaiting($later)['stage']);
-        $this->assertSame(60, $this->awaiting($later)['minutes']);
+        $this->assertSame(180, $this->awaiting($later)['minutes']);
+
+        // Ramassé : pas encore à livrer, rangé dans « Prévues plus tard »
+        $later->forceFill(['status' => OrderStatus::PickedUp])->save();
+        $this->assertNull($this->awaiting($later->fresh()));
+        $ids = fn (string $queue) => collect($this->getJson("/api/v1/orders?queue={$queue}")->json('data'))->pluck('id')->all();
+        $this->assertSame([], $ids('to_deliver'));
+        $this->assertSame([$later->id], $ids('scheduled'));
+
+        // Le jour prévu, l'attente du livreur de livraison part du début de la journée
+        $this->travelTo($planned->copy()->setTime(1, 0));
+        $this->assertSame('delivery', $this->awaiting($later->fresh())['stage']);
+        $this->assertSame(60, $this->awaiting($later->fresh())['minutes']);
+        $this->assertSame([$later->id], $ids('to_deliver'));
     }
 
     public function test_unassigned_queue_lists_pickups_and_deliveries_oldest_first(): void
@@ -103,7 +114,8 @@ class AwaitingCourierTest extends TestCase
         $this->travel(30)->minutes();
         $delivery = $this->confirmedOrder();
         $delivery->forceFill(['status' => OrderStatus::PickedUp])->save();
-        $this->confirmedOrder(['delivery_scheduled_date' => today()->addDays(3)->toDateString()]);
+        // Colis ramassé pour une livraison dans 3 jours : pas encore en attente de livreur
+        $this->confirmedOrder(['delivery_scheduled_date' => today()->addDays(3)->toDateString()])->forceFill(['status' => OrderStatus::PickedUp])->save();
 
         // Report qui a déjà son livreur de livraison : pas « sans livreur »
         $planned = $this->confirmedOrder();

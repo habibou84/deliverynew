@@ -475,14 +475,28 @@ L'onglet **« 🛵 Sans livreur »** regroupe les deux étapes, **de la plus anc
 sélection groupée, « Selon la course » assigne en une fois le ramassage des courses à ramasser et la livraison des
 colis à livrer au livreur choisi.
 
-Le délai part de l'entrée dans le statut (un désassignement le relance) ; une livraison prévue un autre jour ne
-compte qu'à partir de ce jour. Les commandes d'entrepôt ne demandent pas de ramassage ; un report qui a déjà son
+Le délai part de l'entrée dans le statut (un désassignement le relance) ; une course prévue un autre jour se ramasse
+dès sa validation, mais sa livraison ne compte qu'à partir de ce jour (colis ramassé en avance : file « Prévues plus tard »,
+puis « À livrer » le jour venu). Les commandes d'entrepôt ne demandent pas de ramassage ; un report qui a déjà son
 livreur de livraison n'est pas compté.
 
 **Heure limite du jour** (Paramètres, heure de l'entreprise, vide = aucune) : passé cette heure, les courses encore
 sans livreur portent la pastille « 🕒 Après 15:00 », le tableau de bord affiche un bandeau rouge (« Il est plus de
 15:00 : 3 courses du jour n'ont toujours pas de livreur… ») et les administrateurs et le dispatch reçoivent une
 alerte, une fois par jour (`orders:unassigned`, `GET /orders/counts` → `cutoff`).
+
+**Validation des nouvelles courses** (Paramètres) : *manuelle* (file « À valider »), *automatique* (validées dès
+l'enregistrement) ou *automatique avec règles*. Avec les règles, une course prévue aujourd'hui (ou « au plus vite »)
+arrivée **après l'heure limite**, ou pendant que la **journée est fermée** par le dispatch, est validée pour le
+lendemain ; le ramassage reste le jour même. Le marchand reçoit « course validée pour une livraison le mardi 21/10
+(livraisons du jour closes depuis 16:00) » (modèle WhatsApp `course_validee_date`, préférence « incidents et reports »),
+le journal de la course garde la raison, et l'application marchand l'annonce avant l'envoi. Toutes les entrées sont
+concernées : application, WhatsApp, boutique en ligne, API et import.
+
+Le bandeau en haut de la liste des courses montre l'état de la journée. « 🌙 Fermer la journée » (dispatch) vaut jusqu'à
+minuit ou jusqu'à « Rouvrir la journée » ; une case permet de reporter aussi au lendemain les courses du jour pas encore
+parties en livraison (celles en attente sont validées, chaque marchand est prévenu). API : `GET /delivery-day`,
+`POST /delivery-day/close` (`postpone`), `POST /delivery-day/reopen`.
 
 **Position de ramassage des marchands**, nécessaire à la carte. Elle vient de trois sources, notées sur la fiche :
 

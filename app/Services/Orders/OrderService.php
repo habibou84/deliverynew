@@ -46,6 +46,7 @@ class OrderService
         private readonly OrderJournal $journal,
         private readonly StockKeeper $stock,
         private readonly PickupGroups $pickups,
+        private readonly DeliveryDay $deliveryDay,
     ) {}
 
     /**
@@ -146,12 +147,18 @@ class OrderService
                 'meta' => ['source' => $source],
             ]);
 
-            if ($company->auto_confirm_orders) {
+            // Règles de validation : journée fermée (heure limite ou dispatch) → livraison au prochain jour
+            $postponed = $this->deliveryDay->postponeIfClosed($order, $company);
+
+            if ($company->validatesAutomatically()) {
                 $order->forceFill(['status' => OrderStatus::Confirmed, 'confirmed_at' => now()])->save();
                 $this->journal->record($order, null, OrderEventType::StatusChanged, [
                     'from_status' => OrderStatus::Pending,
                     'to_status' => OrderStatus::Confirmed,
-                    'note' => 'Validation automatique',
+                    'note' => $postponed
+                        ? "Validation automatique · livraison le {$order->delivery_scheduled_date->format('d/m')} ({$postponed})"
+                        : 'Validation automatique',
+                    'meta' => $postponed ? ['postponed' => $postponed] : null,
                 ]);
 
                 // Livreur déjà prévu chez ce client : le colis lui est ajouté

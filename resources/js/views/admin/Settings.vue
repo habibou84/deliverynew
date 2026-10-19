@@ -57,10 +57,16 @@
 
       <fieldset class="space-y-3 border-t pt-4">
         <legend class="font-semibold">Courses</legend>
-        <label class="flex items-start gap-2 text-sm">
-          <input v-model="form.auto_confirm_orders" type="checkbox" class="mt-1">
-          <span>Valider automatiquement les nouvelles courses<span class="block text-gray-500">Sinon, chaque course attend la validation d'un dispatcher.</span></span>
-        </label>
+        <div class="space-y-2" role="radiogroup" aria-label="Validation des nouvelles courses">
+          <p class="text-sm font-medium">Validation des nouvelles courses</p>
+          <label v-for="m in VALIDATION_MODES" :key="m.value" :class="['flex items-start gap-2 rounded-lg border p-3 text-sm cursor-pointer', form.validation_mode === m.value ? 'border-blue-500 bg-blue-50' : 'border-slate-200']">
+            <input v-model="form.validation_mode" type="radio" :value="m.value" class="mt-1">
+            <span><strong>{{ m.label }}</strong><span class="block text-gray-500">{{ m.help }}</span></span>
+          </label>
+          <p v-if="form.validation_mode === 'rules' && !form.daily_cutoff_time" class="text-xs text-amber-700">
+            Choisissez l'heure limite du jour plus bas : sans elle, seule la fermeture de la journée par le dispatch décale les courses.
+          </p>
+        </div>
         <label class="flex items-start gap-2 text-sm">
           <input v-model="form.require_delivery_code" type="checkbox" class="mt-1">
           <span>Exiger le code de livraison du destinataire<span class="block text-gray-500">Le destinataire reçoit son code sur WhatsApp quand le livreur part livrer (Paramètres WhatsApp), ou par le marchand.</span></span>
@@ -109,7 +115,8 @@
             <p class="text-xs text-gray-500 mt-1">
               Passé cette heure, les courses du jour encore sans livreur (ramassage ou livraison) risquent de ne pas être livrées
               aujourd'hui : elles sont signalées dans la liste et le tableau de bord, et les administrateurs et le dispatch reçoivent
-              une alerte (une fois par jour). Vide = pas d'heure limite.
+              une alerte (une fois par jour). En validation avec règles, les nouvelles courses du jour arrivées après cette heure
+              sont validées pour le lendemain. Vide = pas d'heure limite.
             </p>
           </div>
         </div>
@@ -142,7 +149,17 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
 
-const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'weekly_report', 'auto_confirm_orders', 'require_delivery_code', 'offline_courier_actions', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time']
+const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'weekly_report', 'validation_mode', 'require_delivery_code', 'offline_courier_actions', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time']
+
+const VALIDATION_MODES = [
+  { value: 'manual', label: 'Manuelle', help: 'Chaque course attend la validation d\'un dispatcher (file « À valider »).' },
+  { value: 'auto', label: 'Automatique', help: 'Toutes les courses sont validées dès leur enregistrement.' },
+  {
+    value: 'rules',
+    label: 'Automatique avec règles',
+    help: 'Validées dès leur enregistrement ; après l\'heure limite du jour, ou quand le dispatch ferme la journée, les courses du jour sont validées pour le lendemain (ramassage le jour même) et le marchand est prévenu.',
+  },
+]
 
 const auth = useAuthStore()
 const toasts = useToastStore()
