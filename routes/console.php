@@ -33,4 +33,6 @@ Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();
 Schedule::command('parcels:overdue')->everyFifteenMinutes()->withoutOverlapping();
 // Courses sans livreur de ramassage ou de livraison au-delà du délai de l'entreprise
 Schedule::command('orders:unassigned')->everyMinute()->withoutOverlapping();
+// Livreurs libres ou bientôt libres avec des ramassages près d'eux : mission ramassage possible
+Schedule::command('couriers:available')->everyMinute()->withoutOverlapping();
 Schedule::command('orders:due-today')->dailyAt('06:50')->withoutOverlapping();

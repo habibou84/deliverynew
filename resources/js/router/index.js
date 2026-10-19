@@ -67,6 +67,7 @@ const routes = [
       { path: 'terrain', component: () => import('../views/admin/FieldReports.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'carte', component: () => import('../views/admin/CourierMap.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'colis-livreurs', component: () => import('../views/admin/HeldParcels.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'disponibilites', component: () => import('../views/admin/CourierAvailability.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'retours', component: () => import('../views/admin/MerchantReturns.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs', component: () => import('../views/admin/Couriers.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
