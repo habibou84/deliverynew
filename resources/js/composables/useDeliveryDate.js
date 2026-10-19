@@ -34,7 +34,7 @@ export function useDeliveryDate(form) {
   const options = computed(() => [
     { value: 'today', label: 'Aujourd\'hui', description: closed.value ? 'fermé' : shortDay(today.value), disabled: closed.value },
     { value: 'tomorrow', label: 'Demain', description: shortDay(tomorrow.value) },
-    { value: 'other', label: 'Autre date', description: 'calendrier' },
+    { value: 'other', label: 'Autre', description: 'calendrier' },
   ])
 
   // Premier jour possible dans le calendrier
