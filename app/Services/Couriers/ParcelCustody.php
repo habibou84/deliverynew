@@ -97,6 +97,9 @@ class ParcelCustody
             }
 
             $note = 'Colis rendu au dépôt par '.($courier->user?->name ?? 'le livreur');
+            // Rendu au dépôt : la garde prévue par une mission ramassage s'arrête là
+            Order::query()->whereKey($orders->modelKeys())->update(['custody_plan' => null]);
+            $orders->each(fn (Order $o) => $o->custody_plan = null);
 
             return $orders->map(function (Order $order) use ($actor, $note) {
                 if ($order->status === OrderStatus::PickedUp) {
@@ -138,6 +141,9 @@ class ParcelCustody
             'return_requested' => $order->return_requested,
             'held_since' => $order->held_since,
             'on_the_road' => in_array($order->status, self::ON_THE_ROAD, true),
+            // Mission ramassage : gardé jusqu'à sa livraison (pas « à rendre »), ou à rapporter au dépôt
+            'custody_plan' => $order->custody_plan,
+            'kept_for' => PickupCustody::keptFor($order),
         ];
     }
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\CompanySignupController;
 use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
+use App\Http\Controllers\Api\V1\CourierAvailabilityController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
@@ -284,6 +285,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Livreurs (gestion par le personnel)
         Route::get('couriers/map', [CourierController::class, 'map'])->middleware('can:orders.dispatch')->name('couriers.map');
+        Route::get('couriers/availability', [CourierAvailabilityController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.availability');
+        Route::get('couriers/{courier}/availability', [CourierAvailabilityController::class, 'show'])->middleware('can:orders.dispatch')->name('couriers.availability.show');
+        Route::post('couriers/{courier}/pickup-mission', [CourierAvailabilityController::class, 'pickupMission'])->middleware('can:orders.dispatch')->name('couriers.pickup-mission');
         Route::get('couriers/{courier}/track', [CourierController::class, 'track'])->middleware('can:orders.dispatch')->name('couriers.track');
         Route::get('couriers', [CourierController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.index');
         Route::get('couriers/{courier}', [CourierController::class, 'show'])->middleware('can:orders.dispatch')->name('couriers.show');

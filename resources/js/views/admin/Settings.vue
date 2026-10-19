@@ -95,6 +95,22 @@
           <input id="hold-alert" v-model.number="form.parcel_hold_alert_hours" type="number" min="0" max="168" class="input w-24">
           <p class="text-xs text-gray-500 mt-1">Alerte sonore au dispatch, une fois par colis, et colis signalé en rouge dans « Colis chez les livreurs ». 0 = jamais.</p>
         </div>
+        <!-- Après une mission ramassage (écran « Livreurs disponibles ») -->
+        <div>
+          <p class="label">Après une mission ramassage, les colis…</p>
+          <div class="grid sm:grid-cols-3 gap-2">
+            <label v-for="m in CUSTODY_MODES" :key="m.value" :class="['rounded-lg border p-3 text-sm cursor-pointer', form.pickup_mission_custody === m.value ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200']">
+              <input v-model="form.pickup_mission_custody" type="radio" :value="m.value" class="mr-1">
+              <strong>{{ m.label }}</strong>
+              <span class="block text-xs text-gray-500 mt-1">{{ m.help }}</span>
+            </label>
+          </div>
+        </div>
+        <div v-if="form.pickup_mission_custody !== 'keep'">
+          <label class="label" for="depot-closes">Heure de fermeture du dépôt</label>
+          <input id="depot-closes" v-model="form.depot_closes_at" type="time" class="input w-32">
+          <p class="text-xs text-gray-500 mt-1">Passé cette heure, le livreur garde les colis d'une mission ramassage jusqu'à leur livraison. Vide = dépôt toujours ouvert.</p>
+        </div>
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
             <label class="label" for="pickup-alert">Alerter quand une course validée reste sans livreur de ramassage plus de (minutes)</label>
@@ -149,7 +165,13 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { loadBranding } from '../../composables/useBranding'
 
-const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'weekly_report', 'validation_mode', 'require_delivery_code', 'offline_courier_actions', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time']
+const FIELDS = ['name', 'phone', 'address', 'tagline', 'merchant_signup', 'weekly_report', 'validation_mode', 'require_delivery_code', 'offline_courier_actions', 'default_max_attempts', 'return_fee_percent', 'field_alert_reminder_minutes', 'parcel_hold_alert_hours', 'pickup_assign_alert_minutes', 'delivery_assign_alert_minutes', 'daily_cutoff_time', 'pickup_mission_custody', 'depot_closes_at']
+
+const CUSTODY_MODES = [
+  { value: 'choose', label: 'Au choix du dispatch', help: 'Le dispatch choisit à chaque mission : garde ou dépôt.' },
+  { value: 'keep', label: 'Restent chez le livreur', help: 'Il les garde jusqu\'à leur jour de livraison, qui lui est alors confiée automatiquement.' },
+  { value: 'depot', label: 'Reviennent au dépôt', help: 'Il les rapporte au dépôt le soir même ; n\'importe quel livreur pourra les livrer.' },
+]
 
 const VALIDATION_MODES = [
   { value: 'manual', label: 'Manuelle', help: 'Chaque course attend la validation d\'un dispatcher (file « À valider »).' },
@@ -203,11 +225,11 @@ async function save() {
   saving.value = true
   error.value = ''
   try {
-    // L'accroche et l'heure limite peuvent être vidées ; les autres champs vides sont ignorés
-    const clearable = ['tagline', 'daily_cutoff_time']
+    // L'accroche, l'heure limite et l'heure de fermeture du dépôt peuvent être vidées ; les autres champs vides sont ignorés
+    const clearable = ['tagline', 'daily_cutoff_time', 'depot_closes_at']
     const payload = Object.fromEntries(Object.entries(form.value)
       .filter(([k, v]) => clearable.includes(k) || (v !== null && v !== ''))
-      .map(([k, v]) => [k, k === 'daily_cutoff_time' ? v || null : v]))
+      .map(([k, v]) => [k, ['daily_cutoff_time', 'depot_closes_at'].includes(k) ? v || null : v]))
     await http.patch(`/companies/${auth.user.company_id}`, payload)
     await auth.fetchUser()
     toasts.success('Paramètres enregistrés.')

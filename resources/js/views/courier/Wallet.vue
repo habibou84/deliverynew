@@ -13,10 +13,23 @@
     </section>
 
     <!-- Colis non livrés encore en main : à rapporter au dépôt lors du point -->
-    <section v-if="parcelsToReturn.length || onTheRoad.length" class="space-y-2">
+    <section v-if="parcelsToReturn.length || parcelsKept.length || onTheRoad.length" class="space-y-2">
       <p v-if="onTheRoad.length" class="rounded-xl bg-sky-50 text-sky-900 text-sm px-4 py-3">
         🛵 {{ onTheRoad.length }} course{{ onTheRoad.length > 1 ? 's' : '' }} en chemin : indiquez « livré » ou « échec » avant de faire votre point à la caisse.
       </p>
+      <template v-if="parcelsKept.length">
+        <h2 class="font-semibold">🌙 Colis à garder pour leur livraison ({{ parcelsKept.length }})</h2>
+        <div class="m-card divide-y">
+          <div v-for="p in parcelsKept" :key="p.id" class="p-4 flex justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium truncate">{{ p.recipient_name || p.recipient_phone }}</p>
+              <p class="text-xs text-slate-500">{{ p.tracking_code }} · {{ p.merchant }}</p>
+            </div>
+            <p class="text-xs text-right text-indigo-700">Livraison {{ date(p.kept_for) }}</p>
+          </div>
+        </div>
+        <p class="text-sm text-slate-500 text-center">Gardez-les avec vous : la livraison vous sera confiée le jour prévu.</p>
+      </template>
       <template v-if="parcelsToReturn.length">
         <h2 class="font-semibold">📦 Colis à rapporter au dépôt ({{ parcelsToReturn.length }})</h2>
         <div class="m-card divide-y">
@@ -162,7 +175,9 @@ import { date, dateTime, money, signedClass } from '../../utils/format'
 const wallet = ref(null)
 const stale = ref(false)
 const error = ref('')
-const parcelsToReturn = computed(() => (wallet.value?.parcels || []).filter((p) => !p.on_the_road))
+const parcelsToReturn = computed(() => (wallet.value?.parcels || []).filter((p) => !p.on_the_road && !p.kept_for))
+// Mission ramassage « garde » : colis à garder jusqu'à leur jour de livraison
+const parcelsKept = computed(() => (wallet.value?.parcels || []).filter((p) => !p.on_the_road && p.kept_for))
 const onTheRoad = computed(() => (wallet.value?.parcels || []).filter((p) => p.on_the_road))
 // Avances réelles de la caisse (la paie gardée sur l'encaissé figure dans le solde)
 const cashAdvances = computed(() => (wallet.value?.advances || []).filter((a) => !a.pay_kept))

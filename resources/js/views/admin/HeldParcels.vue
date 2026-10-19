@@ -58,6 +58,8 @@
                 <div v-if="p.incident" class="text-xs text-gray-600 mt-0.5">{{ p.incident }}</div>
                 <div v-if="p.rescheduled_to" class="text-xs text-gray-600">📅 {{ date(p.rescheduled_to) }}</div>
                 <div v-if="p.return_requested" class="text-xs text-rose-700 font-medium">↩️ Retour au marchand à organiser</div>
+                <div v-if="p.kept_for" class="text-xs text-indigo-700 font-medium">🌙 Gardé pour sa livraison du {{ date(p.kept_for) }}</div>
+                <div v-else-if="p.custody_plan === 'depot' && p.status === 'picked_up'" class="text-xs text-slate-700 font-medium">🏢 À rapporter au dépôt (mission ramassage)</div>
               </td>
               <td class="p-2 text-right">{{ p.cod_amount ? money(p.cod_amount) : '—' }}</td>
               <td :class="['p-2 whitespace-nowrap', isOverdue(p) ? 'text-red-700 font-semibold' : 'text-gray-600']">
@@ -108,8 +110,9 @@ const visible = computed(() => {
 })
 
 // Au-delà de trois fois le délai : à retrouver ou à déclarer perdu (fiche de la course)
-const maybeLost = (p) => alertHours.value > 0 && Date.now() - new Date(p.held_since).getTime() >= 3 * alertHours.value * 3600000
-const isOverdue = (p) => alertHours.value > 0 && Date.now() - new Date(p.held_since).getTime() >= alertHours.value * 3600000
+const maybeLost = (p) => !p.kept_for && alertHours.value > 0 && Date.now() - new Date(p.held_since).getTime() >= 3 * alertHours.value * 3600000
+// Gardé pour sa livraison à venir (mission ramassage) : pas en retard
+const isOverdue = (p) => !p.kept_for && alertHours.value > 0 && Date.now() - new Date(p.held_since).getTime() >= alertHours.value * 3600000
 function heldFor(since) {
   const hours = Math.floor((Date.now() - new Date(since).getTime()) / 3600000)
   if (hours < 1) return "moins d'1 h"
