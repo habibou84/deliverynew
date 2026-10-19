@@ -108,7 +108,11 @@
       <div class="space-y-4">
         <div v-if="isDispatcher && !isFinal" class="card p-4 space-y-3">
           <h2 class="font-semibold">Dispatch</h2>
-          <button v-if="['delivery_failed', 'rescheduled'].includes(order.status)" class="btn-primary w-full" @click="deciding = true">🧭 Décider de la suite</button>
+          <p v-if="order.merchant_decision" class="rounded-lg bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
+            🧑‍💼 {{ order.merchant_decision.by || 'Le marchand' }} a décidé : {{ order.merchant_decision.kind === 'redeliver' ? `relivrer le ${date(order.merchant_decision.date)}` : 'faire revenir le colis' }}
+          </p>
+          <button v-if="order.needs_decision" class="btn-primary w-full" @click="deciding = true">🧭 Décider de la suite</button>
+          <button v-else-if="order.decision_editable" class="btn-secondary w-full" @click="deciding = true">🧭 Modifier la décision</button>
           <button v-if="canDeclareLost" class="btn-secondary w-full text-red-700" @click="losing = true">🚨 Déclarer le colis perdu</button>
           <div class="flex gap-2 flex-wrap">
             <button v-if="order.status === 'pending'" class="btn-success" @click="quickMove('confirmed')">Valider</button>

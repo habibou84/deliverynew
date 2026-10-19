@@ -27,6 +27,8 @@ class Courier extends Model
         'current_lat',
         'current_lng',
         'last_location_at',
+        'availability_alerted_on',
+        'availability_alert_level',
         'notes',
     ];
 
@@ -38,6 +40,7 @@ class Courier extends Model
             'current_lat' => 'float',
             'current_lng' => 'float',
             'last_location_at' => 'datetime',
+            'availability_alerted_on' => 'date',
         ];
     }
 

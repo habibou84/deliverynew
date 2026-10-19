@@ -82,7 +82,7 @@ class OrderNotifier
                 break;
 
             case OrderEventType::ReturnRequested:
-                $toStaff = ['return_requested', "Retour demandé pour {$code}", $merchantName.' demande le retour du colis.'.$note];
+                $toStaff = ['return_requested', $actorIsMerchant ? "Décision du marchand {$code}" : "Retour demandé pour {$code}", $merchantName.' demande le retour du colis.'.$note];
                 break;
 
             case OrderEventType::StatusChanged:
@@ -124,7 +124,9 @@ class OrderNotifier
             ],
             OrderStatus::Rescheduled => [
                 $actorIsMerchant ? null : ['rescheduled', "Livraison reportée {$code}", "Livraison reportée au {$date}.{$why}{$note}"],
-                ['rescheduled', "Livraison reportée {$code}", "Reportée au {$date}.{$why}{$note}"],
+                $actorIsMerchant
+                    ? ['rescheduled', "Décision du marchand {$code}", "{$order->merchant->business_name} : relivrer le {$date}.{$note}"]
+                    : ['rescheduled', "Livraison reportée {$code}", "Reportée au {$date}.{$why}{$note}"],
             ],
             OrderStatus::Confirmed => $event->from_status === OrderStatus::Pending
                 ? [['confirmed', "Course {$code} validée", 'Votre course a été validée.'], null]

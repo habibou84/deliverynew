@@ -46,6 +46,8 @@ class OverdueParcels
             ->whereNotNull('held_by_courier_id')
             ->whereNull('hold_escalated_at')
             ->where('held_since', '<=', now()->subHours(3 * $company->parcel_hold_alert_hours))
+            // Gardé par le livreur pour sa livraison à venir (mission ramassage) : pas en retard
+            ->tap(fn ($q) => PickupCustody::excludeKeptForLater($q, $company))
             ->with(['holder' => fn ($q) => $q->withoutGlobalScopes()->with('user')])
             ->orderBy('held_since')
             ->get();
@@ -85,6 +87,8 @@ class OverdueParcels
             ->whereNotNull('held_by_courier_id')
             ->whereNull('hold_alerted_at')
             ->where('held_since', '<=', now()->subHours($company->parcel_hold_alert_hours))
+            // Gardé par le livreur pour sa livraison à venir (mission ramassage) : pas en retard
+            ->tap(fn ($q) => PickupCustody::excludeKeptForLater($q, $company))
             ->with(['holder' => fn ($q) => $q->withoutGlobalScopes()->with('user')])
             ->orderBy('held_since')
             ->get();

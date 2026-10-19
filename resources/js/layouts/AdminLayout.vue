@@ -141,6 +141,7 @@ const menu = computed(() => {
       items: [
         { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
         { to: '/admin/carte', icon: '📍', label: 'Carte des livreurs', permission: 'orders.dispatch' },
+        { to: '/admin/disponibilites', icon: '🟢', label: 'Livreurs disponibles', permission: 'orders.dispatch' },
         { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
         { to: '/admin/colis-livreurs', icon: '🎒', label: 'Colis chez les livreurs', permission: 'orders.dispatch', badge: heldParcels.counts.overdue },
         { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },
