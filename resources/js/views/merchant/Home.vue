@@ -37,7 +37,7 @@
         <span class="h-10 w-10 shrink-0 rounded-xl bg-amber-50 grid place-items-center text-xl">⚠️</span>
         <span class="min-w-0 flex-1 text-sm">
           <strong class="block truncate">{{ o.last_incident?.label || o.status_label }}</strong>
-          <span class="block truncate text-slate-500">{{ o.recipient.name || o.recipient.phone }} · {{ o.delivery.zone_name }}</span>
+          <span class="block truncate text-slate-500">{{ o.recipient.name || localPhone(o.recipient.phone) }} · {{ o.delivery.zone_name }}</span>
         </span>
         <span class="shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-white" :style="{ backgroundColor: 'var(--app-color)' }">Décider</span>
       </RouterLink>
@@ -55,6 +55,15 @@
       </div>
       <p class="mt-2 text-xs font-semibold opacity-90">Voir mes paiements ›</p>
     </RouterLink>
+
+    <!-- En ce moment : les courses en cours, quel que soit leur jour -->
+    <section v-if="active.length" class="space-y-2">
+      <div class="flex justify-between items-center">
+        <h2 class="text-xs font-bold uppercase tracking-wide text-slate-500">En ce moment</h2>
+        <RouterLink v-if="activeTotal > active.length" to="/marchand/courses?filtre=active" class="text-sm font-semibold text-[var(--app-color)]">Voir les {{ activeTotal }}</RouterLink>
+      </div>
+      <OrderCard v-for="o in active" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
+    </section>
 
     <!-- Mes courses : période, compteurs, liste -->
     <section class="space-y-3">
@@ -187,7 +196,7 @@ import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'
 import { orderChanges } from '../../composables/useRealtime'
-import { date as formatDate, money, today as todayDate } from '../../utils/format'
+import { date as formatDate, localPhone, money, today as todayDate } from '../../utils/format'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -217,6 +226,10 @@ const isToday = computed(() => period.key === 'today')
 const summary = ref(null)
 const month = ref(null)
 const alerts = ref([])
+// Courses en cours (en route d'abord), pour « En ce moment »
+const ACTIVE = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress', 'picked_up', 'at_hub', 'delivery_assigned', 'out_for_delivery']
+const active = ref([])
+const activeTotal = ref(0)
 const orders = ref([])
 const page = ref(1)
 const total = ref(0)
@@ -285,12 +298,16 @@ async function loadOrders(p = 1) {
 async function load() {
   const d = todayDate()
   try {
-    const [s, m, a] = await Promise.all([
+    const [s, m, a, c] = await Promise.all([
       cachedGet('/reports/summary', { params: { from: period.from, to: period.to } }),
       cachedGet('/reports/summary', { params: { from: `${d.slice(0, 8)}01`, to: d } }),
       cachedGet('/orders', { params: { status: ['delivery_failed'], per_page: 10 } }),
+      cachedGet('/orders', { params: { status: ACTIVE, per_page: 20 } }),
       loadOrders(1),
     ])
+    const rank = (o) => ['out_for_delivery', 'delivery_assigned', 'picked_up', 'at_hub', 'pickup_in_progress', 'pickup_assigned', 'confirmed', 'pending'].indexOf(o.status)
+    active.value = [...c.data.data].sort((x, y) => rank(x) - rank(y)).slice(0, 3)
+    activeTotal.value = c.data.meta?.total ?? c.data.data.length
     summary.value = s.data.data
     month.value = m.data.data
     alerts.value = a.data.data

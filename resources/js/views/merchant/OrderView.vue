@@ -184,7 +184,7 @@ import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
-import { money, telLink, today } from '../../utils/format'
+import { localPhone, money, telLink, today } from '../../utils/format'
 import { BEFORE_PICKUP, FINAL } from '../../utils/workflow'
 import { siteOrigin } from '../../native'
 
@@ -202,8 +202,6 @@ const edit = reactive({})
 const reschedule = reactive({ choice: 'tomorrow', date: null, note: '' })
 
 const fullHistory = ref(false)
-// Numéro tel qu'on le tape : 07 64 81 88 76
-const localPhone = (phone) => (phone || '').replace(/^\+225/, '').replace(/(\d{2})(?=\d)/g, '$1 ')
 
 const isFinal = computed(() => FINAL.includes(order.value?.status))
 const state = computed(() => merchantStatus(order.value))
@@ -273,6 +271,8 @@ const whatsappShare = computed(() => {
 async function load() {
   try {
     order.value = (await http.get(`/orders/${route.params.id}`)).data.data
+    // « Reporter » depuis la liste des courses : le report s'ouvre directement
+    if (route.query.action === 'reporter' && order.value.status === 'delivery_failed' && !sheet.value) sheet.value = 'reschedule'
   } catch (e) {
     error.value = apiErrorMessage(e)
   }

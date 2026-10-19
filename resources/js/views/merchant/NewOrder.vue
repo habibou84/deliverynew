@@ -38,7 +38,7 @@
       <div v-for="r in suggestions" :key="r.id" class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 px-3 py-2.5 flex items-center gap-3 text-sm">
         <span class="text-xl">👤</span>
         <span class="min-w-0 flex-1">
-          <strong>{{ r.name || 'Client' }}</strong> · {{ r.phone }}
+          <strong>{{ r.name || 'Client' }}</strong> · {{ localPhone(r.phone) }}
           <span class="block truncate text-slate-600">
             {{ r.deliveries_count ? `Déjà livré ${r.deliveries_count} fois` : 'Déjà enregistré' }}<template v-if="zoneOf(r)"> · {{ zoneOf(r) }}</template>
           </span>
@@ -199,7 +199,7 @@ import ZoneSelect from '../../components/ZoneSelect.vue'
 import { keyboardOpen } from '../../composables/useKeyboard'
 import { longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { useAuthStore } from '../../stores/auth'
-import { money } from '../../utils/format'
+import { localPhone, money } from '../../utils/format'
 import { siteOrigin } from '../../native'
 
 const route = useRoute()

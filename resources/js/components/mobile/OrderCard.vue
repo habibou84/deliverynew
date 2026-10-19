@@ -4,7 +4,7 @@
       <!-- Où en est la course, en une phrase -->
       <span :class="['h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl', state.bg]" aria-hidden="true">{{ state.icon }}</span>
       <div class="min-w-0 flex-1">
-        <p class="font-semibold truncate">{{ order.recipient.name || order.recipient.phone }}</p>
+        <p class="font-semibold truncate">{{ order.recipient.name || localPhone(order.recipient.phone) }}</p>
         <p class="text-sm text-slate-500 truncate">{{ place }}</p>
         <p :class="['text-sm font-medium truncate', state.color]">{{ state.text }}</p>
       </div>
@@ -22,7 +22,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { money } from '../../utils/format'
+import { localPhone, money } from '../../utils/format'
 import { merchantStatus } from '../../utils/merchantStatus'
 
 const props = defineProps({
