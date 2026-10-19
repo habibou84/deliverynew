@@ -34,7 +34,10 @@ info:
 
     ## Webhooks
     Déclarez une adresse HTTPS dans **Profil › Intégrations** (ou par `POST /webhooks`) pour recevoir les événements
-    `order.created`, `order.status_changed`, `order.incident`, `payout.paid` et `stock.low`.
+    `order.created`, `order.status_changed`, `order.incident`, `order.updated`, `payout.paid` et `stock.low`.
+    `order.updated` signale un changement **sans changement de statut** : date de livraison (modifiée, décalée parce que la
+    journée est fermée, nouvelle date d'un report), adresse, montant, retour demandé… La liste des champs changés est dans
+    `data.change.fields` ; la course complète, à jour, est dans `data.order`.
     Chaque envoi est un `POST` JSON `{ id, event, created_at, data }` avec les en-têtes
     `X-Webhook-Id`, `X-Webhook-Event`, `X-Webhook-Timestamp` et
     `X-Webhook-Signature: sha256=HMAC_SHA256(secret, "<timestamp>.<corps brut>")`.
@@ -66,6 +69,32 @@ paths:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Zone' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /delivery-day:
+    get:
+      tags: [Référentiels]
+      summary: Journée de livraison (ouverte ou fermée)
+      description: |
+        Passé l'heure limite, ou quand l'agence a fermé la journée, une nouvelle course est livrée le prochain jour
+        (`earliest_delivery_date`). À afficher avant d'envoyer une course « pour aujourd'hui ».
+      responses:
+        '200':
+          description: État de la journée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      closed: { type: boolean }
+                      reason: { type: [string, 'null'], enum: [cutoff, manual, null] }
+                      message: { type: [string, 'null'], example: 'livraisons du jour closes depuis 16:00' }
+                      cutoff_time: { type: [string, 'null'], example: '16:00' }
+                      today: { type: string, format: date }
+                      next_day: { type: string, format: date }
+                      earliest_delivery_date: { type: string, format: date }
         '401': { $ref: '#/components/responses/Unauthorized' }
   /hubs:
     get:
@@ -326,7 +355,7 @@ paths:
               required: [url, events]
               properties:
                 url: { type: string, format: uri }
-                events: { type: array, items: { type: string, enum: [order.created, order.status_changed, order.incident, payout.paid, stock.low] } }
+                events: { type: array, items: { type: string, enum: [order.created, order.status_changed, order.incident, order.updated, payout.paid, stock.low] } }
                 description: { type: string, maxLength: 255 }
       responses:
         '201':
@@ -356,6 +385,7 @@ paths:
       description: Portée `payouts:read`.
       parameters:
         - { name: status, in: query, schema: { type: string } }
+        - { name: paid_since, in: query, description: 'Reversements payés depuis cette date (rattrapage)', schema: { type: string, format: date-time } }
         - { name: per_page, in: query, schema: { type: integer, maximum: 100, default: 30 } }
       responses:
         '200':
@@ -479,6 +509,7 @@ components:
         description: { type: string }
         items_amount: { type: integer, description: 'Montant des articles à encaisser (0 si déjà payé) ; par défaut la somme des articles' }
         fee_payer: { type: string, enum: [merchant, recipient], description: 'Qui paie la livraison' }
+        notify_merchant: { type: boolean, default: true, description: "false : votre application prévient elle-même l'équipe du marchand ; pas d'alerte en double dans la cloche de l'application de livraison" }
         is_express: { type: boolean }
         is_fragile: { type: boolean }
         weight_kg: { type: number }
@@ -549,6 +580,8 @@ components:
             collected_amount: { type: [integer, 'null'] }
             shipping_fee: { type: [integer, 'null'] }
         attempts_count: { type: integer }
+        needs_decision: { type: boolean, description: 'Échec de livraison : le marchand doit décider (relivrer, reporter ou faire revenir le colis)' }
+        return_requested: { type: boolean, description: 'Le marchand a demandé le retour du colis' }
         last_incident: { type: [string, 'null'] }
         events:
           type: array

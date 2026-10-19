@@ -103,11 +103,17 @@ class PublicAccountController extends Controller
 
     public function payouts(Request $request): JsonResponse
     {
-        $request->validate(['per_page' => ['nullable', 'integer', 'min:1', 'max:100'], 'status' => ['nullable', 'string', 'max:20']]);
+        $request->validate([
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'status' => ['nullable', 'string', 'max:20'],
+            // Rattrapage : reversements payés depuis cette date (plutôt que les derniers seulement)
+            'paid_since' => ['nullable', 'date'],
+        ]);
 
         $payouts = MerchantPayout::query()
             ->where('merchant_id', $this->merchant($request)->id)
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
+            ->when($request->filled('paid_since'), fn ($q) => $q->where('paid_at', '>=', $request->date('paid_since')))
             ->latest('id')
             ->paginate($request->integer('per_page', 30));
 

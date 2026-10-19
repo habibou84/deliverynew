@@ -116,6 +116,8 @@ class OrderService
                 'company_id' => $merchant->company_id,
                 'merchant_id' => $merchant->id,
                 'source' => $source,
+                // L'application qui envoie la course prévient elle-même l'équipe du marchand
+                'merchant_alerts_muted' => ($data['notify_merchant'] ?? true) === false,
                 'created_by' => $actor->id,
                 'pickup_hub_id' => $hub?->id,
                 'fee_payer' => $feePayer,
