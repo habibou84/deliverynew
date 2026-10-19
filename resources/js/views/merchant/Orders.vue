@@ -5,7 +5,10 @@
       <svg viewBox="0 0 24 24" class="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" /></svg>
     </div>
 
-    <!-- Catégories, avec le nombre de courses de chacune -->
+    <!-- Période : toutes les dates par défaut, ou un jour / des dates au choix -->
+    <PeriodPicker :model-value="period" :keys="['all', 'today', 'yesterday', 'week', 'month']" @update:model-value="setPeriod" />
+
+    <!-- Catégories, avec le nombre de courses de chacune (sur la période) -->
     <div class="flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4 pb-1" role="radiogroup" aria-label="Catégorie">
       <button
         v-for="f in filters"
@@ -56,21 +59,14 @@ import { orderChanges } from '../../composables/useRealtime'
 import { useAuthStore } from '../../stores/auth'
 import { telLink } from '../../utils/format'
 import { needsDecision } from '../../utils/merchantStatus'
+import PeriodPicker from '../../components/mobile/PeriodPicker.vue'
+import { ORDER_FILTERS, filterParams } from '../../utils/orderFilters'
+import { periodFromQuery, periodQuery } from '../../utils/periods'
 
 const auth = useAuthStore()
 
 // En cours, reports compris (décision prise, nouvelle livraison prévue)
-const ACTIVE = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress', 'picked_up', 'at_hub', 'delivery_assigned', 'out_for_delivery', 'rescheduled', 'return_assigned', 'returning']
-
-// « Toutes » d'abord : l'e-commerçant ne tombe jamais sur une liste vide alors qu'il a des courses
-const filters = [
-  { value: 'all', label: 'Toutes', statuses: [] },
-  { value: 'active', label: 'En cours', statuses: ACTIVE },
-  // Même règle que la file « À décider » de l'agence
-  { value: 'problems', label: 'À régler', statuses: [], queue: 'to_decide', warn: true },
-  { value: 'delivered', label: 'Livrées', statuses: ['delivered'] },
-  { value: 'other', label: 'Retournées / annulées', statuses: ['returned', 'cancelled', 'rejected'] },
-]
+const filters = ORDER_FILTERS
 
 const EMPTY = {
   all: ['Aucune course pour le moment', 'Votre première course apparaîtra ici.'],
@@ -84,6 +80,7 @@ const route = useRoute()
 const router = useRouter()
 // Anciennes adresses (?filtre=active…) toujours valables
 const filter = ref(filters.some((f) => f.value === route.query.filtre) ? route.query.filtre : 'all')
+const period = ref(periodFromQuery(route.query, 'all'))
 const search = ref('')
 const orders = ref([])
 const counts = reactive({})
@@ -125,10 +122,9 @@ const groups = computed(() => {
 async function load(p = 1) {
   loading.value = true
   const current = filters.find((f) => f.value === filter.value)
-  const statuses = current?.statuses || []
   try {
     const { data } = await cachedGet('/orders', {
-      params: { page: p, per_page: 20, search: search.value || undefined, status: statuses.length ? statuses : undefined, queue: current?.queue },
+      params: { page: p, per_page: 20, search: search.value || undefined, ...filterParams(current, period.value) },
     })
     orders.value = p === 1 ? data.data : [...orders.value, ...data.data]
     page.value = p
@@ -144,7 +140,7 @@ async function load(p = 1) {
 async function loadCounts() {
   await Promise.all(filters.map(async (f) => {
     try {
-      const { data } = await cachedGet('/orders', { params: { per_page: 1, status: f.statuses.length ? f.statuses : undefined, queue: f.queue } })
+      const { data } = await cachedGet('/orders', { params: { per_page: 1, ...filterParams(f, period.value) } })
       counts[f.value] = data.meta?.total ?? 0
     } catch {
       // Compteur facultatif
@@ -152,10 +148,22 @@ async function loadCounts() {
   }))
 }
 
+// Catégorie et période gardées dans l'adresse (retour depuis une fiche)
+function syncQuery() {
+  router.replace({ query: { ...(filter.value === 'all' ? {} : { filtre: filter.value }), ...periodQuery(period.value, 'all') } })
+}
+
 function setFilter(value) {
   filter.value = value
-  router.replace({ query: value === 'all' ? {} : { filtre: value } })
+  syncQuery()
   load()
+}
+
+function setPeriod(value) {
+  period.value = value
+  syncQuery()
+  load()
+  loadCounts()
 }
 
 let timer
