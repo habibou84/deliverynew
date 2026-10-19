@@ -110,6 +110,16 @@ class OrderDispatcher
                 ],
             ]);
 
+            // Colis encore chez un autre livreur (gardé après un ramassage, par exemple) : passation à prévoir
+            if ($type === AssignmentType::Delivery && $order->held_by_courier_id !== null && $order->held_by_courier_id !== $courier->id) {
+                $holder = Courier::query()->with('user')->find($order->held_by_courier_id);
+                $order->forceFill(['custody_plan' => null])->save();
+                $this->journal->record($order, $actor, OrderEventType::Note, [
+                    'note' => 'Passation : le colis est chez '.($holder?->user?->name ?? 'un autre livreur')." ; {$courier->user->name} doit le récupérer auprès de lui (ou au dépôt).",
+                    'visible_to_merchant' => false,
+                ]);
+            }
+
             return $assignment;
         });
     }
@@ -118,16 +128,19 @@ class OrderDispatcher
      * Assigne plusieurs courses au même livreur. Les erreurs n'interrompent pas le lot.
      *
      * @param  list<int>  $orderIds
-     * @return array{assigned: list<int>, errors: array<int, string>}
+     * @return array{assigned: list<int>, errors: array<int, string>, warnings: array<int, string>}
      */
     public function assignMany(User $actor, array $orderIds, AssignmentType $type, Courier $courier): array
     {
-        $result = ['assigned' => [], 'errors' => []];
+        $result = ['assigned' => [], 'errors' => [], 'warnings' => []];
 
-        foreach (Order::whereIn('id', $orderIds)->orderBy('id')->get() as $order) {
+        foreach (Order::whereIn('id', $orderIds)->with('holder.user')->orderBy('id')->get() as $order) {
             try {
                 $this->assign($actor, $order, $type, $courier);
                 $result['assigned'][] = $order->id;
+                if ($type === AssignmentType::Delivery && $order->held_by_courier_id !== null && $order->held_by_courier_id !== $courier->id) {
+                    $result['warnings'][$order->id] = "{$order->tracking_code} : colis chez ".($order->holder?->user?->name ?? 'un autre livreur').', prévoir la passation.';
+                }
             } catch (BusinessRuleException $e) {
                 $result['errors'][$order->id] = $e->getMessage();
             }

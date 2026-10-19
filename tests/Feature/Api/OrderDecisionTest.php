@@ -173,4 +173,42 @@ class OrderDecisionTest extends TestCase
     {
         return Notification::sent($this->dispatcher, OrderAlert::class)->filter(fn (OrderAlert $n) => $n->kind === 'due_today')->count();
     }
+
+    public function test_merchant_decisions_leave_the_to_decide_queue_and_are_shown_to_the_agency(): void
+    {
+        $tomorrow = today()->addDay()->toDateString();
+
+        // Décision attendue : partout la même règle (agence et marchand)
+        $failed = $this->failed();
+        Sanctum::actingAs($this->merchantUser);
+        $this->getJson("/api/v1/orders/{$failed->id}")->assertJsonPath('data.needs_decision', true)->assertJsonPath('data.merchant_decision', null);
+        $this->assertSame([$failed->id], array_column($this->getJson('/api/v1/orders?queue=to_decide')->assertOk()->json('data'), 'id'));
+
+        // Le marchand reporte : plus à décider, et l'agence voit sa décision
+        $this->move($failed, $this->merchantUser, 'rescheduled', ['rescheduled_to' => $tomorrow])->assertOk()
+            ->assertJsonPath('data.needs_decision', false);
+        $this->assertSame([], $this->queue('to_decide'));
+        Sanctum::actingAs($this->dispatcher);
+        $this->getJson("/api/v1/orders/{$failed->id}")
+            ->assertJsonPath('data.merchant_decision.kind', 'redeliver')
+            ->assertJsonPath('data.merchant_decision.date', $tomorrow)
+            ->assertJsonPath('data.decision_editable', true);
+        $this->assertSame('redeliver', collect($this->getJson('/api/v1/orders')->json('data'))->firstWhere('id', $failed->id)['merchant_decision']['kind']);
+
+        // Il peut changer la date tant qu'aucun livreur n'est reparti
+        $later = today()->addDays(3)->toDateString();
+        $this->move($failed, $this->merchantUser, 'rescheduled', ['rescheduled_to' => $later])->assertOk();
+        Sanctum::actingAs($this->dispatcher);
+        $this->postJson("/api/v1/orders/{$failed->id}/assign", ['type' => 'delivery', 'courier_id' => $this->courierA->id])->assertOk();
+        $this->move($failed, $this->merchantUser, 'rescheduled', ['rescheduled_to' => $tomorrow])->assertUnprocessable();
+
+        // Retour demandé par le marchand : plus à décider, mais l'agence le voit
+        $other = $this->failed();
+        Sanctum::actingAs($this->merchantUser);
+        $this->postJson("/api/v1/orders/{$other->id}/return-request")->assertSuccessful();
+        $this->getJson("/api/v1/orders/{$other->id}")->assertJsonPath('data.needs_decision', false);
+        $this->assertNotContains($other->id, $this->queue('to_decide'));
+        Sanctum::actingAs($this->dispatcher);
+        $this->getJson("/api/v1/orders/{$other->id}")->assertJsonPath('data.merchant_decision.kind', 'return');
+    }
 }

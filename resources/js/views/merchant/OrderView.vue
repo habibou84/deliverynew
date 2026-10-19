@@ -1,41 +1,49 @@
 <template>
   <div v-if="order" class="space-y-4">
-    <!-- Statut -->
+    <!-- L'essentiel : où en est la course, en une phrase -->
     <section class="m-card p-4 space-y-4">
-      <div class="flex items-center justify-between gap-2">
-        <button class="font-mono text-sm text-slate-500" @click="copy(order.tracking_code)">{{ order.tracking_code }} ⧉</button>
-        <StatusBadge :status="order.status" :label="order.status_label" />
+      <div class="flex items-start gap-3">
+        <span class="h-12 w-12 shrink-0 rounded-2xl grid place-items-center bg-[color-mix(in_srgb,var(--app-color)_10%,white)] text-[var(--app-color)]" aria-hidden="true">
+          <StatusIcon name="package" class="h-6 w-6" />
+        </span>
+        <div class="min-w-0 flex-1">
+          <p :class="['text-lg font-bold leading-snug flex items-start gap-2', state.color]">
+            <StatusIcon :name="state.icon" class="h-[18px] w-[18px] shrink-0 mt-[5px]" /><span>{{ headline }}</span>
+          </p>
+          <p v-if="subline" class="text-sm text-slate-600">{{ subline }}</p>
+          <button class="mt-0.5 font-mono text-xs text-slate-400" @click="copy(order.tracking_code)">{{ order.tracking_code }} ⧉</button>
+        </div>
       </div>
       <OrderProgress :status="order.status" :incident="order.last_incident?.label" :rescheduled-to="order.delivery.scheduled_date" :shipping="order.is_shipping" />
+      <p v-if="plannedDay" class="flex items-center gap-2 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900"><StatusIcon name="calendar" class="h-4 w-4 shrink-0" /><span>Livraison prévue le <strong>{{ plannedDay }}</strong></span></p>
 
-      <!-- Actions sur incident -->
-      <div v-if="order.status === 'delivery_failed'" class="grid grid-cols-2 gap-2">
-        <button class="m-btn-primary py-3" @click="sheet = 'reschedule'">📅 Reporter</button>
-        <button class="m-btn-secondary py-3" @click="openEdit">✏️ Corriger l'adresse</button>
-        <a :href="telLink(order.recipient.phone)" class="m-btn-secondary py-3">📞 Appeler le client</a>
-        <button v-if="!order.return_requested" class="m-btn-secondary py-3" @click="sheet = 'return'">↩️ Retour</button>
+      <!-- Échec de livraison : la décision d'abord (seulement si elle est encore attendue) -->
+      <div v-if="order.needs_decision" class="grid grid-cols-2 gap-2">
+        <button class="m-btn-primary py-3" @click="openReschedule">📅 Reporter</button>
+        <button class="m-btn-secondary py-3" @click="openEdit(true)">✏️ Corriger et relivrer</button>
+        <button class="m-btn-secondary py-3 col-span-2" @click="sheet = 'return'">↩️ Faire revenir le colis</button>
+      </div>
+      <!-- Décision prise : on peut encore la changer tant qu'aucun livreur n'est reparti -->
+      <p v-else-if="canChangeDecision" class="text-sm text-slate-600">
+        Décision prise. <button class="font-semibold text-[var(--app-color)]" @click="openReschedule">Changer la décision</button>
+      </p>
+
+      <!-- Actions utiles en un toucher -->
+      <div :class="['grid gap-2 text-center text-xs font-medium', courier ? 'grid-cols-3' : 'grid-cols-2']">
+        <a :href="telLink(order.recipient.phone)" class="tap rounded-2xl bg-slate-50 py-3 ring-1 ring-slate-200"><span class="block text-xl">📞</span>Client</a>
+        <a v-if="courier" :href="telLink(courier.phone)" class="tap rounded-2xl bg-slate-50 py-3 ring-1 ring-slate-200"><span class="block text-xl">🛵</span>{{ courier.name.split(' ')[0] }}</a>
+        <a v-if="!isFinal" :href="whatsappShare" target="_blank" class="tap rounded-2xl bg-emerald-50 py-3 ring-1 ring-emerald-200 text-emerald-800"><span class="block text-xl">🔗</span>Envoyer le suivi</a>
+        <button v-else class="tap rounded-2xl bg-slate-50 py-3 ring-1 ring-slate-200" @click="copy(trackingUrl)"><span class="block text-xl">🔗</span>Lien de suivi</button>
       </div>
     </section>
 
-    <!-- Code de livraison et suivi -->
-    <section v-if="!isFinal" class="m-card p-4 space-y-3">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-sm text-slate-500">Code de livraison du client</p>
-          <p class="font-mono text-2xl font-bold tracking-[0.3em]">{{ order.delivery_code }}</p>
-        </div>
-        <button class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" @click="copy(order.delivery_code)">Copier</button>
-      </div>
-      <a :href="whatsappShare" target="_blank" class="m-btn-success py-3">💬 Envoyer le suivi au client</a>
-    </section>
-
-    <!-- Livreur en route -->
-    <section v-if="order.status === 'out_for_delivery' && order.delivery_courier" class="m-card p-4 flex items-center justify-between">
+    <!-- Code à donner au livreur (tant que la course n'est pas terminée) -->
+    <section v-if="!isFinal" class="m-card p-4 flex items-center justify-between">
       <div>
-        <p class="text-sm text-slate-500">Livreur en route</p>
-        <p class="font-semibold">{{ order.delivery_courier.name }}</p>
+        <p class="text-sm text-slate-500">Code de livraison du client</p>
+        <p class="font-mono text-2xl font-bold tracking-[0.3em]">{{ order.delivery_code }}</p>
       </div>
-      <a :href="telLink(order.delivery_courier.phone)" class="rounded-full h-12 w-12 grid place-items-center text-white text-xl" :style="{ backgroundColor: 'var(--app-color)' }" aria-label="Appeler le livreur">📞</a>
+      <button class="rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" @click="copy(order.delivery_code)">Copier</button>
     </section>
 
     <!-- Client -->
@@ -46,12 +54,11 @@
       </div>
       <p class="font-semibold text-lg">{{ order.recipient.name || '—' }}</p>
       <div class="flex gap-3 text-sm">
-        <a :href="telLink(order.recipient.phone)" class="text-[var(--app-color)] font-medium">📞 {{ order.recipient.phone }}</a>
-        <a v-if="order.recipient.phone2" :href="telLink(order.recipient.phone2)" class="text-[var(--app-color)]">{{ order.recipient.phone2 }}</a>
+        <a :href="telLink(order.recipient.phone)" class="text-[var(--app-color)] font-medium">📞 {{ localPhone(order.recipient.phone) }}</a>
+        <a v-if="order.recipient.phone2" :href="telLink(order.recipient.phone2)" class="text-[var(--app-color)]">{{ localPhone(order.recipient.phone2) }}</a>
       </div>
       <p class="pt-1">📍 {{ order.delivery.zone_name }}<span v-if="order.delivery.address"> · {{ order.delivery.address }}</span></p>
       <p v-if="order.delivery.landmark" class="text-sm text-slate-500">Repère : {{ order.delivery.landmark }}</p>
-      <p v-if="order.delivery.scheduled_date" class="text-sm text-slate-500">Prévue le {{ date(order.delivery.scheduled_date) }}</p>
     </section>
 
     <!-- Articles -->
@@ -64,18 +71,28 @@
       </p>
     </section>
 
-    <!-- Montants -->
+    <!-- L'argent de la course : ce qui vous revient -->
     <section class="m-card p-4 space-y-2 text-sm">
-      <div class="flex justify-between"><span class="text-slate-500">Articles</span><span>{{ money(order.amounts.items_amount) }}</span></div>
+      <h2 class="font-semibold text-base">L'argent de la course</h2>
       <div class="flex justify-between">
-        <span class="text-slate-500">Livraison ({{ order.amounts.fee_payer === 'recipient' ? 'client' : 'vous' }})</span><span>{{ money(order.amounts.total_fees) }}</span>
+        <span class="text-slate-500">{{ collected !== null ? 'Encaissé chez le client' : 'À encaisser chez le client' }}</span>
+        <span>{{ money(collected ?? order.amounts.cod_amount) }}</span>
+      </div>
+      <div class="flex justify-between">
+        <span class="text-slate-500">Livraison (payée par {{ order.amounts.fee_payer === 'recipient' ? 'le client' : 'vous' }})</span>
+        <span>− {{ money(order.amounts.total_fees) }}</span>
       </div>
       <div v-if="order.is_shipping" class="flex justify-between">
-        <span class="text-slate-500">🚌 Expédition (vous)</span>
-        <span>{{ order.shipping.fee !== null ? money(order.shipping.fee) : (order.shipping.fee_estimate ? '≈ ' + money(order.shipping.fee_estimate) : 'au réel') }}</span>
+        <span class="text-slate-500">🚌 Expédition</span>
+        <span>− {{ order.shipping.fee !== null ? money(order.shipping.fee) : (order.shipping.fee_estimate ? '≈ ' + money(order.shipping.fee_estimate) : 'au réel') }}</span>
       </div>
-      <div class="flex justify-between font-semibold text-base border-t pt-2"><span>À encaisser</span><span>{{ money(order.amounts.cod_amount) }}</span></div>
-      <div v-if="order.amounts.collected_amount !== null" class="flex justify-between text-emerald-700 font-medium"><span>Encaissé</span><span>{{ money(order.amounts.collected_amount) }}</span></div>
+      <div v-if="expensesTotal" class="flex justify-between">
+        <span class="text-slate-500">Autres frais</span><span>− {{ money(expensesTotal) }}</span>
+      </div>
+      <div v-if="showNet" class="flex justify-between items-baseline border-t pt-2">
+        <span class="font-semibold">{{ order.status === 'delivered' ? 'Pour vous' : 'Pour vous, une fois livrée' }}</span>
+        <span :class="['text-xl font-bold', net < 0 ? 'text-red-600' : 'text-emerald-700']">{{ money(net) }}</span>
+      </div>
     </section>
 
     <!-- Frais facturés au marchand -->
@@ -97,23 +114,28 @@
     <!-- Autres actions -->
     <section v-if="!isFinal" class="space-y-2">
       <button class="m-btn-secondary" @click="sheet = 'note'">💬 Écrire au livreur / à l'agence</button>
-      <button v-if="!['delivery_failed'].includes(order.status) && !beforePickup && !order.return_requested" class="m-btn-secondary" @click="sheet = 'return'">↩️ Demander le retour du colis</button>
+      <button v-if="!order.needs_decision && !beforePickup && !order.return_requested" class="m-btn-secondary" @click="sheet = 'return'">↩️ Demander le retour du colis</button>
       <button v-if="beforePickup" class="m-btn-secondary text-red-600" @click="sheet = 'cancel'">Annuler la course</button>
     </section>
 
-    <!-- Historique -->
+    <!-- Historique : l'essentiel, le détail complet à un toucher -->
     <section class="m-card p-4">
       <h2 class="font-semibold mb-3">Historique</h2>
-      <OrderTimeline :events="[...order.events].reverse()" />
+      <MerchantHistory v-if="!fullHistory" :events="[...order.events].reverse()" />
+      <OrderTimeline v-else :events="[...order.events].reverse()" />
+      <button class="mt-3 text-sm font-medium text-[var(--app-color)]" @click="fullHistory = !fullHistory">{{ fullHistory ? 'Voir l\'essentiel' : 'Voir le détail complet' }}</button>
     </section>
 
     <!-- Feuilles d'action -->
-    <BottomSheet :open="sheet === 'reschedule'" title="Reporter la livraison" @close="sheet = null">
+    <BottomSheet :open="sheet === 'reschedule'" title="Quand relivrer ?" @close="sheet = null">
       <div class="space-y-3">
-        <ChoiceChips v-model="reschedule.choice" :options="dateOptions" :columns="2" label="Nouvelle date" />
-        <input v-if="reschedule.choice === 'other'" v-model="reschedule.date" type="date" :min="today()" class="m-input" aria-label="Date">
+        <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de la nouvelle livraison" />
+        <p v-if="closed" class="text-xs text-slate-500">🌙 {{ closedReason }}.</p>
+        <input v-if="when === 'other'" v-model="reschedule.delivery_scheduled_date" type="date" :min="minDate" class="m-input" aria-label="Jour de la nouvelle livraison">
+        <p v-if="dateSummary" class="text-sm font-semibold text-slate-700">{{ dateSummary.replace('Votre course sera livrée', 'Nouvelle livraison') }}</p>
         <textarea v-model="reschedule.note" rows="2" class="m-input" placeholder="Message (facultatif) : ex. le client sera là après 17h" />
-        <button class="m-btn-primary" :disabled="busy || !rescheduleDate" @click="doReschedule">Confirmer le report</button>
+        <button class="m-btn-primary" :disabled="busy || !dateChosen" @click="doReschedule">Confirmer la relivraison</button>
+        <button v-if="!order.return_requested" class="w-full text-sm font-medium text-slate-600 py-1" @click="sheet = 'return'">Plutôt faire revenir le colis</button>
       </div>
     </BottomSheet>
 
@@ -163,15 +185,18 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
-import StatusBadge from '../../components/StatusBadge.vue'
 import OrderTimeline from '../../components/OrderTimeline.vue'
 import OrderProgress from '../../components/mobile/OrderProgress.vue'
+import MerchantHistory from '../../components/mobile/MerchantHistory.vue'
+import { merchantStatus } from '../../utils/merchantStatus'
+import StatusIcon from '../../components/mobile/StatusIcon.vue'
+import { longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
-import { date, money, telLink, today } from '../../utils/format'
+import { localPhone, money, telLink, today } from '../../utils/format'
 import { BEFORE_PICKUP, FINAL } from '../../utils/workflow'
 import { siteOrigin } from '../../native'
 
@@ -186,24 +211,69 @@ const busy = ref(false)
 const noteText = ref('')
 const zones = ref([])
 const edit = reactive({})
-const reschedule = reactive({ choice: 'tomorrow', date: null, note: '' })
+const reschedule = reactive({ delivery_scheduled_date: null, note: '' })
+// Jours de relivraison : mêmes règles que la nouvelle course (« Aujourd'hui » grisé si la journée est fermée)
+const { when, options: deliveryOptions, closed, closedReason, minDate, summary: dateSummary, isChosen: dateChosen, load: loadDeliveryDay, reset: resetDate } = useDeliveryDate(reschedule)
+// Après « Corriger et relivrer », le choix du jour suit l'enregistrement
+const relivrer = ref(false)
+
+const fullHistory = ref(false)
 
 const isFinal = computed(() => FINAL.includes(order.value?.status))
+const state = computed(() => merchantStatus(order.value))
+
+// « mardi 20 octobre » ou « aujourd'hui » / « hier »
+const dayWord = (value) => {
+  const d = new Date(value)
+  const diff = Math.round((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000)
+  return diff === 0 ? 'aujourd\'hui' : diff === 1 ? 'hier' : `le ${d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}`
+}
+const hour = (value) => new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+const recipientName = computed(() => order.value.recipient.name || order.value.recipient.phone)
+
+// Phrase en tête : ce qui compte pour l'e-commerçant
+const headline = computed(() => {
+  const o = order.value
+  if (o.status === 'delivered') return o.is_shipping ? `Expédiée pour ${recipientName.value}` : `Livrée à ${recipientName.value}`
+  if (o.status === 'out_for_delivery') return `En route vers ${recipientName.value}`
+  return state.value.text
+})
+const subline = computed(() => {
+  const o = order.value
+  if (o.status === 'delivered' && o.delivered_at) return `${dayWord(o.delivered_at)} à ${hour(o.delivered_at)}${o.delivery_courier ? ` par ${o.delivery_courier.name}` : ''}`.replace(/^./, (c) => c.toUpperCase())
+  if (o.status === 'out_for_delivery' && o.delivery_courier) return `Livreur : ${o.delivery_courier.name}`
+  if (['pickup_assigned', 'pickup_in_progress'].includes(o.status) && o.pickup_courier) return `Livreur : ${o.pickup_courier.name}`
+  return ''
+})
+
+// Livraison prévue un autre jour (date choisie, report ou journée fermée)
+const plannedDay = computed(() => {
+  const d = order.value.delivery.scheduled_date
+  return d && !isFinal.value && order.value.status !== 'rescheduled' && d > today() ? longDay(d) : null
+})
+
+// Le livreur à joindre : celui de la livraison, sinon celui du ramassage, tant que la course est en cours
+const courier = computed(() => (isFinal.value ? null : order.value.delivery_courier || order.value.pickup_courier || null))
+
+// Ce qui revient à l'e-commerçant : encaissé − livraison − expédition − autres frais
+const collected = computed(() => order.value.amounts.collected_amount)
+const expensesTotal = computed(() => (order.value.expenses || []).filter((e) => !e.cancelled_at).reduce((sum, e) => sum + e.amount, 0))
+const shippingFee = computed(() => (order.value.is_shipping ? (order.value.shipping.fee ?? order.value.shipping.fee_estimate ?? 0) : 0))
+const net = computed(() => (collected.value ?? order.value.amounts.cod_amount) - order.value.amounts.total_fees - shippingFee.value - expensesTotal.value)
+const showNet = computed(() => order.value.status === 'delivered' || !isFinal.value)
+const trackingUrl = computed(() => `${siteOrigin()}/suivi/${order.value.tracking_code}`)
 const beforePickup = computed(() => BEFORE_PICKUP.includes(order.value?.status))
 const canEdit = computed(() => !isFinal.value && order.value?.status !== 'out_for_delivery')
 
-const dayOffset = (n) => {
-  const d = new Date(Date.now() + n * 86400000)
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
-  return d.toISOString().slice(0, 10)
+// Décision prise par le marchand (report sans livreur reparti) : encore modifiable
+const canChangeDecision = computed(() => !!order.value.decision_editable)
+
+function openReschedule() {
+  resetDate()
+  reschedule.note = ''
+  loadDeliveryDay()
+  sheet.value = 'reschedule'
 }
-const dateOptions = [
-  { value: 'today', label: "Aujourd'hui" },
-  { value: 'tomorrow', label: 'Demain' },
-  { value: 'after', label: 'Après-demain' },
-  { value: 'other', label: 'Autre date' },
-]
-const rescheduleDate = computed(() => ({ today: dayOffset(0), tomorrow: dayOffset(1), after: dayOffset(2), other: reschedule.date }[reschedule.choice]))
 
 const whatsappShare = computed(() => {
   const o = order.value
@@ -214,6 +284,8 @@ const whatsappShare = computed(() => {
 async function load() {
   try {
     order.value = (await http.get(`/orders/${route.params.id}`)).data.data
+    // « Reporter » depuis la liste des courses : le report s'ouvre directement
+    if (route.query.action === 'reporter' && order.value.needs_decision && !sheet.value) openReschedule()
   } catch (e) {
     error.value = apiErrorMessage(e)
   }
@@ -236,13 +308,14 @@ async function run(action, success) {
 }
 
 const doReschedule = () => run(() => http.post(`/orders/${order.value.id}/status`, {
-  status: 'rescheduled', rescheduled_to: rescheduleDate.value, note: reschedule.note || undefined,
-}), 'Livraison reportée.')
+  status: 'rescheduled', rescheduled_to: reschedule.delivery_scheduled_date, note: reschedule.note || undefined,
+}), 'Relivraison prévue.')
 const doReturn = () => run(() => http.post(`/orders/${order.value.id}/return-request`, { note: noteText.value || undefined }), 'Retour demandé.')
 const doCancel = () => run(() => http.post(`/orders/${order.value.id}/status`, { status: 'cancelled', cancel_reason: noteText.value || undefined }), 'Course annulée.')
 const doNote = () => run(() => http.post(`/orders/${order.value.id}/notes`, { note: noteText.value }), 'Message envoyé.')
 
-async function openEdit() {
+async function openEdit(thenRedeliver = false) {
+  relivrer.value = thenRedeliver === true
   if (!zones.value.length) zones.value = (await http.get('/zones')).data.data
   Object.assign(edit, {
     recipient_phone: order.value.recipient.phone,
@@ -254,10 +327,15 @@ async function openEdit() {
   sheet.value = 'edit'
 }
 
-const doEdit = () => run(
-  () => http.patch(`/orders/${order.value.id}`, Object.fromEntries(Object.entries(edit).filter(([, v]) => v !== ''))),
-  'Livraison modifiée.',
-)
+async function doEdit() {
+  await run(
+    () => http.patch(`/orders/${order.value.id}`, Object.fromEntries(Object.entries(edit).filter(([, v]) => v !== ''))),
+    'Livraison modifiée.',
+  )
+  // Adresse corrigée : reste à choisir le jour de la nouvelle livraison
+  if (relivrer.value && order.value.needs_decision) openReschedule()
+  relivrer.value = false
+}
 
 async function copy(text) {
   try {

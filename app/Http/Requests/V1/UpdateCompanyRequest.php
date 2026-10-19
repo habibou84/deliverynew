@@ -54,6 +54,8 @@ class UpdateCompanyRequest extends FormRequest
             'return_fee_percent' => ['sometimes', 'integer', 'min:0', 'max:100'],
             'field_alert_reminder_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
             'parcel_hold_alert_hours' => ['sometimes', 'integer', 'min:0', 'max:168'],
+            'pickup_mission_custody' => ['sometimes', 'in:keep,depot,choose'],
+            'depot_closes_at' => ['sometimes', 'nullable', 'date_format:H:i'],
             'tagline' => ['sometimes', 'nullable', 'string', 'max:160'],
             'merchant_signup' => ['sometimes', 'boolean'],
             'weekly_report' => ['sometimes', 'boolean'],
@@ -76,6 +78,8 @@ class UpdateCompanyRequest extends FormRequest
             'address' => 'adresse',
             'status' => 'statut',
             'daily_cutoff_time' => 'heure limite du jour',
+            'pickup_mission_custody' => 'colis après une mission ramassage',
+            'depot_closes_at' => 'heure de fermeture du dépôt',
             'plan_id' => 'formule',
             'trial_ends_at' => 'fin de l\'essai',
         ];

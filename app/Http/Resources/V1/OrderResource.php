@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\V1;
 
+use App\Enums\OrderEventType;
+use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Services\Orders\AwaitingCourier;
 use Illuminate\Http\Request;
@@ -115,6 +117,10 @@ class OrderResource extends JsonResource
             ),
             'attempts_count' => $this->attempts_count,
             'max_attempts' => $this->max_attempts,
+            // Colis non livré : décision attendue, ou décision déjà prise par le marchand
+            'needs_decision' => $this->needsDecision(),
+            'decision_editable' => $this->decisionEditable(),
+            'merchant_decision' => $this->whenLoaded('merchantDecision', fn () => $this->merchantDecisionSummary()),
             'return_requested' => $this->return_requested,
             'last_incident' => $this->whenLoaded('lastIncidentReason', fn () => $this->lastIncidentReason ? [
                 'id' => $this->lastIncidentReason->id,
@@ -141,6 +147,30 @@ class OrderResource extends JsonResource
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    /**
+     * Décision du marchand encore d'actualité (report en cours, retour pas encore parti).
+     *
+     * @return array{kind: string, date: ?string, by: ?string, at: mixed}|null
+     */
+    private function merchantDecisionSummary(): ?array
+    {
+        $event = $this->merchantDecision;
+        if (! $event) {
+            return null;
+        }
+
+        $redeliver = $event->to_status === OrderStatus::Rescheduled && $this->status === OrderStatus::Rescheduled;
+        $return = $event->type === OrderEventType::ReturnRequested && $this->return_requested
+            && ! in_array($this->status, [OrderStatus::ReturnAssigned, OrderStatus::Returning, OrderStatus::Returned], true);
+
+        return $redeliver || $return ? [
+            'kind' => $redeliver ? 'redeliver' : 'return',
+            'date' => $redeliver ? $event->rescheduled_to?->toDateString() : null,
+            'by' => $event->actor_name,
+            'at' => $event->created_at,
+        ] : null;
     }
 
     private function courierSummary($courier): ?array

@@ -67,6 +67,14 @@ export function useRealtime() {
       return
     }
 
+    // Livreur libre (ou presque) avec des ramassages près de lui : son discret, toast vers sa mission ramassage
+    if (n.kind === 'courier_available') {
+      playAlertSound('note')
+      desktopNotify(n.title, n.body, () => router.push(n.href))
+      toasts.push(n.body, 'info', { title: n.title, timeout: 15000, href: n.href })
+      return
+    }
+
     // Consigne du dispatch reçue par le livreur : son, vibration, toast qui ouvre la mission
     if (n.dispatch_message) {
       playAlertSound('alert')
