@@ -3,15 +3,19 @@
     <!-- L'essentiel : où en est la course, en une phrase -->
     <section class="m-card p-4 space-y-4">
       <div class="flex items-start gap-3">
-        <span :class="['h-12 w-12 shrink-0 rounded-2xl grid place-items-center text-2xl', state.bg]" aria-hidden="true">{{ state.icon }}</span>
+        <span class="h-12 w-12 shrink-0 rounded-2xl grid place-items-center bg-[color-mix(in_srgb,var(--app-color)_10%,white)] text-[var(--app-color)]" aria-hidden="true">
+          <StatusIcon name="package" class="h-6 w-6" />
+        </span>
         <div class="min-w-0 flex-1">
-          <p :class="['text-lg font-bold leading-snug', state.color]">{{ headline }}</p>
+          <p :class="['text-lg font-bold leading-snug flex items-start gap-2', state.color]">
+            <StatusIcon :name="state.icon" class="h-[18px] w-[18px] shrink-0 mt-[5px]" /><span>{{ headline }}</span>
+          </p>
           <p v-if="subline" class="text-sm text-slate-600">{{ subline }}</p>
           <button class="mt-0.5 font-mono text-xs text-slate-400" @click="copy(order.tracking_code)">{{ order.tracking_code }} ⧉</button>
         </div>
       </div>
       <OrderProgress :status="order.status" :incident="order.last_incident?.label" :rescheduled-to="order.delivery.scheduled_date" :shipping="order.is_shipping" />
-      <p v-if="plannedDay" class="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900">📅 Livraison prévue le <strong>{{ plannedDay }}</strong></p>
+      <p v-if="plannedDay" class="flex items-center gap-2 rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900"><StatusIcon name="calendar" class="h-4 w-4 shrink-0" /><span>Livraison prévue le <strong>{{ plannedDay }}</strong></span></p>
 
       <!-- Échec de livraison : la décision d'abord (seulement si elle est encore attendue) -->
       <div v-if="order.needs_decision" class="grid grid-cols-2 gap-2">
@@ -185,6 +189,7 @@ import OrderTimeline from '../../components/OrderTimeline.vue'
 import OrderProgress from '../../components/mobile/OrderProgress.vue'
 import MerchantHistory from '../../components/mobile/MerchantHistory.vue'
 import { merchantStatus } from '../../utils/merchantStatus'
+import StatusIcon from '../../components/mobile/StatusIcon.vue'
 import { longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
