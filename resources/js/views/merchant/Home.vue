@@ -181,7 +181,7 @@ const fees = computed(() => {
 // « Plus de détails » : la liste des courses, avec la même catégorie et les mêmes dates
 const coursesQuery = computed(() => ({
   ...(homeFilter.value !== 'all' ? { filtre: homeFilter.value } : {}),
-  ...periodQuery(period.value, 'all'),
+  ...periodQuery(period.value, 'today'),
 }))
 
 function setFilter(value) {
