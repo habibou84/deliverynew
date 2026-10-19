@@ -50,7 +50,6 @@
     <RouterLink v-if="balance" to="/marchand/paiements" class="tap block rounded-2xl p-5 text-white active:opacity-90" :style="{ backgroundColor: 'var(--app-color)' }">
       <p class="text-sm opacity-85">{{ balance.available < 0 ? 'Vous devez à l\'agence' : 'On vous doit' }}</p>
       <p class="text-3xl font-bold mt-0.5">{{ money(Math.abs(balance.available)) }}</p>
-      <p class="text-sm opacity-85">{{ balance.available < 0 ? 'À régler lors de votre prochain point avec l\'agence' : 'Versé lors de votre prochain paiement' }}</p>
       <div v-if="balance.pending_cash" class="mt-3 pt-3 border-t border-white/20 flex justify-between text-sm">
         <span class="opacity-85">Encore chez les livreurs</span><strong>{{ money(balance.pending_cash) }}</strong>
       </div>
