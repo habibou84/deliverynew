@@ -5,6 +5,7 @@
     <div>
       <p class="text-2xl font-bold">Course enregistrée</p>
       <p class="text-slate-500">{{ created.from_warehouse ? 'L\'agence prépare votre commande à l\'entrepôt.' : 'Nous allons envoyer un livreur récupérer le colis.' }}</p>
+      <p v-if="created.delivery?.scheduled_date" class="mt-1 font-semibold text-slate-700">📅 Livraison prévue le {{ longDay(created.delivery.scheduled_date) }}</p>
     </div>
     <div class="m-card p-4 space-y-1">
       <p class="text-sm text-slate-500">Code de suivi</p>
@@ -19,35 +20,31 @@
     </div>
   </div>
 
-  <div v-else class="space-y-5 pb-28">
-    <!-- Progression -->
-    <div>
-      <div class="flex justify-between text-sm mb-2">
-        <span class="font-semibold">{{ steps[step].title }}</span>
-        <span class="text-slate-500">Étape {{ step + 1 }} / {{ steps.length }}</span>
-      </div>
-      <div class="h-2 rounded-full bg-slate-200 overflow-hidden">
-        <div class="h-full rounded-full transition-all" :style="{ width: `${((step + 1) / steps.length) * 100}%`, backgroundColor: 'var(--app-color)' }" />
-      </div>
-    </div>
-
-    <div v-if="error" class="rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm">{{ error }}</div>
+  <form v-else class="space-y-5 pb-60" :style="lifted ? { paddingBottom: '100vh' } : {}" novalidate autocomplete="off" @submit.prevent="submit" @focusin="liftField" @focusout="lifted = false">
+    <div v-if="error" class="rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm" role="alert">{{ error }}</div>
     <p v-if="fromMessage" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">
-      ✨ Course remplie d'après le message : vérifiez chaque étape avant de confirmer.
+      ✨ Course remplie d'après le message : vérifiez les champs avant d'envoyer.
     </p>
 
-    <!-- 1. Destinataire -->
-    <section v-show="step === 0" class="space-y-4">
-      <PasteMessage mobile :start-open="route.query.coller === '1'" @parsed="applyParsed" />
+    <PasteMessage mobile :start-open="route.query.coller === '1'" @parsed="applyParsed" />
+
+    <!-- Client -->
+    <section class="space-y-3">
       <div class="relative">
         <label class="m-label" for="phone">Téléphone du client *</label>
-        <input id="phone" v-model="form.recipient_phone" class="m-input text-lg" inputmode="tel" autocomplete="off" placeholder="07 00 00 00 00" @input="searchRecipients" @blur="checkDuplicates">
-        <div v-if="suggestions.length" class="absolute z-20 mt-1 w-full m-card overflow-hidden">
-          <button v-for="r in suggestions" :key="r.id" type="button" class="w-full text-left px-4 py-3 active:bg-slate-50 border-b last:border-0" @click="pickRecipient(r)">
-            <span class="font-medium">{{ r.name || 'Client' }}</span> · {{ r.phone }}
-            <span v-if="r.failed_count" class="block text-xs text-red-600">{{ r.failed_count }} livraison(s) échouée(s)</span>
-          </button>
-        </div>
+        <input id="phone" v-model="form.recipient_phone" :class="['m-input text-lg', missing.phone ? 'ring-2 ring-red-500' : '']" inputmode="tel" autocomplete="jibiat-off" placeholder="07 00 00 00 00" @input="searchRecipients" @blur="checkDuplicates">
+      </div>
+      <!-- Client déjà livré : nom et adresse en un toucher -->
+      <div v-for="r in suggestions" :key="r.id" class="rounded-xl bg-emerald-50 ring-1 ring-emerald-200 px-3 py-2.5 flex items-center gap-3 text-sm">
+        <span class="text-xl">👤</span>
+        <span class="min-w-0 flex-1">
+          <strong>{{ r.name || 'Client' }}</strong> · {{ r.phone }}
+          <span class="block truncate text-slate-600">
+            {{ r.deliveries_count ? `Déjà livré ${r.deliveries_count} fois` : 'Déjà enregistré' }}<template v-if="zoneOf(r)"> · {{ zoneOf(r) }}</template>
+          </span>
+          <span v-if="r.failed_count" class="block text-xs text-red-600">{{ r.failed_count }} livraison(s) échouée(s)</span>
+        </span>
+        <button type="button" class="tap shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-white" :style="{ backgroundColor: 'var(--app-color)' }" @click="pickRecipient(r)">Utiliser</button>
       </div>
       <div v-if="duplicates.length" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">
         ⚠️ Vous avez déjà envoyé {{ duplicates.length > 1 ? `${duplicates.length} courses` : 'une course' }} à ce client ces dernières 24 h :
@@ -55,32 +52,19 @@
       </div>
       <div>
         <label class="m-label" for="name">Nom du client</label>
-        <input id="name" v-model="form.recipient_name" class="m-input" autocomplete="off" placeholder="Ex. : Jean Kouadio">
-      </div>
-      <div>
-        <label class="m-label" for="phone2">Autre numéro (facultatif)</label>
-        <input id="phone2" v-model="form.recipient_phone2" class="m-input" inputmode="tel" placeholder="Si le premier ne répond pas">
+        <input id="name" v-model="form.recipient_name" class="m-input" autocomplete="jibiat-off" placeholder="Ex. : Jean Kouadio">
       </div>
     </section>
 
-    <!-- 2. Adresse -->
-    <section v-show="step === 1" class="space-y-4">
-      <div>
-        <label class="m-label" for="zone-search">Commune ou quartier *</label>
-        <p v-if="zoneChoices.length > 1" class="text-sm text-slate-600 mb-2">D'après le message : {{ zoneChoices.map((z) => z.full_name).join(' ou ') }} ?</p>
-        <input id="zone-search" v-model="zoneSearch" class="m-input" placeholder="Rechercher…" autocomplete="off">
-        <div class="grid grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
-          <button
-            v-for="z in filteredZones"
-            :key="z.id"
-            type="button"
-            :class="['tap rounded-xl px-3 py-3 text-left text-sm font-medium ring-1', form.delivery_zone_id === z.id ? 'text-white ring-transparent' : 'bg-white ring-slate-200']"
-            :style="form.delivery_zone_id === z.id ? { backgroundColor: 'var(--app-color)' } : {}"
-            @click="form.delivery_zone_id = z.id"
-          >
-            <span v-if="z.is_shipping">🚌 </span>{{ z.full_name }}
-          </button>
-        </div>
+    <!-- Livraison -->
+    <section class="space-y-3">
+      <div id="zone-field">
+        <label class="m-label" for="zone">Commune ou quartier *</label>
+        <p v-if="zoneChoices.length > 1" class="text-sm text-slate-600 mb-2">
+          D'après le message :
+          <button v-for="z in zoneChoices" :key="z.id" type="button" :class="['tap mr-1 mt-1 rounded-full px-3 py-1 text-sm ring-1', form.delivery_zone_id === z.id ? 'text-white ring-transparent' : 'bg-white ring-slate-200']" :style="form.delivery_zone_id === z.id ? { backgroundColor: 'var(--app-color)' } : {}" @click="form.delivery_zone_id = z.id">{{ z.full_name }}</button>
+        </p>
+        <ZoneSelect id="zone" v-model="form.delivery_zone_id" :zones="zones" mobile :input-class="['m-input', missing.zone ? 'ring-2 ring-red-500' : '']" />
         <p v-if="selectedZone?.is_shipping" class="mt-2 rounded-xl bg-indigo-50 text-indigo-900 text-sm p-3">
           🚌 <strong>Expédition</strong> : notre livreur dépose le colis à la gare et paie l'envoi
           <template v-if="selectedZone.shipping_fee_estimate">(environ {{ money(selectedZone.shipping_fee_estimate) }})</template>.
@@ -89,24 +73,22 @@
       </div>
       <div>
         <label class="m-label" for="address">Adresse et repère</label>
-        <input id="address" v-model="form.delivery_address" class="m-input" placeholder="Ex. : Siporex, résidence Les Palmiers, face pharmacie">
-      </div>
-      <div>
-        <p class="m-label">Livraison souhaitée</p>
-        <ChoiceChips v-model="when" :options="whenOptions" :columns="3" label="Date de livraison" />
-        <input v-if="when === 'other'" v-model="form.delivery_scheduled_date" type="date" :min="today()" class="m-input mt-2" aria-label="Date de livraison">
+        <input id="address" autocomplete="jibiat-off" v-model="form.delivery_address" class="m-input" placeholder="Ex. : Siporex, résidence Les Palmiers, face pharmacie">
       </div>
     </section>
 
-    <!-- 3. Colis et paiement -->
-    <section v-show="step === 2" class="space-y-4">
-      <div v-if="products.length" class="space-y-3">
+    <!-- Colis et paiement -->
+    <section class="space-y-3">
+      <button v-if="products.length && !showStock" type="button" class="tap w-full m-card px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
+        <span>📦 Prendre des articles de mon stock</span><span class="text-slate-400">›</span>
+      </button>
+      <div v-if="products.length && showStock" class="space-y-3">
         <div v-if="stockHubs.length">
           <p class="m-label">D'où part le colis ?</p>
           <ChoiceChips v-model="source" :options="sourceOptions" :columns="1" label="Provenance du colis" />
         </div>
         <div>
-          <p class="m-label">Articles de mon stock <span class="font-normal text-slate-400">(facultatif{{ source ? '' : ' : sinon, décrivez le colis plus bas' }})</span></p>
+          <p class="m-label">Articles de mon stock <span class="font-normal text-slate-400">(facultatif)</span></p>
           <div class="m-card divide-y">
             <div v-for="p in sourceProducts" :key="p.id" class="p-3 flex items-center gap-3">
               <div class="min-w-0 flex-1">
@@ -125,14 +107,14 @@
       </div>
 
       <div>
-        <label class="m-label" for="amount">Montant des articles à encaisser</label>
+        <label class="m-label" for="amount">Montant à encaisser chez le client</label>
         <div class="relative">
-          <input id="amount" v-model.number="form.items_amount" type="number" min="0" step="50" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
+          <input id="amount" autocomplete="jibiat-off" v-model.number="form.items_amount" type="number" min="0" step="50" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
           <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
         </div>
-        <p class="text-xs text-slate-500 mt-1">Mettez 0 si le client a déjà payé.</p>
+        <p class="text-xs text-slate-500 mt-1">Prix des articles, sans la livraison. Mettez 0 si le client a déjà payé.</p>
       </div>
-      <div id="fee-payer" :class="['rounded-2xl', feePayerMissing ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
+      <div id="fee-payer" :class="['rounded-2xl', missing.feePayer ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
         <p class="m-label">Qui paie la livraison ? <span class="text-red-600">*</span></p>
         <ChoiceChips
           v-model="form.fee_payer"
@@ -143,76 +125,69 @@
             { value: 'merchant', label: 'Moi', icon: '🏪', description: 'déduite de mon paiement' },
           ]"
         />
-        <p v-if="feePayerMissing" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison : le client ou vous.</p>
+        <p v-if="missing.feePayer" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison : le client ou vous.</p>
       </div>
       <div>
-        <label class="m-label" for="desc">Que contient le colis ?</label>
-        <input id="desc" v-model="form.description" class="m-input" placeholder="Ex. : 2 robes, 1 sac">
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <label :class="['tap flex items-center gap-2 rounded-xl px-4 py-3 ring-1', form.is_express ? 'ring-2 ring-[var(--app-color)]' : 'ring-slate-200 bg-white']">
-          <input v-model="form.is_express" type="checkbox" class="h-5 w-5 accent-[var(--app-color)]"> ⚡ Express
-        </label>
-        <label :class="['tap flex items-center gap-2 rounded-xl px-4 py-3 ring-1', form.is_fragile ? 'ring-2 ring-[var(--app-color)]' : 'ring-slate-200 bg-white']">
-          <input v-model="form.is_fragile" type="checkbox" class="h-5 w-5 accent-[var(--app-color)]"> 🥚 Fragile
-        </label>
-      </div>
-      <div>
-        <label class="m-label" for="note">Message pour le livreur</label>
-        <textarea id="note" v-model="form.merchant_note" rows="2" class="m-input" placeholder="Ex. : appeler avant d'arriver" />
+        <p class="m-label">Livraison souhaitée</p>
+        <!-- Journée fermée (heure limite passée ou fermée par l'agence) : dit avant l'envoi, pas après -->
+        <p v-if="day?.closed" class="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          🌙 Livraisons du jour closes{{ day.reason === 'cutoff' ? ` depuis ${day.cutoff_time}` : '' }} : votre course sera livrée le <strong>{{ longDay(day.next_day) }}</strong>. Le ramassage peut se faire aujourd'hui.
+        </p>
+        <ChoiceChips v-model="when" :options="whenOptions" :columns="3" label="Date de livraison" />
+        <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="day?.closed ? day.next_day : today()" :class="['m-input mt-2', missing.date ? 'ring-2 ring-red-500' : '']" aria-label="Date de livraison">
       </div>
     </section>
 
-    <!-- 4. Récapitulatif -->
-    <section v-show="step === 3" class="space-y-3">
-      <div class="m-card divide-y">
-        <button type="button" class="w-full text-left p-4 flex justify-between gap-3" @click="step = 0">
-          <span><span class="block text-xs text-slate-500">Client</span>{{ form.recipient_name || '—' }} · {{ form.recipient_phone }}</span><span class="text-[var(--app-color)] text-sm">Modifier</span>
-        </button>
-        <button type="button" class="w-full text-left p-4 flex justify-between gap-3" @click="step = 1">
-          <span><span class="block text-xs text-slate-500">Adresse</span>{{ zoneName }}<span v-if="form.delivery_address"> · {{ form.delivery_address }}</span></span><span class="text-[var(--app-color)] text-sm">Modifier</span>
-        </button>
-        <button type="button" class="w-full text-left p-4 flex justify-between gap-3" @click="step = 2">
-          <span>
-            <span class="block text-xs text-slate-500">Colis{{ source ? ` · part de ${sourceName}` : '' }}</span>
-            <template v-if="pickedItems.length">{{ pickedItems.map((i) => `${i.quantity} × ${i.name}`).join(', ') }}</template>
-            <template v-else>{{ form.description || 'Colis' }}</template>
-            <span v-if="form.is_express"> · Express</span><span v-if="form.is_fragile"> · Fragile</span>
-          </span><span class="text-[var(--app-color)] text-sm">Modifier</span>
-        </button>
-      </div>
-
-      <div class="m-card p-4 space-y-2">
-        <p v-if="quoteError" class="text-red-600 text-sm">{{ quoteError }}</p>
-        <template v-else-if="quote">
-          <div class="flex justify-between text-sm"><span class="text-slate-500">Articles</span><span>{{ money(form.items_amount || 0) }}</span></div>
-          <div class="flex justify-between text-sm">
-            <span class="text-slate-500">Livraison ({{ form.fee_payer === 'recipient' ? 'payée par le client' : 'à ma charge' }})</span><span>{{ money(quote.total) }}</span>
-          </div>
-          <div v-if="quote.is_shipping" class="flex justify-between text-sm">
-            <span class="text-slate-500">🚌 Expédition (à votre charge, au réel)</span><span>≈ {{ money(shippingEstimate) }}</span>
-          </div>
-          <div class="flex justify-between text-lg font-bold pt-2 border-t"><span>Le client paiera</span><span>{{ money(codAmount) }}</span></div>
-          <div :class="['flex justify-between text-sm font-medium', merchantNet < 0 ? 'text-slate-700' : 'text-emerald-700']">
-            <span>{{ merchantNet < 0 ? 'À votre charge' : 'Vous recevrez' }}</span>
-            <span>{{ quote.is_shipping ? '≈ ' : '' }}{{ money(Math.abs(merchantNet)) }}</span>
-          </div>
-        </template>
-        <p v-else class="text-slate-400 text-sm">Calcul du tarif…</p>
+    <!-- Le reste, seulement si besoin -->
+    <section>
+      <button type="button" class="tap w-full flex items-center justify-between rounded-xl px-1 py-2 text-sm font-semibold text-slate-600" :aria-expanded="showMore" @click="showMore = !showMore">
+        <span>{{ showMore ? '−' : '＋' }} Contenu du colis, message au livreur…</span>
+        <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-500">{{ extrasSummary }}</span>
+      </button>
+      <div v-show="showMore" class="space-y-4 pt-2">
+        <div>
+          <label class="m-label" for="desc">Que contient le colis ?</label>
+          <input id="desc" autocomplete="jibiat-off" v-model="form.description" class="m-input" placeholder="Ex. : 2 robes, 1 sac">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <label :class="['tap flex items-center gap-2 rounded-xl px-4 py-3 ring-1', form.is_express ? 'ring-2 ring-[var(--app-color)]' : 'ring-slate-200 bg-white']">
+            <input v-model="form.is_express" type="checkbox" class="h-5 w-5 accent-[var(--app-color)]"> ⚡ Express
+          </label>
+          <label :class="['tap flex items-center gap-2 rounded-xl px-4 py-3 ring-1', form.is_fragile ? 'ring-2 ring-[var(--app-color)]' : 'ring-slate-200 bg-white']">
+            <input v-model="form.is_fragile" type="checkbox" class="h-5 w-5 accent-[var(--app-color)]"> 🥚 Fragile
+          </label>
+        </div>
+        <div>
+          <label class="m-label" for="note">Message pour le livreur</label>
+          <textarea id="note" autocomplete="jibiat-off" v-model="form.merchant_note" rows="2" class="m-input" placeholder="Ex. : appeler avant d'arriver" />
+        </div>
+        <div>
+          <label class="m-label" for="phone2">Autre numéro du client</label>
+          <input id="phone2" autocomplete="jibiat-off" v-model="form.recipient_phone2" class="m-input" inputmode="tel" placeholder="Si le premier ne répond pas">
+        </div>
       </div>
     </section>
 
-    <!-- Boutons -->
-    <div class="fixed bottom-16 inset-x-0 z-20 bg-slate-50/95 backdrop-blur pb-safe">
-      <div class="mx-auto max-w-lg px-4 py-3 flex gap-2">
-        <button v-if="step > 0" type="button" class="m-btn-secondary w-auto px-6" @click="step--">Retour</button>
-        <button v-if="step < steps.length - 1" type="button" class="m-btn-primary" @click="next">Continuer</button>
-        <button v-else type="button" class="m-btn-primary" :disabled="saving || !quote" @click="submit">
-          {{ saving ? 'Enregistrement…' : 'Confirmer la course' }}
-        </button>
+    <!-- Prix en direct et envoi -->
+    <div v-show="!keyboardOpen" class="fixed bottom-16 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe shadow-[0_-6px_18px_rgba(15,23,42,0.06)]">
+      <div class="mx-auto max-w-lg px-4 pt-3 pb-3 space-y-2">
+        <div v-if="quote" class="text-sm space-y-0.5">
+          <div class="flex justify-between">
+            <span class="text-slate-500">Livraison {{ zoneName }} ({{ form.fee_payer === 'merchant' ? 'à ma charge' : form.fee_payer === 'recipient' ? 'payée par le client' : 'qui paie ?' }})</span>
+            <strong>{{ money(quote.total) }}</strong>
+          </div>
+          <div v-if="quote.is_shipping" class="flex justify-between"><span class="text-slate-500">🚌 Expédition (au réel)</span><strong>≈ {{ money(shippingEstimate) }}</strong></div>
+          <div class="flex justify-between"><span class="text-slate-500">Le livreur encaisse</span><strong>{{ money(codAmount) }}</strong></div>
+          <div :class="['flex justify-between font-semibold', merchantNet < 0 ? 'text-slate-700' : 'text-emerald-700']">
+            <span>{{ merchantNet < 0 ? 'À votre charge' : 'Vous recevrez' }}</span><span>{{ quote.is_shipping ? '≈ ' : '' }}{{ money(Math.abs(merchantNet)) }}</span>
+          </div>
+        </div>
+        <p v-else-if="quoteError" class="text-sm text-red-600">{{ quoteError }}</p>
+        <p v-else class="text-sm text-slate-500">{{ form.delivery_zone_id ? 'Calcul du prix…' : 'Choisissez la commune pour voir le prix de la livraison.' }}</p>
+        <button type="submit" class="m-btn-primary" :disabled="saving">{{ saving ? 'Envoi…' : 'Envoyer la course' }}</button>
       </div>
     </div>
-  </div>
+  </form>
 </template>
 
 <script setup>
@@ -221,18 +196,13 @@ import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import PasteMessage from '../../components/PasteMessage.vue'
+import ZoneSelect from '../../components/ZoneSelect.vue'
+import { keyboardOpen } from '../../composables/useKeyboard'
 import { useAuthStore } from '../../stores/auth'
 import { money, today } from '../../utils/format'
 import { siteOrigin } from '../../native'
 
 const route = useRoute()
-
-const steps = [
-  { title: 'À qui livrer ?' },
-  { title: 'Où livrer ?' },
-  { title: 'Colis et paiement' },
-  { title: 'Vérifiez et confirmez' },
-]
 
 const auth = useAuthStore()
 
@@ -252,10 +222,13 @@ const blank = () => ({
   merchant_note: '',
 })
 
+// Un seul écran : l'essentiel visible, le reste derrière « Date, contenu du colis… »
 const form = reactive(blank())
-const step = ref(0)
+const showMore = ref(false)
+const showStock = ref(false)
+// Champs obligatoires oubliés, encadrés en rouge jusqu'à leur saisie
+const missing = reactive({ phone: false, zone: false, feePayer: false, date: false })
 const zones = ref([])
-const zoneSearch = ref('')
 const suggestions = ref([])
 const when = ref('asap')
 const quote = ref(null)
@@ -268,11 +241,14 @@ const hubs = ref([])
 const source = ref(null) // null = chez moi, sinon identifiant de l'entrepôt
 const picked = reactive({})
 
-const whenOptions = [
-  { value: 'asap', label: 'Au plus vite' },
-  { value: 'tomorrow', label: 'Demain' },
+// Journée de livraison de l'agence (validation avec règles)
+const day = ref(null)
+const longDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+const whenOptions = computed(() => [
+  // Journée fermée : « au plus vite » veut dire demain, « Demain » devient inutile
+  ...(day.value?.closed ? [{ value: 'asap', label: 'Au plus vite', description: 'demain' }] : [{ value: 'asap', label: 'Au plus vite' }, { value: 'tomorrow', label: 'Demain' }]),
   { value: 'other', label: 'Autre date' },
-]
+])
 
 // Entrepôts où le marchand a du stock disponible
 const stockHubs = computed(() => hubs.value.filter((h) => products.value.some((p) => p.levels.some((l) => l.hub_id === h.id && l.available > 0))))
@@ -293,22 +269,33 @@ function pick(product, delta) {
   picked[product.id] = Math.max(0, Math.min(availableAt(product), (picked[product.id] || 0) + delta))
   // Le montant à encaisser suit les articles choisis (modifiable ensuite)
   form.items_amount = pickedItems.value.reduce((sum, i) => sum + i.quantity * i.unit_price, 0)
+  fillDescription()
+}
+
+// « Que contient le colis ? » reprend les articles choisis, sauf si le marchand y a écrit autre chose
+let autoDescription = ''
+function fillDescription() {
+  if (form.description && form.description !== autoDescription) return
+  autoDescription = pickedItems.value.map((i) => `${i.quantity} × ${i.name}`).join(', ')
+  form.description = autoDescription
 }
 
 watch(source, () => {
   Object.keys(picked).forEach((id) => delete picked[id])
+  fillDescription()
   fetchQuote()
 })
 
-const filteredZones = computed(() => {
-  const term = zoneSearch.value.trim().toLowerCase()
-  const list = zones.value.filter((z) => !term || z.full_name.toLowerCase().includes(term))
-  if (term || !zoneChoices.value.length) return list
-  const first = zoneChoices.value.map((c) => c.id)
-  return [...list.filter((z) => first.includes(z.id)), ...list.filter((z) => !first.includes(z.id))]
-})
 const selectedZone = computed(() => zones.value.find((z) => z.id === form.delivery_zone_id))
 const zoneName = computed(() => selectedZone.value?.full_name || '—')
+const zoneOf = (recipient) => zones.value.find((z) => z.id === recipient.zone_id)?.full_name
+// Options remplies, rappelées quand la section est repliée
+const extrasSummary = computed(() => [
+  form.description,
+  form.is_express ? 'Express' : null,
+  form.is_fragile ? 'Fragile' : null,
+  form.merchant_note ? 'message au livreur' : null,
+].filter(Boolean).join(' · '))
 const shippingEstimate = computed(() => (quote.value?.is_shipping ? quote.value.shipping_fee_estimate || 0 : 0))
 // Ce que le marchand touche (ou paie) pour cette course, frais d'expédition estimés compris
 const merchantNet = computed(() => (form.items_amount || 0) - (form.fee_payer === 'merchant' ? (quote.value?.total || 0) : 0) - shippingEstimate.value)
@@ -360,18 +347,21 @@ function searchRecipients() {
     return
   }
   searchTimer = setTimeout(async () => {
-    suggestions.value = (await http.get('/recipients', { params: { search: term.slice(-8) } })).data.data
+    // Trois clients au plus : ceux dont le numéro correspond le mieux
+    suggestions.value = (await http.get('/recipients', { params: { search: term.slice(-8) } })).data.data.slice(0, 3)
   }, 250)
 }
 
 function pickRecipient(r) {
   Object.assign(form, {
-    recipient_phone: r.phone,
+    // Numéros affichés comme on les tape (sans l'indicatif)
+    recipient_phone: (r.phone || '').replace(/^\+225/, ''),
     recipient_name: r.name || '',
-    recipient_phone2: r.phone2 || '',
+    recipient_phone2: (r.phone2 || '').replace(/^\+225/, ''),
     delivery_zone_id: r.zone_id,
     delivery_address: joinAddress(r.address, r.landmark),
   })
+  if (r.phone2) showMore.value = true
   suggestions.value = []
   checkDuplicates()
 }
@@ -395,11 +385,9 @@ function applyParsed(data) {
   set('description', data.description)
   set('merchant_note', data.merchant_note)
   zoneChoices.value = data.zones || []
-  // Communes proposées en tête de liste
-  if (zoneChoices.value.length) {
-    form.delivery_zone_id = zoneChoices.value[0].id
-    zoneSearch.value = ''
-  }
+  // Commune la plus probable choisie, les autres proposées au-dessus du champ
+  if (zoneChoices.value.length) form.delivery_zone_id = zoneChoices.value[0].id
+  if (data.description || data.merchant_note || data.recipient_phone2) showMore.value = true
   fromMessage.value = true
   checkDuplicates()
 }
@@ -415,38 +403,45 @@ async function checkDuplicates() {
   }
 }
 
-function next() {
-  error.value = ''
-  if (step.value === 0 && form.recipient_phone.replace(/\D/g, '').length < 8) {
-    error.value = 'Indiquez le numéro de téléphone du client.'
-    return
-  }
-  if (step.value === 1 && !form.delivery_zone_id) {
-    error.value = 'Choisissez la commune ou le quartier de livraison.'
-    return
-  }
-  if (step.value === 2 && source.value && !pickedItems.value.length) {
-    error.value = 'Choisissez les articles à prendre à l\'entrepôt.'
-    return
-  }
-  if (step.value === 2 && !form.fee_payer) {
-    feePayerMissing.value = true
-    error.value = 'Choisissez qui paie la livraison : le client ou vous.'
-    document.getElementById('fee-payer')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    return
-  }
-  if (step.value === 1 && when.value === 'other' && !form.delivery_scheduled_date) {
-    error.value = 'Choisissez la date de livraison.'
-    return
-  }
-  suggestions.value = []
-  step.value++
-  window.scrollTo({ top: 0 })
+// Champs obligatoires : le premier oublié est montré à l'écran
+function validate() {
+  missing.phone = form.recipient_phone.replace(/\D/g, '').length < 8
+  missing.zone = !form.delivery_zone_id
+  missing.feePayer = !form.fee_payer
+  missing.date = when.value === 'other' && !form.delivery_scheduled_date
+  const first = [
+    [missing.phone, 'phone', 'Indiquez le numéro de téléphone du client.'],
+    [missing.zone, 'zone-field', 'Choisissez la commune ou le quartier de livraison.'],
+    [source.value && !pickedItems.value.length, 'amount', 'Choisissez les articles à prendre à l\'entrepôt.'],
+    [missing.feePayer, 'fee-payer', 'Choisissez qui paie la livraison : le client ou vous.'],
+    [missing.date, 'date', 'Choisissez la date de livraison.'],
+  ].find(([bad]) => bad)
+  if (!first) return true
+  error.value = first[2]
+  setTimeout(() => document.getElementById(first[1])?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
+  return false
+}
+
+// Champ touché remonté en haut de l'écran (sous l'en-tête) : le clavier et la liste des communes ont la place en dessous.
+// La marge du bas s'agrandit le temps de la saisie pour que même les derniers champs puissent remonter.
+const lifted = ref(false)
+function liftField(event) {
+  const field = event.target
+  if (!field.matches('input:not([type=checkbox]):not([type=radio]), textarea, select')) return
+  lifted.value = true
+  setTimeout(() => {
+    const header = document.querySelector('header')?.offsetHeight || 56
+    const label = field.id && document.querySelector(`label[for="${field.id}"]`)
+    const top = (label || field).getBoundingClientRect().top
+    window.scrollTo({ top: window.scrollY + top - header - 12, behavior: 'smooth' })
+  }, 250)
 }
 
 async function submit() {
-  saving.value = true
   error.value = ''
+  suggestions.value = []
+  if (!validate()) return
+  saving.value = true
   try {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null))
     if (pickedItems.value.length) payload.items = pickedItems.value.map(({ product_id, quantity, unit_price }) => ({ product_id, quantity, unit_price }))
@@ -456,10 +451,10 @@ async function submit() {
   } catch (e) {
     error.value = apiErrorMessage(e)
     const field = Object.keys(e.response?.data?.errors || {})[0] || ''
-    if (field.startsWith('recipient')) step.value = 0
-    else if (field.startsWith('delivery')) step.value = 1
-    else if (field.startsWith('items') || field === 'pickup_hub_id' || field === 'fee_payer') step.value = 2
-    if (field === 'fee_payer') feePayerMissing.value = true
+    if (field === 'fee_payer') missing.feePayer = true
+    if (field === 'recipient_phone') missing.phone = true
+    if (field === 'delivery_zone_id') missing.zone = true
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   } finally {
     saving.value = false
   }
@@ -467,21 +462,25 @@ async function submit() {
 
 function reset() {
   Object.assign(form, blank())
-  feePayerMissing.value = false
+  Object.keys(missing).forEach((key) => { missing[key] = false })
+  showMore.value = false
+  showStock.value = false
   created.value = null
   quote.value = null
   source.value = null
   Object.keys(picked).forEach((id) => delete picked[id])
   when.value = 'asap'
-  step.value = 0
   fromMessage.value = false
   zoneChoices.value = []
   duplicates.value = []
 }
 
-// Choix « qui paie la livraison » oublié : encadré en rouge jusqu'au choix
-const feePayerMissing = ref(false)
-watch(() => form.fee_payer, (value) => { if (value) feePayerMissing.value = false })
+// Champ oublié corrigé : plus de cadre rouge, et le message disparaît quand tout est rempli
+watch(() => form.fee_payer, (value) => { if (value) missing.feePayer = false })
+watch(() => form.delivery_zone_id, (value) => { if (value) missing.zone = false })
+watch(() => form.recipient_phone, (value) => { if (value.replace(/\D/g, '').length >= 8) missing.phone = false })
+watch(() => form.delivery_scheduled_date, (value) => { if (value) missing.date = false })
+watch(missing, (value) => { if (!Object.values(value).some(Boolean)) error.value = '' })
 
 async function loadStock() {
   const [p, h] = await Promise.all([
@@ -493,6 +492,7 @@ async function loadStock() {
 }
 
 onMounted(async () => {
+  http.get('/delivery-day').then(({ data }) => { day.value = data.data }).catch(() => {})
   zones.value = (await http.get('/zones')).data.data
   loadStock()
 })

@@ -124,7 +124,7 @@ class OrderDispatcher
     {
         $result = ['assigned' => [], 'errors' => []];
 
-        foreach (Order::whereIn('id', $orderIds)->get() as $order) {
+        foreach (Order::whereIn('id', $orderIds)->orderBy('id')->get() as $order) {
             try {
                 $this->assign($actor, $order, $type, $courier);
                 $result['assigned'][] = $order->id;
@@ -209,7 +209,7 @@ class OrderDispatcher
     {
         $result = ['unassigned' => [], 'errors' => []];
 
-        foreach (Order::whereIn('id', $orderIds)->get() as $order) {
+        foreach (Order::whereIn('id', $orderIds)->orderBy('id')->get() as $order) {
             $stage = $type ?? match (true) {
                 $order->status->isBeforePickup() => AssignmentType::Pickup,
                 in_array($order->status, [OrderStatus::ReturnAssigned, OrderStatus::Returning], true) => AssignmentType::Return,

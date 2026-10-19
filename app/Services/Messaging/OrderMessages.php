@@ -11,7 +11,9 @@ use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
+use App\Services\Orders\DeliveryDay;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 
 /**
  * Messages WhatsApp déclenchés par le journal d'une course : au marchand
@@ -35,7 +37,7 @@ class OrderMessages
             return;
         }
 
-        $order->loadMissing(['merchant', 'deliveryZone']);
+        $order->loadMissing(['merchant', 'deliveryZone', 'company']);
         $merchant = $order->merchant;
         $code = $order->tracking_code;
         $recipient = $this->recipientLabel($order);
@@ -44,7 +46,16 @@ class OrderMessages
         switch ($event->to_status) {
             case OrderStatus::Confirmed:
                 if ($event->from_status === OrderStatus::Pending) {
-                    if (! $actorIsMerchant) {
+                    if ($actorIsMerchant) {
+                        break;
+                    }
+                    // Livraison un autre jour (date choisie ou journée fermée) : la date est dans le message
+                    $later = $order->delivery_scheduled_date !== null && $order->delivery_scheduled_date->toDateString()
+                        > CarbonImmutable::now($order->company->timezone ?: config('app.timezone'))->toDateString();
+                    if ($later) {
+                        $postponed = $event->meta['postponed'] ?? null;
+                        $this->confirmedForDate($order, $postponed ?? 'date demandée', $postponed !== null);
+                    } else {
                         $this->messenger->toMerchant($merchant, NotificationEvent::OrderConfirmed, WhatsAppTemplate::OrderConfirmed,
                             [$merchant->business_name, $code, $recipient, Money::format($order->totalFees())], $order);
                     }
@@ -128,6 +139,29 @@ class OrderMessages
             $recipient,
             $details,
             $order->company->url('/marchand/courses/'.$order->id),
+        ], $order);
+    }
+
+    /**
+     * Course validée pour une livraison à une date précise ($reason : « date demandée »,
+     * « livraisons du jour closes depuis 16:00 »…).
+     */
+    public function confirmedForDate(Order $order, string $reason, bool $postponed = false): void
+    {
+        $order->loadMissing(['merchant', 'deliveryZone']);
+        $merchant = $order->merchant;
+
+        // Date décalée par l'agence : le marchand est prévenu comme pour un report (actif par défaut),
+        // la simple validation reste un message de routine (désactivé par défaut)
+        $event = $postponed ? NotificationEvent::OrderIncident : NotificationEvent::OrderConfirmed;
+
+        $this->messenger->toMerchant($merchant, $event, WhatsAppTemplate::OrderConfirmedForDate, [
+            $merchant->business_name,
+            $order->tracking_code,
+            $this->recipientLabel($order),
+            DeliveryDay::longDate($order->delivery_scheduled_date),
+            $reason,
+            Money::format($order->totalFees()),
         ], $order);
     }
 

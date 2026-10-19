@@ -8,6 +8,8 @@
       </div>
     </div>
 
+    <DeliveryDayBar v-if="isStaff && auth.can('orders.dispatch')" @changed="load(1); dispatchCounts.fetchCounts().catch(() => {})" />
+
     <!-- Files d'attente du dispatch -->
     <div v-if="isStaff" class="flex gap-2 overflow-x-auto pb-1">
       <button
@@ -138,7 +140,7 @@
                 </div>
                 <div v-if="o.last_incident && ['delivery_failed', 'rescheduled'].includes(o.status)" class="text-xs text-red-600 mt-0.5">{{ o.last_incident.label }}</div>
                 <div v-if="o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)" class="text-xs text-rose-600">Retour demandé</div>
-                <div v-if="o.status === 'rescheduled' && o.delivery.scheduled_date" :class="['text-xs', o.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-gray-600']">📅 {{ o.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(o.delivery.scheduled_date) }}</div>
+                <div v-if="o.delivery.scheduled_date && (o.status === 'rescheduled' || (o.delivery.scheduled_date > todayIso && !['delivered', 'cancelled', 'rejected', 'returned', 'lost'].includes(o.status)))" :class="['text-xs', o.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-gray-600']">📅 {{ o.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(o.delivery.scheduled_date) }}</div>
                 <button v-if="canDecide(o)" type="button" class="mt-1 text-xs rounded bg-blue-600 text-white px-2 py-0.5" @click.stop="deciding = o">Décider</button>
               </td>
               <td class="p-2 text-xs">
@@ -167,6 +169,7 @@ import StatusBadge from '../../components/StatusBadge.vue'
 import Pagination from '../../components/Pagination.vue'
 import OrderDecision from '../../components/OrderDecision.vue'
 import PickupGroupsPanel from '../../components/PickupGroupsPanel.vue'
+import DeliveryDayBar from '../../components/DeliveryDayBar.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { useDispatchCountStore } from '../../stores/dispatchCounts'
@@ -189,7 +192,7 @@ const queues = [
   { value: 'to_deliver', label: 'À livrer' },
   { value: 'unassigned', label: '🛵 Sans livreur' },
   { value: 'to_decide', label: 'À décider' },
-  { value: 'scheduled', label: 'Reportées' },
+  { value: 'scheduled', label: 'Prévues plus tard' },
   { value: 'incidents', label: 'Incidents' },
   { value: 'to_return', label: 'À retourner' },
   // Livrées hors connexion avec un code client incorrect
