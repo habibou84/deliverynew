@@ -2,11 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Models\User;
 use App\Models\WebhookDelivery;
+use App\Notifications\WebhookDisabled;
 use App\Services\Webhooks\UrlGuard;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Jibiat\Socle\Webhooks\WebhookSignature;
 use Throwable;
@@ -22,6 +25,9 @@ class SendWebhook implements ShouldQueue
 
     // Délais avant les tentatives 2 à 6
     public const BACKOFF = [60, 300, 1800, 7200, 21600];
+
+    // Envois définitivement échoués d'affilée avant de couper l'adresse
+    public const DISABLE_AFTER = 20;
 
     public int $tries = 1;
 
@@ -96,8 +102,17 @@ class SendWebhook implements ShouldQueue
 
         if ($delay) {
             self::dispatch($delivery->id)->delay($delay);
-        } else {
-            $delivery->subscription?->increment('consecutive_failures');
+        } elseif ($this->retry && ($subscription = $delivery->subscription)) {
+            $subscription->increment('consecutive_failures');
+
+            // Adresse morte : coupée (les envois s'empilaient en échec), le marchand est prévenu
+            if ($subscription->is_active && $subscription->consecutive_failures >= self::DISABLE_AFTER) {
+                $subscription->forceFill(['is_active' => false])->saveQuietly();
+                Notification::send(
+                    User::where('merchant_id', $subscription->merchant_id)->where('status', 'active')->get(),
+                    new WebhookDisabled($subscription),
+                );
+            }
         }
     }
 }

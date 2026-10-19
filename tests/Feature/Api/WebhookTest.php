@@ -60,7 +60,7 @@ class WebhookTest extends TestCase
         $this->getJson('/api/v1/webhooks')->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonMissing(['secret' => $secret])
-            ->assertJsonCount(5, 'events');
+            ->assertJsonCount(6, 'events');
 
         $newSecret = $this->postJson("/api/v1/webhooks/{$subscription->id}/secret")->assertOk()->json('secret');
         $this->assertNotSame($secret, $newSecret);

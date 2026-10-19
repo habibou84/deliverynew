@@ -45,7 +45,7 @@ class PublicAccountApiTest extends TestCase
             ->assertJsonPath('data.merchant.business_name', $this->merchant->business_name)
             ->assertJsonPath('data.company.slug', $this->company->slug)
             ->assertJsonPath('data.key.scopes', ['orders:read'])
-            ->assertJsonFragment(['webhook_events' => ['order.created', 'order.status_changed', 'order.incident', 'payout.paid', 'stock.low']]);
+            ->assertJsonFragment(['webhook_events' => ['order.created', 'order.status_changed', 'order.incident', 'order.updated', 'payout.paid', 'stock.low']]);
     }
 
     public function test_webhooks_are_managed_by_api_with_the_secret_shown_once(): void
