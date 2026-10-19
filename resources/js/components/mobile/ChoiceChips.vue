@@ -6,11 +6,12 @@
       type="button"
       role="radio"
       :aria-checked="modelValue === option.value"
+      :disabled="option.disabled"
       :class="[
-        'tap rounded-2xl px-4 py-3 text-left ring-1 transition active:scale-[0.98]',
+        'tap rounded-2xl px-4 py-3 text-left ring-1 transition active:scale-[0.98] disabled:opacity-45 disabled:active:scale-100',
         modelValue === option.value ? 'ring-2 ring-[var(--app-color)] bg-[color-mix(in_srgb,var(--app-color)_8%,white)]' : 'ring-slate-200 bg-white',
       ]"
-      @click="$emit('update:modelValue', option.value)"
+      @click="option.disabled || $emit('update:modelValue', option.value)"
     >
       <span class="flex items-center gap-2">
         <span v-if="option.icon" class="text-xl">{{ option.icon }}</span>
@@ -24,7 +25,7 @@
 <script setup>
 defineProps({
   modelValue: { type: [String, Number, Boolean, null], default: null },
-  options: { type: Array, required: true }, // { value, label, icon?, description? }
+  options: { type: Array, required: true }, // { value, label, icon?, description?, disabled? }
   columns: { type: Number, default: 1 },
   label: { type: String, default: '' },
 })

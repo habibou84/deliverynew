@@ -127,14 +127,13 @@
         />
         <p v-if="missing.feePayer" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison : le client ou vous.</p>
       </div>
-      <div>
-        <p class="m-label">Livraison souhaitée</p>
-        <!-- Journée fermée (heure limite passée ou fermée par l'agence) : dit avant l'envoi, pas après -->
-        <p v-if="day?.closed" class="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          🌙 Livraisons du jour closes{{ day.reason === 'cutoff' ? ` depuis ${day.cutoff_time}` : '' }} : votre course sera livrée le <strong>{{ longDay(day.next_day) }}</strong>. Le ramassage peut se faire aujourd'hui.
-        </p>
-        <ChoiceChips v-model="when" :options="whenOptions" :columns="3" label="Date de livraison" />
-        <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="day?.closed ? day.next_day : today()" :class="['m-input mt-2', missing.date ? 'ring-2 ring-red-500' : '']" aria-label="Date de livraison">
+      <div id="when-field" :class="['rounded-2xl', missing.date ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
+        <p class="m-label">Quand livrer ? <span class="text-red-600">*</span></p>
+        <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de livraison" />
+        <p v-if="closed" class="mt-2 text-xs text-slate-500">🌙 {{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
+        <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="minDate" class="m-input mt-2" aria-label="Jour de livraison">
+        <p v-if="dateSummary" class="mt-2 text-sm font-semibold text-slate-700">{{ dateSummary }}</p>
+        <p v-if="missing.date" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez quand livrer la course.</p>
       </div>
     </section>
 
@@ -198,8 +197,9 @@ import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import PasteMessage from '../../components/PasteMessage.vue'
 import ZoneSelect from '../../components/ZoneSelect.vue'
 import { keyboardOpen } from '../../composables/useKeyboard'
+import { longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { useAuthStore } from '../../stores/auth'
-import { money, today } from '../../utils/format'
+import { money } from '../../utils/format'
 import { siteOrigin } from '../../native'
 
 const route = useRoute()
@@ -230,7 +230,6 @@ const showStock = ref(false)
 const missing = reactive({ phone: false, zone: false, feePayer: false, date: false })
 const zones = ref([])
 const suggestions = ref([])
-const when = ref('asap')
 const quote = ref(null)
 const quoteError = ref('')
 const error = ref('')
@@ -241,14 +240,8 @@ const hubs = ref([])
 const source = ref(null) // null = chez moi, sinon identifiant de l'entrepôt
 const picked = reactive({})
 
-// Journée de livraison de l'agence (validation avec règles)
-const day = ref(null)
-const longDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-const whenOptions = computed(() => [
-  // Journée fermée : « au plus vite » veut dire demain, « Demain » devient inutile
-  ...(day.value?.closed ? [{ value: 'asap', label: 'Au plus vite', description: 'demain' }] : [{ value: 'asap', label: 'Au plus vite' }, { value: 'tomorrow', label: 'Demain' }]),
-  { value: 'other', label: 'Autre date' },
-])
+// Jour de livraison : choix obligatoire, « Aujourd'hui » impossible quand l'agence a fermé la journée
+const { when, options: deliveryOptions, closed, closedReason, minDate, summary: dateSummary, isChosen: dateChosen, load: loadDeliveryDay, reset: resetDate } = useDeliveryDate(form)
 
 // Entrepôts où le marchand a du stock disponible
 const stockHubs = computed(() => hubs.value.filter((h) => products.value.some((p) => p.levels.some((l) => l.hub_id === h.id && l.available > 0))))
@@ -307,15 +300,6 @@ const shareLink = computed(() => {
   const text = `Bonjour, votre commande ${auth.user?.merchant?.business_name || ''} est en préparation pour la livraison.\nSuivi : ${url}\nCode de livraison à donner au livreur : ${created.value.delivery_code}`
   const phone = (created.value.recipient.phone || '').replace(/\D/g, '')
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
-})
-
-watch(when, (value) => {
-  if (value === 'asap') form.delivery_scheduled_date = null
-  if (value === 'tomorrow') {
-    const d = new Date(Date.now() + 86400000)
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
-    form.delivery_scheduled_date = d.toISOString().slice(0, 10)
-  }
 })
 
 // Tarif recalculé à chaque changement utile
@@ -408,13 +392,13 @@ function validate() {
   missing.phone = form.recipient_phone.replace(/\D/g, '').length < 8
   missing.zone = !form.delivery_zone_id
   missing.feePayer = !form.fee_payer
-  missing.date = when.value === 'other' && !form.delivery_scheduled_date
+  missing.date = !dateChosen.value
   const first = [
     [missing.phone, 'phone', 'Indiquez le numéro de téléphone du client.'],
     [missing.zone, 'zone-field', 'Choisissez la commune ou le quartier de livraison.'],
     [source.value && !pickedItems.value.length, 'amount', 'Choisissez les articles à prendre à l\'entrepôt.'],
     [missing.feePayer, 'fee-payer', 'Choisissez qui paie la livraison : le client ou vous.'],
-    [missing.date, 'date', 'Choisissez la date de livraison.'],
+    [missing.date, 'when-field', 'Choisissez quand livrer la course.'],
   ].find(([bad]) => bad)
   if (!first) return true
   error.value = first[2]
@@ -469,7 +453,7 @@ function reset() {
   quote.value = null
   source.value = null
   Object.keys(picked).forEach((id) => delete picked[id])
-  when.value = 'asap'
+  resetDate()
   fromMessage.value = false
   zoneChoices.value = []
   duplicates.value = []
@@ -492,7 +476,7 @@ async function loadStock() {
 }
 
 onMounted(async () => {
-  http.get('/delivery-day').then(({ data }) => { day.value = data.data }).catch(() => {})
+  loadDeliveryDay()
   zones.value = (await http.get('/zones')).data.data
   loadStock()
 })

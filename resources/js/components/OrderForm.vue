@@ -59,17 +59,17 @@
           <label class="label" for="address">Adresse et repère <span v-if="parsed.delivery_address" class="check">à vérifier</span></label>
           <input id="address" v-model="form.delivery_address" :class="['input', mark('delivery_address')]" placeholder="Ex. : Siporex, résidence Les Palmiers, face pharmacie" @input="touched('delivery_address')">
         </div>
-        <div class="sm:col-span-2">
-          <p class="label">Livraison souhaitée</p>
-          <div class="flex flex-wrap items-center gap-2">
+        <div id="when-field" class="sm:col-span-2">
+          <p class="label">Quand livrer ? <span class="text-red-600">*</span></p>
+          <div class="flex flex-wrap items-center gap-2" role="radiogroup" aria-label="Jour de livraison">
             <button
-              v-for="w in WHEN" :key="w.value" type="button"
-              :class="['rounded-full px-3 py-1 text-sm ring-1', when === w.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
-              @click="setWhen(w.value)"
+              v-for="w in deliveryOptions" :key="w.value" type="button" role="radio" :aria-checked="when === w.value" :disabled="w.disabled"
+              :class="['rounded-full px-3 py-1 text-sm ring-1 disabled:opacity-40 disabled:cursor-not-allowed', when === w.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300', errors.when ? 'ring-red-500' : '']"
+              @click="when = w.value"
             >
-              {{ w.label }}
+              {{ w.label }} <span class="opacity-70">· {{ w.description }}</span>
             </button>
-            <input v-if="when === 'other'" v-model="form.delivery_scheduled_date" type="date" :min="today()" class="input w-auto" aria-label="Date de livraison">
+            <input v-if="when === 'other'" v-model="form.delivery_scheduled_date" type="date" :min="minDate" class="input w-auto" aria-label="Jour de livraison">
             <select v-model="form.delivery_time_slot" class="input w-auto" aria-label="Créneau">
               <option :value="null">Créneau indifférent</option>
               <option value="08-12">Matin (8h-12h)</option>
@@ -77,6 +77,9 @@
               <option value="16-20">Soir (16h-20h)</option>
             </select>
           </div>
+          <p v-if="closed" class="text-xs text-gray-500 mt-1">🌙 {{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
+          <p v-if="dateSummary" class="text-sm font-medium mt-1">{{ dateSummary }}</p>
+          <p v-if="errors.when" class="field-error">{{ errors.when[0] }}</p>
           <p v-if="errors.delivery_scheduled_date" class="field-error">{{ errors.delivery_scheduled_date[0] }}</p>
         </div>
       </div>
@@ -195,9 +198,10 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'
-import { money, today } from '../utils/format'
+import { money } from '../utils/format'
 import PasteMessage from './PasteMessage.vue'
 import ZoneSelect from './ZoneSelect.vue'
+import { useDeliveryDate } from '../composables/useDeliveryDate'
 
 const props = defineProps({
   submitLabel: { type: String, default: 'Enregistrer la course' },
@@ -251,21 +255,11 @@ const moreOpen = ref(false)
 const mark = (key) => (parsed[key] ? 'ring-1 ring-amber-400 bg-amber-50' : '')
 const touched = (key) => { delete parsed[key] }
 
-const WHEN = [
-  { value: 'asap', label: 'Au plus vite' },
-  { value: 'tomorrow', label: 'Demain' },
-  { value: 'other', label: 'Autre date' },
-]
-const when = ref('asap')
-function setWhen(value) {
-  when.value = value
-  if (value === 'asap') form.delivery_scheduled_date = null
-  if (value === 'tomorrow') {
-    const d = new Date(Date.now() + 86400000)
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
-    form.delivery_scheduled_date = d.toISOString().slice(0, 10)
-  }
-}
+// Jour de livraison : choix obligatoire, « Aujourd'hui » impossible quand la journée est fermée
+const { when, options: deliveryOptions, closed, closedReason, minDate, summary: dateSummary, isChosen: dateChosen, load: loadDeliveryDay, reset: resetDate } = useDeliveryDate(form)
+
+// Jour choisi : l'erreur disparaît
+watch(dateChosen, (chosen) => { if (chosen && errors.value.when) errors.value = {} })
 
 // Numéro ivoirien affiché comme on le tape (07 07 12 34 56)
 const localPhone = (phone) => (phone || '').replace(/^\+225/, '')
@@ -335,6 +329,7 @@ watch(() => form.pickup_hub_id, (hub) => {
 const codAmount = computed(() => (form.items_amount || 0) + (form.fee_payer === 'recipient' && quote.value ? quote.value.total : 0))
 
 onMounted(async () => {
+  loadDeliveryDay()
   const requests = [http.get('/zones'), http.get('/hubs').catch(() => ({ data: { data: [] } }))]
   if (!isMerchant.value) requests.push(http.get('/merchants', { params: { per_page: 200, status: 'active' } }))
   const [z, h, m] = await Promise.all(requests)
@@ -414,7 +409,7 @@ function reset() {
   zoneChoices.value = []
   duplicates.value = []
   Object.keys(parsed).forEach((k) => delete parsed[k])
-  when.value = 'asap'
+  resetDate()
   moreOpen.value = false
   document.getElementById('phone')?.focus()
 }
@@ -425,6 +420,13 @@ async function submit(again = false) {
   saving.value = true
   error.value = ''
   errors.value = {}
+  if (!dateChosen.value) {
+    errors.value = { when: ['Choisissez quand livrer la course.'] }
+    error.value = errors.value.when[0]
+    saving.value = false
+    document.getElementById('when-field')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    return
+  }
   if (!form.fee_payer) {
     errors.value = { fee_payer: ['Indiquez qui paie la livraison : le marchand ou le client.'] }
     error.value = errors.value.fee_payer[0]
