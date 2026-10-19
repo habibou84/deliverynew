@@ -1,4 +1,4 @@
-import { date } from './format'
+import { longDay } from '../composables/useDeliveryDate'
 
 /**
  * Où en est une course, en une phrase pour l'e-commerçant (au lieu du nom technique du statut),
@@ -24,8 +24,11 @@ function line(order) {
     case 'delivery_assigned': return ['📦', 'Colis récupéré, bientôt en route', 'blue']
     case 'out_for_delivery': return ['🛵', 'Le livreur est en route vers le client', 'blue']
     case 'delivered': return ['✅', order.delivered_at ? `Livrée à ${hour(order.delivered_at)}` : 'Livrée', 'green']
-    case 'delivery_failed': return ['⚠️', order.last_incident?.label || 'Livraison échouée : à régler', 'amber']
-    case 'rescheduled': return ['📅', order.delivery?.scheduled_date ? `Reportée au ${date(order.delivery.scheduled_date)}` : 'Reportée', 'amber']
+    // Décision prise : le colis revient, ou une nouvelle livraison est prévue
+    case 'delivery_failed': return order.return_requested
+      ? ['↩️', 'Retour demandé : le colis va vous revenir', 'slate']
+      : ['⚠️', order.last_incident?.label || 'Livraison échouée : à régler', 'amber']
+    case 'rescheduled': return ['📅', order.delivery?.scheduled_date ? `Relivraison prévue le ${longDay(order.delivery.scheduled_date)}` : 'Relivraison prévue', 'blue']
     case 'return_assigned':
     case 'returning': return ['↩️', 'En retour vers votre boutique', 'slate']
     case 'returned': return ['↩️', 'Retournée à votre boutique', 'slate']
@@ -42,5 +45,5 @@ export function merchantStatus(order) {
   return { icon, text, tone, ...TONES[tone] }
 }
 
-/** Courses qui attendent une décision de l'e-commerçant */
-export const TO_SETTLE = ['delivery_failed', 'rescheduled']
+/** La course attend-elle une décision ? (calculé par le serveur, comme la file « À décider » de l'agence) */
+export const needsDecision = (order) => !!order.needs_decision

@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enums\AssignmentType;
 use App\Enums\FeePayer;
+use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
+use App\Enums\Role;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\PhoneNumber;
 use Database\Factories\OrderFactory;
@@ -264,6 +266,44 @@ class Order extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(OrderAttachment::class);
+    }
+
+    /**
+     * Dernière décision prise par le marchand sur un colis non livré : report ou retour demandé.
+     */
+    public function merchantDecision(): HasOne
+    {
+        return $this->hasOne(OrderEvent::class)->ofMany(['id' => 'max'], fn (Builder $q) => $q
+            ->whereIn('actor_role', [Role::MerchantOwner->value, Role::MerchantStaff->value])
+            ->where(fn (Builder $q) => $q->where('type', OrderEventType::ReturnRequested->value)
+                ->orWhere(fn (Builder $q) => $q->where('type', OrderEventType::StatusChanged->value)->where('to_status', OrderStatus::Rescheduled->value))));
+    }
+
+    /**
+     * Une décision est-elle attendue ? Échec de livraison sans retour demandé, sans report
+     * et sans livreur reparti : la file « À décider » de l'agence et « À régler » du marchand.
+     */
+    public function needsDecision(): bool
+    {
+        return $this->status === OrderStatus::DeliveryFailed
+            && ! $this->return_requested
+            && ! $this->assignments()->active()->exists();
+    }
+
+    /**
+     * Report encore modifiable (nouvelle date ou retour) : aucun livreur n'est reparti avec le colis.
+     */
+    public function decisionEditable(): bool
+    {
+        return $this->status === OrderStatus::Rescheduled && ! $this->assignments()->active()->exists();
+    }
+
+    /** Même règle, en requête */
+    public function scopeNeedingDecision(Builder $query): Builder
+    {
+        return $query->where('status', OrderStatus::DeliveryFailed)
+            ->where('return_requested', false)
+            ->whereDoesntHave('assignments', fn ($q) => $q->active());
     }
 
     public function activeAssignment(AssignmentType $type): ?OrderAssignment

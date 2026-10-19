@@ -141,7 +141,12 @@
                 <div v-if="o.last_incident && ['delivery_failed', 'rescheduled'].includes(o.status)" class="text-xs text-red-600 mt-0.5">{{ o.last_incident.label }}</div>
                 <div v-if="o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)" class="text-xs text-rose-600">Retour demandé</div>
                 <div v-if="o.delivery.scheduled_date && (o.status === 'rescheduled' || (o.delivery.scheduled_date > todayIso && !['delivered', 'cancelled', 'rejected', 'returned', 'lost'].includes(o.status)))" :class="['text-xs', o.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-gray-600']">📅 {{ o.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(o.delivery.scheduled_date) }}</div>
-                <button v-if="canDecide(o)" type="button" class="mt-1 text-xs rounded bg-blue-600 text-white px-2 py-0.5" @click.stop="deciding = o">Décider</button>
+                <!-- Décision du marchand encore d'actualité -->
+                <div v-if="o.merchant_decision" class="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800 whitespace-nowrap">
+                  🧑‍💼 Le marchand a décidé : {{ o.merchant_decision.kind === 'redeliver' ? `relivrer le ${date(o.merchant_decision.date)}` : 'retour demandé' }}
+                </div>
+                <button v-if="canDecide(o)" type="button" class="mt-1 block text-xs rounded bg-blue-600 text-white px-2 py-0.5" @click.stop="deciding = o">Décider</button>
+                <button v-else-if="canRevise(o)" type="button" class="mt-1 block text-xs text-blue-700 underline" @click.stop="deciding = o">Modifier</button>
               </td>
               <td class="p-2 text-xs">
                 <div v-if="o.pickup_courier">↑ {{ o.pickup_courier.name }}</div>
@@ -301,7 +306,10 @@ function toggleAll(e) {
 // Suite à donner à un colis non livré
 const deciding = ref(null)
 const todayIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
-const canDecide = (o) => auth.can('orders.dispatch') && ['delivery_failed', 'rescheduled'].includes(o.status) && !['return_assigned', 'returning'].includes(o.status)
+// « Décider » seulement si une décision est attendue (même règle que la file « À décider ») ;
+// un report sans livreur reparti reste modifiable
+const canDecide = (o) => auth.can('orders.dispatch') && o.needs_decision
+const canRevise = (o) => auth.can('orders.dispatch') && o.decision_editable
 function decided(order) {
   deciding.value = null
   toasts.success(order.status === 'rescheduled' ? `Relivraison prévue le ${date(order.delivery.scheduled_date)}.` : (order.return_requested ? 'Retour au marchand décidé.' : 'Décision enregistrée.'))

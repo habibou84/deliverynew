@@ -226,6 +226,7 @@ const isToday = computed(() => period.key === 'today')
 const summary = ref(null)
 const month = ref(null)
 const alerts = ref([])
+const alertsTotal = ref(0)
 // Courses en cours (en route d'abord), pour « En ce moment »
 const ACTIVE = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress', 'picked_up', 'at_hub', 'delivery_assigned', 'out_for_delivery']
 const active = ref([])
@@ -246,7 +247,8 @@ const todayCount = ref(null)
 
 const needsPickupLocation = computed(() => !!auth.user?.merchant && !auth.user.merchant.has_pickup_location)
 const todo = computed(() => needsPickupLocation.value || alerts.value.length > 0)
-const problems = computed(() => (summary.value ? summary.value.counts.failed + summary.value.counts.rescheduled : 0))
+// Courses qui attendent une décision, quel que soit leur jour (même règle que l'agence)
+const problems = computed(() => alertsTotal.value)
 const fees = computed(() => {
   const a = summary.value?.amounts || {}
   return (a.fees || 0) + (a.shipping_fees || 0) + (a.other_fees || 0)
@@ -301,7 +303,7 @@ async function load() {
     const [s, m, a, c] = await Promise.all([
       cachedGet('/reports/summary', { params: { from: period.from, to: period.to } }),
       cachedGet('/reports/summary', { params: { from: `${d.slice(0, 8)}01`, to: d } }),
-      cachedGet('/orders', { params: { status: ['delivery_failed'], per_page: 10 } }),
+      cachedGet('/orders', { params: { queue: 'to_decide', per_page: 10 } }),
       cachedGet('/orders', { params: { status: ACTIVE, per_page: 20 } }),
       loadOrders(1),
     ])
@@ -311,6 +313,7 @@ async function load() {
     summary.value = s.data.data
     month.value = m.data.data
     alerts.value = a.data.data
+    alertsTotal.value = a.data.meta?.total ?? a.data.data.length
     if (isToday.value) todayCount.value = s.data.data.counts.total
   } catch {
     // Hors ligne sans données en cache : l'accueil reste vide, le bandeau hors ligne s'affiche
