@@ -126,20 +126,20 @@
         />
         <p v-if="missing.feePayer" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison : le client ou vous.</p>
       </div>
+      <div>
+        <p class="m-label">Livraison souhaitée</p>
+        <ChoiceChips v-model="when" :options="whenOptions" :columns="3" label="Date de livraison" />
+        <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="today()" :class="['m-input mt-2', missing.date ? 'ring-2 ring-red-500' : '']" aria-label="Date de livraison">
+      </div>
     </section>
 
     <!-- Le reste, seulement si besoin -->
     <section>
       <button type="button" class="tap w-full flex items-center justify-between rounded-xl px-1 py-2 text-sm font-semibold text-slate-600" :aria-expanded="showMore" @click="showMore = !showMore">
-        <span>{{ showMore ? '−' : '＋' }} Date, contenu du colis, message au livreur…</span>
+        <span>{{ showMore ? '−' : '＋' }} Contenu du colis, message au livreur…</span>
         <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-500">{{ extrasSummary }}</span>
       </button>
       <div v-show="showMore" class="space-y-4 pt-2">
-        <div>
-          <p class="m-label">Livraison souhaitée</p>
-          <ChoiceChips v-model="when" :options="whenOptions" :columns="3" label="Date de livraison" />
-          <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="today()" :class="['m-input mt-2', missing.date ? 'ring-2 ring-red-500' : '']" aria-label="Date de livraison">
-        </div>
         <div>
           <label class="m-label" for="desc">Que contient le colis ?</label>
           <input id="desc" autocomplete="jibiat-off" v-model="form.description" class="m-input" placeholder="Ex. : 2 robes, 1 sac">
@@ -261,10 +261,20 @@ function pick(product, delta) {
   picked[product.id] = Math.max(0, Math.min(availableAt(product), (picked[product.id] || 0) + delta))
   // Le montant à encaisser suit les articles choisis (modifiable ensuite)
   form.items_amount = pickedItems.value.reduce((sum, i) => sum + i.quantity * i.unit_price, 0)
+  fillDescription()
+}
+
+// « Que contient le colis ? » reprend les articles choisis, sauf si le marchand y a écrit autre chose
+let autoDescription = ''
+function fillDescription() {
+  if (form.description && form.description !== autoDescription) return
+  autoDescription = pickedItems.value.map((i) => `${i.quantity} × ${i.name}`).join(', ')
+  form.description = autoDescription
 }
 
 watch(source, () => {
   Object.keys(picked).forEach((id) => delete picked[id])
+  fillDescription()
   fetchQuote()
 })
 
@@ -273,7 +283,6 @@ const zoneName = computed(() => selectedZone.value?.full_name || '—')
 const zoneOf = (recipient) => zones.value.find((z) => z.id === recipient.zone_id)?.full_name
 // Options remplies, rappelées quand la section est repliée
 const extrasSummary = computed(() => [
-  form.delivery_scheduled_date ? `le ${form.delivery_scheduled_date.split('-').reverse().join('/')}` : null,
   form.description,
   form.is_express ? 'Express' : null,
   form.is_fragile ? 'Fragile' : null,
@@ -401,7 +410,6 @@ function validate() {
   ].find(([bad]) => bad)
   if (!first) return true
   error.value = first[2]
-  if (first[1] === 'date') showMore.value = true
   setTimeout(() => document.getElementById(first[1])?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
   return false
 }
