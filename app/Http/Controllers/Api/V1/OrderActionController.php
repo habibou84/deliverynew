@@ -177,7 +177,7 @@ class OrderActionController extends Controller
 
         $result = ['confirmed' => [], 'errors' => []];
 
-        foreach (Order::whereIn('id', $data['order_ids'])->get() as $order) {
+        foreach (Order::whereIn('id', $data['order_ids'])->orderBy('id')->get() as $order) {
             if ($order->status !== OrderStatus::Pending) {
                 $result['errors'][$order->id] = "Déjà « {$order->statusLabel()} » : pas à valider.";
 

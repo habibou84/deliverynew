@@ -5,6 +5,7 @@
     <div>
       <p class="text-2xl font-bold">Course enregistrée</p>
       <p class="text-slate-500">{{ created.from_warehouse ? 'L\'agence prépare votre commande à l\'entrepôt.' : 'Nous allons envoyer un livreur récupérer le colis.' }}</p>
+      <p v-if="created.delivery?.scheduled_date" class="mt-1 font-semibold text-slate-700">📅 Livraison prévue le {{ longDay(created.delivery.scheduled_date) }}</p>
     </div>
     <div class="m-card p-4 space-y-1">
       <p class="text-sm text-slate-500">Code de suivi</p>
@@ -128,8 +129,12 @@
       </div>
       <div>
         <p class="m-label">Livraison souhaitée</p>
+        <!-- Journée fermée (heure limite passée ou fermée par l'agence) : dit avant l'envoi, pas après -->
+        <p v-if="day?.closed" class="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          🌙 Livraisons du jour closes{{ day.reason === 'cutoff' ? ` depuis ${day.cutoff_time}` : '' }} : votre course sera livrée le <strong>{{ longDay(day.next_day) }}</strong>. Le ramassage peut se faire aujourd'hui.
+        </p>
         <ChoiceChips v-model="when" :options="whenOptions" :columns="3" label="Date de livraison" />
-        <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="today()" :class="['m-input mt-2', missing.date ? 'ring-2 ring-red-500' : '']" aria-label="Date de livraison">
+        <input v-if="when === 'other'" id="date" autocomplete="jibiat-off" v-model="form.delivery_scheduled_date" type="date" :min="day?.closed ? day.next_day : today()" :class="['m-input mt-2', missing.date ? 'ring-2 ring-red-500' : '']" aria-label="Date de livraison">
       </div>
     </section>
 
@@ -236,11 +241,14 @@ const hubs = ref([])
 const source = ref(null) // null = chez moi, sinon identifiant de l'entrepôt
 const picked = reactive({})
 
-const whenOptions = [
-  { value: 'asap', label: 'Au plus vite' },
-  { value: 'tomorrow', label: 'Demain' },
+// Journée de livraison de l'agence (validation avec règles)
+const day = ref(null)
+const longDay = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+const whenOptions = computed(() => [
+  // Journée fermée : « au plus vite » veut dire demain, « Demain » devient inutile
+  ...(day.value?.closed ? [{ value: 'asap', label: 'Au plus vite', description: 'demain' }] : [{ value: 'asap', label: 'Au plus vite' }, { value: 'tomorrow', label: 'Demain' }]),
   { value: 'other', label: 'Autre date' },
-]
+])
 
 // Entrepôts où le marchand a du stock disponible
 const stockHubs = computed(() => hubs.value.filter((h) => products.value.some((p) => p.levels.some((l) => l.hub_id === h.id && l.available > 0))))
@@ -484,6 +492,7 @@ async function loadStock() {
 }
 
 onMounted(async () => {
+  http.get('/delivery-day').then(({ data }) => { day.value = data.data }).catch(() => {})
   zones.value = (await http.get('/zones')).data.data
   loadStock()
 })
