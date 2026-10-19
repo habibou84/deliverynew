@@ -5,7 +5,7 @@
       v-model="query"
       :class="[inputClass, 'w-full']"
       :required="required && !modelValue"
-      autocomplete="off"
+      autocomplete="jibiat-off"
       placeholder="Tapez la commune ou le quartier…"
       @focus="open = true"
       @blur="close"

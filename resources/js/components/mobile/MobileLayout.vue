@@ -24,8 +24,8 @@
       <RouterView />
     </main>
 
-    <!-- Barre d'onglets -->
-    <nav class="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe">
+    <!-- Barre d'onglets (cachée pendant la saisie au clavier) -->
+    <nav v-show="!keyboardOpen" class="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe">
       <div class="mx-auto max-w-lg flex items-end justify-around h-16">
         <template v-for="tab in tabs" :key="tab.to">
           <RouterLink
@@ -66,6 +66,7 @@ import Toasts from '../Toasts.vue'
 import { useNotificationStore } from '../../stores/notifications'
 import { useRealtime } from '../../composables/useRealtime'
 import { pwa } from '../../composables/usePwa'
+import { keyboardOpen } from '../../composables/useKeyboard'
 
 const props = defineProps({
   base: { type: String, required: true }, // '/marchand' ou '/livreur'
