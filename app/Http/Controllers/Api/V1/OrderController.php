@@ -25,7 +25,7 @@ class OrderController extends Controller
 {
     public const LIST_RELATIONS = [
         'merchant', 'pickupZone', 'deliveryZone', 'lastIncidentReason', 'pickupHub', 'items',
-        'pickupCourier.user', 'deliveryCourier.user', 'returnCourier.user', 'holder.user',
+        'pickupCourier.user', 'deliveryCourier.user', 'returnCourier.user', 'holder.user', 'merchantDecision',
     ];
 
     public function __construct(private readonly OrderService $orders) {}
@@ -180,9 +180,7 @@ class OrderController extends Controller
                 ->where('return_requested', false)
                 ->whereDoesntHave('assignments', fn ($q) => $q->active()->where('type', AssignmentType::Delivery->value)),
             // Échecs sans suite : relivrer, retourner ou remettre en stock
-            'to_decide' => $query->where('status', OrderStatus::DeliveryFailed)
-                ->where('return_requested', false)
-                ->whereDoesntHave('assignments', fn ($q) => $q->active()),
+            'to_decide' => $query->needingDecision(),
             // Livraisons prévues un autre jour : reports, et colis ramassés en avance
             'scheduled' => $query->whereIn('status', OrderStatus::values([OrderStatus::Rescheduled, OrderStatus::PickedUp, OrderStatus::AtHub]))
                 ->whereDate('delivery_scheduled_date', '>', today())

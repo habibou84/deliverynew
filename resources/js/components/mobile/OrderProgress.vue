@@ -44,11 +44,10 @@ const current = computed(() => ({
 }[props.status] ?? 0))
 
 const done = computed(() => props.status === 'delivered')
-const failed = computed(() => ['delivery_failed', 'rescheduled', 'cancelled', 'rejected', 'return_assigned', 'returning', 'returned'].includes(props.status))
+const failed = computed(() => ['delivery_failed', 'cancelled', 'rejected', 'return_assigned', 'returning', 'returned'].includes(props.status))
 
 const problem = computed(() => {
   if (props.status === 'delivery_failed') return `Livraison échouée${props.incident ? ` : ${props.incident}` : ''}`
-  if (props.status === 'rescheduled') return `Livraison reportée${props.rescheduledTo ? ` au ${new Date(`${props.rescheduledTo}T00:00:00`).toLocaleDateString('fr-FR')}` : ''}`
   if (['return_assigned', 'returning'].includes(props.status)) return 'Le colis est en cours de retour vers vous'
   if (props.status === 'returned') return 'Le colis vous a été retourné'
   if (props.status === 'cancelled') return 'Course annulée'

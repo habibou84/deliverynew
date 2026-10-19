@@ -146,7 +146,9 @@ class OrderWorkflow
         if ($actor->merchant_id !== null) {
             $merchantAllowed = $actor->merchant_id === $order->merchant_id && match ($to) {
                 OrderStatus::Cancelled => $from->isBeforePickup(),
-                OrderStatus::Rescheduled => $from === OrderStatus::DeliveryFailed,
+                // Report, ou nouvelle date tant qu'aucun livreur n'est reparti avec le colis
+                OrderStatus::Rescheduled => $from === OrderStatus::DeliveryFailed
+                    || ($from === OrderStatus::Rescheduled && ! $order->activeAssignment(AssignmentType::Delivery)),
                 default => false,
             };
 

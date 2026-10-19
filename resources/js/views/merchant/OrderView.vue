@@ -13,12 +13,16 @@
       <OrderProgress :status="order.status" :incident="order.last_incident?.label" :rescheduled-to="order.delivery.scheduled_date" :shipping="order.is_shipping" />
       <p v-if="plannedDay" class="rounded-xl bg-sky-50 px-3 py-2 text-sm text-sky-900">📅 Livraison prévue le <strong>{{ plannedDay }}</strong></p>
 
-      <!-- Échec de livraison : la décision d'abord -->
-      <div v-if="order.status === 'delivery_failed'" class="grid grid-cols-2 gap-2">
-        <button class="m-btn-primary py-3" @click="sheet = 'reschedule'">📅 Reporter</button>
-        <button class="m-btn-secondary py-3" @click="openEdit">✏️ Corriger l'adresse</button>
-        <button v-if="!order.return_requested" class="m-btn-secondary py-3 col-span-2" @click="sheet = 'return'">↩️ Faire revenir le colis</button>
+      <!-- Échec de livraison : la décision d'abord (seulement si elle est encore attendue) -->
+      <div v-if="order.needs_decision" class="grid grid-cols-2 gap-2">
+        <button class="m-btn-primary py-3" @click="openReschedule">📅 Reporter</button>
+        <button class="m-btn-secondary py-3" @click="openEdit(true)">✏️ Corriger et relivrer</button>
+        <button class="m-btn-secondary py-3 col-span-2" @click="sheet = 'return'">↩️ Faire revenir le colis</button>
       </div>
+      <!-- Décision prise : on peut encore la changer tant qu'aucun livreur n'est reparti -->
+      <p v-else-if="canChangeDecision" class="text-sm text-slate-600">
+        Décision prise. <button class="font-semibold text-[var(--app-color)]" @click="openReschedule">Changer la décision</button>
+      </p>
 
       <!-- Actions utiles en un toucher -->
       <div :class="['grid gap-2 text-center text-xs font-medium', courier ? 'grid-cols-3' : 'grid-cols-2']">
@@ -106,7 +110,7 @@
     <!-- Autres actions -->
     <section v-if="!isFinal" class="space-y-2">
       <button class="m-btn-secondary" @click="sheet = 'note'">💬 Écrire au livreur / à l'agence</button>
-      <button v-if="!['delivery_failed'].includes(order.status) && !beforePickup && !order.return_requested" class="m-btn-secondary" @click="sheet = 'return'">↩️ Demander le retour du colis</button>
+      <button v-if="!order.needs_decision && !beforePickup && !order.return_requested" class="m-btn-secondary" @click="sheet = 'return'">↩️ Demander le retour du colis</button>
       <button v-if="beforePickup" class="m-btn-secondary text-red-600" @click="sheet = 'cancel'">Annuler la course</button>
     </section>
 
@@ -119,12 +123,15 @@
     </section>
 
     <!-- Feuilles d'action -->
-    <BottomSheet :open="sheet === 'reschedule'" title="Reporter la livraison" @close="sheet = null">
+    <BottomSheet :open="sheet === 'reschedule'" title="Quand relivrer ?" @close="sheet = null">
       <div class="space-y-3">
-        <ChoiceChips v-model="reschedule.choice" :options="dateOptions" :columns="2" label="Nouvelle date" />
-        <input v-if="reschedule.choice === 'other'" v-model="reschedule.date" type="date" :min="today()" class="m-input" aria-label="Date">
+        <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de la nouvelle livraison" />
+        <p v-if="closed" class="text-xs text-slate-500">🌙 {{ closedReason }}.</p>
+        <input v-if="when === 'other'" v-model="reschedule.delivery_scheduled_date" type="date" :min="minDate" class="m-input" aria-label="Jour de la nouvelle livraison">
+        <p v-if="dateSummary" class="text-sm font-semibold text-slate-700">{{ dateSummary.replace('Votre course sera livrée', 'Nouvelle livraison') }}</p>
         <textarea v-model="reschedule.note" rows="2" class="m-input" placeholder="Message (facultatif) : ex. le client sera là après 17h" />
-        <button class="m-btn-primary" :disabled="busy || !rescheduleDate" @click="doReschedule">Confirmer le report</button>
+        <button class="m-btn-primary" :disabled="busy || !dateChosen" @click="doReschedule">Confirmer la relivraison</button>
+        <button v-if="!order.return_requested" class="w-full text-sm font-medium text-slate-600 py-1" @click="sheet = 'return'">Plutôt faire revenir le colis</button>
       </div>
     </BottomSheet>
 
@@ -178,7 +185,7 @@ import OrderTimeline from '../../components/OrderTimeline.vue'
 import OrderProgress from '../../components/mobile/OrderProgress.vue'
 import MerchantHistory from '../../components/mobile/MerchantHistory.vue'
 import { merchantStatus } from '../../utils/merchantStatus'
-import { longDay } from '../../composables/useDeliveryDate'
+import { longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -199,7 +206,11 @@ const busy = ref(false)
 const noteText = ref('')
 const zones = ref([])
 const edit = reactive({})
-const reschedule = reactive({ choice: 'tomorrow', date: null, note: '' })
+const reschedule = reactive({ delivery_scheduled_date: null, note: '' })
+// Jours de relivraison : mêmes règles que la nouvelle course (« Aujourd'hui » grisé si la journée est fermée)
+const { when, options: deliveryOptions, closed, closedReason, minDate, summary: dateSummary, isChosen: dateChosen, load: loadDeliveryDay, reset: resetDate } = useDeliveryDate(reschedule)
+// Après « Corriger et relivrer », le choix du jour suit l'enregistrement
+const relivrer = ref(false)
 
 const fullHistory = ref(false)
 
@@ -249,18 +260,15 @@ const trackingUrl = computed(() => `${siteOrigin()}/suivi/${order.value.tracking
 const beforePickup = computed(() => BEFORE_PICKUP.includes(order.value?.status))
 const canEdit = computed(() => !isFinal.value && order.value?.status !== 'out_for_delivery')
 
-const dayOffset = (n) => {
-  const d = new Date(Date.now() + n * 86400000)
-  d.setMinutes(d.getMinutes() - d.getTimezoneOffset())
-  return d.toISOString().slice(0, 10)
+// Décision prise par le marchand (report sans livreur reparti) : encore modifiable
+const canChangeDecision = computed(() => !!order.value.decision_editable)
+
+function openReschedule() {
+  resetDate()
+  reschedule.note = ''
+  loadDeliveryDay()
+  sheet.value = 'reschedule'
 }
-const dateOptions = [
-  { value: 'today', label: "Aujourd'hui" },
-  { value: 'tomorrow', label: 'Demain' },
-  { value: 'after', label: 'Après-demain' },
-  { value: 'other', label: 'Autre date' },
-]
-const rescheduleDate = computed(() => ({ today: dayOffset(0), tomorrow: dayOffset(1), after: dayOffset(2), other: reschedule.date }[reschedule.choice]))
 
 const whatsappShare = computed(() => {
   const o = order.value
@@ -272,7 +280,7 @@ async function load() {
   try {
     order.value = (await http.get(`/orders/${route.params.id}`)).data.data
     // « Reporter » depuis la liste des courses : le report s'ouvre directement
-    if (route.query.action === 'reporter' && order.value.status === 'delivery_failed' && !sheet.value) sheet.value = 'reschedule'
+    if (route.query.action === 'reporter' && order.value.needs_decision && !sheet.value) openReschedule()
   } catch (e) {
     error.value = apiErrorMessage(e)
   }
@@ -295,13 +303,14 @@ async function run(action, success) {
 }
 
 const doReschedule = () => run(() => http.post(`/orders/${order.value.id}/status`, {
-  status: 'rescheduled', rescheduled_to: rescheduleDate.value, note: reschedule.note || undefined,
-}), 'Livraison reportée.')
+  status: 'rescheduled', rescheduled_to: reschedule.delivery_scheduled_date, note: reschedule.note || undefined,
+}), 'Relivraison prévue.')
 const doReturn = () => run(() => http.post(`/orders/${order.value.id}/return-request`, { note: noteText.value || undefined }), 'Retour demandé.')
 const doCancel = () => run(() => http.post(`/orders/${order.value.id}/status`, { status: 'cancelled', cancel_reason: noteText.value || undefined }), 'Course annulée.')
 const doNote = () => run(() => http.post(`/orders/${order.value.id}/notes`, { note: noteText.value }), 'Message envoyé.')
 
-async function openEdit() {
+async function openEdit(thenRedeliver = false) {
+  relivrer.value = thenRedeliver === true
   if (!zones.value.length) zones.value = (await http.get('/zones')).data.data
   Object.assign(edit, {
     recipient_phone: order.value.recipient.phone,
@@ -313,10 +322,15 @@ async function openEdit() {
   sheet.value = 'edit'
 }
 
-const doEdit = () => run(
-  () => http.patch(`/orders/${order.value.id}`, Object.fromEntries(Object.entries(edit).filter(([, v]) => v !== ''))),
-  'Livraison modifiée.',
-)
+async function doEdit() {
+  await run(
+    () => http.patch(`/orders/${order.value.id}`, Object.fromEntries(Object.entries(edit).filter(([, v]) => v !== ''))),
+    'Livraison modifiée.',
+  )
+  // Adresse corrigée : reste à choisir le jour de la nouvelle livraison
+  if (relivrer.value && order.value.needs_decision) openReschedule()
+  relivrer.value = false
+}
 
 async function copy(text) {
   try {

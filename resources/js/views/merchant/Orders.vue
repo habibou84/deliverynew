@@ -29,7 +29,7 @@
     <section v-for="group in groups" :key="group.key" class="space-y-2">
       <h2 class="pt-1 text-xs font-bold uppercase tracking-wide text-slate-500">{{ group.label }}</h2>
       <OrderCard v-for="o in group.orders" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`">
-        <template v-if="TO_SETTLE.includes(o.status)" #actions>
+        <template v-if="needsDecision(o)" #actions>
           <a :href="telLink(o.recipient.phone)" class="tap flex-1 rounded-xl py-2.5 text-center text-sm font-semibold ring-1 ring-slate-200 active:bg-slate-50">📞 Appeler</a>
           <RouterLink v-if="o.status === 'delivery_failed'" :to="`/marchand/courses/${o.id}?action=reporter`" class="tap flex-1 rounded-xl py-2.5 text-center text-sm font-semibold ring-1 ring-slate-200 active:bg-slate-50">📅 Reporter</RouterLink>
           <RouterLink :to="`/marchand/courses/${o.id}`" class="tap flex-1 rounded-xl py-2.5 text-center text-sm font-semibold text-white" :style="{ backgroundColor: 'var(--app-color)' }">Décider</RouterLink>
@@ -55,17 +55,19 @@ import EmptyState from '../../components/mobile/EmptyState.vue'
 import { orderChanges } from '../../composables/useRealtime'
 import { useAuthStore } from '../../stores/auth'
 import { telLink } from '../../utils/format'
-import { TO_SETTLE } from '../../utils/merchantStatus'
+import { needsDecision } from '../../utils/merchantStatus'
 
 const auth = useAuthStore()
 
-const ACTIVE = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress', 'picked_up', 'at_hub', 'delivery_assigned', 'out_for_delivery', 'return_assigned', 'returning']
+// En cours, reports compris (décision prise, nouvelle livraison prévue)
+const ACTIVE = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress', 'picked_up', 'at_hub', 'delivery_assigned', 'out_for_delivery', 'rescheduled', 'return_assigned', 'returning']
 
 // « Toutes » d'abord : l'e-commerçant ne tombe jamais sur une liste vide alors qu'il a des courses
 const filters = [
   { value: 'all', label: 'Toutes', statuses: [] },
   { value: 'active', label: 'En cours', statuses: ACTIVE },
-  { value: 'problems', label: 'À régler', statuses: TO_SETTLE, warn: true },
+  // Même règle que la file « À décider » de l'agence
+  { value: 'problems', label: 'À régler', statuses: [], queue: 'to_decide', warn: true },
   { value: 'delivered', label: 'Livrées', statuses: ['delivered'] },
   { value: 'other', label: 'Retournées / annulées', statuses: ['returned', 'cancelled', 'rejected'] },
 ]
@@ -122,10 +124,11 @@ const groups = computed(() => {
 
 async function load(p = 1) {
   loading.value = true
-  const statuses = filters.find((f) => f.value === filter.value)?.statuses || []
+  const current = filters.find((f) => f.value === filter.value)
+  const statuses = current?.statuses || []
   try {
     const { data } = await cachedGet('/orders', {
-      params: { page: p, per_page: 20, search: search.value || undefined, status: statuses.length ? statuses : undefined },
+      params: { page: p, per_page: 20, search: search.value || undefined, status: statuses.length ? statuses : undefined, queue: current?.queue },
     })
     orders.value = p === 1 ? data.data : [...orders.value, ...data.data]
     page.value = p
@@ -141,7 +144,7 @@ async function load(p = 1) {
 async function loadCounts() {
   await Promise.all(filters.map(async (f) => {
     try {
-      const { data } = await cachedGet('/orders', { params: { per_page: 1, status: f.statuses.length ? f.statuses : undefined } })
+      const { data } = await cachedGet('/orders', { params: { per_page: 1, status: f.statuses.length ? f.statuses : undefined, queue: f.queue } })
       counts[f.value] = data.meta?.total ?? 0
     } catch {
       // Compteur facultatif
