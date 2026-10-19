@@ -8,7 +8,9 @@
       :aria-checked="modelValue === option.value"
       :disabled="option.disabled"
       :class="[
-        'tap rounded-2xl px-4 py-3 text-left ring-1 transition active:scale-[0.98] disabled:opacity-45 disabled:active:scale-100',
+        // Trois choix par ligne : marges réduites pour que « Aujourd'hui » tienne sur un petit écran
+        'tap rounded-2xl py-3 text-left ring-1 transition active:scale-[0.98] disabled:opacity-45 disabled:active:scale-100',
+        columns === 3 ? 'px-3' : 'px-4',
         modelValue === option.value ? 'ring-2 ring-[var(--app-color)] bg-[color-mix(in_srgb,var(--app-color)_8%,white)]' : 'ring-slate-200 bg-white',
       ]"
       @click="option.disabled || $emit('update:modelValue', option.value)"
