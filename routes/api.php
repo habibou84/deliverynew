@@ -85,6 +85,11 @@ Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:pu
     Route::post('orders', 'store')->middleware([$write, 'idempotent'])->name('orders.store');
     Route::get('orders/{trackingCode}', 'show')->middleware($read)->name('orders.show');
     Route::post('orders/{trackingCode}/cancel', 'cancel')->middleware($write)->name('orders.cancel');
+    // Actions du marchand : modifier, décider après un échec, demander le retour, laisser une note
+    Route::patch('orders/{trackingCode}', 'update')->middleware($write)->name('orders.update');
+    Route::post('orders/{trackingCode}/decision', 'decision')->middleware($write)->name('orders.decision');
+    Route::post('orders/{trackingCode}/return-request', 'returnRequest')->middleware($write)->name('orders.return-request');
+    Route::post('orders/{trackingCode}/notes', 'note')->middleware($write)->name('orders.notes');
     Route::get('reports/summary', 'summary')->middleware($read)->name('reports.summary');
     Route::get('products', 'products')->middleware('api.scope:'.ApiScope::StockRead->value)->name('products');
 

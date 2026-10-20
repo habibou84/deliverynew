@@ -9,6 +9,7 @@ use App\Models\OrderEvent;
 use App\Models\User;
 use App\Services\Messaging\OrderMessages;
 use App\Services\Webhooks\WebhookDispatcher;
+use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -28,6 +29,11 @@ class OrderJournal
      */
     public function record(Order $order, ?User $actor, OrderEventType $type, array $attributes = []): OrderEvent
     {
+        // Action venue d'une autre application (Jibiat Marchand, API) : notée dans l'historique
+        if (Context::has('order_channel')) {
+            $attributes['meta'] = [...($attributes['meta'] ?? []), 'channel' => Context::get('order_channel')];
+        }
+
         $event = $order->events()->create([
             ...$attributes,
             'type' => $type,
