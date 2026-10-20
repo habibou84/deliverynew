@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\Onboarding\SetupGuide;
+use App\Services\Onboarding\TestOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,6 +23,22 @@ class SetupGuideController extends Controller
             // Jamais ouvert par cet administrateur : il s'ouvre tout seul à sa connexion
             'seen' => $request->user()->setup_seen_at !== null,
         ]]);
+    }
+
+    /** Lancer la course d'essai (ou retrouver celle en cours) */
+    public function startTest(Request $request, TestOrder $test): JsonResponse
+    {
+        $order = $test->start($request->user());
+
+        return response()->json(['data' => ['order_id' => $order->id, 'tracking_code' => $order->tracking_code]], 201);
+    }
+
+    /** Effacer la course d'essai et ce qu'elle a produit */
+    public function cleanTest(Request $request, TestOrder $test): JsonResponse
+    {
+        $test->clean($request->user()->company);
+
+        return $this->show($request);
     }
 
     public function seen(Request $request): JsonResponse

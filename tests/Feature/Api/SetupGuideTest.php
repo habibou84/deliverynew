@@ -3,8 +3,12 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\OrderStatus;
+use App\Models\CashCollection;
+use App\Models\Merchant;
+use App\Models\Order;
 use App\Models\Zone;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -77,5 +81,44 @@ class SetupGuideTest extends TestCase
 
         Sanctum::actingAs($this->dispatcher);
         $this->getJson('/api/v1/setup')->assertForbidden();
+    }
+
+    public function test_the_test_course_is_followed_then_erased(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $id = $this->postJson('/api/v1/setup/test-order')->assertCreated()->json('data.order_id');
+        $this->assertSame($id, $this->postJson('/api/v1/setup/test-order')->json('data.order_id'), 'une seule course d\'essai à la fois');
+
+        $order = Order::findOrFail($id);
+        $this->assertTrue($order->is_test);
+        $this->assertSame($this->admin->phone, $order->recipient_phone);
+        $this->assertSame('Boutique d\'essai', $order->merchant->business_name);
+        // La boutique d'essai ne compte pas pour l'étape des e-commerçants
+        $this->assertStringContainsString('1 e-commerçant(s) actif(s)', $this->step('merchants')['lines'][0]);
+
+        $step = $this->step('first_delivery');
+        $this->assertSame('partial', $step['status']);
+        $this->assertTrue($step['test']['checkpoints'][0]['done']);
+        $this->assertFalse($step['test']['checkpoints'][5]['done']);
+
+        // Livrée, argent encaissé par le livreur
+        $order->forceFill(['status' => OrderStatus::Delivered, 'delivery_courier_id' => $this->courierA->id, 'delivered_at' => now()])->save();
+        $collection = CashCollection::create(['company_id' => $this->company->id, 'order_id' => $order->id, 'courier_id' => $this->courierA->id,
+            'amount_expected' => 1000, 'amount_collected' => 1000, 'collected_at' => now()]);
+        $this->assertSame('done', $this->step('first_delivery')['status']);
+
+        // Argent déjà versé à la caisse : on ne peut plus l'effacer
+        $remittance = DB::table('courier_remittances')->insertGetId(['company_id' => $this->company->id, 'courier_id' => $this->courierA->id,
+            'amount_expected' => 1000, 'amount_received' => 1000, 'difference' => 0, 'received_at' => now()]);
+        $collection->forceFill(['remittance_id' => $remittance])->save();
+        $this->deleteJson('/api/v1/setup/test-order')->assertStatus(422);
+        $collection->forceFill(['remittance_id' => null])->save();
+
+        // Effacée avec son argent et sa boutique ; l'étape reste faite
+        $this->deleteJson('/api/v1/setup/test-order')->assertOk()->assertJsonPath('data.steps.7.status', 'done');
+        $this->assertNull(Order::withTrashed()->find($id));
+        $this->assertSame(0, CashCollection::query()->where('order_id', $id)->count());
+        $this->assertSame(0, Merchant::withTrashed()->where('is_test', true)->count());
+        $this->assertNotNull($this->company->fresh()->setup_test_delivered_at);
     }
 }

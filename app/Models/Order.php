@@ -90,6 +90,7 @@ class Order extends Model
             'is_shipping' => 'boolean',
             'shipping_fee' => 'integer',
             'return_requested' => 'boolean',
+            'is_test' => 'boolean',
             'delivery_fee' => 'integer',
             'surcharges_total' => 'integer',
             'items_amount' => 'integer',
