@@ -12,7 +12,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Préproduction fermée au public : avant toute page, un code d'accès (PREPROD_ACCESS_CODE), saisi une fois
  * puis mémorisé 30 jours pour la plateforme, la console et toutes les entreprises de test. Restent ouverts :
- * les webhooks entrants (Meta) et la sonde /up. Jamais actif en production.
+ * les webhooks entrants (Meta), l'API publique (protégée par la clé du marchand : Jibiat Marchand de préproduction
+ * s'y connecte) et la sonde /up. Jamais actif en production.
  */
 class PreprodGate
 {
@@ -35,7 +36,7 @@ class PreprodGate
         // Fichiers publics des applications installables : le navigateur télécharge le manifeste et les
         // icônes sans cookie, la page du code rendrait l'application impossible à installer
         // Reprise de l'ancienne application : envoyée par son serveur, protégée par la clé de reprise
-        if ($code === '' || app()->isProduction() || $request->is('up', 'api/webhooks/*', 'api/legacy-import', ...self::APP_FILES)) {
+        if ($code === '' || app()->isProduction() || $request->is('up', 'api/webhooks/*', 'api/public/*', 'api/legacy-import', ...self::APP_FILES)) {
             return $next($request);
         }
 
