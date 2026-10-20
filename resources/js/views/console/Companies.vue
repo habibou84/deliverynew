@@ -43,7 +43,7 @@
         <thead class="bg-slate-50 text-left text-gray-600">
           <tr>
             <th class="p-2">Entreprise</th><th class="p-2">Adresse</th><th class="p-2 text-right">Marchands</th><th class="p-2 text-right">Livreurs</th>
-            <th class="p-2 text-right">Courses du mois</th><th class="p-2">Dernière course</th><th class="p-2">Formule</th><th class="p-2">Statut</th>
+            <th class="p-2 text-right">Courses du mois</th><th class="p-2">Dernière course</th><th class="p-2">Mise en route</th><th class="p-2">Formule</th><th class="p-2">Statut</th>
           </tr>
         </thead>
         <tbody class="divide-y">
@@ -60,6 +60,10 @@
             <td class="p-2 text-right">{{ c.couriers_count }}</td>
             <td class="p-2 text-right font-semibold">{{ c.orders_month_count }}</td>
             <td class="p-2 text-gray-600">{{ c.last_order_at ? dateTime(c.last_order_at) : '—' }}</td>
+            <td class="p-2 whitespace-nowrap">
+              <span :class="c.setup?.ready ? 'text-emerald-700' : 'text-amber-800'">{{ c.setup?.ready ? '✅ prête' : `${c.setup?.done ?? 0}/${c.setup?.total ?? 0}` }}</span>
+              <span v-if="c.setup?.alerts" class="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700" :title="'Points à corriger au bilan de santé'">{{ c.setup.alerts }} alerte(s)</span>
+            </td>
             <td class="p-2">
               <span v-if="c.plan">{{ c.plan.name }}</span><span v-else class="text-gray-400">Sans formule</span>
               <span v-if="c.on_trial" class="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">essai → {{ date(c.trial_ends_at) }}</span>
@@ -70,7 +74,7 @@
               </span>
             </td>
           </tr>
-          <tr v-if="loaded && !companies.length"><td colspan="8" class="p-6 text-center text-gray-500">Aucune entreprise.</td></tr>
+          <tr v-if="loaded && !companies.length"><td colspan="9" class="p-6 text-center text-gray-500">Aucune entreprise.</td></tr>
         </tbody>
       </table>
     </div>
