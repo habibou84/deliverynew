@@ -226,6 +226,10 @@ le fait aussi depuis **Intégrations (API)**) :
   l'état de la journée et le premier jour de livraison possible ; `GET /payouts?paid_since=` rattrape les reversements.
   `notify_merchant: false` à la création : l'application prévient elle-même l'équipe du marchand, pas d'alerte en double.
   Une adresse webhook qui échoue 20 fois d'affilée (tentatives épuisées) est coupée et le marchand est prévenu.
+- **Actions du marchand par l'API** (mêmes règles que son application) : `PATCH /orders/{code}` (tout avant le ramassage,
+  seulement la livraison ensuite), `POST /orders/{code}/decision` (`redeliver` avec une date, ou `return`, quand
+  `needs_decision`), `POST /orders/{code}/return-request` et `POST /orders/{code}/notes`. L'historique de la course
+  indique « via Jibiat Marchand » (en-tête `X-Client-App`) ou « via API ».
 - **Webhooks** : la boutique est prévenue de chaque événement (`order.created`, `order.status_changed`,
   `order.incident`, `order.updated`, `payout.paid`, `stock.low`). Vérification de la signature côté boutique :
 
