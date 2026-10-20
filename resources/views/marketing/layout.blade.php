@@ -38,6 +38,7 @@
                 <a href="/fonctionnalites" class="hover:text-white">Fonctionnalités</a>
                 <a href="/#applications" class="hover:text-white">Applications</a>
                 <a href="/tarifs" class="hover:text-white">Tarifs</a>
+                <a href="/annuaire" class="hover:text-white">Annuaire</a>
                 <a href="/#questions" class="hover:text-white">Questions</a>
             </div>
 
@@ -56,6 +57,7 @@
                         <a href="/fonctionnalites" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Fonctionnalités</a>
                         <a href="/#applications" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Applications</a>
                         <a href="/tarifs" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Tarifs</a>
+                        <a href="/annuaire" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Annuaire des livreurs</a>
                         <a href="/#questions" class="block rounded-lg px-3 py-2 hover:bg-slate-50">Questions</a>
                         @if ($demoUrl)
                             <a href="{{ $demoUrl }}" class="block rounded-lg px-3 py-2 text-brand-700 hover:bg-brand-50" rel="noopener" target="_blank">Demander une démo</a>
@@ -95,6 +97,7 @@
                 <p class="font-semibold text-white">Liens</p>
                 <a href="/fonctionnalites" class="block hover:text-white">Fonctionnalités</a>
                 <a href="/tarifs" class="block hover:text-white">Tarifs</a>
+                <a href="/annuaire" class="block hover:text-white">Annuaire des entreprises de livraison</a>
                 @if ($signupUrl)
                     <a href="{{ $signupUrl }}" class="block hover:text-white">Créer mon entreprise</a>
                 @endif

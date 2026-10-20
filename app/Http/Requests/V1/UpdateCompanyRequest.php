@@ -74,6 +74,8 @@ class UpdateCompanyRequest extends FormRequest
             'unreachable_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
             'late_pickup_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:600'],
             'courier_available_alert' => ['sometimes', 'boolean'],
+            'directory_listed' => ['sometimes', 'boolean'],
+            'directory_pitch' => ['sometimes', 'nullable', 'string', 'max:240'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
             // Vide = sans formule (aucune limite)
             'plan_id' => ['sometimes', 'nullable', 'integer', 'exists:plans,id'],
@@ -100,6 +102,8 @@ class UpdateCompanyRequest extends FormRequest
             'unreachable_minutes' => 'délai livreur injoignable',
             'late_pickup_alert_minutes' => 'alerte ramassage pas commencé',
             'courier_available_alert' => 'alerte livreur libre',
+            'directory_listed' => 'annuaire',
+            'directory_pitch' => 'présentation dans l\'annuaire',
             'plan_id' => 'formule',
             'trial_ends_at' => 'fin de l\'essai',
         ];

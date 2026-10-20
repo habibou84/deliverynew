@@ -11,6 +11,8 @@
       </div>
     </div>
 
+    <ConnectRequests v-if="auth.can('merchants.manage')" @accepted="load" />
+
     <div class="card overflow-x-auto">
       <table class="w-full text-sm stack-table">
         <thead class="bg-slate-50 text-left text-gray-600">
@@ -114,6 +116,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import ConnectRequests from '../../components/ConnectRequests.vue'
 import LocationPicker from '../../components/LocationPicker.vue'
 import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
