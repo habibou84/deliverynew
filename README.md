@@ -497,6 +497,37 @@ fiches prêtes en attente de paiement. Modèles : « Salarié » et « Mixte » 
   période » reprend l'activité réelle de chaque livreur sur une période de paie passée et la compare à ce qu'il a
   réellement gagné (`POST /pay-plans/simulate`).
 
+### Mise en route de l'administrateur
+
+**Réglages › Mise en route** (`/admin/mise-en-route`, droit `settings.manage`) conduit l'administrateur étape par
+étape. Chaque étape se coche toute seule, d'après les vraies données (`App\Services\Onboarding\SetupGuide`) :
+- **essentielles** : entreprise (téléphone, adresse, logo), zones, tarifs (chaque paire de communes a un prix dans
+  la grille par défaut), règles des courses (heure limite), livreurs (au moins un connecté à son application et avec
+  des zones), paie (plan par défaut avec des montants), e-commerçants (zone et adresse de ramassage), une première
+  course livrée ;
+- **conseillées** (remises à plus tard si on veut) : WhatsApp et modèles approuvés, équipe du bureau, alertes,
+  assignation automatique, boutiques en ligne (module API), abonnement.
+
+Chaque étape dit pourquoi elle compte, ce qui manque, et ouvre le bon réglage ; une barre « ← Revenir à la mise en
+route » suit l'administrateur dans les réglages ouverts depuis le parcours. Le parcours s'ouvre tout seul à la
+première connexion d'un administrateur (tant que les étapes essentielles ne sont pas faites), puis un bandeau du
+tableau de bord rappelle ce qui reste. API : `GET /setup` (→ `seen`), `POST /setup/skip` (`step`, `skipped`),
+`POST /setup/seen`.
+
+**Course d'essai** (étape 8) : « Lancer une course d'essai » crée une vraie course d'une « Boutique d'essai » vers
+l'administrateur lui-même (il reçoit les messages du destinataire). Le parcours coche ses étapes : validée, livreur
+de ramassage, colis récupéré, livreur de livraison, livrée avec le code, argent encaissé. « Effacer la course
+d'essai » supprime la course, son journal, les gains du livreur, les écritures de l'e-commerçant, l'argent encaissé et
+la boutique d'essai, sans fausser la caisse ni les statistiques ; l'étape reste faite. L'argent ne doit pas être versé
+à la caisse : une fois versé ou payé, la course ne s'efface plus (`POST|DELETE /setup/test-order`).
+
+**Bilan de santé** (en tête de la mise en route, `GET /setup` → `health`) : ce qui se dérègle ensuite, en alerte
+(rouge) ou à surveiller (orange) : trajets sans prix, accès WhatsApp qui expire dans moins de 14 jours ou en erreur,
+modèles refusés par Meta, livraison automatique avec des livreurs sans zone, ramassage automatique sans règle,
+automatisation suspendue, course d'essai pas effacée. Les alertes mettent un point rouge sur « Réglages » dans le
+menu. La **console** du super administrateur affiche la mise en route de chaque entreprise (colonne de la liste,
+détail des étapes et du bilan sur sa fiche).
+
 ### Planning des livreurs et ramassage automatique
 
 **Opérations › Planning des livreurs** (`/admin/planning`, permission `orders.dispatch`) dit qui ramasse où et quand.

@@ -89,6 +89,25 @@
         {{ billingBanner.text }} <span class="font-medium underline">Voir mon abonnement</span>
       </RouterLink>
 
+      <!-- Mise en route : étapes essentielles qui restent (tableau de bord) -->
+      <RouterLink
+        v-if="setupBanner"
+        to="/admin/mise-en-route"
+        class="flex flex-wrap items-center justify-between gap-2 bg-amber-50 px-4 py-2 text-sm text-amber-900 print:hidden"
+      >
+        <span>
+          🧭 Mise en route : {{ setup.essentials.done }} étape(s) essentielle(s) sur {{ setup.essentials.total }}.
+          <template v-if="setupNext">Prochaine : {{ setupNext.title }}.</template>
+        </span>
+        <span class="font-medium underline">Continuer la mise en route</span>
+      </RouterLink>
+
+      <!-- Réglage ouvert depuis la mise en route : y revenir en un geste -->
+      <div v-if="setupReturn" class="flex items-center justify-between gap-2 bg-slate-800 px-4 py-2 text-sm text-white print:hidden">
+        <RouterLink to="/admin/mise-en-route" class="font-medium underline">← Revenir à la mise en route</RouterLink>
+        <button type="button" class="rounded px-2 hover:bg-white/20" aria-label="Fermer" @click="closeSetupReturn">✕</button>
+      </div>
+
       <main :class="['flex-1 overflow-y-auto p-4 md:p-6 print:overflow-visible', tabs.length ? 'pb-20 md:pb-6' : '']">
         <RouterView />
       </main>
@@ -130,6 +149,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import http from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'
 import { useRealtime } from '../composables/useRealtime'
 import SidebarGroup from '../components/SidebarGroup.vue'
@@ -181,7 +201,49 @@ function fetchCounts() {
   heldParcels.fetchCounts().catch(() => {})
   dispatchCounts.fetchCounts().catch(() => {})
 }
+// Mise en route (administrateurs) : bandeau du tableau de bord, ouverture à la première connexion, retour au parcours
+const setup = ref(null)
+const setupNext = computed(() => setup.value?.steps.find((s) => s.essential && s.status !== 'done'))
+const setupBanner = computed(() => setup.value && !setup.value.ready && route.path === '/admin')
+const RETURN_KEY = 'setup-return'
+const setupReturnFlag = ref(sessionFlag())
+const setupReturn = computed(() => setupReturnFlag.value && route.path !== '/admin/mise-en-route')
+
+function sessionFlag(value) {
+  try {
+    if (value === undefined) return sessionStorage.getItem(RETURN_KEY) === '1'
+    if (value) sessionStorage.setItem(RETURN_KEY, '1')
+    else sessionStorage.removeItem(RETURN_KEY)
+  } catch {
+    // Stockage indisponible : la barre ne suit que cette page
+  }
+  return value
+}
+function closeSetupReturn() {
+  setupReturnFlag.value = false
+  sessionFlag(false)
+}
+
+async function loadSetup() {
+  if (!auth.can('settings.manage') || !auth.user?.company_id) return
+  setup.value = (await http.get('/setup').catch(() => null))?.data?.data ?? null
+  // Première connexion d'un administrateur, mise en route pas faite : on l'ouvre
+  if (setup.value && !setup.value.seen && !setup.value.ready && route.path !== '/admin/mise-en-route') router.replace('/admin/mise-en-route')
+}
+
+watch(() => route.fullPath, (to, from) => {
+  if (route.query.depuis === 'mise-en-route') {
+    setupReturnFlag.value = true
+    sessionFlag(true)
+  } else if (route.path === '/admin/mise-en-route') {
+    closeSetupReturn()
+  }
+  // Retour au tableau de bord : progression à jour
+  if (route.path === '/admin' && from) loadSetup()
+}, { immediate: true })
+
 onMounted(() => {
+  loadSetup()
   if (!isDispatch.value) return
   fetchCounts()
   countsTimer = setInterval(fetchCounts, 60000)
@@ -235,7 +297,8 @@ const menu = computed(() => {
       label: 'Configuration',
       // Zones, tarifs, WhatsApp, intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
       items: [
-        { to: '/admin/reglages', icon: '⚙️', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'] },
+        // Point rouge : alertes du bilan de santé
+        { to: '/admin/reglages', icon: '⚙️', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },
       ],
     },
   ]

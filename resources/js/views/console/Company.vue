@@ -97,6 +97,25 @@
         </div>
       </div>
 
+      <!-- Mise en route de l'entreprise : pour l'accompagner au démarrage -->
+      <div v-if="company.setup" class="card p-4 space-y-3">
+        <h2 class="font-semibold">🧭 Mise en route</h2>
+        <p class="text-sm">
+          {{ company.setup.ready ? 'Étapes essentielles faites.' : `Étapes essentielles : ${company.setup.essentials.done} sur ${company.setup.essentials.total}.` }}
+          Conseillées : {{ company.setup.recommended.done }} sur {{ company.setup.recommended.total }}.
+        </p>
+        <ul class="text-sm space-y-1">
+          <li v-for="st in company.setup.steps" :key="st.key" :class="st.status === 'done' ? 'text-gray-500' : ''">
+            {{ st.status === 'done' ? '✅' : (st.status === 'partial' ? '🟠' : '⭕') }} {{ st.title }}<span v-if="!st.essential" class="text-xs text-gray-400"> · conseillée</span>
+            <span v-if="st.status !== 'done'" class="block pl-6 text-xs text-gray-600">{{ st.lines.join(' ') }}</span>
+          </li>
+        </ul>
+        <div v-if="company.setup.health.length" class="border-t pt-3 space-y-1">
+          <h3 class="text-sm font-medium">Bilan de santé</h3>
+          <p v-for="h in company.setup.health" :key="h.text" :class="['text-sm', h.level === 'alert' ? 'text-red-700' : 'text-amber-800']">{{ h.level === 'alert' ? '🔴' : '🟠' }} {{ h.text }}</p>
+        </div>
+      </div>
+
       <!-- Assistance -->
       <div class="card p-4 space-y-3">
         <h2 class="font-semibold">🛟 Assistance</h2>

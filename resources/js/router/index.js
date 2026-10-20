@@ -79,6 +79,7 @@ const routes = [
       { path: 'caisse', component: () => import('../views/admin/Finance.vue'), meta: { permission: 'finance.view' } },
       { path: 'caisse/reversements/:id(\\d+)', component: shared.payoutDetail, meta: { permission: 'finance.view' } },
       // Réglages par thèmes (l'ancienne page « Paramètres » y mène)
+      { path: 'mise-en-route', component: () => import('../views/admin/SetupGuide.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages', component: () => import('../views/admin/settings/SettingsHub.vue'), meta: { permission: ['settings.manage', 'integrations.manage', 'users.view'] } },
       { path: 'reglages/entreprise', component: () => import('../views/admin/settings/SettingsCompany.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/courses', component: () => import('../views/admin/settings/SettingsOrders.vue'), meta: { permission: 'settings.manage' } },

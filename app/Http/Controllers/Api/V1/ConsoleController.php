@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\PlatformInvoice;
 use App\Models\SupportSession;
 use App\Models\User;
+use App\Services\Onboarding\SetupGuide;
 use App\Services\Platform\Billing;
 use App\Services\Platform\CompanySignup;
 use App\Services\Platform\Subscription;
@@ -45,7 +46,7 @@ class ConsoleController extends Controller
         $all = Company::query();
 
         return response()->json([
-            'data' => $companies->map(fn (Company $c) => $this->companyData($c))->values(),
+            'data' => $companies->map(fn (Company $c) => [...$this->companyData($c), 'setup' => $this->setupSummary($c)])->values(),
             'meta' => [
                 'domain' => Tenancy::enabled() ? Tenancy::domain() : null,
                 'reserved_subdomains' => config('platform.reserved_subdomains'),
@@ -60,6 +61,16 @@ class ConsoleController extends Controller
         ]);
     }
 
+    /**
+     * @return array{done: int, total: int, ready: bool, alerts: int}
+     */
+    private function setupSummary(Company $company): array
+    {
+        $guide = app(SetupGuide::class)->for($company);
+
+        return [...$guide['essentials'], 'ready' => $guide['ready'], 'alerts' => count(array_filter($guide['health'], fn ($h) => $h['level'] === 'alert'))];
+    }
+
     public function show(Company $company, Subscription $subscription): JsonResponse
     {
         $company = $this->withActivity(Company::query()->with('plan'))->findOrFail($company->id);
@@ -72,6 +83,8 @@ class ConsoleController extends Controller
             'timezone' => $company->timezone,
             'domain' => Tenancy::enabled() ? Tenancy::domain() : null,
             'subscription' => $subscription->summary($company),
+            // Mise en route de l'entreprise : étapes et bilan de santé (accompagnement au démarrage)
+            'setup' => app(SetupGuide::class)->for($company),
             'billing' => app(Billing::class)->state($company),
             'invoices' => PlatformInvoice::query()->where('company_id', $company->id)->orderByDesc('period')->limit(24)->get()
                 ->map(fn (PlatformInvoice $i) => ConsoleBillingController::invoiceData($i))->values(),
