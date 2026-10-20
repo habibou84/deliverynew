@@ -37,6 +37,8 @@ class OrderAssignment extends Model
             'accepted_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'unreachable_at' => 'datetime',
+            'late_alerted_at' => 'datetime',
         ];
     }
 

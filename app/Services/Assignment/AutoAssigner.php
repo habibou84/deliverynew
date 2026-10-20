@@ -2,6 +2,7 @@
 
 namespace App\Services\Assignment;
 
+use App\Enums\AssignmentStatus;
 use App\Enums\AssignmentType;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
@@ -24,6 +25,8 @@ use Throwable;
  * À la validation d'une course (et toutes les cinq minutes pour rattraper), le ramassage va au livreur
  * du planning ce jour-là, ou à son remplaçant. À l'essai, rien n'est envoyé : le choix est noté sur la course.
  * Sans règle qui couvre la course, rien ne change : elle reste à l'équipe (alertes « sans livreur »).
+ * Un livreur qui refuse, rend la mission ou reste injoignable est écarté pour cette course : son remplaçant la reçoit.
+ * Automatisation suspendue (bouton du planning) : plus rien n'est confié.
  * Ne fait jamais échouer la création ou la validation d'une course.
  */
 class AutoAssigner
@@ -36,10 +39,13 @@ class AutoAssigner
         private readonly OrderJournal $journal,
     ) {}
 
-    public function pickup(Order $order): ?OrderAssignment
+    /**
+     * @param  string|null  $after  pourquoi la course revient (refus, empêchement, livreur injoignable) : noté sur la course
+     */
+    public function pickup(Order $order, ?string $after = null): ?OrderAssignment
     {
         try {
-            return $this->tryPickup($order);
+            return $this->tryPickup($order, $after);
         } catch (Throwable $e) {
             report($e);
 
@@ -55,6 +61,7 @@ class AutoAssigner
         $assigned = 0;
 
         Company::query()->where('status', 'active')->whereIn('auto_pickup', [Company::AUTO_TRIAL, Company::AUTO_ON])
+            ->whereNull('automation_paused_at')
             ->each(function (Company $company) use (&$assigned) {
                 Order::withoutGlobalScopes()
                     ->where('company_id', $company->id)
@@ -74,11 +81,23 @@ class AutoAssigner
         return $assigned;
     }
 
-    private function tryPickup(Order $order): ?OrderAssignment
+    /**
+     * Livreurs écartés pour cette course : ceux qui ont refusé ou rendu le ramassage, ou étaient injoignables.
+     *
+     * @return list<int>
+     */
+    public static function excluded(Order $order, AssignmentType $type): array
+    {
+        return $order->assignments()->where('type', $type->value)
+            ->where(fn ($q) => $q->where('status', AssignmentStatus::Refused->value)->orWhereNotNull('unreachable_at'))
+            ->pluck('courier_id')->unique()->values()->all();
+    }
+
+    private function tryPickup(Order $order, ?string $after = null): ?OrderAssignment
     {
         $company = Company::query()->find($order->company_id);
         $mode = $company?->auto_pickup ?? Company::AUTO_OFF;
-        if ($company === null || $mode === Company::AUTO_OFF) {
+        if ($company === null || $mode === Company::AUTO_OFF || $company->automationPaused()) {
             return null;
         }
 
@@ -89,13 +108,13 @@ class AutoAssigner
         }
 
         $today = CarbonImmutable::now($company->timezone ?: config('app.timezone'))->toDateString();
-        $choice = $this->planning->resolve($order, CourierRule::PICKUP, $today);
+        $choice = $this->planning->resolve($order, CourierRule::PICKUP, $today, self::excluded($order, AssignmentType::Pickup));
         if ($choice === null) {
             return null;
         }
 
         $who = $choice['courier']->user->name.($choice['backup'] ? ' (remplaçant)' : '');
-        $why = "planning « {$choice['label']} »";
+        $why = "planning « {$choice['label']} »".($after ? " ({$after})" : '');
 
         // Essai : on note ce qui aurait été fait, une fois par jour et par course
         if ($mode === Company::AUTO_TRIAL) {
@@ -116,11 +135,10 @@ class AutoAssigner
         }
 
         try {
-            $assignment = $this->dispatcher->assign($actor, $order, AssignmentType::Pickup, $choice['courier']);
+            $assignment = $this->dispatcher->assign($actor, $order, AssignmentType::Pickup, $choice['courier'], self::SOURCE_PLANNING);
         } catch (BusinessRuleException) {
             return null;
         }
-        $assignment->forceFill(['source' => self::SOURCE_PLANNING])->save();
 
         $this->journal->record($order, null, OrderEventType::Note, [
             'note' => "Ramassage confié automatiquement à {$who}, {$why}.",

@@ -23,6 +23,13 @@ export const AUTO_MODES = [
   { value: 'on', label: 'Active', short: 'active', help: 'Les courses validées vont au livreur du planning, ou à son remplaçant.' },
 ]
 
+// Acceptation des missions par le livreur
+export const ACCEPT_MODES = [
+  { value: 'choose', label: 'Le livreur accepte ou refuse', short: 'au choix du livreur', help: 'Chaque mission attend sa réponse. Un refus la rend à l\'équipe (ou au remplaçant du planning).' },
+  { value: 'report', label: 'Acceptées d\'office, empêchement possible', short: 'd\'office, empêchement possible', help: 'Pas de réponse à donner. Avant de partir, il peut signaler un empêchement : la mission passe au remplaçant ou revient à l\'équipe.' },
+  { value: 'auto', label: 'Acceptées d\'office', short: 'd\'office', help: 'Le livreur ne peut pas refuser. En cas de problème, il appelle l\'agence.' },
+]
+
 // « 30 min », « 2 h », « jamais »
 export function delay(minutes) {
   if (!minutes) return 'jamais'

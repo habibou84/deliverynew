@@ -9,10 +9,20 @@
     </div>
 
     <!-- Ramassage automatique : état et lien vers le réglage -->
-    <p v-if="board" :class="['card px-3 py-2 text-sm', AUTO[board.auto_pickup].cls]">
-      {{ AUTO[board.auto_pickup].text }}
-      <RouterLink v-if="auth.can('settings.manage')" to="/admin/reglages/courses" class="ml-1 font-medium underline">Régler</RouterLink>
-    </p>
+    <div v-if="board?.automation?.paused" class="card px-3 py-2 text-sm bg-red-50 text-red-900 flex flex-wrap items-center gap-2">
+      <span class="flex-1 min-w-0">
+        ⏸ Automatisation suspendue{{ board.automation.paused_by ? ` par ${board.automation.paused_by}` : '' }} :
+        plus aucune course n'est confiée ni passée au remplaçant. Les alertes continuent.
+      </span>
+      <button class="btn-primary" :disabled="pausing" @click="pause(false)">Reprendre</button>
+    </div>
+    <div v-else-if="board" :class="['card px-3 py-2 text-sm flex flex-wrap items-center gap-2', AUTO[board.auto_pickup].cls]">
+      <span class="flex-1 min-w-0">
+        {{ AUTO[board.auto_pickup].text }}
+        <RouterLink v-if="auth.can('settings.manage')" to="/admin/reglages/courses" class="ml-1 font-medium underline">Régler</RouterLink>
+      </span>
+      <button v-if="board.auto_pickup !== 'off'" class="btn-secondary" :disabled="pausing" @click="pause(true)">⏸ Suspendre l'automatisation</button>
+    </div>
 
     <!-- Jour affiché -->
     <div class="flex flex-wrap items-center gap-2 text-sm">
@@ -220,6 +230,21 @@ function shift(n) {
 
 async function load() {
   board.value = (await http.get('/planning', { params: { date: date.value } })).data.data
+}
+
+// Suspendre en cas de souci (livreurs mal répartis, journée particulière), reprendre ensuite
+const pausing = ref(false)
+async function pause(paused) {
+  if (paused && !confirm('Suspendre l\'automatisation ? Plus aucune course ne sera confiée automatiquement jusqu\'à la reprise.')) return
+  pausing.value = true
+  try {
+    board.value.automation = (await http.post('/planning/pause', { paused })).data.data
+    toasts.success(paused ? 'Automatisation suspendue.' : 'Automatisation reprise.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    pausing.value = false
+  }
 }
 
 function openRule(rule = null) {

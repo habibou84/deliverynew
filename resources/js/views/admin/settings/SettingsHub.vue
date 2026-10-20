@@ -36,7 +36,7 @@
 import { computed, onMounted, ref } from 'vue'
 import http from '../../../bootstrap/axios'
 import { useAuthStore } from '../../../stores/auth'
-import { AUTO_MODES, delay, VALIDATION_MODES } from './options'
+import { ACCEPT_MODES, AUTO_MODES, delay, VALIDATION_MODES } from './options'
 
 /**
  * Page d'entrée des réglages : une carte par thème, avec l'essentiel de l'état actuel, et une recherche.
@@ -62,8 +62,8 @@ const ALL = computed(() => {
     {
       key: 'orders', icon: '📦', title: 'Courses et livraison', to: '/admin/reglages/courses', permission: 'settings.manage',
       description: 'Validation des courses, heure limite, tentatives, code de livraison, hors connexion, garde ou dépôt.',
-      summary: c && `Validation ${mode?.short || '—'} · heure limite ${c.daily_cutoff_time?.slice(0, 5) || 'aucune'} · ${c.default_max_attempts} tentatives · ramassage automatique ${AUTO_MODES.find((m) => m.value === c.auto_pickup)?.short || 'désactivé'}`,
-      keywords: 'validation heure limite journée tentatives code livraison hors connexion offline garde dépôt fermeture assignation automatique planning',
+      summary: c && `Validation ${mode?.short || '—'} · heure limite ${c.daily_cutoff_time?.slice(0, 5) || 'aucune'} · ${c.default_max_attempts} tentatives · ramassage automatique ${AUTO_MODES.find((m) => m.value === c.auto_pickup)?.short || 'désactivé'} · missions ${ACCEPT_MODES.find((m) => m.value === c.mission_acceptance)?.short || 'au choix du livreur'}`,
+      keywords: 'validation heure limite journée tentatives code livraison hors connexion offline garde dépôt fermeture assignation automatique planning acceptation missions refus empêchement injoignable retard',
     },
     {
       key: 'pricing', icon: '🗺️', title: 'Zones et tarifs', permission: 'settings.manage',

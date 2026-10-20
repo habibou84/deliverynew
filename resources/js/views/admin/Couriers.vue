@@ -53,6 +53,13 @@
             · <RouterLink to="/admin/paie-livreurs" class="text-blue-600">Gérer les plans</RouterLink>
           </p>
         </div>
+        <div v-if="canPay">
+          <label class="label" for="courier-accept">Acceptation des missions</label>
+          <select id="courier-accept" v-model="form.data.mission_acceptance" class="input">
+            <option :value="null">Comme l'entreprise</option>
+            <option v-for="m in ACCEPT_MODES" :key="m.value" :value="m.value">{{ m.label }}</option>
+          </select>
+        </div>
         <div>
           <label class="label">Zones desservies</label>
           <div class="grid grid-cols-2 gap-1 max-h-48 overflow-y-auto border rounded p-2">
@@ -70,6 +77,7 @@
   </div>
 </template>
 
+import { ACCEPT_MODES } from './settings/options'
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
@@ -110,7 +118,7 @@ function openForm(c) {
   form.data = {
     vehicle_type: c.vehicle_type,
     vehicle_plate: c.vehicle_plate,
-    ...(canPay.value ? { pay_plan_id: c.pay_plan_id } : {}),
+    ...(canPay.value ? { pay_plan_id: c.pay_plan_id, mission_acceptance: c.mission_acceptance ?? null } : {}),
     is_available: c.is_available,
     notes: c.notes,
     zone_ids: c.zones.map((z) => z.id),

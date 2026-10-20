@@ -59,6 +59,8 @@ class OrderAlert extends Notification implements ShouldQueue
             'url' => $assignment ? "/livreur/missions/{$assignment}" : '/livreur',
             'tag' => $this->kind.'-'.$this->order->id,
             'urgent' => $this->kind === 'dispatch_message',
+            // Nouvelle mission : vibration propre sur le téléphone du livreur
+            'mission' => $this->kind === 'new_mission',
         ];
     }
 

@@ -49,6 +49,10 @@ class Company extends Model
         'delivery_assign_alert_minutes',
         // Ramassages confiés selon le planning des livreurs : off, trial (essai), on
         'auto_pickup',
+        // Acceptation des missions : choose (le livreur accepte ou refuse), report (d'office, empêchement possible), auto
+        'mission_acceptance',
+        'unreachable_minutes',
+        'late_pickup_alert_minutes',
         'status',
         'plan_id',
         'trial_ends_at',
@@ -82,6 +86,9 @@ class Company extends Model
             'deliveries_closed_at' => 'datetime',
             'delivery_assign_alert_minutes' => 'integer',
             'planning_digest_sent_on' => 'date:Y-m-d',
+            'unreachable_minutes' => 'integer',
+            'late_pickup_alert_minutes' => 'integer',
+            'automation_paused_at' => 'datetime',
             'status' => CompanyStatus::class,
             'trial_ends_at' => 'date:Y-m-d',
             'legacy_import_key_expires_at' => 'datetime',
@@ -103,6 +110,21 @@ class Company extends Model
     public const AUTO_TRIAL = 'trial';
 
     public const AUTO_ON = 'on';
+
+    /** Acceptation des missions : le livreur accepte ou refuse, acceptées d'office (empêchement possible), acceptées d'office */
+    public const ACCEPT_CHOOSE = 'choose';
+
+    public const ACCEPT_REPORT = 'report';
+
+    public const ACCEPT_AUTO = 'auto';
+
+    public const ACCEPT_MODES = [self::ACCEPT_CHOOSE, self::ACCEPT_REPORT, self::ACCEPT_AUTO];
+
+    /** Automatisation suspendue (bouton du planning) : plus d'assignation ni de passage au remplaçant, les alertes restent */
+    public function automationPaused(): bool
+    {
+        return $this->automation_paused_at !== null;
+    }
 
     public const VALIDATION_MANUAL = 'manual';
 

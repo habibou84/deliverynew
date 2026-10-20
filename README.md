@@ -518,6 +518,20 @@ couvre la course, rien ne change : elle reste à l'équipe et aux alertes « san
 couvre aujourd'hui ou ce qu'il remplace (`couriers:planning-digest`). API : `GET /planning?date=`,
 `POST|PUT|DELETE /planning/rules`, `POST|DELETE /planning/absences`.
 
+**Acceptation des missions** (Réglages › Courses et livraison) : *le livreur accepte ou refuse* (par défaut),
+*acceptées d'office, empêchement possible* (avant de partir, « Je ne peux pas faire cette mission » rend la mission),
+ou *acceptées d'office* (pas de refus, le livreur appelle l'agence). Un administrateur peut donner une autre règle à
+un livreur depuis sa fiche. Les missions du planning sont toujours acceptées d'office. Un ramassage du planning refusé
+ou rendu passe au remplaçant (le livreur est écarté pour cette course) ; sinon il revient à l'équipe, prévenue.
+
+**Sécurité** (`assignments:watch`, chaque minute) : un livreur **injoignable** (aucun signe de son application depuis
+20 min par défaut, alors qu'une mission l'attend depuis aussi longtemps) voit ses ramassages du planning pas commencés
+passer à son remplaçant ; l'équipe reçoit une alerte « 📵 … injoignable ». À l'approche de l'heure limite du jour
+(une heure avant par défaut), l'équipe est prévenue des **ramassages du jour pas commencés**, une fois par mission ;
+rien n'est retiré au livreur. Le bouton **« Suspendre l'automatisation »** du planning arrête toute assignation et tout
+passage au remplaçant jusqu'à la reprise (`POST /planning/pause`) ; les alertes continuent. Une nouvelle mission a sur
+le téléphone du livreur un son (quatre notes montantes) et une vibration (trois longues) qui lui sont propres.
+
 ### Courses sans livreur
 
 Une course **validée sans livreur de ramassage**, ou un colis **récupéré / à l'entrepôt / reporté à aujourd'hui sans

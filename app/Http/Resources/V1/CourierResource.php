@@ -28,6 +28,8 @@ class CourierResource extends JsonResource
                 'personal' => $this->payPlan->courier_id !== null,
             ] : null),
             'is_available' => $this->is_available,
+            // Exception à la règle d'acceptation de l'entreprise (null : celle de l'entreprise)
+            'mission_acceptance' => $this->mission_acceptance,
             'current_lat' => $this->current_lat,
             'current_lng' => $this->current_lng,
             'last_location_at' => $this->last_location_at,

@@ -82,6 +82,36 @@
         </div>
       </section>
 
+      <section class="card p-4 space-y-3">
+        <h2 class="font-semibold">Acceptation des missions</h2>
+        <p class="text-sm text-gray-600">
+          Faut-il que le livreur accepte chaque mission ? Les missions du planning sont toujours acceptées d'office.
+          Une règle différente peut être donnée à un livreur depuis sa fiche.
+        </p>
+        <div class="grid sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Acceptation des missions">
+          <label v-for="m in ACCEPT_MODES" :key="m.value" :class="['rounded-lg border p-3 text-sm cursor-pointer', form.mission_acceptance === m.value ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200']">
+            <input v-model="form.mission_acceptance" type="radio" :value="m.value" class="mr-1">
+            <strong>{{ m.label }}</strong>
+            <span class="block text-xs text-gray-500 mt-1">{{ m.help }}</span>
+          </label>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="label" for="unreachable">Livreur injoignable après (minutes)</label>
+            <input id="unreachable" v-model.number="form.unreachable_minutes" type="number" min="0" max="240" class="input w-32">
+            <p class="text-xs text-gray-500 mt-1">Sans aucun signe de son application, ses ramassages du planning pas encore commencés passent à son remplaçant, et l'équipe est prévenue. 0 = jamais.</p>
+          </div>
+          <div>
+            <label class="label" for="late-pickup">Ramassage pas commencé : alerte (minutes avant l'heure limite)</label>
+            <input id="late-pickup" v-model.number="form.late_pickup_alert_minutes" type="number" min="0" max="600" class="input w-32">
+            <p class="text-xs text-gray-500 mt-1">
+              L'équipe est prévenue des ramassages du jour pas encore commencés ; rien n'est retiré au livreur. 0 = jamais.
+              <span v-if="!form.daily_cutoff_time" class="text-amber-700">Indiquez d'abord l'heure limite du jour.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
       <SaveBar :dirty="dirty" :saving="saving" :error="error" @save="save" @reset="reset" />
     </template>
   </SettingsPage>
@@ -92,9 +122,10 @@ import SettingsPage from '../../../components/settings/SettingsPage.vue'
 import SaveBar from '../../../components/settings/SaveBar.vue'
 import MoreHelp from '../../../components/settings/MoreHelp.vue'
 import { useCompanySettings } from '../../../composables/useCompanySettings'
-import { AUTO_MODES, CUSTODY_MODES, VALIDATION_MODES } from './options'
+import { ACCEPT_MODES, AUTO_MODES, CUSTODY_MODES, VALIDATION_MODES } from './options'
 
 const { form, dirty, saving, error, save, reset } = useCompanySettings([
   'validation_mode', 'daily_cutoff_time', 'default_max_attempts', 'require_delivery_code', 'offline_courier_actions', 'pickup_mission_custody', 'depot_closes_at', 'auto_pickup',
+  'mission_acceptance', 'unreachable_minutes', 'late_pickup_alert_minutes',
 ])
 </script>
