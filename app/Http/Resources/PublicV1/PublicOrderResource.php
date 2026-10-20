@@ -64,6 +64,9 @@ class PublicOrderResource extends JsonResource
                 'shipping_fee' => $this->is_shipping ? $this->shipping_fee : null,
             ],
             'attempts_count' => $this->attempts_count,
+            // Échec de livraison : le marchand doit décider (relivrer, reporter ou faire revenir le colis)
+            'needs_decision' => $this->needsDecision(),
+            'return_requested' => (bool) $this->return_requested,
             'last_incident' => $this->whenLoaded('lastIncidentReason', fn () => $this->lastIncidentReason?->label),
             'events' => $this->whenLoaded('events', fn () => $this->events->map(fn (OrderEvent $e) => [
                 'type' => $e->type->value,

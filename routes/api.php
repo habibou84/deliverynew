@@ -79,6 +79,7 @@ Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:pu
 
     Route::get('zones', 'zones')->name('zones');
     Route::get('hubs', 'hubs')->name('hubs');
+    Route::get('delivery-day', 'deliveryDay')->name('delivery-day');
     Route::post('quotes', 'quote')->name('quotes');
     Route::get('orders', 'orders')->middleware($read)->name('orders.index');
     Route::post('orders', 'store')->middleware([$write, 'idempotent'])->name('orders.store');

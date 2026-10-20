@@ -219,8 +219,15 @@ le fait aussi depuis **Intégrations (API)**) :
   courses, annulation, point, produits. Documentation : **`/developpeurs/api`** (spécification
   `public/docs/openapi.yaml`, importable dans Postman). `Idempotency-Key` obligatoire sur `POST /orders`,
   120 requêtes par minute et par clé.
+- **Synchronisation avec l'application du marchand** (Jibiat Marchand ou une boutique) : rien ne change sans qu'elle le
+  sache. `order.updated` signale un changement sans changement de statut (date modifiée ou décalée par la fermeture de la
+  journée, nouvelle date d'un report, adresse, montant, retour demandé ; champs dans `change.fields`). La course indique
+  `needs_decision` (échec de livraison : le marchand doit décider) et `return_requested`. `GET /delivery-day` donne
+  l'état de la journée et le premier jour de livraison possible ; `GET /payouts?paid_since=` rattrape les reversements.
+  `notify_merchant: false` à la création : l'application prévient elle-même l'équipe du marchand, pas d'alerte en double.
+  Une adresse webhook qui échoue 20 fois d'affilée (tentatives épuisées) est coupée et le marchand est prévenu.
 - **Webhooks** : la boutique est prévenue de chaque événement (`order.created`, `order.status_changed`,
-  `order.incident`, `payout.paid`, `stock.low`). Vérification de la signature côté boutique :
+  `order.incident`, `order.updated`, `payout.paid`, `stock.low`). Vérification de la signature côté boutique :
 
   ```php
   $expected = 'sha256='.hash_hmac('sha256', $request->header('X-Webhook-Timestamp').'.'.$request->getContent(), $secret);

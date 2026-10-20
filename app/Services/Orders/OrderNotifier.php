@@ -94,7 +94,8 @@ class OrderNotifier
                 break;
         }
 
-        if ($toMerchant) {
+        // Course envoyée par une application qui prévient elle-même le marchand (Jibiat Marchand) : pas de doublon
+        if ($toMerchant && ! $order->merchant_alerts_muted) {
             $this->send($this->merchantUsers($order), $actor, $order, ...$toMerchant);
         }
 

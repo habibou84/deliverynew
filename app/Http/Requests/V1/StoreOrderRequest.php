@@ -87,6 +87,8 @@ class StoreOrderRequest extends FormRequest
             'weight_kg' => ['nullable', 'numeric', 'min:0', 'max:500'],
             'is_fragile' => ['boolean'],
             'is_express' => ['boolean'],
+            // API : false quand l'application appelante prévient elle-même l'équipe du marchand
+            'notify_merchant' => ['sometimes', 'boolean'],
             'merchant_note' => ['nullable', 'string', 'max:1000'],
 
             'items_amount' => ['nullable', 'integer', 'min:0', 'max:100000000'],
