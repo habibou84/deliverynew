@@ -230,6 +230,9 @@ le fait aussi depuis **Intégrations (API)**) :
   seulement la livraison ensuite), `POST /orders/{code}/decision` (`redeliver` avec une date, ou `return`, quand
   `needs_decision`), `POST /orders/{code}/return-request` et `POST /orders/{code}/notes`. L'historique de la course
   indique « via Jibiat Marchand » (en-tête `X-Client-App`) ou « via API ».
+- **Contrat avec Jibiat Marchand** (`habibou84/socle`, `contract/v1`) : `PublicContractTest` valide les vraies réponses
+  et les vrais webhooks envoyés contre les schémas partagés, et vérifie que les statuts et événements sont ceux du
+  contrat. Ajouter un champ est libre ; en retirer ou en renommer un demande une version majeure du contrat.
 - **Webhooks** : la boutique est prévenue de chaque événement (`order.created`, `order.status_changed`,
   `order.incident`, `order.updated`, `payout.paid`, `stock.low`). Vérification de la signature côté boutique :
 
