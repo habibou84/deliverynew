@@ -69,7 +69,55 @@ class SetupGuide
             'essentials' => $essentials,
             'recommended' => $count(false),
             'ready' => $essentials['done'] === $essentials['total'],
+            'health' => $this->health($company, $steps),
         ];
+    }
+
+    /**
+     * Bilan de santé : ce qui se dérègle après la mise en route (point rouge sur les Réglages pour les alertes).
+     *
+     * @param  list<array<string, mixed>>  $steps
+     * @return list<array{level: string, text: string, to: string}>
+     */
+    public function health(Company $c, array $steps): array
+    {
+        $issues = [];
+        $pricing = collect($steps)->firstWhere('key', 'pricing');
+        if ($pricing && $pricing['status'] === self::PARTIAL) {
+            $issues[] = ['level' => 'alert', 'text' => 'Tarifs : '.lcfirst($pricing['lines'][0]), 'to' => '/admin/tarifs'];
+        }
+
+        $account = WhatsAppAccount::forCompanyId($c->id);
+        if ($account?->token_expires_at && $account->token_expires_at->lt(now()->addDays(14))) {
+            $issues[] = ['level' => 'alert', 'text' => 'L\'accès WhatsApp expire le '.$account->token_expires_at->format('d/m/Y').' : reconnectez le numéro avant cette date.', 'to' => '/admin/whatsapp'];
+        }
+        if ($account && $account->status !== 'connected' && filled($account->last_error)) {
+            $issues[] = ['level' => 'alert', 'text' => 'WhatsApp ne fonctionne plus : '.$account->last_error, 'to' => '/admin/whatsapp'];
+        }
+        $rejected = $account ? MetaTemplate::query()->where('whatsapp_account_id', $account->id)->where('status', 'rejected')->count() : 0;
+        if ($rejected) {
+            $issues[] = ['level' => 'warning', 'text' => "{$rejected} modèle(s) de message refusé(s) par Meta : ces messages ne partent pas.", 'to' => '/admin/whatsapp'];
+        }
+
+        if (($c->auto_delivery ?? 'off') !== 'off') {
+            $noZone = Courier::withoutGlobalScopes()->where('company_id', $c->id)->whereHas('user', fn ($q) => $q->where('status', 'active'))->doesntHave('zones')->count();
+            if ($noZone) {
+                $issues[] = ['level' => 'warning', 'text' => "Livraison automatique : {$noZone} livreur(s) sans zone ne sont jamais choisis.", 'to' => '/admin/livreurs'];
+            }
+        }
+        if (($c->auto_pickup ?? 'off') !== 'off' && ! CourierRule::withoutGlobalScopes()->where('company_id', $c->id)->where('type', CourierRule::PICKUP)->where('is_active', true)->exists()) {
+            $issues[] = ['level' => 'warning', 'text' => 'Ramassage automatique en marche, mais aucune règle de ramassage au planning : rien n\'est confié.', 'to' => '/admin/planning'];
+        }
+        if ($c->automationPaused()) {
+            $issues[] = ['level' => 'warning', 'text' => 'Assignation automatique suspendue depuis le '.$c->automation_paused_at->format('d/m/Y à H:i').'.', 'to' => '/admin/planning'];
+        }
+
+        $test = $this->test->current($c);
+        if ($test && $test->created_at->lt(now()->subDay())) {
+            $issues[] = ['level' => 'warning', 'text' => "La course d'essai {$test->tracking_code} n'est pas encore effacée.", 'to' => '/admin/mise-en-route'];
+        }
+
+        return $issues;
     }
 
     /** Clés des étapes conseillées, les seules qu'on peut remettre à plus tard */

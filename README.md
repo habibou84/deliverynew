@@ -521,6 +521,13 @@ d'essai » supprime la course, son journal, les gains du livreur, les écritures
 la boutique d'essai, sans fausser la caisse ni les statistiques ; l'étape reste faite. L'argent ne doit pas être versé
 à la caisse : une fois versé ou payé, la course ne s'efface plus (`POST|DELETE /setup/test-order`).
 
+**Bilan de santé** (en tête de la mise en route, `GET /setup` → `health`) : ce qui se dérègle ensuite, en alerte
+(rouge) ou à surveiller (orange) : trajets sans prix, accès WhatsApp qui expire dans moins de 14 jours ou en erreur,
+modèles refusés par Meta, livraison automatique avec des livreurs sans zone, ramassage automatique sans règle,
+automatisation suspendue, course d'essai pas effacée. Les alertes mettent un point rouge sur « Réglages » dans le
+menu. La **console** du super administrateur affiche la mise en route de chaque entreprise (colonne de la liste,
+détail des étapes et du bilan sur sa fiche).
+
 ### Planning des livreurs et ramassage automatique
 
 **Opérations › Planning des livreurs** (`/admin/planning`, permission `orders.dispatch`) dit qui ramasse où et quand.
