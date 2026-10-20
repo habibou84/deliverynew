@@ -12,18 +12,18 @@
     </div>
 
     <div class="card overflow-x-auto">
-      <table class="w-full text-sm">
+      <table class="w-full text-sm stack-table">
         <thead class="bg-slate-50 text-left text-gray-600">
           <tr><th class="p-2">Nom</th><th class="p-2">Téléphone</th><th class="p-2">E-mail</th><th class="p-2">Rôle</th><th class="p-2">Statut</th><th class="p-2">Dernière connexion</th><th /></tr>
         </thead>
         <tbody class="divide-y">
           <tr v-for="u in users" :key="u.id">
             <td class="p-2 font-medium">{{ u.name }}</td>
-            <td class="p-2">{{ u.phone }}</td>
-            <td class="p-2">{{ u.email || '—' }}</td>
-            <td class="p-2">{{ u.role_label }}</td>
-            <td class="p-2"><span :class="u.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ u.status === 'active' ? 'Actif' : 'Suspendu' }}</span></td>
-            <td class="p-2 text-xs text-gray-500">{{ dateTime(u.last_login_at) }}</td>
+            <td data-label="Téléphone" class="p-2">{{ u.phone }}</td>
+            <td data-label="E-mail" class="p-2">{{ u.email || '—' }}</td>
+            <td data-label="Rôle" class="p-2">{{ u.role_label }}</td>
+            <td data-label="Statut" class="p-2"><span :class="u.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ u.status === 'active' ? 'Actif' : 'Suspendu' }}</span></td>
+            <td data-label="Dernière connexion" class="p-2 text-xs text-gray-500">{{ dateTime(u.last_login_at) }}</td>
             <td class="p-2 text-right">
               <button v-if="auth.can('users.manage') && u.id !== auth.user.id && !u.role?.startsWith('merchant')" class="text-blue-600" @click="openForm(u)">Modifier</button>
             </td>

@@ -1,0 +1,23 @@
+// Choix proposés dans les réglages (pages et résumés de la page Réglages)
+export const VALIDATION_MODES = [
+  { value: 'manual', label: 'Manuelle', short: 'manuelle', help: 'Chaque course attend la validation d\'un dispatcher (file « À valider »).' },
+  { value: 'auto', label: 'Automatique', short: 'automatique', help: 'Toutes les courses sont validées dès leur enregistrement.' },
+  {
+    value: 'rules',
+    label: 'Automatique avec règles',
+    short: 'automatique avec règles',
+    help: 'Validées dès leur enregistrement ; après l\'heure limite du jour, ou quand le dispatch ferme la journée, les courses du jour sont validées pour le lendemain (ramassage le jour même) et le marchand est prévenu.',
+  },
+]
+
+export const CUSTODY_MODES = [
+  { value: 'choose', label: 'Au choix du dispatch', help: 'Le dispatch choisit à chaque mission : garde ou dépôt.' },
+  { value: 'keep', label: 'Restent chez le livreur', help: 'Il les garde jusqu\'à leur jour de livraison, qui lui est alors confiée automatiquement.' },
+  { value: 'depot', label: 'Reviennent au dépôt', help: 'Il les rapporte au dépôt le soir même ; n\'importe quel livreur pourra les livrer.' },
+]
+
+// « 30 min », « 2 h », « jamais »
+export function delay(minutes) {
+  if (!minutes) return 'jamais'
+  return minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`
+}
