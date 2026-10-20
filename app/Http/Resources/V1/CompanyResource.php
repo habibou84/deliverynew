@@ -40,6 +40,7 @@ class CompanyResource extends JsonResource
             'pickup_assign_alert_minutes' => $this->pickup_assign_alert_minutes,
             'daily_cutoff_time' => $this->daily_cutoff_time,
             'delivery_assign_alert_minutes' => $this->delivery_assign_alert_minutes,
+            'auto_pickup' => $this->auto_pickup ?? 'off',
             'tagline' => $this->tagline,
             'merchant_signup' => $this->merchant_signup,
             'weekly_report' => $this->weekly_report,

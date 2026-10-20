@@ -23,6 +23,8 @@ class OrderAssignment extends Model
         'started_at',
         'completed_at',
         'refusal_reason',
+        // planning ou auto : mission confiée sans le dispatch (null : à la main)
+        'source',
     ];
 
     protected function casts(): array

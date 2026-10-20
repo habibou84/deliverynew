@@ -16,6 +16,13 @@ export const CUSTODY_MODES = [
   { value: 'depot', label: 'Reviennent au dépôt', help: 'Il les rapporte au dépôt le soir même ; n\'importe quel livreur pourra les livrer.' },
 ]
 
+// Assignation automatique selon le planning
+export const AUTO_MODES = [
+  { value: 'off', label: 'Désactivée', short: 'désactivée', help: 'L\'équipe confie chaque course, comme avant.' },
+  { value: 'trial', label: 'À l\'essai', short: 'à l\'essai', help: 'Rien n\'est envoyé : le choix du planning est noté sur chaque course, pour vérifier.' },
+  { value: 'on', label: 'Active', short: 'active', help: 'Les courses validées vont au livreur du planning, ou à son remplaçant.' },
+]
+
 // « 30 min », « 2 h », « jamais »
 export function delay(minutes) {
   if (!minutes) return 'jamais'

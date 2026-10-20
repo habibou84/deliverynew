@@ -47,6 +47,8 @@ class Company extends Model
         'pickup_assign_alert_minutes',
         'daily_cutoff_time',
         'delivery_assign_alert_minutes',
+        // Ramassages confiés selon le planning des livreurs : off, trial (essai), on
+        'auto_pickup',
         'status',
         'plan_id',
         'trial_ends_at',
@@ -79,6 +81,7 @@ class Company extends Model
             'deliveries_closed_on' => 'date:Y-m-d',
             'deliveries_closed_at' => 'datetime',
             'delivery_assign_alert_minutes' => 'integer',
+            'planning_digest_sent_on' => 'date:Y-m-d',
             'status' => CompanyStatus::class,
             'trial_ends_at' => 'date:Y-m-d',
             'legacy_import_key_expires_at' => 'datetime',
@@ -93,6 +96,13 @@ class Company extends Model
     public const CUSTODY_DEPOT = 'depot';
 
     public const CUSTODY_CHOOSE = 'choose';
+
+    /** Assignation automatique : désactivée, à l'essai (le choix est noté, rien n'est envoyé), active */
+    public const AUTO_OFF = 'off';
+
+    public const AUTO_TRIAL = 'trial';
+
+    public const AUTO_ON = 'on';
 
     public const VALIDATION_MANUAL = 'manual';
 
@@ -206,6 +216,11 @@ class Company extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function courierRules(): HasMany
+    {
+        return $this->hasMany(CourierRule::class);
     }
 
     public function couriers(): HasMany
