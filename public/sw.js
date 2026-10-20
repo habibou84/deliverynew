@@ -9,8 +9,9 @@
  */
 // Changer la version vide les anciens caches (v2 : icônes déplacées dans /app-icons, /icons étant réservé par Apache ;
 // v3 : seule l'application est gardée pour le hors ligne, plus la documentation de l'API ;
-// v4 : manifestes en réseau d'abord, les anciens manifestes gardés en cache sont effacés)
-const VERSION = 'v4'
+// v4 : manifestes en réseau d'abord, les anciens manifestes gardés en cache sont effacés ;
+// v5 : efface les pages HTML qui ont pu être gardées à la place de fichiers compilés disparus)
+const VERSION = 'v5'
 const SHELL = `shell-${VERSION}`
 const ASSETS = `assets-${VERSION}`
 const SHELL_KEY = '/__app-shell'
@@ -60,7 +61,10 @@ self.addEventListener('fetch', (event) => {
       const cached = await caches.match(request)
       if (cached) return cached
       const response = await fetch(request)
-      if (response.ok) (await caches.open(ASSETS)).put(request, response.clone())
+      // Jamais une page HTML gardée à la place d'un fichier compilé disparu
+      if (response.ok && !(response.headers.get('content-type') || '').includes('text/html')) {
+        (await caches.open(ASSETS)).put(request, response.clone())
+      }
       return response
     })())
     return
