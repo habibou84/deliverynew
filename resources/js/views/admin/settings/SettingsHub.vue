@@ -8,6 +8,19 @@
       <input v-model="query" type="search" class="input sm:w-72" placeholder="Chercher un réglage (heure limite, logo…)" aria-label="Chercher un réglage">
     </div>
 
+    <!-- Parcours de mise en route -->
+    <RouterLink v-if="setup && !query" to="/admin/mise-en-route" :class="['card p-4 flex items-center gap-3 hover:border-slate-400 transition', setup.ready ? '' : 'border-amber-300 bg-amber-50']">
+      <span class="text-2xl leading-none" aria-hidden="true">🧭</span>
+      <span class="min-w-0 flex-1">
+        <span class="block font-semibold">Mise en route</span>
+        <span class="block text-sm text-gray-600">
+          {{ setup.ready ? 'Étapes essentielles faites' : `Étapes essentielles : ${setup.essentials.done} sur ${setup.essentials.total}` }}
+          · conseillées : {{ setup.recommended.done }} sur {{ setup.recommended.total }}
+        </span>
+      </span>
+      <span class="text-sm font-medium text-blue-600 whitespace-nowrap">{{ setup.ready ? 'Revoir' : 'Continuer' }} →</span>
+    </RouterLink>
+
     <p v-if="!cards.length" class="card p-6 text-center text-gray-500">Aucun réglage ne correspond à « {{ query }} ».</p>
 
     <div class="grid gap-3 sm:grid-cols-2">
@@ -45,6 +58,7 @@ import { ACCEPT_MODES, AUTO_MODES, DELIVERY_MODES, delay, VALIDATION_MODES } fro
 const auth = useAuthStore()
 const company = ref(null)
 const query = ref('')
+const setup = ref(null)
 
 const allowed = (item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature))
 const onOff = (v) => (v ? 'oui' : 'non')
@@ -129,6 +143,11 @@ const cards = computed(() => ALL.value
 
 onMounted(async () => {
   if (!auth.can('settings.manage')) return
-  company.value = (await http.get(`/companies/${auth.user.company_id}`).catch(() => null))?.data?.data ?? null
+  const [c, guide] = await Promise.all([
+    http.get(`/companies/${auth.user.company_id}`).catch(() => null),
+    http.get('/setup').catch(() => null),
+  ])
+  company.value = c?.data?.data ?? null
+  setup.value = guide?.data?.data ?? null
 })
 </script>
