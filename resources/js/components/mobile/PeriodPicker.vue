@@ -35,16 +35,16 @@
         />
         <div v-if="picker.mode === 'day'">
           <label class="m-label" for="pick-day">Date</label>
-          <input id="pick-day" v-model="picker.from" type="date" :max="today()" class="m-input" required>
+          <input id="pick-day" v-model="picker.from" type="date" class="m-input" required>
         </div>
         <div v-else class="grid grid-cols-2 gap-2">
           <div>
             <label class="m-label" for="pick-from">Du</label>
-            <input id="pick-from" v-model="picker.from" type="date" :max="picker.to || today()" class="m-input" required>
+            <input id="pick-from" v-model="picker.from" type="date" :max="picker.to || undefined" class="m-input" required>
           </div>
           <div>
             <label class="m-label" for="pick-to">Au</label>
-            <input id="pick-to" v-model="picker.to" type="date" :min="picker.from" :max="today()" class="m-input" required>
+            <input id="pick-to" v-model="picker.to" type="date" :min="picker.from" class="m-input" required>
           </div>
         </div>
         <button class="m-btn-primary">Afficher</button>
@@ -64,7 +64,7 @@ const props = defineProps({
   // { key, label, from, to } (from/to vides pour « Tout »)
   modelValue: { type: Object, required: true },
   // Clés des raccourcis proposés, dans l'ordre
-  keys: { type: Array, default: () => ['today', 'yesterday', 'week', 'month'] },
+  keys: { type: Array, default: () => ['today', 'later', 'yesterday', 'week', 'month'] },
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -81,7 +81,7 @@ function choose(preset) {
 
 function openPicker() {
   const from = props.modelValue.from || today()
-  const to = props.modelValue.to || today()
+  const to = props.modelValue.to || from
   Object.assign(picker, { open: true, mode: from === to ? 'day' : 'range', from, to })
 }
 
