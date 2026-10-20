@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Paie des livreurs</h1>
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2 min-w-0">
         <select v-model="planId" class="input w-auto" aria-label="Plan" @change="select(planId)">
           <optgroup label="Plans">
             <option v-for="p in sharedPlans" :key="p.id" :value="p.id">{{ p.name }}{{ p.is_default ? ' (par défaut)' : '' }}</option>

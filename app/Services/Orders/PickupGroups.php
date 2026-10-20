@@ -33,7 +33,7 @@ class PickupGroups
      *
      * @return Collection<int, array<string, mixed>>
      */
-    public function toAssign(User $actor): Collection
+    public function toAssign(User $actor, ?string $day = null): Collection
     {
         $orders = Order::query()
             ->visibleTo($actor)
@@ -46,7 +46,7 @@ class PickupGroups
 
         return $orders
             ->groupBy(fn (Order $o) => self::key($o))
-            ->map(function (Collection $group, string $key) {
+            ->map(function (Collection $group, string $key) use ($day) {
                 /** @var Order $first */
                 $first = $group->first();
 
@@ -67,6 +67,8 @@ class PickupGroups
                         'lng' => $first->pickup_lng,
                     ],
                     'count' => $group->count(),
+                    // Jour choisi : colis à livrer après ce jour (ramassage en avance possible)
+                    'later_count' => $group->filter(fn (Order $o) => $this->isLater($o, $day))->count(),
                     'cod_total' => (int) $group->sum('cod_amount'),
                     'waiting_since' => $group->min('confirmed_at'),
                     'orders' => $group->map(fn (Order $o) => [
@@ -77,11 +79,24 @@ class PickupGroups
                         'cod_amount' => (int) $o->cod_amount,
                         'is_express' => (bool) $o->is_express,
                         'confirmed_at' => $o->confirmed_at,
+                        'delivery_day' => self::deliveryDay($o),
+                        'later' => $this->isLater($o, $day),
                     ])->values(),
                 ];
             })
             ->sortBy([['pickup.zone_name', 'asc'], ['count', 'desc']])
             ->values();
+    }
+
+    /** Jour de livraison : la date prévue, sinon le jour de création (comme Order::DELIVERY_DAY_SQL) */
+    public static function deliveryDay(Order $order): string
+    {
+        return ($order->delivery_scheduled_date ?? $order->created_at)->toDateString();
+    }
+
+    private function isLater(Order $order, ?string $day): bool
+    {
+        return $day !== null && self::deliveryDay($order) > $day;
     }
 
     /**

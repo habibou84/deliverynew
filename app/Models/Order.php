@@ -324,6 +324,27 @@ class Order extends Model
             ->when($to, fn ($q) => $q->whereRaw("{$column} <= ?", [$to]));
     }
 
+    /**
+     * Courses dues au plus tard ce jour-là (jour de livraison passé ou égal) : le travail du jour et les retards.
+     */
+    public function scopeDueBy(Builder $query, string $day): Builder
+    {
+        return $query->whereRaw(self::DELIVERY_DAY_SQL.' <= ?', [$day]);
+    }
+
+    /**
+     * Courses d'un jour pour la liste de l'agence : celles à livrer ce jour-là et celles encore en cours dont
+     * le jour est déjà passé (en retard). Pour demain, les courses d'aujourd'hui ne sont pas encore en retard.
+     */
+    public function scopeOfDay(Builder $query, string $day): Builder
+    {
+        $final = OrderStatus::values(array_filter(OrderStatus::cases(), fn (OrderStatus $s) => $s->isFinal()));
+        $overdue = min($day, today()->toDateString());
+
+        return $query->where(fn ($q) => $q->whereRaw(self::DELIVERY_DAY_SQL.' = ?', [$day])
+            ->orWhere(fn ($q) => $q->whereRaw(self::DELIVERY_DAY_SQL.' < ?', [$overdue])->whereNotIn('status', $final)));
+    }
+
     public function activeAssignment(AssignmentType $type): ?OrderAssignment
     {
         return $this->assignments()->active()->where('type', $type->value)->latest('id')->first();

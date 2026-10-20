@@ -2,8 +2,8 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">E-commerçants</h1>
-      <div class="flex gap-2">
-        <input v-model="search" class="input w-56" placeholder="Rechercher…" @input="debouncedLoad">
+      <div class="flex flex-wrap items-center gap-2">
+        <input v-model="search" class="input w-full sm:w-56" placeholder="Rechercher…" @input="debouncedLoad">
         <label class="flex items-center gap-2 text-sm whitespace-nowrap">
           <input v-model="onlySignups" type="checkbox" @change="load"> Inscrits en ligne
         </label>
@@ -12,7 +12,7 @@
     </div>
 
     <div class="card overflow-x-auto">
-      <table class="w-full text-sm">
+      <table class="w-full text-sm stack-table">
         <thead class="bg-slate-50 text-left text-gray-600">
           <tr><th class="p-2">Nom</th><th class="p-2">Contact</th><th class="p-2">Ramassage</th><th class="p-2">Frais payés par</th><th class="p-2">Courses</th><th class="p-2">Statut</th><th /></tr>
         </thead>
@@ -24,16 +24,16 @@
                 {{ isNew(m) ? 'Nouveau · ' : '' }}inscrit en ligne
               </span>
             </td>
-            <td class="p-2">{{ m.contact_name }}<div class="text-xs text-gray-500">{{ m.phone }}</div></td>
-            <td class="p-2">
+            <td data-label="Contact" class="p-2">{{ m.contact_name }}<div class="text-xs text-gray-500">{{ m.phone }}</div></td>
+            <td data-label="Ramassage" class="p-2">
               {{ m.pickup_zone?.name || '—' }}<div class="text-xs text-gray-500">{{ m.pickup_address }}</div>
               <div :class="['text-xs', m.pickup_lat == null ? 'text-amber-700' : m.pickup_location_source === 'courier' ? 'text-sky-700' : 'text-emerald-700']">
                 {{ m.pickup_lat == null ? '⚠ sans position' : `📍 ${SOURCES[m.pickup_location_source] || 'localisé'}` }}
               </div>
             </td>
-            <td class="p-2">{{ m.default_fee_payer === 'recipient' ? 'Destinataire' : 'Marchand' }}</td>
-            <td class="p-2">{{ m.orders_count }}</td>
-            <td class="p-2"><span :class="m.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ m.status === 'active' ? 'Actif' : 'Suspendu' }}</span></td>
+            <td data-label="Frais payés par" class="p-2">{{ m.default_fee_payer === 'recipient' ? 'Destinataire' : 'Marchand' }}</td>
+            <td data-label="Courses" class="p-2">{{ m.orders_count }}</td>
+            <td data-label="Statut" class="p-2"><span :class="m.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ m.status === 'active' ? 'Actif' : 'Suspendu' }}</span></td>
             <td class="p-2 text-right whitespace-nowrap">
               <RouterLink :to="{ path: '/admin/courses', query: { merchant_id: m.id } }" class="text-blue-600 mr-3">Courses</RouterLink>
               <button v-if="auth.can('merchants.manage')" class="text-blue-600" @click="openForm(m)">Modifier</button>

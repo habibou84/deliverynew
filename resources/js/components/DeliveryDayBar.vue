@@ -1,22 +1,23 @@
 <template>
   <!-- Journée de livraison (validation avec règles) : ouverte, ou fermée → nouvelles courses pour le lendemain -->
-  <div v-if="day?.rules" :class="['card p-3 flex flex-wrap items-center gap-3 text-sm', day.closed ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200']">
+  <div v-if="day?.rules" :class="['card px-3 py-2 sm:p-3 flex flex-wrap items-center gap-3 text-sm', day.closed ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200']">
     <span class="text-lg" aria-hidden="true">{{ day.closed ? '🌙' : '🟢' }}</span>
     <div class="min-w-0 flex-1">
       <template v-if="day.closed">
         <p class="font-semibold">Livraisons du jour fermées <span class="font-normal">({{ reasonLabel }})</span></p>
-        <p class="text-gray-600">Les nouvelles courses sont validées pour le {{ longDay(day.next_day) }} ; le ramassage reste le jour même.</p>
+        <p class="hidden sm:block text-gray-600">Les nouvelles courses sont validées pour le {{ longDay(day.next_day) }} ; le ramassage reste le jour même.</p>
       </template>
       <template v-else>
         <p class="font-semibold">Livraisons du jour ouvertes</p>
-        <p class="text-gray-600">
+        <!-- Téléphone : une ligne suffit -->
+        <p class="hidden sm:block text-gray-600">
           Nouvelles courses validées automatiquement<template v-if="day.cutoff_time"> ; après {{ day.cutoff_time }}, elles partent le lendemain</template>.
         </p>
       </template>
     </div>
 
-    <button v-if="day.closed && day.reason === 'manual'" class="btn-secondary" :disabled="busy" @click="reopen">Rouvrir la journée</button>
-    <button v-else-if="!day.closed && !closing" class="btn-secondary" @click="closing = true">🌙 Fermer la journée</button>
+    <button v-if="day.closed && day.reason === 'manual'" class="btn-secondary" :disabled="busy" @click="reopen">Rouvrir<span class="hidden sm:inline">&nbsp;la journée</span></button>
+    <button v-else-if="!day.closed && !closing" class="btn-secondary" @click="closing = true">🌙 Fermer<span class="hidden sm:inline">&nbsp;la journée</span></button>
 
     <div v-if="closing" class="w-full rounded-lg bg-white p-3 ring-1 ring-slate-200 space-y-2">
       <p class="font-medium">Fermer les livraisons du jour ?</p>
