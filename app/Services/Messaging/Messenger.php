@@ -28,7 +28,8 @@ class Messenger
      */
     public function toMerchant(Merchant $merchant, NotificationEvent $event, WhatsAppTemplate $template, array $params, ?Order $order = null): ?OutboundMessage
     {
-        if (! $merchant->wantsNotification($event)) {
+        // Course envoyée par une application qui prévient elle-même le marchand (Jibiat Marchand) : pas de doublon
+        if (! $merchant->wantsNotification($event) || $order?->merchant_alerts_muted) {
             return null;
         }
 

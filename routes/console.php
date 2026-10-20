@@ -29,6 +29,8 @@ Schedule::command('billing:remind')->dailyAt('08:05')->withoutOverlapping();
 // Accès WhatsApp du bouton « Connecter WhatsApp » (60 jours) : relais par la plateforme ou alerte avant l'échéance
 Schedule::command('whatsapp:tokens')->dailyAt('08:15')->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class, CourierLocation::class]])->daily();
+// Cloche : anciennes notifications supprimées chaque nuit
+Schedule::command('notifications:prune')->dailyAt('03:40')->withoutOverlapping();
 Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();
 Schedule::command('parcels:overdue')->everyFifteenMinutes()->withoutOverlapping();
 // Courses sans livreur de ramassage ou de livraison au-delà du délai de l'entreprise
