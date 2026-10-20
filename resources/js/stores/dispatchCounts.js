@@ -13,10 +13,15 @@ export const useDispatchCountStore = defineStore('dispatchCounts', {
     },
     loaded: false,
     version: 0,
+    // Jour affiché dans la liste des courses (AAAA-MM-JJ) et ses compteurs : dû ce jour-là, prévu plus tard
+    day: null,
+    dayCounts: null,
   }),
   actions: {
     async fetchCounts() {
-      this.counts = (await http.get('/orders/counts')).data.data
+      const data = (await http.get('/orders/counts', { params: this.day ? { day: this.day } : {} })).data.data
+      this.counts = data
+      this.dayCounts = data.day || null
       this.loaded = true
     },
     // Alerte reçue en temps réel : les listes ouvertes se rafraîchissent

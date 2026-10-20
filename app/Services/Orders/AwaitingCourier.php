@@ -51,9 +51,11 @@ class AwaitingCourier
      * Requête des courses qui attendent un livreur (avant le contrôle du jour prévu) :
      * file « Sans livreur » de la liste et alertes. $stage : pickup, delivery ou null (les deux).
      */
-    public static function scope(Builder $query, ?string $stage = null): Builder
+    public static function scope(Builder $query, ?string $stage = null, ?string $day = null): Builder
     {
-        return $query->where(function (Builder $q) use ($stage) {
+        $day ??= today()->toDateString();
+
+        return $query->where(function (Builder $q) use ($stage, $day) {
             if ($stage !== self::DELIVERY) {
                 $q->orWhere(fn (Builder $q) => $q->where('status', OrderStatus::Confirmed->value)->whereNull('pickup_hub_id'));
             }
@@ -62,7 +64,7 @@ class AwaitingCourier
                     ->where('return_requested', false)
                     ->whereDoesntHave('assignments', fn ($a) => $a->active()->where('type', AssignmentType::Delivery->value))
                     // Livraison prévue un autre jour : pas encore en attente (le ramassage, lui, se fait dès la validation)
-                    ->where(fn (Builder $q) => $q->whereNull('delivery_scheduled_date')->orWhereDate('delivery_scheduled_date', '<=', today())));
+                    ->where(fn (Builder $q) => $q->whereNull('delivery_scheduled_date')->orWhereDate('delivery_scheduled_date', '<=', $day)));
             }
         });
     }
