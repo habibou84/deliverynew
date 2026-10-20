@@ -85,6 +85,7 @@
       <button class="btn-primary" :disabled="saving || !loaded" @click="save">{{ saving ? 'Enregistrement…' : 'Enregistrer les tarifs' }}</button>
       <button v-if="grid && !grid.is_default" class="btn-secondary" @click="makeDefault">Définir comme grille par défaut</button>
     </div>
+    <ReturnFeeSettings />
   </div>
 </template>
 
@@ -93,6 +94,7 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
+import ReturnFeeSettings from '../../components/settings/ReturnFeeSettings.vue'
 
 const toasts = useToastStore()
 const grids = ref([])

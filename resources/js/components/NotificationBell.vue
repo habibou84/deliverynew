@@ -12,15 +12,21 @@
       >{{ store.unread > 99 ? '99+' : store.unread }}</span>
     </button>
 
+    <!-- Téléphone : voile pour fermer en touchant à côté -->
+    <div v-if="open" class="fixed inset-0 z-40 bg-black/20 sm:hidden" @click="open = false" />
+    <!-- Téléphone : panneau sur toute la largeur sous l'en-tête ; ordinateur : sous la cloche -->
     <div
       v-if="open"
-      class="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white text-slate-800 rounded-lg shadow-xl border z-50"
+      class="fixed inset-x-2 top-14 z-50 rounded-lg border bg-white text-slate-800 shadow-xl sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-80"
     >
-      <div class="flex items-center justify-between px-3 py-2 border-b">
+      <div class="flex items-center justify-between gap-2 px-3 py-2 border-b">
         <span class="font-semibold text-sm">Notifications</span>
-        <button v-if="store.unread" class="text-xs text-blue-600" @click="store.markAllRead()">Tout marquer comme lu</button>
+        <span class="flex items-center gap-3">
+          <button v-if="store.unread" class="text-xs text-blue-600" @click="store.markAllRead()">Tout marquer comme lu</button>
+          <button class="p-1 text-lg leading-none text-slate-500 sm:hidden" aria-label="Fermer les notifications" @click="open = false">×</button>
+        </span>
       </div>
-      <ul class="max-h-96 overflow-y-auto divide-y">
+      <ul class="max-h-[70vh] overflow-y-auto divide-y sm:max-h-96">
         <li v-if="!store.items.length" class="p-4 text-sm text-gray-500">Aucune notification.</li>
         <li
           v-for="n in store.items"

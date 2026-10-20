@@ -1,0 +1,84 @@
+<template>
+  <SettingsPage icon="📦" title="Courses et livraison" intro="Comment les courses sont validées, quand la journée se termine et comment les livreurs travaillent.">
+    <template v-if="form">
+      <section class="card p-4 space-y-3">
+        <h2 class="font-semibold">Validation des nouvelles courses</h2>
+        <div class="space-y-2" role="radiogroup" aria-label="Validation des nouvelles courses">
+          <label v-for="m in VALIDATION_MODES" :key="m.value" :class="['flex items-start gap-2 rounded-lg border p-3 text-sm cursor-pointer', form.validation_mode === m.value ? 'border-blue-500 bg-blue-50' : 'border-slate-200']">
+            <input v-model="form.validation_mode" type="radio" :value="m.value" class="mt-1">
+            <span><strong>{{ m.label }}</strong><span class="block text-gray-500">{{ m.help }}</span></span>
+          </label>
+          <p v-if="form.validation_mode === 'rules' && !form.daily_cutoff_time" class="text-xs text-amber-700">
+            Choisissez l'heure limite du jour ci-dessous : sans elle, seule la fermeture de la journée par le dispatch décale les courses.
+          </p>
+        </div>
+      </section>
+
+      <section class="card p-4 space-y-3">
+        <h2 class="font-semibold">Journée</h2>
+        <div>
+          <label class="label" for="cutoff">Heure limite du jour</label>
+          <input id="cutoff" v-model="form.daily_cutoff_time" type="time" class="input w-32">
+          <p class="text-xs text-gray-500 mt-1">Passé cette heure, les courses du jour encore sans livreur sont signalées et le dispatch est alerté. Vide = pas d'heure limite.</p>
+          <MoreHelp>
+            Les courses concernées sont signalées dans la liste et le tableau de bord, et les administrateurs et le dispatch reçoivent
+            une alerte (une fois par jour). En validation avec règles, les nouvelles courses du jour arrivées après cette heure
+            sont validées pour le lendemain.
+          </MoreHelp>
+        </div>
+        <div>
+          <label class="label" for="attempts">Nombre maximal de tentatives de livraison</label>
+          <input id="attempts" v-model.number="form.default_max_attempts" type="number" min="1" max="10" class="input w-24">
+        </div>
+      </section>
+
+      <section class="card p-4 space-y-3">
+        <h2 class="font-semibold">Livreurs</h2>
+        <label class="flex items-start gap-2 text-sm">
+          <input v-model="form.require_delivery_code" type="checkbox" class="mt-1">
+          <span>Exiger le code de livraison du destinataire<span class="block text-gray-500">Le destinataire reçoit son code sur WhatsApp quand le livreur part livrer, ou par le marchand.</span></span>
+        </label>
+        <label class="flex items-start gap-2 text-sm">
+          <input v-model="form.offline_courier_actions" type="checkbox" class="mt-1">
+          <span>Mode hors connexion des livreurs
+            <span class="block text-gray-500">Sans réseau, le livreur enregistre quand même ses étapes ; l'application les envoie au retour du réseau.</span>
+          </span>
+        </label>
+        <MoreHelp>
+          Hors connexion, le livreur peut enregistrer « récupéré », « en route », « livré » (avec l'encaissement), un échec, un report ou une note,
+          à l'heure où ils ont été faits. Une livraison avec un code client faux est gardée mais signalée (file « Codes à vérifier »).
+          Les WhatsApp au client et au marchand partent au retour du réseau.
+        </MoreHelp>
+        <div>
+          <p class="label">Après une mission ramassage, les colis…</p>
+          <div class="grid sm:grid-cols-3 gap-2">
+            <label v-for="m in CUSTODY_MODES" :key="m.value" :class="['rounded-lg border p-3 text-sm cursor-pointer', form.pickup_mission_custody === m.value ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200']">
+              <input v-model="form.pickup_mission_custody" type="radio" :value="m.value" class="mr-1">
+              <strong>{{ m.label }}</strong>
+              <span class="block text-xs text-gray-500 mt-1">{{ m.help }}</span>
+            </label>
+          </div>
+        </div>
+        <div v-if="form.pickup_mission_custody !== 'keep'">
+          <label class="label" for="depot-closes">Heure de fermeture du dépôt</label>
+          <input id="depot-closes" v-model="form.depot_closes_at" type="time" class="input w-32">
+          <p class="text-xs text-gray-500 mt-1">Passé cette heure, le livreur garde les colis d'une mission ramassage jusqu'à leur livraison. Vide = dépôt toujours ouvert.</p>
+        </div>
+      </section>
+
+      <SaveBar :dirty="dirty" :saving="saving" :error="error" @save="save" @reset="reset" />
+    </template>
+  </SettingsPage>
+</template>
+
+<script setup>
+import SettingsPage from '../../../components/settings/SettingsPage.vue'
+import SaveBar from '../../../components/settings/SaveBar.vue'
+import MoreHelp from '../../../components/settings/MoreHelp.vue'
+import { useCompanySettings } from '../../../composables/useCompanySettings'
+import { CUSTODY_MODES, VALIDATION_MODES } from './options'
+
+const { form, dirty, saving, error, save, reset } = useCompanySettings([
+  'validation_mode', 'daily_cutoff_time', 'default_max_attempts', 'require_delivery_code', 'offline_courier_actions', 'pickup_mission_custody', 'depot_closes_at',
+])
+</script>
