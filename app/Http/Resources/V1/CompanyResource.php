@@ -44,6 +44,7 @@ class CompanyResource extends JsonResource
             'mission_acceptance' => $this->mission_acceptance ?? 'choose',
             'unreachable_minutes' => $this->unreachable_minutes ?? 20,
             'late_pickup_alert_minutes' => $this->late_pickup_alert_minutes ?? 60,
+            'courier_available_alert' => (bool) ($this->courier_available_alert ?? true),
             'automation_paused_at' => $this->automation_paused_at,
             'auto_delivery' => $this->auto_delivery ?? 'off',
             'auto_delivery_max_cod' => $this->auto_delivery_max_cod,

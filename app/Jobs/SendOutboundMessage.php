@@ -29,6 +29,9 @@ class SendOutboundMessage implements ShouldQueue
 
     public int $tries;
 
+    /** Essais d'une notification push avant le WhatsApp de repli */
+    public const PUSH_TRIES = 2;
+
     public function __construct(public OutboundMessage $message)
     {
         $this->tries = config('messaging.tries');
@@ -109,13 +112,23 @@ class SendOutboundMessage implements ShouldQueue
         $merchant = Merchant::withoutGlobalScopes()->find($message->merchant_id);
         $payload = Messenger::pushPayload($message);
 
-        $devices = WebPush::enabled() && $merchant
-            ? $merchant->pushSubscriptions()->get()->filter(fn (PushSubscription $s) => $push->deliver($s, $payload))->count()
-            : 0;
+        // Un téléphone partagé par deux comptes du marchand ne reçoit la notification qu'une fois
+        $results = WebPush::enabled() && $merchant
+            ? $merchant->pushSubscriptions()->get()->unique('endpoint_hash')
+                ->map(fn (PushSubscription $s) => $push->attempt($s, $payload, 86400, 'normal'))
+            : collect();
 
-        if ($devices > 0) {
+        if ($results->contains('ok')) {
             $message->error = null;
             $message->advanceTo(MessageStatus::Sent);
+
+            return;
+        }
+
+        // Service push momentanément indisponible : un nouvel essai avant de passer par WhatsApp
+        if ($results->contains('error') && $this->attempts() < min(self::PUSH_TRIES, $this->tries)) {
+            $message->update(['error' => 'Notification pas encore reçue : nouvel essai.']);
+            $this->release($this->backoff()[$this->attempts() - 1] ?? 60);
 
             return;
         }

@@ -114,6 +114,11 @@ class CourierAvailabilityTest extends TestCase
         $this->busy($this->courierA, 2);
         $this->confirmed();
 
+        // Alerte coupée par l'entreprise : rien
+        $this->company->update(['courier_available_alert' => false]);
+        $this->assertSame(0, $this->artisanAlert());
+        $this->company->update(['courier_available_alert' => true]);
+
         // Bientôt libre (2 missions) : une alerte, pas de doublon
         $this->assertSame(1, $this->artisanAlert());
         Notification::assertSentTo([$this->admin, $this->dispatcher], CourierAvailableAlert::class,
