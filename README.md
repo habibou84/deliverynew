@@ -508,8 +508,11 @@ fiches prêtes en attente de paiement. Modèles : « Salarié » et « Mixte » 
 - **conseillées** (remises à plus tard si on veut) : WhatsApp et modèles approuvés, équipe du bureau, alertes,
   assignation automatique, boutiques en ligne (module API), abonnement.
 
-Chaque étape dit pourquoi elle compte, ce qui manque, et ouvre le bon réglage. API : `GET /setup`,
-`POST /setup/skip` (`step`, `skipped`).
+Chaque étape dit pourquoi elle compte, ce qui manque, et ouvre le bon réglage ; une barre « ← Revenir à la mise en
+route » suit l'administrateur dans les réglages ouverts depuis le parcours. Le parcours s'ouvre tout seul à la
+première connexion d'un administrateur (tant que les étapes essentielles ne sont pas faites), puis un bandeau du
+tableau de bord rappelle ce qui reste. API : `GET /setup` (→ `seen`), `POST /setup/skip` (`step`, `skipped`),
+`POST /setup/seen`.
 
 ### Planning des livreurs et ramassage automatique
 
