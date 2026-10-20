@@ -52,6 +52,7 @@ class Merchant extends Model
             'default_fee_payer' => FeePayer::class,
             'status' => MerchantStatus::class,
             'pickup_lat' => 'float',
+            'is_test' => 'boolean',
             'pickup_lng' => 'float',
             'pickup_located_at' => 'datetime',
             'pickup_location_accuracy' => 'integer',

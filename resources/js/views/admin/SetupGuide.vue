@@ -39,10 +39,27 @@
                 <ul class="text-sm text-gray-800 space-y-0.5">
                   <li v-for="line in s.lines" :key="line">{{ line }}</li>
                 </ul>
+                <!-- Course d'essai : où elle en est -->
+                <template v-if="s.test">
+                  <ol class="mt-2 space-y-1 text-sm">
+                    <li v-for="c in s.test.checkpoints" :key="c.label" :class="c.done ? 'text-emerald-800' : 'text-gray-500'">
+                      {{ c.done ? '✅' : '⬜' }} {{ c.label }}
+                    </li>
+                  </ol>
+                  <p class="text-xs text-amber-800 bg-amber-50 rounded px-2 py-1">
+                    Ne versez pas l'argent de cette course à la caisse : une fois versé, la course d'essai ne peut plus être effacée.
+                  </p>
+                </template>
               </div>
             </div>
             <div class="flex flex-wrap gap-2 sm:pl-9">
-              <RouterLink :to="link(s)" :class="s.status === 'done' ? 'btn-secondary' : 'btn-primary'">{{ s.status === 'done' ? 'Revoir' : s.action.label }}</RouterLink>
+              <template v-if="s.key === 'first_delivery' && !s.test">
+                <button type="button" :class="s.status === 'done' ? 'btn-secondary' : 'btn-primary'" :disabled="busy" @click="startTest">
+                  {{ s.status === 'done' ? 'Faire une autre course d\'essai' : 'Lancer une course d\'essai' }}
+                </button>
+              </template>
+              <RouterLink v-else :to="link(s)" :class="s.status === 'done' && !s.test ? 'btn-secondary' : 'btn-primary'">{{ s.status === 'done' && !s.test ? 'Revoir' : s.action.label }}</RouterLink>
+              <button v-if="s.test" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="cleanTest">Effacer la course d'essai</button>
               <button v-if="!s.essential && s.status !== 'done'" type="button" class="btn-secondary" :disabled="busy" @click="skip(s, !s.skipped)">
                 {{ s.skipped ? 'Reprendre cette étape' : 'Plus tard' }}
               </button>
@@ -58,6 +75,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 
 /**
@@ -69,6 +87,7 @@ const STATUS = {
   todo: { icon: '⭕', label: 'À faire', cls: 'bg-slate-100 text-slate-700' },
 }
 
+const router = useRouter()
 const guide = ref(null)
 const error = ref('')
 const busy = ref(false)
@@ -88,6 +107,33 @@ async function load() {
     guide.value = (await http.get('/setup')).data.data
   } catch (e) {
     error.value = apiErrorMessage(e)
+  }
+}
+
+// Course d'essai : créée puis ouverte ; effacée avec tout ce qu'elle a produit
+async function startTest() {
+  busy.value = true
+  error.value = ''
+  try {
+    const { data } = await http.post('/setup/test-order')
+    router.push({ path: `/admin/courses/${data.data.order_id}`, query: { depuis: 'mise-en-route' } })
+  } catch (e) {
+    error.value = apiErrorMessage(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+async function cleanTest() {
+  if (!confirm('Effacer la course d\'essai ? Son journal, les gains du livreur et l\'argent encaissé sont effacés aussi.')) return
+  busy.value = true
+  error.value = ''
+  try {
+    guide.value = (await http.delete('/setup/test-order')).data.data
+  } catch (e) {
+    error.value = apiErrorMessage(e)
+  } finally {
+    busy.value = false
   }
 }
 

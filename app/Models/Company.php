@@ -98,6 +98,7 @@ class Company extends Model
             'late_pickup_alert_minutes' => 'integer',
             'automation_paused_at' => 'datetime',
             'setup_skipped' => 'array',
+            'setup_test_delivered_at' => 'datetime',
             'auto_delivery_max_cod' => 'integer',
             'same_courier_delivery' => 'boolean',
             'status' => CompanyStatus::class,

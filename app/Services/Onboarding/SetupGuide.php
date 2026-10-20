@@ -26,6 +26,8 @@ use App\Models\Zone;
  */
 class SetupGuide
 {
+    public function __construct(private readonly TestOrder $test) {}
+
     public const DONE = 'done';
 
     public const PARTIAL = 'partial';
@@ -196,7 +198,7 @@ class SetupGuide
 
     private function merchants(Company $c): array
     {
-        $merchants = Merchant::withoutGlobalScopes()->where('company_id', $c->id)->where('status', 'active')->get(['id', 'pickup_zone_id', 'pickup_address']);
+        $merchants = Merchant::withoutGlobalScopes()->where('company_id', $c->id)->where('status', 'active')->where('is_test', false)->get(['id', 'pickup_zone_id', 'pickup_address']);
         $ready = $merchants->filter(fn (Merchant $m) => $m->pickup_zone_id && filled($m->pickup_address))->count();
 
         return $this->step('merchants', 'Les e-commerçants', true,
@@ -211,13 +213,25 @@ class SetupGuide
 
     private function firstDelivery(Company $c): array
     {
-        $delivered = Order::withoutGlobalScopes()->where('company_id', $c->id)->where('status', OrderStatus::Delivered->value)->exists();
+        $delivered = $c->setup_test_delivered_at !== null
+            || Order::withoutGlobalScopes()->where('company_id', $c->id)->where('is_test', false)->where('status', OrderStatus::Delivered->value)->exists();
+        $test = $this->test->progress($c);
 
-        return $this->step('first_delivery', 'Une première course livrée', true,
-            'Une course faite de bout en bout (création, ramassage, livraison avec le code, caisse) vérifie que tout s\'enchaîne.',
-            $delivered ? self::DONE : self::TODO,
-            [$delivered ? 'Au moins une course a été livrée.' : 'Aucune course livrée pour le moment.'],
-            '/admin/courses/nouvelle', 'Créer une course');
+        $lines = match (true) {
+            $test !== null && $test['delivered'] => ["Course d'essai {$test['tracking_code']} livrée : effacez-la pour ne pas fausser la caisse ni les statistiques."],
+            $test !== null => ["Course d'essai {$test['tracking_code']} en cours : {$test['status_label']}."],
+            $delivered => ['Au moins une course a été livrée.'],
+            default => ['Lancez une course d\'essai : une « Boutique d\'essai » vous envoie un colis. Vous recevez les messages du destinataire, un livreur la ramasse et la livre avec le code.'],
+        };
+
+        return [
+            ...$this->step('first_delivery', 'Une course d\'essai, du début à la fin', true,
+                'Une course faite de bout en bout (création, ramassage, livraison avec le code, argent encaissé) vérifie que tout s\'enchaîne.',
+                $delivered || ($test['delivered'] ?? false) ? self::DONE : ($test ? self::PARTIAL : self::TODO),
+                $lines,
+                $test ? "/admin/courses/{$test['order_id']}" : '/admin/courses/nouvelle', $test ? 'Ouvrir la course d\'essai' : 'Créer une course'),
+            'test' => $test,
+        ];
     }
 
     private function messages(Company $c): array

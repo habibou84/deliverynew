@@ -514,6 +514,13 @@ première connexion d'un administrateur (tant que les étapes essentielles ne so
 tableau de bord rappelle ce qui reste. API : `GET /setup` (→ `seen`), `POST /setup/skip` (`step`, `skipped`),
 `POST /setup/seen`.
 
+**Course d'essai** (étape 8) : « Lancer une course d'essai » crée une vraie course d'une « Boutique d'essai » vers
+l'administrateur lui-même (il reçoit les messages du destinataire). Le parcours coche ses étapes : validée, livreur
+de ramassage, colis récupéré, livreur de livraison, livrée avec le code, argent encaissé. « Effacer la course
+d'essai » supprime la course, son journal, les gains du livreur, les écritures de l'e-commerçant, l'argent encaissé et
+la boutique d'essai, sans fausser la caisse ni les statistiques ; l'étape reste faite. L'argent ne doit pas être versé
+à la caisse : une fois versé ou payé, la course ne s'efface plus (`POST|DELETE /setup/test-order`).
+
 ### Planning des livreurs et ramassage automatique
 
 **Opérations › Planning des livreurs** (`/admin/planning`, permission `orders.dispatch`) dit qui ramasse où et quand.
