@@ -128,10 +128,11 @@ class AwaitingCourier
     }
 
     /**
-     * Heure limite pour le tableau de bord : l'heure, si elle est passée, et le nombre de
-     * courses encore sans livreur (null si l'entreprise n'a pas d'heure limite).
+     * Heure limite pour le tableau de bord : l'heure, si elle est passée, le nombre de courses du jour
+     * encore sans livreur et, à part, les ramassages de courses à livrer un autre jour (null si
+     * l'entreprise n'a pas d'heure limite).
      *
-     * @return array{time: string, passed: bool, count: int}|null
+     * @return array{time: string, passed: bool, count: int, later: int}|null
      */
     public function cutoff(Company $company): ?array
     {
@@ -139,11 +140,29 @@ class AwaitingCourier
             return null;
         }
 
+        [$today, $later] = $this->splitByDeliveryDay($company, $this->waiting($company));
+
         return [
             'time' => $company->daily_cutoff_time,
             'passed' => $this->cutoffPassed($company),
-            'count' => $this->waiting($company)->count(),
+            'count' => $today->count(),
+            'later' => $later->count(),
         ];
+    }
+
+    /**
+     * Courses en attente séparées entre celles à livrer aujourd'hui (ou sans date) et les ramassages de
+     * courses prévues un autre jour : celles-ci ne risquent pas un retard de livraison.
+     *
+     * @param  Collection<int, array{order: Order}>  $waiting
+     * @return array{0: Collection<int, array{order: Order}>, 1: Collection<int, array{order: Order}>}
+     */
+    private function splitByDeliveryDay(Company $company, Collection $waiting): array
+    {
+        $today = now($company->timezone ?: config('app.timezone'))->toDateString();
+
+        return $waiting->partition(fn (array $w) => ! $w['order']->delivery_scheduled_date
+            || $w['order']->delivery_scheduled_date->toDateString() <= $today)->map->values()->all();
     }
 
     /**
@@ -244,7 +263,7 @@ class AwaitingCourier
                 }
                 $company->forceFill(['cutoff_alerted_on' => $today])->save();
 
-                $waiting = $this->waiting($company)->sortByDesc('minutes');
+                [$waiting, $later] = $this->splitByDeliveryDay($company, $this->waiting($company)->sortByDesc('minutes'));
                 if ($waiting->isEmpty()) {
                     return;
                 }
@@ -264,7 +283,9 @@ class AwaitingCourier
                     'unassigned_cutoff',
                     "⏰ {$company->daily_cutoff_time} passées : ".($count > 1 ? "{$count} courses du jour" : '1 course du jour').' toujours sans livreur',
                     collect(["{$pickup} à ramasser" => $pickup, "{$delivery} à livrer" => $delivery])->filter()->keys()->implode(' · ')
-                        ." : {$codes}. Elles risquent de ne pas être livrées aujourd'hui.",
+                        ." : {$codes}. Elles risquent de ne pas être livrées aujourd'hui."
+                        // Ramassages de courses prévues un autre jour : à faire, mais sans retard de livraison
+                        .($later->isNotEmpty() ? ' Et '.$later->count().' à ramasser pour un autre jour.' : ''),
                     ['severity' => 'alert', 'count' => $count, 'href' => '/admin/courses?queue=unassigned'],
                 ));
                 $sent++;

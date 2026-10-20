@@ -9,7 +9,7 @@ class RemindDueToday extends Command
 {
     protected $signature = 'orders:due-today';
 
-    protected $description = 'Rappelle au dispatch les courses reportées à livrer aujourd\'hui';
+    protected $description = 'Rappelle au dispatch les courses prévues à livrer aujourd\'hui (reports et colis ramassés en avance)';
 
     public function handle(DueTodayReminder $reminder): int
     {

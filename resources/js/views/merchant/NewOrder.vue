@@ -6,6 +6,7 @@
       <p class="text-2xl font-bold">Course enregistrée</p>
       <p class="text-slate-500">{{ created.from_warehouse ? 'L\'agence prépare votre commande à l\'entrepôt.' : 'Nous allons envoyer un livreur récupérer le colis.' }}</p>
       <p v-if="created.delivery?.scheduled_date" class="mt-1 font-semibold text-slate-700">📅 Livraison prévue le {{ longDay(created.delivery.scheduled_date) }}</p>
+      <p v-if="created.delivery?.scheduled_date && created.delivery.scheduled_date > today()" class="mt-1 text-sm text-slate-500">Elle est dans « Prévues plus tard » et passera dans « Aujourd'hui » le jour de la livraison.</p>
     </div>
     <div class="m-card p-4 space-y-1">
       <p class="text-sm text-slate-500">Code de suivi</p>
@@ -206,7 +207,7 @@ import ZoneSelect from '../../components/ZoneSelect.vue'
 import { keyboardOpen } from '../../composables/useKeyboard'
 import { longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { useAuthStore } from '../../stores/auth'
-import { localPhone, money } from '../../utils/format'
+import { localPhone, money, today } from '../../utils/format'
 import { siteOrigin } from '../../native'
 
 const route = useRoute()

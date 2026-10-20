@@ -308,6 +308,22 @@ class Order extends Model
             ->whereDoesntHave('assignments', fn ($q) => $q->active());
     }
 
+    /** Jour de livraison : la date prévue, sinon le jour de création */
+    public const DELIVERY_DAY_SQL = 'COALESCE(DATE(orders.delivery_scheduled_date), DATE(orders.created_at))';
+
+    /**
+     * Courses d'une période, selon leur jour de livraison (« delivery ») ou leur jour de création (« created ») :
+     * une course reportée de lundi à mercredi passe au mercredi.
+     */
+    public function scopeForPeriod(Builder $query, ?string $from, ?string $to, string $basis = 'created'): Builder
+    {
+        $column = $basis === 'delivery' ? self::DELIVERY_DAY_SQL : 'DATE(orders.created_at)';
+
+        return $query
+            ->when($from, fn ($q) => $q->whereRaw("{$column} >= ?", [$from]))
+            ->when($to, fn ($q) => $q->whereRaw("{$column} <= ?", [$to]));
+    }
+
     public function activeAssignment(AssignmentType $type): ?OrderAssignment
     {
         return $this->assignments()->active()->where('type', $type->value)->latest('id')->first();

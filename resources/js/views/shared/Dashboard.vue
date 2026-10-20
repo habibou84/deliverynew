@@ -31,6 +31,10 @@
         🕒 Il est plus de {{ cutoff.time }} : {{ cutoff.count }} course{{ cutoff.count > 1 ? 's' : '' }} du jour
         {{ cutoff.count > 1 ? 'n\'ont' : 'n\'a' }} toujours pas de livreur et risque{{ cutoff.count > 1 ? 'nt' : '' }} de ne pas être livrée{{ cutoff.count > 1 ? 's' : '' }} aujourd'hui.
       </p>
+      <!-- Ramassages de courses à livrer un autre jour : à faire, sans retard de livraison -->
+      <p v-if="cutoff?.passed && cutoff.later" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        📦 Et {{ cutoff.later }} course{{ cutoff.later > 1 ? 's' : '' }} à ramasser pour un autre jour : pas de retard de livraison.
+      </p>
       <p v-else-if="cutoff && !cutoff.passed" class="text-xs text-gray-500">Heure limite du jour : {{ cutoff.time }}.</p>
       <p v-if="!waitingTotal" class="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">✓ Toutes les courses à ramasser et à livrer ont un livreur.</p>
       <div v-else class="grid sm:grid-cols-2 gap-3">
@@ -52,6 +56,11 @@
       </div>
     </section>
 
+    <!-- Livraisons de la période : courses à livrer ces jours-là (date prévue, sinon jour de création) -->
+    <div v-if="summary" class="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 class="font-semibold">🚚 {{ isOneDay ? (period.from === today() ? 'Livraisons du jour' : `Livraisons du ${date(period.from)}`) : 'Livraisons de la période' }}</h2>
+      <p class="text-xs text-gray-500">Selon la date de livraison prévue (une course reportée compte le jour de sa nouvelle date)</p>
+    </div>
     <div v-if="summary" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
       <StatCard title="Total" :value="summary.counts.total" icon="📦" />
       <StatCard title="Livrés" :value="summary.counts.delivered" icon="✅" />
@@ -70,6 +79,19 @@
       <StatCard :title="isMerchant ? 'Net à recevoir' : 'Net à reverser'" :value="money(summary.amounts.net_to_merchant)" icon="🏦" />
       <StatCard title="Taux de livraison" :value="summary.delivery_rate === null ? '—' : `${summary.delivery_rate} %`" icon="📈" />
     </div>
+
+    <!-- Nouvelles courses : l'activité des e-commerçants, selon le jour de création -->
+    <section v-if="!isMerchant && created" class="card p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold">🆕 Nouvelles courses {{ isOneDay ? (period.from === today() ? 'du jour' : `du ${date(period.from)}`) : 'de la période' }}</h2>
+        <RouterLink :to="{ path: '/admin/courses', query: { date_basis: 'created' } }" class="text-sm text-blue-600">Voir par date de création</RouterLink>
+      </div>
+      <p class="mt-2 text-sm text-gray-700">
+        <strong class="text-2xl text-gray-900 align-middle">{{ created.counts.total }}</strong>
+        course{{ created.counts.total > 1 ? 's' : '' }} créée{{ created.counts.total > 1 ? 's' : '' }}<template v-if="createdLater">,
+          dont <strong>{{ createdLater }}</strong> à livrer plus tard</template>.
+      </p>
+    </section>
 
     <div class="card">
       <div class="flex items-center justify-between p-4 border-b">
@@ -98,7 +120,7 @@ import StatusBadge from '../../components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import { orderChanges } from '../../composables/useRealtime'
-import { money, today, waitDuration } from '../../utils/format'
+import { date, money, today, waitDuration } from '../../utils/format'
 
 const auth = useAuthStore()
 const isMerchant = computed(() => !!auth.user?.merchant_id)
@@ -116,6 +138,10 @@ const duration = waitDuration
 
 const period = reactive({ from: isMerchantStart(), to: today() })
 const summary = ref(null)
+// Personnel : les courses créées sur la période (activité), dont celles à livrer après la période
+const created = ref(null)
+const createdLater = ref(0)
+const isOneDay = computed(() => period.from && period.from === period.to)
 const recent = ref([])
 const queues = ref([
   { value: 'to_confirm', label: 'À valider', count: null, accent: 'border-amber-300 bg-amber-50' },
@@ -131,7 +157,14 @@ function isMerchantStart() {
 }
 
 async function loadSummary() {
-  summary.value = (await http.get('/reports/summary', { params: period })).data.data
+  const [delivery, byCreation, later] = await Promise.all([
+    http.get('/reports/summary', { params: { ...period, date_basis: 'delivery' } }),
+    isMerchant.value ? null : http.get('/reports/summary', { params: { ...period, date_basis: 'created' } }),
+    isMerchant.value ? null : http.get('/orders', { params: { ...period, date_basis: 'created', queue: 'scheduled', per_page: 1 } }),
+  ])
+  summary.value = delivery.data.data
+  created.value = byCreation?.data.data ?? null
+  createdLater.value = later?.data.meta?.total ?? 0
 }
 
 async function loadQueues() {
