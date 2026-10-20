@@ -34,6 +34,8 @@ Route::view('/conditions', 'legal.terms')->name('terms');
 // Documentation de l'API publique (spécification : public/docs/openapi.yaml)
 Route::view('/developpeurs/api', 'api-docs')->name('api.docs');
 
+// Toutes les autres adresses servent l'application, sauf l'API et les fichiers compilés : un fichier de
+// /build disparu (ancienne version après une mise à jour) répond 404, jamais la page HTML à sa place
 Route::get('/{any?}', function () {
     return view('app');
-})->where('any', '^(?!api(/|$)).*');
+})->where('any', '^(?!api(/|$))(?!build/).*');

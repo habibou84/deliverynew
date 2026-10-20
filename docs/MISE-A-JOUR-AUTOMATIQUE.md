@@ -16,7 +16,9 @@ La mise à jour ne rend plus le site indisponible :
    `/var/www/jibiat-preprod/storage/app/deploy-build` (préproduction). Son interface y est compilée, ce qui est
    l'étape la plus longue. Pendant ce temps, le site tourne normalement. Si la compilation échoue, rien n'est changé.
 2. Bascule en quelques secondes : code, dépendances PHP, puis nouvelle interface d'un coup. Les fichiers
-   d'interface de la version précédente sont gardés, donc les pages déjà ouvertes continuent de fonctionner.
+   d'interface des versions de la dernière semaine sont gardés, donc les pages déjà ouvertes continuent de
+   fonctionner, même après plusieurs mises à jour. Une page plus ancienne encore se recharge toute seule au
+   premier clic dans le menu (au lieu de ne rien faire) ; un fichier d'interface disparu répond 404.
 3. Le **mode maintenance** n'est activé **que s'il y a des migrations** de la base, et seulement le temps de la
    bascule (quelques secondes). La plupart des mises à jour n'en ont pas.
 4. PHP, les files d'attente (Horizon) et le temps réel (Reverb) redémarrent en douceur. Le temps réel se reconnecte
