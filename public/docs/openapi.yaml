@@ -219,6 +219,96 @@ paths:
                 properties:
                   data: { $ref: '#/components/schemas/Order' }
         '404': { description: 'Course introuvable' }
+    patch:
+      tags: [Courses]
+      summary: Modifier une course
+      description: |
+        Avant le ramassage : tous les champs (le prix est recalculé si la zone ou le colis change).
+        Colis récupéré : seulement la livraison (adresse, repère, téléphones, zone, date). Plus rien une fois
+        la course en route ou terminée. Portée orders:write.
+      parameters:
+        - { name: tracking_code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewOrder' }
+      responses:
+        '200':
+          description: Course modifiée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Order' }
+        '422': { description: 'Champ invalide ou modification impossible à ce stade' }
+  /orders/{tracking_code}/decision:
+    post:
+      tags: [Courses]
+      summary: Décider de la suite après une livraison échouée (needs_decision)
+      parameters:
+        - { name: tracking_code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [redeliver, return] }
+                date: { type: string, format: date, description: 'Obligatoire pour redeliver (aujourd''hui ou après)' }
+                note: { type: string, maxLength: 1000 }
+      responses:
+        '200':
+          description: 'Course reportée (rescheduled) ou retour demandé'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Order' }
+        '422': { description: 'Aucune décision attendue, ou date invalide' }
+  /orders/{tracking_code}/return-request:
+    post:
+      tags: [Courses]
+      summary: Demander le retour du colis (déjà ramassé ; avant, annulez la course)
+      parameters:
+        - { name: tracking_code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 1000 }
+      responses:
+        '200':
+          description: Retour demandé
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Order' }
+        '422': { description: 'Retour impossible à ce stade' }
+  /orders/{tracking_code}/notes:
+    post:
+      tags: [Courses]
+      summary: Laisser une note à l'agence et au livreur
+      parameters:
+        - { name: tracking_code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string, maxLength: 2000 }
+      responses:
+        '201': { description: Note enregistrée }
   /orders/{tracking_code}/cancel:
     post:
       tags: [Courses]

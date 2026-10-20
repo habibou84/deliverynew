@@ -8,7 +8,7 @@
         <span v-if="!event.visible_to_merchant" class="text-xs rounded bg-slate-100 px-1.5 text-slate-500">interne</span>
       </div>
       <p class="text-xs text-gray-500">
-        {{ dateTime(event.created_at) }} · {{ event.actor_name || 'Système' }}<span v-if="event.actor_role"> ({{ ROLE_LABELS[event.actor_role] || event.actor_role }})</span>
+        {{ dateTime(event.created_at) }} · {{ event.actor_name || 'Système' }}<span v-if="event.actor_role"> ({{ ROLE_LABELS[event.actor_role] || event.actor_role }})</span><span v-if="event.meta?.channel" class="text-indigo-700"> · via {{ event.meta.channel }}</span>
         <a v-if="event.lat && event.lng" :href="mapsLink(event.lat, event.lng)" target="_blank" class="ml-1 text-blue-600">📍 position</a>
       </p>
       <p v-if="event.incident_reason" class="text-sm text-red-700">Motif : {{ event.incident_reason.label }}</p>

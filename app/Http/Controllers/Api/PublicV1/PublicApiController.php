@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api\PublicV1;
 
 use App\Enums\OrderStatus;
+use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\PublicV1\UpdatePublicOrderRequest;
 use App\Http\Requests\V1\StoreOrderRequest;
 use App\Http\Resources\PublicV1\PublicOrderResource;
 use App\Http\Resources\V1\ProductResource;
@@ -24,6 +26,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Context;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -131,6 +135,77 @@ class PublicApiController extends Controller
         return PublicOrderResource::make($order->fresh()->load(self::RELATIONS));
     }
 
+    /**
+     * Modification par le marchand : tout avant le ramassage (le prix est recalculé), seulement la livraison
+     * ensuite, rien une fois le colis en route ou livré (règles de OrderService::update).
+     */
+    public function update(UpdatePublicOrderRequest $request, string $trackingCode, OrderService $service): PublicOrderResource
+    {
+        $order = $this->find($request, $trackingCode);
+        Gate::authorize('update', $order);
+        $this->channel($request);
+
+        return PublicOrderResource::make($service->update($request->user(), $order, $request->validated())->fresh()->load(self::RELATIONS));
+    }
+
+    /**
+     * Suite d'une livraison échouée, choisie par le marchand : relivrer à une date, ou faire revenir le colis.
+     */
+    public function decision(Request $request, string $trackingCode, OrderWorkflow $workflow, OrderService $service): PublicOrderResource
+    {
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['redeliver', 'return'])],
+            'date' => ['required_if:decision,redeliver', 'nullable', 'date', 'after_or_equal:today'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ], [], ['decision' => 'décision', 'date' => 'date de livraison']);
+        $order = $this->find($request, $trackingCode);
+        if (! $order->needsDecision()) {
+            throw new BusinessRuleException('Aucune décision n\'est attendue pour cette course.', 'decision');
+        }
+        $this->channel($request);
+
+        if ($data['decision'] === 'redeliver') {
+            $workflow->transition($request->user(), $order, OrderStatus::Rescheduled, [
+                'rescheduled_to' => $data['date'], 'note' => $data['note'] ?? null,
+            ]);
+        } else {
+            Gate::authorize('requestReturn', $order);
+            $service->requestReturn($request->user(), $order, $data['note'] ?? null);
+        }
+
+        return PublicOrderResource::make($order->fresh()->load(self::RELATIONS));
+    }
+
+    /**
+     * Retour du colis demandé par le marchand (colis déjà ramassé : avant, il annule la course).
+     */
+    public function returnRequest(Request $request, string $trackingCode, OrderService $service): PublicOrderResource
+    {
+        $data = $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+        $order = $this->find($request, $trackingCode);
+        Gate::authorize('requestReturn', $order);
+        $this->channel($request);
+
+        $service->requestReturn($request->user(), $order, $data['note'] ?? null);
+
+        return PublicOrderResource::make($order->fresh()->load(self::RELATIONS));
+    }
+
+    /**
+     * Note du marchand pour l'agence et le livreur (« appeler avant », « portail bleu »…).
+     */
+    public function note(Request $request, string $trackingCode, OrderService $service): JsonResponse
+    {
+        $data = $request->validate(['note' => ['required', 'string', 'max:2000']], [], ['note' => 'note']);
+        $order = $this->find($request, $trackingCode);
+        Gate::authorize('addNote', $order);
+        $this->channel($request);
+
+        $service->addNote($request->user(), $order, $data['note']);
+
+        return response()->json(['data' => ['tracking_code' => $order->tracking_code, 'note' => $data['note']]], 201);
+    }
+
     public function summary(Request $request, OrderSummary $summary): JsonResponse
     {
         $request->validate([
@@ -168,6 +243,14 @@ class PublicApiController extends Controller
         $model = OrderAttachment::query()->findOrFail($attachment);
 
         return Storage::disk($model->disk)->response($model->path);
+    }
+
+    /**
+     * Application d'où vient l'action (« Jibiat Marchand », sinon « API ») : notée dans l'historique de la course.
+     */
+    private function channel(Request $request): void
+    {
+        Context::add('order_channel', strtolower((string) $request->header('X-Client-App')) === 'jibiat-marchand' ? 'Jibiat Marchand' : 'API');
     }
 
     private function query(Request $request): Builder
