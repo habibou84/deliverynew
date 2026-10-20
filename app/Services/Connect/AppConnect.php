@@ -55,7 +55,7 @@ class AppConnect
             return false;
         }
         // http seulement pour un poste de développement
-        if ($scheme === 'http' && ! in_array($host, ['localhost', '127.0.0.1'], true)) {
+        if ($scheme === 'http' && ! in_array($host, ['localhost', '127.0.0.1'], true) && ! str_ends_with($host, '.localhost')) {
             return false;
         }
 
