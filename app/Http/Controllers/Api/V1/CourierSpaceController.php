@@ -87,7 +87,7 @@ class CourierSpaceController extends Controller
 
     /**
      * Refus d'une mission, ou empêchement sur une mission acceptée pas encore commencée. Un ramassage du planning
-     * passe au remplaçant (ou à un autre livreur du planning) ; sinon il revient à l'équipe, prévenue.
+     * passe au remplaçant, une livraison automatique à un autre livreur ; sinon la course revient à l'équipe, prévenue.
      */
     public function refuse(Request $request, OrderAssignment $assignment, OrderDispatcher $dispatcher, AutoAssigner $auto): OrderAssignmentResource
     {
@@ -96,9 +96,12 @@ class CourierSpaceController extends Controller
 
         $assignment = $dispatcher->respond($request->user(), $assignment, false, $data['reason']);
 
-        if ($assignment->type === AssignmentType::Pickup) {
-            $auto->pickup($assignment->order, ($impediment ? 'empêchement de ' : 'refus de ').$request->user()->name);
-        }
+        $after = ($impediment ? 'empêchement de ' : 'refus de ').$request->user()->name;
+        match ($assignment->type) {
+            AssignmentType::Pickup => $auto->pickup($assignment->order, $after),
+            AssignmentType::Delivery => $auto->delivery($assignment->order, $after),
+            default => null,
+        };
 
         return OrderAssignmentResource::make($assignment);
     }

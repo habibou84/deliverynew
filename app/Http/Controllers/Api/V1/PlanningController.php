@@ -56,6 +56,7 @@ class PlanningController extends Controller
         return response()->json(['data' => [
             'date' => $date,
             'auto_pickup' => $company->auto_pickup ?? 'off',
+            'auto_delivery' => $company->auto_delivery ?? 'off',
             'automation' => $this->automation($company),
             'rules' => $rules,
             'absences' => $absences,

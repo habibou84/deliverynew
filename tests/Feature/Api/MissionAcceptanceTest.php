@@ -141,7 +141,7 @@ class MissionAcceptanceTest extends TestCase
         $this->assertSame($this->moussa->id, $planned->fresh()->pickup_courier_id);
         $this->assertSame($this->courierB->id, $manual->order->fresh()->pickup_courier_id);
         Notification::assertSentTo($this->dispatcher, OrderAlert::class, fn (OrderAlert $n) => $n->kind === 'courier_unreachable'
-            && str_contains($n->title, 'Awa Livreuse injoignable') && str_contains($n->body, 'Passées au remplaçant : Moussa Remplaçant (1)'));
+            && str_contains($n->title, 'Awa Livreuse injoignable') && str_contains($n->body, 'Confiées à un autre livreur : Moussa Remplaçant (1)'));
 
         // Une seule alerte
         $this->artisan('assignments:watch')->assertSuccessful();

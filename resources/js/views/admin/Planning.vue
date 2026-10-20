@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h1 class="text-xl font-bold">📅 Planning des livreurs</h1>
-        <p class="text-sm text-gray-600">Qui ramasse où et quand. Livreur absent ou en pause : son remplaçant prend le relais.</p>
+        <p class="text-sm text-gray-600">Qui ramasse et qui livre où et quand. Livreur absent ou en pause : son remplaçant prend le relais.</p>
       </div>
       <button class="btn-primary" @click="openRule()">+ Nouvelle règle</button>
     </div>
@@ -19,9 +19,10 @@
     <div v-else-if="board" :class="['card px-3 py-2 text-sm flex flex-wrap items-center gap-2', AUTO[board.auto_pickup].cls]">
       <span class="flex-1 min-w-0">
         {{ AUTO[board.auto_pickup].text }}
+        <template v-if="board.auto_delivery !== 'off'"> Livraison du jour même automatique {{ board.auto_delivery === 'on' ? 'active' : 'à l\'essai' }}.</template>
         <RouterLink v-if="auth.can('settings.manage')" to="/admin/reglages/courses" class="ml-1 font-medium underline">Régler</RouterLink>
       </span>
-      <button v-if="board.auto_pickup !== 'off'" class="btn-secondary" :disabled="pausing" @click="pause(true)">⏸ Suspendre l'automatisation</button>
+      <button v-if="board.auto_pickup !== 'off' || board.auto_delivery !== 'off'" class="btn-secondary" :disabled="pausing" @click="pause(true)">⏸ Suspendre l'automatisation</button>
     </div>
 
     <!-- Jour affiché -->
@@ -35,11 +36,11 @@
 
     <template v-if="board">
       <!-- Ce jour-là : qui couvre quoi -->
-      <section class="card p-4 space-y-3">
-        <h2 class="font-semibold">Ramassages ce jour-là</h2>
-        <p v-if="!todayRules.length" class="text-sm text-gray-500">Aucune règle ne s'applique ce jour-là.</p>
+      <section v-for="type in dayTypes" :key="type" class="card p-4 space-y-3">
+        <h2 class="font-semibold">{{ TYPES[type] }}s ce jour-là</h2>
+        <p v-if="!rulesOfDay(type).length" class="text-sm text-gray-500">Aucune règle ne s'applique ce jour-là.</p>
         <ul class="divide-y">
-          <li v-for="r in todayRules" :key="r.id" class="py-2 flex flex-wrap items-center justify-between gap-2">
+          <li v-for="r in rulesOfDay(type)" :key="r.id" class="py-2 flex flex-wrap items-center justify-between gap-2">
             <span class="min-w-0">
               <span class="block font-medium">{{ r.label.split(' · ')[0] }}</span>
               <span class="block text-xs text-gray-500">{{ r.when }}</span>
@@ -50,7 +51,7 @@
           </li>
         </ul>
 
-        <div v-if="board.gaps.length" class="rounded-lg bg-red-50 p-3 space-y-2">
+        <div v-if="type === 'pickup' && board.gaps.length" class="rounded-lg bg-red-50 p-3 space-y-2">
           <p class="text-sm font-semibold text-red-800">⚠️ Clients sans ramasseur ce jour-là</p>
           <div v-for="g in board.gaps" :key="g.zone?.id || 0" class="text-sm">
             <span class="font-medium">{{ g.zone?.name || 'Sans zone' }}</span>
@@ -110,6 +111,13 @@
 
     <Modal :open="form.open" :title="form.id ? 'Modifier la règle' : 'Nouvelle règle'" @close="form.open = false">
       <form class="space-y-4" @submit.prevent="saveRule">
+        <fieldset>
+          <legend class="label">Pour</legend>
+          <div class="flex gap-2">
+            <button v-for="(label, value) in TYPES" :key="value" type="button" :class="['rounded-full px-3 py-1 text-sm ring-1', form.type === value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" @click="setType(value)">{{ label }}s</button>
+          </div>
+          <p v-if="form.type === 'delivery'" class="text-xs text-gray-500 mt-1">Utilisé par la livraison du jour même automatique : il livre ces zones avant les autres livreurs.</p>
+        </fieldset>
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
             <label class="label" for="r-courier">Livreur</label>
@@ -129,7 +137,7 @@
 
         <fieldset class="space-y-2">
           <legend class="label">Où ?</legend>
-          <div class="flex gap-2">
+          <div v-if="form.type === 'pickup'" class="flex gap-2">
             <button v-for="t in TARGETS" :key="t.value" type="button" :class="['rounded-full px-3 py-1 text-sm ring-1', form.target === t.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" @click="form.target = t.value">{{ t.label }}</button>
           </div>
           <input v-model="form.search" class="input" :placeholder="form.target === 'zones' ? 'Chercher une zone…' : 'Chercher un client…'" aria-label="Chercher">
@@ -211,10 +219,12 @@ const zones = ref([])
 const merchants = ref([])
 const absence = reactive({ courier_id: null, starts_on: today, ends_on: today, reason: '' })
 
-const empty = () => ({ open: false, id: null, courier_id: null, backup_courier_id: null, target: 'zones', zone_ids: [], merchant_ids: [], when: 'always', days: [], starts_on: '', ends_on: '', note: '', is_active: true, search: '', error: '', saving: false })
+const empty = () => ({ open: false, id: null, type: 'pickup', courier_id: null, backup_courier_id: null, target: 'zones', zone_ids: [], merchant_ids: [], when: 'always', days: [], starts_on: '', ends_on: '', note: '', is_active: true, search: '', error: '', saving: false })
 const form = reactive(empty())
 
-const todayRules = computed(() => (board.value?.rules || []).filter((r) => r.applies && r.type === 'pickup'))
+const rulesOfDay = (type) => (board.value?.rules || []).filter((r) => r.applies && r.type === type)
+// Les livraisons n'apparaissent qu'une fois une règle de livraison créée
+const dayTypes = computed(() => ['pickup', ...((board.value?.rules || []).some((r) => r.type === 'delivery') ? ['delivery'] : [])])
 const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const options = computed(() => (form.target === 'zones' ? zones.value : merchants.value)
   .filter((o) => !form.search || norm(o.name).includes(norm(form.search))))
@@ -253,6 +263,7 @@ function openRule(rule = null) {
   const single = rule.starts_on && rule.starts_on === rule.ends_on
   Object.assign(form, {
     id: rule.id,
+    type: rule.type,
     courier_id: rule.courier.id,
     backup_courier_id: rule.backup?.id ?? null,
     target: rule.merchant_ids.length ? 'merchants' : 'zones',
@@ -267,11 +278,17 @@ function openRule(rule = null) {
   })
 }
 
+// Une livraison vise des zones (le client ne compte pas)
+function setType(type) {
+  form.type = type
+  if (type === 'delivery') form.target = 'zones'
+}
+
 async function saveRule() {
   form.saving = true
   form.error = ''
   const payload = {
-    type: 'pickup',
+    type: form.type,
     courier_id: form.courier_id,
     backup_courier_id: form.backup_courier_id,
     zone_ids: form.target === 'zones' ? form.zone_ids : null,
