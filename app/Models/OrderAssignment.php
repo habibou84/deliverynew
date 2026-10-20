@@ -23,6 +23,8 @@ class OrderAssignment extends Model
         'started_at',
         'completed_at',
         'refusal_reason',
+        // planning ou auto : mission confiée sans le dispatch (null : à la main)
+        'source',
     ];
 
     protected function casts(): array
@@ -35,6 +37,8 @@ class OrderAssignment extends Model
             'accepted_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'unreachable_at' => 'datetime',
+            'late_alerted_at' => 'datetime',
         ];
     }
 

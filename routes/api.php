@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\ParcelController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PayPlanController;
+use App\Http\Controllers\Api\V1\PlanningController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductPhotoController;
@@ -285,6 +286,17 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('geo/link', [MerchantLocationController::class, 'resolveLink'])->middleware('throttle:20,1')->name('geo.link');
         Route::get('merchants/{merchant}/notifications', [MerchantNotificationController::class, 'show'])->name('merchants.notifications');
         Route::put('merchants/{merchant}/notifications', [MerchantNotificationController::class, 'update'])->name('merchants.notifications.update');
+
+        // Planning des livreurs : qui ramasse ou livre où et quand, absences
+        Route::middleware('can:orders.dispatch')->controller(PlanningController::class)->group(function () {
+            Route::get('planning', 'show')->name('planning.show');
+            Route::post('planning/pause', 'pause')->name('planning.pause');
+            Route::post('planning/rules', 'storeRule')->name('planning.rules.store');
+            Route::put('planning/rules/{rule}', 'updateRule')->name('planning.rules.update');
+            Route::delete('planning/rules/{rule}', 'destroyRule')->name('planning.rules.destroy');
+            Route::post('planning/absences', 'storeAbsence')->name('planning.absences.store');
+            Route::delete('planning/absences/{absence}', 'destroyAbsence')->name('planning.absences.destroy');
+        });
 
         // Livreurs (gestion par le personnel)
         Route::get('couriers/map', [CourierController::class, 'map'])->middleware('can:orders.dispatch')->name('couriers.map');

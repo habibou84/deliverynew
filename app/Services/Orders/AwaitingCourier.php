@@ -113,7 +113,7 @@ class AwaitingCourier
             'threshold_minutes' => $threshold,
             // Heure limite du jour passée : la course risque de ne pas partir aujourd'hui
             'after_cutoff' => $this->cutoffPassed($company),
-            'cutoff_time' => $company->daily_cutoff_time,
+            'cutoff_time' => $company->cutoffFor(),
         ];
     }
 
@@ -122,11 +122,11 @@ class AwaitingCourier
      */
     public function cutoffPassed(Company $company): bool
     {
-        if (! $company->daily_cutoff_time) {
+        if (! $company->cutoffFor()) {
             return false;
         }
 
-        return now($company->timezone ?: config('app.timezone'))->format('H:i') >= $company->daily_cutoff_time;
+        return now($company->timezone ?: config('app.timezone'))->format('H:i') >= $company->cutoffFor();
     }
 
     /**
@@ -138,14 +138,14 @@ class AwaitingCourier
      */
     public function cutoff(Company $company): ?array
     {
-        if (! $company->daily_cutoff_time) {
+        if (! $company->cutoffFor()) {
             return null;
         }
 
         [$today, $later] = $this->splitByDeliveryDay($company, $this->waiting($company));
 
         return [
-            'time' => $company->daily_cutoff_time,
+            'time' => $company->cutoffFor(),
             'passed' => $this->cutoffPassed($company),
             'count' => $today->count(),
             'later' => $later->count(),
@@ -257,7 +257,7 @@ class AwaitingCourier
     {
         $sent = 0;
 
-        Company::query()->where('status', 'active')->whereNotNull('daily_cutoff_time')
+        Company::query()->where('status', 'active')->where(fn ($q) => $q->whereNotNull('daily_cutoff_time')->orWhereNotNull('cutoff_by_day'))
             ->each(function (Company $company) use (&$sent) {
                 $today = now($company->timezone ?: config('app.timezone'))->toDateString();
                 if (! $this->cutoffPassed($company) || $company->cutoff_alerted_on?->toDateString() === $today) {
@@ -283,7 +283,7 @@ class AwaitingCourier
                 Notification::send($users, new OrderAlert(
                     $waiting->first()['order'],
                     'unassigned_cutoff',
-                    "⏰ {$company->daily_cutoff_time} passées : ".($count > 1 ? "{$count} courses du jour" : '1 course du jour').' toujours sans livreur',
+                    "⏰ {$company->cutoffFor()} passées : ".($count > 1 ? "{$count} courses du jour" : '1 course du jour').' toujours sans livreur',
                     collect(["{$pickup} à ramasser" => $pickup, "{$delivery} à livrer" => $delivery])->filter()->keys()->implode(' · ')
                         ." : {$codes}. Elles risquent de ne pas être livrées aujourd'hui."
                         // Ramassages de courses prévues un autre jour : à faire, mais sans retard de livraison

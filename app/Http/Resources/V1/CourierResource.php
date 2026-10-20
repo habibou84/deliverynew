@@ -28,10 +28,17 @@ class CourierResource extends JsonResource
                 'personal' => $this->payPlan->courier_id !== null,
             ] : null),
             'is_available' => $this->is_available,
+            // Exception à la règle d'acceptation de l'entreprise (null : celle de l'entreprise)
+            'mission_acceptance' => $this->mission_acceptance,
             'current_lat' => $this->current_lat,
             'current_lng' => $this->current_lng,
             'last_location_at' => $this->last_location_at,
-            'zones' => ZoneResource::collection($this->whenLoaded('zones')),
+            // Zones principales ; les zones de secours à part
+            'zones' => ZoneResource::collection($this->whenLoaded('zones', fn () => $this->zones->reject(fn ($z) => (bool) $z->pivot?->is_backup)->values())),
+            'backup_zones' => ZoneResource::collection($this->whenLoaded('zones', fn () => $this->zones->filter(fn ($z) => (bool) $z->pivot?->is_backup)->values())),
+            'max_parcels' => $this->max_parcels,
+            'max_cash' => $this->max_cash,
+            'shift_ends_at' => $this->shift_ends_at,
             'active_assignments_count' => $this->whenCounted('activeAssignments'),
             'notes' => $this->notes,
         ];

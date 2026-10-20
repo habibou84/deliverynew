@@ -79,7 +79,7 @@ class DeliveryDay
             'closed' => $reason !== null,
             'reason' => $reason,
             'message' => $reason ? $this->reasonText($company, $reason) : null,
-            'cutoff_time' => $company->daily_cutoff_time,
+            'cutoff_time' => $company->cutoffFor(),
             'closed_at' => $reason === 'manual' ? $company->deliveries_closed_at?->toIso8601String() : null,
             'today' => $this->today($company)->toDateString(),
             'next_day' => $this->nextDay($company)->toDateString(),
@@ -92,7 +92,7 @@ class DeliveryDay
     public function reasonText(Company $company, string $reason): string
     {
         return $reason === 'cutoff'
-            ? "livraisons du jour closes depuis {$company->daily_cutoff_time}"
+            ? "livraisons du jour closes depuis {$company->cutoffFor()}"
             : 'livraisons du jour fermées par l\'agence';
     }
 

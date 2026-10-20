@@ -25,6 +25,16 @@
             une alerte (une fois par jour). En validation avec règles, les nouvelles courses du jour arrivées après cette heure
             sont validées pour le lendemain.
           </MoreHelp>
+          <details class="mt-2" :open="Object.keys(form.cutoff_by_day || {}).some((d) => form.cutoff_by_day[d])">
+            <summary class="text-sm text-blue-600 cursor-pointer">Heure limite différente certains jours</summary>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+              <div v-for="(day, i) in WEEKDAYS" :key="day">
+                <label class="label" :for="`cutoff-${i + 1}`">{{ day }}</label>
+                <input :id="`cutoff-${i + 1}`" v-model="form.cutoff_by_day[i + 1]" type="time" class="input w-full">
+              </div>
+            </div>
+            <p class="text-xs text-gray-500 mt-1">Un jour laissé vide suit l'heure limite commune.</p>
+          </details>
         </div>
         <div>
           <label class="label" for="attempts">Nombre maximal de tentatives de livraison</label>
@@ -66,6 +76,82 @@
         </div>
       </section>
 
+      <section class="card p-4 space-y-3">
+        <h2 class="font-semibold">Ramassage automatique</h2>
+        <p class="text-sm text-gray-600">
+          Les ramassages des courses validées vont au livreur prévu par le
+          <RouterLink to="/admin/planning" class="text-blue-600 underline">planning des livreurs</RouterLink>
+          (ou à son remplaçant). Sans règle pour la course, rien ne change : l'équipe la confie.
+        </p>
+        <div class="grid sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Ramassage automatique">
+          <label v-for="m in AUTO_MODES" :key="m.value" :class="['rounded-lg border p-3 text-sm cursor-pointer', form.auto_pickup === m.value ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200']">
+            <input v-model="form.auto_pickup" type="radio" :value="m.value" class="mr-1">
+            <strong>{{ m.label }}</strong>
+            <span class="block text-xs text-gray-500 mt-1">{{ m.help }}</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card p-4 space-y-3">
+        <h2 class="font-semibold">Livraison du jour même automatique</h2>
+        <p class="text-sm text-gray-600">
+          Un colis récupéré ou au dépôt, à livrer aujourd'hui avant l'heure limite, part seul au livreur qui convient :
+          celui qui a déjà le colis, puis le planning des livraisons, puis la zone principale avant la zone de secours,
+          celui qui livre déjà dans le secteur, le moins chargé. Zones, capacité et fin de service se règlent sur la fiche de chaque livreur.
+        </p>
+        <div class="grid sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Livraison automatique">
+          <label v-for="m in DELIVERY_MODES" :key="m.value" :class="['rounded-lg border p-3 text-sm cursor-pointer', form.auto_delivery === m.value ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200']">
+            <input v-model="form.auto_delivery" type="radio" :value="m.value" class="mr-1">
+            <strong>{{ m.label }}</strong>
+            <span class="block text-xs text-gray-500 mt-1">{{ m.help }}</span>
+          </label>
+        </div>
+        <div v-if="form.auto_delivery !== 'off'" class="space-y-3">
+          <div>
+            <label class="label" for="max-cod">Montant à encaisser au plus</label>
+            <input id="max-cod" v-model.number="form.auto_delivery_max_cod" type="number" min="0" step="500" class="input w-40" placeholder="Sans plafond">
+            <p class="text-xs text-gray-500 mt-1">Au-dessus, l'équipe choisit elle-même le livreur. Vide = sans plafond.</p>
+          </div>
+          <label class="flex items-start gap-2 text-sm">
+            <input v-model="form.same_courier_delivery" type="checkbox" class="mt-1">
+            <span>Le livreur qui a fait le ramassage livre aussi, s'il dessert la zone et a de la place.</span>
+          </label>
+          <p class="text-xs text-gray-500">
+            Pas de livraison automatique pour une expédition, un téléphone à vérifier, un retour demandé ou des tentatives épuisées.
+          </p>
+        </div>
+      </section>
+
+      <section class="card p-4 space-y-3">
+        <h2 class="font-semibold">Acceptation des missions</h2>
+        <p class="text-sm text-gray-600">
+          Faut-il que le livreur accepte chaque mission ? Les missions du planning sont toujours acceptées d'office.
+          Une règle différente peut être donnée à un livreur depuis sa fiche.
+        </p>
+        <div class="grid sm:grid-cols-3 gap-2" role="radiogroup" aria-label="Acceptation des missions">
+          <label v-for="m in ACCEPT_MODES" :key="m.value" :class="['rounded-lg border p-3 text-sm cursor-pointer', form.mission_acceptance === m.value ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200']">
+            <input v-model="form.mission_acceptance" type="radio" :value="m.value" class="mr-1">
+            <strong>{{ m.label }}</strong>
+            <span class="block text-xs text-gray-500 mt-1">{{ m.help }}</span>
+          </label>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="label" for="unreachable">Livreur injoignable après (minutes)</label>
+            <input id="unreachable" v-model.number="form.unreachable_minutes" type="number" min="0" max="240" class="input w-32">
+            <p class="text-xs text-gray-500 mt-1">Sans aucun signe de son application, ses ramassages du planning pas encore commencés passent à son remplaçant, et l'équipe est prévenue. 0 = jamais.</p>
+          </div>
+          <div>
+            <label class="label" for="late-pickup">Ramassage pas commencé : alerte (minutes avant l'heure limite)</label>
+            <input id="late-pickup" v-model.number="form.late_pickup_alert_minutes" type="number" min="0" max="600" class="input w-32">
+            <p class="text-xs text-gray-500 mt-1">
+              L'équipe est prévenue des ramassages du jour pas encore commencés ; rien n'est retiré au livreur. 0 = jamais.
+              <span v-if="!form.daily_cutoff_time" class="text-amber-700">Indiquez d'abord l'heure limite du jour.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
       <SaveBar :dirty="dirty" :saving="saving" :error="error" @save="save" @reset="reset" />
     </template>
   </SettingsPage>
@@ -76,9 +162,11 @@ import SettingsPage from '../../../components/settings/SettingsPage.vue'
 import SaveBar from '../../../components/settings/SaveBar.vue'
 import MoreHelp from '../../../components/settings/MoreHelp.vue'
 import { useCompanySettings } from '../../../composables/useCompanySettings'
-import { CUSTODY_MODES, VALIDATION_MODES } from './options'
+import { ACCEPT_MODES, AUTO_MODES, CUSTODY_MODES, DELIVERY_MODES, VALIDATION_MODES, WEEKDAYS } from './options'
 
 const { form, dirty, saving, error, save, reset } = useCompanySettings([
-  'validation_mode', 'daily_cutoff_time', 'default_max_attempts', 'require_delivery_code', 'offline_courier_actions', 'pickup_mission_custody', 'depot_closes_at',
+  'validation_mode', 'daily_cutoff_time', 'default_max_attempts', 'require_delivery_code', 'offline_courier_actions', 'pickup_mission_custody', 'depot_closes_at', 'auto_pickup',
+  'mission_acceptance', 'unreachable_minutes', 'late_pickup_alert_minutes',
+  'auto_delivery', 'auto_delivery_max_cod', 'same_courier_delivery', 'cutoff_by_day',
 ])
 </script>

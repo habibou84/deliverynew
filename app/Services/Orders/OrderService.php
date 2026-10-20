@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\Recipient;
 use App\Models\User;
 use App\Models\Zone;
+use App\Services\Assignment\AutoAssigner;
 use App\Services\Platform\Billing;
 use App\Services\Pricing\PricingService;
 use App\Services\Stock\StockKeeper;
@@ -47,6 +48,7 @@ class OrderService
         private readonly StockKeeper $stock,
         private readonly PickupGroups $pickups,
         private readonly DeliveryDay $deliveryDay,
+        private readonly AutoAssigner $autoAssigner,
     ) {}
 
     /**
@@ -163,8 +165,8 @@ class OrderService
                     'meta' => $postponed ? ['postponed' => $postponed] : null,
                 ]);
 
-                // Livreur déjà prévu chez ce client : le colis lui est ajouté
-                if ($this->pickups->attachToRunningPickup($order)) {
+                // Livreur déjà prévu chez ce client : le colis lui est ajouté ; sinon le planning des livreurs
+                if ($this->pickups->attachToRunningPickup($order) || $this->autoAssigner->pickup($order)) {
                     $order = $order->fresh();
                 }
             }

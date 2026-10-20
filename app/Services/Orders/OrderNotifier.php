@@ -39,8 +39,9 @@ class OrderNotifier
             case OrderEventType::Assigned:
                 $courierUser = User::find($event->meta['courier_user_id'] ?? null);
                 if ($courierUser) {
+                    // Acceptée d'office : le livreur n'a rien à répondre, il y va
                     $this->send(collect([$courierUser]), $actor, $order, 'new_mission',
-                        'Nouvelle mission : '.($event->meta['type_label'] ?? ''), "{$code} · {$merchantName}",
+                        'Nouvelle mission : '.($event->meta['type_label'] ?? ''), "{$code} · {$merchantName}".(! empty($event->meta['accepted']) ? ' · confiée d\'office' : ''),
                         extra: ['assignment_id' => $event->assignment_id]);
                 }
                 break;
@@ -55,7 +56,9 @@ class OrderNotifier
                 break;
 
             case OrderEventType::AssignmentRefused:
-                $toStaff = ['mission_refused', "Mission refusée {$code}", ($event->actor_name ?? 'Le livreur').' a refusé la mission.'.$note];
+                $toStaff = ! empty($event->meta['impediment'])
+                    ? ['mission_refused', "Empêchement sur {$code}", ($event->actor_name ?? 'Le livreur').' ne peut pas faire la mission.'.$note]
+                    : ['mission_refused', "Mission refusée {$code}", ($event->actor_name ?? 'Le livreur').' a refusé la mission.'.$note];
                 break;
 
             case OrderEventType::Note:

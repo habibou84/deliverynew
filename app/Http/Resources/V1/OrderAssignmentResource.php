@@ -29,6 +29,9 @@ class OrderAssignmentResource extends JsonResource
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,
             'refusal_reason' => $this->refusal_reason,
+            // planning : confiée automatiquement (acceptée d'office)
+            'source' => $this->source,
+            'can_report_impediment' => $this->when($this->resource->hasAttribute('can_report_impediment'), fn () => $this->resource->getAttribute('can_report_impediment')),
             'unread_messages' => $this->when($this->resource->getAttribute('unread_messages') !== null, fn () => $this->resource->getAttribute('unread_messages')),
             // Espace livreur : gain attendu (mission en cours) ou acquis (mission terminée)
             'gain' => $this->when($this->resource->hasAttribute('gain'), fn () => $this->resource->getAttribute('gain')),

@@ -67,7 +67,8 @@ function tone(ctx, frequency, start, duration, volume) {
 }
 
 /**
- * « alert » (problème : 3 bips aigus, insistants) ou « note » (carillon doux à deux tons).
+ * « alert » (problème : 3 bips aigus, insistants), « note » (carillon doux à deux tons)
+ * ou « mission » (nouvelle mission du livreur : quatre notes montantes, jouées deux fois, à reconnaître sans regarder).
  */
 export function playAlertSound(severity = 'note', force = false) {
   if (!alertSound.enabled && !force) return
@@ -78,6 +79,8 @@ export function playAlertSound(severity = 'note', force = false) {
 
   if (severity === 'alert') {
     ;[0, 0.22, 0.44].forEach((t) => tone(ctx, 988, t, 0.16, v))
+  } else if (severity === 'mission') {
+    ;[0, 0.9].forEach((start) => [523, 659, 784, 1047].forEach((f, i) => tone(ctx, f, start + i * 0.14, 0.2, v)))
   } else {
     tone(ctx, 659, 0, 0.25, v * 0.8)
     tone(ctx, 880, 0.18, 0.35, v * 0.8)
