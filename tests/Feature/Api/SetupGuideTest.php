@@ -70,6 +70,11 @@ class SetupGuideTest extends TestCase
         $this->postJson('/api/v1/setup/skip', ['step' => 'pricing', 'skipped' => true])->assertJsonValidationErrors('step');
         $this->postJson('/api/v1/setup/skip', ['step' => 'messages', 'skipped' => false])->assertOk()->assertJsonPath('data.steps.8.skipped', false);
 
+        // Ouverture à la première connexion : une seule fois par administrateur
+        $this->getJson('/api/v1/setup')->assertJsonPath('data.seen', false);
+        $this->postJson('/api/v1/setup/seen')->assertNoContent();
+        $this->getJson('/api/v1/setup')->assertJsonPath('data.seen', true);
+
         Sanctum::actingAs($this->dispatcher);
         $this->getJson('/api/v1/setup')->assertForbidden();
     }

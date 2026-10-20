@@ -231,6 +231,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             // Parcours de mise en route de l'administrateur
             Route::get('setup', [SetupGuideController::class, 'show'])->name('setup.show');
             Route::post('setup/skip', [SetupGuideController::class, 'skip'])->name('setup.skip');
+            Route::post('setup/seen', [SetupGuideController::class, 'seen'])->name('setup.seen');
             Route::post('zones', [ZoneController::class, 'store'])->name('zones.store');
             Route::patch('zones/{zone}', [ZoneController::class, 'update'])->name('zones.update');
             Route::delete('zones/{zone}', [ZoneController::class, 'destroy'])->name('zones.destroy');

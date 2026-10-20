@@ -102,5 +102,9 @@ async function skip(step, skipped) {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  // Parcours ouvert : il ne s'ouvrira plus tout seul à la connexion
+  if (guide.value && !guide.value.seen) http.post('/setup/seen').catch(() => {})
+})
 </script>

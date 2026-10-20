@@ -17,7 +17,18 @@ class SetupGuideController extends Controller
 
     public function show(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->guide->for($request->user()->company)]);
+        return response()->json(['data' => [
+            ...$this->guide->for($request->user()->company),
+            // Jamais ouvert par cet administrateur : il s'ouvre tout seul à sa connexion
+            'seen' => $request->user()->setup_seen_at !== null,
+        ]]);
+    }
+
+    public function seen(Request $request): JsonResponse
+    {
+        $request->user()->forceFill(['setup_seen_at' => $request->user()->setup_seen_at ?? now()])->save();
+
+        return response()->json(null, 204);
     }
 
     /**
