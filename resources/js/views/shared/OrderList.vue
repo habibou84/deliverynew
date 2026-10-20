@@ -10,6 +10,26 @@
 
     <DeliveryDayBar v-if="isStaff && auth.can('orders.dispatch')" @changed="load(1); dispatchCounts.fetchCounts().catch(() => {})" />
 
+    <!-- Jour affiché : aujourd'hui par défaut (retards compris), gardé d'un onglet à l'autre -->
+    <div v-if="isStaff" class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Jour affiché">
+      <span class="text-gray-600">📅 Jour :</span>
+      <button
+        v-for="d in DAY_CHOICES" :key="d.label" type="button"
+        :class="['rounded-full px-3 py-1 ring-1', filters.day === d.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
+        :aria-pressed="filters.day === d.value"
+        @click="setDay(d.value)"
+      >
+        {{ d.label }}<span v-if="d.count" class="ml-1 opacity-75">({{ d.count }})</span>
+      </button>
+      <input
+        type="date" class="input w-auto py-1"
+        :value="filters.day && filters.day !== todayIso && filters.day !== tomorrowIso ? filters.day : ''"
+        aria-label="Autre jour" title="Autre jour"
+        @change="$event.target.value && setDay($event.target.value)"
+      >
+      <span v-if="filters.day" class="text-gray-500">· courses du jour et retards encore en cours</span>
+    </div>
+
     <!-- Files d'attente du dispatch -->
     <div v-if="isStaff" class="flex gap-2 overflow-x-auto pb-1">
       <button
@@ -41,8 +61,23 @@
       <span class="text-gray-500">· de la plus ancienne attente à la plus récente</span>
     </div>
 
+    <!-- Jour choisi : courses prévues plus tard hors de la file, à ajouter pour un ramassage en avance -->
+    <p v-if="laterCount || (filters.include_later && LATER_QUEUES[filters.queue])" class="card px-3 py-2 text-sm bg-amber-50 border-amber-200 text-amber-900">
+      <template v-if="!filters.include_later">
+        + {{ laterCount }} {{ LATER_QUEUES[filters.queue] }} pour une livraison après le {{ date(filters.day) }}
+        · <button type="button" class="font-medium underline" @click="toggleLater">Afficher</button>
+      </template>
+      <template v-else>
+        Courses prévues plus tard affichées (étiquette 📅)
+        · <button type="button" class="font-medium underline" @click="toggleLater">Masquer</button>
+      </template>
+    </p>
+    <p v-else-if="filters.day && filters.queue && !isWorkQueue && filters.queue !== 'scheduled'" class="text-xs text-gray-500">
+      Cette file montre toutes les dates : chaque cas reste visible jusqu'à ce qu'il soit réglé.
+    </p>
+
     <!-- Ramassages regroupés par client -->
-    <PickupGroupsPanel v-if="byClient" :couriers="couriers" @assigned="dispatchCounts.fetchCounts().catch(() => {})" />
+    <PickupGroupsPanel v-if="byClient" :couriers="couriers" :day="filters.day" :include-later="filters.include_later" @assigned="dispatchCounts.fetchCounts().catch(() => {})" />
 
     <template v-else>
       <div :class="['card p-3 grid grid-cols-2 gap-2', isStaff ? 'md:grid-cols-7' : 'md:grid-cols-6']">
@@ -56,12 +91,12 @@
           <option v-for="m in merchants" :key="m.id" :value="String(m.id)">{{ m.business_name }}</option>
         </select>
         <!-- Dates : jour de livraison prévu (par défaut) ou jour de création ; l'e-commerçant voit toujours le jour de livraison -->
-        <select v-if="isStaff" v-model="filters.date_basis" class="input" aria-label="Dates selon" title="Dates : jour de livraison prévu ou jour de création" @change="filters.from || filters.to ? load(1) : null">
+        <select v-if="isStaff" v-model="filters.date_basis" class="input" aria-label="Dates selon" title="Dates : jour de livraison prévu ou jour de création" @change="filters.from || filters.to ? onPeriod() : null">
           <option value="delivery">📅 Livraison</option>
           <option value="created">🆕 Création</option>
         </select>
-        <input v-model="filters.from" type="date" class="input" :aria-label="filters.date_basis === 'created' ? 'Créées à partir du' : 'À livrer à partir du'" :title="filters.date_basis === 'created' ? 'Créées à partir du' : 'À livrer à partir du'" @change="load(1)">
-        <input v-model="filters.to" type="date" class="input" :aria-label="filters.date_basis === 'created' ? 'Créées jusqu\'au' : 'À livrer jusqu\'au'" :title="filters.date_basis === 'created' ? 'Créées jusqu\'au' : 'À livrer jusqu\'au'" @change="load(1)">
+        <input v-model="filters.from" type="date" class="input" :aria-label="filters.date_basis === 'created' ? 'Créées à partir du' : 'À livrer à partir du'" :title="filters.date_basis === 'created' ? 'Créées à partir du' : 'À livrer à partir du'" @change="onPeriod">
+        <input v-model="filters.to" type="date" class="input" :aria-label="filters.date_basis === 'created' ? 'Créées jusqu\'au' : 'À livrer jusqu\'au'" :title="filters.date_basis === 'created' ? 'Créées jusqu\'au' : 'À livrer jusqu\'au'" @change="onPeriod">
       </div>
 
       <p v-if="filters.courier_id" class="text-sm">
@@ -129,6 +164,9 @@
               <td class="p-2 whitespace-nowrap">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}</td>
               <td class="p-2">
                 <StatusBadge :status="o.status" :label="o.status_label" />
+                <div v-if="isLate(o)" class="mt-1 inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800 whitespace-nowrap">
+                  ⏳ En retard · prévue le {{ date(deliveryDay(o)) }}
+                </div>
                 <div
                   v-if="o.awaiting_courier"
                   :class="['mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', o.awaiting_courier.late ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-800']"
@@ -176,7 +214,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
@@ -196,6 +234,23 @@ const router = useRouter()
 const route = useRoute()
 
 const isStaff = computed(() => !auth.user?.merchant_id)
+
+const isoDay = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+const todayIso = isoDay(new Date())
+const tomorrowIso = isoDay(new Date(Date.now() + 86400000))
+// Jour de livraison : la date prévue, sinon le jour de création
+const deliveryDay = (o) => (o.delivery.scheduled_date || o.created_at || '').slice(0, 10)
+const FINAL = ['delivered', 'cancelled', 'rejected', 'returned', 'lost']
+// Jour affiché par l'agence : aujourd'hui par défaut, « all » dans l'adresse pour toutes les dates
+const initialDay = () => {
+  if (!auth.user || auth.user.merchant_id) return ''
+  const q = route.query.day
+  if (q === 'all') return ''
+  return /^\d{4}-\d{2}-\d{2}$/.test(q || '') ? q : todayIso
+}
+// Files de travail (limitées au jour et aux retards) ; on peut y ajouter les courses prévues plus tard
+const WORK_QUEUES = ['to_pickup', 'by_client', 'to_prepare', 'to_deliver', 'unassigned']
+const LATER_QUEUES = { to_pickup: 'à ramasser', by_client: 'à ramasser', to_prepare: 'à préparer', unassigned: 'à ramasser' }
 
 const queues = [
   { value: '', label: 'Toutes' },
@@ -226,6 +281,10 @@ const filters = reactive({
   awaiting: route.query.awaiting || '',
   from: '',
   to: '',
+  // Jour de travail (AAAA-MM-JJ) ; vide : toutes les dates
+  day: initialDay(),
+  // Files de travail : ajouter les courses à livrer après ce jour
+  include_later: false,
   // Période selon le jour de livraison prévu (sinon le jour de création) ou selon le jour de création
   date_basis: route.query.date_basis === 'created' ? 'created' : 'delivery',
 })
@@ -259,10 +318,33 @@ const allSelected = computed(() => orders.value.length > 0 && selected.value.len
 const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
 const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_deliver: 'to_deliver', unassigned: 'unassigned' }
-const tabCount = (queue) => (isDispatch.value && COUNTED[queue] ? dispatchCounts.counts[COUNTED[queue]] : 0)
-const tabLate = (queue) => (isDispatch.value
-  ? { to_pickup: dispatchCounts.counts.late.pickup, to_deliver: dispatchCounts.counts.late.delivery, unassigned: dispatchCounts.counts.late.total }[queue] || 0
-  : 0)
+// Jour choisi : compteurs de ce jour (retards compris) ; sinon compteurs généraux
+const DAY_COUNTED = { '': 'all', to_confirm: 'to_confirm', to_pickup: 'to_pickup', by_client: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned' }
+const dayCounts = computed(() => (filters.day && dispatchCounts.dayCounts?.date === filters.day ? dispatchCounts.dayCounts : null))
+const tabCount = (queue) => {
+  if (!isDispatch.value) return 0
+  if (dayCounts.value) return dayCounts.value[DAY_COUNTED[queue]] || 0
+  return COUNTED[queue] ? dispatchCounts.counts[COUNTED[queue]] : 0
+}
+// Courses prévues après le jour choisi, hors de la file tant qu'on ne les demande pas
+const laterCount = computed(() => {
+  if (!filters.day || !LATER_QUEUES[filters.queue]) return 0
+  return dayCounts.value?.later?.[filters.queue === 'by_client' ? 'to_pickup' : filters.queue] || 0
+})
+const isWorkQueue = computed(() => WORK_QUEUES.includes(filters.queue))
+// En retard : le jour de livraison est passé et la course est toujours en cours
+const isLate = (o) => !!filters.day && !FINAL.includes(o.status) && deliveryDay(o) < (filters.day < todayIso ? filters.day : todayIso)
+const DAY_CHOICES = computed(() => [
+  { value: todayIso, label: 'Aujourd\'hui', count: dispatchCounts.dayCounts?.days?.today },
+  { value: tomorrowIso, label: 'Demain', count: dispatchCounts.dayCounts?.days?.tomorrow },
+  { value: '', label: 'Toutes les dates' },
+])
+const tabLate = (queue) => {
+  if (!isDispatch.value) return 0
+  const late = { to_pickup: dispatchCounts.counts.late.pickup, to_deliver: dispatchCounts.counts.late.delivery, unassigned: dispatchCounts.counts.late.total }[queue] || 0
+  // Jour choisi : pas plus que la file n'en montre (les autres sont dans « prévues plus tard »)
+  return dayCounts.value ? Math.min(late, tabCount(queue)) : late
+}
 
 const duration = waitDuration
 
@@ -279,7 +361,7 @@ async function load(page = 1) {
   loading.value = orders.value.length === 0
   const params = { page }
   for (const [k, v] of Object.entries(filters)) {
-    if (v) params[k] = k === 'status' ? [v] : v
+    if (v) params[k] = k === 'status' ? [v] : (k === 'include_later' ? 1 : v)
   }
   const { data } = await http.get('/orders', { params })
   orders.value = data.data
@@ -295,18 +377,54 @@ function debouncedLoad() {
   timer = setTimeout(() => load(1), 300)
 }
 
+// Adresse de la page : file, étape attendue et jour (gardé d'un onglet à l'autre)
+function syncQuery() {
+  const query = {}
+  if (filters.queue) query.queue = filters.queue
+  if (filters.queue === 'unassigned' && filters.awaiting) query.awaiting = filters.awaiting
+  if (isStaff.value && filters.day !== todayIso) query.day = filters.day || 'all'
+  router.replace({ query })
+}
+
 function setQueue(value) {
   filters.queue = value
   filters.awaiting = ''
+  filters.include_later = false
   bulk.type = { to_deliver: 'delivery', incidents: 'delivery', to_return: 'return', unassigned: 'auto' }[value] || 'pickup'
-  router.replace({ query: value ? { queue: value } : {} })
+  syncQuery()
   load(1)
 }
 
 function setAwaiting(value) {
   filters.awaiting = value
   bulk.type = value || 'auto'
-  router.replace({ query: { queue: 'unassigned', ...(value ? { awaiting: value } : {}) } })
+  syncQuery()
+  load(1)
+}
+
+// Jour choisi : remplace la période ; les courses prévues plus tard redeviennent masquées
+function setDay(value) {
+  filters.day = value
+  filters.from = ''
+  filters.to = ''
+  filters.include_later = false
+  dispatchCounts.day = value || null
+  syncQuery()
+  load(1)
+}
+
+// Période choisie : elle remplace le jour
+function onPeriod() {
+  if (filters.day) {
+    filters.day = ''
+    dispatchCounts.day = null
+    syncQuery()
+  }
+  load(1)
+}
+
+function toggleLater() {
+  filters.include_later = !filters.include_later
   load(1)
 }
 
@@ -316,7 +434,6 @@ function toggleAll(e) {
 
 // Suite à donner à un colis non livré
 const deciding = ref(null)
-const todayIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 // « Décider » seulement si une décision est attendue (même règle que la file « À décider ») ;
 // un report sans livreur reparti reste modifiable
 const canDecide = (o) => auth.can('orders.dispatch') && o.needs_decision
@@ -414,6 +531,9 @@ watch(() => route.query.search, (value) => {
   load(1)
 })
 
+// Ailleurs (menu, tableau de bord) : compteurs généraux seulement
+onUnmounted(() => { dispatchCounts.day = null })
+
 // Rafraîchissement temps réel
 watch(orderChanges, async () => {
   await load(meta.value?.current_page || 1)
@@ -422,6 +542,7 @@ watch(orderChanges, async () => {
 })
 
 onMounted(async () => {
+  dispatchCounts.day = filters.day || null
   await load()
   if (isStaff.value) {
     const empty = { data: { data: [] } }

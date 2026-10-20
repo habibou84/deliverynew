@@ -506,6 +506,16 @@ dès sa validation, mais sa livraison ne compte qu'à partir de ce jour (colis r
 puis « À livrer » le jour venu). Les commandes d'entrepôt ne demandent pas de ramassage ; un report qui a déjà son
 livreur de livraison n'est pas compté.
 
+**Jour affiché** (liste des courses de l'agence) : la liste s'ouvre sur **aujourd'hui** (Aujourd'hui, Demain, Toutes les
+dates ou un autre jour, gardé d'un onglet à l'autre ; `?day=` dans l'adresse). « Toutes » montre les courses à livrer ce
+jour-là et les **retards** encore en cours (pastille « ⏳ En retard », en tête). Les files de travail (À ramasser,
+Ramassages par client, À préparer, À livrer, Sans livreur) ne montrent que ce qui est dû ce jour-là, retards compris ;
+les courses à livrer plus tard sont signalées à part (« + 4 à ramasser pour une livraison après le … · Afficher ») et
+peuvent être prises en avance, aussi lot par lot dans « Ramassages par client ». À valider, À décider, Incidents,
+À retourner et Codes à vérifier restent complètes. Une période (dates du filtre) remplace le jour. API :
+`GET /orders?day=AAAA-MM-JJ&include_later=1`, `GET /orders/counts?day=` (→ `day` : compteurs du jour, `later`, `days`),
+`GET /orders/pickup-groups?day=` (colis `later` et `later_count`). Les alertes et le tableau de bord ne changent pas.
+
 **Heure limite du jour** (Paramètres, heure de l'entreprise, vide = aucune) : passé cette heure, les courses encore
 sans livreur portent la pastille « 🕒 Après 15:00 », le tableau de bord affiche un bandeau rouge (« Il est plus de
 15:00 : 3 courses du jour n'ont toujours pas de livreur… ») et les administrateurs et le dispatch reçoivent une
