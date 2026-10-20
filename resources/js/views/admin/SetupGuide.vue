@@ -1,0 +1,106 @@
+<template>
+  <div class="max-w-3xl space-y-4">
+    <div>
+      <h1 class="text-xl font-bold">🧭 Mise en route</h1>
+      <p class="text-sm text-gray-600">Étape par étape, ce qu'il faut régler pour que l'application travaille bien. Chaque étape se coche toute seule quand c'est fait.</p>
+    </div>
+
+    <p v-if="error" class="field-error">{{ error }}</p>
+
+    <template v-if="guide">
+      <!-- Progression -->
+      <section :class="['card p-4 space-y-3', guide.ready ? 'bg-emerald-50' : '']">
+        <p class="font-semibold">
+          {{ guide.ready ? '✅ Les étapes essentielles sont faites : l\'application est prête à travailler.' : `Étapes essentielles : ${guide.essentials.done} sur ${guide.essentials.total}` }}
+        </p>
+        <div class="h-2 rounded-full bg-slate-200 overflow-hidden" role="progressbar" :aria-valuenow="guide.essentials.done" :aria-valuemax="guide.essentials.total" aria-label="Étapes essentielles faites">
+          <div class="h-full bg-emerald-600 transition-all" :style="{ width: `${percent(guide.essentials)}%` }" />
+        </div>
+        <p class="text-sm text-gray-600">Étapes conseillées : {{ guide.recommended.done }} sur {{ guide.recommended.total }}.</p>
+        <p v-if="next" class="text-sm">
+          Prochaine étape : <strong>{{ next.title }}</strong>
+          <RouterLink :to="link(next)" class="ml-1 text-blue-600 underline">{{ next.action.label }}</RouterLink>
+        </p>
+      </section>
+
+      <section v-for="group in groups" :key="group.title" class="space-y-2">
+        <h2 class="font-semibold">{{ group.title }}</h2>
+        <p class="text-sm text-gray-500">{{ group.intro }}</p>
+        <ol class="space-y-2">
+          <li v-for="(s, i) in group.steps" :key="s.key" :class="['card p-4 space-y-2', s.skipped ? 'opacity-60' : '']">
+            <div class="flex items-start gap-3">
+              <span class="text-xl leading-none" :title="STATUS[s.status].label" aria-hidden="true">{{ STATUS[s.status].icon }}</span>
+              <div class="min-w-0 flex-1 space-y-1">
+                <p class="font-semibold">
+                  {{ group.essential ? `${i + 1}. ` : '' }}{{ s.title }}
+                  <span :class="['ml-1 rounded-full px-2 py-0.5 text-xs font-medium', STATUS[s.status].cls]">{{ s.skipped ? 'Plus tard' : STATUS[s.status].label }}</span>
+                </p>
+                <p class="text-sm text-gray-600">{{ s.why }}</p>
+                <ul class="text-sm text-gray-800 space-y-0.5">
+                  <li v-for="line in s.lines" :key="line">{{ line }}</li>
+                </ul>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-2 sm:pl-9">
+              <RouterLink :to="link(s)" :class="s.status === 'done' ? 'btn-secondary' : 'btn-primary'">{{ s.status === 'done' ? 'Revoir' : s.action.label }}</RouterLink>
+              <button v-if="!s.essential && s.status !== 'done'" type="button" class="btn-secondary" :disabled="busy" @click="skip(s, !s.skipped)">
+                {{ s.skipped ? 'Reprendre cette étape' : 'Plus tard' }}
+              </button>
+            </div>
+          </li>
+        </ol>
+      </section>
+    </template>
+
+    <p v-else-if="!error" class="text-sm text-gray-500">Chargement…</p>
+  </div>
+</template>
+
+<script setup>
+import { computed, onMounted, ref } from 'vue'
+import http, { apiErrorMessage } from '../../bootstrap/axios'
+
+/**
+ * Parcours de mise en route : étapes essentielles puis conseillées, vérifiées par le serveur sur les vraies données.
+ */
+const STATUS = {
+  done: { icon: '✅', label: 'Fait', cls: 'bg-emerald-100 text-emerald-800' },
+  partial: { icon: '🟠', label: 'À compléter', cls: 'bg-amber-100 text-amber-800' },
+  todo: { icon: '⭕', label: 'À faire', cls: 'bg-slate-100 text-slate-700' },
+}
+
+const guide = ref(null)
+const error = ref('')
+const busy = ref(false)
+
+const percent = (c) => (c.total ? Math.round((c.done / c.total) * 100) : 0)
+// Le réglage ouvert ramène au parcours (bouton « Revenir à la mise en route »)
+const link = (s) => ({ path: s.action.to, query: { depuis: 'mise-en-route' } })
+
+const groups = computed(() => [
+  { title: 'Étapes essentielles', intro: 'Sans elles, les courses ne peuvent pas être créées, confiées ou payées correctement.', essential: true, steps: guide.value.steps.filter((s) => s.essential) },
+  { title: 'Étapes conseillées', intro: 'Elles améliorent le service. Vous pouvez les remettre à plus tard.', essential: false, steps: guide.value.steps.filter((s) => !s.essential) },
+])
+const next = computed(() => guide.value?.steps.find((s) => s.status !== 'done' && !s.skipped))
+
+async function load() {
+  try {
+    guide.value = (await http.get('/setup')).data.data
+  } catch (e) {
+    error.value = apiErrorMessage(e)
+  }
+}
+
+async function skip(step, skipped) {
+  busy.value = true
+  try {
+    guide.value = (await http.post('/setup/skip', { step: step.key, skipped })).data.data
+  } catch (e) {
+    error.value = apiErrorMessage(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+onMounted(load)
+</script>

@@ -497,6 +497,20 @@ fiches prêtes en attente de paiement. Modèles : « Salarié » et « Mixte » 
   période » reprend l'activité réelle de chaque livreur sur une période de paie passée et la compare à ce qu'il a
   réellement gagné (`POST /pay-plans/simulate`).
 
+### Mise en route de l'administrateur
+
+**Réglages › Mise en route** (`/admin/mise-en-route`, droit `settings.manage`) conduit l'administrateur étape par
+étape. Chaque étape se coche toute seule, d'après les vraies données (`App\Services\Onboarding\SetupGuide`) :
+- **essentielles** : entreprise (téléphone, adresse, logo), zones, tarifs (chaque paire de communes a un prix dans
+  la grille par défaut), règles des courses (heure limite), livreurs (au moins un connecté à son application et avec
+  des zones), paie (plan par défaut avec des montants), e-commerçants (zone et adresse de ramassage), une première
+  course livrée ;
+- **conseillées** (remises à plus tard si on veut) : WhatsApp et modèles approuvés, équipe du bureau, alertes,
+  assignation automatique, boutiques en ligne (module API), abonnement.
+
+Chaque étape dit pourquoi elle compte, ce qui manque, et ouvre le bon réglage. API : `GET /setup`,
+`POST /setup/skip` (`step`, `skipped`).
+
 ### Planning des livreurs et ramassage automatique
 
 **Opérations › Planning des livreurs** (`/admin/planning`, permission `orders.dispatch`) dit qui ramasse où et quand.

@@ -48,6 +48,7 @@ use App\Http\Controllers\Api\V1\ReferenceController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\ReturnSlipController;
 use App\Http\Controllers\Api\V1\RoleController;
+use App\Http\Controllers\Api\V1\SetupGuideController;
 use App\Http\Controllers\Api\V1\ShopController;
 use App\Http\Controllers\Api\V1\SignupController;
 use App\Http\Controllers\Api\V1\StatisticsController;
@@ -227,6 +228,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('hubs', [HubController::class, 'index'])->name('hubs.index');
 
         Route::middleware('can:settings.manage')->group(function () {
+            // Parcours de mise en route de l'administrateur
+            Route::get('setup', [SetupGuideController::class, 'show'])->name('setup.show');
+            Route::post('setup/skip', [SetupGuideController::class, 'skip'])->name('setup.skip');
             Route::post('zones', [ZoneController::class, 'store'])->name('zones.store');
             Route::patch('zones/{zone}', [ZoneController::class, 'update'])->name('zones.update');
             Route::delete('zones/{zone}', [ZoneController::class, 'destroy'])->name('zones.destroy');
