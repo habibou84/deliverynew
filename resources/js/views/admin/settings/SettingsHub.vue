@@ -9,7 +9,7 @@
     </div>
 
     <!-- Parcours de mise en route -->
-    <RouterLink v-if="setup && !query" to="/admin/mise-en-route" :class="['card p-4 flex items-center gap-3 hover:border-slate-400 transition', setup.ready ? '' : 'border-amber-300 bg-amber-50']">
+    <RouterLink v-if="setup && !query" to="/admin/mise-en-route" :class="['card p-4 flex items-center gap-3 hover:border-slate-400 transition', setup.ready && !setup.health.length ? '' : 'border-amber-300 bg-amber-50']">
       <span class="text-2xl leading-none" aria-hidden="true">🧭</span>
       <span class="min-w-0 flex-1">
         <span class="block font-semibold">Mise en route</span>
@@ -17,6 +17,7 @@
           {{ setup.ready ? 'Étapes essentielles faites' : `Étapes essentielles : ${setup.essentials.done} sur ${setup.essentials.total}` }}
           · conseillées : {{ setup.recommended.done }} sur {{ setup.recommended.total }}
         </span>
+        <span v-if="setup.health.length" class="block text-sm font-medium text-red-700">Bilan de santé : {{ setup.health.length }} point(s) à corriger</span>
       </span>
       <span class="text-sm font-medium text-blue-600 whitespace-nowrap">{{ setup.ready ? 'Revoir' : 'Continuer' }} →</span>
     </RouterLink>

@@ -23,6 +23,18 @@
         </p>
       </section>
 
+      <!-- Bilan de santé : ce qui se dérègle après la mise en route -->
+      <section class="card p-4 space-y-2">
+        <h2 class="font-semibold">🩺 Bilan de santé</h2>
+        <p v-if="!guide.health.length" class="text-sm text-emerald-800">Rien à signaler pour le moment.</p>
+        <ul v-else class="space-y-1">
+          <li v-for="h in guide.health" :key="h.text" class="flex flex-wrap items-start justify-between gap-2 text-sm">
+            <span :class="h.level === 'alert' ? 'text-red-700' : 'text-amber-800'">{{ h.level === 'alert' ? '🔴' : '🟠' }} {{ h.text }}</span>
+            <RouterLink :to="{ path: h.to, query: { depuis: 'mise-en-route' } }" class="text-blue-600 underline whitespace-nowrap">Corriger</RouterLink>
+          </li>
+        </ul>
+      </section>
+
       <section v-for="group in groups" :key="group.title" class="space-y-2">
         <h2 class="font-semibold">{{ group.title }}</h2>
         <p class="text-sm text-gray-500">{{ group.intro }}</p>

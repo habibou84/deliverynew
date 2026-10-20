@@ -3,9 +3,13 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\OrderStatus;
+use App\Enums\Role;
 use App\Models\CashCollection;
+use App\Models\Company;
 use App\Models\Merchant;
 use App\Models\Order;
+use App\Models\User;
+use App\Models\WhatsAppAccount;
 use App\Models\Zone;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -120,5 +124,26 @@ class SetupGuideTest extends TestCase
         $this->assertSame(0, CashCollection::query()->where('order_id', $id)->count());
         $this->assertSame(0, Merchant::withTrashed()->where('is_test', true)->count());
         $this->assertNotNull($this->company->fresh()->setup_test_delivered_at);
+    }
+
+    public function test_the_health_check_and_the_console_view(): void
+    {
+        Sanctum::actingAs($this->admin);
+        WhatsAppAccount::create(['company_id' => $this->company->id, 'owner_type' => 'company', 'owner_id' => $this->company->id,
+            'provider' => 'meta', 'status' => 'connected', 'token_expires_at' => now()->addDays(5)]);
+        $this->company->update(['auto_pickup' => Company::AUTO_ON, 'auto_delivery' => Company::AUTO_ON]);
+
+        $health = collect($this->getJson('/api/v1/setup')->json('data.health'));
+        $this->assertSame(['alert', 'alert', 'warning', 'warning'], $health->pluck('level')->all());
+        $this->assertStringStartsWith('Tarifs : 6 trajet(s) sans prix', $health[0]['text']);
+        $this->assertStringContainsString('L\'accès WhatsApp expire le', $health[1]['text']);
+        $this->assertStringContainsString('2 livreur(s) sans zone', $health[2]['text']);
+        $this->assertStringContainsString('aucune règle de ramassage', $health[3]['text']);
+
+        // Console : progression et alertes de chaque entreprise
+        Sanctum::actingAs(User::factory()->withRole(Role::SuperAdmin)->create(['company_id' => null]));
+        $row = collect($this->getJson('/api/v1/console/companies')->assertOk()->json('data'))->firstWhere('id', $this->company->id);
+        $this->assertSame([false, 2], [$row['setup']['ready'], $row['setup']['alerts']]);
+        $this->getJson("/api/v1/console/companies/{$this->company->id}")->assertOk()->assertJsonCount(4, 'data.setup.health');
     }
 }
