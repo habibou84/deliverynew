@@ -16,6 +16,29 @@ export const CUSTODY_MODES = [
   { value: 'depot', label: 'Reviennent au dépôt', help: 'Il les rapporte au dépôt le soir même ; n\'importe quel livreur pourra les livrer.' },
 ]
 
+// Assignation automatique selon le planning
+export const AUTO_MODES = [
+  { value: 'off', label: 'Désactivée', short: 'désactivée', help: 'L\'équipe confie chaque course, comme avant.' },
+  { value: 'trial', label: 'À l\'essai', short: 'à l\'essai', help: 'Rien n\'est envoyé : le choix du planning est noté sur chaque course, pour vérifier.' },
+  { value: 'on', label: 'Active', short: 'active', help: 'Les courses validées vont au livreur du planning, ou à son remplaçant.' },
+]
+
+// Livraison du jour même confiée automatiquement
+export const DELIVERY_MODES = [
+  { value: 'off', label: 'Désactivée', short: 'désactivée', help: 'L\'équipe confie chaque livraison.' },
+  { value: 'trial', label: 'À l\'essai', short: 'à l\'essai', help: 'Rien n\'est envoyé : le livreur qui aurait été choisi est noté sur la course, avec la raison.' },
+  { value: 'on', label: 'Active', short: 'active', help: 'Dès que le colis est récupéré ou au dépôt, la livraison du jour part au livreur choisi.' },
+]
+
+export const WEEKDAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+
+// Acceptation des missions par le livreur
+export const ACCEPT_MODES = [
+  { value: 'choose', label: 'Le livreur accepte ou refuse', short: 'au choix du livreur', help: 'Chaque mission attend sa réponse. Un refus la rend à l\'équipe (ou au remplaçant du planning).' },
+  { value: 'report', label: 'Acceptées d\'office, empêchement possible', short: 'd\'office, empêchement possible', help: 'Pas de réponse à donner. Avant de partir, il peut signaler un empêchement : la mission passe au remplaçant ou revient à l\'équipe.' },
+  { value: 'auto', label: 'Acceptées d\'office', short: 'd\'office', help: 'Le livreur ne peut pas refuser. En cas de problème, il appelle l\'agence.' },
+]
+
 // « 30 min », « 2 h », « jamais »
 export function delay(minutes) {
   if (!minutes) return 'jamais'

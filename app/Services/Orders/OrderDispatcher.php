@@ -7,6 +7,7 @@ use App\Enums\AssignmentType;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Order;
 use App\Models\OrderAssignment;
@@ -36,9 +37,12 @@ class OrderDispatcher
 
     public function __construct(private readonly OrderJournal $journal) {}
 
-    public function assign(User $actor, Order $order, AssignmentType $type, Courier $courier): OrderAssignment
+    /**
+     * @param  string|null  $source  planning (ou autre automatisme) : mission confiée sans le dispatch, acceptée d'office
+     */
+    public function assign(User $actor, Order $order, AssignmentType $type, Courier $courier, ?string $source = null): OrderAssignment
     {
-        return DB::transaction(function () use ($actor, $order, $type, $courier) {
+        return DB::transaction(function () use ($actor, $order, $type, $courier, $source) {
             $order = Order::query()->lockForUpdate()->findOrFail($order->id);
             $from = $order->status;
 
@@ -78,13 +82,17 @@ class OrderDispatcher
                     ->update(['status' => AssignmentStatus::Cancelled, 'completed_at' => now()]);
             }
 
+            // Acceptée d'office : mission du planning, ou règle de l'entreprise (ou du livreur) sans choix
+            $accepted = $source !== null || $courier->acceptanceMode() !== Company::ACCEPT_CHOOSE;
             $assignment = $order->assignments()->create([
                 'courier_id' => $courier->id,
                 'type' => $type,
-                'status' => AssignmentStatus::Assigned,
+                'status' => $accepted ? AssignmentStatus::Accepted : AssignmentStatus::Assigned,
                 'order_status_before' => $statusBefore,
                 'assigned_by' => $actor->id,
                 'assigned_at' => now(),
+                'accepted_at' => $accepted ? now() : null,
+                'source' => $source,
             ]);
 
             $to = $this->statusAfterAssignment($type, $from);
@@ -107,6 +115,7 @@ class OrderDispatcher
                     'courier_id' => $courier->id,
                     'courier_user_id' => $courier->user_id,
                     'courier_name' => $courier->user->name,
+                    'accepted' => $accepted,
                 ],
             ]);
 
@@ -244,7 +253,8 @@ class OrderDispatcher
     }
 
     /**
-     * Réponse du livreur à une mission : acceptation ou refus motivé.
+     * Réponse du livreur à une mission : acceptation ou refus motivé. Une mission déjà acceptée (d'office ou non)
+     * mais pas commencée peut être rendue (empêchement), sauf si l'entreprise confie les missions sans refus possible.
      */
     public function respond(User $courierUser, OrderAssignment $assignment, bool $accept, ?string $reason = null): OrderAssignment
     {
@@ -255,8 +265,14 @@ class OrderDispatcher
                 throw new AuthorizationException('Cette mission ne vous est pas assignée.');
             }
 
-            if ($assignment->status !== AssignmentStatus::Assigned) {
-                throw new BusinessRuleException('Cette mission a déjà été traitée.', 'status');
+            $impediment = ! $accept && $assignment->status === AssignmentStatus::Accepted;
+            if ($impediment && ! $courierUser->courier->canReportImpediment()) {
+                throw new BusinessRuleException('Les missions vous sont confiées d\'office : appelez l\'agence en cas d\'empêchement.', 'status');
+            }
+            if ($assignment->status !== AssignmentStatus::Assigned && ! $impediment) {
+                throw new BusinessRuleException($assignment->status === AssignmentStatus::InProgress
+                    ? 'Mission déjà commencée : appelez l\'agence ou signalez un problème sur la course.'
+                    : 'Cette mission a déjà été traitée.', 'status');
             }
 
             $order = Order::query()->lockForUpdate()->findOrFail($assignment->order_id);
@@ -295,7 +311,7 @@ class OrderDispatcher
                 'from_status' => $from,
                 'to_status' => $order->status,
                 'note' => $reason,
-                'meta' => ['type' => $assignment->type->value],
+                'meta' => ['type' => $assignment->type->value, 'impediment' => $impediment],
                 'visible_to_merchant' => false,
             ]);
 

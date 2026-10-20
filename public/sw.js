@@ -111,8 +111,9 @@ self.addEventListener('push', (event) => {
     badge: `/app-icons/${app}-192.png`,
     tag: data.tag,
     renotify: Boolean(data.tag),
-    requireInteraction: Boolean(data.urgent),
-    vibrate: data.urgent ? [300, 150, 300, 150, 300] : [200, 100, 200],
+    requireInteraction: Boolean(data.urgent || data.mission),
+    // Nouvelle mission : trois longues vibrations, à reconnaître sans regarder le téléphone
+    vibrate: data.mission ? [500, 200, 500, 200, 500] : (data.urgent ? [300, 150, 300, 150, 300] : [200, 100, 200]),
     data: { url },
   }))
 })

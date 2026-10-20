@@ -63,6 +63,16 @@ class UpdateCompanyRequest extends FormRequest
             // Heure limite du jour (HH:MM, heure de l'entreprise) ; vide = aucune
             'daily_cutoff_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'delivery_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
+            // Ramassages confiés selon le planning : off, trial (essai), on
+            'auto_pickup' => ['sometimes', 'in:off,trial,on'],
+            'mission_acceptance' => ['sometimes', 'in:choose,report,auto'],
+            'auto_delivery' => ['sometimes', 'in:off,trial,on'],
+            'auto_delivery_max_cod' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'same_courier_delivery' => ['sometimes', 'boolean'],
+            'cutoff_by_day' => ['sometimes', 'nullable', 'array'],
+            'cutoff_by_day.*' => ['nullable', 'date_format:H:i'],
+            'unreachable_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
+            'late_pickup_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:600'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
             // Vide = sans formule (aucune limite)
             'plan_id' => ['sometimes', 'nullable', 'integer', 'exists:plans,id'],
@@ -80,6 +90,14 @@ class UpdateCompanyRequest extends FormRequest
             'daily_cutoff_time' => 'heure limite du jour',
             'pickup_mission_custody' => 'colis après une mission ramassage',
             'depot_closes_at' => 'heure de fermeture du dépôt',
+            'auto_pickup' => 'ramassage automatique',
+            'mission_acceptance' => 'acceptation des missions',
+            'auto_delivery' => 'livraison automatique',
+            'auto_delivery_max_cod' => 'plafond du montant à encaisser',
+            'same_courier_delivery' => 'même livreur du ramassage à la livraison',
+            'cutoff_by_day' => 'heure limite par jour',
+            'unreachable_minutes' => 'délai livreur injoignable',
+            'late_pickup_alert_minutes' => 'alerte ramassage pas commencé',
             'plan_id' => 'formule',
             'trial_ends_at' => 'fin de l\'essai',
         ];

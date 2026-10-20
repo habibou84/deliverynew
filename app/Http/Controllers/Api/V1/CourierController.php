@@ -158,18 +158,37 @@ class CourierController extends Controller
             'pay_plan_id' => ['sometimes', 'nullable', 'integer', Rule::exists('pay_plans', 'id')->where('company_id', $courier->company_id)
                 ->where(fn ($q) => $q->whereNull('courier_id')->orWhere('courier_id', $courier->id))],
             'is_available' => ['sometimes', 'boolean'],
+            // Exception à la règle d'acceptation des missions de l'entreprise (null : celle de l'entreprise)
+            'mission_acceptance' => ['sometimes', 'nullable', Rule::in(Company::ACCEPT_MODES)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'zone_ids' => ['sometimes', 'array'],
             'zone_ids.*' => ['integer', Rule::exists('zones', 'id')->where('company_id', $courier->company_id)],
+            // Zones de secours : servies par la livraison automatique quand personne de la zone principale n'est libre
+            'backup_zone_ids' => ['sometimes', 'array'],
+            'backup_zone_ids.*' => ['integer', Rule::exists('zones', 'id')->where('company_id', $courier->company_id)],
+            'max_parcels' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:200'],
+            'max_cash' => ['sometimes', 'nullable', 'integer', 'min:0'],
+            'shift_ends_at' => ['sometimes', 'nullable', 'date_format:H:i'],
+        ], [], [
+            'backup_zone_ids' => 'zones de secours', 'max_parcels' => 'colis au maximum', 'max_cash' => 'argent en main au maximum',
+            'shift_ends_at' => 'fin de service',
         ]);
 
         // La rémunération relève des réglages de l'entreprise
         abort_if(array_key_exists('pay_plan_id', $data) && ! $request->user()->can(Permission::SettingsManage->value), 403, 'Seul un administrateur peut changer le plan de paie.');
+        abort_if(array_key_exists('mission_acceptance', $data) && $data['mission_acceptance'] !== $courier->mission_acceptance
+            && ! $request->user()->can(Permission::SettingsManage->value), 403, 'Seul un administrateur peut changer la règle d\'acceptation des missions.');
 
-        $courier->update(collect($data)->except('zone_ids')->all());
+        $courier->update(collect($data)->except(['zone_ids', 'backup_zone_ids'])->all());
 
-        if (array_key_exists('zone_ids', $data)) {
-            $courier->zones()->sync($data['zone_ids']);
+        // Une zone est principale ou de secours, pas les deux
+        if (array_key_exists('zone_ids', $data) || array_key_exists('backup_zone_ids', $data)) {
+            $main = $data['zone_ids'] ?? $courier->zones()->wherePivot('is_backup', false)->pluck('zones.id')->all();
+            $backup = array_diff($data['backup_zone_ids'] ?? $courier->zones()->wherePivot('is_backup', true)->pluck('zones.id')->all(), $main);
+            $courier->zones()->sync(
+                collect($main)->mapWithKeys(fn ($id) => [$id => ['is_backup' => false]])->all()
+                + collect($backup)->mapWithKeys(fn ($id) => [$id => ['is_backup' => true]])->all()
+            );
         }
 
         return CourierResource::make($courier->load(['user', 'zones', 'payPlan'])->loadCount('activeAssignments'));

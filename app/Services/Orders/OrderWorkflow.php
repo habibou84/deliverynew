@@ -13,6 +13,7 @@ use App\Models\IncidentReason;
 use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\User;
+use App\Services\Assignment\AutoAssigner;
 use App\Services\Finance\FinanceRecorder;
 use App\Services\Merchants\MerchantLocation;
 use App\Services\Stock\StockKeeper;
@@ -32,6 +33,7 @@ class OrderWorkflow
         private readonly StockKeeper $stock,
         private readonly MerchantLocation $locations,
         private readonly PickupGroups $pickups,
+        private readonly AutoAssigner $autoAssigner,
     ) {}
 
     /**
@@ -99,8 +101,14 @@ class OrderWorkflow
                 ], fn ($v) => $v !== null),
             ]);
 
-            // Course validée alors qu'un livreur est déjà prévu chez ce client : le colis lui est ajouté
-            if ($from === OrderStatus::Pending && $to === OrderStatus::Confirmed && $this->pickups->attachToRunningPickup($order)) {
+            // Course validée : le colis va au livreur déjà prévu chez ce client, sinon au livreur du planning
+            if ($from === OrderStatus::Pending && $to === OrderStatus::Confirmed
+                && ($this->pickups->attachToRunningPickup($order) || $this->autoAssigner->pickup($order))) {
+                $order = $order->fresh();
+            }
+
+            // Colis prêt (récupéré ou au dépôt) : livraison du jour même confiée automatiquement, si l'entreprise le veut
+            if (in_array($to, [OrderStatus::PickedUp, OrderStatus::AtHub], true) && $this->autoAssigner->delivery($order)) {
                 $order = $order->fresh();
             }
 

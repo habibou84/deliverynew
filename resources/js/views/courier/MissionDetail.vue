@@ -86,6 +86,10 @@
               <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
             </label>
           </div>
+          <!-- Mission confiée d'office, pas encore commencée : le livreur peut la rendre -->
+          <button v-if="mission.can_report_impediment" class="w-full text-center text-sm text-slate-500 underline py-1" @click="sheet = 'refuse'">
+            Je ne peux pas faire cette mission
+          </button>
         </template>
       </div>
     </div>
@@ -188,10 +192,11 @@
     </BottomSheet>
 
     <!-- Refus de mission -->
-    <BottomSheet :open="sheet === 'refuse'" title="Pourquoi refusez-vous ?" @close="sheet = null">
+    <BottomSheet :open="sheet === 'refuse'" :title="impediment ? 'Que se passe-t-il ?' : 'Pourquoi refusez-vous ?'" @close="sheet = null">
       <div class="space-y-4">
-        <ChoiceChips v-model="refusal" :options="refusalOptions" label="Raison du refus" />
-        <button class="m-btn-danger" :disabled="busy || !refusal" @click="refuse">Refuser la mission</button>
+        <p v-if="impediment" class="text-sm text-slate-600">La mission passe à votre remplaçant ou revient à l'agence, qui est prévenue.</p>
+        <ChoiceChips v-model="refusal" :options="refusalOptions" label="Raison" />
+        <button class="m-btn-danger" :disabled="busy || !refusal" @click="refuse">{{ impediment ? 'Rendre la mission' : 'Refuser la mission' }}</button>
       </div>
     </BottomSheet>
 
@@ -229,6 +234,7 @@ const toasts = useToastStore()
 
 const mission = ref(null)
 const order = computed(() => mission.value?.order)
+const impediment = computed(() => mission.value?.status === 'accepted')
 const reasons = ref([])
 const busy = ref(false)
 const sheet = ref(null)
@@ -468,8 +474,10 @@ async function refuse() {
   busy.value = true
   try {
     await http.post(`/courier/assignments/${mission.value.id}/refuse`, { reason: refusal.value })
-    toasts.push('Mission refusée.')
+    toasts.push(impediment.value ? 'Mission rendue : l\'agence est prévenue.' : 'Mission refusée.')
     router.replace('/livreur')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
   } finally {
     busy.value = false
   }
