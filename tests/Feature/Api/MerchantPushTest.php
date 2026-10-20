@@ -4,10 +4,14 @@ namespace Tests\Feature\Api;
 
 use App\Enums\MessageChannel;
 use App\Enums\MessageStatus;
+use App\Enums\WhatsAppTemplate;
+use App\Jobs\SendOutboundMessage;
 use App\Models\Order;
 use App\Models\OutboundMessage;
 use App\Models\PushSubscription;
 use App\Models\User;
+use App\Services\Messaging\Gateways\SmsGateway;
+use App\Services\Messaging\Gateways\WhatsAppGateway;
 use App\Services\Messaging\Messenger;
 use App\Services\Push\WebPush;
 use App\Support\PhoneNumber;
@@ -111,6 +115,37 @@ class MerchantPushTest extends TestCase
         // L'appareil oublié, le message suivant part directement sur WhatsApp
         $this->deliver($this->createOrder());
         $this->assertSame('whatsapp:colis_livre', last($this->merchantMessages()));
+    }
+
+    public function test_a_passing_push_failure_is_tried_again_before_whatsapp(): void
+    {
+        Http::fake([self::ENDPOINT => Http::response('', 503)]);
+        $this->subscribeMerchantPhone();
+        $message = app(Messenger::class)->merchantMessage($this->merchant, 'order.delivered', WhatsAppTemplate::OrderDelivered, ['Boutique', 'JB-1', 'Awa', '5 000 F']);
+        $message->forceFill(['status' => MessageStatus::Queued])->save();
+
+        // Premier essai sans réponse du service push : la notification reste en attente d'un nouvel essai
+        $job = (new SendOutboundMessage($message))->withFakeQueueInteractions();
+        $job->handle(app(WhatsAppGateway::class), app(SmsGateway::class), app(Messenger::class), app(WebPush::class));
+        $job->assertReleased();
+        $this->assertSame(MessageStatus::Queued, $message->fresh()->status);
+
+        // Dernier essai toujours sans réponse : WhatsApp prend le relais
+        $job = (new SendOutboundMessage($message))->withFakeQueueInteractions();
+        $job->job->attempts = SendOutboundMessage::PUSH_TRIES;
+        $job->handle(app(WhatsAppGateway::class), app(SmsGateway::class), app(Messenger::class), app(WebPush::class));
+        $job->assertNotReleased();
+        $this->assertSame(MessageStatus::Failed, $message->fresh()->status);
+        $this->assertSame(1, OutboundMessage::where('fallback_for_id', $message->id)->where('channel', MessageChannel::WhatsApp)->count());
+    }
+
+    public function test_a_suspended_account_no_longer_receives_the_merchant_notifications(): void
+    {
+        $this->subscribeMerchantPhone();
+        $this->assertTrue($this->merchant->pushSubscriptions()->exists());
+
+        $this->merchantUser->forceFill(['status' => 'suspended'])->save();
+        $this->assertFalse($this->merchant->pushSubscriptions()->exists());
     }
 
     public function test_company_can_keep_whatsapp_for_merchants(): void

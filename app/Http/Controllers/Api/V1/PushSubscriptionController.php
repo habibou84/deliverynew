@@ -41,11 +41,11 @@ class PushSubscriptionController extends Controller
             abort(422, 'Clés d\'abonnement invalides.');
         }
 
-        // Un appareil n'appartient qu'à un compte : le dernier connecté le reprend
+        // Un appareil peut recevoir les notifications de plusieurs comptes (e-commerçant et livreur sur
+        // le même téléphone) : chaque compte garde le sien, la déconnexion retire seulement le compte quitté
         $subscription = PushSubscription::updateOrCreate(
-            ['endpoint_hash' => PushSubscription::hashEndpoint($data['endpoint'])],
+            ['endpoint_hash' => PushSubscription::hashEndpoint($data['endpoint']), 'user_id' => $request->user()->id],
             [
-                'user_id' => $request->user()->id,
                 'endpoint' => $data['endpoint'],
                 'p256dh' => $data['keys']['p256dh'],
                 'auth' => $data['keys']['auth'],

@@ -111,5 +111,22 @@ export function useRealtime() {
     channels.push(orderChannel)
   }
 
-  onBeforeUnmount(() => channels.forEach((c) => echo.leave(c)))
+  // Connexion retrouvée (réseau coupé, téléphone en veille) : les alertes et changements de course
+  // reçus pendant la coupure sont rattrapés en rechargeant la cloche et les écrans ouverts
+  const connection = echo.connector?.pusher?.connection
+  let wasConnected = connection?.state === 'connected'
+  const onStateChange = ({ current }) => {
+    if (current !== 'connected') return
+    if (wasConnected) {
+      notifications.fetch().catch(() => {})
+      orderChanges.value++
+    }
+    wasConnected = true
+  }
+  connection?.bind('state_change', onStateChange)
+
+  onBeforeUnmount(() => {
+    connection?.unbind('state_change', onStateChange)
+    channels.forEach((c) => echo.leave(c))
+  })
 }

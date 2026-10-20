@@ -298,6 +298,12 @@ class StockTest extends TestCase
             ->assertJsonPath('data.0.available', 2)
             ->assertJsonPath('data.0.is_low', true);
 
+        // Stock déjà bas qui tombe à zéro : nouvelle alerte « Rupture », qui ouvre le stock
+        $this->createOrder(['items' => [['product_id' => $this->dress->id, 'quantity' => 2]]]);
+        Notification::assertSentToTimes($this->merchantUser, StockAlert::class, 2);
+        Notification::assertSentTo($this->merchantUser, StockAlert::class, fn (StockAlert $n) => str_contains($n->title, 'Rupture')
+            && $n->toArray($this->merchantUser)['href'] === '/marchand/stock');
+
         // Produit d'un autre marchand : refusé
         $foreign = Product::create(['company_id' => $this->company->id, 'merchant_id' => Merchant::factory()->create(['company_id' => $this->company->id])->id, 'name' => 'Autre']);
         $this->postJson('/api/v1/orders', [
