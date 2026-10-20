@@ -53,7 +53,7 @@
           <template v-else>
             <p class="font-medium text-emerald-900">Branchez votre numéro WhatsApp en quelques minutes</p>
             <ol class="list-decimal space-y-1 pl-5 text-sm text-emerald-900">
-              <li>Une fenêtre Meta s'ouvre : connectez-vous avec votre compte Facebook.</li>
+              <li>La page de connexion s'ouvre : continuez avec votre compte Facebook.</li>
               <li>Choisissez ou créez votre entreprise et son compte WhatsApp Business.</li>
               <li>Ajoutez le numéro de l'entreprise et saisissez le code reçu par SMS.</li>
             </ol>
@@ -298,43 +298,27 @@ async function saveAccount() {
   }
 }
 
-// Bouton « Connecter WhatsApp » : la fenêtre de Meta s'ouvre depuis jibiat.com (seule adresse
-// déclarée chez Facebook), dans une fenêtre à part ; elle prévient cette page à la fin.
+// Bouton « Connecter WhatsApp » : la page de connexion s'ouvre dans le même onglet, sur jibiat.com (seule adresse
+// déclarée chez Facebook) ; elle revient ici à la fin, avec le résultat dans le fragment de l'adresse.
 async function oneClick() {
   signupError.value = ''
-  // Fenêtre ouverte tout de suite (clic de l'utilisateur), adresse donnée ensuite : pas de blocage
-  const popup = window.open('', 'jibiat-whatsapp', 'width=560,height=780')
-  if (!popup) {
-    signupError.value = 'Votre navigateur a bloqué la fenêtre : autorisez les fenêtres pop-up pour ce site, puis recommencez.'
-    return
-  }
   signingUp.value = true
   try {
     const { data } = await http.post('/whatsapp/signup-ticket')
-    popup.location.href = data.data.url
-    const origin = new URL(data.data.url).origin
-    await new Promise((resolve) => {
-      const onMessage = (event) => {
-        if (event.origin !== origin || event.data?.type !== 'jibiat-whatsapp') return
-        if (event.data.connected) toasts.success('WhatsApp connecté : les modèles de messages sont envoyés à Meta pour approbation.')
-        done()
-      }
-      // Fenêtre fermée sans message : on relit simplement l'état
-      const timer = setInterval(() => { if (popup.closed) done() }, 800)
-      function done() {
-        clearInterval(timer)
-        window.removeEventListener('message', onMessage)
-        resolve()
-      }
-      window.addEventListener('message', onMessage)
-    })
-    await load()
+    window.location.assign(data.data.url)
   } catch (e) {
-    popup.close()
     signupError.value = apiErrorMessage(e, 'Connexion à WhatsApp impossible.')
-  } finally {
     signingUp.value = false
   }
+}
+
+// Retour de la page de connexion : #whatsapp=connecte, ou #whatsapp=erreur&message=…
+function takeSignupResult() {
+  const params = new URLSearchParams(window.location.hash.slice(1))
+  if (!params.has('whatsapp')) return
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  if (params.get('whatsapp') === 'connecte') toasts.success('WhatsApp connecté : les modèles de messages sont envoyés à Meta pour approbation.')
+  else if (params.get('message')) signupError.value = params.get('message')
 }
 
 async function reconnect() {
@@ -423,5 +407,8 @@ async function copy(text) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  takeSignupResult()
+  load()
+})
 </script>
