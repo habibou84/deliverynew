@@ -8,6 +8,7 @@ use App\Services\Reports\OrderSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 
 class ReportController extends Controller
 {
@@ -23,6 +24,7 @@ class ReportController extends Controller
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date', 'after_or_equal:from'],
             'merchant_id' => ['nullable', 'integer'],
+            'date_basis' => ['nullable', Rule::in(['created', 'delivery'])],
         ]);
 
         $orders = Order::query()
@@ -33,6 +35,7 @@ class ReportController extends Controller
             $orders,
             $request->date('from') ?? today()->startOfMonth(),
             $request->date('to') ?? today(),
+            $data['date_basis'] ?? 'created',
         )]);
     }
 }

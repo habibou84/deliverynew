@@ -45,7 +45,7 @@
     <PickupGroupsPanel v-if="byClient" :couriers="couriers" @assigned="dispatchCounts.fetchCounts().catch(() => {})" />
 
     <template v-else>
-      <div class="card p-3 grid grid-cols-2 md:grid-cols-6 gap-2">
+      <div :class="['card p-3 grid grid-cols-2 gap-2', isStaff ? 'md:grid-cols-7' : 'md:grid-cols-6']">
         <input v-model="filters.search" class="input col-span-2" placeholder="Code, téléphone, nom, référence…" @input="debouncedLoad">
         <select v-model="filters.status" class="input" @change="load(1)">
           <option value="">Tous les statuts</option>
@@ -55,8 +55,13 @@
           <option value="">Tous les marchands</option>
           <option v-for="m in merchants" :key="m.id" :value="String(m.id)">{{ m.business_name }}</option>
         </select>
-        <input v-model="filters.from" type="date" class="input" @change="load(1)">
-        <input v-model="filters.to" type="date" class="input" @change="load(1)">
+        <!-- Dates : jour de livraison prévu (par défaut) ou jour de création ; l'e-commerçant voit toujours le jour de livraison -->
+        <select v-if="isStaff" v-model="filters.date_basis" class="input" aria-label="Dates selon" title="Dates : jour de livraison prévu ou jour de création" @change="filters.from || filters.to ? load(1) : null">
+          <option value="delivery">📅 Livraison</option>
+          <option value="created">🆕 Création</option>
+        </select>
+        <input v-model="filters.from" type="date" class="input" :aria-label="filters.date_basis === 'created' ? 'Créées à partir du' : 'À livrer à partir du'" :title="filters.date_basis === 'created' ? 'Créées à partir du' : 'À livrer à partir du'" @change="load(1)">
+        <input v-model="filters.to" type="date" class="input" :aria-label="filters.date_basis === 'created' ? 'Créées jusqu\'au' : 'À livrer jusqu\'au'" :title="filters.date_basis === 'created' ? 'Créées jusqu\'au' : 'À livrer jusqu\'au'" @change="load(1)">
       </div>
 
       <p v-if="filters.courier_id" class="text-sm">
@@ -101,7 +106,7 @@
               <th class="p-2">Statut</th>
               <th class="p-2">Livreur</th>
               <th class="p-2 text-right">À encaisser</th>
-              <th class="p-2">Créée</th>
+              <th class="p-2">Livraison · création</th>
             </tr>
           </thead>
           <tbody class="divide-y">
@@ -154,7 +159,11 @@
                 <div v-if="o.held_by" class="text-amber-700" :title="`Colis chez ${o.held_by.name}`">🎒 {{ o.held_by.name }}</div>
               </td>
               <td class="p-2 text-right whitespace-nowrap">{{ money(o.amounts.cod_amount) }}</td>
-              <td class="p-2 text-xs text-gray-500 whitespace-nowrap">{{ dateTime(o.created_at) }}</td>
+              <td class="p-2 text-xs whitespace-nowrap">
+                <!-- Jour de livraison : la date prévue, sinon le jour de création -->
+                <div class="font-medium text-gray-800">{{ date(o.delivery.scheduled_date || o.created_at) }}</div>
+                <div class="text-gray-500">créée {{ dateTime(o.created_at) }}</div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -217,6 +226,8 @@ const filters = reactive({
   awaiting: route.query.awaiting || '',
   from: '',
   to: '',
+  // Période selon le jour de livraison prévu (sinon le jour de création) ou selon le jour de création
+  date_basis: route.query.date_basis === 'created' ? 'created' : 'delivery',
 })
 
 const orders = ref([])

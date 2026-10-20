@@ -12,12 +12,17 @@ export const ORDER_FILTERS = [
   { value: 'other', label: 'Retournées / annulées', short: 'Retours', statuses: ['returned', 'cancelled', 'rejected'], color: 'text-slate-600' },
 ]
 
-/** Paramètres de l'API pour une catégorie et une période */
+/**
+ * Paramètres de l'API pour une catégorie et une période. L'e-commerçant voit ses courses au jour où
+ * elles doivent être livrées (date prévue, sinon jour de création) : une course reportée de lundi à
+ * mercredi passe au mercredi.
+ */
 export function filterParams(filter, period) {
   return {
     status: filter.statuses.length ? filter.statuses : undefined,
     queue: filter.queue,
     from: period?.from || undefined,
     to: period?.to || undefined,
+    date_basis: period?.from || period?.to ? 'delivery' : undefined,
   }
 }

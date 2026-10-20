@@ -1,4 +1,5 @@
 import { longDay } from '../composables/useDeliveryDate'
+import { today } from './format'
 
 /**
  * Où en est une course, en une phrase pour l'e-commerçant (au lieu du nom technique du statut),
@@ -50,3 +51,19 @@ export function merchantStatus(order) {
 
 /** La course attend-elle une décision ? (calculé par le serveur, comme la file « À décider » de l'agence) */
 export const needsDecision = (order) => !!order.needs_decision
+
+const FINAL = ['delivered', 'returned', 'cancelled', 'rejected', 'lost']
+
+/**
+ * Jour de livraison d'une course prévue après aujourd'hui, en court : « Demain », « Mer. 22 » (vide sinon).
+ */
+export function laterDay(order) {
+  const day = order.delivery?.scheduled_date
+  const now = today()
+  if (!day || day <= now || FINAL.includes(order.status)) return ''
+  const tomorrow = new Date(`${now}T12:00:00`)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (day === tomorrow.toISOString().slice(0, 10)) return 'Demain'
+  const label = new Date(`${day}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric' })
+  return label.charAt(0).toUpperCase() + label.slice(1)
+}

@@ -47,6 +47,8 @@ class OrderController extends Controller
             'zone_id' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
+            // Période selon le jour de création (par défaut) ou le jour de livraison prévu
+            'date_basis' => ['nullable', Rule::in(['created', 'delivery'])],
             'search' => ['nullable', 'string', 'max:100'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
@@ -67,8 +69,7 @@ class OrderController extends Controller
             ->when($request->filled('zone_id'), fn ($q) => $q->where(fn ($q) => $q
                 ->where('delivery_zone_id', $request->integer('zone_id'))
                 ->orWhere('pickup_zone_id', $request->integer('zone_id'))))
-            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->date('from')))
-            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->date('to')))
+            ->forPeriod($request->date('from')?->toDateString(), $request->date('to')?->toDateString(), $request->input('date_basis', 'created'))
             ->when($request->filled('search'), function ($q) use ($request) {
                 $raw = trim($request->string('search'));
                 $term = '%'.mb_strtolower($raw).'%';
@@ -181,8 +182,8 @@ class OrderController extends Controller
                 ->whereDoesntHave('assignments', fn ($q) => $q->active()->where('type', AssignmentType::Delivery->value)),
             // Échecs sans suite : relivrer, retourner ou remettre en stock
             'to_decide' => $query->needingDecision(),
-            // Livraisons prévues un autre jour : reports, et colis ramassés en avance
-            'scheduled' => $query->whereIn('status', OrderStatus::values([OrderStatus::Rescheduled, OrderStatus::PickedUp, OrderStatus::AtHub]))
+            // Livraisons prévues un autre jour : reports, colis ramassés en avance et courses pas encore ramassées
+            'scheduled' => $query->whereIn('status', OrderStatus::values([OrderStatus::Pending, OrderStatus::Confirmed, OrderStatus::PickupAssigned, OrderStatus::PickupInProgress, OrderStatus::Rescheduled, OrderStatus::PickedUp, OrderStatus::AtHub]))
                 ->whereDate('delivery_scheduled_date', '>', today())
                 ->where('return_requested', false),
             'to_return' => $query->where('return_requested', true)

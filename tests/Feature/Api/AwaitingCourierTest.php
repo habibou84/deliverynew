@@ -195,7 +195,7 @@ class AwaitingCourierTest extends TestCase
         Sanctum::actingAs($this->dispatcher);
 
         $this->assertFalse($this->awaiting($order)['after_cutoff']);
-        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.cutoff', ['time' => '15:00', 'passed' => false, 'count' => 1]);
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.cutoff', ['time' => '15:00', 'passed' => false, 'count' => 1, 'later' => 0]);
         $this->travelTo(CarbonImmutable::parse('2026-12-01 13:59', 'UTC')); // 14:59 à Paris
         $this->artisan('orders:unassigned')->assertSuccessful();
         Notification::assertNothingSent();

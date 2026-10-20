@@ -12,6 +12,8 @@ export function shift(days) {
 export const PERIOD_PRESETS = {
   all: { key: 'all', label: 'Toutes les dates', from: () => '', to: () => '' },
   today: { key: 'today', label: 'Aujourd\'hui', from: () => shift(0), to: () => shift(0) },
+  // Courses à livrer après aujourd'hui (date de livraison prévue)
+  later: { key: 'later', label: 'Prévues plus tard', from: () => shift(1), to: () => '' },
   yesterday: { key: 'yesterday', label: 'Hier', from: () => shift(-1), to: () => shift(-1) },
   week: { key: 'week', label: '7 derniers jours', from: () => shift(-6), to: () => shift(0) },
   month: { key: 'month', label: 'Ce mois-ci', from: () => `${shift(0).slice(0, 8)}01`, to: () => shift(0) },
