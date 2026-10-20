@@ -10,7 +10,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Point détaillé sur une période : volumes par état et montants.
+ * Point détaillé sur une période (courses créées, ou à livrer, sur la période) : volumes par état et montants.
  * Utilisé par l'API (écrans) et par les rapports envoyés sur WhatsApp.
  */
 class OrderSummary
@@ -19,11 +19,10 @@ class OrderSummary
      * @param  Builder<Order>  $orders  courses déjà filtrées (marchand, visibilité…)
      * @return array<string, mixed>
      */
-    public function build(Builder $orders, CarbonInterface $from, CarbonInterface $to): array
+    public function build(Builder $orders, CarbonInterface $from, CarbonInterface $to, string $basis = 'created'): array
     {
         $orders = $orders
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
+            ->forPeriod($from->toDateString(), $to->toDateString(), $basis)
             ->get(['id', 'status', 'fee_payer', 'delivery_fee', 'surcharges_total', 'cod_amount', 'collected_amount', 'return_requested', 'is_shipping']);
 
         $count = fn (array $statuses) => $orders->whereIn('status', $statuses)->count();
@@ -45,7 +44,7 @@ class OrderSummary
         $otherFees = -(int) ($ledger[LedgerEntryType::OtherFee->value] ?? 0);
 
         return [
-            'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString()],
+            'period' => ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'date_basis' => $basis],
             'counts' => [
                 'total' => $orders->count(),
                 'delivered' => $delivered->count(),

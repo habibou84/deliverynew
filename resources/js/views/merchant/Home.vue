@@ -89,6 +89,12 @@
       </p>
 
       <OrderCard v-for="o in orders" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
+      <!-- Courses à livrer après aujourd'hui : elles arriveront dans « Aujourd'hui » le jour venu -->
+      <button v-if="isToday && laterCount" type="button" class="tap w-full m-card px-4 py-3 flex items-center gap-3 text-sm text-left active:bg-slate-50" @click="setPeriod(laterPeriod())">
+        <span class="text-xl">📅</span>
+        <span class="flex-1"><strong>Prévues plus tard ({{ laterCount }})</strong><span class="block text-slate-500">Courses à livrer les prochains jours</span></span>
+        <span class="text-slate-400">›</span>
+      </button>
       <button v-if="hasMore" type="button" class="m-btn-secondary" :disabled="loadingMore" @click="loadOrders(page + 1)">Voir plus</button>
       <EmptyState
         v-if="loaded && !orders.length"
@@ -203,6 +209,18 @@ async function loadCounts() {
   })
 }
 
+// Courses à livrer après aujourd'hui (bandeau sous la liste du jour)
+const laterCount = ref(0)
+const laterPeriod = () => periodFromQuery({ periode: 'later' })
+async function loadLater() {
+  try {
+    const { data } = await cachedGet('/orders', { params: { per_page: 1, ...filterParams(ORDER_FILTERS[0], laterPeriod()) } })
+    laterCount.value = data.meta?.total ?? data.data.length
+  } catch {
+    laterCount.value = 0
+  }
+}
+
 async function loadOrders(p = 1) {
   loadingMore.value = p > 1
   const filter = ORDER_FILTERS.find((f) => f.value === homeFilter.value)
@@ -221,11 +239,12 @@ async function load() {
   const d = todayDate()
   try {
     const [s, m, a] = await Promise.all([
-      cachedGet('/reports/summary', { params: { from: period.value.from, to: period.value.to } }),
-      cachedGet('/reports/summary', { params: { from: `${d.slice(0, 8)}01`, to: d } }),
+      cachedGet('/reports/summary', { params: { from: period.value.from || undefined, to: period.value.to || undefined, date_basis: 'delivery' } }),
+      cachedGet('/reports/summary', { params: { from: `${d.slice(0, 8)}01`, to: d, date_basis: 'delivery' } }),
       cachedGet('/orders', { params: { queue: 'to_decide', per_page: 10 } }),
       loadOrders(1),
       loadCounts(),
+      loadLater(),
     ])
     summary.value = s.data.data
     month.value = m.data.data
