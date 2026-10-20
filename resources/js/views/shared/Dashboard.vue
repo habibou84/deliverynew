@@ -25,7 +25,10 @@
     <section v-if="!isMerchant && auth.can('orders.dispatch') && dispatchCounts.loaded" class="card p-4 space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="font-semibold">🛵 En attente d'un livreur</h2>
-        <RouterLink :to="{ path: '/admin/courses', query: { queue: 'unassigned' } }" class="text-sm text-blue-600">Tout voir et assigner</RouterLink>
+        <span class="flex flex-wrap gap-3 text-sm">
+          <RouterLink v-if="auth.can('settings.manage')" to="/admin/reglages/alertes" class="text-gray-500">⚙️ Délais d'alerte</RouterLink>
+          <RouterLink :to="{ path: '/admin/courses', query: { queue: 'unassigned' } }" class="text-blue-600">Tout voir et assigner</RouterLink>
+        </span>
       </div>
       <p v-if="cutoff?.passed && cutoff.count" class="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white">
         🕒 Il est plus de {{ cutoff.time }} : {{ cutoff.count }} course{{ cutoff.count > 1 ? 's' : '' }} du jour

@@ -2,9 +2,10 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Courses</h1>
-      <div v-if="auth.can('orders.create')" class="flex gap-2">
-        <RouterLink :to="`${auth.homeRoute}/courses/import`" class="btn-secondary">📥 Importer</RouterLink>
-        <RouterLink :to="`${auth.homeRoute}/courses/nouvelle`" class="btn-primary">+ Nouvelle course</RouterLink>
+      <div class="flex gap-2">
+        <RouterLink v-if="isStaff && auth.can('settings.manage')" to="/admin/reglages/courses" class="btn-secondary" title="Réglages des courses" aria-label="Réglages des courses">⚙️</RouterLink>
+        <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/import`" class="btn-secondary">📥 Importer</RouterLink>
+        <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/nouvelle`" :class="['btn-primary', isStaff ? 'hidden md:inline-flex' : '']">+ Nouvelle course</RouterLink>
       </div>
     </div>
 
@@ -27,11 +28,11 @@
         aria-label="Autre jour" title="Autre jour"
         @change="$event.target.value && setDay($event.target.value)"
       >
-      <span v-if="filters.day" class="text-gray-500">· courses du jour et retards encore en cours</span>
+      <span v-if="filters.day" class="hidden sm:inline text-gray-500">· courses du jour et retards encore en cours</span>
     </div>
 
     <!-- Files d'attente du dispatch -->
-    <div v-if="isStaff" class="flex gap-2 overflow-x-auto pb-1">
+    <div v-if="isStaff" class="flex gap-2 overflow-x-auto no-scrollbar pb-1 [mask-image:linear-gradient(to_right,black_88%,transparent)] md:[mask-image:none]">
       <button
         v-for="q in visibleQueues"
         :key="q.value"
@@ -80,7 +81,48 @@
     <PickupGroupsPanel v-if="byClient" :couriers="couriers" :day="filters.day" :include-later="filters.include_later" @assigned="dispatchCounts.fetchCounts().catch(() => {})" />
 
     <template v-else>
-      <div :class="['card p-3 grid grid-cols-2 gap-2', isStaff ? 'md:grid-cols-7' : 'md:grid-cols-6']">
+      <!-- Téléphone : recherche et filtres dans un panneau -->
+      <div class="md:hidden flex gap-2">
+        <input v-model="filters.search" class="input" placeholder="Code, téléphone, nom…" aria-label="Rechercher une course" @input="debouncedLoad">
+        <button type="button" :class="['btn-secondary shrink-0', activeFilters ? 'ring-2 ring-slate-900' : '']" @click="filtersOpen = true">
+          Filtres<span v-if="activeFilters">&nbsp;({{ activeFilters }})</span>
+        </button>
+      </div>
+      <BottomSheet :open="filtersOpen" title="Filtres" @close="filtersOpen = false">
+        <div class="space-y-3">
+          <div>
+            <label class="label" for="f-status">Statut</label>
+            <select id="f-status" v-model="filters.status" class="input" @change="load(1)">
+              <option value="">Tous les statuts</option>
+              <option v-for="(label, value) in STATUS_LABELS" :key="value" :value="value">{{ label }}</option>
+            </select>
+          </div>
+          <div v-if="isStaff">
+            <label class="label" for="f-merchant">Marchand</label>
+            <select id="f-merchant" v-model="filters.merchant_id" class="input" @change="load(1)">
+              <option value="">Tous les marchands</option>
+              <option v-for="m in merchants" :key="m.id" :value="String(m.id)">{{ m.business_name }}</option>
+            </select>
+          </div>
+          <div>
+            <p class="label">Période <span class="font-normal text-gray-500">(remplace le jour)</span></p>
+            <select v-if="isStaff" v-model="filters.date_basis" class="input mb-2" aria-label="Dates selon" @change="filters.from || filters.to ? onPeriod() : null">
+              <option value="delivery">📅 Selon la livraison</option>
+              <option value="created">🆕 Selon la création</option>
+            </select>
+            <div class="grid grid-cols-2 gap-2">
+              <input v-model="filters.from" type="date" class="input" aria-label="Du" @change="onPeriod">
+              <input v-model="filters.to" type="date" class="input" aria-label="Au" @change="onPeriod">
+            </div>
+          </div>
+          <div class="flex gap-2 pt-2">
+            <button type="button" class="btn-secondary flex-1" @click="clearFilters">Effacer</button>
+            <button type="button" class="btn-primary flex-1" @click="filtersOpen = false">Voir les courses</button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      <div :class="['card p-3 hidden md:grid grid-cols-2 gap-2', isStaff ? 'md:grid-cols-7' : 'md:grid-cols-6']">
         <input v-model="filters.search" class="input col-span-2" placeholder="Code, téléphone, nom, référence…" @input="debouncedLoad">
         <select v-model="filters.status" class="input" @change="load(1)">
           <option value="">Tous les statuts</option>
@@ -104,7 +146,8 @@
       </p>
 
       <!-- Actions groupées : validation, assignation -->
-      <div v-if="isStaff && selected.length" class="card p-3 flex flex-wrap items-center gap-2 bg-blue-50 border-blue-200">
+      <!-- Téléphone : barre fixée au-dessus des onglets, toujours à portée de pouce -->
+      <div v-if="isStaff && selected.length" class="card p-3 flex flex-wrap items-center gap-2 bg-blue-50 border-blue-200 fixed inset-x-2 bottom-16 z-30 shadow-lg md:static md:shadow-none">
         <span class="text-sm font-medium">{{ selected.length }} sélectionnée(s)</span>
         <template v-if="auth.can('orders.dispatch') && pendingSelected.length">
           <button class="btn-success" :disabled="confirming" @click="bulkConfirm">
@@ -129,7 +172,44 @@
         <button class="btn-secondary" @click="selected = []">Annuler</button>
       </div>
 
-      <div class="card overflow-x-auto">
+      <!-- Téléphone : une carte par course -->
+      <div class="md:hidden space-y-2">
+        <p v-if="loading" class="card p-6 text-center text-gray-500">Chargement…</p>
+        <p v-else-if="!orders.length" class="card p-6 text-center text-gray-500">Aucune course.</p>
+        <article
+          v-for="o in orders"
+          v-else
+          :key="o.id"
+          :class="['card p-3 space-y-1.5 cursor-pointer', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : '']"
+          @click="open(o)"
+        >
+          <div class="flex items-center justify-between gap-2">
+            <label v-if="isStaff" class="flex items-center gap-2 min-w-0" @click.stop>
+              <input v-model="selected" type="checkbox" :value="o.id" :aria-label="`Sélectionner ${o.tracking_code}`">
+              <span class="font-mono text-xs truncate">{{ o.tracking_code }}</span>
+            </label>
+            <span v-else class="font-mono text-xs">{{ o.tracking_code }}</span>
+            <span class="font-semibold whitespace-nowrap">{{ money(o.amounts.cod_amount) }}</span>
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <div class="font-medium truncate">{{ o.recipient.name || '—' }}</div>
+              <div class="text-xs text-gray-500">{{ o.recipient.phone }}</div>
+            </div>
+            <a v-if="o.recipient.phone" :href="`tel:${o.recipient.phone}`" class="tap shrink-0 grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-lg" :aria-label="`Appeler ${o.recipient.name || 'le destinataire'}`" @click.stop>📞</a>
+          </div>
+          <div class="text-xs text-gray-600">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}<span v-if="isStaff && o.merchant"> · {{ o.merchant.business_name }}</span></div>
+          <OrderStatusCell :order="o" :late="isLate(o)" :late-day="deliveryDay(o)" @decide="deciding = $event" />
+          <div v-if="o.pickup_courier || o.delivery_courier || o.held_by" class="flex flex-wrap gap-x-3 text-xs text-gray-700">
+            <span v-if="o.pickup_courier">↑ {{ o.pickup_courier.name }}</span>
+            <span v-if="o.delivery_courier">↓ {{ o.delivery_courier.name }}</span>
+            <span v-if="o.held_by" class="text-amber-700">🎒 {{ o.held_by.name }}</span>
+          </div>
+          <div class="text-xs text-gray-400">Livraison {{ date(o.delivery.scheduled_date || o.created_at) }} · créée {{ dateTime(o.created_at) }}</div>
+        </article>
+      </div>
+
+      <div class="card overflow-x-auto hidden md:block">
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-gray-600">
             <tr>
@@ -163,33 +243,7 @@
               </td>
               <td class="p-2 whitespace-nowrap">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}</td>
               <td class="p-2">
-                <StatusBadge :status="o.status" :label="o.status_label" />
-                <div v-if="isLate(o)" class="mt-1 inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-800 whitespace-nowrap">
-                  ⏳ En retard · prévue le {{ date(deliveryDay(o)) }}
-                </div>
-                <div
-                  v-if="o.awaiting_courier"
-                  :class="['mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap', o.awaiting_courier.late ? 'bg-red-600 text-white' : 'bg-amber-100 text-amber-800']"
-                  :title="`Seuil d'alerte : ${duration(o.awaiting_courier.threshold_minutes)}`"
-                >
-                  {{ o.awaiting_courier.late ? '⏰' : '🛵' }} Sans livreur · {{ o.awaiting_courier.stage === 'pickup' ? 'ramassage' : 'livraison' }} · {{ duration(o.awaiting_courier.minutes) }}
-                </div>
-                <div
-                  v-if="o.awaiting_courier?.after_cutoff"
-                  class="mt-1 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 whitespace-nowrap"
-                  :title="`Heure limite du jour (${o.awaiting_courier.cutoff_time}) passée : risque de ne pas être livrée aujourd'hui`"
-                >
-                  🕒 Après {{ o.awaiting_courier.cutoff_time }}
-                </div>
-                <div v-if="o.last_incident && ['delivery_failed', 'rescheduled'].includes(o.status)" class="text-xs text-red-600 mt-0.5">{{ o.last_incident.label }}</div>
-                <div v-if="o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)" class="text-xs text-rose-600">Retour demandé</div>
-                <div v-if="o.delivery.scheduled_date && (o.status === 'rescheduled' || (o.delivery.scheduled_date > todayIso && !['delivered', 'cancelled', 'rejected', 'returned', 'lost'].includes(o.status)))" :class="['text-xs', o.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-gray-600']">📅 {{ o.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(o.delivery.scheduled_date) }}</div>
-                <!-- Décision du marchand encore d'actualité -->
-                <div v-if="o.merchant_decision" class="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800 whitespace-nowrap">
-                  🧑‍💼 Le marchand a décidé : {{ o.merchant_decision.kind === 'redeliver' ? `relivrer le ${date(o.merchant_decision.date)}` : 'retour demandé' }}
-                </div>
-                <button v-if="canDecide(o)" type="button" class="mt-1 block text-xs rounded bg-blue-600 text-white px-2 py-0.5" @click.stop="deciding = o">Décider</button>
-                <button v-else-if="canRevise(o)" type="button" class="mt-1 block text-xs text-blue-700 underline" @click.stop="deciding = o">Modifier</button>
+                <OrderStatusCell :order="o" :late="isLate(o)" :late-day="deliveryDay(o)" @decide="deciding = $event" />
               </td>
               <td class="p-2 text-xs">
                 <div v-if="o.pickup_courier">↑ {{ o.pickup_courier.name }}</div>
@@ -217,7 +271,8 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
-import StatusBadge from '../../components/StatusBadge.vue'
+import OrderStatusCell from '../../components/OrderStatusCell.vue'
+import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import Pagination from '../../components/Pagination.vue'
 import OrderDecision from '../../components/OrderDecision.vue'
 import PickupGroupsPanel from '../../components/PickupGroupsPanel.vue'
@@ -226,7 +281,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
-import { date, dateTime, money, STATUS_LABELS, waitDuration } from '../../utils/format'
+import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -302,6 +357,16 @@ const AWAITING = [
   { value: 'delivery', label: 'Livraison' },
 ]
 const assigning = ref(false)
+// Téléphone : panneau des filtres et nombre de filtres actifs
+const filtersOpen = ref(false)
+const activeFilters = computed(() => [filters.status, filters.merchant_id, filters.from || filters.to].filter(Boolean).length)
+function clearFilters() {
+  filters.status = ''
+  filters.merchant_id = ''
+  filters.from = ''
+  filters.to = ''
+  load(1)
+}
 const confirming = ref(false)
 // Courses sélectionnées encore en attente de validation
 const pendingSelected = computed(() => selected.value.filter((id) => orders.value.find((o) => o.id === id)?.status === 'pending'))
@@ -346,7 +411,6 @@ const tabLate = (queue) => {
   return dayCounts.value ? Math.min(late, tabCount(queue)) : late
 }
 
-const duration = waitDuration
 
 // Alerte « sans livreur » reçue : la liste se met à jour
 watch(() => dispatchCounts.version, () => load(meta.value?.current_page || 1))
@@ -434,10 +498,6 @@ function toggleAll(e) {
 
 // Suite à donner à un colis non livré
 const deciding = ref(null)
-// « Décider » seulement si une décision est attendue (même règle que la file « À décider ») ;
-// un report sans livreur reparti reste modifiable
-const canDecide = (o) => auth.can('orders.dispatch') && o.needs_decision
-const canRevise = (o) => auth.can('orders.dispatch') && o.decision_editable
 function decided(order) {
   deciding.value = null
   toasts.success(order.status === 'rescheduled' ? `Relivraison prévue le ${date(order.delivery.scheduled_date)}.` : (order.return_requested ? 'Retour au marchand décidé.' : 'Décision enregistrée.'))

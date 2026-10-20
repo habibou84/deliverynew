@@ -99,6 +99,22 @@ sans compte Meta (les courses confirmées sont réellement créées).
 L'analyse se fait par règles ; avec `ANTHROPIC_API_KEY` (et `ANTHROPIC_MODEL`, par défaut `claude-opus-5-5`),
 Claude comprend aussi les messages sans format, avec retour automatique aux règles en cas d'erreur.
 
+### Réglages et administration sur téléphone
+
+**Réglages** (menu Configuration, `/admin/reglages`) : une carte par thème, avec l'état actuel en résumé et une
+recherche (« heure limite », « logo »…) — Entreprise et marque, Courses et livraison, Zones et tarifs (frais des
+retours dans Tarifs), Alertes et rappels, Messages aux clients (WhatsApp), E-commerçants, Équipe et paie,
+Intégrations (API, reprise de l'ancienne application), Abonnement. Chaque page est courte ; une barre
+« Enregistrer / Annuler » apparaît dès qu'un réglage change, et quitter sans enregistrer demande confirmation.
+Raccourcis : ⚙️ dans la liste des courses, « Délais d'alerte » sur le tableau de bord. L'ancienne adresse
+`/admin/parametres` mène aux Réglages.
+
+**Sur téléphone** (moins de 768 px) : barre d'onglets en bas (Accueil, Courses, Carte, Alertes et Menu pour le
+dispatch ; selon les droits sinon), bouton ＋ « Nouvelle course », recherche par la loupe, déconnexion dans le menu.
+Les courses s'affichent en cartes (appel du destinataire, sélection, barre d'actions fixée en bas), les filtres dans
+un panneau ; les tableaux de la Caisse, des E-commerçants et des Utilisateurs passent en cartes (`stack-table`).
+`npm run test:mobile` (et la CI) vérifie qu'aucune page de l'administration ne dépasse un écran de 360 px (petits téléphones).
+
 ### Remontées terrain
 
 Les notes et problèmes enregistrés par les livreurs (échec ou report de livraison, échec de ramassage, refus de
@@ -113,7 +129,7 @@ remontée se marque « traitée » avec un commentaire, le menu affiche le nombr
   et dans **Consignes de l'agence**, et la confirme d'un « 👍 Compris » ; le dispatch voit « lu » puis « compris ».
   La consigne est tracée au journal de la course (note interne) et peut marquer la remontée comme traitée.
 - **Relance automatique** (`field-reports:remind`, chaque minute) : un problème resté sans réponse ni traitement est
-  relancé au dispatch après le délai réglé dans **Paramètres** (10 min par défaut, 0 = jamais), puis aux
+  relancé au dispatch après le délai réglé dans **Réglages › Alertes et rappels** (10 min par défaut, 0 = jamais), puis aux
   administrateurs après trois fois ce délai. Rien n'est relancé si la course est terminée.
 
 ### Colis non livrés chez les livreurs
@@ -127,7 +143,7 @@ jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
   Un livreur sans argent à verser rend ses colis via « Recevoir les colis ».
 - **Point bloqué** tant qu'une course du livreur est « En chemin » : il doit d'abord indiquer « livré » ou « échec ».
 - **Colis chez les livreurs** (back-office, `orders.dispatch`) : colis par livreur avec leur ancienneté, filtre
-  « En retard », réception au dépôt en un clic. Au-delà du délai réglé dans **Paramètres** (24 h par défaut,
+  « En retard », réception au dépôt en un clic. Au-delà du délai réglé dans **Réglages › Alertes et rappels** (24 h par défaut,
   0 = jamais), le colis passe en rouge, le menu affiche un badge et le dispatch reçoit une alerte sonore
   (`parcels:overdue`, toutes les 15 min, une alerte par colis).
 - Le livreur voit dans **Ma caisse** les colis à rapporter au dépôt.
@@ -137,7 +153,7 @@ jusqu'à ce qu'il soit rendu au dépôt, livré ou retourné au marchand.
   les colis cochés sont confiés d'un coup au livreur, sans changer leur date de livraison (souvent demain). Le dispatch
   reçoit une alerte quand un livreur qui a déjà travaillé devient libre ou bientôt libre avec des ramassages près de
   lui (`couriers:available`, chaque minute, une alerte par palier et par jour).
-- **Après une mission ramassage** (**Paramètres**) : les colis **restent chez le livreur** jusqu'à leur jour de
+- **Après une mission ramassage** (**Réglages › Courses et livraison**) : les colis **restent chez le livreur** jusqu'à leur jour de
   livraison, **reviennent au dépôt** le soir même, ou **au choix du dispatch** à chaque mission (par défaut). Un colis
   gardé n'est pas « en retard » avant son jour de livraison ; ce jour-là, sa livraison est confiée automatiquement au
   livreur qui l'a (`parcels:kept-deliveries`, toutes les 15 min). Confier la livraison à un autre livreur signale une
@@ -257,7 +273,7 @@ Les envois passent par la file `messages` et les points d'activité par le plani
 | `/livreur` (→ `/livreur/connexion`) | Livreurs | Application mobile bleue |
 
 Chaque page accepte tous les comptes : après connexion, chacun arrive dans son espace. Le logo (PNG, JPEG ou WebP)
-et l'accroche se règlent dans **Paramètres > Logo et page d'accueil** ; `BRANDING_COMPANY` (slug ou identifiant)
+et l'accroche se règlent dans **Réglages › Entreprise et marque** ; `BRANDING_COMPANY` (slug ou identifiant)
 désigne l'entreprise affichée si plusieurs partagent l'installation (par défaut : la première entreprise active).
 
 ### Plateforme multi-entreprises (une adresse par entreprise)
@@ -388,7 +404,7 @@ Menu **📊 Statistiques** du back-office (`orders.view`, personnel seulement), 
 - **Point de la semaine** (`reports:weekly`, vérifié toutes les 15 minutes, envoyé le lundi à 7 h 30 heure de
   l'entreprise, une fois par semaine) : aux administrateurs, par WhatsApp (modèle `point_semaine_gerant`, à faire
   approuver par Meta) et dans la cloche — courses créées et livrées, taux de livraison, chiffre d'affaires comparés à la
-  semaine d'avant, e-commerçants à relancer, lien vers les statistiques. Réglage « Point de la semaine » dans Paramètres
+  semaine d'avant, e-commerçants à relancer, lien vers les statistiques. Réglage « Point de la semaine » dans Réglages › Alertes et rappels
   (activé par défaut) ; rien n'est envoyé une semaine sans activité.
 - **Application e-commerçant** : « 📊 Mes statistiques » (`GET /api/v1/merchant/stats`) — taux de livraison avec
   l'évolution, réussite au premier passage, passages ratés et leurs motifs, communes de livraison, délais, courbe par
@@ -412,7 +428,7 @@ Menu **📊 Statistiques** du back-office (`orders.view`, personnel seulement), 
 
 ### Domaine personnalisé et marque blanche
 
-- Module de formule `custom_domain`. L'administrateur choisit son domaine dans **Paramètres** (« Adresse de votre
+- Module de formule `custom_domain`. L'administrateur choisit son domaine dans **Réglages › Entreprise et marque** (« Adresse de votre
   espace ») ; l'écran donne l'enregistrement DNS à créer (`CNAME` vers `PLATFORM_CUSTOM_DOMAIN_TARGET`), l'état et les
   erreurs lisibles ; « Vérifier maintenant » et vérification automatique (`domains:check`, toutes les 10 minutes, domaines
   en attente depuis moins de 14 jours). Service `App\Services\Platform\CustomDomains`, API `company/domain`.
@@ -485,7 +501,7 @@ fiches prêtes en attente de paiement. Modèles : « Salarié » et « Mixte » 
 
 Une course **validée sans livreur de ramassage**, ou un colis **récupéré / à l'entrepôt / reporté à aujourd'hui sans
 livreur de livraison**, porte dans la liste une pastille « 🛵 Sans livreur · ramassage · 25 min ». Au-delà du délai
-de l'entreprise (**Paramètres** : 30 min pour le ramassage, 1 h pour la livraison par défaut ; 0 = pas d'alerte) :
+de l'entreprise (**Réglages › Alertes et rappels** : 30 min pour le ramassage, 1 h pour la livraison par défaut ; 0 = pas d'alerte) :
 
 - la pastille et la ligne passent au rouge (« ⏰ ») ;
 - les onglets « À ramasser » et « À livrer » affichent leur nombre de courses et, en rouge, celles en retard ;
@@ -516,12 +532,12 @@ peuvent être prises en avance, aussi lot par lot dans « Ramassages par client 
 `GET /orders?day=AAAA-MM-JJ&include_later=1`, `GET /orders/counts?day=` (→ `day` : compteurs du jour, `later`, `days`),
 `GET /orders/pickup-groups?day=` (colis `later` et `later_count`). Les alertes et le tableau de bord ne changent pas.
 
-**Heure limite du jour** (Paramètres, heure de l'entreprise, vide = aucune) : passé cette heure, les courses encore
+**Heure limite du jour** (Réglages › Courses et livraison, heure de l'entreprise, vide = aucune) : passé cette heure, les courses encore
 sans livreur portent la pastille « 🕒 Après 15:00 », le tableau de bord affiche un bandeau rouge (« Il est plus de
 15:00 : 3 courses du jour n'ont toujours pas de livreur… ») et les administrateurs et le dispatch reçoivent une
 alerte, une fois par jour (`orders:unassigned`, `GET /orders/counts` → `cutoff`).
 
-**Validation des nouvelles courses** (Paramètres) : *manuelle* (file « À valider »), *automatique* (validées dès
+**Validation des nouvelles courses** (Réglages › Courses et livraison) : *manuelle* (file « À valider »), *automatique* (validées dès
 l'enregistrement) ou *automatique avec règles*. Avec les règles, une course prévue aujourd'hui (ou « au plus vite »)
 arrivée **après l'heure limite**, ou pendant que la **journée est fermée** par le dispatch, est validée pour le
 lendemain ; le ramassage reste le jour même. Le marchand reçoit « course validée pour une livraison le mardi 21/10
@@ -589,7 +605,7 @@ Vérification du numéro, valable 30 minutes :
 Limites : 5 demandes par numéro et par heure, 3 par minute et 10 par heure par adresse IP. Quand les SMS sont simulés
 (`SMS_DRIVER=log`), le code SMS s'affiche sur la page (**mode démonstration**). La vérification par WhatsApp n'est
 proposée que si le numéro de l'entreprise est connecté.
-Les inscriptions se ferment dans **Paramètres > E-commerçants** (la page d'accueil propose alors le contact WhatsApp).
+Les inscriptions se ferment dans **Réglages › E-commerçants** (la page d'accueil propose alors le contact WhatsApp).
 
 **Mot de passe oublié ?** (lien sous chaque formulaire de connexion, `/mot-de-passe-oublie`) : même vérification
 du numéro, puis nouveau mot de passe ; les autres appareils sont déconnectés. La réponse est identique que le
@@ -640,6 +656,7 @@ Les notifications, la diffusion temps réel et les messages WhatsApp/SMS passent
 php artisan test                    # SQLite en mémoire (rapide)
 DB_CONNECTION=pgsql DB_DATABASE=livraison_test php artisan test   # sur PostgreSQL, comme la CI
 vendor/bin/pint                     # formatage du code
+npm run test:mobile                 # pages de l'administration à 360 px (serveur lancé, comptes de démonstration)
 npm run build                       # build front-end
 ```
 

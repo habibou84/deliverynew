@@ -21,23 +21,23 @@
         <StatCard title="Versé à la caisse aujourd'hui" :value="money(cash.totals.received_today)" icon="🏦" />
       </div>
       <div class="card overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm stack-table">
           <thead class="bg-slate-50 text-left text-gray-600">
             <tr><th class="p-2">Livreur</th><th class="p-2 text-right" title="Encaissé + avances − frais payés">À verser</th><th class="p-2">Lignes</th><th class="p-2" title="Colis non livrés encore chez le livreur">Colis</th><th class="p-2">Plus ancien</th><th class="p-2 text-right">Gains non payés</th><th /></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="c in cash?.data || []" :key="c.courier_id">
               <td class="p-2 font-medium">{{ c.name }}<div class="text-xs text-gray-500">{{ c.phone }}</div></td>
-              <td class="p-2 text-right font-semibold">
+              <td data-label="À verser" class="p-2 text-right font-semibold">
                 {{ money(c.cash_in_hand) }}
                 <div v-if="c.advances || c.expenses" class="text-xs font-normal text-gray-500">
                   <span v-if="c.advances">+{{ money(c.advances) }} avance</span><span v-if="c.advances && c.expenses"> · </span><span v-if="c.expenses">−{{ money(c.expenses) }} frais</span>
                 </div>
               </td>
-              <td class="p-2">{{ c.pending_collections }}</td>
-              <td class="p-2"><span v-if="c.parcels_in_hand" class="rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-xs font-medium">📦 {{ c.parcels_in_hand }}</span><span v-else class="text-gray-400">—</span></td>
-              <td class="p-2 text-xs">{{ c.oldest_collected_at ? dateTime(c.oldest_collected_at) : '—' }}</td>
-              <td :class="['p-2 text-right', signedClass(c.unpaid)]">{{ money(c.unpaid) }}</td>
+              <td data-label="Lignes" class="p-2">{{ c.pending_collections }}</td>
+              <td data-label="Colis" class="p-2"><span v-if="c.parcels_in_hand" class="rounded-full bg-amber-100 text-amber-900 px-2 py-0.5 text-xs font-medium">📦 {{ c.parcels_in_hand }}</span><span v-else class="text-gray-400">—</span></td>
+              <td data-label="Plus ancien" class="p-2 text-xs">{{ c.oldest_collected_at ? dateTime(c.oldest_collected_at) : '—' }}</td>
+              <td data-label="Gains non payés" :class="['p-2 text-right', signedClass(c.unpaid)]">{{ money(c.unpaid) }}</td>
               <td class="p-2 text-right whitespace-nowrap space-x-1">
                 <button v-if="canManage" class="btn-secondary" @click="openAdvance(c)">Donner une avance</button>
                 <button v-if="c.pending_collections && canManage" class="btn-primary" @click="openRemit(c)">{{ c.cash_in_hand >= 0 ? 'Recevoir le versement' : 'Rembourser le livreur' }}</button>
@@ -48,25 +48,25 @@
         </table>
       </div>
 
-      <div class="card">
+      <div class="card overflow-x-auto">
         <h2 class="font-semibold p-4 border-b">Derniers versements</h2>
-        <table class="w-full text-sm">
+        <table class="w-full text-sm stack-table">
           <thead class="bg-slate-50 text-left text-gray-600">
             <tr><th class="p-2">Date</th><th class="p-2">Livreur</th><th class="p-2 text-right">Attendu</th><th class="p-2 text-right">Reçu</th><th class="p-2 text-right">Écart</th><th class="p-2">Colis</th><th class="p-2">Reçu par</th></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="r in remittances" :key="r.id">
               <td class="p-2 text-xs">{{ dateTime(r.received_at) }}</td>
-              <td class="p-2">{{ r.courier_name }}</td>
-              <td class="p-2 text-right">{{ money(r.amount_expected) }}</td>
-              <td class="p-2 text-right">{{ money(r.amount_received) }}</td>
-              <td :class="['p-2 text-right font-medium', signedClass(r.difference)]">{{ r.difference ? money(r.difference) : '—' }}</td>
-              <td class="p-2 text-xs">
+              <td data-label="Livreur" class="p-2">{{ r.courier_name }}</td>
+              <td data-label="Attendu" class="p-2 text-right">{{ money(r.amount_expected) }}</td>
+              <td data-label="Reçu" class="p-2 text-right">{{ money(r.amount_received) }}</td>
+              <td data-label="Écart" :class="['p-2 text-right font-medium', signedClass(r.difference)]">{{ r.difference ? money(r.difference) : '—' }}</td>
+              <td data-label="Colis" class="p-2 text-xs">
                 <span v-if="r.parcels_returned.length" class="block text-emerald-700" :title="r.parcels_returned.join(', ')">✓ {{ r.parcels_returned.length }} rendu{{ r.parcels_returned.length > 1 ? 's' : '' }}</span>
                 <span v-if="r.parcels_kept.length" class="block text-amber-700" :title="r.parcels_kept.join(', ')">⚠ {{ r.parcels_kept.length }} gardé{{ r.parcels_kept.length > 1 ? 's' : '' }} : {{ r.parcels_kept.join(', ') }}</span>
                 <span v-if="!r.parcels_returned.length && !r.parcels_kept.length" class="text-gray-400">—</span>
               </td>
-              <td class="p-2 text-xs">{{ r.received_by }}<span v-if="r.notes" class="block text-gray-500">{{ r.notes }}</span></td>
+              <td data-label="Reçu par" class="p-2 text-xs">{{ r.received_by }}<span v-if="r.notes" class="block text-gray-500">{{ r.notes }}</span></td>
             </tr>
             <tr v-if="!remittances.length"><td colspan="7" class="p-4 text-center text-gray-500">Aucun versement.</td></tr>
           </tbody>
@@ -80,16 +80,16 @@
         « Disponible » = argent arrivé en caisse, prêt à être reversé. « En attente » = courses livrées dont l'argent est encore chez un livreur.
       </p>
       <div class="card overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm stack-table">
           <thead class="bg-slate-50 text-left text-gray-600">
             <tr><th class="p-2">E-commerçant</th><th class="p-2 text-right">Disponible</th><th class="p-2 text-right">En attente</th><th class="p-2 text-right">Total non reversé</th><th /></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="m in merchantBalances" :key="m.merchant_id">
               <td class="p-2 font-medium">{{ m.business_name }}</td>
-              <td :class="['p-2 text-right font-semibold', signedClass(m.available)]">{{ money(m.available) }}</td>
-              <td class="p-2 text-right text-gray-600">{{ money(m.pending_cash) }}</td>
-              <td class="p-2 text-right">{{ money(m.unpaid_total) }}</td>
+              <td data-label="Disponible" :class="['p-2 text-right font-semibold', signedClass(m.available)]">{{ money(m.available) }}</td>
+              <td data-label="En attente" class="p-2 text-right text-gray-600">{{ money(m.pending_cash) }}</td>
+              <td data-label="Total non reversé" class="p-2 text-right">{{ money(m.unpaid_total) }}</td>
               <td class="p-2 text-right whitespace-nowrap">
                 <button class="text-blue-600 mr-3" @click="openLedger(m)">Grand livre</button>
                 <button v-if="canManage && m.available !== 0" class="btn-primary" @click="preparePayout(m)">Préparer le reversement</button>
@@ -104,18 +104,18 @@
     <!-- Reversements -->
     <template v-if="tab === 'payouts'">
       <div class="card overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm stack-table">
           <thead class="bg-slate-50 text-left text-gray-600">
             <tr><th class="p-2">Référence</th><th class="p-2">E-commerçant</th><th class="p-2">Période</th><th class="p-2 text-right">Net</th><th class="p-2">Statut</th><th class="p-2">Payé le</th></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="p in payouts" :key="p.id" class="hover:bg-slate-50 cursor-pointer" @click="router.push(`/admin/caisse/reversements/${p.id}`)">
               <td class="p-2 font-mono text-xs">{{ p.reference }}</td>
-              <td class="p-2">{{ p.merchant.business_name }}</td>
-              <td class="p-2 text-xs">{{ date(p.period_start) }} → {{ date(p.period_end) }}</td>
-              <td :class="['p-2 text-right font-semibold', signedClass(p.net_amount)]">{{ money(p.net_amount) }}</td>
-              <td class="p-2"><PayoutBadge :status="p.status" :label="p.status_label" /></td>
-              <td class="p-2 text-xs">{{ p.paid_at ? `${dateTime(p.paid_at)} · ${p.method_label}` : '—' }}</td>
+              <td data-label="E-commerçant" class="p-2">{{ p.merchant.business_name }}</td>
+              <td data-label="Période" class="p-2 text-xs">{{ date(p.period_start) }} → {{ date(p.period_end) }}</td>
+              <td data-label="Net" :class="['p-2 text-right font-semibold', signedClass(p.net_amount)]">{{ money(p.net_amount) }}</td>
+              <td data-label="Statut" class="p-2"><PayoutBadge :status="p.status" :label="p.status_label" /></td>
+              <td data-label="Payé le" class="p-2 text-xs">{{ p.paid_at ? `${dateTime(p.paid_at)} · ${p.method_label}` : '—' }}</td>
             </tr>
             <tr v-if="!payouts.length"><td colspan="6" class="p-4 text-center text-gray-500">Aucun reversement.</td></tr>
           </tbody>
@@ -126,14 +126,14 @@
     <!-- Paie des livreurs -->
     <template v-if="tab === 'payroll'">
       <div class="card overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm stack-table">
           <thead class="bg-slate-50 text-left text-gray-600">
             <tr><th class="p-2">Livreur</th><th class="p-2 text-right">Gains non payés</th><th /></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="c in cash?.data || []" :key="c.courier_id">
               <td class="p-2 font-medium">{{ c.name }}</td>
-              <td :class="['p-2 text-right font-semibold', signedClass(c.unpaid)]">{{ money(c.unpaid) }}</td>
+              <td data-label="Gains non payés" :class="['p-2 text-right font-semibold', signedClass(c.unpaid)]">{{ money(c.unpaid) }}</td>
               <td class="p-2 text-right whitespace-nowrap">
                 <button v-if="canManage" class="text-blue-600 mr-3" @click="openAdjust(c)">Prime / retenue</button>
                 <button v-if="canManage && c.unpaid !== 0" class="btn-primary" @click="prepareCourierPayout(c)">Préparer la paie</button>
@@ -144,17 +144,17 @@
       </div>
       <div class="card overflow-x-auto">
         <h2 class="font-semibold p-4 border-b">Fiches de paie</h2>
-        <table class="w-full text-sm">
+        <table class="w-full text-sm stack-table">
           <thead class="bg-slate-50 text-left text-gray-600">
             <tr><th class="p-2">Référence</th><th class="p-2">Livreur</th><th class="p-2">Période</th><th class="p-2 text-right">Montant</th><th class="p-2">Statut</th><th /></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="p in courierPayouts" :key="p.id">
               <td class="p-2 font-mono text-xs">{{ p.reference }}</td>
-              <td class="p-2">{{ p.courier_name }}</td>
-              <td class="p-2 whitespace-nowrap text-gray-600">{{ date(p.period_start) }} → {{ date(p.period_end) }}<span v-if="p.automatic" title="Préparée automatiquement en fin de période"> ⏱</span></td>
-              <td :class="['p-2 text-right font-semibold', signedClass(p.amount)]">{{ money(p.amount) }}</td>
-              <td class="p-2"><PayoutBadge :status="p.status" :label="p.status_label" /></td>
+              <td data-label="Livreur" class="p-2">{{ p.courier_name }}</td>
+              <td data-label="Période" class="p-2 whitespace-nowrap text-gray-600">{{ date(p.period_start) }} → {{ date(p.period_end) }}<span v-if="p.automatic" title="Préparée automatiquement en fin de période"> ⏱</span></td>
+              <td data-label="Montant" :class="['p-2 text-right font-semibold', signedClass(p.amount)]">{{ money(p.amount) }}</td>
+              <td data-label="Statut" class="p-2"><PayoutBadge :status="p.status" :label="p.status_label" /></td>
               <td class="p-2 text-right"><button class="text-blue-600" @click="openCourierPayout(p)">Détail</button></td>
             </tr>
             <tr v-if="!courierPayouts.length"><td colspan="6" class="p-4 text-center text-gray-500">Aucune fiche de paie.</td></tr>
