@@ -497,6 +497,27 @@ fiches prêtes en attente de paiement. Modèles : « Salarié » et « Mixte » 
   période » reprend l'activité réelle de chaque livreur sur une période de paie passée et la compare à ce qu'il a
   réellement gagné (`POST /pay-plans/simulate`).
 
+### Planning des livreurs et ramassage automatique
+
+**Opérations › Planning des livreurs** (`/admin/planning`, permission `orders.dispatch`) dit qui ramasse où et quand.
+Une règle vise des **zones** (une commune couvre ses quartiers) ou des **clients**, et vaut tous les jours, certains
+jours de la semaine, une date ou une période, avec un **remplaçant** facultatif. La règle la plus précise l'emporte :
+un client avant sa zone, un quartier avant sa commune, une date avant une période, avant certains jours, avant « tous
+les jours ». Deux règles qui se contredisent (même cible, mêmes jours, autre livreur) sont refusées. Un livreur
+**absent** (absences saisies sur la même page) ou **en pause** (bouton « disponible » de son application éteint) est
+remplacé par son remplaçant ; sinon personne. La vue d'un jour montre qui couvre chaque règle et les **clients sans
+ramasseur** (actifs depuis 30 jours ou avec des courses validées en attente).
+
+**Ramassage automatique** (Réglages › Courses et livraison) : *désactivé* (le planning sert de repère), *à l'essai*
+(rien n'est envoyé, la course porte la note « le ramassage aurait été confié à… »), *actif* (à la validation, le
+ramassage va au livreur du planning, avec la note « Ramassage confié automatiquement à…, planning « Cocody · tous les
+jours » »). Les courses validées avant sont rattrapées toutes les cinq minutes (`assignments:auto`). Sans règle qui
+couvre la course, rien ne change : elle reste à l'équipe et aux alertes « sans livreur ».
+
+**Message du matin** : à partir de 6 h 45 (heure de l'entreprise), chaque livreur du planning reçoit une fois ce qu'il
+couvre aujourd'hui ou ce qu'il remplace (`couriers:planning-digest`). API : `GET /planning?date=`,
+`POST|PUT|DELETE /planning/rules`, `POST|DELETE /planning/absences`.
+
 ### Courses sans livreur
 
 Une course **validée sans livreur de ramassage**, ou un colis **récupéré / à l'entrepôt / reporté à aujourd'hui sans

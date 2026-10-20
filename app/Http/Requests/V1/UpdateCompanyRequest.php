@@ -63,6 +63,8 @@ class UpdateCompanyRequest extends FormRequest
             // Heure limite du jour (HH:MM, heure de l'entreprise) ; vide = aucune
             'daily_cutoff_time' => ['sometimes', 'nullable', 'date_format:H:i'],
             'delivery_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
+            // Ramassages confiés selon le planning : off, trial (essai), on
+            'auto_pickup' => ['sometimes', 'in:off,trial,on'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
             // Vide = sans formule (aucune limite)
             'plan_id' => ['sometimes', 'nullable', 'integer', 'exists:plans,id'],
@@ -80,6 +82,7 @@ class UpdateCompanyRequest extends FormRequest
             'daily_cutoff_time' => 'heure limite du jour',
             'pickup_mission_custody' => 'colis après une mission ramassage',
             'depot_closes_at' => 'heure de fermeture du dépôt',
+            'auto_pickup' => 'ramassage automatique',
             'plan_id' => 'formule',
             'trial_ends_at' => 'fin de l\'essai',
         ];
