@@ -113,7 +113,7 @@ Raccourcis : ⚙️ dans la liste des courses, « Délais d'alerte » sur le tab
 dispatch ; selon les droits sinon), bouton ＋ « Nouvelle course », recherche par la loupe, déconnexion dans le menu.
 Les courses s'affichent en cartes (appel du destinataire, sélection, barre d'actions fixée en bas), les filtres dans
 un panneau ; les tableaux de la Caisse, des E-commerçants et des Utilisateurs passent en cartes (`stack-table`).
-`npm run test:mobile` (et la CI) vérifie qu'aucune page de l'administration ne dépasse un écran de 390 px.
+`npm run test:mobile` (et la CI) vérifie qu'aucune page de l'administration ne dépasse un écran de 360 px (petits téléphones).
 
 ### Remontées terrain
 
@@ -656,7 +656,7 @@ Les notifications, la diffusion temps réel et les messages WhatsApp/SMS passent
 php artisan test                    # SQLite en mémoire (rapide)
 DB_CONNECTION=pgsql DB_DATABASE=livraison_test php artisan test   # sur PostgreSQL, comme la CI
 vendor/bin/pint                     # formatage du code
-npm run test:mobile                 # pages de l'administration à 390 px (serveur lancé, comptes de démonstration)
+npm run test:mobile                 # pages de l'administration à 360 px (serveur lancé, comptes de démonstration)
 npm run build                       # build front-end
 ```
 

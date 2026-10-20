@@ -1,5 +1,5 @@
 /**
- * Contrôle de l'administration sur téléphone (390 px) : aucune page ne doit être plus large que l'écran,
+ * Contrôle de l'administration sur téléphone (360 px par défaut, WIDTH pour changer) : aucune page ne doit être plus large que l'écran,
  * le panneau des notifications et le menu doivent tenir dans l'écran.
  *
  *   php artisan migrate --seed && php artisan serve
@@ -8,7 +8,7 @@
 import { chromium } from 'playwright'
 
 const BASE = process.env.BASE_URL || 'http://127.0.0.1:8000'
-const WIDTH = 390
+const WIDTH = Number(process.env.WIDTH || 360)
 const PAGES = [
   '', 'statistiques', 'courses', 'courses?queue=to_pickup', 'courses?queue=by_client', 'courses/nouvelle', 'carte', 'disponibilites',
   'terrain', 'colis-livreurs', 'retours', 'caisse', 'paie-livreurs', 'marchands', 'stock', 'messages', 'livreurs', 'utilisateurs',

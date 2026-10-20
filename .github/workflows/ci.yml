@@ -131,7 +131,7 @@ jobs:
       - run: cp .env.example .env && php artisan key:generate
       - run: php artisan migrate --seed --force
       - run: npx playwright install --with-deps chromium
-      # Comptes de démonstration (DemoSeeder) ; chaque page de l'administration à 390 px de large
+      # Comptes de démonstration (DemoSeeder) ; chaque page de l'administration à 360 px de large
       - name: Pages de l'administration sur téléphone
         run: |
           php artisan serve --host=127.0.0.1 --port=8000 > serve.log 2>&1 &
