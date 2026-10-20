@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\Plan;
 use App\Models\PlatformSetting;
+use App\Services\Connect\Directory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -84,6 +85,22 @@ class MarketingSiteTest extends TestCase
 
         // Le menu et l'accueil y mènent
         $this->get('http://jibiat.test/')->assertSee('href="/fonctionnalites"', false);
+    }
+
+    public function test_directory_page_shows_listed_companies_only(): void
+    {
+        $this->get('http://jibiat.test/annuaire')->assertOk()->assertSee('annuaire ouvre bientôt');
+
+        Company::factory()->create(['slug' => 'rapide', 'name' => 'Rapide Express', 'directory_listed' => true, 'merchant_signup' => true, 'directory_pitch' => 'Livré le jour même.']);
+        Company::factory()->create(['slug' => 'discrete', 'name' => 'Discrète Livraison']);
+        Directory::forget();
+
+        $this->get('http://jibiat.test/annuaire')->assertOk()
+            ->assertSee('Trouvez une entreprise de livraison fiable')
+            ->assertSee('Rapide Express')->assertSee('Livré le jour même.')
+            ->assertSee('https://rapide.jibiat.test/inscription', false)
+            ->assertSee('chiffres affichés dès 20 courses')
+            ->assertDontSee('Discrète Livraison');
     }
 
     public function test_closed_signup_keeps_prices_and_offers_contact(): void
