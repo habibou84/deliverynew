@@ -326,10 +326,10 @@ Une fois validé, toutes les entreprises clientes peuvent se connecter seules.
 
 ### 3. Chaque entreprise : Paramètres > WhatsApp > Connecter WhatsApp
 
-Une fenêtre s'ouvre sur `jibiat.com/connecter-whatsapp` (ticket chiffré valable 20 minutes, lié à l'utilisateur
-et à son entreprise), puis la fenêtre de Meta : connexion Facebook, choix ou création du compte WhatsApp Business, ajout du numéro (code par SMS).
+La page `jibiat.com/connecter-whatsapp` s'ouvre dans le même onglet (ticket chiffré valable 20 minutes, lié à l'utilisateur
+et à son entreprise), avec « Continuer avec Facebook » et « Revenir à mon espace ». La fenêtre de Meta s'ouvre ensuite : connexion Facebook, choix ou création du compte WhatsApp Business, ajout du numéro (code par SMS).
 Jibiat échange ensuite l'autorisation contre un jeton propre à l'entreprise, active le numéro (code PIN gardé chiffré),
-le vérifie, l'abonne aux messages reçus et soumet les modèles de messages. Le numéro ne doit pas être utilisé dans
+le vérifie, l'abonne aux messages reçus et soumet les modèles de messages, puis ramène sur la page WhatsApp de l'espace (en cas d'échec, le message d'erreur y est affiché). Le numéro ne doit pas être utilisé dans
 l'application WhatsApp d'un téléphone ; l'entreprise ajoute un moyen de paiement dans Meta (messages facturés à son compte).
 
 **Saisie manuelle (avancé)**, dans la même page : identifiant du numéro, WABA ID et jeton permanent d'un utilisateur
