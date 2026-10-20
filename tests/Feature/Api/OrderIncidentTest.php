@@ -6,7 +6,10 @@ use App\Enums\OrderStatus;
 use App\Models\IncidentReason;
 use App\Models\Order;
 use App\Models\User;
+use App\Notifications\OrderAlert;
+use App\Services\Orders\OrderService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -172,6 +175,18 @@ class OrderIncidentTest extends TestCase
             ->assertJsonPath('data.return_requested', true);
 
         $this->assertSame('return_requested', $order->events()->latest('id')->first()->type->value);
+    }
+
+    public function test_return_decided_by_the_agency_names_who_decided(): void
+    {
+        $order = $this->orderOutForDelivery();
+        $this->move($order, 'delivery_failed', ['incident_reason_id' => $this->reason('no_money')]);
+        Notification::fake();
+
+        app(OrderService::class)->requestReturn($this->dispatcher, $order->fresh());
+
+        Notification::assertSentTo($this->admin, OrderAlert::class, fn (OrderAlert $n) => $n->kind === 'return_requested'
+            && $n->body === $this->dispatcher->name.' a demandé le retour du colis.');
     }
 
     public function test_pickup_failure_puts_the_order_back_to_confirmed(): void

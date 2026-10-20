@@ -142,7 +142,7 @@ class Merchant extends Model
      */
     public function pushSubscriptions(): Builder
     {
-        return PushSubscription::whereIn('user_id', User::withoutGlobalScopes()->where('merchant_id', $this->id)->select('id'));
+        return PushSubscription::whereIn('user_id', User::withoutGlobalScopes()->where('merchant_id', $this->id)->where('status', 'active')->select('id'));
     }
 
     /**

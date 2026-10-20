@@ -85,7 +85,9 @@ class OrderNotifier
                 break;
 
             case OrderEventType::ReturnRequested:
-                $toStaff = ['return_requested', $actorIsMerchant ? "Décision du marchand {$code}" : "Retour demandé pour {$code}", $merchantName.' demande le retour du colis.'.$note];
+                $toStaff = $actorIsMerchant
+                    ? ['return_requested', "Décision du marchand {$code}", $merchantName.' demande le retour du colis.'.$note]
+                    : ['return_requested', "Retour demandé pour {$code}", ($event->actor_name ?: 'L\'agence').' a demandé le retour du colis.'.$note];
                 break;
 
             case OrderEventType::StatusChanged:

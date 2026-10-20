@@ -39,6 +39,7 @@ class StockAlert extends Notification implements ShouldQueue
             'title' => $this->title,
             'body' => $this->body,
             'product_id' => $this->product->id,
+            'href' => ($notifiable->merchant_id ?? null) !== null ? '/marchand/stock' : '/admin/stock',
         ];
     }
 

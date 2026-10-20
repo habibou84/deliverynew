@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Channels;
 
+use App\Jobs\RetryWebPush;
 use App\Models\PushSubscription;
 use App\Services\Push\WebPush;
 use App\Support\Appearance;
@@ -25,7 +26,13 @@ class WebPushChannel
         $app = str_starts_with((string) ($payload['url'] ?? ''), '/marchand') ? 'marchand' : 'livreur';
         $payload['icon'] ??= Appearance::iconUrl($notifiable->company ?? null, $app, '192');
 
+        // Échec passager du service push (panne, délai dépassé) : nouvel essai un peu plus tard,
+        // sans renvoyer la cloche ni les autres canaux de la notification
         PushSubscription::where('user_id', $notifiable->getKey())->get()
-            ->each(fn (PushSubscription $subscription) => $this->push->send($subscription, $payload));
+            ->each(function (PushSubscription $subscription) use ($payload) {
+                if ($this->push->attempt($subscription, $payload) === 'error') {
+                    RetryWebPush::dispatch($subscription->id, $payload)->delay(now()->addSeconds(RetryWebPush::BACKOFF[0]));
+                }
+            });
     }
 }

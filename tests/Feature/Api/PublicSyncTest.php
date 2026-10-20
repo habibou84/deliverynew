@@ -2,15 +2,19 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\NotificationEvent;
 use App\Enums\OrderStatus;
+use App\Enums\WhatsAppTemplate;
 use App\Jobs\SendWebhook;
 use App\Models\ApiKey;
 use App\Models\MerchantPayout;
 use App\Models\Order;
+use App\Models\OutboundMessage;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookSubscription;
 use App\Notifications\OrderAlert;
 use App\Notifications\WebhookDisabled;
+use App\Services\Messaging\Messenger;
 use App\Services\Orders\DeliveryDay;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\OrderWorkflow;
@@ -159,6 +163,16 @@ class PublicSyncTest extends TestCase
         // Seule la course « normale » prévient le marchand ; l'agence est prévenue dans les deux cas
         Notification::assertSentToTimes($this->merchantUser, OrderAlert::class, 1);
         Notification::assertSentTo($this->merchantUser, OrderAlert::class, fn (OrderAlert $n) => $n->order->tracking_code === $normal);
+
+        // Pas de WhatsApp ni de notification push en double non plus
+        OutboundMessage::query()->delete();
+        foreach ([$muted, $normal] as $code) {
+            $order = Order::where('tracking_code', $code)->first();
+            app(Messenger::class)->toMerchant($this->merchant, NotificationEvent::OrderIncident, WhatsAppTemplate::DeliveryIncident,
+                [$this->merchant->business_name, $code, 'Awa', 'livraison impossible', 'https://exemple.ci'], $order);
+        }
+        $this->assertSame([Order::where('tracking_code', $normal)->value('id')],
+            OutboundMessage::where('recipient_type', 'merchant')->pluck('order_id')->all());
     }
 
     public function test_a_dead_webhook_address_is_disabled_and_the_merchant_told(): void

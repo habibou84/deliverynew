@@ -58,6 +58,18 @@ class WebPush
     }
 
     /**
+     * Envoie une notification et donne le résultat : reçue (ok), appareil disparu (gone, oublié)
+     * ou échec passager du service push (error, à retenter).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return 'ok'|'gone'|'error'
+     */
+    public function attempt(PushSubscription $subscription, array $payload, int $ttl = 3600, string $urgency = 'high'): string
+    {
+        return $this->post($subscription, $payload, $ttl, $urgency);
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return 'ok'|'gone'|'error'
      */

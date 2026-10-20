@@ -150,6 +150,13 @@
             </p>
           </div>
         </div>
+        <label class="flex items-start gap-2 text-sm">
+          <input v-model="form.courier_available_alert" type="checkbox" class="mt-1">
+          <span>
+            Prévenir l'équipe quand un livreur est libre avec des ramassages près de lui
+            <span class="block text-xs text-gray-500">Une alerte par livreur et par jour, pour lui confier une mission ramassage.</span>
+          </span>
+        </label>
       </section>
 
       <SaveBar :dirty="dirty" :saving="saving" :error="error" @save="save" @reset="reset" />
@@ -166,7 +173,7 @@ import { ACCEPT_MODES, AUTO_MODES, CUSTODY_MODES, DELIVERY_MODES, VALIDATION_MOD
 
 const { form, dirty, saving, error, save, reset } = useCompanySettings([
   'validation_mode', 'daily_cutoff_time', 'default_max_attempts', 'require_delivery_code', 'offline_courier_actions', 'pickup_mission_custody', 'depot_closes_at', 'auto_pickup',
-  'mission_acceptance', 'unreachable_minutes', 'late_pickup_alert_minutes',
+  'mission_acceptance', 'unreachable_minutes', 'late_pickup_alert_minutes', 'courier_available_alert',
   'auto_delivery', 'auto_delivery_max_cod', 'same_courier_delivery', 'cutoff_by_day',
 ])
 </script>

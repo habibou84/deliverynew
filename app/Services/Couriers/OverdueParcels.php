@@ -23,7 +23,7 @@ class OverdueParcels
     {
         $sent = 0;
 
-        Company::query()->where('parcel_hold_alert_hours', '>', 0)->each(function (Company $company) use (&$sent) {
+        Company::query()->where('status', 'active')->where('parcel_hold_alert_hours', '>', 0)->each(function (Company $company) use (&$sent) {
             $sent += $this->forCompany($company);
         });
 
