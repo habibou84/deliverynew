@@ -15,6 +15,7 @@ use App\Models\Order;
 use App\Models\OrderAttachment;
 use App\Models\Product;
 use App\Models\Zone;
+use App\Services\Orders\DeliveryDay;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\OrderWorkflow;
 use App\Services\Pricing\PricingService;
@@ -44,6 +45,26 @@ class PublicApiController extends Controller
     {
         return response()->json(['data' => Hub::query()->active()->orderBy('name')->get()
             ->map(fn (Hub $h) => ['id' => $h->id, 'name' => $h->name, 'zone_id' => $h->zone_id])]);
+    }
+
+    /**
+     * Journée de livraison de l'entreprise : ouverte ou fermée (heure limite passée, fermée par l'agence),
+     * et premier jour de livraison possible. L'application du marchand l'affiche avant d'envoyer une course.
+     */
+    public function deliveryDay(Request $request, DeliveryDay $day): JsonResponse
+    {
+        $status = $day->status($request->user()->company);
+
+        return response()->json(['data' => [
+            'closed' => $status['closed'],
+            'reason' => $status['reason'],
+            'message' => $status['message'],
+            'cutoff_time' => $status['cutoff_time'],
+            'today' => $status['today'],
+            'next_day' => $status['next_day'],
+            // Premier jour où une nouvelle course peut être livrée
+            'earliest_delivery_date' => $status['closed'] ? $status['next_day'] : $status['today'],
+        ]]);
     }
 
     public function quote(Request $request, PricingService $pricing): JsonResponse

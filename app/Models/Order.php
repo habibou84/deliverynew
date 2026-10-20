@@ -32,6 +32,7 @@ class Order extends Model
         'merchant_id',
         'merchant_reference',
         'source',
+        'merchant_alerts_muted',
         'created_by',
         'pickup_zone_id',
         'pickup_hub_id',
@@ -74,6 +75,7 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'merchant_alerts_muted' => 'boolean',
             'status' => OrderStatus::class,
             'fee_payer' => FeePayer::class,
             'pricing_details' => 'array',

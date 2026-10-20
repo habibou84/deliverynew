@@ -27,6 +27,8 @@ class WebhookDispatcher
     {
         $events = [];
 
+        $fields = [];
+
         if ($event->type === OrderEventType::Created) {
             $events[] = WebhookEvent::OrderCreated;
         } elseif ($event->to_status !== null && $event->to_status !== $event->from_status) {
@@ -35,6 +37,10 @@ class WebhookDispatcher
             if (in_array($event->to_status, [OrderStatus::DeliveryFailed, OrderStatus::Rescheduled], true)) {
                 $events[] = WebhookEvent::OrderIncident;
             }
+        } elseif (($fields = self::updatedFields($event)) !== []) {
+            // Changement sans changement de statut (date, adresse, montant, retour demandé…) : l'application
+            // du marchand doit aussi le savoir, sinon elle garde une information périmée
+            $events[] = WebhookEvent::OrderUpdated;
         }
 
         if ($events === [] || ! $this->hasSubscribers($order->company_id, $order->merchant_id)) {
@@ -51,12 +57,33 @@ class WebhookDispatcher
                 'incident' => $event->incidentReason?->label,
                 'rescheduled_to' => $event->rescheduled_to?->toDateString(),
                 'note' => $event->visible_to_merchant ? $event->note : null,
+                'fields' => $fields,
             ],
         ];
 
         foreach ($events as $type) {
             $this->dispatch($order->company_id, $order->merchant_id, $type->value, $data);
         }
+    }
+
+    /**
+     * Champs modifiés par un événement qui ne change pas le statut (vide : rien à signaler au marchand).
+     *
+     * @return list<string>
+     */
+    public static function updatedFields(OrderEvent $event): array
+    {
+        return match (true) {
+            // Course modifiée (marchand ou agence) : les champs changés, sauf les détails internes du prix
+            $event->type === OrderEventType::Edited => array_values(array_diff(array_keys($event->meta['changes'] ?? []), ['recipient_id', 'pricing_details'])),
+            $event->type === OrderEventType::ReturnRequested => ['return_requested'],
+            // Journée de livraison fermée : livraison décalée au lendemain
+            $event->type === OrderEventType::Note && isset($event->meta['postponed']) => ['delivery_scheduled_date'],
+            // Nouvelle date pour une course déjà reportée
+            $event->to_status === OrderStatus::Rescheduled && $event->from_status === OrderStatus::Rescheduled => ['delivery_scheduled_date'],
+            $event->type === OrderEventType::Incident && $event->to_status === null => ['last_incident'],
+            default => [],
+        };
     }
 
     public function onPayoutPaid(MerchantPayout $payout): void
