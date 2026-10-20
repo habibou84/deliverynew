@@ -5,6 +5,7 @@ import { currentSpace, getCachedUser, getToken, SERVER_SPACES, setCachedUser, se
 import { homeFor } from '../roles'
 import { clearApiCache } from '../composables/useCachedApi'
 import { appLock } from '../native'
+import { useNotificationStore } from './notifications'
 
 // Profil gardé sur l'appareil (par espace) pour ouvrir l'application sans réseau (PWA hors ligne)
 const readCachedUser = getCachedUser
@@ -68,6 +69,8 @@ export const useAuthStore = defineStore('auth', {
       if (!setSpace(space)) return
       disconnectEcho()
       clearApiCache()
+      // Cloche de l'autre compte : rechargée pour le nouvel espace
+      useNotificationStore().reset()
       this.token = getToken() || null
       this.user = null
     },
@@ -105,6 +108,7 @@ export const useAuthStore = defineStore('auth', {
       this.token = null
       setToken(null)
       clearApiCache()
+      useNotificationStore().reset()
       cacheUser(null)
     },
   },
