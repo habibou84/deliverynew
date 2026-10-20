@@ -139,6 +139,15 @@ class MerchantPushTest extends TestCase
         $this->assertSame(1, OutboundMessage::where('fallback_for_id', $message->id)->where('channel', MessageChannel::WhatsApp)->count());
     }
 
+    public function test_a_suspended_account_no_longer_receives_the_merchant_notifications(): void
+    {
+        $this->subscribeMerchantPhone();
+        $this->assertTrue($this->merchant->pushSubscriptions()->exists());
+
+        $this->merchantUser->forceFill(['status' => 'suspended'])->save();
+        $this->assertFalse($this->merchant->pushSubscriptions()->exists());
+    }
+
     public function test_company_can_keep_whatsapp_for_merchants(): void
     {
         Http::fake();

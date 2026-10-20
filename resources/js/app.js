@@ -12,6 +12,13 @@ router.afterEach((to) => applyAppTheme(to.path))
 // Apparence chargée ou modifiée (Paramètres › Apparence) : barre du téléphone mise à jour
 watch(() => branding.appearance, () => applyAppTheme(router.currentRoute.value.path), { deep: true })
 
+// Notification touchée alors que l'application est déjà ouverte : le service worker demande la page
+navigator.serviceWorker?.addEventListener('message', (event) => {
+  if (event.data?.type !== 'navigate' || !event.data.url) return
+  const url = new URL(event.data.url, window.location.origin)
+  if (url.origin === window.location.origin) router.push(url.pathname + url.search + url.hash).catch(() => {})
+})
+
 createApp(App)
   .use(createPinia())
   .use(router)
