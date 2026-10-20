@@ -34,16 +34,27 @@ const route = useRoute()
 onMounted(() => store.fetch().catch(() => {}))
 
 function open(n) {
+  store.markRead(n)
+  const courier = route.path.startsWith('/livreur')
+  // Nouvelle mission, consigne : la mission elle-même
+  if (courier && n.assignment_id) {
+    router.push(`/livreur/missions/${n.assignment_id}`)
+    return
+  }
+  if (n.href) {
+    router.push(n.href)
+    return
+  }
   if (n.product_id && route.path.startsWith('/marchand')) {
     router.push('/marchand/stock')
     return
   }
   if (n.dispatch_message) {
-    router.push(n.assignment_id ? `/livreur/missions/${n.assignment_id}` : '/livreur/messages')
+    router.push('/livreur/messages')
     return
   }
   if (!n.order_id) return
   // Livreur : ses missions ; marchand : la fiche de la course
-  router.push(route.path.startsWith('/livreur') ? '/livreur' : `/marchand/courses/${n.order_id}`)
+  router.push(courier ? '/livreur' : `/marchand/courses/${n.order_id}`)
 }
 </script>

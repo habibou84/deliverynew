@@ -242,11 +242,14 @@ class StockKeeper
     }
 
     /**
-     * Alerte quand le disponible passe sous le seuil (une seule fois par franchissement).
+     * Alerte quand le disponible passe sous le seuil, puis quand il tombe à zéro (une fois par franchissement).
      */
     private function alertIfLow(Product $product, StockLocation $location, int $before, int $after): void
     {
-        if ($product->low_stock_threshold === null || $after > $product->low_stock_threshold || $before <= $product->low_stock_threshold) {
+        $threshold = $product->low_stock_threshold;
+        $crossedThreshold = $after <= $threshold && $before > $threshold;
+        $ranOut = $after <= 0 && $before > 0;
+        if ($threshold === null || (! $crossedThreshold && ! $ranOut)) {
             return;
         }
 

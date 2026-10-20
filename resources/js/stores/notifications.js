@@ -20,6 +20,15 @@ export const useNotificationStore = defineStore('notifications', {
       this.unread = data.unread_count
       this.items = this.items.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() }))
     },
+    // Notification ouverte : marquée comme lue (le compteur suit tout de suite, le serveur ensuite)
+    markRead(notification) {
+      if (!notification?.id || notification.read_at) return
+      notification.read_at = new Date().toISOString()
+      this.unread = Math.max(0, this.unread - 1)
+      http.post('/notifications/read', { ids: [notification.id] })
+        .then(({ data }) => { this.unread = data.unread_count })
+        .catch(() => {})
+    },
     reset() {
       this.items = []
       this.unread = 0
