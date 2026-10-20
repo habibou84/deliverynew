@@ -107,6 +107,11 @@ class OrderWorkflow
                 $order = $order->fresh();
             }
 
+            // Colis prêt (récupéré ou au dépôt) : livraison du jour même confiée automatiquement, si l'entreprise le veut
+            if (in_array($to, [OrderStatus::PickedUp, OrderStatus::AtHub], true) && $this->autoAssigner->delivery($order)) {
+                $order = $order->fresh();
+            }
+
             // Colis récupéré avec la position du livreur : la position du marchand s'affine
             if ($to === OrderStatus::PickedUp && isset($context['lat'], $context['lng']) && $order->merchant) {
                 $this->locations->learn($order->merchant);

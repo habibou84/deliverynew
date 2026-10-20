@@ -5,7 +5,9 @@ namespace App\Models;
 use App\Enums\CompanyStatus;
 use App\Enums\PlatformFeature;
 use App\Support\Tenancy;
+use Carbon\CarbonImmutable;
 use Database\Factories\CompanyFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -53,6 +55,12 @@ class Company extends Model
         'mission_acceptance',
         'unreachable_minutes',
         'late_pickup_alert_minutes',
+        // Livraison du jour même confiée automatiquement : off, trial (essai), on
+        'auto_delivery',
+        'auto_delivery_max_cod',
+        'same_courier_delivery',
+        // Heure limite différente certains jours : {"6": "12:00"} (1 = lundi … 7 = dimanche)
+        'cutoff_by_day',
         'status',
         'plan_id',
         'trial_ends_at',
@@ -89,6 +97,8 @@ class Company extends Model
             'unreachable_minutes' => 'integer',
             'late_pickup_alert_minutes' => 'integer',
             'automation_paused_at' => 'datetime',
+            'auto_delivery_max_cod' => 'integer',
+            'same_courier_delivery' => 'boolean',
             'status' => CompanyStatus::class,
             'trial_ends_at' => 'date:Y-m-d',
             'legacy_import_key_expires_at' => 'datetime',
@@ -119,6 +129,30 @@ class Company extends Model
     public const ACCEPT_AUTO = 'auto';
 
     public const ACCEPT_MODES = [self::ACCEPT_CHOOSE, self::ACCEPT_REPORT, self::ACCEPT_AUTO];
+
+    /** Heure limite par jour de la semaine : {"6": "12:00"} ; les jours laissés vides suivent l'heure commune */
+    protected function cutoffByDay(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => $value ? json_decode($value, true) : null,
+            set: function (?array $value) {
+                $days = collect($value ?? [])->filter(fn ($t, $d) => $t && (int) $d >= 1 && (int) $d <= 7)->mapWithKeys(fn ($t, $d) => [(string) $d => substr($t, 0, 5)]);
+
+                return $days->isEmpty() ? null : $days->toJson();
+            },
+        );
+    }
+
+    /**
+     * Heure limite d'un jour (AAAA-MM-JJ, aujourd'hui par défaut, heure de l'entreprise) : celle de ce jour de la
+     * semaine si l'administrateur l'a réglée, sinon l'heure limite commune. Null : pas d'heure limite.
+     */
+    public function cutoffFor(?string $date = null): ?string
+    {
+        $day = $date ? CarbonImmutable::parse($date) : CarbonImmutable::now($this->timezone ?: config('app.timezone'));
+
+        return ($this->cutoff_by_day ?? [])[(string) $day->isoWeekday()] ?? $this->daily_cutoff_time;
+    }
 
     /** Automatisation suspendue (bouton du planning) : plus d'assignation ni de passage au remplaçant, les alertes restent */
     public function automationPaused(): bool

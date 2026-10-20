@@ -5,7 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useToastStore } from '../stores/toasts'
 
 // Champs qu'on peut vider (sinon un champ vide est ignoré) ; les heures vides deviennent null
-const CLEARABLE = ['tagline', 'daily_cutoff_time', 'depot_closes_at']
+const CLEARABLE = ['tagline', 'daily_cutoff_time', 'depot_closes_at', 'auto_delivery_max_cod']
 const TIMES = ['daily_cutoff_time', 'depot_closes_at']
 
 /**
@@ -38,7 +38,7 @@ export function useCompanySettings(fields) {
     try {
       const payload = Object.fromEntries(Object.entries(form.value)
         .filter(([k, v]) => CLEARABLE.includes(k) || (v !== null && v !== ''))
-        .map(([k, v]) => [k, TIMES.includes(k) ? v || null : v]))
+        .map(([k, v]) => [k, TIMES.includes(k) || v === '' ? v || null : v]))
       await http.patch(`/companies/${auth.user.company_id}`, payload)
       original.value = JSON.parse(JSON.stringify(form.value))
       await auth.fetchUser()

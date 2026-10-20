@@ -22,7 +22,7 @@ use Throwable;
  * Sécurité des missions pas encore commencées (chaque minute) :
  *
  * - livreur injoignable : aucun signe de son application depuis le délai de l'entreprise (20 min par défaut) alors
- *   qu'une mission l'attend depuis aussi longtemps. Ses ramassages du planning passent à son remplaçant (sauf
+ *   qu'une mission l'attend depuis aussi longtemps. Ses ramassages du planning (et livraisons automatiques) passent à un autre (sauf
  *   automatisation suspendue) ; l'équipe est prévenue une fois, avec ce qui reste à confier ;
  * - ramassage pas commencé à l'approche de l'heure limite du jour (une heure avant par défaut) : alerte à l'équipe,
  *   une fois par mission. Rien n'est retiré au livreur pour un simple silence.
@@ -75,7 +75,7 @@ class MissionWatch
             $codes = fn (Collection $c) => $c->pluck('order.tracking_code')->take(5)->implode(', ').($c->count() > 5 ? '…' : '');
             $body = ($list->count() > 1 ? "{$list->count()} missions pas commencées" : '1 mission pas commencée').' : '.$codes($list).'.';
             if ($moved) {
-                $body .= ' Passées au remplaçant : '.collect($moved)->countBy()->map(fn ($n, $who) => "{$who} ({$n})")->implode(', ').'.';
+                $body .= ' Confiées à un autre livreur : '.collect($moved)->countBy()->map(fn ($n, $who) => "{$who} ({$n})")->implode(', ').'.';
             }
             if ($kept->isNotEmpty()) {
                 $body .= ' Appelez-le, ou confiez '.($kept->count() > 1 ? 'les autres' : 'la course').' à un autre livreur.';
@@ -97,18 +97,23 @@ class MissionWatch
     private function handOver(Company $company, Collection $list, string $name, int $minutes): array
     {
         $actor = User::forCompany($company->id)->where('status', 'active')->role(Role::Admin->value)->first();
-        if ($company->automationPaused() || $company->auto_pickup !== Company::AUTO_ON || $actor === null) {
+        if ($company->automationPaused() || $actor === null) {
             return [];
         }
 
         $moved = [];
         foreach ($list as $assignment) {
-            if ($assignment->type !== AssignmentType::Pickup || $assignment->source !== AutoAssigner::SOURCE_PLANNING) {
+            // Missions confiées par l'automatisme seulement : ramassages du planning, livraisons automatiques
+            $pickup = $assignment->type === AssignmentType::Pickup && $assignment->source === AutoAssigner::SOURCE_PLANNING && $company->auto_pickup === Company::AUTO_ON;
+            $delivery = $assignment->type === AssignmentType::Delivery && $assignment->source !== null && $company->auto_delivery === Company::AUTO_ON;
+            if (! $pickup && ! $delivery) {
                 continue;
             }
             try {
-                $this->dispatcher->unassign($actor, $assignment->order, AssignmentType::Pickup, "Livreur injoignable depuis plus de {$minutes} min");
-                $next = $this->auto->pickup($assignment->order, "{$name} injoignable");
+                $this->dispatcher->unassign($actor, $assignment->order, $assignment->type, "Livreur injoignable depuis plus de {$minutes} min");
+                $next = $pickup
+                    ? $this->auto->pickup($assignment->order, "{$name} injoignable")
+                    : $this->auto->delivery($assignment->order, "{$name} injoignable");
             } catch (Throwable $e) {
                 report($e);
 
@@ -125,12 +130,12 @@ class MissionWatch
     private function latePickups(Company $company): int
     {
         $before = (int) $company->late_pickup_alert_minutes;
-        if (! $company->daily_cutoff_time || $before <= 0) {
+        if (! $company->cutoffFor() || $before <= 0) {
             return 0;
         }
 
         $now = CarbonImmutable::now($company->timezone ?: config('app.timezone'));
-        $cutoff = CarbonImmutable::parse($now->toDateString().' '.$company->daily_cutoff_time, $now->timezone);
+        $cutoff = CarbonImmutable::parse($now->toDateString().' '.$company->cutoffFor(), $now->timezone);
         if ($now->lt($cutoff->subMinutes($before))) {
             return 0;
         }
@@ -152,7 +157,7 @@ class MissionWatch
             .' ('.$c->pluck('order.tracking_code')->take(3)->implode(', ').($c->count() > 3 ? '…' : '').')')->implode(' ; ');
 
         return $this->tell($company, $missions->first()->order, 'late_pickup',
-            '⏰ '.($count > 1 ? "{$count} ramassages pas commencés" : '1 ramassage pas commencé')." (heure limite {$company->daily_cutoff_time})",
+            '⏰ '.($count > 1 ? "{$count} ramassages pas commencés" : '1 ramassage pas commencé')." (heure limite {$company->cutoffFor()})",
             "{$byCourier}. Appelez les livreurs, ou confiez ces courses à un autre pour qu'elles soient livrées aujourd'hui.",
             '/admin/courses?queue=to_pickup');
     }

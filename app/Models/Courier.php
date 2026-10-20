@@ -33,6 +33,10 @@ class Courier extends Model
         'notes',
         // Exception à la règle d'acceptation des missions de l'entreprise (null : celle de l'entreprise)
         'mission_acceptance',
+        // Capacité pour la livraison automatique : colis en cours, argent en main (null : sans limite), fin de service (HH:MM)
+        'max_parcels',
+        'max_cash',
+        'shift_ends_at',
     ];
 
     protected function casts(): array
@@ -44,6 +48,8 @@ class Courier extends Model
             'current_lng' => 'float',
             'last_location_at' => 'datetime',
             'last_seen_at' => 'datetime',
+            'max_parcels' => 'integer',
+            'max_cash' => 'integer',
             'availability_alerted_on' => 'date',
         ];
     }
@@ -83,9 +89,10 @@ class Courier extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** Zones desservies ; is_backup : zone de secours (servie quand personne de la zone principale n'est libre) */
     public function zones(): BelongsToMany
     {
-        return $this->belongsToMany(Zone::class);
+        return $this->belongsToMany(Zone::class)->withPivot('is_backup');
     }
 
     public function advances(): HasMany

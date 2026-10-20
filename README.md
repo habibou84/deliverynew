@@ -532,6 +532,18 @@ rien n'est retiré au livreur. Le bouton **« Suspendre l'automatisation »** du
 passage au remplaçant jusqu'à la reprise (`POST /planning/pause`) ; les alertes continuent. Une nouvelle mission a sur
 le téléphone du livreur un son (quatre notes montantes) et une vibration (trois longues) qui lui sont propres.
 
+**Livraison du jour même automatique** (Réglages › Courses et livraison : désactivée, à l'essai, active) : dès qu'un
+colis est récupéré ou au dépôt (et toutes les cinq minutes pour rattraper), la livraison du jour part seule si la
+course est à livrer aujourd'hui avant l'heure limite, sa zone connue et pas une expédition, le téléphone valable, le
+montant à encaisser sous le plafond, sans retour demandé ni tentatives épuisées. Le livreur doit être en service
+(disponible, pas absent, avant sa fin de service), avoir un véhicule adapté au colis (pas de grand colis à pied),
+rester sous sa capacité (colis en cours, argent en main) et ne pas avoir refusé la course. Ordre du choix : celui qui
+a déjà le colis (ou le ramasseur, si l'entreprise le veut), les règles de **livraison** du planning, puis la zone
+principale avant la zone de secours, celui qui livre déjà dans le secteur, le moins chargé. La course porte la raison
+(« Livraison confiée automatiquement à Koffi : zone principale Yopougon, déjà 1 livraison dans le secteur, 2 colis en
+cours »). Zones principales et de secours, colis et argent en main au plus, fin de service : fiche de chaque livreur.
+L'**heure limite** peut être différente certains jours de la semaine (`cutoff_by_day`).
+
 ### Courses sans livreur
 
 Une course **validée sans livreur de ramassage**, ou un colis **récupéré / à l'entrepôt / reporté à aujourd'hui sans
