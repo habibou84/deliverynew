@@ -273,7 +273,7 @@ class CourierAvailability
     {
         $sent = 0;
 
-        Company::query()->where('status', 'active')->each(function (Company $company) use (&$sent) {
+        Company::query()->where('status', 'active')->where('courier_available_alert', true)->each(function (Company $company) use (&$sent) {
             $today = CarbonImmutable::now($company->timezone ?: config('app.timezone'))->toDateString();
 
             // Calcul seulement s'il y a des livreurs libres ou presque (économise la requête des candidats)

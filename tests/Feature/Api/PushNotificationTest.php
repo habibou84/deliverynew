@@ -140,6 +140,35 @@ class PushNotificationTest extends TestCase
         $this->assertTrue($payloads[1]['urgent']);
     }
 
+    public function test_a_shared_phone_keeps_the_notifications_of_each_account(): void
+    {
+        $this->subscribe();
+        // Le même téléphone, ouvert ensuite avec un autre compte : le premier garde ses notifications
+        $other = $this->courierA->user;
+        Sanctum::actingAs($other);
+        $this->postJson('/api/v1/push/subscriptions', [
+            'endpoint' => self::ENDPOINT,
+            'keys' => ['p256dh' => WebPush::b64($this->devicePublic), 'auth' => WebPush::b64($this->authSecret)],
+        ])->assertCreated();
+        $this->assertEqualsCanonicalizing([$this->courierB->user->id, $other->id], PushSubscription::pluck('user_id')->all());
+
+        // Déconnexion du second compte : seul son abonnement est retiré
+        $this->deleteJson('/api/v1/push/subscriptions', ['endpoint' => self::ENDPOINT])->assertNoContent();
+        $this->assertSame([$this->courierB->user->id], PushSubscription::pluck('user_id')->all());
+    }
+
+    public function test_a_passing_push_failure_is_tried_again(): void
+    {
+        $this->subscribe();
+        // Service push en panne passagère, puis rétabli
+        Http::fake([self::ENDPOINT => Http::sequence()->push('', 503)->push('', 201)]);
+
+        Notification::sendNow($this->courierB->user->fresh(), new OrderAlert($this->createOrder(), 'new_mission', 'Nouvelle mission', 'Corps'));
+
+        Http::assertSentCount(2);
+        $this->assertNotNull(PushSubscription::first()->last_used_at);
+    }
+
     public function test_push_is_only_for_couriers_with_a_device_and_expired_devices_are_forgotten(): void
     {
         $order = $this->createOrder();

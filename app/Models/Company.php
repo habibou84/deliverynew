@@ -55,6 +55,8 @@ class Company extends Model
         'mission_acceptance',
         'unreachable_minutes',
         'late_pickup_alert_minutes',
+        // Alerte « livreur libre avec des ramassages près de lui »
+        'courier_available_alert',
         // Livraison du jour même confiée automatiquement : off, trial (essai), on
         'auto_delivery',
         'auto_delivery_max_cod',
@@ -96,6 +98,7 @@ class Company extends Model
             'planning_digest_sent_on' => 'date:Y-m-d',
             'unreachable_minutes' => 'integer',
             'late_pickup_alert_minutes' => 'integer',
+            'courier_available_alert' => 'boolean',
             'automation_paused_at' => 'datetime',
             'setup_skipped' => 'array',
             'setup_test_delivered_at' => 'datetime',

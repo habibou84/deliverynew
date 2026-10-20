@@ -73,6 +73,7 @@ class UpdateCompanyRequest extends FormRequest
             'cutoff_by_day.*' => ['nullable', 'date_format:H:i'],
             'unreachable_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
             'late_pickup_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:600'],
+            'courier_available_alert' => ['sometimes', 'boolean'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
             // Vide = sans formule (aucune limite)
             'plan_id' => ['sometimes', 'nullable', 'integer', 'exists:plans,id'],
@@ -98,6 +99,7 @@ class UpdateCompanyRequest extends FormRequest
             'cutoff_by_day' => 'heure limite par jour',
             'unreachable_minutes' => 'délai livreur injoignable',
             'late_pickup_alert_minutes' => 'alerte ramassage pas commencé',
+            'courier_available_alert' => 'alerte livreur libre',
             'plan_id' => 'formule',
             'trial_ends_at' => 'fin de l\'essai',
         ];
