@@ -15,6 +15,9 @@ import router from '../router'
 export const orderChanges = ref(0)
 export const lastOrderChange = ref(null)
 
+// Vibration d'une nouvelle mission (aussi dans le service worker) : trois longues
+export const MISSION_VIBRATION = [500, 200, 500, 200, 500]
+
 /**
  * Abonne l'utilisateur connecté à ses canaux temps réel :
  * - notifications personnelles (cloche + toast) ;
@@ -58,8 +61,16 @@ export function useRealtime() {
       return
     }
 
-    // Courses restées sans livreur (ramassage, livraison) : son, notification du bureau, toast vers la file
-    if (n.kind?.startsWith('unassigned_')) {
+    // Nouvelle mission du livreur : son et vibration propres, reconnaissables en roulant
+    if (n.kind === 'new_mission' && auth.role === 'courier') {
+      playAlertSound('mission')
+      navigator.vibrate?.(MISSION_VIBRATION)
+      toasts.push(n.body, 'info', { title: n.title, timeout: 15000, href: n.assignment_id ? `/livreur/missions/${n.assignment_id}` : '/livreur' })
+      return
+    }
+
+    // Courses restées sans livreur (ramassage, livraison), livreur injoignable, ramassage en retard : son, notification du bureau, toast
+    if (n.kind?.startsWith('unassigned_') || ['courier_unreachable', 'late_pickup'].includes(n.kind)) {
       playAlertSound('alert')
       desktopNotify(n.title, n.body, () => router.push(n.href))
       dispatchCounts.received()

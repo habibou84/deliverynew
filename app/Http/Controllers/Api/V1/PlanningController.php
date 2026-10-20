@@ -6,10 +6,12 @@ use App\Enums\AssignmentType;
 use App\Enums\OrderStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
+use App\Models\Company;
 use App\Models\CourierAbsence;
 use App\Models\CourierRule;
 use App\Models\Merchant;
 use App\Models\Order;
+use App\Models\User;
 use App\Models\Zone;
 use App\Services\Assignment\CourierPlanning;
 use Carbon\CarbonImmutable;
@@ -54,10 +56,37 @@ class PlanningController extends Controller
         return response()->json(['data' => [
             'date' => $date,
             'auto_pickup' => $company->auto_pickup ?? 'off',
+            'automation' => $this->automation($company),
             'rules' => $rules,
             'absences' => $absences,
             'gaps' => $this->gaps($company->id, $date),
         ]]);
+    }
+
+    /**
+     * Suspendre (ou reprendre) l'automatisation : plus d'assignation ni de passage au remplaçant, les alertes restent.
+     */
+    public function pause(Request $request): JsonResponse
+    {
+        $data = $request->validate(['paused' => ['required', 'boolean']]);
+        $company = $request->user()->company;
+        $company->forceFill($data['paused']
+            ? ['automation_paused_at' => now(), 'automation_paused_by' => $request->user()->id]
+            : ['automation_paused_at' => null, 'automation_paused_by' => null])->save();
+
+        return response()->json(['data' => $this->automation($company->fresh())]);
+    }
+
+    /**
+     * @return array{paused: bool, paused_at: ?string, paused_by: ?string}
+     */
+    private function automation(Company $company): array
+    {
+        return [
+            'paused' => $company->automationPaused(),
+            'paused_at' => $company->automation_paused_at?->toIso8601String(),
+            'paused_by' => $company->automation_paused_by ? User::query()->find($company->automation_paused_by)?->name : null,
+        ];
     }
 
     public function storeRule(Request $request): JsonResponse

@@ -38,6 +38,8 @@ Schedule::command('couriers:available')->everyMinute()->withoutOverlapping();
 // Colis gardés par le livreur après une mission ramassage : leur livraison lui est confiée le jour prévu
 // Planning des livreurs : rattrapage de l'assignation automatique, message du matin
 Schedule::command('assignments:auto')->everyFiveMinutes()->withoutOverlapping();
+// Livreur injoignable, ramassages pas commencés avant l'heure limite
+Schedule::command('assignments:watch')->everyMinute()->withoutOverlapping();
 Schedule::command('couriers:planning-digest')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('parcels:kept-deliveries')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('orders:due-today')->dailyAt('06:50')->withoutOverlapping();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\AssignmentStatus;
 use App\Enums\AssignmentType;
 use App\Enums\EarningType;
 use App\Events\CourierLocationUpdated;
@@ -11,6 +12,7 @@ use App\Http\Resources\V1\OrderAssignmentResource;
 use App\Models\CourierEarning;
 use App\Models\CourierMessage;
 use App\Models\OrderAssignment;
+use App\Services\Assignment\AutoAssigner;
 use App\Services\Couriers\CourierTracker;
 use App\Services\Finance\CourierPay;
 use App\Services\Orders\OrderDispatcher;
@@ -26,6 +28,7 @@ class CourierSpaceController extends Controller
     {
         $courier = $request->user()->courier;
         abort_if($courier === null, 403, 'Profil livreur introuvable.');
+        $courier->touchSeen();
 
         $assignments = OrderAssignment::query()
             ->where('courier_id', $courier->id)
@@ -64,7 +67,12 @@ class CourierSpaceController extends Controller
             $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('gain', $pay->expectedFor($courier, $a->type, $a->order)));
         }
 
+        // Mission acceptée pas encore commencée : le livreur peut la rendre (empêchement), sauf missions d'office sans refus
+        $canReport = $courier->canReportImpediment();
+        $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('can_report_impediment', $canReport && $a->status === AssignmentStatus::Accepted));
+
         return OrderAssignmentResource::collection($assignments)->additional(['meta' => [
+            'acceptance' => $courier->acceptanceMode(),
             // Toutes consignes non lues (y compris sur des missions terminées)
             'unread_messages' => CourierMessage::where('courier_id', $courier->id)->whereNull('read_at')->where('created_at', '>=', now()->subDays(2))->count(),
         ]]);
@@ -77,11 +85,20 @@ class CourierSpaceController extends Controller
         return OrderAssignmentResource::make($assignment->load(['order' => fn ($q) => $q->with(OrderController::LIST_RELATIONS)]));
     }
 
-    public function refuse(Request $request, OrderAssignment $assignment, OrderDispatcher $dispatcher): OrderAssignmentResource
+    /**
+     * Refus d'une mission, ou empêchement sur une mission acceptée pas encore commencée. Un ramassage du planning
+     * passe au remplaçant (ou à un autre livreur du planning) ; sinon il revient à l'équipe, prévenue.
+     */
+    public function refuse(Request $request, OrderAssignment $assignment, OrderDispatcher $dispatcher, AutoAssigner $auto): OrderAssignmentResource
     {
         $data = $request->validate(['reason' => ['required', 'string', 'max:500']], [], ['reason' => 'motif']);
+        $impediment = $assignment->status === AssignmentStatus::Accepted;
 
         $assignment = $dispatcher->respond($request->user(), $assignment, false, $data['reason']);
+
+        if ($assignment->type === AssignmentType::Pickup) {
+            $auto->pickup($assignment->order, ($impediment ? 'empêchement de ' : 'refus de ').$request->user()->name);
+        }
 
         return OrderAssignmentResource::make($assignment);
     }
@@ -90,6 +107,7 @@ class CourierSpaceController extends Controller
     {
         $courier = $request->user()->courier;
         abort_if($courier === null, 403, 'Profil livreur introuvable.');
+        $courier->touchSeen();
 
         $data = $request->validate([
             'is_available' => ['sometimes', 'boolean'],

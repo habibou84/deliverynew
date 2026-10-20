@@ -22,21 +22,24 @@ class CourierPlanning
 {
     /**
      * Livreur du planning pour une course, ce jour-là (AAAA-MM-JJ), ou null si personne ne la couvre.
+     * $exclude : livreurs écartés pour cette course (refus, empêchement, injoignable) : traités comme absents.
      *
+     * @param  list<int>  $exclude
      * @return array{courier: Courier, rule: CourierRule, backup: bool, label: string}|null
      */
-    public function resolve(Order $order, string $type, string $date): ?array
+    public function resolve(Order $order, string $type, string $date, array $exclude = []): ?array
     {
         $zoneId = $type === CourierRule::PICKUP ? $order->pickup_zone_id : $order->delivery_zone_id;
         $merchantId = $type === CourierRule::PICKUP ? $order->merchant_id : null;
 
-        return $this->resolveFor($order->company_id, $type, $date, $zoneId, $merchantId);
+        return $this->resolveFor($order->company_id, $type, $date, $zoneId, $merchantId, $exclude);
     }
 
     /**
+     * @param  list<int>  $exclude
      * @return array{courier: Courier, rule: CourierRule, backup: bool, label: string}|null
      */
-    public function resolveFor(int $companyId, string $type, string $date, ?int $zoneId, ?int $merchantId): ?array
+    public function resolveFor(int $companyId, string $type, string $date, ?int $zoneId, ?int $merchantId, array $exclude = []): ?array
     {
         $chain = $zoneId ? $this->zoneChain($companyId, $zoneId) : [];
         $rule = $this->rulesOn($companyId, $type, $date)
@@ -49,7 +52,7 @@ class CourierPlanning
             return null;
         }
 
-        $absent = $this->absentOn($companyId, $date);
+        $absent = [...$this->absentOn($companyId, $date), ...$exclude];
         if ($this->available($rule->courier, $absent)) {
             return ['courier' => $rule->courier, 'rule' => $rule, 'backup' => false, 'label' => $this->describe($rule)];
         }

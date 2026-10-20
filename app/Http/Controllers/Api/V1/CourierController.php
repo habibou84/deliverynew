@@ -158,6 +158,8 @@ class CourierController extends Controller
             'pay_plan_id' => ['sometimes', 'nullable', 'integer', Rule::exists('pay_plans', 'id')->where('company_id', $courier->company_id)
                 ->where(fn ($q) => $q->whereNull('courier_id')->orWhere('courier_id', $courier->id))],
             'is_available' => ['sometimes', 'boolean'],
+            // Exception à la règle d'acceptation des missions de l'entreprise (null : celle de l'entreprise)
+            'mission_acceptance' => ['sometimes', 'nullable', Rule::in(Company::ACCEPT_MODES)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
             'zone_ids' => ['sometimes', 'array'],
             'zone_ids.*' => ['integer', Rule::exists('zones', 'id')->where('company_id', $courier->company_id)],
@@ -165,6 +167,8 @@ class CourierController extends Controller
 
         // La rémunération relève des réglages de l'entreprise
         abort_if(array_key_exists('pay_plan_id', $data) && ! $request->user()->can(Permission::SettingsManage->value), 403, 'Seul un administrateur peut changer le plan de paie.');
+        abort_if(array_key_exists('mission_acceptance', $data) && $data['mission_acceptance'] !== $courier->mission_acceptance
+            && ! $request->user()->can(Permission::SettingsManage->value), 403, 'Seul un administrateur peut changer la règle d\'acceptation des missions.');
 
         $courier->update(collect($data)->except('zone_ids')->all());
 

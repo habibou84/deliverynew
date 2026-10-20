@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AssignmentStatus;
 use App\Enums\VehicleType;
 use App\Models\Concerns\BelongsToCompany;
+use Carbon\CarbonInterface;
 use Database\Factories\CourierFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +31,8 @@ class Courier extends Model
         'availability_alerted_on',
         'availability_alert_level',
         'notes',
+        // Exception à la règle d'acceptation des missions de l'entreprise (null : celle de l'entreprise)
+        'mission_acceptance',
     ];
 
     protected function casts(): array
@@ -40,8 +43,39 @@ class Courier extends Model
             'current_lat' => 'float',
             'current_lng' => 'float',
             'last_location_at' => 'datetime',
+            'last_seen_at' => 'datetime',
             'availability_alerted_on' => 'date',
         ];
+    }
+
+    /**
+     * Règle d'acceptation des missions pour ce livreur : son exception, sinon celle de l'entreprise.
+     */
+    public function acceptanceMode(): string
+    {
+        return $this->mission_acceptance
+            ?? ($this->relationLoaded('company') ? $this->company : Company::query()->find($this->company_id))?->mission_acceptance
+            ?? Company::ACCEPT_CHOOSE;
+    }
+
+    /** Peut-il rendre une mission déjà acceptée (empêchement) ? */
+    public function canReportImpediment(): bool
+    {
+        return $this->acceptanceMode() !== Company::ACCEPT_AUTO;
+    }
+
+    /** Dernier signe de vie de l'application : appel au serveur ou position */
+    public function lastSignalAt(): ?CarbonInterface
+    {
+        return collect([$this->last_seen_at, $this->last_location_at])->filter()->max();
+    }
+
+    /** Application ouverte : noté au plus une fois par minute */
+    public function touchSeen(): void
+    {
+        if ($this->last_seen_at === null || $this->last_seen_at->lt(now()->subMinute())) {
+            $this->forceFill(['last_seen_at' => now()])->saveQuietly();
+        }
     }
 
     public function user(): BelongsTo

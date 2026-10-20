@@ -293,6 +293,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Planning des livreurs : qui ramasse ou livre où et quand, absences
         Route::middleware('can:orders.dispatch')->controller(PlanningController::class)->group(function () {
             Route::get('planning', 'show')->name('planning.show');
+            Route::post('planning/pause', 'pause')->name('planning.pause');
             Route::post('planning/rules', 'storeRule')->name('planning.rules.store');
             Route::put('planning/rules/{rule}', 'updateRule')->name('planning.rules.update');
             Route::delete('planning/rules/{rule}', 'destroyRule')->name('planning.rules.destroy');

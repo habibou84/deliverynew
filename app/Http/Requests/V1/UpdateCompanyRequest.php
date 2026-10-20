@@ -65,6 +65,9 @@ class UpdateCompanyRequest extends FormRequest
             'delivery_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
             // Ramassages confiés selon le planning : off, trial (essai), on
             'auto_pickup' => ['sometimes', 'in:off,trial,on'],
+            'mission_acceptance' => ['sometimes', 'in:choose,report,auto'],
+            'unreachable_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
+            'late_pickup_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:600'],
             'status' => ['sometimes', 'required', new Enum(CompanyStatus::class)],
             // Vide = sans formule (aucune limite)
             'plan_id' => ['sometimes', 'nullable', 'integer', 'exists:plans,id'],
@@ -83,6 +86,9 @@ class UpdateCompanyRequest extends FormRequest
             'pickup_mission_custody' => 'colis après une mission ramassage',
             'depot_closes_at' => 'heure de fermeture du dépôt',
             'auto_pickup' => 'ramassage automatique',
+            'mission_acceptance' => 'acceptation des missions',
+            'unreachable_minutes' => 'délai livreur injoignable',
+            'late_pickup_alert_minutes' => 'alerte ramassage pas commencé',
             'plan_id' => 'formule',
             'trial_ends_at' => 'fin de l\'essai',
         ];
