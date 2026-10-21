@@ -7,13 +7,13 @@ Jibiat · Facebook et TikTok ».
 | Scène | Cible | Durée |
 |---|---|---|
 | `deux-applications` | Les deux : l'espace marchand et le livreur reliés (réseaux sociaux, pas sur jibiat.com) | 23 s |
-| `entreprise-productivite` | Entreprises de livraison : la productivité en un coup d'œil (haut de jibiat.com) | 23 s |
+| `entreprise-productivite` | Entreprises de livraison : trouver des clients, puis la productivité (haut de jibiat.com) | 31 s |
 | `entreprise-assignation-auto` | Entreprises de livraison : l'assignation automatique par le planning | 24 s |
 | `entreprise-alertes` | Entreprises de livraison : les alertes | 23 s |
 | `entreprise-points` | Entreprises de livraison : les points de caisse en deux minutes | 20 s |
 | `entreprise-suivi` | Entreprises de livraison : chaque colis suivi en direct | 19 s |
 | `entreprise-clients-autonomes` | Entreprises de livraison : les clients saisissent eux-mêmes | 23 s |
-| `entreprise-nouveaux-clients` | Entreprises de livraison : l'annuaire leur amène des e-commerçants | 24 s |
+| `entreprise-nouveaux-clients` | Entreprises de livraison : des clients déjà sur Jibiat Marchand les trouvent | 24 s |
 | `entreprise-livreur` | Entreprises de livraison : l'application des livreurs | 19 s |
 | `entreprise-chiffres` | Entreprises de livraison : statistiques et rapport de la semaine | 15 s |
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
@@ -157,12 +157,14 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 5. (4 s) Essayez Pro gratuitement, sur jibiat-marchand.com.
 
 **entreprise-productivite**
-1. (2,8 s) Votre entreprise de livraison tourne toute seule.
-2. (4,2 s) Les courses partent seules au bon livreur.
-3. (4,2 s) Un problème ? Vous êtes prévenu tout de suite.
-4. (4,2 s) Le point de caisse prend deux minutes.
-5. (4 s) Et chaque colis est suivi en direct.
-6. (4 s) Moins d'appels, plus de colis livrés. Jibiat, essai gratuit.
+1. (2,6 s) Trouvez des clients. Livrez plus.
+2. (4 s) Les marchands de Jibiat Marchand cherchent un livreur, et ils vous trouvent.
+3. (3,8 s) Leurs colis arrivent chez vous. Un toucher pour accepter.
+4. (4,2 s) Les courses partent seules au bon livreur.
+5. (4,2 s) Un problème ? Vous êtes prévenu tout de suite.
+6. (4,2 s) Le point de caisse prend deux minutes.
+7. (4 s) Et chaque colis est suivi en direct.
+8. (4 s) Plus de clients, plus de colis. Jibiat, essai gratuit.
 
 **entreprise-assignation-auto**
 1. (2,6 s) Qui ramasse quoi ? Le planning décide.
@@ -203,12 +205,12 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 6. (3,8 s) Zéro ressaisie pour votre équipe. Jibiat.
 
 **entreprise-nouveaux-clients**
-1. (2,8 s) Des clients qui viennent à vous.
+1. (2,8 s) Vos prochains clients sont déjà sur Jibiat Marchand.
 2. (4,2 s) Cochez « Figurer dans l'annuaire ». C'est compris dans toutes les formules.
 3. (4,6 s) Les e-commerçants de Jibiat Marchand vous trouvent, avec vos vrais résultats.
 4. (4,4 s) Ils vous contactent directement. Un toucher pour accepter.
 5. (4 s) Et leurs colis arrivent tout seuls.
-6. (3,8 s) Plus de clients, sans démarcher. Jibiat.
+6. (3,8 s) Des clients qui vous trouvent, sans démarcher. Jibiat.
 
 **entreprise-livreur**
 1. (2,6 s) Une application pour vos livreurs.
