@@ -32,8 +32,9 @@ class AuthenticateApiKey
             return $this->error('Le compte de ce marchand est suspendu ou n\'a plus d\'utilisateur actif.', 403);
         }
 
-        // Module « API et webhooks » de la formule de l'entreprise de livraison
-        if (! $actor->loadMissing('company')->company?->hasFeature(PlatformFeature::Api)) {
+        // Module « API et webhooks » de la formule de l'entreprise de livraison ; une application reliée par
+        // l'annuaire (connexion en un clic) marche avec toutes les formules
+        if ($key->client === null && ! $actor->loadMissing('company')->company?->hasFeature(PlatformFeature::Api)) {
             return $this->error('L\'API n\'est pas incluse dans la formule de votre entreprise de livraison.', 403);
         }
 

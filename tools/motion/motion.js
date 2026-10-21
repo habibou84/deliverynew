@@ -29,6 +29,9 @@
     jibiat: { label: 'Jibiat', note: "l'entreprise de livraison", brand: 'jibiat' },
     livreur: { label: 'Jibiat', note: 'le livreur', brand: 'jibiat' },
     ecommercant: { label: 'Jibiat', note: "l'e-commerçant", brand: 'jibiat' },
+    client: { label: 'Jibiat', note: 'votre client e-commerçant', brand: 'jibiat' },
+    suivi: { label: 'Jibiat', note: 'le suivi du destinataire', brand: 'jibiat' },
+    annuaire: { label: 'jibiat.com', note: "l'annuaire", brand: 'jibiat' },
   }
 
   function el(tag, cls, parent, html) {

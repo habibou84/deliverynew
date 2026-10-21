@@ -6,7 +6,7 @@ de nouveaux clients. Contrat partagé avec Jibiat Marchand : `habibou84/socle`, 
 ## Annuaire
 
 - L'entreprise choisit d'y figurer : Réglages › E-commerçants › « Figurer dans l'annuaire », avec une phrase de présentation.
-- Il faut le module Intégrations dans la formule (la connexion passe par l'API publique).
+- Ouvert à toutes les formules : la clé remise à Jibiat Marchand par la connexion en un clic (`api_keys.client`) ouvre l'API publique et les webhooks même sans le module Intégrations ; les clés créées à la main restent réservées à ce module.
 - Publié sur `jibiat.com/annuaire` et en JSON sur `GET https://jibiat.com/api/public/directory` (lu par Jibiat Marchand).
 - Chiffres calculés par l'application sur 90 jours, hors courses d'essai : colis livrés, part de réussite
   (livrés / livrés + retours + perdus), délai moyen entre l'enregistrement et la livraison. Masqués sous 20 courses.

@@ -6,9 +6,16 @@ Jibiat · Facebook et TikTok ».
 
 | Scène | Cible | Durée |
 |---|---|---|
-| `deux-applications` | Les deux : la boutique et le livreur reliés | 23 s |
-| `entreprise-caisse` | Entreprises de livraison : caisse et chiffres | 20 s |
-| `entreprise-nouveaux-clients` | Entreprises de livraison : l'annuaire leur amène des clients | 20 s |
+| `deux-applications` | Les deux : la boutique et le livreur reliés (réseaux sociaux, pas sur jibiat.com) | 23 s |
+| `entreprise-productivite` | Entreprises de livraison : la productivité en un coup d'œil (haut de jibiat.com) | 23 s |
+| `entreprise-assignation-auto` | Entreprises de livraison : l'assignation automatique par le planning | 24 s |
+| `entreprise-alertes` | Entreprises de livraison : les alertes | 23 s |
+| `entreprise-points` | Entreprises de livraison : les points de caisse en deux minutes | 20 s |
+| `entreprise-suivi` | Entreprises de livraison : chaque colis suivi en direct | 19 s |
+| `entreprise-clients-autonomes` | Entreprises de livraison : les clients saisissent eux-mêmes | 23 s |
+| `entreprise-nouveaux-clients` | Entreprises de livraison : l'annuaire leur amène des e-commerçants | 24 s |
+| `entreprise-livreur` | Entreprises de livraison : l'application des livreurs | 19 s |
+| `entreprise-chiffres` | Entreprises de livraison : statistiques et rapport de la semaine | 15 s |
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
 | `marchand-suivi-argent` | E-commerçants clients d'une entreprise Jibiat : colis et argent | 20 s |
 | `marchand-boutique` | E-commerçants : boutique en ligne et gestion | 23 s |
@@ -35,6 +42,10 @@ Trois formats par scène, dans `out/` (non versionné) :
   dans un navigateur.
 - `capture.cjs` : captures des deux applications (téléphone, échelle 3) dans `assets/` ; `probe.cjs` : position
   des éléments à montrer (`assets/positions.json`).
+- `demo-jour.php` : une journée en cours dans Jibiat (planning et assignation automatique en marche, courses à
+  toutes les étapes, alertes, livreurs sur la carte), après `tools/videos/demo-data.php`.
+- `capture-jibiat.cjs` : écrans de Jibiat côté entreprise de livraison (`assets/j-*`, positions dans
+  `assets/positions-jibiat.json`), et l'annuaire du site public servi en local.
 - `capture-ia.cjs` : écrans de l'assistant de Jibiat Marchand et écrans « vendre plus » (`assets/ia-*`,
   `assets/vendre-*`, positions dans `assets/positions-ia.json`). Le serveur local est lancé avec une clé factice
   (`ANTHROPIC_API_KEY=demo-local`) pour afficher l'assistant ; ses réponses sont jouées dans le navigateur, aucun
@@ -70,20 +81,6 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 4. (3,8 s) Le livreur la reçoit sur son téléphone.
 5. (4,2 s) Et les statuts et l'argent reviennent tout seuls.
 6. (3,8 s) Jibiat Marchand et Jibiat. Essai gratuit.
-
-**entreprise-caisse**
-1. (3 s) Vos livreurs ont encaissé combien aujourd'hui ?
-2. (4,6 s) Jibiat le sait, au franc près, livreur par livreur.
-3. (4,6 s) Le livreur verse, vous validez : le point de caisse prend deux minutes.
-4. (4,2 s) Et chaque soir, vous avez vos vrais chiffres.
-5. (3,8 s) Jibiat : toute votre entreprise de livraison dans une seule application.
-
-**entreprise-nouveaux-clients**
-1. (2,8 s) Et si les e-commerçants venaient à vous ?
-2. (5 s) Dans l'annuaire Jibiat, les boutiques voient vos vrais résultats.
-3. (4,8 s) Elles vous demandent d'ouvrir un compte. Un clic pour accepter.
-4. (3,8 s) Et leurs colis arrivent tout seuls.
-5. (3,8 s) Plus de clients, sans démarcher. Jibiat.
 
 **marchand-livreur-fiable**
 1. (2,6 s) Votre livreur ne répond plus ?
@@ -158,3 +155,70 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 3. (4,4 s) L'assistant, WhatsApp automatique, les statistiques.
 4. (4 s) Vos commandes en dix secondes.
 5. (4 s) Essayez Pro gratuitement, sur jibiat-marchand.com.
+
+**entreprise-productivite**
+1. (2,8 s) Votre entreprise de livraison tourne toute seule.
+2. (4,2 s) Les courses partent seules au bon livreur.
+3. (4,2 s) Un problème ? Vous êtes prévenu tout de suite.
+4. (4,2 s) Le point de caisse prend deux minutes.
+5. (4 s) Et chaque colis est suivi en direct.
+6. (4 s) Moins d'appels, plus de colis livrés. Jibiat, essai gratuit.
+
+**entreprise-assignation-auto**
+1. (2,6 s) Qui ramasse quoi ? Le planning décide.
+2. (4,6 s) Une règle par livreur, avec son remplaçant.
+3. (4 s) Les livraisons du jour aussi.
+4. (4,6 s) La course part sans que vous touchiez à rien.
+5. (4,4 s) Livreur injoignable ? Un autre prend le relais.
+6. (3,8 s) Fini de tout répartir à la main. Jibiat.
+
+**entreprise-alertes**
+1. (2,6 s) Les problèmes, avant qu'ils coûtent.
+2. (4,4 s) Les ramassages en retard, avant l'heure limite.
+3. (4 s) Un livreur injoignable ? Vous le savez tout de suite.
+4. (4,4 s) Les échecs se décident d'un toucher.
+5. (4 s) Et les colis qui traînent chez un livreur sont signalés.
+6. (3,8 s) Rien ne vous échappe. Jibiat.
+
+**entreprise-points**
+1. (2,8 s) Vos livreurs ont encaissé combien ?
+2. (4,4 s) Jibiat le sait, au franc près, livreur par livreur.
+3. (4,8 s) Il verse, vous cochez, c'est validé.
+4. (4 s) Et le livreur voit ce qu'il doit.
+5. (3,8 s) Le point de caisse en deux minutes. Jibiat.
+
+**entreprise-suivi**
+1. (2,8 s) Où est le colis ? Tout le monde le sait.
+2. (4,2 s) Qui ramasse, qui livre, où il en est.
+3. (4,4 s) Chaque étape est notée toute seule.
+4. (4,2 s) Et le destinataire suit son colis.
+5. (3,8 s) Fini les appels « il est où ? ». Jibiat.
+
+**entreprise-clients-autonomes**
+1. (2,8 s) Et si vos clients saisissaient eux-mêmes ?
+2. (4,6 s) Ils collent un message, la course est prête.
+3. (4 s) Ils suivent leurs colis tout seuls.
+4. (4 s) Un fichier Excel ? Cent courses d'un coup.
+5. (4,2 s) Leur boutique en ligne envoie les courses toute seule.
+6. (3,8 s) Zéro ressaisie pour votre équipe. Jibiat.
+
+**entreprise-nouveaux-clients**
+1. (2,8 s) Des clients qui viennent à vous.
+2. (4,2 s) Cochez « Figurer dans l'annuaire ». C'est compris dans toutes les formules.
+3. (4,6 s) Les e-commerçants de Jibiat Marchand vous trouvent, avec vos vrais résultats.
+4. (4,4 s) Ils vous contactent directement. Un toucher pour accepter.
+5. (4 s) Et leurs colis arrivent tout seuls.
+6. (3,8 s) Plus de clients, sans démarcher. Jibiat.
+
+**entreprise-livreur**
+1. (2,6 s) Une application pour vos livreurs.
+2. (4,4 s) Ses missions dans l'ordre, même sans réseau.
+3. (4 s) Ce qu'il doit verser, ce qu'il a gagné.
+4. (4,2 s) Et vous voyez qui est libre.
+5. (3,8 s) Des livreurs bien équipés. Jibiat.
+
+**entreprise-chiffres**
+1. (2,6 s) Votre entreprise, en vrais chiffres.
+2. (4,6 s) Courses, réussite, chiffre d'affaires.
+3. (4,2 s) Par livreur, par client, par zone, et le rapport chaque lundi sur WhatsApp.
+4. (3,8 s) Pilotez avec les vrais chiffres. Jibiat.

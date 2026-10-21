@@ -91,12 +91,12 @@ class AppConnectTest extends TestCase
         $this->assertSame(0.88, $entry['stats']['success_rate']);
         $this->assertEqualsWithDelta(4.0, $entry['stats']['average_delivery_hours'], 0.2);
 
-        // Formule sans le module Intégrations : pas de connexion possible, donc absente de l'annuaire
+        // L'annuaire est ouvert à toutes les formules, même sans le module Intégrations
         $basic = Plan::create(['name' => 'Essentiel', 'price_monthly' => 25000, 'features' => [], 'is_active' => true, 'position' => 1]);
         $this->company->update(['plan_id' => $basic->id]);
-        $this->getJson($this->at('', '/api/public/directory'))->assertJsonCount(0, 'data');
+        $this->getJson($this->at('', '/api/public/directory'))->assertJsonCount(1, 'data');
         $this->getJson($this->at('rapide', '/api/public/connect/client?'.http_build_query(['client_id' => 'jibiat-marchand', 'redirect_uri' => self::REDIRECT])))
-            ->assertStatus(422);
+            ->assertOk();
         $this->company->update(['plan_id' => null]);
 
         // Retrait de l'annuaire : aussitôt invisible
@@ -142,6 +142,22 @@ class AppConnectTest extends TestCase
 
         // Code à usage unique
         $this->token($query['code'])->assertStatus(400)->assertJsonPath('error', 'invalid_grant');
+    }
+
+    public function test_a_key_from_the_directory_works_without_the_integrations_module(): void
+    {
+        $basic = Plan::create(['name' => 'Essentiel', 'price_monthly' => 25000, 'features' => [], 'is_active' => true, 'position' => 1]);
+        $this->company->update(['plan_id' => $basic->id]);
+
+        parse_str(parse_url($this->authorizeAs($this->merchantUser), PHP_URL_QUERY), $query);
+        $this->app['auth']->forgetGuards();
+        $connected = $this->token($query['code'])->assertOk()->json('data.api_key');
+        $this->assertSame('jibiat-marchand', ApiKey::withoutGlobalScopes()->latest('id')->value('client'));
+
+        // Clé de Jibiat Marchand (connexion en un clic) : acceptée ; clé créée à la main : réservée au module Intégrations
+        $this->getJson($this->at('rapide', '/api/public/v1/me'), ['Authorization' => 'Bearer '.$connected])->assertOk();
+        [, $manual] = ApiKey::issue($this->merchant, 'Site maison', ['orders:read'], null);
+        $this->getJson($this->at('rapide', '/api/public/v1/me'), ['Authorization' => 'Bearer '.$manual])->assertStatus(403);
     }
 
     public function test_a_wrong_verifier_an_expired_code_or_a_foreign_address_is_refused(): void

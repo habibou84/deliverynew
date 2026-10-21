@@ -26,12 +26,12 @@
                     Conçu à Abidjan pour les entreprises de livraison
                 </p>
                 <h1 class="mt-6 text-4xl font-bold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-                    Toute votre entreprise de livraison
-                    <span class="bg-gradient-to-r from-brand-400 to-flame bg-clip-text text-transparent">dans une seule application</span>
+                    Votre entreprise de livraison
+                    <span class="bg-gradient-to-r from-brand-400 to-flame bg-clip-text text-transparent">tourne toute seule</span>
                 </h1>
                 <p class="mx-auto mt-6 max-w-2xl text-lg text-pretty text-slate-300">
-                    Courses, livreurs, caisse, reversements et e-commerçants : Jibiat organise vos journées et fait vos points à votre place.
-                    Sur ordinateur pour le bureau, sur téléphone pour vos livreurs et vos clients.
+                    Les courses partent seules au bon livreur, vous êtes prévenu dès qu'un problème arrive, et le point de caisse prend deux minutes.
+                    Moins d'appels, moins d'erreurs, plus de colis livrés par jour.
                 </p>
                 <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
                     @if ($signupUrl)
@@ -49,8 +49,43 @@
                 <p class="mt-4 text-sm text-slate-400">Sans engagement · Sans carte bancaire · Prêt en 2 minutes</p>
             </div>
 
-            {{-- La vidéo phare, en boucle : la boutique et l'entreprise de livraison reliées --}}
-            <x-marketing.loop name="deux-applications" title="Jibiat Marchand et Jibiat reliés : la commande, la livraison, l'argent" class="mx-auto mt-14 max-w-5xl pb-16" />
+            {{-- La vidéo phare, en boucle : la productivité de l'entreprise de livraison --}}
+            <x-marketing.loop name="entreprise-productivite" title="Jibiat : assignation automatique, alertes, points de caisse et suivi en direct" class="mx-auto mt-14 max-w-5xl pb-16" />
+        </div>
+    </section>
+
+    {{-- Productivité : ce que Jibiat fait à la place de votre équipe --}}
+    <section id="productivite" class="scroll-mt-20 py-20">
+        <div class="mx-auto max-w-6xl px-4 sm:px-6">
+            <div class="mx-auto max-w-2xl text-center">
+                <p class="font-semibold text-brand-600">Gagnez des heures chaque jour</p>
+                <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Ce que Jibiat fait à la place de votre équipe</h2>
+                <p class="mt-4 text-lg text-slate-600">Chaque vidéo montre les vrais écrans de l'application, en moins de 25 secondes.</p>
+            </div>
+            <div class="-mx-4 mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+                @foreach ([
+                    ['entreprise-assignation-auto', 'Assignation automatique', 'Le planning dit qui ramasse et qui livre où. Chaque course part seule au bon livreur ; s\'il est absent ou injoignable, son remplaçant la reçoit.'],
+                    ['entreprise-alertes', 'Des alertes au bon moment', 'Ramassage pas commencé avant l\'heure limite, livreur injoignable, course sans livreur, colis en échec ou gardé trop longtemps.'],
+                    ['entreprise-points', 'Les points en deux minutes', 'L\'argent chez chaque livreur au franc près. Il verse, vous cochez, c\'est validé, frais et avances déduits.'],
+                    ['entreprise-suivi', 'Le suivi en direct', 'Chaque étape notée toute seule, avec la photo et le code de livraison. Le destinataire suit son colis sur WhatsApp.'],
+                    ['entreprise-clients-autonomes', 'Vos clients saisissent eux-mêmes', 'Message WhatsApp collé, fichier Excel ou boutique en ligne reliée : votre équipe ne ressaisit plus rien.'],
+                    ['entreprise-livreur', 'L\'application des livreurs', 'Missions dans l\'ordre, encaissements et gains, même sans réseau. Vous voyez qui est libre et où.'],
+                    ['entreprise-chiffres', 'Vos vrais chiffres', 'Réussite, chiffre d\'affaires, livreurs, clients et zones, et le rapport de la semaine chaque lundi sur WhatsApp.'],
+                ] as [$video, $title, $text])
+                    <div class="w-64 shrink-0 snap-center sm:w-auto">
+                        <x-marketing.video :name="$video.'-v'" :title="$title" vertical />
+                        <h3 class="mt-4 text-center font-semibold">{{ $title }}</h3>
+                        <p class="mt-1 text-center text-sm text-slate-600">{{ $text }}</p>
+                    </div>
+                @endforeach
+                <div class="flex w-64 shrink-0 snap-center flex-col justify-center rounded-[1.75rem] bg-gradient-to-br from-brand-600 to-flame p-7 text-white sm:w-auto">
+                    <p class="text-2xl font-bold">Essayez sur votre propre journée</p>
+                    <p class="mt-3 text-white/90">Vos zones, vos livreurs, vos clients : tout est prêt en quelques minutes.</p>
+                    @if ($signupUrl)
+                        <a href="{{ $signupUrl }}" class="mt-6 inline-flex items-center justify-center rounded-xl bg-white px-5 py-3 font-semibold text-brand-700 hover:bg-brand-50">Essayer gratuitement</a>
+                    @endif
+                </div>
+            </div>
         </div>
     </section>
 
@@ -78,50 +113,36 @@
         </div>
     </section>
 
-    {{-- Jibiat Marchand : les boutiques et les entreprises de livraison reliées --}}
-    <section id="ecommercants" class="scroll-mt-20 bg-slate-950 py-20 text-white">
-        <div class="mx-auto max-w-6xl px-4 sm:px-6">
-            <div class="mx-auto max-w-3xl text-center">
-                <p class="font-semibold text-brand-400">Jibiat + Jibiat Marchand</p>
-                <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Les boutiques en ligne et les entreprises de livraison, enfin reliées</h2>
+    {{-- L'annuaire : des e-commerçants déjà en ligne trouvent l'entreprise de livraison --}}
+    <section id="annuaire" class="scroll-mt-20 bg-slate-950 py-20 text-white">
+        <div class="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2">
+            <div>
+                <p class="font-semibold text-brand-400">De nouveaux clients, sans démarcher</p>
+                <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Des e-commerçants viennent à vous</h2>
                 <p class="mt-4 text-lg text-slate-300">
-                    Jibiat Marchand est l'application des e-commerçants : boutique en ligne, commandes WhatsApp, Facebook et TikTok, stock.
-                    Elle envoie ses colis aux entreprises qui livrent avec Jibiat, en un clic, et reçoit chaque statut et chaque reversement.
+                    Une fois sur Jibiat, vous apparaissez dans l'annuaire des entreprises de livraison. Les e-commerçants qui vendent avec
+                    Jibiat Marchand y cherchent un livreur fiable : ils vous trouvent, voient vos vrais résultats et vous contactent directement.
                 </p>
+                <ul class="mt-8 space-y-5">
+                    @foreach ([
+                        ['Compris dans toutes les formules', 'Cochez « Figurer dans l\'annuaire » dans vos réglages, ajoutez une phrase de présentation. Vous pouvez vous retirer à tout moment.'],
+                        ['Vos vrais résultats, pas des promesses', 'Colis livrés, part de réussite et délai moyen des 90 derniers jours, calculés par l\'application.'],
+                        ['Des clients déjà équipés', 'L\'e-commerçant demande à ouvrir un compte ou se connecte en un clic. Vous acceptez, et ses commandes arrivent en courses, sans ressaisie.'],
+                    ] as [$title, $text])
+                        <li class="flex gap-4">
+                            <x-marketing.icon name="check" class="mt-1 size-6 shrink-0 text-brand-400" />
+                            <span><span class="block font-semibold">{{ $title }}</span><span class="block text-slate-300">{{ $text }}</span></span>
+                        </li>
+                    @endforeach
+                </ul>
+                <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+                    @if ($signupUrl)
+                        <a href="{{ $signupUrl }}" class="btn-brand px-6 py-3">Figurer dans l'annuaire</a>
+                    @endif
+                    <a href="/annuaire" class="btn-ghost px-6 py-3 text-white ring-white/25 hover:bg-white/10">Voir l'annuaire</a>
+                </div>
             </div>
-            <div class="mt-12 grid gap-6 md:grid-cols-3">
-                @foreach ([
-                    ['Pour l\'entreprise de livraison', 'De nouveaux clients', 'Figurez dans l\'annuaire : les e-commerçants voient vos vrais résultats et vous demandent d\'ouvrir un compte, directement dans votre espace.'],
-                    ['Pour l\'e-commerçant', 'Un livreur fiable, en un clic', 'Il choisit une entreprise d\'après sa réussite et son délai réels sur 90 jours, puis touche « Connecter ». Aucune clé à copier.'],
-                    ['Pour tout le monde', 'Une seule information', 'La commande devient une course sans ressaisie ; statuts, encaissements et reversements reviennent tout seuls dans la boutique.'],
-                ] as [$for, $title, $text])
-                    <div class="rounded-3xl bg-white/5 p-7 ring-1 ring-white/10">
-                        <p class="text-xs font-semibold uppercase tracking-wider text-brand-300">{{ $for }}</p>
-                        <h3 class="mt-3 text-xl font-bold">{{ $title }}</h3>
-                        <p class="mt-2 text-slate-300">{{ $text }}</p>
-                    </div>
-                @endforeach
-            </div>
-
-            {{-- Vidéos courtes, au format téléphone --}}
-            <div class="-mx-4 mt-14 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
-                @foreach ([
-                    ['entreprise-caisse', 'La caisse au franc près'],
-                    ['entreprise-nouveaux-clients', 'De nouveaux clients viennent à vous'],
-                    ['marchand-livreur-fiable', 'Un livreur fiable en un clic'],
-                    ['marchand-suivi-argent', 'Le colis et l\'argent suivis en direct'],
-                ] as [$video, $label])
-                    <div class="w-64 shrink-0 snap-center sm:w-auto">
-                        <x-marketing.video :name="$video.'-v'" :title="$label" vertical />
-                        <p class="mt-3 text-center text-sm font-medium text-slate-300">{{ $label }}</p>
-                    </div>
-                @endforeach
-            </div>
-
-            <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <a href="/annuaire" class="btn-brand px-6 py-3">Voir l'annuaire des entreprises de livraison</a>
-                <a href="https://jibiat-marchand.com" class="btn-ghost px-6 py-3 text-white ring-white/25 hover:bg-white/10">Découvrir Jibiat Marchand</a>
-            </div>
+            <x-marketing.video name="entreprise-nouveaux-clients-v" title="L'annuaire Jibiat vous amène des e-commerçants" vertical />
         </div>
     </section>
 
@@ -201,15 +222,15 @@
             </div>
             <div class="mt-14 grid gap-px overflow-hidden rounded-3xl bg-white/10 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach ([
-                    ['route', 'Dispatch et suivi en direct', 'Courses à valider, à ramasser, à livrer : assignez, suivez sur la carte, soyez alerté des retards.'],
-                    ['wallet', 'Caisse et reversements', 'Paiement à la livraison, versements des livreurs, reversements aux e-commerçants avec relevés détaillés.'],
-                    ['payroll', 'Paie des livreurs', 'Commission, salaire, primes d\'objectifs, avances et retenues : la fiche de paie se calcule toute seule.'],
-                    ['message', 'Commandes par WhatsApp', 'Vos e-commerçants envoient leurs courses par WhatsApp, l\'application les enregistre pour vous.'],
-                    ['bell', 'Clients prévenus automatiquement', 'Colis en route, code de livraison, colis livré : les bonnes personnes sont prévenues à chaque étape.'],
-                    ['chart', 'Statistiques', 'Taux de livraison, motifs d\'échec, meilleurs livreurs, zones et chiffre d\'affaires, exportables vers Excel.'],
-                    ['box', 'Stock et entrepôt', 'Les produits de vos e-commerçants à l\'entrepôt : entrées, sorties et commandes préparées chez vous.'],
-                    ['store', 'Boutiques en ligne', 'Chaque e-commerçant a sa page de commande à partager : les commandes arrivent directement en courses.'],
-                    ['plug', 'API et import Excel', 'Reliez les sites de vos e-commerçants ou importez des centaines de courses depuis un fichier.'],
+                    ['route', 'Dispatch et carte', 'Toutes les courses du jour par statut, les livreurs sur la carte, les ramassages groupés par client.'],
+                    ['bell', 'Échecs, reports et retours', 'Chaque échec à décider d\'un toucher, les reports rappelés le bon jour, les retours groupés par e-commerçant.'],
+                    ['wallet', 'Caisse et reversements', 'Versements des livreurs, reversements aux e-commerçants avec relevés, colis perdus et indemnités.'],
+                    ['payroll', 'Paie des livreurs', 'Commission, salaire, primes d\'objectifs, frais, avances et retenues : la fiche se calcule toute seule.'],
+                    ['message', 'Commandes par WhatsApp', 'Vos e-commerçants envoient leurs courses à votre numéro WhatsApp, l\'application les enregistre.'],
+                    ['chart', 'Statistiques et rapports', 'Taux de livraison, motifs d\'échec, livreurs, zones, chiffre d\'affaires, exports Excel.'],
+                    ['box', 'Stock et entrepôt', 'Les produits de vos e-commerçants chez vous : entrées, sorties et commandes préparées.'],
+                    ['plug', 'API, import et boutiques', 'Sites de vos clients reliés, import de centaines de courses, page de commande pour chaque e-commerçant.'],
+                    ['store', 'À votre nom', 'Votre logo, vos couleurs et votre propre adresse : vos clients voient votre entreprise.'],
                 ] as [$icon, $title, $text])
                     <div class="bg-slate-950 p-7">
                         <span class="inline-flex size-11 items-center justify-center rounded-xl bg-brand-500/15 text-brand-400"><x-marketing.icon :name="$icon" /></span>
@@ -293,7 +314,8 @@
                     ['Les messages aux clients coûtent-ils cher ?', 'Les e-commerçants et les livreurs reçoivent des notifications gratuites sur leur téléphone. Les messages WhatsApp aux destinataires des colis passent par votre propre numéro WhatsApp Business.'],
                     ['Mes données sont-elles protégées ?', 'Chaque entreprise a son espace séparé, avec une connexion chiffrée et des accès limités selon le rôle de chacun. Les données d\'une entreprise ne sont jamais visibles par une autre.'],
                     ['Je suis e-commerçant ou livreur : comment me connecter ?', 'Ouvrez l\'adresse que vous a donnée votre entreprise de livraison, par exemple votre-entreprise.'.$domain.'.'],
-                    ['Je suis e-commerçant : comment trouver une entreprise de livraison ?', 'Consultez l\'annuaire sur '.$domain.'/annuaire : réussite et délai réels de chaque entreprise. Avec Jibiat Marchand, vous vous connectez à elle en un clic.'],
+                    ['Comment l\'annuaire m\'amène-t-il des clients ?', 'Les e-commerçants qui vendent avec Jibiat Marchand, et les visiteurs de '.$domain.'/annuaire, y cherchent une entreprise de livraison. Ils voient vos villes, votre prix de départ et vos vrais résultats, puis vous demandent d\'ouvrir un compte ou se connectent à vous en un clic.'],
+                    ['L\'annuaire est-il payant ?', 'Non. Il est compris dans toutes les formules : il suffit de cocher « Figurer dans l\'annuaire » dans Réglages › E-commerçants.'],
                 ] as [$question, $answer])
                     <details class="group p-6">
                         <summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">

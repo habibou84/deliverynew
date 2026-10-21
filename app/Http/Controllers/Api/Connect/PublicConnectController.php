@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers\Api\Connect;
 
-use App\Enums\PlatformFeature;
-use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Zone;
@@ -40,9 +38,6 @@ class PublicConnectController extends Controller
     {
         $company = $this->company();
         $client = $this->connect->client($request->query('client_id'), $request->query('redirect_uri'));
-        if (! $company->hasFeature(PlatformFeature::Api)) {
-            throw new BusinessRuleException("{$company->name} n'a pas encore ouvert la connexion aux applications. Contactez-la pour qu'elle l'active.");
-        }
 
         return response()->json(['data' => [
             'client' => ['id' => $client['id'], 'name' => $client['name']],

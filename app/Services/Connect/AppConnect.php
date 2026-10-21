@@ -134,7 +134,7 @@ class AppConnect
             }
 
             $client = config("connect.clients.{$clientId}");
-            [$key, $plain] = ApiKey::issue($merchant, $client['name'], $client['scopes'], $grant->user);
+            [$key, $plain] = ApiKey::issue($merchant, $client['name'], $client['scopes'], $grant->user, client: $clientId);
 
             return [$key, $plain, $merchant];
         });

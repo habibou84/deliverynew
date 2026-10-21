@@ -17,7 +17,7 @@ class ApiKey extends Model
 {
     use BelongsToCompany;
 
-    protected $fillable = ['company_id', 'merchant_id', 'name', 'key_prefix', 'key_hash', 'scopes', 'created_by', 'expires_at'];
+    protected $fillable = ['company_id', 'merchant_id', 'name', 'client', 'key_prefix', 'key_hash', 'scopes', 'created_by', 'expires_at'];
 
     protected $hidden = ['key_hash'];
 
@@ -34,10 +34,12 @@ class ApiKey extends Model
     /**
      * Crée une clé et renvoie la valeur en clair (à montrer une seule fois).
      *
+     * Une clé d'application reliée en un clic ($client, ex. jibiat-marchand) marche quelle que soit la formule.
+     *
      * @param  list<string>  $scopes
      * @return array{0: self, 1: string}
      */
-    public static function issue(Merchant $merchant, string $name, array $scopes, ?User $creator, ?string $expiresAt = null): array
+    public static function issue(Merchant $merchant, string $name, array $scopes, ?User $creator, ?string $expiresAt = null, ?string $client = null): array
     {
         do {
             $prefix = Str::lower(Str::random(8));
@@ -49,6 +51,7 @@ class ApiKey extends Model
             'company_id' => $merchant->company_id,
             'merchant_id' => $merchant->id,
             'name' => $name,
+            'client' => $client,
             'key_prefix' => $prefix,
             'key_hash' => hash('sha256', $plain),
             'scopes' => array_values(array_unique($scopes)),
