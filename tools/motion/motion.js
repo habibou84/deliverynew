@@ -32,6 +32,7 @@
     client: { label: 'Jibiat', note: 'votre client e-commerçant', brand: 'jibiat' },
     suivi: { label: 'Jibiat', note: 'le suivi du destinataire', brand: 'jibiat' },
     annuaire: { label: 'jibiat.com', note: "l'annuaire", brand: 'jibiat' },
+    boutique: { label: 'Votre boutique en ligne', note: 'vue par votre client', brand: 'marchand' },
   }
 
   function el(tag, cls, parent, html) {
