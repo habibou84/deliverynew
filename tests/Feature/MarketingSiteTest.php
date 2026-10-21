@@ -38,7 +38,7 @@ class MarketingSiteTest extends TestCase
 
         $this->get('http://jibiat.test/')
             ->assertOk()
-            ->assertSee('dans une seule application')
+            ->assertSee('Trouvez de nouveaux clients : les marchands de Jibiat Marchand cherchent un livreur')
             ->assertSee('Essayer gratuitement 30 jours')
             ->assertSee('https://admin.jibiat.test/creer-mon-entreprise', false)
             ->assertSee('https://admin.jibiat.test/creer-mon-entreprise?formule='.$plan->id, false)
@@ -61,10 +61,13 @@ class MarketingSiteTest extends TestCase
     {
         $this->get('http://jibiat.test/')
             ->assertOk()
-            ->assertSee('tourne toute seule')
+            ->assertSee('Trouvez des clients.')
+            ->assertSee('Les marchands de Jibiat Marchand cherchent un livreur')
             ->assertSee('/marketing/videos/entreprise-productivite-w.mp4', false)
             ->assertSee('Assignation automatique')
-            ->assertSee('Des e-commerçants viennent à vous')
+            ->assertSee('Trouvez des clients déjà sur Jibiat Marchand')
+            ->assertSee('Comment Jibiat m&#039;aide-t-il à trouver des clients ?', false)
+            ->assertSee('Dans toutes les formules : les marchands de Jibiat Marchand vous trouvent', false)
             ->assertSee('Compris dans toutes les formules')
             // Les vidéos faites pour les e-commerçants restent sur jibiat-marchand.com
             ->assertDontSee('marchand-livreur-fiable')

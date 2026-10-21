@@ -2,7 +2,7 @@
 window.SCENE = {
   brand: 'jibiat',
   shots: [
-    { type: 'hook', dur: 2.8, text: 'Des clients qui *viennent à vous*' },
+    { type: 'hook', dur: 2.8, text: 'Vos prochains clients sont *déjà sur Jibiat Marchand*' },
     {
       type: 'phone', dur: 4.2, app: 'jibiat', src: 'assets/j-reglages-annuaire.png',
       title: 'Cochez *« Figurer dans l’annuaire »*', sub: 'Compris dans toutes les formules.',
@@ -24,6 +24,6 @@ window.SCENE = {
       title: 'Leurs colis *arrivent tout seuls*', sub: 'Leurs commandes deviennent vos courses, sans ressaisie.',
       zoom: [1, 1.45], focus: [195, 480], ring: { at: 1.3, x: 14, y: 352, w: 362, h: 230 },
     },
-    { type: 'end', dur: 3.8, brands: ['jibiat'], tagline: 'Plus de clients, *sans démarcher*', cta: 'Essai gratuit · jibiat.com' },
+    { type: 'end', dur: 3.8, brands: ['jibiat'], tagline: 'Des clients qui vous trouvent, *sans démarcher*', cta: 'Essai gratuit · jibiat.com' },
   ],
 }
