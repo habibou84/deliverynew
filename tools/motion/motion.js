@@ -21,7 +21,7 @@
 
   const BRANDS = {
     jibiat: { name: 'Jibiat', url: 'jibiat.com', color: '#f96f02', deep: '#b93f00', logo: 'assets/logo-jibiat.png', halo: ['#f96f02', '#1d4ed8'] },
-    marchand: { name: 'Jibiat Marchand', url: 'jibiat-marchand.com', color: '#059669', deep: '#065f46', letter: 'J', halo: ['#10b981', '#0e7490'] },
+    marchand: { name: 'Jibiat Marchand', url: 'jibiat-marchand.com', color: '#039a45', deep: '#01653a', logo: 'assets/logo-marchand.png', tile: '#ffffff', halo: ['#0fbb4f', '#0e7490'] },
   }
   // Application montrée sur le téléphone : étiquette au-dessus de l'écran
   const APPS = {
@@ -130,7 +130,7 @@
             const b = BRANDS[app.brand]
             s.tag = el('div', 'app-tag', s.root)
             const logo = el('span', 'logo', s.tag)
-            logo.style.background = b.color
+            logo.style.background = b.tile ?? b.color
             if (b.logo) el('img', null, logo).src = b.logo
             else logo.textContent = b.letter
             el('span', null, s.tag, `${app.label} <span style="font-weight:600;opacity:.75">· ${app.note}</span>`)
@@ -151,7 +151,7 @@
             const b = BRANDS[name]
             const block = el('div', 'brand-block', logos)
             const logo = el('div', 'brand-logo', block)
-            logo.style.background = b.color
+            logo.style.background = b.tile ?? b.color
             if (b.logo) el('img', null, logo).src = b.logo
             else logo.textContent = b.letter
             el('div', 'brand-name', block, b.name)
