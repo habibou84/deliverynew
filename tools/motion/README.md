@@ -45,8 +45,8 @@ tools/motion/render-all.sh                    # tout (environ 3 minutes par vid�
 ```
 
 Musique ou voix off : `node tools/motion/render.cjs <scène> v --audio=fichier.mp3` (le son est coupé à la fin
-de la vidéo). Copies légères pour les sites : `ffmpeg -i out/x-v.mp4 -vf scale=720:-2 -crf 28 …` (voir les
-vidéos de `public/marketing/videos`).
+de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'attente) :
+`tools/motion/site-copies.sh public/marketing/videos deux-applications-v deux-applications-w …`.
 
 ## Textes de la voix off
 

@@ -44,14 +44,16 @@
     const other = brand === 'jibiat' ? 'marchand' : 'jibiat'
     let mode = null
     const spans = []
-    for (const token of text.split(/(\s+)/)) {
+    // Typographie française : ? ! : ; collés au mot précédent par une espace insécable
+    const typo = text.replace(/ ([?!:;»])/g, '\u202f$1').replace(/« /g, '«\u202f')
+    for (const token of typo.split(/([ \t]+|\n)/)) {
       if (token === '') continue
-      if (/\n/.test(token)) { el('br', null, parent); continue }
-      if (/^\s+$/.test(token)) { parent.appendChild(document.createTextNode(' ')); continue }
+      if (token === '\n') { el('br', null, parent); continue }
+      if (/^[ \t]+$/.test(token)) { parent.appendChild(document.createTextNode(' ')); continue }
       let w = token
       let cls = mode
       if (w.startsWith('*')) { mode = cls = 'brand'; w = w.slice(1) } else if (w.startsWith('_')) { mode = cls = 'other'; w = w.slice(1) }
-      const m = w.match(/^(.*?)([*_])([.,!?:;…]*)$/)
+      const m = w.match(/^(.*?)([*_])([\u202f.,!?:;…»]*)$/)
       if (m) { w = m[1] + m[3]; mode = null }
       const hl = cls === 'brand' ? ` hl-${brand}` : cls === 'other' ? ` hl-${other}` : ''
       spans.push(el('span', `w${hl}`, parent, w))
