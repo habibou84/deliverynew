@@ -12,6 +12,13 @@ Jibiat · Facebook et TikTok ».
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
 | `marchand-suivi-argent` | E-commerçants clients d'une entreprise Jibiat : colis et argent | 20 s |
 | `marchand-boutique` | E-commerçants : boutique en ligne et gestion | 23 s |
+| `marchand-assistant` | E-commerçants : l'assistant en un coup d'œil (vidéo principale) | 25 s |
+| `marchand-ia-commande` | E-commerçants : un message WhatsApp devient une commande | 24 s |
+| `marchand-ia-photo` | E-commerçants : une photo devient une fiche produit | 20 s |
+| `marchand-ia-reponses` | E-commerçants : les réponses aux clients préparées | 19 s |
+| `marchand-ia-reseaux` | E-commerçants : publications écrites, ce que rapporte chaque réseau | 20 s |
+| `marchand-ia-chiffres` | E-commerçants : une question sur ses chiffres, les conseils du jour | 15 s |
+| `marchand-essai-pro` | E-commerçants : un mois de l'offre Pro offert | 19 s |
 
 Trois formats par scène, dans `out/` (non versionné) :
 
@@ -28,6 +35,10 @@ Trois formats par scène, dans `out/` (non versionné) :
   dans un navigateur.
 - `capture.cjs` : captures des deux applications (téléphone, échelle 3) dans `assets/` ; `probe.cjs` : position
   des éléments à montrer (`assets/positions.json`).
+- `capture-ia.cjs` : écrans de l'assistant de Jibiat Marchand et écrans « vendre plus » (`assets/ia-*`,
+  `assets/vendre-*`, positions dans `assets/positions-ia.json`). Le serveur local est lancé avec une clé factice
+  (`ANTHROPIC_API_KEY=demo-local`) pour afficher l'assistant ; ses réponses sont jouées dans le navigateur, aucun
+  appel n'atteint Claude. La photo du produit est `props/sac-wax.jpg` (dessinée dans `props/sac-wax.html`).
 - `render.cjs` : rendu image par image puis MP4 (H.264, 30 images/s) ; `render-all.sh` : tout.
 
 ## Refaire les vidéos
@@ -96,3 +107,54 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 4. (4 s) Votre stock se tient tout seul.
 5. (4 s) Vos ventes du jour, d'un coup d'œil.
 6. (3,8 s) Vendez partout, gérez tout ici. Jibiat Marchand.
+
+**marchand-assistant**
+1. (2,6 s) Un assistant dans votre boutique.
+2. (3,6 s) Un message WhatsApp devient une commande.
+3. (3,6 s) Une photo devient une fiche produit.
+4. (3,6 s) Il prépare vos réponses aux clients.
+5. (3,6 s) Il écrit vos publications.
+6. (3,6 s) Il répond sur vos chiffres.
+7. (4 s) Vous vendez, il fait le reste. Un mois de Pro offert.
+
+**marchand-ia-commande**
+1. (2,6 s) Un client vous écrit sur WhatsApp ?
+2. (4,6 s) Collez son message, même mal écrit.
+3. (4,4 s) L'assistant remplit la commande : numéro, nom, quartier, article.
+4. (4,2 s) Et les frais de livraison de son quartier.
+5. (4,2 s) Vous vérifiez, c'est enregistré.
+6. (3,8 s) Collez, vérifiez, c'est commandé. Jibiat Marchand.
+
+**marchand-ia-photo**
+1. (2,6 s) Une photo, une fiche produit.
+2. (4,4 s) Prenez le produit en photo.
+3. (4,6 s) L'assistant écrit le nom, la description et les mots-clés.
+4. (4,2 s) Même les couleurs et les tailles. Vous fixez le prix.
+5. (3,8 s) Votre catalogue en quelques minutes. Jibiat Marchand.
+
+**marchand-ia-reponses**
+1. (2,6 s) Cinquante messages sans réponse ?
+2. (4,2 s) Le client demande la taille, le prix, la livraison.
+3. (5 s) L'assistant prépare la réponse, avec vos vrais prix et votre stock.
+4. (3,6 s) Vous relisez, vous envoyez.
+5. (3,8 s) Répondez vite, vendez plus. Jibiat Marchand.
+
+**marchand-ia-reseaux**
+1. (2,6 s) Pas d'idée pour votre publication ?
+2. (5 s) Trois textes prêts à publier, au bon prix, avec les hashtags.
+3. (4,4 s) Facebook, Instagram, TikTok, en un clic.
+4. (4,6 s) Et vous voyez ce que rapporte chaque réseau.
+5. (3,8 s) Publiez mieux, sachez ce qui vend. Jibiat Marchand.
+
+**marchand-ia-chiffres**
+1. (2,6 s) Qu'est-ce qui se vend le mieux ?
+2. (5 s) Posez la question, comme à un ami.
+3. (4,6 s) Et chaque matin, vos conseils du jour.
+4. (3,8 s) Vos chiffres vous parlent enfin. Jibiat Marchand.
+
+**marchand-essai-pro**
+1. (2,6 s) Un mois de Pro offert.
+2. (4,4 s) Toute l'offre Pro, gratuite pendant un mois, sans carte bancaire.
+3. (4,4 s) L'assistant, WhatsApp automatique, les statistiques.
+4. (4 s) Vos commandes en dix secondes.
+5. (4 s) Essayez Pro gratuitement, sur jibiat-marchand.com.
