@@ -6,7 +6,7 @@ Jibiat · Facebook et TikTok ».
 
 | Scène | Cible | Durée |
 |---|---|---|
-| `deux-applications` | Les deux : la boutique et le livreur reliés (réseaux sociaux, pas sur jibiat.com) | 23 s |
+| `deux-applications` | Les deux : l'espace marchand et le livreur reliés (réseaux sociaux, pas sur jibiat.com) | 23 s |
 | `entreprise-productivite` | Entreprises de livraison : la productivité en un coup d'œil (haut de jibiat.com) | 23 s |
 | `entreprise-assignation-auto` | Entreprises de livraison : l'assignation automatique par le planning | 24 s |
 | `entreprise-alertes` | Entreprises de livraison : les alertes | 23 s |
@@ -106,7 +106,7 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 6. (3,8 s) Elle vend même quand vous dormez. Un mois de Pro offert.
 
 **marchand-assistant**
-1. (2,6 s) Un assistant dans votre boutique.
+1. (2,6 s) Un assistant dans votre espace marchand.
 2. (3,6 s) Un message WhatsApp devient une commande.
 3. (3,6 s) Une photo devient une fiche produit.
 4. (3,6 s) Il prépare vos réponses aux clients.

@@ -1,4 +1,4 @@
-// Vidéo phare : Jibiat Marchand (la boutique) et Jibiat (l'entreprise de livraison) reliés
+// Vidéo phare : Jibiat Marchand (l'espace marchand) et Jibiat (l'entreprise de livraison) reliés
 window.SCENE = {
   brand: 'jibiat',
   shots: [

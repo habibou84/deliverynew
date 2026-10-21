@@ -54,4 +54,9 @@ return [
         'timeout' => 10,
     ],
 
+    // Jibiat Marchand : lien d'invitation des e-commerçants (un mois d'essai en plus via l'annuaire)
+    'jibiat_marchand' => [
+        'url' => rtrim((string) env('JIBIAT_MARCHAND_URL', 'https://jibiat-marchand.com'), '/'),
+    ],
+
 ];
