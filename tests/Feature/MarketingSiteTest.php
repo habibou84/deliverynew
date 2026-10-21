@@ -20,7 +20,7 @@ class MarketingSiteTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
-        config(['platform.domain' => 'jibiat.test', 'platform.scheme' => 'https', 'platform.trial_days' => 30, 'marketing.whatsapp' => '0703686876']);
+        config(['platform.domain' => 'jibiat.test', 'platform.scheme' => 'https', 'platform.trial_days' => 30, 'marketing.whatsapp' => '0507016739']);
     }
 
     private function plan(array $attributes = []): Plan
@@ -42,7 +42,7 @@ class MarketingSiteTest extends TestCase
             ->assertSee('Essayer gratuitement 30 jours')
             ->assertSee('https://admin.jibiat.test/creer-mon-entreprise', false)
             ->assertSee('https://admin.jibiat.test/creer-mon-entreprise?formule='.$plan->id, false)
-            ->assertSee('https://wa.me/2250703686876?text=', false)
+            ->assertSee('https://wa.me/2250507016739?text=', false)
             ->assertSee('25 000')
             ->assertSee('500</strong> courses par mois incluses', false)
             ->assertSee('Boutiques en ligne des marchands')
@@ -50,7 +50,7 @@ class MarketingSiteTest extends TestCase
             ->assertSee('Quel bonheur')
             ->assertDontSee('Ancienne')
             // Numéro WhatsApp jamais affiché, seulement utilisé par les boutons
-            ->assertDontSee('07 03 68 68 76')
+            ->assertDontSee('05 07 01 67 39')
             ->assertSee('href="/conditions"', false)
             ->assertSee('© '.date('Y').' Jibiat SARL', false);
 

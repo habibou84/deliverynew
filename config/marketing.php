@@ -6,7 +6,7 @@
 return [
 
     // Numéro WhatsApp commercial : bouton « Demander une démo » et pied de page
-    'whatsapp' => env('MARKETING_WHATSAPP', '+2250703686876'),
+    'whatsapp' => env('MARKETING_WHATSAPP_NUMBER', '+2250507016739'),
 
     // Éditeur de la plateforme (conditions générales, pied de page)
     'legal' => [
