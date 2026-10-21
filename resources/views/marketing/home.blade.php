@@ -49,18 +49,8 @@
                 <p class="mt-4 text-sm text-slate-400">Sans engagement · Sans carte bancaire · Prêt en 2 minutes</p>
             </div>
 
-            {{-- Aperçu : bureau et téléphone --}}
-            <div class="relative mx-auto mt-16 max-w-5xl">
-                <div class="overflow-hidden rounded-t-2xl bg-slate-800 shadow-2xl ring-1 ring-white/10">
-                    <div class="flex items-center gap-1.5 bg-slate-900 px-4 py-2.5" aria-hidden="true">
-                        <span class="size-2.5 rounded-full bg-slate-600"></span><span class="size-2.5 rounded-full bg-slate-600"></span><span class="size-2.5 rounded-full bg-slate-600"></span>
-                    </div>
-                    <img src="/marketing/app-statistiques.webp" alt="Tableau des statistiques : courses par jour, taux de livraison, chiffre d'affaires" class="block w-full" width="1440" height="900" fetchpriority="high">
-                </div>
-                <div class="absolute -bottom-6 right-2 hidden w-44 overflow-hidden rounded-[2rem] border-[6px] border-slate-900 bg-slate-900 shadow-2xl sm:block md:-right-6 md:w-52">
-                    <img src="/marketing/app-ecommercant.webp" alt="Application de l'e-commerçant sur téléphone" class="block w-full" width="390" height="844" loading="lazy">
-                </div>
-            </div>
+            {{-- La vidéo phare, en boucle : la boutique et l'entreprise de livraison reliées --}}
+            <x-marketing.loop name="deux-applications" title="Jibiat Marchand et Jibiat reliés : la commande, la livraison, l'argent" class="mx-auto mt-14 max-w-5xl pb-16" />
         </div>
     </section>
 
@@ -84,6 +74,53 @@
                         <p class="mt-2 font-medium text-slate-800">{{ $gain }}</p>
                     </div>
                 @endforeach
+            </div>
+        </div>
+    </section>
+
+    {{-- Jibiat Marchand : les boutiques et les entreprises de livraison reliées --}}
+    <section id="ecommercants" class="scroll-mt-20 bg-slate-950 py-20 text-white">
+        <div class="mx-auto max-w-6xl px-4 sm:px-6">
+            <div class="mx-auto max-w-3xl text-center">
+                <p class="font-semibold text-brand-400">Jibiat + Jibiat Marchand</p>
+                <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Les boutiques en ligne et les entreprises de livraison, enfin reliées</h2>
+                <p class="mt-4 text-lg text-slate-300">
+                    Jibiat Marchand est l'application des e-commerçants : boutique en ligne, commandes WhatsApp, Facebook et TikTok, stock.
+                    Elle envoie ses colis aux entreprises qui livrent avec Jibiat, en un clic, et reçoit chaque statut et chaque reversement.
+                </p>
+            </div>
+            <div class="mt-12 grid gap-6 md:grid-cols-3">
+                @foreach ([
+                    ['Pour l\'entreprise de livraison', 'De nouveaux clients', 'Figurez dans l\'annuaire : les e-commerçants voient vos vrais résultats et vous demandent d\'ouvrir un compte, directement dans votre espace.'],
+                    ['Pour l\'e-commerçant', 'Un livreur fiable, en un clic', 'Il choisit une entreprise d\'après sa réussite et son délai réels sur 90 jours, puis touche « Connecter ». Aucune clé à copier.'],
+                    ['Pour tout le monde', 'Une seule information', 'La commande devient une course sans ressaisie ; statuts, encaissements et reversements reviennent tout seuls dans la boutique.'],
+                ] as [$for, $title, $text])
+                    <div class="rounded-3xl bg-white/5 p-7 ring-1 ring-white/10">
+                        <p class="text-xs font-semibold uppercase tracking-wider text-brand-300">{{ $for }}</p>
+                        <h3 class="mt-3 text-xl font-bold">{{ $title }}</h3>
+                        <p class="mt-2 text-slate-300">{{ $text }}</p>
+                    </div>
+                @endforeach
+            </div>
+
+            {{-- Vidéos courtes, au format téléphone --}}
+            <div class="-mx-4 mt-14 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+                @foreach ([
+                    ['entreprise-caisse', 'La caisse au franc près'],
+                    ['entreprise-nouveaux-clients', 'De nouveaux clients viennent à vous'],
+                    ['marchand-livreur-fiable', 'Un livreur fiable en un clic'],
+                    ['marchand-suivi-argent', 'Le colis et l\'argent suivis en direct'],
+                ] as [$video, $label])
+                    <div class="w-64 shrink-0 snap-center sm:w-auto">
+                        <x-marketing.video :name="$video.'-v'" :title="$label" vertical />
+                        <p class="mt-3 text-center text-sm font-medium text-slate-300">{{ $label }}</p>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <a href="/annuaire" class="btn-brand px-6 py-3">Voir l'annuaire des entreprises de livraison</a>
+                <a href="https://jibiat-marchand.com" class="btn-ghost px-6 py-3 text-white ring-white/25 hover:bg-white/10">Découvrir Jibiat Marchand</a>
             </div>
         </div>
     </section>
@@ -256,6 +293,7 @@
                     ['Les messages aux clients coûtent-ils cher ?', 'Les e-commerçants et les livreurs reçoivent des notifications gratuites sur leur téléphone. Les messages WhatsApp aux destinataires des colis passent par votre propre numéro WhatsApp Business.'],
                     ['Mes données sont-elles protégées ?', 'Chaque entreprise a son espace séparé, avec une connexion chiffrée et des accès limités selon le rôle de chacun. Les données d\'une entreprise ne sont jamais visibles par une autre.'],
                     ['Je suis e-commerçant ou livreur : comment me connecter ?', 'Ouvrez l\'adresse que vous a donnée votre entreprise de livraison, par exemple votre-entreprise.'.$domain.'.'],
+                    ['Je suis e-commerçant : comment trouver une entreprise de livraison ?', 'Consultez l\'annuaire sur '.$domain.'/annuaire : réussite et délai réels de chaque entreprise. Avec Jibiat Marchand, vous vous connectez à elle en un clic.'],
                 ] as [$question, $answer])
                     <details class="group p-6">
                         <summary class="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">

@@ -13,9 +13,12 @@
     <meta property="og:locale" content="fr_FR">
     <meta property="og:site_name" content="Jibiat">
     <meta property="og:title" content="@yield('title', 'Jibiat · Le logiciel des entreprises de livraison')">
-    <meta property="og:description" content="Courses, livreurs, caisse et e-commerçants : toute votre entreprise de livraison dans une seule application.">
+    <meta property="og:description" content="@yield('description', 'Courses, livreurs, caisse et e-commerçants : toute votre entreprise de livraison dans une seule application.')">
     <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:image" content="{{ url('/marketing/app-statistiques.webp') }}">
+    <meta property="og:image" content="{{ url('/marketing/og-jibiat.jpg') }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
     @vite('resources/css/marketing.css')
     @stack('head')
 </head>
@@ -109,5 +112,12 @@
             <p class="mx-auto max-w-6xl px-4 py-6 text-xs sm:px-6">© {{ date('Y') }} {{ config('marketing.legal.name') }}. Tous droits réservés.</p>
         </div>
     </footer>
+
+    @if ($whatsappUrl)
+        {{-- Bouton WhatsApp toujours à portée de pouce --}}
+        <a href="{{ $demoUrl ?? $whatsappUrl }}" class="fixed bottom-5 right-5 z-50 inline-flex size-14 items-center justify-center rounded-full bg-[#25d366] text-white shadow-xl ring-4 ring-white/70 hover:bg-[#1ebe5b]" rel="noopener" target="_blank" aria-label="Nous écrire sur WhatsApp">
+            <x-marketing.icon name="whatsapp" class="size-7" />
+        </a>
+    @endif
 </body>
 </html>
