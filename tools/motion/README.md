@@ -18,7 +18,7 @@ Jibiat · Facebook et TikTok ».
 | `entreprise-chiffres` | Entreprises de livraison : statistiques et rapport de la semaine | 15 s |
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
 | `marchand-suivi-argent` | E-commerçants clients d'une entreprise Jibiat : colis et argent | 20 s |
-| `marchand-boutique` | E-commerçants : la boutique en ligne qui vend même la nuit | 23 s |
+| `marchand-boutique` | E-commerçants : la boutique en ligne, de l'achat du client à la commande chez le marchand | 38 s |
 | `marchand-assistant` | E-commerçants : l'assistant en un coup d'œil (vidéo principale) | 25 s |
 | `marchand-ia-commande` | E-commerçants : un message WhatsApp devient une commande | 24 s |
 | `marchand-ia-photo` | E-commerçants : une photo devient une fiche produit | 20 s |
@@ -98,12 +98,17 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 5. (3,8 s) Demandez l'application Jibiat à votre livreur.
 
 **marchand-boutique**
-1. (2,8 s) Votre boutique vend même quand vous dormez.
-2. (4,4 s) Ouverte jour et nuit, à votre nom : le client choisit, commande et paie.
-3. (4,2 s) Le matin, les commandes vous attendent, toutes au même endroit.
-4. (4 s) Votre stock se tient tout seul.
-5. (4 s) Vos ventes du jour, d'un coup d'œil.
-6. (3,8 s) Elle vend même quand vous dormez. Un mois de Pro offert.
+1. (2,6 s) Votre boutique vend même quand vous dormez.
+2. (3,6 s) Votre boutique, à votre image : votre nom, vos photos, vos produits.
+3. (3,4 s) Le client choisit, jour et nuit, depuis son téléphone.
+4. (3,6 s) Photo, taille, couleur, prix clair.
+5. (3,2 s) Ajouté au panier.
+6. (3,2 s) Il commande en un toucher.
+7. (3,6 s) Son nom, son quartier, c'est tout. Pas de compte à créer.
+8. (3,6 s) Livraison calculée, paiement à la livraison.
+9. (3,2 s) Commande reçue, même à 3 heures du matin.
+10. (4,2 s) Le matin, elle vous attend : un toucher pour confirmer, et la livraison part.
+11. (3,8 s) Elle vend même quand vous dormez. Un mois de Pro offert.
 
 **marchand-assistant**
 1. (2,6 s) Un assistant dans votre espace marchand.
