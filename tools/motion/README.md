@@ -18,7 +18,7 @@ Jibiat · Facebook et TikTok ».
 | `entreprise-chiffres` | Entreprises de livraison : statistiques et rapport de la semaine | 15 s |
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
 | `marchand-suivi-argent` | E-commerçants clients d'une entreprise Jibiat : colis et argent | 20 s |
-| `marchand-boutique` | E-commerçants : boutique en ligne et gestion | 23 s |
+| `marchand-boutique` | E-commerçants : la boutique en ligne qui vend même la nuit | 23 s |
 | `marchand-assistant` | E-commerçants : l'assistant en un coup d'œil (vidéo principale) | 25 s |
 | `marchand-ia-commande` | E-commerçants : un message WhatsApp devient une commande | 24 s |
 | `marchand-ia-photo` | E-commerçants : une photo devient une fiche produit | 20 s |
@@ -98,12 +98,12 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 5. (3,8 s) Demandez l'application Jibiat à votre livreur.
 
 **marchand-boutique**
-1. (2,6 s) Vous vendez sur WhatsApp ?
-2. (4,4 s) Ayez aussi votre boutique en ligne, à votre nom.
-3. (4,2 s) Toutes vos commandes au même endroit.
+1. (2,8 s) Votre boutique vend même quand vous dormez.
+2. (4,4 s) Ouverte jour et nuit, à votre nom : le client choisit, commande et paie.
+3. (4,2 s) Le matin, les commandes vous attendent, toutes au même endroit.
 4. (4 s) Votre stock se tient tout seul.
 5. (4 s) Vos ventes du jour, d'un coup d'œil.
-6. (3,8 s) Vendez partout, gérez tout ici. Jibiat Marchand.
+6. (3,8 s) Elle vend même quand vous dormez. Un mois de Pro offert.
 
 **marchand-assistant**
 1. (2,6 s) Un assistant dans votre boutique.

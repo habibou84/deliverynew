@@ -62,7 +62,7 @@
                 <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Ce que Jibiat fait à la place de votre équipe</h2>
                 <p class="mt-4 text-lg text-slate-600">Chaque vidéo montre les vrais écrans de l'application, en moins de 25 secondes.</p>
             </div>
-            <div class="-mx-4 mt-12 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+            <div class="mt-14 space-y-16 sm:space-y-24">
                 @foreach ([
                     ['entreprise-assignation-auto', 'Assignation automatique', 'Le planning dit qui ramasse et qui livre où. Chaque course part seule au bon livreur ; s\'il est absent ou injoignable, son remplaçant la reçoit.'],
                     ['entreprise-alertes', 'Des alertes au bon moment', 'Ramassage pas commencé avant l\'heure limite, livreur injoignable, course sans livreur, colis en échec ou gardé trop longtemps.'],
@@ -71,14 +71,18 @@
                     ['entreprise-clients-autonomes', 'Vos clients saisissent eux-mêmes', 'Message WhatsApp collé, fichier Excel ou boutique en ligne reliée : votre équipe ne ressaisit plus rien.'],
                     ['entreprise-livreur', 'L\'application des livreurs', 'Missions dans l\'ordre, encaissements et gains, même sans réseau. Vous voyez qui est libre et où.'],
                     ['entreprise-chiffres', 'Vos vrais chiffres', 'Réussite, chiffre d\'affaires, livreurs, clients et zones, et le rapport de la semaine chaque lundi sur WhatsApp.'],
-                ] as [$video, $title, $text])
-                    <div class="w-64 shrink-0 snap-center sm:w-auto">
-                        <x-marketing.video :name="$video.'-v'" :title="$title" vertical />
-                        <h3 class="mt-4 text-center font-semibold">{{ $title }}</h3>
-                        <p class="mt-1 text-center text-sm text-slate-600">{{ $text }}</p>
+                ] as $i => [$video, $title, $text])
+                    <div class="grid items-center gap-8 lg:grid-cols-2 lg:gap-16">
+                        <div @class(['lg:order-2' => $i % 2 === 1])>
+                            <x-marketing.video :name="$video.'-v'" :title="$title" vertical large />
+                        </div>
+                        <div class="text-center lg:text-left">
+                            <h3 class="text-2xl font-bold tracking-tight text-balance sm:text-3xl">{{ $title }}</h3>
+                            <p class="mt-3 text-lg text-slate-600">{{ $text }}</p>
+                        </div>
                     </div>
                 @endforeach
-                <div class="flex w-64 shrink-0 snap-center flex-col justify-center rounded-[1.75rem] bg-gradient-to-br from-brand-600 to-flame p-7 text-white sm:w-auto">
+                <div class="mx-auto max-w-2xl rounded-3xl bg-gradient-to-br from-brand-600 to-flame p-8 text-center text-white">
                     <p class="text-2xl font-bold">Essayez sur votre propre journée</p>
                     <p class="mt-3 text-white/90">Vos zones, vos livreurs, vos clients : tout est prêt en quelques minutes.</p>
                     @if ($signupUrl)
@@ -142,7 +146,7 @@
                     <a href="/annuaire" class="btn-ghost px-6 py-3 text-white ring-white/25 hover:bg-white/10">Voir l'annuaire</a>
                 </div>
             </div>
-            <x-marketing.video name="entreprise-nouveaux-clients-v" title="L'annuaire Jibiat vous amène des e-commerçants" vertical />
+            <x-marketing.video name="entreprise-nouveaux-clients-v" title="L'annuaire Jibiat vous amène des e-commerçants" vertical large />
         </div>
     </section>
 
