@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\ApiScope;
+use App\Http\Controllers\Api\Connect\ConnectController;
+use App\Http\Controllers\Api\Connect\PublicConnectController;
 use App\Http\Controllers\Api\NativeAppController;
 use App\Http\Controllers\Api\PublicV1\PublicAccountController;
 use App\Http\Controllers\Api\PublicV1\PublicApiController;
@@ -106,6 +108,15 @@ Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:pu
         Route::get('payouts', 'payouts')->middleware($payouts)->name('payouts.index');
         Route::get('payouts/{reference}', 'payout')->middleware($payouts)->name('payouts.show');
     });
+});
+
+// Annuaire des entreprises de livraison (adresse de la plateforme) et connexion en un clic d'une application
+// au compte d'un e-commerçant (adresse de l'entreprise) ; contrat : directory et connect-token (habibou84/socle)
+Route::get('public/directory', [PublicConnectController::class, 'directory'])->middleware('throttle:60,1')->name('public.directory');
+Route::prefix('public/connect')->name('public.connect.')->controller(PublicConnectController::class)->group(function () {
+    Route::get('client', 'client')->middleware('throttle:60,1')->name('client');
+    Route::post('requests', 'requestAccount')->middleware('throttle:verification-start')->name('requests');
+    Route::post('token', 'token')->middleware('throttle:30,1')->name('token');
 });
 
 // Applications Android et iOS : entreprise désignée par son code (depuis l'adresse de la plateforme)
@@ -280,6 +291,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Journal des messages WhatsApp et SMS
         Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
         Route::post('messages/{message}/retry', [MessageController::class, 'retry'])->name('messages.retry');
+
+        // Connexion en un clic d'une application (gérant) et demandes d'ouverture de compte (équipe)
+        Route::post('connect/authorize', [ConnectController::class, 'authorize'])->middleware('throttle:20,1')->name('connect.authorize');
+        Route::get('connect-requests', [ConnectController::class, 'requests'])->name('connect-requests.index');
+        Route::post('connect-requests/{connectRequest}/accept', [ConnectController::class, 'accept'])->name('connect-requests.accept');
+        Route::post('connect-requests/{connectRequest}/decline', [ConnectController::class, 'decline'])->name('connect-requests.decline');
 
         // Marchands
         Route::apiResource('merchants', MerchantController::class)->except('destroy');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Marketing;
 use App\Enums\PlatformFeature;
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Services\Connect\Directory;
 use App\Services\Platform\CompanySignup;
 use App\Support\PhoneNumber;
 use App\Support\Tenancy;
@@ -14,11 +15,11 @@ use Illuminate\Support\Collection;
 
 /**
  * Site de présentation, sur l'adresse principale de la plateforme (jibiat.com) :
- * accueil, fonctionnalités et tarifs. Les tarifs viennent des formules de la console.
+ * accueil, fonctionnalités, tarifs et annuaire des entreprises de livraison. Les tarifs viennent des formules de la console.
  */
 class MarketingController extends Controller
 {
-    public const PAGES = ['' => 'home', 'fonctionnalites' => 'features', 'tarifs' => 'pricing'];
+    public const PAGES = ['' => 'home', 'fonctionnalites' => 'features', 'tarifs' => 'pricing', 'annuaire' => 'directory'];
 
     public function __construct(private readonly CompanySignup $signup) {}
 
@@ -26,7 +27,12 @@ class MarketingController extends Controller
     {
         $page = self::PAGES[trim($request->path(), '/')] ?? null;
 
-        return response()->view($page ? "marketing.{$page}" : 'marketing.not-found', $this->data(), $page ? 200 : 404);
+        $data = $this->data();
+        if ($page === 'directory') {
+            $data['companies'] = app(Directory::class)->all();
+        }
+
+        return response()->view($page ? "marketing.{$page}" : 'marketing.not-found', $data, $page ? 200 : 404);
     }
 
     /**

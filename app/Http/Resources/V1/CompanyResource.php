@@ -45,6 +45,10 @@ class CompanyResource extends JsonResource
             'unreachable_minutes' => $this->unreachable_minutes ?? 20,
             'late_pickup_alert_minutes' => $this->late_pickup_alert_minutes ?? 60,
             'courier_available_alert' => (bool) ($this->courier_available_alert ?? true),
+            'directory_listed' => (bool) $this->directory_listed,
+            'directory_pitch' => $this->directory_pitch,
+            // Lien à envoyer aux e-commerçants : Jibiat Marchand leur offre un mois d'essai en plus (entreprise de l'annuaire)
+            'jibiat_marchand_invite_url' => config('services.jibiat_marchand.url').'/creer-ma-boutique?partenaire='.rawurlencode((string) $this->slug),
             'automation_paused_at' => $this->automation_paused_at,
             'auto_delivery' => $this->auto_delivery ?? 'off',
             'auto_delivery_max_cod' => $this->auto_delivery_max_cod,

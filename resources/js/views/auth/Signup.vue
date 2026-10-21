@@ -76,7 +76,7 @@
 
 <script setup>
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import BrandLogo from '../../components/auth/BrandLogo.vue'
 import PhoneVerificationStep from '../../components/auth/PhoneVerificationStep.vue'
@@ -100,6 +100,7 @@ const Field = defineComponent({
 const inputClass = 'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const toasts = useToastStore()
 
@@ -142,6 +143,9 @@ function finish(response) {
   if (response.session) {
     auth.startSession(response.session)
     toasts.success(`Bienvenue chez ${branding.name} ! Votre compte est ouvert.`)
+    // Venu de « Connecter » (Jibiat Marchand) : on y retourne pour autoriser l'application
+    const back = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/marchand/connecter') ? route.query.redirect : null
+    if (back) return router.replace(back)
     // Étape facultative : où récupérer les colis (« Plus tard » possible)
     router.replace(auth.user?.merchant_id ? { path: '/marchand/lieu-de-ramassage', query: { bienvenue: 1 } } : auth.homeRoute)
   } else {

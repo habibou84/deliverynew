@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\Plan;
 use App\Models\PlatformSetting;
+use App\Services\Connect\Directory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -37,7 +38,7 @@ class MarketingSiteTest extends TestCase
 
         $this->get('http://jibiat.test/')
             ->assertOk()
-            ->assertSee('dans une seule application')
+            ->assertSee('Trouvez de nouveaux clients : les marchands de Jibiat Marchand cherchent un livreur')
             ->assertSee('Essayer gratuitement 30 jours')
             ->assertSee('https://admin.jibiat.test/creer-mon-entreprise', false)
             ->assertSee('https://admin.jibiat.test/creer-mon-entreprise?formule='.$plan->id, false)
@@ -54,6 +55,23 @@ class MarketingSiteTest extends TestCase
             ->assertSee('© '.date('Y').' Jibiat SARL', false);
 
         $this->get('http://www.jibiat.test/tarifs')->assertOk()->assertSee('Des tarifs simples')->assertSee('Jusqu&#039;à 5 livreurs actifs', false);
+    }
+
+    public function test_home_speaks_to_delivery_companies_first(): void
+    {
+        $this->get('http://jibiat.test/')
+            ->assertOk()
+            ->assertSee('Trouvez des clients.')
+            ->assertSee('Les marchands de Jibiat Marchand cherchent un livreur')
+            ->assertSee('/marketing/videos/entreprise-productivite-w.mp4', false)
+            ->assertSee('Assignation automatique')
+            ->assertSee('Trouvez des clients déjà sur Jibiat Marchand')
+            ->assertSee('Comment Jibiat m&#039;aide-t-il à trouver des clients ?', false)
+            ->assertSee('Dans toutes les formules : les marchands de Jibiat Marchand vous trouvent', false)
+            ->assertSee('Compris dans toutes les formules')
+            // Les vidéos faites pour les e-commerçants restent sur jibiat-marchand.com
+            ->assertDontSee('marchand-livreur-fiable')
+            ->assertDontSee('deux-applications');
     }
 
     public function test_features_page_details_each_area(): void
@@ -84,6 +102,22 @@ class MarketingSiteTest extends TestCase
 
         // Le menu et l'accueil y mènent
         $this->get('http://jibiat.test/')->assertSee('href="/fonctionnalites"', false);
+    }
+
+    public function test_directory_page_shows_listed_companies_only(): void
+    {
+        $this->get('http://jibiat.test/annuaire')->assertOk()->assertSee('annuaire ouvre bientôt');
+
+        Company::factory()->create(['slug' => 'rapide', 'name' => 'Rapide Express', 'directory_listed' => true, 'merchant_signup' => true, 'directory_pitch' => 'Livré le jour même.']);
+        Company::factory()->create(['slug' => 'discrete', 'name' => 'Discrète Livraison']);
+        Directory::forget();
+
+        $this->get('http://jibiat.test/annuaire')->assertOk()
+            ->assertSee('Trouvez une entreprise de livraison fiable')
+            ->assertSee('Rapide Express')->assertSee('Livré le jour même.')
+            ->assertSee('https://rapide.jibiat.test/inscription', false)
+            ->assertSee('chiffres affichés dès 20 courses')
+            ->assertDontSee('Discrète Livraison');
     }
 
     public function test_closed_signup_keeps_prices_and_offers_contact(): void
