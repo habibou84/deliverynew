@@ -49,7 +49,7 @@
     </template>
     <p v-else class="text-gray-500">Chargement…</p>
 
-    <Modal :open="wave.open" :title="`Payer ${money(wave.invoice?.balance)} avec Wave`" @close="wave.open = false">
+    <Modal :open="wave.open" title="Payer avec Wave" @close="wave.open = false">
       <form v-if="!wave.payment" class="space-y-3" @submit.prevent="startWave">
         <p class="text-sm text-gray-600">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period }}</p>
         <div>
@@ -59,16 +59,32 @@
         <p v-if="wave.error" class="field-error">{{ wave.error }}</p>
         <button class="btn-primary w-full" :disabled="wave.busy">{{ wave.busy ? 'Un instant…' : 'Continuer' }}</button>
       </form>
-      <div v-else class="space-y-3 text-sm">
-        <a v-if="wave.payment.link" :href="wave.payment.link" target="_blank" rel="noopener" class="btn-primary flex w-full justify-center !py-3">Ouvrir Wave et payer {{ money(wave.payment.amount) }}</a>
-        <div v-if="summary?.wave?.qr_url" class="flex flex-col items-center gap-2 rounded-lg bg-slate-50 p-4">
-          <img :src="summary.wave.qr_url" alt="QR code Wave de Jibiat" class="h-56 w-56 rounded bg-white object-contain">
-          <p class="text-center text-gray-600">Sur ordinateur : scannez ce QR code avec l'application Wave de votre téléphone, puis payez <strong>{{ money(wave.payment.amount) }}</strong>.</p>
+      <div v-else class="space-y-5 text-sm">
+        <div class="rounded-lg bg-slate-50 p-4 text-center">
+          <p class="text-2xl font-bold">{{ money(wave.payment.amount) }} à payer</p>
+          <p class="mt-1 text-gray-600">Depuis le numéro Wave {{ wave.payment.payer_phone }}</p>
+          <p class="mt-1 text-xs text-gray-500">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period }}</p>
         </div>
-        <p class="text-gray-600">Payez exactement <strong>{{ money(wave.payment.amount) }}</strong> depuis le <strong>{{ wave.payment.payer_phone }}</strong>. Une fois payé, appuyez sur le bouton ci-dessous.</p>
-        <p v-if="wave.error" class="field-error">{{ wave.error }}</p>
-        <button class="btn-primary w-full !py-3" :disabled="wave.busy" @click="claimWave">{{ wave.busy ? 'Envoi…' : 'J\'ai payé' }}</button>
-        <p class="text-xs text-gray-500">Nous vérifions la réception dans Wave, puis le paiement est enregistré sur la facture.</p>
+
+        <section class="space-y-3">
+          <h3 class="flex items-center gap-2 font-semibold"><span class="flex h-6 w-6 items-center justify-center rounded-full bg-sky-600 text-xs text-white">1</span>Payez avec Wave</h3>
+          <!-- Téléphone : le bouton d'abord ; ordinateur : le code QR d'abord (on paie avec son téléphone) -->
+          <div class="flex flex-col gap-3">
+            <a v-if="wave.payment.link" :href="wave.payment.link" target="_blank" rel="noopener" class="order-1 flex w-full justify-center rounded-lg bg-sky-600 px-4 py-3 font-semibold text-white hover:bg-sky-700 md:order-2">Cliquez ici pour payer avec Wave</a>
+            <div v-if="summary?.wave?.qr_url" class="order-2 flex flex-col items-center gap-2 md:order-1">
+              <p class="text-gray-600">{{ wave.payment.link ? 'ou scannez ce code QR avec l\'application Wave' : 'Scannez ce code QR avec l\'application Wave' }}</p>
+              <img :src="summary.wave.qr_url" alt="Code QR Wave de Jibiat" class="h-52 w-52 rounded bg-white object-contain ring-1 ring-slate-200">
+            </div>
+          </div>
+        </section>
+
+        <section class="space-y-2 border-t pt-4">
+          <h3 class="flex items-center gap-2 font-semibold"><span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-xs text-white">2</span>Confirmez votre paiement</h3>
+          <p class="text-gray-600">Une fois le paiement fait dans Wave :</p>
+          <p v-if="wave.error" class="field-error">{{ wave.error }}</p>
+          <button class="w-full rounded-lg bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60" :disabled="wave.busy" @click="claimWave">{{ wave.busy ? 'Envoi…' : 'Cliquez ici pour confirmer votre paiement' }}</button>
+          <p class="text-xs text-gray-500">Nous vérifions la réception, puis le paiement est enregistré sur la facture.</p>
+        </section>
       </div>
     </Modal>
 
