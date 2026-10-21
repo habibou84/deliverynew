@@ -31,3 +31,10 @@ Applications autorisées et adresses de retour : `config/connect.php` (`CONNECT_
 - Arrivent dans E-commerçants (encadré « nouveaux clients potentiels ») et dans la cloche de l'équipe qui gère les e-commerçants.
 - Accepter crée la boutique et le compte du gérant avec le mot de passe qu'il a choisi ; il peut se connecter aussitôt
   et relancer « Connecter » depuis Jibiat Marchand. Refuser clôt la demande. Le mot de passe haché est effacé dans les deux cas.
+
+## Inviter ses e-commerçants sur Jibiat Marchand
+
+Réglages › E-commerçants donne à l'entreprise son lien d'invitation :
+`https://jibiat-marchand.com/creer-ma-boutique?partenaire=<identifiant de l'entreprise>` (adresse de Jibiat Marchand
+réglable par `JIBIAT_MARCHAND_URL`). Si l'entreprise figure dans l'annuaire, Jibiat Marchand offre un mois d'essai en
+plus à l'e-commerçant invité et garde l'entreprise comme parrain. Le lien se copie ou s'envoie par WhatsApp.

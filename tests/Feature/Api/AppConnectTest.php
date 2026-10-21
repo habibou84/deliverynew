@@ -104,6 +104,14 @@ class AppConnectTest extends TestCase
         $this->getJson($this->at('', '/api/public/directory'))->assertJsonCount(0, 'data');
     }
 
+    public function test_the_agency_gets_its_jibiat_marchand_invitation_link(): void
+    {
+        Sanctum::actingAs($this->admin);
+
+        $this->getJson($this->at('rapide', '/api/v1/auth/me'))->assertOk()
+            ->assertJsonPath('data.company.jibiat_marchand_invite_url', 'https://jibiat-marchand.com/creer-ma-boutique?partenaire=rapide');
+    }
+
     public function test_figures_stay_hidden_under_twenty_orders(): void
     {
         $this->company->update(['directory_listed' => true, 'merchant_signup' => false]);
