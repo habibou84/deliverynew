@@ -25,7 +25,7 @@
   }
   // Application montrée sur le téléphone : étiquette au-dessus de l'écran
   const APPS = {
-    marchand: { label: 'Jibiat Marchand', note: 'la boutique', brand: 'marchand' },
+    marchand: { label: 'Jibiat Marchand', note: "l'espace marchand", brand: 'marchand' },
     jibiat: { label: 'Jibiat', note: "l'entreprise de livraison", brand: 'jibiat' },
     livreur: { label: 'Jibiat', note: 'le livreur', brand: 'jibiat' },
     ecommercant: { label: 'Jibiat', note: "l'e-commerçant", brand: 'jibiat' },

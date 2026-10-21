@@ -24,6 +24,6 @@ window.SCENE = {
       title: 'Vos commandes partent *en un clic*', sub: 'Et vous suivez chaque colis jusqu’à la porte du client.',
       zoom: [1, 1.6], focus: [195, 560], ring: { at: 1.5, x: 16, y: 456, w: 358, h: 196 }, tap: { at: 2.9, x: 243, y: 624 },
     },
-    { type: 'end', dur: 3.8, brands: ['marchand', 'jibiat'], tagline: 'Des livreurs fiables, *en un clic*', cta: 'Créer ma boutique gratuitement' },
+    { type: 'end', dur: 3.8, brands: ['marchand', 'jibiat'], tagline: 'Des livreurs fiables, *en un clic*', cta: 'Créer mon espace marchand gratuitement' },
   ],
 }

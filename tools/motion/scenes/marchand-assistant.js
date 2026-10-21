@@ -2,7 +2,7 @@
 window.SCENE = {
   brand: 'marchand',
   shots: [
-    { type: 'hook', dur: 2.6, text: 'Un assistant *dans votre boutique*' },
+    { type: 'hook', dur: 2.6, text: 'Un assistant *dans votre espace marchand*' },
     {
       type: 'phone', dur: 3.6, app: 'marchand', src: 'assets/ia-commande-remplie.png',
       title: 'Un message WhatsApp *devient une commande*',
