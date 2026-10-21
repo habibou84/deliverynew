@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CompanyStatus;
 use App\Enums\PlatformFeature;
+use App\Services\Connect\Directory;
 use App\Support\Tenancy;
 use Carbon\CarbonImmutable;
 use Database\Factories\CompanyFactory;
@@ -57,6 +58,9 @@ class Company extends Model
         'late_pickup_alert_minutes',
         // Alerte « livreur libre avec des ramassages près de lui »
         'courier_available_alert',
+        // Annuaire des entreprises de livraison (jibiat.com/annuaire, Jibiat Marchand)
+        'directory_listed',
+        'directory_pitch',
         // Livraison du jour même confiée automatiquement : off, trial (essai), on
         'auto_delivery',
         'auto_delivery_max_cod',
@@ -99,6 +103,7 @@ class Company extends Model
             'unreachable_minutes' => 'integer',
             'late_pickup_alert_minutes' => 'integer',
             'courier_available_alert' => 'boolean',
+            'directory_listed' => 'boolean',
             'automation_paused_at' => 'datetime',
             'setup_skipped' => 'array',
             'setup_test_delivered_at' => 'datetime',
@@ -180,6 +185,13 @@ class Company extends Model
             } elseif ($company->isDirty('auto_confirm_orders')) {
                 $company->validation_mode = ! $company->auto_confirm_orders ? self::VALIDATION_MANUAL
                     : ($company->validation_mode === self::VALIDATION_RULES ? self::VALIDATION_RULES : self::VALIDATION_AUTO);
+            }
+        });
+
+        // Annuaire : une fiche modifiée (nom, présentation, inscriptions, retrait) y apparaît aussitôt
+        static::saved(function (Company $company) {
+            if ($company->directory_listed || $company->wasChanged('directory_listed')) {
+                Directory::forget();
             }
         });
     }

@@ -1,9 +1,11 @@
-@props(['name', 'title', 'vertical' => false])
+@props(['name', 'title', 'vertical' => false, 'large' => false])
 
 {{-- Vidéo de démonstration (public/marketing/videos) : chargée seulement au clic sur lecture --}}
 <figure {{ $attributes->class([
     'overflow-hidden bg-slate-950 shadow-xl ring-1 ring-slate-900/10',
-    'mx-auto w-full max-w-[17rem] rounded-[1.75rem]' => $vertical,
+    'mx-auto w-full rounded-[1.75rem]' => $vertical,
+    'max-w-[17rem]' => $vertical && ! $large,
+    'max-w-[20rem]' => $vertical && $large,
     'w-full rounded-2xl' => ! $vertical,
 ]) }}>
     <video
