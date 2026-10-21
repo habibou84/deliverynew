@@ -354,8 +354,8 @@ Pour que `jibiat.com` arrive sur l'application, une seule fois dans ISPConfig :
    ```
 3. **Save**, attendez une minute, puis ouvrez `https://jibiat.com`.
 
-Réglages dans le `.env` (puis `php artisan optimize`) : `MARKETING_WHATSAPP` (numéro WhatsApp
-commercial, `+2250703686876` par défaut) et `PLATFORM_TRIAL_DAYS` (durée de l'essai affichée).
+Réglages dans le `.env` (puis `php artisan optimize`) : `MARKETING_WHATSAPP_NUMBER` (numéro WhatsApp
+commercial, `+2250507016739` par défaut ; l'ancien `MARKETING_WHATSAPP` n'est plus lu) et `PLATFORM_TRIAL_DAYS` (durée de l'essai affichée).
 Les avis clients se modifient dans `config/marketing.php`. Le numéro WhatsApp n'est jamais affiché : seuls
 les boutons l'utilisent.
 
