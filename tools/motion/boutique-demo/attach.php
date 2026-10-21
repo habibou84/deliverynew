@@ -1,4 +1,5 @@
 <?php
+
 // Visuels de la boutique de démonstration de Jibiat Marchand : une image par produit et l'image d'accueil.
 // Dessins faits par gen.html (node gen.cjs), ajoutés à la base locale :
 //   MARCHAND=/chemin/vers/ecommerce php tools/motion/boutique-demo/attach.php
@@ -7,12 +8,13 @@ use App\Models\ProductImage;
 use App\Models\Store;
 use App\Services\Catalog\ImageStore;
 use App\Services\Storefront\ThemeSettings;
+use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Http\UploadedFile;
 
 $root = getenv('MARCHAND') ?: dirname(__DIR__, 4).'/ecommerce';
 require $root.'/vendor/autoload.php';
 $app = require $root.'/bootstrap/app.php';
-$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+$app->make(Kernel::class)->bootstrap();
 
 $dir = __DIR__;
 $store = Store::where('slug', 'demo')->firstOrFail();
