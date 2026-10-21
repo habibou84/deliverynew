@@ -8,6 +8,7 @@
             <RouterLink to="/console" class="rounded px-3 py-1.5 hover:bg-white/10" exact-active-class="bg-white/15">Entreprises</RouterLink>
             <RouterLink to="/console/formules" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">Formules</RouterLink>
             <RouterLink to="/console/facturation" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">Facturation</RouterLink>
+            <RouterLink to="/console/paiements" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">Paiements Wave</RouterLink>
           </nav>
         </div>
         <div class="flex items-center gap-3 text-sm">
