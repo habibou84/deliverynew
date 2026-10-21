@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\ProductPhotoController;
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\PwaManifestController;
+use App\Http\Controllers\WavePaymentValidationController;
 use App\Support\Tenancy;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,10 @@ Route::get('/robots.txt', fn () => response("User-agent: *\nDisallow:".(config('
     ->header('Content-Type', 'text/plain; charset=UTF-8'))->name('robots');
 
 // Politique de confidentialité (exigée par Meta pour WhatsApp) et conditions générales, sur toutes les adresses
+// Validation d'un paiement Wave depuis le lien signé reçu par e-mail ou SMS (code du validateur)
+Route::get('/paiements-wave/valider/{payment}', [WavePaymentValidationController::class, 'show'])->middleware('signed:relative')->whereNumber('payment')->name('wave-payments.validate');
+Route::post('/paiements-wave/valider/{payment}', [WavePaymentValidationController::class, 'decide'])->middleware(['signed:relative', 'throttle:20,1'])->whereNumber('payment');
+
 Route::view('/confidentialite', 'legal.privacy')->name('privacy');
 Route::view('/conditions', 'legal.terms')->name('terms');
 

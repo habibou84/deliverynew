@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\CompanySignupController;
 use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
+use App\Http\Controllers\Api\V1\ConsoleWaveController;
 use App\Http\Controllers\Api\V1\CourierAvailabilityController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
@@ -207,6 +208,16 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('settings', 'settings')->name('settings.show');
             Route::put('settings', 'updateSettings')->name('settings.update');
         });
+        Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsoleWaveController::class)->group(function () {
+            Route::get('wave', 'show')->name('wave.show');
+            Route::put('wave', 'update')->name('wave.update');
+            Route::post('wave/qr', 'uploadQr')->name('wave.qr');
+            Route::delete('wave/qr', 'removeQr')->name('wave.qr.remove');
+            Route::put('wave/mail', 'updateMail')->name('wave.mail');
+            Route::post('wave/test-alert', 'testAlert')->middleware('throttle:5,1')->name('wave.test-alert');
+            Route::get('wave/payments', 'pending')->name('wave.pending');
+            Route::post('wave/payments/{payment}/decide', 'decide')->name('wave.decide');
+        });
 
         // Domaine personnalisé de l'entreprise (module de la formule pour le choisir)
         // Reprise de l'ancienne application : clé à coller dans son bouton, module à y copier
@@ -226,6 +237,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Formule, essai et consommation du mois de l'entreprise
         Route::get('subscription', [SubscriptionController::class, 'show'])->middleware('can:settings.manage')->name('subscription.show');
         Route::get('subscription/invoices/{invoice}', [SubscriptionController::class, 'invoice'])->middleware('can:settings.manage')->name('subscription.invoice');
+        Route::post('subscription/invoices/{invoice}/wave', [SubscriptionController::class, 'waveStart'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.wave');
+        Route::post('subscription/wave-payments/{payment}/paid', [SubscriptionController::class, 'waveClaim'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.wave.paid');
 
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
         Route::apiResource('companies', CompanyController::class)->except('destroy');

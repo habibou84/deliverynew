@@ -127,6 +127,7 @@ const routes = [
       { path: 'entreprises/:id(\\d+)', component: () => import('../views/console/Company.vue') },
       { path: 'formules', component: () => import('../views/console/Plans.vue') },
       { path: 'facturation', component: () => import('../views/console/Billing.vue') },
+      { path: 'paiements', component: () => import('../views/console/WavePayments.vue') },
       { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue') },
     ],
   },

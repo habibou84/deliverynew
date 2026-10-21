@@ -136,7 +136,7 @@ class Billing
      *
      * @param  array{amount: int, method: string, reference?: ?string, paid_on: string, notes?: ?string}  $data
      */
-    public function recordPayment(PlatformInvoice $invoice, array $data, User $actor): PlatformPayment
+    public function recordPayment(PlatformInvoice $invoice, array $data, ?User $actor): PlatformPayment
     {
         if ($invoice->status !== PlatformInvoice::OPEN) {
             throw ValidationException::withMessages(['amount' => 'Cette facture n\'est plus à payer.']);
@@ -153,7 +153,7 @@ class Billing
                 'method' => $data['method'],
                 'reference' => $data['reference'] ?? null,
                 'paid_on' => $data['paid_on'],
-                'recorded_by' => $actor->id,
+                'recorded_by' => $actor?->id,
                 'notes' => $data['notes'] ?? null,
             ]);
 
