@@ -12,13 +12,9 @@ const TARGETS = [
   ['marchand-accueil', 'shop', `${MARCHAND}/gestion`, ['Ventes du jour', 'Ventes des 7 derniers jours']],
   ['marchand-entreprises', 'shop', `${MARCHAND}/gestion/livraisons/entreprises`, ['Trouver une entreprise de livraison', 'Livraison Express CI', 'Réussite', 'Connecter', 'colis livrés en 90 jours']],
   ['jibiat-admin-courses', 'admin', `${JIBIAT}/admin/courses`, ['Christelle Aka']],
-  ['jibiat-admin-caisse', 'admin', `${JIBIAT}/admin/caisse`, ['Argent chez les livreurs', 'Encaissé aujourd', 'Yacouba Ouattara', 'Recevoir le versement']],
-  ['jibiat-admin-statistiques', 'admin', `${JIBIAT}/admin/statistiques`, ['Taux de livraison', 'Courses livrées', 'Encaissé pour les']],
-  ['jibiat-admin-marchands', 'admin', `${JIBIAT}/admin/marchands?demandes=1`, ['nouveau client potentiel', 'Awa Mode', 'Accepter']],
   ['jibiat-livreur-missions', 'courier', `${JIBIAT}/livreur`, ['Boutique Chic Abidjan', 'Je suis en service']],
   ['jibiat-marchand-courses', 'merchant', `${JIBIAT}/marchand/courses`, ['Livrée à', 'Un livreur vient']],
   ['jibiat-marchand-argent', 'merchant', `${JIBIAT}/marchand/paiements`, ['On vous doit', 'Payé le 17/10/2026']],
-  ['jibiat-marchand-accueil', 'merchant', `${JIBIAT}/marchand`, ['On vous doit', 'Nouvelle course']],
 ]
 const LOGINS = {
   merchant: { url: `${JIBIAT}/`, phone: '0500000001' },

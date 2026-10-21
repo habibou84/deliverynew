@@ -12,21 +12,13 @@ const OUT = path.join(__dirname, 'assets')
 
 // [identifiant, connexion, page]
 const SHOTS = [
-  ['jibiat-marchand-accueil', 'merchant', `${JIBIAT}/marchand`],
   ['jibiat-marchand-courses', 'merchant', `${JIBIAT}/marchand/courses`],
   ['jibiat-marchand-argent', 'merchant', `${JIBIAT}/marchand/paiements`],
   ['jibiat-livreur-missions', 'courier', `${JIBIAT}/livreur`],
-  ['jibiat-admin-accueil', 'admin', `${JIBIAT}/admin`],
-  ['jibiat-admin-caisse', 'admin', `${JIBIAT}/admin/caisse`],
-  ['jibiat-admin-planning', 'admin', `${JIBIAT}/admin/planning`],
-  ['jibiat-admin-statistiques', 'admin', `${JIBIAT}/admin/statistiques`],
   ['jibiat-admin-courses', 'admin', `${JIBIAT}/admin/courses`],
-  ['jibiat-admin-marchands', 'admin', `${JIBIAT}/admin/marchands?demandes=1`],
   ['marchand-accueil', 'shop', `${MARCHAND}/gestion`],
   ['marchand-commandes', 'shop', `${MARCHAND}/gestion/commandes`],
-  ['marchand-livraisons', 'shop', `${MARCHAND}/gestion/livraisons`],
   ['marchand-entreprises', 'shop', `${MARCHAND}/gestion/livraisons/entreprises`],
-  ['marchand-statistiques', 'shop', `${MARCHAND}/gestion/statistiques`],
   ['marchand-catalogue', 'shop', `${MARCHAND}/gestion/catalogue`],
   ['marchand-boutique', null, `${MARCHAND}/`],
 ]

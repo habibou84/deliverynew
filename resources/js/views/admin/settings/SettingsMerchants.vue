@@ -14,9 +14,6 @@
           Les e-commerçants de Jibiat Marchand et les visiteurs de jibiat.com/annuaire vous trouvent, voient vos villes, votre prix de départ
           et vos vrais résultats des 90 derniers jours (livraisons réussies, délai moyen), puis se connectent à vous en un clic.
         </p>
-        <p v-if="!auth.hasFeature('api')" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-          La connexion en un clic passe par le module Intégrations, absent de votre formule : vous n'apparaîtrez dans l'annuaire qu'avec une formule qui le comprend (Mon abonnement).
-        </p>
         <label class="flex items-start gap-2 text-sm">
           <input v-model="form.directory_listed" type="checkbox" class="mt-1">
           <span>Figurer dans l'annuaire<span class="block text-gray-500">Vos chiffres n'apparaissent qu'à partir de 20 courses terminées. Vous pouvez vous retirer à tout moment.</span></span>

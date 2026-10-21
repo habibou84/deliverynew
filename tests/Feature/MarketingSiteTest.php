@@ -57,6 +57,20 @@ class MarketingSiteTest extends TestCase
         $this->get('http://www.jibiat.test/tarifs')->assertOk()->assertSee('Des tarifs simples')->assertSee('Jusqu&#039;à 5 livreurs actifs', false);
     }
 
+    public function test_home_speaks_to_delivery_companies_first(): void
+    {
+        $this->get('http://jibiat.test/')
+            ->assertOk()
+            ->assertSee('tourne toute seule')
+            ->assertSee('/marketing/videos/entreprise-productivite-w.mp4', false)
+            ->assertSee('Assignation automatique')
+            ->assertSee('Des e-commerçants viennent à vous')
+            ->assertSee('Compris dans toutes les formules')
+            // Les vidéos faites pour les e-commerçants restent sur jibiat-marchand.com
+            ->assertDontSee('marchand-livreur-fiable')
+            ->assertDontSee('deux-applications');
+    }
+
     public function test_features_page_details_each_area(): void
     {
         $this->plan();

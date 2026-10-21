@@ -4,7 +4,6 @@ namespace App\Services\Connect;
 
 use App\Enums\CompanyStatus;
 use App\Enums\OrderStatus;
-use App\Enums\PlatformFeature;
 use App\Models\Company;
 use App\Models\Order;
 use App\Models\PricingRule;
@@ -34,8 +33,6 @@ class Directory
             ->where('directory_listed', true)
             ->orderBy('name')
             ->get()
-            // Connexion des applications par l'API publique : seulement avec le module Intégrations
-            ->filter(fn (Company $company) => $company->hasFeature(PlatformFeature::Api))
             ->map(fn (Company $company) => $this->entry($company))
             // Les entreprises les plus actives d'abord
             ->sortByDesc(fn (array $e) => $e['stats']['deliveries_90d'])
