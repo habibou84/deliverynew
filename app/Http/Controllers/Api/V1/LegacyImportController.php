@@ -88,9 +88,9 @@ class LegacyImportController extends Controller
         $step = $data['step'];
         $report = $importer->importRows(
             $company,
-            $this->rows($data['users']),
-            $step === 'clients' ? $this->rows($data['clients'] ?? []) : [],
-            $step === 'livreurs' ? $this->rows($data['livreurs'] ?? []) : [],
+            self::rows($data['users']),
+            $step === 'clients' ? self::rows($data['clients'] ?? []) : [],
+            $step === 'livreurs' ? self::rows($data['livreurs'] ?? []) : [],
             (bool) ($data['dry_run'] ?? false),
         );
 
@@ -119,7 +119,7 @@ class LegacyImportController extends Controller
      * @param  array<int, array<string, mixed>>  $rows
      * @return list<array<string, string|null>>
      */
-    private function rows(array $rows): array
+    public static function rows(array $rows): array
     {
         return array_values(array_map(fn (array $row) => array_map(
             fn ($value) => $value === null || is_array($value) ? null : (is_bool($value) ? (string) (int) $value : (string) $value),

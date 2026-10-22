@@ -73,7 +73,7 @@ class Company extends Model
     ];
 
     /** Empreinte de la clé de reprise : jamais renvoyée */
-    protected $hidden = ['legacy_import_key_hash'];
+    protected $hidden = ['legacy_import_key_hash', 'legacy_switch_key_hash'];
 
     protected function casts(): array
     {
@@ -114,6 +114,7 @@ class Company extends Model
             'trial_ends_at' => 'date:Y-m-d',
             'legacy_import_key_expires_at' => 'datetime',
             'legacy_import_used_at' => 'datetime',
+            'legacy_switch_at' => 'datetime',
         ];
     }
 

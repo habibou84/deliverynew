@@ -104,7 +104,7 @@ Claude comprend aussi les messages sans format, avec retour automatique aux règ
 **Réglages** (menu Configuration, `/admin/reglages`) : une carte par thème, avec l'état actuel en résumé et une
 recherche (« heure limite », « logo »…) — Entreprise et marque, Courses et livraison, Zones et tarifs (frais des
 retours dans Tarifs), Alertes et rappels, Messages aux clients (WhatsApp), E-commerçants, Équipe et paie,
-Intégrations (API, reprise de l'ancienne application), Abonnement. Chaque page est courte ; une barre
+Intégrations (API, reprise de l'ancienne application et bascule, voir [`docs/REPRISE-ANCIENNE-APPLICATION.md`](docs/REPRISE-ANCIENNE-APPLICATION.md)), Abonnement. Chaque page est courte ; une barre
 « Enregistrer / Annuler » apparaît dès qu'un réglage change, et quitter sans enregistrer demande confirmation.
 Raccourcis : ⚙️ dans la liste des courses, « Délais d'alerte » sur le tableau de bord. L'ancienne adresse
 `/admin/parametres` mène aux Réglages.
