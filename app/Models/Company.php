@@ -78,6 +78,7 @@ class Company extends Model
     protected function casts(): array
     {
         return [
+            'billing_cycle_from' => 'date',
             'auto_confirm_orders' => 'boolean',
             'default_max_attempts' => 'integer',
             'require_delivery_code' => 'boolean',

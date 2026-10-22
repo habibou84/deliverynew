@@ -21,8 +21,16 @@ class PlatformInvoice extends Model
     protected $fillable = [
         'company_id', 'number', 'period', 'period_start', 'period_end', 'plan_name',
         'base_amount', 'included_orders', 'orders_count', 'overage_orders', 'overage_per_order', 'overage_amount',
-        'total', 'amount_paid', 'status', 'issued_at', 'due_at', 'paid_at', 'last_reminder', 'notes',
+        'total', 'amount_paid', 'status', 'issued_at', 'due_at', 'paid_at', 'last_reminder', 'notes', 'cycle',
+        'pricing', 'deliveries_amount', 'cap_applied', 'carried_amount', 'carried_into_id',
     ];
+
+    // Petite facture reportée sur la suivante (rien à payer à part)
+    public const CARRIED = 'carried';
+
+    public const MONTHLY = 'monthly';
+
+    public const WEEKLY = 'weekly';
 
     protected function casts(): array
     {
@@ -39,6 +47,9 @@ class PlatformInvoice extends Model
             'overage_per_order' => 'integer',
             'overage_amount' => 'integer',
             'total' => 'integer',
+            'deliveries_amount' => 'integer',
+            'carried_amount' => 'integer',
+            'cap_applied' => 'boolean',
             'amount_paid' => 'integer',
         ];
     }
@@ -48,9 +59,29 @@ class PlatformInvoice extends Model
         return $this->belongsTo(Company::class);
     }
 
+    /**
+     * Facture qui a repris le montant de cette petite facture reportée.
+     */
+    public function carriedInto(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'carried_into_id');
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(PlatformPayment::class)->orderBy('paid_on')->orderBy('id');
+    }
+
+    /**
+     * Période lisible : « octobre 2026 » ou « semaine du 19/10 au 25/10/2026 ».
+     */
+    public function periodLabel(): string
+    {
+        if ($this->cycle === self::WEEKLY) {
+            return 'semaine du '.$this->period_start->format('d/m').' au '.$this->period_end->format('d/m/Y');
+        }
+
+        return $this->period_start->locale('fr')->translatedFormat('F Y');
     }
 
     public function scopeUnpaid(Builder $query): Builder

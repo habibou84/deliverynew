@@ -45,6 +45,8 @@ class CompanySignupController extends Controller
                 'included_orders' => $p->included_orders,
                 'overage_per_order' => $p->overage_per_order,
                 'max_couriers' => $p->max_couriers,
+                'pricing' => $p->pricing ?: Plan::FLAT,
+                'percent_summary' => $p->percentSummary(),
                 'features' => collect($p->features ?? [])->map(fn (string $f) => PlatformFeature::tryFrom($f)?->label())->filter()->values(),
             ])->values() : [],
         ]]);
