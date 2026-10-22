@@ -26,6 +26,7 @@ Jibiat · Facebook et TikTok ».
 | `marchand-ia-reponses` | E-commerçants : les réponses aux clients préparées | 19 s |
 | `marchand-ia-reseaux` | E-commerçants : publications écrites, ce que rapporte chaque réseau | 20 s |
 | `marchand-ia-chiffres` | E-commerçants : une question sur ses chiffres, les conseils du jour | 15 s |
+| `marchand-presentation` | E-commerçants : présentation générale de Jibiat Marchand, voix off et sous-titres (jibiat-marchand.com) | 1 min 33 |
 | `marchand-essai-pro` | E-commerçants : un mois de l'offre Pro offert | 19 s |
 
 Trois formats par scène, dans `out/` (non versionné) :
