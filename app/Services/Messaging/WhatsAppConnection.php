@@ -61,6 +61,7 @@ class WhatsAppConnection
         }
 
         $account->fill([
+            'provider' => 'meta_cloud',
             'phone_number_id' => $phoneNumberId,
             'waba_id' => $wabaId,
             'status' => 'pending',
@@ -118,6 +119,7 @@ class WhatsAppConnection
         }
 
         $account->forceFill([
+            'provider' => 'meta_cloud',
             'status' => 'connected',
             'last_error' => null,
             'display_phone' => $info->json('display_phone_number') ? preg_replace('/[^\d+]/', '', $info->json('display_phone_number')) : $account->display_phone,

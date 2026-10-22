@@ -171,7 +171,36 @@ build_app() {
         as_app "php artisan db:seed --class=DemoSeeder --force"
     fi
 
+    whatsapp_bridge_deps
     as_app "php artisan optimize"
+}
+
+# Connexion WhatsApp par QR code (service whatsapp-bridge, Node) : jeton et port propres à l'installation, puis
+# dépendances npm (réinstallées seulement si elles ont changé). Avant « php artisan optimize » (réglages lus en cache).
+whatsapp_bridge_deps() {
+    step "Service WhatsApp par QR code (dépendances et réglages)"
+    [[ -n "$(env_get WHATSAPP_BRIDGE_TOKEN)" ]] || env_set WHATSAPP_BRIDGE_TOKEN "$(random 32)"
+    if [[ -z "$(env_get WHATSAPP_BRIDGE_PORT)" ]]; then
+        local reverb
+        reverb="$(env_get REVERB_SERVER_PORT)"
+        reverb="${reverb:-$(env_get REVERB_PORT)}"
+        env_set WHATSAPP_BRIDGE_PORT "$(( ${reverb:-6001} + 1000 ))"
+    fi
+    local lock_sum
+    lock_sum="$(sha1sum "$APP_DIR/whatsapp-bridge/package-lock.json" | cut -d' ' -f1)"
+    if [[ "$(cat "$APP_DIR/whatsapp-bridge/node_modules/.deploy-lock" 2>/dev/null || true)" != "$lock_sum" ]]; then
+        as_app "cd whatsapp-bridge && npm ci --omit=dev --no-audit --no-fund && echo '$lock_sum' > node_modules/.deploy-lock"
+    fi
+}
+
+# Processus du service WhatsApp sous Supervisor (fichier à part : ajouté aussi aux installations existantes)
+install_whatsapp_bridge() {
+    sed -e "s|__APP_DIR__|$APP_DIR|g" -e "s|__NODE__|$(command -v node)|g" -e "s|__USER__|$APP_USER|g" \
+        -e "s|__HOME__|$TOOLS_HOME|g" -e "s|__INSTANCE__|$INSTANCE|g" \
+        "$APP_DIR/deploy/supervisor-whatsapp.conf" > "/etc/supervisor/conf.d/$INSTANCE-whatsapp.conf"
+    supervisorctl reread >/dev/null
+    supervisorctl update >/dev/null
+    supervisorctl restart "$INSTANCE-whatsapp" || warn "service WhatsApp non démarré : voir storage/logs/whatsapp-bridge.log"
 }
 
 # Horizon (files d'attente) et Reverb (temps réel) sous Supervisor
@@ -184,6 +213,7 @@ install_supervisor() {
     supervisorctl reread
     supervisorctl update
     supervisorctl restart "$INSTANCE-horizon" "$INSTANCE-reverb"
+    install_whatsapp_bridge
 }
 
 # Planificateur Laravel (relances, alertes, rapports, facturation) chaque minute
