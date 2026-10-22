@@ -16,6 +16,11 @@ return [
 
     'whatsapp' => [
         'driver' => env('WHATSAPP_DRIVER', 'auto'),
+        // Connexion par QR code (service whatsapp-bridge sur le serveur), en attendant la validation de Meta
+        'bridge' => [
+            'url' => env('WHATSAPP_BRIDGE_URL', 'http://127.0.0.1:'.env('WHATSAPP_BRIDGE_PORT', 3100)),
+            'token' => env('WHATSAPP_BRIDGE_TOKEN'),
+        ],
         'graph_url' => env('WHATSAPP_GRAPH_URL', 'https://graph.facebook.com'),
         'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v21.0'),
         // Application Meta : signature des webhooks et vérification de l'abonnement

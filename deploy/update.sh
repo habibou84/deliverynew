@@ -75,6 +75,7 @@ main() {
     fi
     as_app "git checkout -q '$BRANCH' && git reset -q --hard '$target'"
     as_app "composer install --no-dev --optimize-autoloader --no-interaction --no-progress"
+    whatsapp_bridge_deps
     # Toujours lancé : sans effet s'il n'y a rien à appliquer
     as_app "php artisan migrate --force"
     # Nouvelle interface d'un coup (deux renommages instantanés)
@@ -99,6 +100,7 @@ main() {
     # Horizon finit ses tâches en cours puis Supervisor le relance sur le nouveau code
     as_app "php artisan horizon:terminate"
     supervisorctl restart "$INSTANCE-reverb"
+    install_whatsapp_bridge
     supervisorctl status
 
     step "Terminé ($INSTANCE, branche $BRANCH) : $(as_app "git log -1 --format='%h %s'")"

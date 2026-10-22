@@ -63,10 +63,12 @@ use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VerificationController;
 use App\Http\Controllers\Api\V1\WebhookController;
+use App\Http\Controllers\Api\V1\WhatsAppQrController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\WhatsAppSignupController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use App\Http\Controllers\BrandingController;
+use App\Http\Controllers\Webhooks\WhatsAppBridgeWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -74,6 +76,8 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('webhooks')->name('webhooks.')->group(function () {
     Route::get('whatsapp', [WhatsAppWebhookController::class, 'verify'])->name('whatsapp.verify');
     Route::post('whatsapp', [WhatsAppWebhookController::class, 'handle'])->name('whatsapp.handle');
+    // Service whatsapp-bridge (connexion par QR code), signé avec WHATSAPP_BRIDGE_TOKEN
+    Route::post('whatsapp-bridge', WhatsAppBridgeWebhookController::class)->name('whatsapp-bridge');
 });
 
 // Reprise depuis l'ancienne application (Laravel 5.8) : paquets envoyés par son bouton, avec la clé de reprise
@@ -293,6 +297,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('whatsapp/connect', [WhatsAppSettingsController::class, 'connect'])->middleware('throttle:20,1')->name('whatsapp.connect');
             Route::post('whatsapp/signup-ticket', [WhatsAppSignupController::class, 'ticket'])->middleware('throttle:10,1')->name('whatsapp.signup-ticket');
             Route::post('whatsapp/templates/submit', [WhatsAppSettingsController::class, 'submitTemplates'])->middleware('throttle:5,1')->name('whatsapp.templates.submit');
+            // Connexion par QR code (en attendant la validation de Meta)
+            Route::get('whatsapp/qr', [WhatsAppQrController::class, 'show'])->name('whatsapp.qr.show');
+            Route::post('whatsapp/qr', [WhatsAppQrController::class, 'start'])->middleware('throttle:20,1')->name('whatsapp.qr.start');
+            Route::delete('whatsapp/qr', [WhatsAppQrController::class, 'destroy'])->name('whatsapp.qr.destroy');
             Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware(['throttle:60,1', 'feature:whatsapp_bot'])->name('whatsapp.simulate');
         });
 
