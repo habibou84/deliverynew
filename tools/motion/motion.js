@@ -108,6 +108,11 @@
         const s = { ...shot, start: at, end: at + shot.dur, root: el('div', 'layer', stage) }
         at = s.end
         s.root.style.opacity = 0
+        // Sous-titre : le texte de la voix off, en bas de l'image (vidéos longues sans le son)
+        if (shot.caption) {
+          const text = shot.caption.replace(/ ([?!:;»])/g, '\u202f$1').replace(/« /g, '«\u202f').replace(/(\p{L})-(\p{L})/gu, '$1\u2011$2')
+          s.captionEl = el('div', `caption caption-${shot.type}`, s.root, `<span>${text}</span>`)
+        }
         if (shot.type === 'hook') {
           const box = el('div', 'hook', s.root)
           const inner = el('div', null, box)
@@ -258,6 +263,10 @@
           if (!active) continue
           const lt = t - s.start
           s.root.style.opacity = 1
+          if (s.captionEl) {
+            const k = ease.out(prog(lt, 0.3, 0.7)) * (1 - ease.inOut(prog(lt, s.dur - OUT, s.dur)))
+            s.captionEl.style.opacity = s === shots.at(-1) ? ease.out(prog(lt, 0.3, 0.7)) : k
+          }
           if (s.type === 'hook') {
             revealWords(s.words, lt, 0.12, 0.5)
             const kOut = ease.inOut(prog(lt, s.dur - OUT, s.dur))
