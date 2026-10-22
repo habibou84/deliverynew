@@ -16,7 +16,7 @@ Jibiat · Facebook et TikTok ».
 | `entreprise-nouveaux-clients` | Entreprises de livraison : des clients déjà sur Jibiat Marchand les trouvent | 24 s |
 | `entreprise-livreur` | Entreprises de livraison : l'application des livreurs | 19 s |
 | `entreprise-chiffres` | Entreprises de livraison : statistiques et rapport de la semaine | 15 s |
-| `entreprise-presentation` | Entreprises de livraison : présentation générale, sous-titrée (voix off à ajouter) | 1 min 48 |
+| `entreprise-presentation` | Entreprises de livraison : présentation générale, voix off et sous-titres | 2 min 11 |
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
 | `marchand-suivi-argent` | E-commerçants clients d'une entreprise Jibiat : colis et argent | 20 s |
 | `marchand-boutique` | E-commerçants : la boutique en ligne, de l'achat du client à la commande chez le marchand | 38 s |
@@ -225,7 +225,9 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 4. (4,2 s) Et vous voyez qui est libre.
 5. (3,8 s) Des livreurs bien équipés. Jibiat.
 
-**entreprise-presentation** (les sous-titres sont ce texte ; avec la voix, allonger un plan si la phrase dépasse)
+**entreprise-presentation** (voix « Tony » d'ElevenLabs, fichiers dans `voix/` ; chaque plan dure le temps de sa phrase ;
+rendu : `node tools/motion/render.cjs entreprise-presentation w v f --audio=tools/motion/voix/presentation-voix.m4a`,
+copie du site : `AVEC_SON=1 tools/motion/site-copies.sh public/marketing/videos entreprise-presentation-w`)
 1. (4,4 s) Vous dirigez une entreprise de livraison ? Les courses notées dans un cahier, les appels toute la journée…
 2. (3,8 s) … et l’argent du soir qu’on recompte, livreur par livreur.
 3. (3,8 s) Jibiat met tout ça dans une seule application. Voyons comment.
