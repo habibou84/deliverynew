@@ -6,6 +6,7 @@ use App\Enums\PlatformFeature;
 use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Models\Company;
+use App\Models\Plan;
 use App\Models\PlatformInvoice;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -17,6 +18,8 @@ use Illuminate\Validation\ValidationException;
  */
 class Subscription
 {
+    public function __construct(private readonly Billing $billing) {}
+
     /**
      * Courses prises en charge (ramassées ou préparées à l'entrepôt) dans la période de facturation en cours.
      */
@@ -69,6 +72,12 @@ class Subscription
         $base = $plan ? ($weekly ? $plan->weeklyPrice() : $plan->price_monthly) : 0;
         $overageOrders = $plan && $included !== null ? max(0, $orders - $included) : 0;
         $overageAmount = $overageOrders * ($plan?->overage_per_order ?? 0);
+        // Formule à la livraison : part des courses déjà prises en charge dans la période
+        $deliveries = null;
+        if ($plan?->isPercent()) {
+            $deliveries = $this->billing->amounts($plan, $company, $current['start'], $current['end']->addDay(), $weekly ? 12 / 52 : 1.0, $current['cycle']);
+            [$base, $included, $overageOrders, $overageAmount] = [0, null, 0, 0];
+        }
         $from = $company->billing_cycle_from;
 
         return [
@@ -82,6 +91,15 @@ class Subscription
                 'included_orders_weekly' => $plan->weeklyIncludedOrders(),
                 'overage_per_order' => $plan->overage_per_order,
                 'max_couriers' => $plan->max_couriers,
+                'pricing' => $plan->pricing ?: Plan::FLAT,
+                'percent_rate' => $plan->percent_rate,
+                'percent_min' => (int) $plan->percent_min,
+                'percent_max' => $plan->percent_max,
+                'volume_threshold' => $plan->volume_threshold,
+                'volume_rate' => $plan->volume_rate,
+                'cap_amount' => $plan->cap_amount,
+                'cap_amount_weekly' => $plan->cap_amount !== null ? (int) round($plan->cap_amount * 12 / 52) : null,
+                'min_invoice' => $plan->min_invoice,
             ] : null,
             'trial_ends_at' => $company->trial_ends_at?->toDateString(),
             'on_trial' => $company->onTrial(),
@@ -101,12 +119,16 @@ class Subscription
                 'couriers' => $this->activeCouriers($company),
                 'max_couriers' => $plan?->max_couriers,
             ],
-            // Montant estimé de la période (forfait + dépassement) ; rien pendant l'essai
+            // Montant estimé de la période (forfait + dépassement, ou part des courses) ; rien pendant l'essai
             'estimate' => [
                 'base' => $base,
                 'overage' => $overageAmount,
-                'total' => $company->onTrial() ? 0 : $base + $overageAmount,
+                'deliveries' => $deliveries['deliveries_amount'] ?? 0,
+                'cap_applied' => $deliveries['cap_applied'] ?? false,
+                'total' => $company->onTrial() ? 0 : $base + $overageAmount + ($deliveries['deliveries_amount'] ?? 0),
             ],
+            // Prix de chaque formule sur les 30 derniers jours, pour comparer
+            'comparison' => $this->billing->comparison($company),
             'features' => array_map(fn (PlatformFeature $f) => [
                 'key' => $f->value,
                 'label' => $f->label(),

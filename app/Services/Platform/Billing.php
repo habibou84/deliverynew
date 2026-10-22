@@ -8,11 +8,13 @@ use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Models\Company;
 use App\Models\Order;
+use App\Models\Plan;
 use App\Models\PlatformInvoice;
 use App\Models\PlatformPayment;
 use App\Models\User;
 use App\Notifications\PlatformBillingNotice;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -82,53 +84,117 @@ class Billing
         [$start, $end] = $range;
 
         $days = (int) $start->diffInDays($end) + 1;
-        if ($cycle === PlatformInvoice::WEEKLY) {
-            $share = $days / 7;
-            $base = (int) round($plan->weeklyPrice() * $share);
-            $included = $plan->weeklyIncludedOrders() === null ? null : (int) floor($plan->weeklyIncludedOrders() * $share);
-        } else {
-            $share = $days / $periodStart->daysInMonth;
-            $base = (int) round($plan->price_monthly * $share);
-            $included = $plan->included_orders === null ? null : (int) floor($plan->included_orders * $share);
-        }
+        // Part de la période facturée : jours sur 7 (semaine) ou sur les jours du mois ; les montants du mois sont
+        // ramenés à la semaine (12 mois = 52 semaines)
+        $share = $cycle === PlatformInvoice::WEEKLY ? $days / 7 * 12 / 52 : $days / $periodStart->daysInMonth;
+        $amounts = $this->amounts($plan, $company, $start, $end->addDay(), $share, $cycle);
 
-        $orders = self::takenInCharge($company, $start, $end->addDay());
-        $overage = $included === null ? 0 : max(0, $orders - $included);
-        $overageAmount = $overage * $plan->overage_per_order;
-        $total = $base + $overageAmount;
+        // Petites factures précédentes reportées sur celle-ci
+        $carried = PlatformInvoice::query()->where('company_id', $company->id)->where('status', PlatformInvoice::CARRIED)->whereNull('carried_into_id')->get();
+        $carriedAmount = (int) $carried->sum('total');
+        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $carriedAmount;
 
         if ($total <= 0) {
             return null;
         }
+        // Trop petite pour une facture à part : reportée sur la suivante
+        $isCarried = $plan->min_invoice !== null && $total < $plan->min_invoice;
 
-        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $base, $included, $orders, $overage, $overageAmount, $total, $tz) {
+        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $carried, $carriedAmount, $total, $isCarried, $tz) {
             $today = CarbonImmutable::now($tz);
             $dueDays = (int) config($cycle === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_due_days' : 'platform.billing.due_days');
 
-            return PlatformInvoice::create([
+            $invoice = PlatformInvoice::create([
                 'company_id' => $company->id,
                 'number' => $this->nextNumber($period),
                 'period' => $period,
                 'cycle' => $cycle,
+                'pricing' => $plan->pricing ?: Plan::FLAT,
                 'period_start' => $start->toDateString(),
                 'period_end' => $end->toDateString(),
                 'plan_name' => $plan->name,
-                'base_amount' => $base,
-                'included_orders' => $included,
-                'orders_count' => $orders,
-                'overage_orders' => $overage,
-                'overage_per_order' => $plan->overage_per_order,
-                'overage_amount' => $overageAmount,
+                'base_amount' => $amounts['base'],
+                'included_orders' => $amounts['included'],
+                'orders_count' => $amounts['orders'],
+                'overage_orders' => $amounts['overage_orders'],
+                'overage_per_order' => $plan->isPercent() ? 0 : $plan->overage_per_order,
+                'overage_amount' => $amounts['overage_amount'],
+                'deliveries_amount' => $amounts['deliveries_amount'],
+                'cap_applied' => $amounts['cap_applied'],
+                'carried_amount' => $carriedAmount,
                 'total' => $total,
+                'status' => $isCarried ? PlatformInvoice::CARRIED : PlatformInvoice::OPEN,
                 'issued_at' => $today->toDateString(),
                 'due_at' => $today->addDays($dueDays)->toDateString(),
                 'last_reminder' => 'issued',
             ]);
+            if ($carried->isNotEmpty()) {
+                PlatformInvoice::query()->whereKey($carried->modelKeys())->update(['carried_into_id' => $invoice->id]);
+            }
+
+            return $invoice;
         });
 
-        $this->notify($company, $invoice, 'issued');
+        if (! $isCarried) {
+            $this->notify($company, $invoice, 'issued');
+        }
 
         return $invoice;
+    }
+
+    /**
+     * Montants d'une période pour une formule : forfait et courses en plus, ou part de chaque course prise en charge
+     * (pourcentage des frais de livraison, taux plus bas au-delà du volume, plafond). $share ramène les montants du
+     * mois à la période.
+     *
+     * @return array{base: int, included: ?int, orders: int, overage_orders: int, overage_amount: int, deliveries_amount: int, cap_applied: bool}
+     */
+    public function amounts(Plan $plan, Company $company, CarbonImmutable $from, CarbonImmutable $to, float $share, string $cycle = PlatformInvoice::MONTHLY): array
+    {
+        if (! $plan->isPercent()) {
+            $base = (int) round(($cycle === PlatformInvoice::WEEKLY ? $plan->weeklyPrice() / (12 / 52) : $plan->price_monthly) * $share);
+            $included = $plan->included_orders === null ? null : (int) floor($plan->included_orders * $share);
+            $orders = self::takenInCharge($company, $from, $to);
+            $overage = $included === null ? 0 : max(0, $orders - $included);
+
+            return ['base' => $base, 'included' => $included, 'orders' => $orders, 'overage_orders' => $overage,
+                'overage_amount' => $overage * $plan->overage_per_order, 'deliveries_amount' => 0, 'cap_applied' => false];
+        }
+
+        // Courses dans l'ordre de prise en charge : les premières au taux normal, au-delà du volume au taux réduit
+        $fees = self::takenInChargeQuery($company, $from, $to)
+            ->orderByRaw('COALESCE(picked_up_at, prepared_at)')->orderBy('id')
+            ->get(['delivery_fee', 'surcharges_total'])
+            ->map(fn (Order $o) => (int) $o->delivery_fee + (int) $o->surcharges_total);
+        $threshold = $plan->volume_threshold !== null && $plan->volume_rate !== null ? (int) floor($plan->volume_threshold * $share) : null;
+        $amount = 0;
+        foreach ($fees->values() as $i => $fee) {
+            $amount += $plan->chargeFor($fee, $threshold !== null && $i >= $threshold ? $plan->volume_rate : (int) $plan->percent_rate);
+        }
+        $cap = $plan->cap_amount !== null ? (int) round($plan->cap_amount * $share) : null;
+        $capped = $cap !== null && $amount > $cap;
+
+        return ['base' => 0, 'included' => null, 'orders' => $fees->count(), 'overage_orders' => 0,
+            'overage_amount' => 0, 'deliveries_amount' => $capped ? $cap : $amount, 'cap_applied' => $capped];
+    }
+
+    /**
+     * Ce que l'entreprise aurait payé sur les 30 derniers jours avec chaque formule proposée (aide au choix).
+     *
+     * @return list<array{plan_id: int, name: string, pricing: string, amount: int, current: bool}>
+     */
+    public function comparison(Company $company): array
+    {
+        $to = CarbonImmutable::now($company->timezone)->startOfDay();
+        $from = $to->subDays(30);
+
+        return Plan::query()->where('is_active', true)->orderBy('position')->get()
+            ->map(function (Plan $plan) use ($company, $from, $to) {
+                $a = $this->amounts($plan, $company, $from, $to, 1.0);
+
+                return ['plan_id' => $plan->id, 'name' => $plan->name, 'pricing' => $plan->pricing ?: Plan::FLAT,
+                    'amount' => $a['base'] + $a['overage_amount'] + $a['deliveries_amount'], 'current' => $plan->id === $company->plan_id];
+            })->values()->all();
     }
 
     /**
@@ -137,13 +203,20 @@ class Billing
      */
     public static function takenInCharge(Company $company, CarbonImmutable $from, CarbonImmutable $to): int
     {
+        return self::takenInChargeQuery($company, $from, $to)->count();
+    }
+
+    /**
+     * @return Builder<Order>
+     */
+    public static function takenInChargeQuery(Company $company, CarbonImmutable $from, CarbonImmutable $to): Builder
+    {
         return Order::withoutGlobalScopes()
             ->where('company_id', $company->id)
             ->whereNull('deleted_at')
             ->whereRaw('COALESCE(picked_up_at, prepared_at) >= ?', [$from->utc()])
             ->whereRaw('COALESCE(picked_up_at, prepared_at) < ?', [$to->utc()])
-            ->whereNotIn('status', [OrderStatus::Cancelled->value, OrderStatus::Rejected->value])
-            ->count();
+            ->whereNotIn('status', [OrderStatus::Cancelled->value, OrderStatus::Rejected->value]);
     }
 
     /**
@@ -384,7 +457,8 @@ class Billing
     public function totals(string $period): array
     {
         $companies = Company::query()->whereNotNull('plan_id')->where('status', CompanyStatus::Active->value)->with('plan')->get();
-        $invoices = PlatformInvoice::query()->where('status', '!=', PlatformInvoice::VOID);
+        // Les petites factures reportées sont comptées dans la facture qui les reprend
+        $invoices = PlatformInvoice::query()->whereNotIn('status', [PlatformInvoice::VOID, PlatformInvoice::CARRIED]);
         [$y, $m] = explode('-', $period);
 
         return [

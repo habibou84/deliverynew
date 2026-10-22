@@ -61,11 +61,13 @@
                 <div class="flex-1">
                   <div class="flex flex-wrap items-baseline justify-between gap-2">
                     <span class="font-semibold">{{ p.name }}</span>
-                    <span class="font-bold">{{ money(p.price_monthly) }} <span class="text-sm font-normal text-slate-500">/ mois</span></span>
+                    <span v-if="p.percent_summary" class="font-bold">À la livraison</span>
+                    <span v-else class="font-bold">{{ money(p.price_monthly) }} <span class="text-sm font-normal text-slate-500">/ mois</span></span>
                   </div>
                   <p v-if="p.description" class="text-sm text-slate-600">{{ p.description }}</p>
                   <p class="text-xs text-slate-500 mt-1">
-                    {{ p.included_orders ? `${p.included_orders} courses incluses` : 'Courses illimitées' }}<template v-if="p.included_orders && p.overage_per_order">, puis {{ money(p.overage_per_order) }} la course</template>
+                    <template v-if="p.percent_summary">{{ p.percent_summary }}</template>
+                    <template v-else>{{ p.included_orders ? `${p.included_orders} courses incluses` : 'Courses illimitées' }}</template><template v-if="!p.percent_summary && p.included_orders && p.overage_per_order">, puis {{ money(p.overage_per_order) }} la course</template>
                     · {{ p.max_couriers ? `${p.max_couriers} livreurs` : 'livreurs illimités' }}
                     <template v-if="p.features.length"> · {{ p.features.join(', ') }}</template>
                   </p>

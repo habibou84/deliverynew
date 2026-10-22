@@ -21,6 +21,22 @@
         <SubscriptionSummary :summary="summary" />
       </div>
 
+      <!-- Comparaison des formules sur les 30 derniers jours -->
+      <div v-if="summary.comparison?.length > 1" class="card p-4 space-y-2 text-sm">
+        <h2 class="font-semibold">Combien vous auriez payé avec chaque formule</h2>
+        <p class="text-gray-600">Calcul sur vos courses prises en charge des 30 derniers jours.</p>
+        <ul class="divide-y">
+          <li v-for="c in summary.comparison" :key="c.plan_id" class="flex items-center justify-between gap-2 py-2">
+            <span>
+              {{ c.name }}
+              <span v-if="c.current" class="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800">Votre formule</span>
+              <span v-else-if="c.plan_id === cheapest" class="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">La moins chère pour vous</span>
+            </span>
+            <span class="font-medium">{{ money(c.amount) }}</span>
+          </li>
+        </ul>
+      </div>
+
       <!-- Rythme de facturation : au mois ou à la semaine -->
       <div v-if="summary.plan" class="card p-4 space-y-3 text-sm">
         <h2 class="font-semibold">Rythme de facturation</h2>
@@ -29,7 +45,8 @@
             <input type="radio" :value="c.value" :checked="chosenCycle === c.value" :disabled="savingCycle" class="mt-1 accent-emerald-700" @change="changeCycle(c.value)">
             <span>
               <span class="block font-medium">{{ c.label }}</span>
-              <span class="block text-gray-600">{{ c.value === 'weekly' ? `${money(summary.plan.price_weekly)} par semaine` : `${money(summary.plan.price_monthly)} par mois` }}{{ (c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders) !== null ? `, ${c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders} courses incluses` : '' }}</span>
+              <span v-if="summary.plan.pricing === 'percent'" class="block text-gray-600">Facture des courses {{ c.value === 'weekly' ? 'de la semaine' : 'du mois' }}</span>
+              <span v-else class="block text-gray-600">{{ c.value === 'weekly' ? `${money(summary.plan.price_weekly)} par semaine` : `${money(summary.plan.price_monthly)} par mois` }}{{ (c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders) !== null ? `, ${c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders} courses incluses` : '' }}</span>
               <span class="block text-xs text-gray-500">{{ c.help }}</span>
             </span>
           </label>
@@ -129,6 +146,11 @@ const ringClass = computed(() => ({
 })[summary.value?.billing.state] ?? '')
 
 const toasts = useToastStore()
+// Formule la moins chère sur les 30 derniers jours
+const cheapest = computed(() => {
+  const list = summary.value?.comparison ?? []
+  return list.length ? list.reduce((a, b) => (b.amount < a.amount ? b : a)).plan_id : null
+})
 
 const CYCLES = [
   { value: 'monthly', label: 'Au mois', help: 'Une facture le 1er de chaque mois, à régler sous 10 jours.' },

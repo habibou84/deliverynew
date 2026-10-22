@@ -22,7 +22,11 @@ class PlatformInvoice extends Model
         'company_id', 'number', 'period', 'period_start', 'period_end', 'plan_name',
         'base_amount', 'included_orders', 'orders_count', 'overage_orders', 'overage_per_order', 'overage_amount',
         'total', 'amount_paid', 'status', 'issued_at', 'due_at', 'paid_at', 'last_reminder', 'notes', 'cycle',
+        'pricing', 'deliveries_amount', 'cap_applied', 'carried_amount', 'carried_into_id',
     ];
+
+    // Petite facture reportée sur la suivante (rien à payer à part)
+    public const CARRIED = 'carried';
 
     public const MONTHLY = 'monthly';
 
@@ -43,6 +47,9 @@ class PlatformInvoice extends Model
             'overage_per_order' => 'integer',
             'overage_amount' => 'integer',
             'total' => 'integer',
+            'deliveries_amount' => 'integer',
+            'carried_amount' => 'integer',
+            'cap_applied' => 'boolean',
             'amount_paid' => 'integer',
         ];
     }
@@ -50,6 +57,14 @@ class PlatformInvoice extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * Facture qui a repris le montant de cette petite facture reportée.
+     */
+    public function carriedInto(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'carried_into_id');
     }
 
     public function payments(): HasMany

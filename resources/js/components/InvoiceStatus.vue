@@ -16,13 +16,14 @@ const late = computed(() => props.invoice.status === 'open' && props.invoice.due
 const label = computed(() => {
   if (props.invoice.status === 'paid') return 'Payée'
   if (props.invoice.status === 'void') return 'Annulée'
+  if (props.invoice.status === 'carried') return props.invoice.carried_into ? `Reportée sur ${props.invoice.carried_into}` : 'Reportée'
   if (late.value) return props.invoice.days_late ? `En retard (${props.invoice.days_late} j)` : 'En retard'
   return props.invoice.amount_paid ? 'Payée en partie' : 'À payer'
 })
 
 const cls = computed(() => {
   if (props.invoice.status === 'paid') return 'bg-emerald-100 text-emerald-800'
-  if (props.invoice.status === 'void') return 'bg-slate-100 text-slate-600'
+  if (props.invoice.status === 'void' || props.invoice.status === 'carried') return 'bg-slate-100 text-slate-600'
   return late.value ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'
 })
 </script>
