@@ -51,9 +51,10 @@
             <div class="mt-10 divide-y divide-slate-200 rounded-3xl ring-1 ring-slate-200">
                 @foreach (array_filter([
                     $trialDays > 0 ? ['Comment fonctionne l\'essai gratuit ?', 'Vous créez votre espace et utilisez toutes les fonctions de la formule choisie pendant '.$trialDays.' jours. Aucun paiement n\'est demandé à l\'inscription.'] : null,
-                    ['Que se passe-t-il si je dépasse les courses incluses ?', 'Rien ne s\'arrête : chaque course supplémentaire est facturée au tarif indiqué sur votre formule, à la fin du mois.'],
+                    ['Que se passe-t-il si je dépasse les courses incluses ?', 'Rien ne s\'arrête : chaque course supplémentaire est facturée au tarif indiqué sur votre formule, sur la facture suivante.'],
                     ['Puis-je changer de formule ?', 'Oui, à tout moment, selon l\'évolution de votre activité. Écrivez-nous et nous faisons le changement.'],
-                    ['Comment se passe la facturation ?', 'Une facture par mois, consultable dans votre espace (menu Mon abonnement).'],
+                    ['Comment se passe la facturation ?', 'Au choix : une facture par mois, ou une facture chaque lundi pour la semaine écoulée (le prix du mois ramené à la semaine). Vous changez de rythme dans votre espace (menu Mon abonnement) et payez par Wave.'],
+                    ['Quelles courses sont comptées ?', 'Seulement les courses prises en charge : ramassées par un livreur ou préparées à l\'entrepôt. Une course annulée, refusée ou jamais traitée n\'est pas facturée.'],
                     ['Les messages WhatsApp sont-ils compris ?', 'Les notifications aux e-commerçants et aux livreurs sont gratuites. Les messages WhatsApp aux destinataires passent par votre numéro WhatsApp Business : Meta vous les facture directement, quelques francs par message.'],
                 ]) as [$question, $answer])
                     <details class="group p-6">

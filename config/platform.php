@@ -42,6 +42,8 @@ return [
     'billing' => [
         'invoice_prefix' => env('PLATFORM_INVOICE_PREFIX', 'FAC'),
         'due_days' => (int) env('PLATFORM_INVOICE_DUE_DAYS', 10),
+        // Facture de la semaine : à régler plus vite (elle est plus petite)
+        'weekly_due_days' => (int) env('PLATFORM_WEEKLY_INVOICE_DUE_DAYS', 4),
         'warning_after_days' => (int) env('PLATFORM_BILLING_WARNING_DAYS', 7),
         'restrict_after_days' => (int) env('PLATFORM_BILLING_RESTRICT_DAYS', 15),
     ],

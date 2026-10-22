@@ -21,16 +21,35 @@
         <SubscriptionSummary :summary="summary" />
       </div>
 
+      <!-- Rythme de facturation : au mois ou à la semaine -->
+      <div v-if="summary.plan" class="card p-4 space-y-3 text-sm">
+        <h2 class="font-semibold">Rythme de facturation</h2>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <label v-for="c in CYCLES" :key="c.value" :class="['flex cursor-pointer gap-2 rounded-lg border p-3', chosenCycle === c.value ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200']">
+            <input type="radio" :value="c.value" :checked="chosenCycle === c.value" :disabled="savingCycle" class="mt-1 accent-emerald-700" @change="changeCycle(c.value)">
+            <span>
+              <span class="block font-medium">{{ c.label }}</span>
+              <span class="block text-gray-600">{{ c.value === 'weekly' ? `${money(summary.plan.price_weekly)} par semaine` : `${money(summary.plan.price_monthly)} par mois` }}{{ (c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders) !== null ? `, ${c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders} courses incluses` : '' }}</span>
+              <span class="block text-xs text-gray-500">{{ c.help }}</span>
+            </span>
+          </label>
+        </div>
+        <p v-if="summary.billing_period.next_cycle" class="rounded bg-amber-50 p-2 text-amber-900">
+          Passage {{ summary.billing_period.next_cycle === 'weekly' ? 'à la semaine' : 'au mois' }} le lundi {{ date(summary.billing_period.next_cycle_from) }}. D'ici là, la facturation continue {{ summary.billing_period.cycle === 'weekly' ? 'à la semaine' : 'au mois' }}.
+        </p>
+        <p class="text-xs text-gray-500">Seules les courses prises en charge sont facturées : ramassées par un livreur ou préparées à l'entrepôt. Une course annulée, refusée ou jamais traitée n'est pas comptée.</p>
+      </div>
+
       <div class="card overflow-x-auto">
         <h2 class="font-semibold p-4 pb-2">Factures</h2>
         <table class="w-full text-sm">
           <thead class="bg-slate-50 text-left text-gray-600">
-            <tr><th class="p-2">Facture</th><th class="p-2">Mois</th><th class="p-2 text-right">Total</th><th class="p-2 text-right">Reste</th><th class="p-2">Échéance</th><th class="p-2">Statut</th><th class="p-2" /></tr>
+            <tr><th class="p-2">Facture</th><th class="p-2">Période</th><th class="p-2 text-right">Total</th><th class="p-2 text-right">Reste</th><th class="p-2">Échéance</th><th class="p-2">Statut</th><th class="p-2" /></tr>
           </thead>
           <tbody class="divide-y">
             <tr v-for="i in summary.invoices" :key="i.id">
               <td class="p-2 font-mono"><RouterLink :to="`/admin/abonnement/factures/${i.id}`" class="text-blue-600">{{ i.number }}</RouterLink></td>
-              <td class="p-2">{{ i.period }}</td>
+              <td class="p-2">{{ i.period_label || i.period }}</td>
               <td class="p-2 text-right">{{ money(i.total) }}</td>
               <td class="p-2 text-right">{{ money(i.balance) }}</td>
               <td class="p-2">{{ date(i.due_at) }}</td>
@@ -51,7 +70,7 @@
 
     <Modal :open="wave.open" title="Payer avec Wave" @close="wave.open = false">
       <form v-if="!wave.payment" class="space-y-3" @submit.prevent="startWave">
-        <p class="text-sm text-gray-600">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period }}</p>
+        <p class="text-sm text-gray-600">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period_label }}</p>
         <div>
           <label class="label" for="w-phone">Numéro Wave qui va payer *</label>
           <input id="w-phone" v-model.trim="wave.phone" type="tel" class="input" placeholder="07 00 00 00 00" required>
@@ -63,7 +82,7 @@
         <div class="rounded-lg bg-slate-50 p-4 text-center">
           <p class="text-2xl font-bold">{{ money(wave.payment.amount) }} à payer</p>
           <p class="mt-1 text-gray-600">Depuis le numéro Wave {{ wave.payment.payer_phone }}</p>
-          <p class="mt-1 text-xs text-gray-500">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period }}</p>
+          <p class="mt-1 text-xs text-gray-500">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period_label }}</p>
         </div>
 
         <section class="space-y-3">
@@ -110,6 +129,28 @@ const ringClass = computed(() => ({
 })[summary.value?.billing.state] ?? '')
 
 const toasts = useToastStore()
+
+const CYCLES = [
+  { value: 'monthly', label: 'Au mois', help: 'Une facture le 1er de chaque mois, à régler sous 10 jours.' },
+  { value: 'weekly', label: 'À la semaine', help: 'Une facture chaque lundi pour la semaine écoulée, à régler sous 4 jours.' },
+]
+// Rythme choisi : le prochain s'il change, sinon celui en cours
+const chosenCycle = computed(() => summary.value?.billing_period.next_cycle ?? summary.value?.billing_period.cycle)
+const savingCycle = ref(false)
+
+async function changeCycle(cycle) {
+  savingCycle.value = true
+  try {
+    const { data } = await http.put('/subscription/billing-cycle', { billing_cycle: cycle })
+    summary.value = { ...summary.value, ...data.data }
+    toasts.success(data.data.billing_period.next_cycle ? `Facturation ${cycle === 'weekly' ? 'à la semaine' : 'au mois'} à partir du lundi ${date(data.data.billing_period.next_cycle_from)}.` : 'Rythme de facturation inchangé.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+    await load()
+  } finally {
+    savingCycle.value = false
+  }
+}
 
 async function load() {
   summary.value = (await http.get('/subscription')).data.data

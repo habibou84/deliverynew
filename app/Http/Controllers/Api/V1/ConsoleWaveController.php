@@ -93,13 +93,13 @@ class ConsoleWaveController extends Controller
      */
     public function pending(): JsonResponse
     {
-        $payments = PlatformWavePayment::query()->with(['invoice:id,number,period,total,amount_paid', 'company:id,name', 'user:id,name'])
+        $payments = PlatformWavePayment::query()->with(['invoice:id,number,period,cycle,period_start,period_end,total,amount_paid', 'company:id,name', 'user:id,name'])
             ->where('status', PlatformWavePayment::PENDING)->latest('id')->limit(100)->get();
 
         return response()->json(['data' => $payments->map(fn (PlatformWavePayment $p) => [
             'id' => $p->id, 'amount' => $p->amount, 'payer_phone' => $p->payer_phone, 'payer_name' => $p->user?->name,
             'company' => ['id' => $p->company_id, 'name' => $p->company?->name],
-            'invoice' => ['id' => $p->platform_invoice_id, 'number' => $p->invoice?->number, 'period' => $p->invoice?->period],
+            'invoice' => ['id' => $p->platform_invoice_id, 'number' => $p->invoice?->number, 'period' => $p->invoice?->period, 'period_label' => $p->invoice?->periodLabel()],
             'claimed_at' => $p->claimed_at?->toIso8601String(), 'created_at' => $p->created_at->toIso8601String(), 'alerts' => $p->alerts ?? [],
         ])->values()]);
     }
