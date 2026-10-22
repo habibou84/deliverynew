@@ -103,6 +103,10 @@ par les scripts de déploiement) et prévient Jibiat sur `/api/webhooks/whatsapp
 jeton). Il tourne sous Supervisor (`<instance>-whatsapp`, journal `storage/logs/whatsapp-bridge.log`) ; `deploy/update.sh`
 installe ses dépendances et le redémarre. En local : `cd whatsapp-bridge && npm install && node server.js`.
 
+**Console › WhatsApp** : le numéro de Jibiat se relie de la même façon (session `platform` du service). Les messages
+des entreprises et des prospects y arrivent en conversations (entreprise reconnue d'après le numéro de son équipe) ;
+l'équipe de Jibiat leur répond depuis la console, ou écrit à un nouveau numéro. Rafraîchissement toutes les 5 secondes.
+
 #### Courses par WhatsApp
 
 Un marchand dont le numéro est connu écrit au numéro de l'agence (message libre, commande transférée de son client
