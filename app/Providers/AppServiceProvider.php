@@ -8,6 +8,7 @@ use App\Services\Messaging\Gateways\AutoWhatsAppGateway;
 use App\Services\Messaging\Gateways\LogSmsGateway;
 use App\Services\Messaging\Gateways\LogWhatsAppGateway;
 use App\Services\Messaging\Gateways\MetaCloudGateway;
+use App\Services\Messaging\Gateways\QrBridgeGateway;
 use App\Services\Messaging\Gateways\SmsGateway;
 use App\Services\Messaging\Gateways\TwilioSmsGateway;
 use App\Services\Messaging\Gateways\WhatsAppGateway;
@@ -38,7 +39,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(WhatsAppGateway::class, fn () => match (config('messaging.whatsapp.driver')) {
             'meta' => new MetaCloudGateway,
             'log' => new LogWhatsAppGateway,
-            default => new AutoWhatsAppGateway(new MetaCloudGateway, new LogWhatsAppGateway),
+            default => new AutoWhatsAppGateway(new MetaCloudGateway, new LogWhatsAppGateway, app(QrBridgeGateway::class)),
         });
 
         // Messages WhatsApp libres : Claude si une clé API est configurée, sinon analyse par règles

@@ -5,7 +5,7 @@ namespace App\Services\Messaging\Gateways;
 use App\Models\WhatsAppAccount;
 
 /**
- * Envoi réel (API Cloud de Meta) pour les numéros connectés, simulation (journal)
+ * Envoi réel pour les numéros connectés (API Cloud de Meta, ou QR code en attendant Meta), simulation (journal)
  * pour les autres : chaque entreprise sort du mode démo dès que son numéro est prêt.
  */
 class AutoWhatsAppGateway implements WhatsAppGateway
@@ -13,6 +13,7 @@ class AutoWhatsAppGateway implements WhatsAppGateway
     public function __construct(
         private readonly MetaCloudGateway $meta,
         private readonly LogWhatsAppGateway $log,
+        private readonly ?QrBridgeGateway $qr = null,
     ) {}
 
     public function sendTemplate(?WhatsAppAccount $account, string $to, string $template, string $language, array $params): string
@@ -32,6 +33,10 @@ class AutoWhatsAppGateway implements WhatsAppGateway
 
     private function for(?WhatsAppAccount $account): WhatsAppGateway
     {
-        return $account?->isLive() ? $this->meta : $this->log;
+        if (! $account?->isLive()) {
+            return $this->log;
+        }
+
+        return $account->isQr() && $this->qr !== null ? $this->qr : $this->meta;
     }
 }

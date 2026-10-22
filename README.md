@@ -88,6 +88,21 @@ Pour envoyer de vrais messages :
    chez Meta » relève leur état.
 5. SMS de repli (facultatif) : `SMS_DRIVER=twilio` avec `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM` ; `SMS_DRIVER=none` pour le désactiver.
 
+#### Connexion par QR code (en attendant Meta)
+
+Tant que Meta n'a pas validé le numéro, l'entreprise peut le relier comme WhatsApp Web : **WhatsApp › Connexion par
+QR code**, puis « Appareils connectés » sur le téléphone. Les messages partent alors réellement de ce numéro (texte des
+modèles tel quel, boutons en liste numérotée : la réponse « 1 », « 2 »… est reconnue), et les messages reçus alimentent
+les courses par WhatsApp. Connexion non officielle : WhatsApp peut bloquer un numéro qui envoie beaucoup de messages
+automatiques ; un numéro dédié est conseillé, et le service espace les envois (4 à 7 secondes, avec « en train
+d'écrire »). Dès que Meta valide le numéro, la connexion officielle reprend la main.
+
+Le service `whatsapp-bridge/` (Node 20+, bibliothèque Baileys) garde une session par entreprise dans
+`storage/app/whatsapp-bridge`. Il écoute sur `127.0.0.1:WHATSAPP_BRIDGE_PORT` (jeton `WHATSAPP_BRIDGE_TOKEN`, créés
+par les scripts de déploiement) et prévient Jibiat sur `/api/webhooks/whatsapp-bridge` (corps signé avec le même
+jeton). Il tourne sous Supervisor (`<instance>-whatsapp`, journal `storage/logs/whatsapp-bridge.log`) ; `deploy/update.sh`
+installe ses dépendances et le redémarre. En local : `cd whatsapp-bridge && npm install && node server.js`.
+
 #### Courses par WhatsApp
 
 Un marchand dont le numéro est connu écrit au numéro de l'agence (message libre, commande transférée de son client

@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
- * Numéro WhatsApp Business (API Cloud de Meta) utilisé pour les envois.
+ * Numéro WhatsApp de l'entreprise utilisé pour les envois : API Cloud de Meta (« meta_cloud »), ou connexion par
+ * QR code (« qr », service whatsapp-bridge) en attendant la validation de Meta.
  */
 class WhatsAppAccount extends Model
 {
@@ -53,9 +54,22 @@ class WhatsAppAccount extends Model
         return $this->platform_token && filled($platform) ? $platform : $this->access_token;
     }
 
+    public const QR = 'qr';
+
+    public function isQr(): bool
+    {
+        return $this->provider === self::QR;
+    }
+
+    /** Session du service whatsapp-bridge */
+    public function bridgeSession(): string
+    {
+        return 'company-'.$this->company_id;
+    }
+
     public function isConfigured(): bool
     {
-        return filled($this->phone_number_id) && filled($this->apiToken());
+        return $this->isQr() || (filled($this->phone_number_id) && filled($this->apiToken()));
     }
 
     /**
@@ -65,6 +79,11 @@ class WhatsAppAccount extends Model
      */
     public function isLive(): bool
     {
+        // QR code : réel dès que le téléphone est relié (sauf simulation imposée par le serveur)
+        if ($this->isQr()) {
+            return config('messaging.whatsapp.driver') !== 'log' && $this->status === 'connected';
+        }
+
         return match (config('messaging.whatsapp.driver')) {
             'meta' => $this->isConfigured(),
             'log' => false,

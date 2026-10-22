@@ -32,6 +32,9 @@
         </template>
       </div>
 
+      <!-- Connexion par QR code, en attendant Meta -->
+      <WhatsAppQrConnect @changed="load" />
+
       <!-- Numéro -->
       <section class="card p-4 space-y-4">
         <div class="flex items-center justify-between gap-2">
@@ -223,6 +226,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
+import WhatsAppQrConnect from '../../components/WhatsAppQrConnect.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
