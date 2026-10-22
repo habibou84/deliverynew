@@ -16,6 +16,7 @@ Jibiat · Facebook et TikTok ».
 | `entreprise-nouveaux-clients` | Entreprises de livraison : des clients déjà sur Jibiat Marchand les trouvent | 24 s |
 | `entreprise-livreur` | Entreprises de livraison : l'application des livreurs | 19 s |
 | `entreprise-chiffres` | Entreprises de livraison : statistiques et rapport de la semaine | 15 s |
+| `entreprise-presentation` | Entreprises de livraison : présentation générale, sous-titrée (voix off à ajouter) | 1 min 48 |
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
 | `marchand-suivi-argent` | E-commerçants clients d'une entreprise Jibiat : colis et argent | 20 s |
 | `marchand-boutique` | E-commerçants : la boutique en ligne, de l'achat du client à la commande chez le marchand | 38 s |
@@ -223,6 +224,30 @@ de la vidéo). Copies légères pour les sites (sans le son, avec leur image d'a
 3. (4 s) Ce qu'il doit verser, ce qu'il a gagné.
 4. (4,2 s) Et vous voyez qui est libre.
 5. (3,8 s) Des livreurs bien équipés. Jibiat.
+
+**entreprise-presentation** (les sous-titres sont ce texte ; avec la voix, allonger un plan si la phrase dépasse)
+1. (4,4 s) Vous dirigez une entreprise de livraison ? Les courses notées dans un cahier, les appels toute la journée…
+2. (3,8 s) … et l’argent du soir qu’on recompte, livreur par livreur.
+3. (3,8 s) Jibiat met tout ça dans une seule application. Voyons comment.
+4. (5,2 s) Votre entreprise apparaît dans l’annuaire Jibiat, avec vos vrais résultats : les e-commerçants vous trouvent.
+5. (4,8 s) Depuis Jibiat Marchand, ils se connectent à vous en un clic. Pas de clé, pas de technicien.
+6. (4,4 s) Vous recevez leur demande, et un toucher suffit pour les accepter.
+7. (5,4 s) Vos e-commerçants créent leurs courses eux-mêmes : un message WhatsApp collé, et la course est prête.
+8. (5 s) Leur boutique en ligne vous envoie les commandes toute seule. Fini les appels pour noter une adresse.
+9. (4,2 s) Et pour les gros volumes, un fichier Excel : cent courses d’un coup.
+10. (5,4 s) Votre planning décide qui ramasse et qui livre, commune par commune, avec un remplaçant pour chacun.
+11. (5 s) Chaque course est confiée au bon livreur, automatiquement. Et vous gardez la main à tout moment.
+12. (5,4 s) Le livreur voit ses missions sur son téléphone, dans l’ordre. L’application marche même sans réseau.
+13. (5,4 s) Le destinataire est prévenu sur WhatsApp, suit son colis, et donne son code à la livraison.
+14. (4,8 s) Au bureau, vous suivez chaque course en temps réel : qui ramasse, qui livre, où il en est.
+15. (5 s) Un ramassage en retard, un livreur injoignable : Jibiat vous alerte avant que ça coûte.
+16. (4,8 s) Un colis refusé ? Relivrer, retourner ou reporter : vous décidez d’un toucher.
+17. (5 s) Le soir, l’argent que chaque livreur doit verser est déjà calculé, au franc près.
+18. (4,8 s) Il verse, vous vérifiez, vous validez. Le point de caisse prend deux minutes.
+19. (5,4 s) L’argent des e-commerçants est prêt : payé par Wave ou Orange Money, avec un relevé course par course.
+20. (5 s) Vos chiffres du jour et du mois : courses, réussite, chiffre d’affaires.
+21. (5,2 s) Par livreur, par client, par zone. Et chaque lundi, le rapport de la semaine arrive sur WhatsApp.
+22. (5,6 s) Jibiat : toute votre entreprise de livraison dans une seule application. Essayez-le gratuitement sur jibiat.com.
 
 **entreprise-chiffres**
 1. (2,6 s) Votre entreprise, en vrais chiffres.
