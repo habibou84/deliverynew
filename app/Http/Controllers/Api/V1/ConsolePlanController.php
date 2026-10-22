@@ -71,6 +71,8 @@ class ConsolePlanController extends Controller
             'included_orders' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:10000000'],
             'overage_per_order' => ['sometimes', 'integer', 'min:0', 'max:1000000'],
             'max_couriers' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100000'],
+            // Prix par mois d'un livreur en plus de la limite (vide : pas de livreur en plus)
+            'extra_courier_price' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:10000000'],
             // Formule « à la livraison » : pourcentage des frais de chaque course (en centièmes de pour cent)
             'pricing' => ['sometimes', Rule::in([Plan::FLAT, Plan::PERCENT])],
             'percent_rate' => ['nullable', 'integer', 'min:1', 'max:10000', Rule::requiredIf(fn () => $request->input('pricing') === Plan::PERCENT)],
@@ -90,6 +92,7 @@ class ConsolePlanController extends Controller
             'included_orders' => 'courses incluses',
             'overage_per_order' => 'prix par course en plus',
             'max_couriers' => 'livreurs',
+            'extra_courier_price' => 'prix d\'un livreur en plus',
             'features' => 'modules',
             'percent_rate' => 'pourcentage par course',
             'percent_min' => 'minimum par course',
@@ -122,6 +125,7 @@ class ConsolePlanController extends Controller
             'included_orders' => $p->included_orders,
             'overage_per_order' => $p->overage_per_order,
             'max_couriers' => $p->max_couriers,
+            'extra_courier_price' => $p->extra_courier_price,
             'pricing' => $p->pricing ?? Plan::FLAT,
             'percent_rate' => $p->percent_rate,
             'percent_min' => (int) $p->percent_min,

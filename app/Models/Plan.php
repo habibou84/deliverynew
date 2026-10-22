@@ -30,6 +30,7 @@ class Plan extends Model
         'volume_rate',
         'cap_amount',
         'min_invoice',
+        'extra_courier_price',
     ];
 
     public const FLAT = 'flat';
@@ -53,6 +54,7 @@ class Plan extends Model
             'volume_rate' => 'integer',
             'cap_amount' => 'integer',
             'min_invoice' => 'integer',
+            'extra_courier_price' => 'integer',
         ];
     }
 
@@ -75,6 +77,14 @@ class Plan extends Model
     public function weeklyIncludedOrders(): ?int
     {
         return $this->included_orders === null ? null : (int) floor($this->included_orders * 12 / 52);
+    }
+
+    /**
+     * Livreurs en plus de la limite possibles (facturés chacun au prix du mois, au prorata des jours).
+     */
+    public function allowsExtraCouriers(): bool
+    {
+        return $this->max_couriers !== null && $this->extra_courier_price !== null;
     }
 
     public function isPercent(): bool

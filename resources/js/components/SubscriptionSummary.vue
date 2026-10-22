@@ -34,8 +34,12 @@
           <span class="font-medium">{{ summary.usage.couriers }}{{ summary.usage.max_couriers !== null ? ` / ${summary.usage.max_couriers}` : ' (illimités)' }}</span>
         </div>
         <div v-if="summary.usage.max_couriers" class="h-2 rounded bg-slate-200 overflow-hidden">
-          <div :class="['h-full', summary.usage.couriers >= summary.usage.max_couriers ? 'bg-red-500' : 'bg-emerald-500']" :style="{ width: `${percent(summary.usage.couriers, summary.usage.max_couriers)}%` }" />
+          <div :class="['h-full', summary.usage.couriers >= summary.usage.max_couriers && summary.plan.extra_courier_price === null ? 'bg-red-500' : 'bg-emerald-500']" :style="{ width: `${percent(summary.usage.couriers, summary.usage.max_couriers)}%` }" />
         </div>
+        <p v-if="summary.plan?.extra_courier_price !== null && summary.usage.max_couriers" class="text-xs text-gray-500">
+          Au-delà de {{ summary.usage.max_couriers }} livreurs : {{ money(summary.plan.extra_courier_price) }} par mois par livreur en plus, au prorata des jours où il est actif.
+          <span v-if="summary.usage.extra_couriers" class="text-amber-700">Vous avez {{ summary.usage.extra_couriers }} livreur{{ summary.usage.extra_couriers > 1 ? 's' : '' }} en plus aujourd'hui.</span>
+        </p>
       </div>
 
       <div class="rounded-lg bg-slate-50 p-3 text-sm space-y-1">
@@ -51,6 +55,7 @@
           <div class="flex justify-between"><span>Forfait</span><span>{{ money(summary.estimate.base) }}</span></div>
           <div class="flex justify-between"><span>Courses en plus</span><span>{{ money(summary.estimate.overage) }}</span></div>
         </template>
+        <div v-if="summary.estimate.extra_couriers" class="flex justify-between"><span>Livreurs en plus ({{ summary.usage.extra_courier_days }} jour{{ summary.usage.extra_courier_days > 1 ? 's' : '' }} de livreur)</span><span>{{ money(summary.estimate.extra_couriers) }}</span></div>
         <div class="flex justify-between border-t pt-1 font-semibold">
           <span>Total</span><span>{{ summary.on_trial ? 'Offert (essai)' : money(summary.estimate.total) }}</span>
         </div>

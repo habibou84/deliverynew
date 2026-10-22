@@ -57,6 +57,15 @@
             <td class="py-2 text-right">{{ money(invoice.overage_per_order) }}</td>
             <td class="py-2 text-right">{{ money(invoice.overage_amount) }}</td>
           </tr>
+          <tr v-if="invoice.extra_couriers_amount">
+            <td class="py-2">
+              Livreurs en plus de la formule
+              <span class="block text-xs text-gray-500">{{ money(invoice.extra_courier_price) }} par livreur et par mois, au prorata des jours où il est actif ({{ invoice.extra_courier_days }} jour(s) de livreur)</span>
+            </td>
+            <td class="py-2 text-right">{{ invoice.extra_courier_days }} j</td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right">{{ money(invoice.extra_couriers_amount) }}</td>
+          </tr>
           <tr v-if="invoice.carried_amount">
             <td class="py-2">
               Montants reportés des factures précédentes
