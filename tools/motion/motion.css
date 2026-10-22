@@ -156,3 +156,19 @@ html, body {
 .fmt-f .end .brand-logo { width: 150px; height: 150px; font-size: 86px; }
 .fmt-w .end { gap: 36px; }
 .fmt-w .end .brand-logo { width: 150px; height: 150px; font-size: 86px; }
+
+/* Sous-titres (texte de la voix off) : bande sombre en bas, au-dessus des boutons de TikTok */
+.caption { position: absolute; z-index: 8; display: flex; justify-content: center; pointer-events: none; }
+.caption span {
+  background: rgba(5, 7, 12, .94); color: #fff; font-weight: 600; line-height: 1.3; text-align: center;
+  border-radius: 18px; text-wrap: balance; box-shadow: 0 16px 40px rgba(0, 0, 0, .35);
+}
+.fmt-v .caption { left: 70px; right: 70px; bottom: 360px; }
+.fmt-v .caption span { font-size: 46px; padding: 22px 34px; }
+.fmt-f .caption { left: 60px; right: 60px; bottom: 50px; }
+.fmt-f .caption span { font-size: 38px; padding: 18px 28px; }
+.fmt-w .caption { left: 120px; right: 120px; bottom: 70px; }
+.fmt-w .caption span { font-size: 40px; padding: 16px 30px; max-width: 1500px; }
+/* Ordinateur : à côté du téléphone, le sous-titre se place sous le titre, sans bande */
+.fmt-w .caption-phone { left: 140px; right: auto; width: 900px; top: 560px; bottom: auto; justify-content: flex-start; }
+.fmt-w .caption-phone span { background: none; box-shadow: none; padding: 0; text-align: left; color: #e2e8f0; font-size: 44px; }

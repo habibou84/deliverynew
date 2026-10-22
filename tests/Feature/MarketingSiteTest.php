@@ -97,7 +97,7 @@ class MarketingSiteTest extends TestCase
             ->assertSee('src="/marketing/videos/whatsapp.mp4"', false)
             ->assertSee('poster="/marketing/videos/livreur.jpg"', false);
         $this->get('http://jibiat.test/')
-            ->assertSee('src="/marketing/videos/course-de-a-a-z.mp4"', false)
+            ->assertSee('src="/marketing/videos/entreprise-presentation-w.mp4"', false)
             ->assertSee('preload="none"', false);
 
         // Le menu et l'accueil y mènent
