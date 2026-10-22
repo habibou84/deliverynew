@@ -49,6 +49,10 @@
                     @endif
                 </div>
                 <p class="mt-4 text-sm text-slate-400">Sans engagement · Sans carte bancaire · Prêt en 2 minutes</p>
+                <a href="#video" class="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand-300 hover:text-brand-200">
+                    <span class="inline-flex size-7 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/20" aria-hidden="true">▶</span>
+                    Voir la présentation de Jibiat (2 minutes)
+                </a>
             </div>
 
             {{-- La vidéo phare, en boucle : la productivité de l'entreprise de livraison --}}
@@ -159,11 +163,11 @@
         <div class="mx-auto max-w-5xl px-4 sm:px-6">
             <div class="mx-auto max-w-2xl text-center">
                 <p class="font-semibold text-brand-600">Voir Jibiat en action</p>
-                <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Une course de A à Z, en une minute</h2>
-                <p class="mt-4 text-lg text-slate-600">L'e-commerçant crée la course, l'agence assigne le livreur, le livreur livre et encaisse, la caisse reçoit l'argent et l'e-commerçant est payé.</p>
+                <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Jibiat en deux minutes</h2>
+                <p class="mt-4 text-lg text-slate-600">De nouveaux clients qui vous trouvent, les courses qui arrivent et partent seules au bon livreur, le suivi, les alertes, la caisse du soir et vos chiffres.</p>
             </div>
-            <x-marketing.video name="course-de-a-a-z" title="Une course de A à Z" class="mt-10" />
-            <p class="mt-6 text-center"><a href="/fonctionnalites" class="font-semibold text-brand-600 hover:text-brand-700">Toutes les vidéos sur la page Fonctionnalités →</a></p>
+            <x-marketing.video name="entreprise-presentation-w" title="Présentation de Jibiat en deux minutes" class="mt-10" />
+            <p class="mt-6 text-center"><a href="/fonctionnalites" class="font-semibold text-brand-600 hover:text-brand-700">Une course de A à Z et toutes les vidéos sur la page Fonctionnalités →</a></p>
         </div>
     </section>
 
