@@ -22,14 +22,14 @@ class ConsoleBillingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $request->validate([
-            'status' => ['nullable', Rule::in([PlatformInvoice::OPEN, PlatformInvoice::PAID, PlatformInvoice::VOID, 'overdue'])],
+            'status' => ['nullable', Rule::in([PlatformInvoice::OPEN, PlatformInvoice::PAID, PlatformInvoice::VOID, PlatformInvoice::CARRIED, 'overdue'])],
             'company_id' => ['nullable', 'integer'],
             'period' => ['nullable', 'regex:/^\d{4}-\d{2}$/'],
         ]);
 
         $invoices = PlatformInvoice::query()->with('company:id,name,slug')
             ->when($request->string('status')->toString() === 'overdue', fn ($q) => $q->unpaid()->where('due_at', '<', now()->toDateString()))
-            ->when(in_array($request->input('status'), [PlatformInvoice::OPEN, PlatformInvoice::PAID, PlatformInvoice::VOID], true), fn ($q) => $q->where('status', $request->input('status')))
+            ->when(in_array($request->input('status'), [PlatformInvoice::OPEN, PlatformInvoice::PAID, PlatformInvoice::VOID, PlatformInvoice::CARRIED], true), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('company_id'), fn ($q) => $q->where('company_id', $request->integer('company_id')))
             ->when($request->filled('period'), fn ($q) => $q->where('period', $request->string('period')))
             ->orderByDesc('period')->orderByDesc('id')
@@ -158,6 +158,12 @@ class ConsoleBillingController extends Controller
             'overage_orders' => $i->overage_orders,
             'overage_per_order' => $i->overage_per_order,
             'overage_amount' => $i->overage_amount,
+            // Formule à la livraison : pourcentage des frais des courses, plafond atteint ; petites factures reportées
+            'pricing' => $i->pricing ?? 'flat',
+            'deliveries_amount' => (int) $i->deliveries_amount,
+            'cap_applied' => (bool) $i->cap_applied,
+            'carried_amount' => (int) $i->carried_amount,
+            'carried_into' => $i->carried_into_id ? $i->carriedInto?->number : null,
             'total' => $i->total,
             'amount_paid' => $i->amount_paid,
             'balance' => $i->balance(),
