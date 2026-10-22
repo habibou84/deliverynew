@@ -26,7 +26,7 @@ class QrBridgeGateway implements WhatsAppGateway
             throw new MessagingException("Modèle inconnu : {$template}.");
         }
 
-        return $this->bridge->send($this->account($account), $to, $text);
+        return $this->bridge->send($this->account($account)->bridgeSession(), $to, $text);
     }
 
     public function sendReply(?WhatsAppAccount $account, string $to, string $text, array $buttons = []): string
@@ -44,7 +44,7 @@ class QrBridgeGateway implements WhatsAppGateway
             Cache::put(self::buttonsKey($account, $to), $choices, self::BUTTONS_TTL);
         }
 
-        return $this->bridge->send($account, $to, $text);
+        return $this->bridge->send($account->bridgeSession(), $to, $text);
     }
 
     public function templates(?WhatsAppAccount $account): array

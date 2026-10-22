@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
 use App\Http\Controllers\Api\V1\ConsoleWaveController;
+use App\Http\Controllers\Api\V1\ConsoleWhatsAppController;
 use App\Http\Controllers\Api\V1\CourierAvailabilityController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
@@ -200,6 +201,16 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('companies/{company}', 'show')->name('companies.show');
             Route::post('companies/{company}/support-session', 'supportSession')->middleware('throttle:10,1')->name('companies.support');
             Route::put('companies/{company}/billing-cycle', 'billingCycle')->name('companies.billing-cycle');
+        });
+        // Messagerie WhatsApp du numéro de Jibiat (relié par QR code)
+        Route::prefix('console/whatsapp')->name('console.whatsapp.')->middleware('role:super_admin')->controller(ConsoleWhatsAppController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('connect', 'connect')->middleware('throttle:20,1')->name('connect');
+            Route::delete('connect', 'disconnect')->name('disconnect');
+            Route::get('conversations', 'conversations')->name('conversations');
+            Route::post('conversations', 'open')->name('open');
+            Route::get('conversations/{conversation}', 'messages')->name('messages');
+            Route::post('conversations/{conversation}/messages', 'reply')->middleware('throttle:60,1')->name('reply');
         });
         Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsolePlanController::class)->group(function () {
             Route::get('plans', 'index')->name('plans.index');

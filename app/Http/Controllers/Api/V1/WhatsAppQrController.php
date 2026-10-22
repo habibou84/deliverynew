@@ -39,7 +39,7 @@ class WhatsAppQrController extends Controller
         $account->forceFill(['provider' => WhatsAppAccount::QR, 'status' => $account->isQr() && $account->status === 'connected' ? 'connected' : 'pending'])->save();
 
         try {
-            $live = $this->bridge->start($account);
+            $live = $this->bridge->start($account->bridgeSession());
         } catch (MessagingException $e) {
             throw ValidationException::withMessages(['qr' => $e->getMessage()]);
         }
@@ -52,7 +52,7 @@ class WhatsAppQrController extends Controller
         $account = $this->qrAccount($this->company($request));
         if ($account !== null) {
             try {
-                $this->bridge->logout($account);
+                $this->bridge->logout($account->bridgeSession());
             } catch (MessagingException) {
                 // Service injoignable : le compte est tout de même marqué déconnecté
             }
@@ -77,7 +77,7 @@ class WhatsAppQrController extends Controller
     private function live(WhatsAppAccount $account): ?array
     {
         try {
-            return $this->bridge->status($account);
+            return $this->bridge->status($account->bridgeSession());
         } catch (MessagingException) {
             return null;
         }

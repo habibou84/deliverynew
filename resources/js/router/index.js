@@ -128,6 +128,7 @@ const routes = [
       { path: 'formules', component: () => import('../views/console/Plans.vue') },
       { path: 'facturation', component: () => import('../views/console/Billing.vue') },
       { path: 'paiements', component: () => import('../views/console/WavePayments.vue') },
+      { path: 'whatsapp', component: () => import('../views/console/WhatsApp.vue') },
       { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue') },
     ],
   },
