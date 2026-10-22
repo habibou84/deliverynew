@@ -144,3 +144,8 @@ export function waitDuration(minutes) {
   const rest = minutes % 60
   return rest ? `${hours} h ${String(rest).padStart(2, '0')}` : `${hours} h`
 }
+
+// Taux en centièmes de pour cent (100 = 1 %, 75 = 0,75 %)
+export function rate(value) {
+  return value === null || value === undefined ? '' : `${(value / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} %`
+}

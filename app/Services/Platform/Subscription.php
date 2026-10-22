@@ -2,34 +2,32 @@
 
 namespace App\Services\Platform;
 
-use App\Enums\OrderStatus;
 use App\Enums\PlatformFeature;
 use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Models\Company;
-use App\Models\Order;
+use App\Models\Plan;
+use App\Models\PlatformInvoice;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Abonnement d'une entreprise à la plateforme : formule, essai, consommation du mois
- * (courses, livreurs) et limites.
+ * Abonnement d'une entreprise à la plateforme : formule, essai, consommation de la période de facturation
+ * (courses prises en charge, livreurs) et limites.
  */
 class Subscription
 {
-    /**
-     * Courses du mois en cours (heure de l'entreprise), hors courses annulées ou refusées.
-     */
-    public function ordersThisMonth(Company $company): int
-    {
-        $start = CarbonImmutable::now($company->timezone)->startOfMonth()->utc();
+    public function __construct(private readonly Billing $billing) {}
 
-        return Order::withoutGlobalScopes()
-            ->where('company_id', $company->id)
-            ->where('created_at', '>=', $start)
-            ->whereNotIn('status', [OrderStatus::Cancelled->value, OrderStatus::Rejected->value])
-            ->count();
+    /**
+     * Courses prises en charge (ramassées ou préparées à l'entrepôt) dans la période de facturation en cours.
+     */
+    public function ordersThisPeriod(Company $company): int
+    {
+        $current = Billing::currentPeriod($company);
+
+        return Billing::takenInCharge($company, $current['start'], $current['end']->addDay());
     }
 
     /**
@@ -67,10 +65,20 @@ class Subscription
     public function summary(Company $company): array
     {
         $plan = $company->loadMissing('plan')->plan;
-        $orders = $this->ordersThisMonth($company);
-        $included = $plan?->included_orders;
+        $current = Billing::currentPeriod($company);
+        $weekly = $current['cycle'] === PlatformInvoice::WEEKLY;
+        $orders = $this->ordersThisPeriod($company);
+        $included = $plan ? ($weekly ? $plan->weeklyIncludedOrders() : $plan->included_orders) : null;
+        $base = $plan ? ($weekly ? $plan->weeklyPrice() : $plan->price_monthly) : 0;
         $overageOrders = $plan && $included !== null ? max(0, $orders - $included) : 0;
         $overageAmount = $overageOrders * ($plan?->overage_per_order ?? 0);
+        // Formule à la livraison : part des courses déjà prises en charge dans la période
+        $deliveries = null;
+        if ($plan?->isPercent()) {
+            $deliveries = $this->billing->amounts($plan, $company, $current['start'], $current['end']->addDay(), $weekly ? 12 / 52 : 1.0, $current['cycle']);
+            [$base, $included, $overageOrders, $overageAmount] = [0, null, 0, 0];
+        }
+        $from = $company->billing_cycle_from;
 
         return [
             'plan' => $plan ? [
@@ -78,13 +86,32 @@ class Subscription
                 'name' => $plan->name,
                 'description' => $plan->description,
                 'price_monthly' => $plan->price_monthly,
-                'included_orders' => $included,
+                'price_weekly' => $plan->weeklyPrice(),
+                'included_orders' => $plan->included_orders,
+                'included_orders_weekly' => $plan->weeklyIncludedOrders(),
                 'overage_per_order' => $plan->overage_per_order,
                 'max_couriers' => $plan->max_couriers,
+                'pricing' => $plan->pricing ?: Plan::FLAT,
+                'percent_rate' => $plan->percent_rate,
+                'percent_min' => (int) $plan->percent_min,
+                'percent_max' => $plan->percent_max,
+                'volume_threshold' => $plan->volume_threshold,
+                'volume_rate' => $plan->volume_rate,
+                'cap_amount' => $plan->cap_amount,
+                'cap_amount_weekly' => $plan->cap_amount !== null ? (int) round($plan->cap_amount * 12 / 52) : null,
+                'min_invoice' => $plan->min_invoice,
             ] : null,
             'trial_ends_at' => $company->trial_ends_at?->toDateString(),
             'on_trial' => $company->onTrial(),
             'month' => CarbonImmutable::now($company->timezone)->format('Y-m'),
+            // Rythme de facturation : celui de la période en cours, et le prochain s'il change
+            'billing_period' => [
+                'cycle' => $current['cycle'],
+                'period_start' => $current['start']->toDateString(),
+                'period_end' => $current['end']->toDateString(),
+                'next_cycle' => $from !== null && $from->toDateString() > CarbonImmutable::now($company->timezone)->toDateString() ? $company->billing_cycle : null,
+                'next_cycle_from' => $from?->toDateString(),
+            ],
             'usage' => [
                 'orders' => $orders,
                 'included_orders' => $included,
@@ -92,12 +119,16 @@ class Subscription
                 'couriers' => $this->activeCouriers($company),
                 'max_couriers' => $plan?->max_couriers,
             ],
-            // Montant estimé du mois (forfait + dépassement) ; rien pendant l'essai
+            // Montant estimé de la période (forfait + dépassement, ou part des courses) ; rien pendant l'essai
             'estimate' => [
-                'base' => $plan?->price_monthly ?? 0,
+                'base' => $base,
                 'overage' => $overageAmount,
-                'total' => $company->onTrial() ? 0 : ($plan?->price_monthly ?? 0) + $overageAmount,
+                'deliveries' => $deliveries['deliveries_amount'] ?? 0,
+                'cap_applied' => $deliveries['cap_applied'] ?? false,
+                'total' => $company->onTrial() ? 0 : $base + $overageAmount + ($deliveries['deliveries_amount'] ?? 0),
             ],
+            // Prix de chaque formule sur les 30 derniers jours, pour comparer
+            'comparison' => $this->billing->comparison($company),
             'features' => array_map(fn (PlatformFeature $f) => [
                 'key' => $f->value,
                 'label' => $f->label(),

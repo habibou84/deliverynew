@@ -23,14 +23,29 @@
                 @if ($plan['description'])
                     <p class="mt-1 text-sm text-slate-600">{{ $plan['description'] }}</p>
                 @endif
-                <p class="mt-5 flex items-baseline gap-1">
-                    <span class="text-4xl font-bold tracking-tight">{{ number_format($plan['price_monthly'], 0, ',', ' ') }}</span>
-                    <span class="text-sm font-medium text-slate-500">F CFA / mois</span>
-                </p>
+                @if ($plan['percent_summary'])
+                    <p class="mt-5 flex items-baseline gap-1">
+                        <span class="text-4xl font-bold tracking-tight">0</span>
+                        <span class="text-sm font-medium text-slate-500">F CFA de forfait</span>
+                    </p>
+                @else
+                    <p class="mt-5 flex items-baseline gap-1">
+                        <span class="text-4xl font-bold tracking-tight">{{ number_format($plan['price_monthly'], 0, ',', ' ') }}</span>
+                        <span class="text-sm font-medium text-slate-500">F CFA / mois</span>
+                    </p>
+                @endif
                 <ul class="mt-6 space-y-3 text-sm text-slate-700">
-                    <li class="flex gap-2"><x-marketing.icon name="check" class="mt-0.5 size-4 shrink-0 text-brand-600" />
-                        <span><strong>{{ number_format($plan['included_orders'], 0, ',', ' ') }}</strong> courses par mois incluses</span></li>
-                    @if ($plan['overage_per_order'] > 0)
+                    @if ($plan['percent_summary'])
+                        <li class="flex gap-2"><x-marketing.icon name="check" class="mt-0.5 size-4 shrink-0 text-brand-600" />
+                            <span>Vous payez <strong>{{ $plan['percent_summary'] }}</strong></span></li>
+                    @elseif ($plan['included_orders'] !== null)
+                        <li class="flex gap-2"><x-marketing.icon name="check" class="mt-0.5 size-4 shrink-0 text-brand-600" />
+                            <span><strong>{{ number_format($plan['included_orders'], 0, ',', ' ') }}</strong> courses par mois incluses</span></li>
+                    @else
+                        <li class="flex gap-2"><x-marketing.icon name="check" class="mt-0.5 size-4 shrink-0 text-brand-600" />
+                            <span>Courses illimitées</span></li>
+                    @endif
+                    @if (! $plan['percent_summary'] && $plan['included_orders'] !== null && $plan['overage_per_order'] > 0)
                         <li class="flex gap-2"><x-marketing.icon name="check" class="mt-0.5 size-4 shrink-0 text-brand-600" />
                             <span>Puis {{ number_format($plan['overage_per_order'], 0, ',', ' ') }} F par course</span></li>
                     @endif

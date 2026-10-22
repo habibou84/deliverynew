@@ -29,9 +29,19 @@
           <tr><th class="py-2">Désignation</th><th class="py-2 text-right">Quantité</th><th class="py-2 text-right">Prix</th><th class="py-2 text-right">Montant</th></tr>
         </thead>
         <tbody class="divide-y">
-          <tr>
+          <tr v-if="invoice.pricing === 'percent'">
             <td class="py-2">
-              Abonnement « {{ invoice.plan_name }} » — {{ monthLabel }}
+              Formule « {{ invoice.plan_name }} » — {{ invoice.period_label || monthLabel }}
+              <span class="block text-xs text-gray-500">Part des frais de livraison de chaque course prise en charge, du {{ date(invoice.period_start) }} au {{ date(invoice.period_end) }}</span>
+              <span v-if="invoice.cap_applied" class="block text-xs text-emerald-700">Plafond de la formule atteint : le montant est limité au plafond.</span>
+            </td>
+            <td class="py-2 text-right">{{ invoice.orders_count }}</td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right">{{ money(invoice.deliveries_amount) }}</td>
+          </tr>
+          <tr v-else>
+            <td class="py-2">
+              Abonnement « {{ invoice.plan_name }} » — {{ invoice.period_label || monthLabel }}
               <span class="block text-xs text-gray-500">Du {{ date(invoice.period_start) }} au {{ date(invoice.period_end) }}</span>
             </td>
             <td class="py-2 text-right">1</td>
@@ -47,15 +57,25 @@
             <td class="py-2 text-right">{{ money(invoice.overage_per_order) }}</td>
             <td class="py-2 text-right">{{ money(invoice.overage_amount) }}</td>
           </tr>
+          <tr v-if="invoice.carried_amount">
+            <td class="py-2">
+              Montants reportés des factures précédentes
+              <span class="block text-xs text-gray-500">Trop petits pour une facture à part, ils sont ajoutés à celle-ci.</span>
+            </td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right">{{ money(invoice.carried_amount) }}</td>
+          </tr>
         </tbody>
         <tfoot class="border-t">
           <tr><td colspan="3" class="py-2 text-right font-semibold">Total</td><td class="py-2 text-right font-bold">{{ money(invoice.total) }}</td></tr>
           <tr v-if="invoice.amount_paid"><td colspan="3" class="py-1 text-right text-gray-600">Déjà payé</td><td class="py-1 text-right">{{ money(invoice.amount_paid) }}</td></tr>
-          <tr v-if="invoice.status !== 'void'"><td colspan="3" class="py-1 text-right font-semibold">Reste à payer</td><td class="py-1 text-right font-semibold">{{ money(invoice.balance) }}</td></tr>
+          <tr v-if="invoice.status !== 'void' && invoice.status !== 'carried'"><td colspan="3" class="py-1 text-right font-semibold">Reste à payer</td><td class="py-1 text-right font-semibold">{{ money(invoice.balance) }}</td></tr>
         </tfoot>
       </table>
 
       <p v-if="invoice.status === 'paid'" class="rounded bg-emerald-50 p-3 font-medium text-emerald-800">✓ Facture payée{{ invoice.paid_at ? ` le ${date(invoice.paid_at)}` : '' }}.</p>
+      <p v-else-if="invoice.status === 'carried'" class="rounded bg-slate-100 p-3 font-medium">Rien à payer maintenant : ce petit montant est reporté sur la facture suivante{{ invoice.carried_into ? ` (${invoice.carried_into})` : '' }}.</p>
       <p v-else-if="invoice.status === 'void'" class="rounded bg-slate-100 p-3 font-medium">Facture annulée{{ invoice.notes ? ` : ${invoice.notes}` : '' }}.</p>
 
       <section v-if="invoice.payments?.length">

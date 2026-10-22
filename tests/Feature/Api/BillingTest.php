@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\OrderStatus;
 use App\Enums\Role;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Company;
@@ -42,10 +43,12 @@ class BillingTest extends TestCase
         $this->company->forceFill(['plan_id' => $this->plan->id, 'created_at' => '2026-01-01 00:00:00'])->save();
     }
 
+    // Course ramassée ce jour-là (prise en charge : c'est elle qui est facturée)
     private function orderOn(string $date): Order
     {
         $order = $this->createOrder();
-        $order->forceFill(['created_at' => CarbonImmutable::parse("{$date} 12:00", 'Africa/Abidjan')->utc()])->save();
+        $at = CarbonImmutable::parse("{$date} 12:00", 'Africa/Abidjan')->utc();
+        $order->forceFill(['created_at' => $at, 'picked_up_at' => $at, 'status' => OrderStatus::PickedUp])->save();
 
         return $order;
     }
@@ -65,6 +68,9 @@ class BillingTest extends TestCase
             $this->orderOn($day);
         }
         $this->orderOn('2026-09-30');
+        // Enregistrées dans le mois mais jamais ramassées, ou annulées avant : pas facturées
+        $this->createOrder()->forceFill(['created_at' => CarbonImmutable::parse('2026-10-05 12:00', 'Africa/Abidjan')->utc()])->save();
+        $this->createOrder()->forceFill(['created_at' => CarbonImmutable::parse('2026-10-06 12:00', 'Africa/Abidjan')->utc(), 'status' => OrderStatus::Cancelled])->save();
 
         $invoice = $this->invoiceOctober();
 
@@ -207,5 +213,70 @@ class BillingTest extends TestCase
         $other = PlatformInvoice::query()->create([...$invoice->only(['period', 'period_start', 'period_end', 'plan_name', 'base_amount', 'orders_count', 'overage_orders', 'overage_per_order', 'overage_amount', 'total', 'issued_at', 'due_at']),
             'company_id' => Company::factory()->create()->id, 'number' => 'FAC-X', 'included_orders' => 2]);
         $this->getJson("/api/v1/subscription/invoices/{$other->id}")->assertNotFound();
+    }
+
+    public function test_weekly_billing_from_the_next_monday_without_billing_a_day_twice(): void
+    {
+        Notification::fake();
+        $this->travelTo(CarbonImmutable::parse('2026-10-14 10:00', 'Africa/Abidjan'));
+        Sanctum::actingAs($this->admin);
+
+        // À la semaine à partir du lundi suivant ; la semaine coûte le mois ramené à la semaine (12 mois = 52 semaines)
+        $this->putJson('/api/v1/subscription/billing-cycle', ['billing_cycle' => 'weekly'])->assertOk()
+            ->assertJsonPath('data.billing_period.cycle', 'monthly')->assertJsonPath('data.billing_period.next_cycle', 'weekly')
+            ->assertJsonPath('data.billing_period.next_cycle_from', '2026-10-19')->assertJsonPath('data.plan.price_weekly', 5770);
+        $this->dispatcherCannotChangeCycle();
+
+        $this->orderOn('2026-10-10');
+        $this->orderOn('2026-10-20');
+        $this->orderOn('2026-10-21');
+
+        // Lundi : facture de la semaine écoulée (du 19 au 25), à régler sous 4 jours
+        $this->travelTo(CarbonImmutable::parse('2026-10-26 02:00', 'Africa/Abidjan'));
+        $this->artisan('billing:invoice')->expectsOutputToContain('1 facture(s) créée(s) pour 2026-W43')->assertSuccessful();
+        $week = PlatformInvoice::query()->where('period', '2026-W43')->sole();
+        $this->assertSame(['FAC-2026W43-0001', 'weekly', '2026-10-19', '2026-10-25', 5770, 0, 2, 60, 5830, '2026-10-30'], [
+            $week->number, $week->cycle, $week->period_start->toDateString(), $week->period_end->toDateString(),
+            $week->base_amount, $week->included_orders, $week->orders_count, $week->overage_amount, $week->total, $week->due_at->toDateString(),
+        ]);
+        $this->assertSame('semaine du 19/10 au 25/10/2026', $week->periodLabel());
+
+        // Le 1er : octobre facturé au mois seulement jusqu'au 18 (18 jours sur 31)
+        $this->travelTo(CarbonImmutable::parse('2026-11-01 02:00', 'Africa/Abidjan'));
+        $this->artisan('billing:invoice')->expectsOutputToContain('1 facture(s) créée(s) pour 2026-10')->assertSuccessful();
+        $month = PlatformInvoice::query()->where('period', '2026-10')->sole();
+        $this->assertSame(['monthly', '2026-10-01', '2026-10-18', 14516, 1, 1, 14516], [
+            $month->cycle, $month->period_start->toDateString(), $month->period_end->toDateString(),
+            $month->base_amount, $month->included_orders, $month->orders_count, $month->total,
+        ]);
+
+        // Pas d'aller-retour : un seul changement toutes les cinq semaines
+        $this->travelTo(CarbonImmutable::parse('2026-11-02 09:00', 'Africa/Abidjan'));
+        Sanctum::actingAs($this->admin);
+        $this->putJson('/api/v1/subscription/billing-cycle', ['billing_cycle' => 'monthly'])->assertJsonValidationErrors('billing_cycle');
+        $this->getJson('/api/v1/subscription')->assertJsonPath('data.billing_period.cycle', 'weekly')->assertJsonPath('data.usage.included_orders', 0);
+
+        // Console : une semaine pas encore commencée ne se facture pas
+        Sanctum::actingAs($this->root);
+        $this->postJson('/api/v1/console/invoices/generate', ['period' => '2026-W46'])->assertJsonValidationErrors('period');
+        $this->postJson('/api/v1/console/invoices/generate', ['period' => '2026-W44'])->assertCreated()->assertJsonPath('data.created', 1);
+        $this->getJson('/api/v1/console/invoices')->assertJsonPath('data.0.period_label', 'semaine du 26/10 au 01/11/2026');
+    }
+
+    public function test_a_pending_change_can_be_cancelled_before_it_starts(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2026-10-14 10:00', 'Africa/Abidjan'));
+        Sanctum::actingAs($this->admin);
+        $this->putJson('/api/v1/subscription/billing-cycle', ['billing_cycle' => 'weekly'])->assertJsonPath('data.billing_period.next_cycle', 'weekly');
+        $this->putJson('/api/v1/subscription/billing-cycle', ['billing_cycle' => 'monthly'])->assertOk()
+            ->assertJsonPath('data.billing_period.cycle', 'monthly')->assertJsonPath('data.billing_period.next_cycle', null);
+        $this->assertSame(['monthly', null], [$this->company->fresh()->billing_cycle, $this->company->fresh()->billing_cycle_from]);
+    }
+
+    private function dispatcherCannotChangeCycle(): void
+    {
+        Sanctum::actingAs($this->dispatcher);
+        $this->putJson('/api/v1/subscription/billing-cycle', ['billing_cycle' => 'monthly'])->assertForbidden();
+        Sanctum::actingAs($this->admin);
     }
 }

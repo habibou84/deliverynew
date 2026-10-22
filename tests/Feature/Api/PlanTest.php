@@ -42,8 +42,8 @@ class PlanTest extends TestCase
     {
         Sanctum::actingAs($this->root);
 
-        $this->postJson('/api/v1/console/plans/suggested')->assertCreated()->assertJsonCount(3, 'data')
-            ->assertJsonPath('data.1.name', 'Pro')->assertJsonPath('meta.trial_days', 30);
+        $this->postJson('/api/v1/console/plans/suggested')->assertCreated()->assertJsonCount(4, 'data')
+            ->assertJsonPath('data.0.pricing', 'percent')->assertJsonPath('data.2.name', 'Pro')->assertJsonPath('meta.trial_days', 30);
         $this->postJson('/api/v1/console/plans/suggested')->assertStatus(422);
 
         $id = $this->postJson('/api/v1/console/plans', [
@@ -147,9 +147,11 @@ class PlanTest extends TestCase
     public function test_subscription_shows_the_month_usage(): void
     {
         $this->company->update(['plan_id' => $this->plan()->id]);
+        // Courses prises en charge : 3 ramassées ; une jamais ramassée et une annulée ne comptent pas
         foreach (range(1, 3) as $i) {
-            $this->createOrder();
+            $this->createOrder()->forceFill(['status' => OrderStatus::PickedUp, 'picked_up_at' => now()])->save();
         }
+        $this->createOrder();
         $this->createOrder()->forceFill(['status' => OrderStatus::Cancelled])->save();
 
         Sanctum::actingAs($this->admin);
@@ -157,7 +159,7 @@ class PlanTest extends TestCase
 
         $this->assertSame('Essentiel', $data['plan']['name']);
         $this->assertSame(['orders' => 3, 'included_orders' => 2, 'overage_orders' => 1, 'couriers' => 2, 'max_couriers' => null], $data['usage']);
-        $this->assertSame(['base' => 25000, 'overage' => 30, 'total' => 25030], $data['estimate']);
+        $this->assertSame(['base' => 25000, 'overage' => 30, 'deliveries' => 0, 'cap_applied' => false, 'total' => 25030], $data['estimate']);
         $this->assertFalse(collect($data['features'])->firstWhere('key', 'api')['included']);
 
         // Pendant l'essai : rien à payer

@@ -54,6 +54,19 @@ class SubscriptionController extends Controller
     }
 
     /**
+     * Rythme de facturation : au mois ou à la semaine, à partir du lundi suivant.
+     */
+    public function updateCycle(Request $request, Billing $billing, Subscription $subscription): JsonResponse
+    {
+        $company = $request->user()->company;
+        abort_if($company === null, 404, 'Aucune entreprise.');
+        $data = $request->validate(['billing_cycle' => ['required', 'in:monthly,weekly']], [], ['billing_cycle' => 'rythme de facturation']);
+        $billing->setCycle($company, $data['billing_cycle']);
+
+        return response()->json(['data' => $subscription->summary($company->fresh())]);
+    }
+
+    /**
      * « Payer avec Wave » : le paiement est annoncé (le validateur est prévenu), puis le lien et le QR code s'affichent.
      */
     public function waveStart(Request $request, PlatformInvoice $invoice, WavePayments $payments, WaveSettings $wave): JsonResponse

@@ -22,14 +22,14 @@ class ConsoleBillingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $request->validate([
-            'status' => ['nullable', Rule::in([PlatformInvoice::OPEN, PlatformInvoice::PAID, PlatformInvoice::VOID, 'overdue'])],
+            'status' => ['nullable', Rule::in([PlatformInvoice::OPEN, PlatformInvoice::PAID, PlatformInvoice::VOID, PlatformInvoice::CARRIED, 'overdue'])],
             'company_id' => ['nullable', 'integer'],
             'period' => ['nullable', 'regex:/^\d{4}-\d{2}$/'],
         ]);
 
         $invoices = PlatformInvoice::query()->with('company:id,name,slug')
             ->when($request->string('status')->toString() === 'overdue', fn ($q) => $q->unpaid()->where('due_at', '<', now()->toDateString()))
-            ->when(in_array($request->input('status'), [PlatformInvoice::OPEN, PlatformInvoice::PAID, PlatformInvoice::VOID], true), fn ($q) => $q->where('status', $request->input('status')))
+            ->when(in_array($request->input('status'), [PlatformInvoice::OPEN, PlatformInvoice::PAID, PlatformInvoice::VOID, PlatformInvoice::CARRIED], true), fn ($q) => $q->where('status', $request->input('status')))
             ->when($request->filled('company_id'), fn ($q) => $q->where('company_id', $request->integer('company_id')))
             ->when($request->filled('period'), fn ($q) => $q->where('period', $request->string('period')))
             ->orderByDesc('period')->orderByDesc('id')
@@ -58,7 +58,13 @@ class ConsoleBillingController extends Controller
      */
     public function generate(Request $request): JsonResponse
     {
-        $data = $request->validate(['period' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/', 'before_or_equal:'.now()->format('Y-m')]], [], ['period' => 'mois']);
+        // Mois (AAAA-MM) ou semaine (AAAA-Wss) déjà commencés
+        $data = $request->validate(['period' => ['required', 'regex:/^\d{4}-((0[1-9]|1[0-2])|W(0[1-9]|[1-4]\d|5[0-3]))$/', function (string $attribute, mixed $value, \Closure $fail) {
+            $current = str_contains((string) $value, 'W') ? now()->isoFormat('GGGG-[W]WW') : now()->format('Y-m');
+            if ((string) $value > $current) {
+                $fail('Cette période n\'a pas encore commencé.');
+            }
+        }]], [], ['period' => 'période']);
 
         $created = $this->billing->generate($data['period']);
 
@@ -141,6 +147,8 @@ class ConsoleBillingController extends Controller
             'number' => $i->number,
             'company' => $i->relationLoaded('company') && $i->company ? ['id' => $i->company->id, 'name' => $i->company->name, 'slug' => $i->company->slug] : null,
             'period' => $i->period,
+            'cycle' => $i->cycle,
+            'period_label' => $i->periodLabel(),
             'period_start' => $i->period_start->toDateString(),
             'period_end' => $i->period_end->toDateString(),
             'plan_name' => $i->plan_name,
@@ -150,6 +158,12 @@ class ConsoleBillingController extends Controller
             'overage_orders' => $i->overage_orders,
             'overage_per_order' => $i->overage_per_order,
             'overage_amount' => $i->overage_amount,
+            // Formule à la livraison : pourcentage des frais des courses, plafond atteint ; petites factures reportées
+            'pricing' => $i->pricing ?? 'flat',
+            'deliveries_amount' => (int) $i->deliveries_amount,
+            'cap_applied' => (bool) $i->cap_applied,
+            'carried_amount' => (int) $i->carried_amount,
+            'carried_into' => $i->carried_into_id ? $i->carriedInto?->number : null,
             'total' => $i->total,
             'amount_paid' => $i->amount_paid,
             'balance' => $i->balance(),

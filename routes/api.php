@@ -189,6 +189,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('companies', 'companies')->name('companies');
             Route::get('companies/{company}', 'show')->name('companies.show');
             Route::post('companies/{company}/support-session', 'supportSession')->middleware('throttle:10,1')->name('companies.support');
+            Route::put('companies/{company}/billing-cycle', 'billingCycle')->name('companies.billing-cycle');
         });
         Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsolePlanController::class)->group(function () {
             Route::get('plans', 'index')->name('plans.index');
@@ -234,6 +235,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Formule, essai et consommation du mois de l'entreprise
         Route::get('subscription', [SubscriptionController::class, 'show'])->middleware('can:settings.manage')->name('subscription.show');
         Route::get('subscription/invoices/{invoice}', [SubscriptionController::class, 'invoice'])->middleware('can:settings.manage')->name('subscription.invoice');
+        Route::put('subscription/billing-cycle', [SubscriptionController::class, 'updateCycle'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.cycle');
         Route::post('subscription/invoices/{invoice}/wave', [SubscriptionController::class, 'waveStart'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.wave');
         Route::post('subscription/wave-payments/{payment}/paid', [SubscriptionController::class, 'waveClaim'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.wave.paid');
 

@@ -54,7 +54,17 @@
       <div class="card p-4 space-y-3 lg:col-span-2">
         <h2 class="font-semibold">🧾 Abonnement</h2>
         <div class="grid md:grid-cols-2 gap-6">
-          <SubscriptionSummary :summary="company.subscription" />
+          <div class="space-y-3">
+            <SubscriptionSummary :summary="company.subscription" />
+            <div v-if="company.subscription.plan" class="text-sm">
+              <label class="label" for="s-cycle">Rythme de facturation</label>
+              <select id="s-cycle" :value="company.subscription.billing_period.next_cycle ?? company.subscription.billing_period.cycle" class="input w-auto" @change="changeCycle($event.target.value)">
+                <option value="monthly">Au mois</option>
+                <option value="weekly">À la semaine</option>
+              </select>
+              <p v-if="company.subscription.billing_period.next_cycle" class="mt-1 text-xs text-amber-700">Changement le lundi {{ company.subscription.billing_period.next_cycle_from }}.</p>
+            </div>
+          </div>
           <form class="space-y-3" @submit.prevent="saveSubscription">
             <div>
               <label class="label" for="s-plan">Formule</label>
@@ -86,7 +96,7 @@
             <tbody class="divide-y">
               <tr v-for="i in company.invoices" :key="i.id">
                 <td class="py-1 font-mono"><RouterLink :to="`/console/factures/${i.id}`" class="text-blue-600">{{ i.number }}</RouterLink></td>
-                <td class="py-1">{{ i.period }}</td>
+                <td class="py-1">{{ i.period_label || i.period }}</td>
                 <td class="py-1 text-right">{{ money(i.total) }}</td>
                 <td class="py-1 text-right">{{ i.status === 'void' ? '—' : money(i.balance) }}</td>
                 <td class="py-1 text-right"><InvoiceStatus :invoice="i" /></td>
@@ -185,6 +195,16 @@ async function load() {
     name: company.value.name, slug: company.value.slug, phone: company.value.phone || '',
     email: company.value.email || '', timezone: company.value.timezone || 'Africa/Abidjan',
   })
+}
+
+async function changeCycle(cycle) {
+  try {
+    company.value = (await http.put(`/console/companies/${company.value.id}/billing-cycle`, { billing_cycle: cycle })).data.data
+    toasts.success('Rythme de facturation enregistré.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+    await load()
+  }
 }
 
 async function save() {
