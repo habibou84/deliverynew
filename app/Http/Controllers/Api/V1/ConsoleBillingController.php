@@ -163,6 +163,10 @@ class ConsoleBillingController extends Controller
             'deliveries_amount' => (int) $i->deliveries_amount,
             'cap_applied' => (bool) $i->cap_applied,
             'carried_amount' => (int) $i->carried_amount,
+            // Livreurs en plus de la formule : jours de livreurs au-delà de la limite, prix du mois d'un livreur
+            'extra_courier_days' => (int) $i->extra_courier_days,
+            'extra_courier_price' => (int) $i->extra_courier_price,
+            'extra_couriers_amount' => (int) $i->extra_couriers_amount,
             'carried_into' => $i->carried_into_id ? $i->carriedInto?->number : null,
             'total' => $i->total,
             'amount_paid' => $i->amount_paid,
