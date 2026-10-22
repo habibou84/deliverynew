@@ -40,6 +40,28 @@
       <button type="button" class="btn-primary" :disabled="busy" @click="createKey">{{ state.active ? 'Créer une nouvelle clé' : 'Créer une clé de reprise' }}</button>
       <button v-if="state.active" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="revoke">Désactiver la clé</button>
     </div>
+    <!-- Zones : seulement les noms, depuis l'export de la table « fees » -->
+    <div class="space-y-2 rounded-lg border p-3">
+      <p class="text-sm font-medium">Zones de l'ancienne application</p>
+      <p class="text-xs text-gray-600">
+        Exportez la table « fees » depuis phpMyAdmin (format SQL) et envoyez le fichier : le nom de chaque lieu est ajouté à vos zones.
+        Les prix ne sont pas repris. Une zone déjà présente n'est pas recréée.
+      </p>
+      <div class="flex flex-wrap items-center gap-2">
+        <input ref="zonesFile" type="file" accept=".sql,text/plain" class="text-sm" @change="zonesReport = null">
+        <button type="button" class="btn-secondary" :disabled="busy" @click="importZones(true)">Simuler</button>
+        <button type="button" class="btn-primary" :disabled="busy || !zonesReport?.dry" @click="importZones(false)">Ajouter les zones</button>
+      </div>
+      <div v-if="zonesReport" class="text-sm space-y-1">
+        <p :class="zonesReport.dry ? 'text-gray-700' : 'text-emerald-700 font-medium'">
+          {{ zonesReport.dry ? 'Simulation : ' : 'Fait : ' }}{{ zonesReport.counts.zones_created }} zone(s) {{ zonesReport.dry ? 'à ajouter' : 'ajoutée(s)' }},
+          {{ zonesReport.counts.zones_existing }} déjà présente(s).
+        </p>
+        <p class="text-xs text-gray-600">{{ zonesReport.zones.filter((z) => z.status === 'created').map((z) => z.name).join(', ') || 'Aucune nouvelle zone.' }}</p>
+        <p v-for="s in zonesReport.skipped" :key="s.id" class="text-xs text-gray-500">Ignorée : {{ s.name }} ({{ s.reason }})</p>
+      </div>
+    </div>
+
     <p class="text-xs text-gray-500">
       La clé est valable 7 jours ; une nouvelle clé remplace la précédente. Désactivez-la une fois la reprise terminée.
       Créez d'abord vos zones : la commune de chaque e-commerçant sert à choisir sa zone de ramassage.
@@ -61,6 +83,29 @@ const state = ref(null)
 const key = ref('')
 const busy = ref(false)
 const origin = window.location.origin
+const zonesFile = ref(null)
+const zonesReport = ref(null)
+
+// Simulation d'abord, puis ajout des zones (même fichier)
+async function importZones(dryRun) {
+  const file = zonesFile.value?.files?.[0]
+  if (!file) {
+    toasts.error('Choisissez le fichier SQL de la table « fees ».')
+    return
+  }
+  busy.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('dry_run', dryRun ? '1' : '0')
+    const { data } = await http.post('/company/legacy-import/zones', form)
+    zonesReport.value = { ...data.data, dry: dryRun }
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy.value = false
+  }
+}
 
 async function createKey() {
   if (state.value.active && !window.confirm('Créer une nouvelle clé ? L\'ancienne ne fonctionnera plus.')) return

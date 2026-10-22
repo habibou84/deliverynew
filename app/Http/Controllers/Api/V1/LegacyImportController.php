@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Services\Legacy\LegacyAccountsImporter;
+use App\Services\Legacy\LegacyZonesImporter;
+use App\Services\Legacy\SqlDumpReader;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
@@ -50,6 +53,24 @@ class LegacyImportController extends Controller
         $company->forceFill(['legacy_import_key_hash' => null, 'legacy_import_key_expires_at' => null])->save();
 
         return response()->json(['data' => $this->describe($company)]);
+    }
+
+    /**
+     * Zones de l'ancienne application : export SQL de la table « fees » ; seuls les noms des lieux sont repris.
+     */
+    public function zones(Request $request, LegacyZonesImporter $importer): JsonResponse
+    {
+        $data = $request->validate([
+            'file' => ['required', 'file', 'max:5120'],
+            'dry_run' => ['sometimes', 'boolean'],
+        ], [], ['file' => 'fichier']);
+
+        $dump = new SqlDumpReader((string) file_get_contents($data['file']->getRealPath()));
+        if (! $dump->hasTable('fees')) {
+            throw ValidationException::withMessages(['file' => 'Le fichier ne contient pas la table « fees » des zones de l\'ancienne application.']);
+        }
+
+        return response()->json(['data' => $importer->import($request->user()->company, $dump, (bool) ($data['dry_run'] ?? false))]);
     }
 
     public function module(): BinaryFileResponse
