@@ -6,18 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Services\Legacy\LegacyAccountsImporter;
 use App\Services\Legacy\LegacyZonesImporter;
-use App\Services\Legacy\SqlDumpReader;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Reprise depuis l'ancienne application (Laravel 5.8) par un bouton : l'administrateur crée une clé
  * (Paramètres), la colle dans la page « Migration vers Jibiat » de l'ancienne application, qui envoie
- * ses comptes par paquets : e-commerçants, puis livreurs. Les comptes de l'équipe se recréent.
+ * par paquets : les noms des zones (table « fees »), puis les e-commerçants, puis les livreurs. Les comptes de
+ * l'équipe se recréent.
  */
 class LegacyImportController extends Controller
 {
@@ -55,34 +54,16 @@ class LegacyImportController extends Controller
         return response()->json(['data' => $this->describe($company)]);
     }
 
-    /**
-     * Zones de l'ancienne application : export SQL de la table « fees » ; seuls les noms des lieux sont repris.
-     */
-    public function zones(Request $request, LegacyZonesImporter $importer): JsonResponse
-    {
-        $data = $request->validate([
-            'file' => ['required', 'file', 'max:5120'],
-            'dry_run' => ['sometimes', 'boolean'],
-        ], [], ['file' => 'fichier']);
-
-        $dump = new SqlDumpReader((string) file_get_contents($data['file']->getRealPath()));
-        if (! $dump->hasTable('fees')) {
-            throw ValidationException::withMessages(['file' => 'Le fichier ne contient pas la table « fees » des zones de l\'ancienne application.']);
-        }
-
-        return response()->json(['data' => $importer->import($request->user()->company, $dump, (bool) ($data['dry_run'] ?? false))]);
-    }
-
     public function module(): BinaryFileResponse
     {
         return response()->download(base_path(self::MODULE), 'JibiatMigrationController.php', ['Content-Type' => 'text/plain; charset=utf-8']);
     }
 
     /**
-     * Paquet envoyé par l'ancienne application. « step » : clients ou livreurs, avec les comptes
-     * « users » qui leur sont liés.
+     * Paquet envoyé par l'ancienne application. « step » : zones (lignes « fees », seulement leur nom), clients ou
+     * livreurs, avec les comptes « users » qui leur sont liés.
      */
-    public function receive(Request $request, LegacyAccountsImporter $importer): JsonResponse
+    public function receive(Request $request, LegacyAccountsImporter $importer, LegacyZonesImporter $zones): JsonResponse
     {
         $company = $this->companyForKey((string) $request->bearerToken());
         if ($company === null) {
@@ -96,7 +77,7 @@ class LegacyImportController extends Controller
         }
 
         $data = $request->validate([
-            'step' => ['required', 'in:clients,livreurs'],
+            'step' => ['required', 'in:zones,clients,livreurs'],
             'dry_run' => ['sometimes', 'boolean'],
             'users' => ['present', 'array', 'max:'.self::MAX_ROWS * 3],
             'users.*' => ['array'],
@@ -104,18 +85,23 @@ class LegacyImportController extends Controller
             'clients.*' => ['array'],
             'livreurs' => ['sometimes', 'array', 'max:'.self::MAX_ROWS],
             'livreurs.*' => ['array'],
+            'fees' => ['sometimes', 'array', 'max:'.self::MAX_ROWS],
+            'fees.*' => ['array'],
         ]);
 
         $step = $data['step'];
-        $report = $importer->importRows(
-            $company,
-            self::rows($data['users']),
-            $step === 'clients' ? self::rows($data['clients'] ?? []) : [],
-            $step === 'livreurs' ? self::rows($data['livreurs'] ?? []) : [],
-            (bool) ($data['dry_run'] ?? false),
-        );
+        $dryRun = (bool) ($data['dry_run'] ?? false);
+        $report = $step === 'zones'
+            ? $zones->importRows($company, self::rows($data['fees'] ?? []), $dryRun)
+            : $importer->importRows(
+                $company,
+                self::rows($data['users']),
+                $step === 'clients' ? self::rows($data['clients'] ?? []) : [],
+                $step === 'livreurs' ? self::rows($data['livreurs'] ?? []) : [],
+                $dryRun,
+            );
 
-        if (! ($data['dry_run'] ?? false)) {
+        if (! $dryRun) {
             $company->forceFill(['legacy_import_used_at' => now()])->save();
         }
 

@@ -230,7 +230,6 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('key', 'createKey')->middleware('throttle:10,1')->name('key.store');
             Route::delete('key', 'destroyKey')->name('key.destroy');
             Route::get('module', 'module')->name('module');
-            Route::post('zones', 'zones')->middleware('throttle:20,1')->name('zones');
         });
         // Bascule depuis l'ancienne application : date, clé, module
         Route::prefix('company/legacy-switch')->name('company.legacy-switch.')->middleware('can:settings.manage')->controller(LegacySwitchController::class)->group(function () {

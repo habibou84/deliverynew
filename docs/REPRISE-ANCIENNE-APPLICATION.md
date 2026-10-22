@@ -4,11 +4,14 @@ Deux temps, tous deux dans **Réglages › Intégrations › Reprise de l'ancien
 
 ## 1. Reprise des comptes
 
-Les e-commerçants (table `clients`) et les livreurs (`livreurs`) arrivent avec leur compte de connexion (`users` de type
+D'abord les **noms des zones** (table `fees` : seulement la colonne `destination`, nettoyée ; ni prix ni tarifs, la
+grille de Jibiat ne change pas ; une zone déjà présente n'est pas recréée, la ligne d'expédition est ignorée). Puis les
+e-commerçants (table `clients`) et les livreurs (`livreurs`) arrivent avec leur compte de connexion (`users` de type
 `client` ou `livreur`) : même numéro, même mot de passe. Les commandes et les comptes de l'équipe ne sont pas repris
 (l'équipe se recrée dans Utilisateurs). Rien n'est modifié dans l'ancienne base.
 
-1. Créer les zones dans Jibiat : la commune de chaque e-commerçant choisit sa zone de ramassage.
+1. Les zones arrivent en premier : la commune de chaque e-commerçant choisit sa zone de ramassage. Les tarifs se
+   fixent ensuite dans Tarifs.
 2. Télécharger `JibiatMigrationController.php` et l'installer dans l'ancienne application (explications en tête du
    fichier : le copier dans `app/Http/Controllers`, ajouter deux routes).
 3. Créer une **clé de reprise** (valable 7 jours) et la coller, avec l'adresse de l'espace Jibiat, dans la page

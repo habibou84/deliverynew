@@ -3,7 +3,8 @@
 /*
  * Migration vers Jibiat — module pour l'ancienne application (Laravel 5.8, PHP 7.1 ou plus, extension curl).
  *
- * Envoie au nouveau serveur les e-commerçants (table clients) et les livreurs (livreurs) avec leurs comptes
+ * Envoie au nouveau serveur les noms des zones (table fees, sans les prix), puis les e-commerçants (table clients)
+ * et les livreurs (livreurs) avec leurs comptes
  * de connexion (users de type « client » ou « livreur »). Mêmes numéros, mêmes mots de passe. Les comptes de
  * l'équipe (autres types) ne sont pas envoyés : ils se recréent sur Jibiat. Rien n'est modifié ni supprimé
  * dans l'ancienne base.
@@ -29,6 +30,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 class JibiatMigrationController extends Controller
@@ -44,6 +46,7 @@ class JibiatMigrationController extends Controller
         $this->authorizeAccess();
 
         return response($this->page([
+            'zones' => Schema::hasTable('fees') ? DB::table('fees')->count() : 0,
             'clients' => DB::table('clients')->count(),
             'livreurs' => DB::table('livreurs')->count(),
             'team' => DB::table('users')->whereNotIn(DB::raw('LOWER(TRIM(usertype))'), array_values(self::STEPS))->orWhereNull('usertype')->count(),
@@ -66,7 +69,7 @@ class JibiatMigrationController extends Controller
         if (strpos($key, 'jbm_') !== 0) {
             return $this->error('Clé de reprise invalide : copiez-la depuis Jibiat › Paramètres › Reprise de l\'ancienne application.');
         }
-        if (! isset(self::STEPS[$step])) {
+        if ($step !== 'zones' && ! isset(self::STEPS[$step])) {
             return $this->error('Étape inconnue.');
         }
         if (! function_exists('curl_init')) {
@@ -113,6 +116,14 @@ class JibiatMigrationController extends Controller
      */
     private function batch($step, $offset)
     {
+        // Zones : seulement les lignes de la table fees (Jibiat n'en garde que le nom)
+        if ($step === 'zones') {
+            $total = Schema::hasTable('fees') ? DB::table('fees')->count() : 0;
+            $rows = $total ? DB::table('fees')->orderBy('id')->offset($offset)->limit(self::BATCH)->get() : collect();
+
+            return [['fees' => $this->arrays($rows), 'users' => []], count($rows), $total];
+        }
+
         $table = $step;
         $link = $step === 'clients' ? 'client_id' : 'livreur_id';
         $total = DB::table($table)->count();
@@ -247,8 +258,8 @@ class JibiatMigrationController extends Controller
 <script>
 (function () {
   var counts = {$counts};
-  var labels = { clients: 'E-commerçants (clients)', livreurs: 'Livreurs', team: 'Comptes de l\'équipe (non envoyés, à recréer sur Jibiat)' };
-  var steps = ['clients', 'livreurs'];
+  var labels = { zones: 'Zones (noms des lieux de la table fees)', clients: 'E-commerçants (clients)', livreurs: 'Livreurs', team: 'Comptes de l\'équipe (non envoyés, à recréer sur Jibiat)' };
+  var steps = ['zones', 'clients', 'livreurs'];
   var el = function (id) { return document.getElementById(id); };
 
   function row(table, cells, head) {
@@ -256,7 +267,7 @@ class JibiatMigrationController extends Controller
     cells.forEach(function (text) { var td = document.createElement(head ? 'th' : 'td'); td.textContent = text; tr.appendChild(td); });
     table.appendChild(tr);
   }
-  ['clients', 'livreurs', 'team'].forEach(function (s) { row(el('counts'), [labels[s], String(counts[s])]); });
+  ['zones', 'clients', 'livreurs', 'team'].forEach(function (s) { row(el('counts'), [labels[s], String(counts[s])]); });
 
   try { el('url').value = localStorage.getItem('jibiat-url') || ''; } catch (e) {}
 
@@ -276,7 +287,7 @@ class JibiatMigrationController extends Controller
   function run(dryRun) {
     var url = el('url').value.trim(), key = el('key').value.trim();
     try { localStorage.setItem('jibiat-url', url); } catch (e) {}
-    var totals = { merchants: 0, merchant_users: 0, couriers: 0, couriers_suspended: 0 };
+    var totals = { zones_created: 0, zones_existing: 0, merchants: 0, merchant_users: 0, couriers: 0, couriers_suspended: 0 };
     var skipped = [], warnings = [];
     el('simulate').disabled = el('send').disabled = true;
     el('status').className = '';
@@ -301,6 +312,7 @@ class JibiatMigrationController extends Controller
       el('report').hidden = false;
       el('report-title').textContent = dryRun ? 'Simulation (rien n\'a été enregistré)' : 'Envoi terminé';
       el('totals').innerHTML = ''; el('skipped').innerHTML = ''; el('warnings').innerHTML = '';
+      row(el('totals'), ['Zones ajoutées', totals.zones_created + (totals.zones_existing ? ' (' + totals.zones_existing + ' déjà présente(s))' : '')]);
       row(el('totals'), ['E-commerçants importés', String(totals.merchants)]);
       row(el('totals'), ['Autres comptes des e-commerçants', String(totals.merchant_users)]);
       row(el('totals'), ['Livreurs importés', totals.couriers + (totals.couriers_suspended ? ' (dont ' + totals.couriers_suspended + ' suspendu(s))' : '')]);
