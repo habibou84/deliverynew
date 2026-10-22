@@ -80,6 +80,10 @@ class UserController extends Controller
 
             return $user;
         });
+        // Livreurs en plus de la formule : comptés dès le jour où ils sont actifs
+        if ($data['role'] === Role::Courier->value && $user->company) {
+            $subscription->recordCouriers($user->company);
+        }
 
         return UserResource::make($user->load(['roles', 'company']))
             ->response()
@@ -118,6 +122,9 @@ class UserController extends Controller
                 $user->tokens()->delete();
             }
         });
+        if ($isCourier && $isActive && ! $wasCounted && $user->company) {
+            $subscription->recordCouriers($user->company);
+        }
 
         return UserResource::make($user->load(['roles', 'company']));
     }

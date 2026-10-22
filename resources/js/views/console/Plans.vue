@@ -32,14 +32,14 @@
             <li v-if="p.volume_threshold">📉 {{ rate(p.volume_rate) }} au-delà de {{ p.volume_threshold }} courses par mois</li>
             <li v-if="p.cap_amount !== null">🧢 Plafond de {{ money(p.cap_amount) }} par mois</li>
             <li v-if="p.min_invoice">🧾 Facture reportée sous {{ money(p.min_invoice) }}</li>
-            <li>🛵 {{ p.max_couriers === null ? 'Livreurs illimités' : `${p.max_couriers} livreurs actifs au plus` }}</li>
+            <li>🛵 {{ couriersText(p) }}</li>
           </ul>
         </template>
         <p v-else class="text-2xl font-bold">{{ money(p.price_monthly) }} <span class="text-sm font-normal text-gray-500">/ mois</span></p>
         <ul v-if="p.pricing !== 'percent'" class="text-sm space-y-1">
           <li>📦 {{ p.included_orders === null ? 'Courses illimitées' : `${p.included_orders} courses incluses` }}</li>
           <li v-if="p.included_orders !== null">➕ {{ money(p.overage_per_order) }} par course en plus</li>
-          <li>🛵 {{ p.max_couriers === null ? 'Livreurs illimités' : `${p.max_couriers} livreurs actifs au plus` }}</li>
+          <li>🛵 {{ couriersText(p) }}</li>
           <li v-if="p.min_invoice">🧾 Facture reportée sous {{ money(p.min_invoice) }}</li>
         </ul>
         <ul class="text-sm space-y-1 border-t pt-2">
@@ -100,6 +100,11 @@
             <label class="label" for="p-overage">Prix par course en plus (F)</label>
             <input id="p-overage" v-model.number="form.overage_per_order" type="number" min="0" class="input" :disabled="form.included_orders === '' || form.included_orders === null">
           </div>
+        </div>
+        <div>
+          <label class="label" for="p-extra">Prix d'un livreur en plus (F par mois)</label>
+          <input id="p-extra" v-model.number="form.extra_courier_price" type="number" min="0" class="input" placeholder="Pas de livreur en plus" :disabled="orNull(form.max_couriers) === null">
+          <p class="text-xs text-gray-500 mt-1">Au-delà des livreurs de la formule, l'entreprise peut en ajouter : chacun est facturé ce prix par mois, au prorata des jours où il est actif. Vide : elle ne peut pas dépasser la limite.</p>
         </div>
         <div>
           <label class="label" for="p-mininv">Montant minimum d'une facture (F)</label>
@@ -178,6 +183,7 @@ function edit(plan) {
     included_orders: plan?.included_orders ?? '',
     overage_per_order: plan?.overage_per_order ?? 0,
     max_couriers: plan?.max_couriers ?? '',
+    extra_courier_price: plan?.extra_courier_price ?? '',
     // Pourcentages affichés en % (enregistrés en centièmes de pour cent)
     pricing: plan?.pricing ?? 'flat',
     percent_rate: plan?.percent_rate ? plan.percent_rate / 100 : 1,
@@ -190,6 +196,12 @@ function edit(plan) {
     features: [...(plan?.features ?? [])],
     is_active: plan?.is_active ?? true,
   })
+}
+
+function couriersText(p) {
+  if (p.max_couriers === null) return 'Livreurs illimités'
+  const extra = p.extra_courier_price !== null ? `, puis ${money(p.extra_courier_price)} par mois par livreur en plus` : ' au plus'
+  return `${p.max_couriers} livreurs actifs${extra}`
 }
 
 // Champ vide = illimité
@@ -215,6 +227,7 @@ async function save() {
     included_orders: percent ? null : orNull(form.included_orders),
     overage_per_order: percent || orNull(form.included_orders) === null ? 0 : (form.overage_per_order || 0),
     max_couriers: orNull(form.max_couriers),
+    extra_courier_price: orNull(form.max_couriers) === null ? null : orNull(form.extra_courier_price),
     percent_rate: percent ? hundredths(form.percent_rate) : null,
     percent_min: percent ? (form.percent_min || 0) : 0,
     percent_max: percent ? orNull(form.percent_max) : null,

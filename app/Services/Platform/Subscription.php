@@ -6,6 +6,7 @@ use App\Enums\PlatformFeature;
 use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Models\Company;
+use App\Models\CourierCount;
 use App\Models\Plan;
 use App\Models\PlatformInvoice;
 use App\Models\User;
@@ -42,18 +43,34 @@ class Subscription
     }
 
     /**
-     * Refuse un livreur actif de plus quand la formule est au maximum.
+     * Refuse un livreur actif de plus quand la formule est au maximum, sauf si elle permet des livreurs en plus
+     * (facturés).
      *
      * @throws ValidationException
      */
     public function ensureCourierRoom(Company $company, string $field = 'role'): void
     {
-        $max = $company->loadMissing('plan')->plan?->max_couriers;
+        $plan = $company->loadMissing('plan')->plan;
+        $max = $plan?->max_couriers;
 
-        if ($max !== null && $this->activeCouriers($company) >= $max) {
+        if ($max !== null && ! $plan->allowsExtraCouriers() && $this->activeCouriers($company) >= $max) {
             throw ValidationException::withMessages([
                 $field => "Votre formule « {$company->plan->name} » permet {$max} livreur(s) actif(s) : suspendez un livreur ou passez à une formule supérieure.",
             ]);
+        }
+    }
+
+    /**
+     * Relève le nombre de livreurs actifs du jour (le plus grand de la journée est gardé).
+     */
+    public function recordCouriers(Company $company): void
+    {
+        $day = CarbonImmutable::now($company->timezone)->toDateString();
+        $count = $this->activeCouriers($company);
+        $row = CourierCount::query()->firstOrNew(['company_id' => $company->id, 'day' => $day]);
+        if (! $row->exists || $count > $row->couriers) {
+            $row->couriers = $count;
+            $row->save();
         }
     }
 
@@ -78,6 +95,9 @@ class Subscription
             $deliveries = $this->billing->amounts($plan, $company, $current['start'], $current['end']->addDay(), $weekly ? 12 / 52 : 1.0, $current['cycle']);
             [$base, $included, $overageOrders, $overageAmount] = [0, null, 0, 0];
         }
+        // Livreurs en plus de la formule depuis le début de la période
+        $extra = $plan ? $this->billing->extraCouriers($plan, $company, $current['start'], CarbonImmutable::now($company->timezone)->startOfDay(), $current['cycle']) : ['days' => 0, 'amount' => 0];
+        $couriers = $this->activeCouriers($company);
         $from = $company->billing_cycle_from;
 
         return [
@@ -91,6 +111,7 @@ class Subscription
                 'included_orders_weekly' => $plan->weeklyIncludedOrders(),
                 'overage_per_order' => $plan->overage_per_order,
                 'max_couriers' => $plan->max_couriers,
+                'extra_courier_price' => $plan->allowsExtraCouriers() ? $plan->extra_courier_price : null,
                 'pricing' => $plan->pricing ?: Plan::FLAT,
                 'percent_rate' => $plan->percent_rate,
                 'percent_min' => (int) $plan->percent_min,
@@ -116,8 +137,10 @@ class Subscription
                 'orders' => $orders,
                 'included_orders' => $included,
                 'overage_orders' => $overageOrders,
-                'couriers' => $this->activeCouriers($company),
+                'couriers' => $couriers,
                 'max_couriers' => $plan?->max_couriers,
+                'extra_couriers' => $plan?->max_couriers !== null ? max(0, $couriers - $plan->max_couriers) : 0,
+                'extra_courier_days' => $extra['days'],
             ],
             // Montant estimé de la période (forfait + dépassement, ou part des courses) ; rien pendant l'essai
             'estimate' => [
@@ -125,7 +148,8 @@ class Subscription
                 'overage' => $overageAmount,
                 'deliveries' => $deliveries['deliveries_amount'] ?? 0,
                 'cap_applied' => $deliveries['cap_applied'] ?? false,
-                'total' => $company->onTrial() ? 0 : $base + $overageAmount + ($deliveries['deliveries_amount'] ?? 0),
+                'extra_couriers' => $extra['amount'],
+                'total' => $company->onTrial() ? 0 : $base + $overageAmount + ($deliveries['deliveries_amount'] ?? 0) + $extra['amount'],
             ],
             // Prix de chaque formule sur les 30 derniers jours, pour comparer
             'comparison' => $this->billing->comparison($company),

@@ -7,6 +7,7 @@ use App\Enums\OrderStatus;
 use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Models\Company;
+use App\Models\CourierCount;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\PlatformInvoice;
@@ -88,11 +89,12 @@ class Billing
         // ramenés à la semaine (12 mois = 52 semaines)
         $share = $cycle === PlatformInvoice::WEEKLY ? $days / 7 * 12 / 52 : $days / $periodStart->daysInMonth;
         $amounts = $this->amounts($plan, $company, $start, $end->addDay(), $share, $cycle);
+        $extra = $this->extraCouriers($plan, $company, $start, $end, $cycle);
 
         // Petites factures précédentes reportées sur celle-ci
         $carried = PlatformInvoice::query()->where('company_id', $company->id)->where('status', PlatformInvoice::CARRIED)->whereNull('carried_into_id')->get();
         $carriedAmount = (int) $carried->sum('total');
-        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $carriedAmount;
+        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $extra['amount'] + $carriedAmount;
 
         if ($total <= 0) {
             return null;
@@ -100,7 +102,7 @@ class Billing
         // Trop petite pour une facture à part : reportée sur la suivante
         $isCarried = $plan->min_invoice !== null && $total < $plan->min_invoice;
 
-        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $carried, $carriedAmount, $total, $isCarried, $tz) {
+        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $carried, $carriedAmount, $total, $isCarried, $tz) {
             $today = CarbonImmutable::now($tz);
             $dueDays = (int) config($cycle === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_due_days' : 'platform.billing.due_days');
 
@@ -121,6 +123,9 @@ class Billing
                 'overage_amount' => $amounts['overage_amount'],
                 'deliveries_amount' => $amounts['deliveries_amount'],
                 'cap_applied' => $amounts['cap_applied'],
+                'extra_courier_days' => $extra['days'],
+                'extra_courier_price' => $extra['days'] > 0 ? $extra['price'] : 0,
+                'extra_couriers_amount' => $extra['amount'],
                 'carried_amount' => $carriedAmount,
                 'total' => $total,
                 'status' => $isCarried ? PlatformInvoice::CARRIED : PlatformInvoice::OPEN,
@@ -176,6 +181,26 @@ class Billing
 
         return ['base' => 0, 'included' => null, 'orders' => $fees->count(), 'overage_orders' => 0,
             'overage_amount' => 0, 'deliveries_amount' => $capped ? $cap : $amount, 'cap_applied' => $capped];
+    }
+
+    /**
+     * Livreurs en plus de la formule du premier au dernier jour (compris) : chaque jour, les livreurs actifs au-delà
+     * de la limite, au prix du mois ramené au jour (jours du mois, ou semaine sur la base de 12 mois = 52 semaines).
+     *
+     * @return array{days: int, price: int, amount: int}
+     */
+    public function extraCouriers(Plan $plan, Company $company, CarbonImmutable $first, CarbonImmutable $last, string $cycle = PlatformInvoice::MONTHLY): array
+    {
+        if (! $plan->allowsExtraCouriers()) {
+            return ['days' => 0, 'price' => 0, 'amount' => 0];
+        }
+        $days = (int) CourierCount::query()->where('company_id', $company->id)
+            ->whereBetween('day', [$first->toDateString(), $last->toDateString()])
+            ->where('couriers', '>', $plan->max_couriers)
+            ->sum(DB::raw('couriers - '.(int) $plan->max_couriers));
+        $perDay = $cycle === PlatformInvoice::WEEKLY ? $plan->extra_courier_price * 12 / 52 / 7 : $plan->extra_courier_price / $first->daysInMonth;
+
+        return ['days' => $days, 'price' => (int) $plan->extra_courier_price, 'amount' => (int) round($days * $perDay)];
     }
 
     /**
