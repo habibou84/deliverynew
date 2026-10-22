@@ -166,7 +166,7 @@
                 <h2 class="mt-2 text-3xl font-bold tracking-tight text-balance sm:text-4xl">Jibiat en deux minutes</h2>
                 <p class="mt-4 text-lg text-slate-600">De nouveaux clients qui vous trouvent, les courses qui arrivent et partent seules au bon livreur, le suivi, les alertes, la caisse du soir et vos chiffres.</p>
             </div>
-            <x-marketing.video name="entreprise-presentation-w" title="Présentation de Jibiat en deux minutes" class="mt-10" />
+            <x-marketing.video name="entreprise-presentation-w" title="Présentation de Jibiat en deux minutes, avec voix et sous-titres" class="mt-10" />
             <p class="mt-6 text-center"><a href="/fonctionnalites" class="font-semibold text-brand-600 hover:text-brand-700">Une course de A à Z et toutes les vidéos sur la page Fonctionnalités →</a></p>
         </div>
     </section>
