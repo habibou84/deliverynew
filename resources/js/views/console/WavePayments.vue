@@ -16,7 +16,7 @@
             <p class="text-gray-600">
               <RouterLink :to="`/console/entreprises/${p.company.id}`" class="text-blue-600 hover:underline">{{ p.company.name }}</RouterLink>
               <template v-if="p.payer_name"> · {{ p.payer_name }}</template> ·
-              <RouterLink :to="`/console/factures/${p.invoice.id}`" class="text-blue-600 hover:underline">{{ p.invoice.number }}</RouterLink> ({{ p.invoice.period }})
+              <RouterLink :to="`/console/factures/${p.invoice.id}`" class="text-blue-600 hover:underline">{{ p.invoice.number }}</RouterLink> ({{ p.invoice.period_label }})
             </p>
             <p class="text-xs text-gray-500">Annoncé {{ dateTime(p.created_at) }}<template v-if="p.alerts.length"> · alerte {{ p.alerts.map((a) => CHANNELS[a.channel] ?? 'non envoyée').join(', ') }}</template></p>
           </div>

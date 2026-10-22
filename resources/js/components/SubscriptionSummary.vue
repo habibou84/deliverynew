@@ -4,7 +4,7 @@
       <div>
         <p class="text-sm text-gray-500">Formule</p>
         <p class="text-lg font-semibold">{{ summary.plan ? summary.plan.name : 'Sans formule (aucune limite)' }}</p>
-        <p v-if="summary.plan" class="text-sm text-gray-600">{{ money(summary.plan.price_monthly) }} / mois</p>
+        <p v-if="summary.plan" class="text-sm text-gray-600">{{ weekly ? `${money(summary.plan.price_weekly)} / semaine` : `${money(summary.plan.price_monthly)} / mois` }}</p>
       </div>
       <span v-if="summary.on_trial" class="rounded-full bg-sky-100 px-3 py-1 text-sm font-medium text-sky-800">
         🎁 Essai gratuit jusqu'au {{ date(summary.trial_ends_at) }}
@@ -14,7 +14,7 @@
     <template v-if="summary.plan">
       <div class="space-y-1">
         <div class="flex justify-between text-sm">
-          <span>Courses du mois</span>
+          <span>Courses prises en charge {{ weekly ? 'cette semaine' : 'ce mois' }}</span>
           <span class="font-medium">{{ summary.usage.orders }}{{ summary.usage.included_orders !== null ? ` / ${summary.usage.included_orders} incluses` : ' (illimitées)' }}</span>
         </div>
         <div v-if="summary.usage.included_orders" class="h-2 rounded bg-slate-200 overflow-hidden">
@@ -36,7 +36,7 @@
       </div>
 
       <div class="rounded-lg bg-slate-50 p-3 text-sm space-y-1">
-        <p class="font-medium">Estimation pour {{ monthLabel }}</p>
+        <p class="font-medium">Estimation pour {{ periodLabel }}</p>
         <div class="flex justify-between"><span>Forfait</span><span>{{ money(summary.estimate.base) }}</span></div>
         <div class="flex justify-between"><span>Courses en plus</span><span>{{ money(summary.estimate.overage) }}</span></div>
         <div class="flex justify-between border-t pt-1 font-semibold">
@@ -64,7 +64,10 @@ const props = defineProps({
   summary: { type: Object, required: true },
 })
 
-const monthLabel = computed(() => {
+// Facturation à la semaine ou au mois (période en cours)
+const weekly = computed(() => props.summary.billing_period?.cycle === 'weekly')
+const periodLabel = computed(() => {
+  if (weekly.value) return `la semaine du ${date(props.summary.billing_period.period_start)} au ${date(props.summary.billing_period.period_end)}`
   const [y, m] = props.summary.month.split('-')
   return new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 })

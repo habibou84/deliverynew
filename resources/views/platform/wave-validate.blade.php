@@ -28,7 +28,7 @@
         <div><dt>Montant</dt><dd>{{ $amount }}</dd></div>
         <div><dt>Numéro Wave</dt><dd>{{ $payment->payer_phone }}</dd></div>
         <div><dt>Entreprise</dt><dd>{{ $payment->company?->name }}</dd></div>
-        <div><dt>Facture</dt><dd>{{ $payment->invoice?->number }} · {{ $payment->invoice?->period }}</dd></div>
+        <div><dt>Facture</dt><dd>{{ $payment->invoice?->number }} · {{ $payment->invoice?->periodLabel() }}</dd></div>
         <div><dt>Annoncé le</dt><dd>{{ $payment->created_at->timezone('Africa/Abidjan')->format('d/m/Y H:i') }}</dd></div>
     </dl>
 

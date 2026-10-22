@@ -36,7 +36,7 @@ class PlatformBillingNotice extends Notification implements ShouldQueue
         $days = (int) config('platform.billing.restrict_after_days');
 
         [$title, $body] = match ($this->stage) {
-            'issued' => ["Facture {$this->invoice->number} : {$amount}", "Abonnement du mois, à régler avant le {$due}."],
+            'issued' => ["Facture {$this->invoice->number} : {$amount}", 'Abonnement '.($this->invoice->cycle === 'weekly' ? 'de la semaine' : 'du mois').", à régler avant le {$due}."],
             'due' => ["Facture {$this->invoice->number} à régler aujourd'hui", "{$amount} à payer. Sans paiement, la création de courses sera suspendue {$days} jours après l'échéance."],
             'warning' => ["Facture {$this->invoice->number} en retard", "{$amount} à payer depuis le {$due}. La création de courses sera bientôt suspendue."],
             default => ['Création de courses suspendue', "Facture {$this->invoice->number} impayée ({$amount}). Tout reste consultable ; la création de courses reprend dès le paiement."],

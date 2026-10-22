@@ -58,7 +58,13 @@ class ConsoleBillingController extends Controller
      */
     public function generate(Request $request): JsonResponse
     {
-        $data = $request->validate(['period' => ['required', 'regex:/^\d{4}-(0[1-9]|1[0-2])$/', 'before_or_equal:'.now()->format('Y-m')]], [], ['period' => 'mois']);
+        // Mois (AAAA-MM) ou semaine (AAAA-Wss) déjà commencés
+        $data = $request->validate(['period' => ['required', 'regex:/^\d{4}-((0[1-9]|1[0-2])|W(0[1-9]|[1-4]\d|5[0-3]))$/', function (string $attribute, mixed $value, \Closure $fail) {
+            $current = str_contains((string) $value, 'W') ? now()->isoFormat('GGGG-[W]WW') : now()->format('Y-m');
+            if ((string) $value > $current) {
+                $fail('Cette période n\'a pas encore commencé.');
+            }
+        }]], [], ['period' => 'période']);
 
         $created = $this->billing->generate($data['period']);
 
@@ -141,6 +147,8 @@ class ConsoleBillingController extends Controller
             'number' => $i->number,
             'company' => $i->relationLoaded('company') && $i->company ? ['id' => $i->company->id, 'name' => $i->company->name, 'slug' => $i->company->slug] : null,
             'period' => $i->period,
+            'cycle' => $i->cycle,
+            'period_label' => $i->periodLabel(),
             'period_start' => $i->period_start->toDateString(),
             'period_end' => $i->period_end->toDateString(),
             'plan_name' => $i->plan_name,

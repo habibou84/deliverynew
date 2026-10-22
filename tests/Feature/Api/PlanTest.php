@@ -147,9 +147,11 @@ class PlanTest extends TestCase
     public function test_subscription_shows_the_month_usage(): void
     {
         $this->company->update(['plan_id' => $this->plan()->id]);
+        // Courses prises en charge : 3 ramassées ; une jamais ramassée et une annulée ne comptent pas
         foreach (range(1, 3) as $i) {
-            $this->createOrder();
+            $this->createOrder()->forceFill(['status' => OrderStatus::PickedUp, 'picked_up_at' => now()])->save();
         }
+        $this->createOrder();
         $this->createOrder()->forceFill(['status' => OrderStatus::Cancelled])->save();
 
         Sanctum::actingAs($this->admin);

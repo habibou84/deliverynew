@@ -31,7 +31,7 @@
         <tbody class="divide-y">
           <tr>
             <td class="py-2">
-              Abonnement « {{ invoice.plan_name }} » — {{ monthLabel }}
+              Abonnement « {{ invoice.plan_name }} » — {{ invoice.period_label || monthLabel }}
               <span class="block text-xs text-gray-500">Du {{ date(invoice.period_start) }} au {{ date(invoice.period_end) }}</span>
             </td>
             <td class="py-2 text-right">1</td>

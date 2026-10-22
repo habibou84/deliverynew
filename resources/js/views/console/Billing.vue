@@ -7,6 +7,11 @@
         <input id="g-period" v-model="period" type="month" class="input w-auto" required>
         <button class="btn-secondary" :disabled="generating">{{ generating ? 'Génération…' : 'Générer' }}</button>
       </form>
+      <form class="flex items-center gap-2" @submit.prevent="generateWeek">
+        <label class="text-sm text-gray-600" for="g-week">Factures de la semaine</label>
+        <input id="g-week" v-model="week" type="week" class="input w-auto" required>
+        <button class="btn-secondary" :disabled="generating">Générer</button>
+      </form>
     </div>
 
     <div v-if="totals" class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -31,7 +36,7 @@
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-left text-gray-600">
           <tr>
-            <th class="p-2">Facture</th><th class="p-2">Entreprise</th><th class="p-2">Mois</th>
+            <th class="p-2">Facture</th><th class="p-2">Entreprise</th><th class="p-2">Période</th>
             <th class="p-2 text-right">Total</th><th class="p-2 text-right">Reste</th><th class="p-2">Échéance</th><th class="p-2">Statut</th><th class="p-2" />
           </tr>
         </thead>
@@ -39,7 +44,7 @@
           <tr v-for="i in invoices" :key="i.id">
             <td class="p-2 font-mono"><RouterLink :to="`/console/factures/${i.id}`" class="text-blue-600">{{ i.number }}</RouterLink></td>
             <td class="p-2"><RouterLink :to="`/console/entreprises/${i.company?.id}`" class="hover:underline">{{ i.company?.name }}</RouterLink></td>
-            <td class="p-2">{{ i.period }}</td>
+            <td class="p-2">{{ i.period_label || i.period }}</td>
             <td class="p-2 text-right">{{ money(i.total) }}</td>
             <td class="p-2 text-right font-semibold">{{ i.status === 'void' ? '—' : money(i.balance) }}</td>
             <td class="p-2">{{ date(i.due_at) }}</td>
@@ -104,6 +109,7 @@ const methods = ref({})
 const loaded = ref(false)
 const status = ref('')
 const period = ref('')
+const week = ref('')
 const generating = ref(false)
 const settings = reactive({ invoice_issuer: '', payment_instructions: '' })
 const savingSettings = ref(false)
@@ -116,6 +122,20 @@ async function load() {
   methods.value = data.meta.methods
   if (!period.value) period.value = data.meta.previous_period
   loaded.value = true
+}
+
+// Entreprises facturées à la semaine (faites aussi automatiquement chaque lundi)
+async function generateWeek() {
+  generating.value = true
+  try {
+    const { data } = await http.post('/console/invoices/generate', { period: week.value })
+    toasts.success(`${data.data.created} facture(s) créée(s) pour la semaine ${week.value}.`)
+    await load()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    generating.value = false
+  }
 }
 
 async function generate() {

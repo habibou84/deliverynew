@@ -71,6 +71,17 @@ class ConsoleController extends Controller
         return [...$guide['essentials'], 'ready' => $guide['ready'], 'alerts' => count(array_filter($guide['health'], fn ($h) => $h['level'] === 'alert'))];
     }
 
+    /**
+     * Rythme de facturation de l'entreprise (au mois ou à la semaine), à partir du lundi suivant.
+     */
+    public function billingCycle(Request $request, Company $company, Billing $billing, Subscription $subscription): JsonResponse
+    {
+        $data = $request->validate(['billing_cycle' => ['required', 'in:monthly,weekly']], [], ['billing_cycle' => 'rythme de facturation']);
+        $billing->setCycle($company, $data['billing_cycle']);
+
+        return $this->show($company->fresh(), $subscription);
+    }
+
     public function show(Company $company, Subscription $subscription): JsonResponse
     {
         $company = $this->withActivity(Company::query()->with('plan'))->findOrFail($company->id);

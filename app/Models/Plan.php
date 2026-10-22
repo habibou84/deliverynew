@@ -42,6 +42,22 @@ class Plan extends Model
         return $this->hasMany(Company::class);
     }
 
+    /**
+     * Forfait d'une semaine : le prix du mois ramené à la semaine (12 mois = 52 semaines), arrondi à 5 F.
+     */
+    public function weeklyPrice(): int
+    {
+        return (int) (round($this->price_monthly * 12 / 52 / 5) * 5);
+    }
+
+    /**
+     * Courses incluses dans une semaine (null : illimitées).
+     */
+    public function weeklyIncludedOrders(): ?int
+    {
+        return $this->included_orders === null ? null : (int) floor($this->included_orders * 12 / 52);
+    }
+
     public function includes(PlatformFeature $feature): bool
     {
         return in_array($feature->value, $this->features ?? [], true);
