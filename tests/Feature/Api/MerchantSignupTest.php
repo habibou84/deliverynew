@@ -163,7 +163,7 @@ class MerchantSignupTest extends TestCase
             ->json('token');
 
         $this->postJson("/api/v1/verifications/{$token}/code", ['code' => '000000'])->assertUnprocessable()
-            ->assertJsonPath('message', "Demandez d'abord un code par SMS.");
+            ->assertJsonPath('message', "Demandez d'abord un code (SMS ou e-mail).");
 
         $this->postJson("/api/v1/verifications/{$token}/sms")->assertOk()->assertJsonPath('data.sms.sent', true);
         $this->assertSame(self::PHONE, $this->sms[0]['to']);

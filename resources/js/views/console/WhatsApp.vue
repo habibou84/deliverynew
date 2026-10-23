@@ -34,6 +34,23 @@
       <button type="button" class="ml-2 text-red-700 underline" :disabled="busy" @click="disconnect">Déconnecter</button>
     </p>
 
+    <!-- SMS : coût à surveiller, secours à n'activer qu'en connaissance de cause -->
+    <section v-if="state?.sms" class="card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+      <div>
+        <p class="font-semibold">SMS envoyés (payants)</p>
+        <p class="text-gray-600">
+          Ce mois : <strong>{{ state.sms.month }}</strong> · mois dernier : {{ state.sms.last_month }}.
+          <span v-if="!state.sms.ready" class="text-amber-700">Les SMS sont simulés sur ce serveur (aucun envoi réel).</span>
+          <span v-else-if="state.status === 'connected'">Avec le numéro relié, les inscriptions et connexions passent par WhatsApp : aucun SMS, sauf si le secours est activé.</span>
+          <span v-else class="text-amber-700">Sans numéro WhatsApp relié, chaque vérification de numéro part par SMS.</span>
+        </p>
+      </div>
+      <label class="flex items-center gap-2">
+        <input type="checkbox" class="h-4 w-4 rounded border-gray-300" :checked="state.sms.fallback" :disabled="busy" @change="setSmsFallback($event.target.checked)">
+        <span>Proposer aussi le SMS quand WhatsApp est possible</span>
+      </label>
+    </section>
+
     <!-- Messagerie -->
     <div class="grid gap-4 md:grid-cols-[18rem_1fr]">
       <aside class="card flex max-h-[70vh] flex-col overflow-hidden">
@@ -183,6 +200,23 @@ async function disconnect() {
   busy.value = true
   try {
     state.value = (await http.delete('/console/whatsapp/connect')).data.data
+  } finally {
+    busy.value = false
+  }
+}
+
+async function setSmsFallback(on) {
+  if (on && !window.confirm('Chaque SMS coûte. Proposer le SMS même quand WhatsApp est possible ?')) {
+    await loadState()
+    return
+  }
+  busy.value = true
+  try {
+    state.value = (await http.put('/console/whatsapp/sms', { fallback: on })).data.data
+    toasts.success(on ? 'SMS proposé en secours.' : 'SMS réservé aux numéros sans WhatsApp.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+    await loadState()
   } finally {
     busy.value = false
   }

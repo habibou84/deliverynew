@@ -158,6 +158,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('verifications/{token}', [VerificationController::class, 'show'])->middleware('throttle:90,1')->name('verifications.show');
     Route::post('verifications/{token}/sms', [VerificationController::class, 'sms'])->middleware('throttle:verification-sms')->name('verifications.sms');
     Route::post('verifications/{token}/code', [VerificationController::class, 'code'])->middleware('throttle:20,1')->name('verifications.code');
+    Route::post('verifications/{token}/email', [VerificationController::class, 'email'])->middleware('throttle:verification-sms')->name('verifications.email');
 
     // Inscription d'une entreprise de livraison en libre-service (adresse de la console)
     Route::get('company-signup', [CompanySignupController::class, 'options'])->middleware('throttle:60,1')->name('company-signup.options');
@@ -216,6 +217,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', 'show')->name('show');
             Route::post('connect', 'connect')->middleware('throttle:20,1')->name('connect');
             Route::delete('connect', 'disconnect')->name('disconnect');
+            Route::put('sms', 'sms')->name('sms');
             Route::get('conversations', 'conversations')->name('conversations');
             Route::post('conversations', 'open')->name('open');
             Route::get('conversations/{conversation}', 'messages')->name('messages');

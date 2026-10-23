@@ -3,9 +3,12 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\Role;
+use App\Models\PhoneVerification;
 use App\Models\PlatformConversation;
 use App\Models\PlatformMessage;
+use App\Models\PlatformSetting;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -99,5 +102,31 @@ class ConsoleWhatsAppTest extends TestCase
         Sanctum::actingAs($this->admin);
         $this->getJson('/api/v1/console/whatsapp')->assertForbidden();
         $this->getJson('/api/v1/console/whatsapp/conversations')->assertForbidden();
+    }
+
+    public function test_sms_of_the_month_are_counted_and_the_fallback_switch_is_kept(): void
+    {
+        Sanctum::actingAs($this->root);
+        config(['messaging.sms.driver' => 'twilio']);
+        // Deux SMS de vérification ce mois, un le mois dernier
+        $make = fn (Carbon $at, int $count) => PhoneVerification::create([
+            'company_id' => $this->company->id, 'purpose' => 'signup', 'phone' => '+2250700000'.$count.$at->format('d'),
+            'token_hash' => hash('sha256', (string) $at->timestamp.$count), 'whatsapp_code' => '123456', 'sms_count' => $count,
+            'sms_sent_at' => $at, 'expires_at' => $at->copy()->addMinutes(30),
+        ]);
+        $make(now(), 2);
+        $make(now()->subMonthNoOverflow(), 1);
+
+        $this->getJson('/api/v1/console/whatsapp')->assertOk()
+            ->assertJsonPath('data.sms.month', 2)->assertJsonPath('data.sms.last_month', 1)
+            ->assertJsonPath('data.sms.fallback', false)->assertJsonPath('data.sms.ready', true);
+
+        $this->putJson('/api/v1/console/whatsapp/sms', ['fallback' => true])->assertOk()->assertJsonPath('data.sms.fallback', true);
+        $this->assertSame('on', PlatformSetting::get('sms.fallback'));
+        $this->putJson('/api/v1/console/whatsapp/sms', ['fallback' => false])->assertOk()->assertJsonPath('data.sms.fallback', false);
+
+        // Réservé au super administrateur
+        Sanctum::actingAs($this->admin);
+        $this->putJson('/api/v1/console/whatsapp/sms', ['fallback' => true])->assertForbidden();
     }
 }
