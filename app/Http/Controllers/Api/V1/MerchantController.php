@@ -31,6 +31,8 @@ class MerchantController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', 'string'],
             'source' => ['nullable', 'string', 'in:backoffice,signup'],
+            // contract | occasional | expired (contrats terminés)
+            'type' => ['nullable', 'string', 'in:contract,occasional,expired'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
 
@@ -40,6 +42,9 @@ class MerchantController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             // Inscrits en ligne
             ->when($request->filled('source'), fn ($q) => $q->where('source', $request->string('source'))->latest())
+            ->when($request->input('type') === 'contract', fn ($q) => $q->underContract())
+            ->when($request->input('type') === 'occasional', fn ($q) => $q->occasional())
+            ->when($request->input('type') === 'expired', fn ($q) => $q->contractExpired())
             ->when($request->filled('search'), function ($q) use ($request) {
                 $term = '%'.mb_strtolower($request->string('search')).'%';
                 $q->where(fn ($q) => $q->whereRaw('LOWER(business_name) LIKE ?', [$term])

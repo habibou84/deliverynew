@@ -665,6 +665,17 @@ celle du marchand), en rouge s'ils sont en retard. Le panneau liste pour chacun 
 plus proches à vol d'oiseau (distance, missions en cours, position ancienne signalée) : un clic trace les traits
 vers eux, un autre assigne le ramassage (`GET /couriers/map` → `pickups`).
 
+### Clients sous contrat et clients ponctuels
+
+Chaque e-commerçant (client) a un **type** : **sous contrat** (relation dans la durée, facturée par période) ou
+**ponctuel** (vient avec un lot de colis à distribuer une fois, réglé à la distribution). Les clients existants et les
+inscrits en ligne sont sous contrat. Fiche client › Type de client : début et fin du contrat (facultatives),
+périodicité de facturation (fin de mois, deux semaines, semaine, à chaque distribution), conditions particulières
+(texte interne). L'état du contrat se déduit des dates : en cours, à venir, terminé ; la liste filtre par type et
+par contrats terminés (`GET /api/v1/merchants?type=contract|occasional|expired`). Le client voit son type mais
+jamais les conditions internes. Les lots de distribution (nombre de colis annoncé, délai, bon imprimable), les
+alertes de retard et les suppléments facturés arrivent dans les étapes suivantes.
+
 ### Boutique en ligne du marchand (page de commande)
 
 Chaque e-commerçant ouvre, depuis **Profil › Ma boutique en ligne**, une page de commande à son nom

@@ -35,6 +35,13 @@ class MerchantResource extends JsonResource
             'default_fee_payer' => $this->default_fee_payer,
             'status' => $this->status,
             'source' => $this->source,
+            // Sous contrat (dans la durée) ou ponctuel (une distribution à la fois) ; état du contrat : active, upcoming, expired
+            'client_type' => $this->client_type,
+            'contract_status' => $this->contractStatus(),
+            'contract_starts_on' => $this->when($isStaff, $this->contract_starts_on?->toDateString()),
+            'contract_ends_on' => $this->when($isStaff, $this->contract_ends_on?->toDateString()),
+            'billing_period' => $this->when($isStaff, $this->billing_period),
+            'contract_terms' => $this->when($isStaff, $this->contract_terms),
             // Informations internes à l'entreprise de livraison
             'pricing_grid_id' => $this->when($isStaff, $this->pricing_grid_id),
             'notes' => $this->when($isStaff, $this->notes),

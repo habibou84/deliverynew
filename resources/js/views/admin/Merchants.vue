@@ -4,6 +4,12 @@
       <h1 class="text-xl font-bold">E-commerçants</h1>
       <div class="flex flex-wrap items-center gap-2">
         <input v-model="search" class="input w-full sm:w-56" placeholder="Rechercher…" @input="debouncedLoad">
+        <select v-model="clientFilter" class="input w-auto" @change="load">
+          <option value="">Tous les clients</option>
+          <option value="contract">Sous contrat</option>
+          <option value="occasional">Ponctuels</option>
+          <option value="expired">Contrats terminés</option>
+        </select>
         <label class="flex items-center gap-2 text-sm whitespace-nowrap">
           <input v-model="onlySignups" type="checkbox" @change="load"> Inscrits en ligne
         </label>
@@ -16,7 +22,7 @@
     <div class="card overflow-x-auto">
       <table class="w-full text-sm stack-table">
         <thead class="bg-slate-50 text-left text-gray-600">
-          <tr><th class="p-2">Nom</th><th class="p-2">Contact</th><th class="p-2">Ramassage</th><th class="p-2">Frais payés par</th><th class="p-2">Courses</th><th class="p-2">Statut</th><th /></tr>
+          <tr><th class="p-2">Nom</th><th class="p-2">Type</th><th class="p-2">Contact</th><th class="p-2">Ramassage</th><th class="p-2">Frais payés par</th><th class="p-2">Courses</th><th class="p-2">Statut</th><th /></tr>
         </thead>
         <tbody class="divide-y">
           <tr v-for="m in merchants" :key="m.id">
@@ -25,6 +31,15 @@
               <span v-if="m.source === 'signup'" class="ml-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700" :title="`Inscrit en ligne le ${new Date(m.created_at).toLocaleDateString('fr-FR')}`">
                 {{ isNew(m) ? 'Nouveau · ' : '' }}inscrit en ligne
               </span>
+            </td>
+            <td data-label="Type" class="p-2">
+              <span v-if="m.client_type === 'occasional'" class="rounded-full bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">Ponctuel</span>
+              <template v-else>
+                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">Sous contrat</span>
+                <div v-if="m.contract_status === 'expired'" class="text-xs text-red-600">Contrat terminé le {{ fmtDate(m.contract_ends_on) }}</div>
+                <div v-else-if="m.contract_status === 'upcoming'" class="text-xs text-amber-700">Débute le {{ fmtDate(m.contract_starts_on) }}</div>
+                <div v-else-if="m.contract_ends_on" class="text-xs text-gray-500">Jusqu'au {{ fmtDate(m.contract_ends_on) }}</div>
+              </template>
             </td>
             <td data-label="Contact" class="p-2">{{ m.contact_name }}<div class="text-xs text-gray-500">{{ m.phone }}</div></td>
             <td data-label="Ramassage" class="p-2">
@@ -41,7 +56,7 @@
               <button v-if="auth.can('merchants.manage')" class="text-blue-600" @click="openForm(m)">Modifier</button>
             </td>
           </tr>
-          <tr v-if="!merchants.length"><td colspan="7" class="p-6 text-center text-gray-500">Aucun e-commerçant.</td></tr>
+          <tr v-if="!merchants.length"><td colspan="8" class="p-6 text-center text-gray-500">Aucun client.</td></tr>
         </tbody>
       </table>
     </div>
@@ -90,6 +105,31 @@
             </select>
           </div>
         </div>
+        <fieldset class="border rounded p-3 space-y-2">
+          <legend class="text-sm font-medium px-1">Type de client</legend>
+          <div class="flex flex-wrap gap-4 text-sm">
+            <label class="flex items-center gap-2"><input v-model="form.data.client_type" type="radio" value="contract"> Sous contrat <span class="text-xs text-gray-500">(dans la durée, facturé par période)</span></label>
+            <label class="flex items-center gap-2"><input v-model="form.data.client_type" type="radio" value="occasional"> Ponctuel <span class="text-xs text-gray-500">(une distribution à la fois)</span></label>
+          </div>
+          <template v-if="form.data.client_type === 'contract'">
+            <div class="grid grid-cols-2 gap-3">
+              <div><label class="label">Début du contrat</label><input v-model="form.data.contract_starts_on" type="date" class="input"></div>
+              <div><label class="label">Fin du contrat (facultatif)</label><input v-model="form.data.contract_ends_on" type="date" class="input" :min="form.data.contract_starts_on || undefined"></div>
+            </div>
+            <div>
+              <label class="label">Facturation</label>
+              <select v-model="form.data.billing_period" class="input">
+                <option :value="null">— à préciser —</option>
+                <option value="monthly">Fin de mois</option>
+                <option value="fortnightly">Toutes les deux semaines</option>
+                <option value="weekly">Chaque semaine</option>
+                <option value="per_distribution">À chaque distribution</option>
+              </select>
+            </div>
+            <div><label class="label">Conditions particulières</label><textarea v-model="form.data.contract_terms" rows="2" class="input" placeholder="Tarifs négociés, délais, engagements…" /></div>
+          </template>
+          <p v-else class="text-xs text-gray-500">Un client ponctuel règle chaque distribution ; vous ouvrirez un bon de distribution avec le nombre de colis (étape suivante).</p>
+        </fieldset>
         <div v-if="form.id">
           <label class="label">Statut</label>
           <select v-model="form.data.status" class="input">
@@ -136,11 +176,14 @@ const SOURCES = { merchant: 'par le marchand', staff: 'par l\'agence', courier: 
 const locationChanged = computed(() => form.location?.lat !== form.initialLocation?.lat || form.location?.lng !== form.initialLocation?.lng)
 
 const FIELDS = ['business_name', 'contact_name', 'phone', 'whatsapp_phone', 'email', 'pickup_zone_id', 'pickup_address',
-  'pickup_landmark', 'pricing_grid_id', 'default_fee_payer', 'status', 'notes']
+  'pickup_landmark', 'pricing_grid_id', 'default_fee_payer', 'status', 'notes',
+  'client_type', 'contract_starts_on', 'contract_ends_on', 'billing_period', 'contract_terms']
+const clientFilter = ref('')
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('fr-FR') : '')
 
 async function load() {
   merchants.value = (await http.get('/merchants', {
-    params: { search: search.value || undefined, source: onlySignups.value ? 'signup' : undefined, per_page: 200 },
+    params: { search: search.value || undefined, source: onlySignups.value ? 'signup' : undefined, type: clientFilter.value || undefined, per_page: 200 },
   })).data.data
 }
 
@@ -160,6 +203,7 @@ function openForm(merchant = null) {
   form.data = Object.fromEntries(FIELDS.map((f) => [f, merchant?.[f] ?? null]))
   form.data.default_fee_payer ??= 'merchant'
   form.data.status ??= 'active'
+  form.data.client_type ??= 'contract'
   form.owner = { name: '', phone: '', password: '' }
   form.location = merchant?.pickup_lat != null ? { lat: merchant.pickup_lat, lng: merchant.pickup_lng, accuracy: null } : null
   form.initialLocation = form.location ? { ...form.location } : null
@@ -172,7 +216,10 @@ async function save() {
   form.saving = true
   form.error = ''
   try {
-    const payload = Object.fromEntries(Object.entries(form.data).filter(([k, v]) => v !== '' && (v !== null || form.id) && !(k === 'status' && !form.id)))
+    const payload = Object.fromEntries(Object.entries(form.data).filter(([k, v]) => (v !== '' || form.id) && (v !== null || form.id) && !(k === 'status' && !form.id)))
+    // Champs de contrat effacés : envoyés vides pour être remis à zéro
+    for (const k of ['contract_starts_on', 'contract_ends_on', 'contract_terms']) if (payload[k] === '') payload[k] = null
+    if (payload.client_type === 'occasional') Object.assign(payload, { contract_starts_on: null, contract_ends_on: null, billing_period: null, contract_terms: null })
     if (!form.id && form.owner.phone) payload.owner = { ...form.owner, name: form.owner.name || form.data.contact_name || form.data.business_name }
     const { data } = form.id ? await http.patch(`/merchants/${form.id}`, payload) : await http.post('/merchants', payload)
     // Position : seulement si elle a changé (garde la source « marchand » ou « livreurs » sinon)

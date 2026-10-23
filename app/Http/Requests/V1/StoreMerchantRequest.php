@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\V1;
 
+use App\Enums\BillingPeriod;
+use App\Enums\ClientType;
 use App\Enums\FeePayer;
 use App\Models\Merchant;
 use App\Models\User;
@@ -54,6 +56,12 @@ class StoreMerchantRequest extends FormRequest
             'pricing_grid_id' => ['nullable', 'integer', Rule::exists('pricing_grids', 'id')->where('company_id', $companyId)],
             'default_fee_payer' => ['nullable', Rule::enum(FeePayer::class)],
             'notes' => ['nullable', 'string', 'max:2000'],
+            // Sous contrat (dans la durée) ou ponctuel (une distribution à la fois)
+            'client_type' => ['nullable', Rule::enum(ClientType::class)],
+            'contract_starts_on' => ['nullable', 'date'],
+            'contract_ends_on' => ['nullable', 'date', 'after_or_equal:contract_starts_on'],
+            'billing_period' => ['nullable', Rule::enum(BillingPeriod::class)],
+            'contract_terms' => ['nullable', 'string', 'max:4000'],
 
             // Compte de connexion du marchand (facultatif)
             'owner' => ['nullable', 'array'],
@@ -72,6 +80,11 @@ class StoreMerchantRequest extends FormRequest
             'whatsapp_phone' => 'numéro WhatsApp',
             'pickup_zone_id' => 'zone de ramassage',
             'pricing_grid_id' => 'grille tarifaire',
+            'client_type' => 'type de client',
+            'contract_starts_on' => 'début du contrat',
+            'contract_ends_on' => 'fin du contrat',
+            'billing_period' => 'périodicité de facturation',
+            'contract_terms' => 'conditions du contrat',
             'owner.name' => 'nom du gérant',
             'owner.phone' => 'téléphone du gérant',
             'owner.email' => 'e-mail du gérant',

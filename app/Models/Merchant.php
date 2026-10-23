@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\BillingPeriod;
+use App\Enums\ClientType;
 use App\Enums\FeePayer;
 use App\Enums\MerchantStatus;
 use App\Enums\NotificationEvent;
@@ -39,6 +41,11 @@ class Merchant extends Model
         'pricing_grid_id',
         'default_fee_payer',
         'status',
+        'client_type',
+        'contract_starts_on',
+        'contract_ends_on',
+        'billing_period',
+        'contract_terms',
         'notes',
         'shop_slug',
         'shop_enabled',
@@ -51,6 +58,10 @@ class Merchant extends Model
         return [
             'default_fee_payer' => FeePayer::class,
             'status' => MerchantStatus::class,
+            'client_type' => ClientType::class,
+            'billing_period' => BillingPeriod::class,
+            'contract_starts_on' => 'date:Y-m-d',
+            'contract_ends_on' => 'date:Y-m-d',
             'pickup_lat' => 'float',
             'is_test' => 'boolean',
             'pickup_lng' => 'float',
@@ -66,6 +77,44 @@ class Merchant extends Model
     public const LOCATION_STAFF = 'staff';
 
     public const LOCATION_COURIER = 'courier';
+
+    public function isUnderContract(): bool
+    {
+        return $this->client_type === ClientType::Contract;
+    }
+
+    /**
+     * État du contrat : active (en cours, ou sans dates), upcoming (commence plus tard), expired (terminé) ; null pour
+     * un client ponctuel.
+     */
+    public function contractStatus(): ?string
+    {
+        if (! $this->isUnderContract()) {
+            return null;
+        }
+
+        return match (true) {
+            $this->contract_ends_on !== null && $this->contract_ends_on->isPast() && ! $this->contract_ends_on->isToday() => 'expired',
+            $this->contract_starts_on !== null && $this->contract_starts_on->isFuture() => 'upcoming',
+            default => 'active',
+        };
+    }
+
+    public function scopeUnderContract(Builder $query): Builder
+    {
+        return $query->where('client_type', ClientType::Contract->value);
+    }
+
+    public function scopeOccasional(Builder $query): Builder
+    {
+        return $query->where('client_type', ClientType::Occasional->value);
+    }
+
+    /** Contrats dont la date de fin est passée */
+    public function scopeContractExpired(Builder $query): Builder
+    {
+        return $query->underContract()->whereNotNull('contract_ends_on')->whereDate('contract_ends_on', '<', now()->toDateString());
+    }
 
     public function hasPickupLocation(): bool
     {

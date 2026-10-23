@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\V1;
 
+use App\Enums\BillingPeriod;
+use App\Enums\ClientType;
 use App\Enums\FeePayer;
 use App\Enums\MerchantStatus;
 use App\Rules\PhoneNumber;
@@ -48,6 +50,11 @@ class UpdateMerchantRequest extends FormRequest
             'default_fee_payer' => ['sometimes', Rule::enum(FeePayer::class)],
             'status' => ['sometimes', Rule::enum(MerchantStatus::class)],
             'notes' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'client_type' => ['sometimes', Rule::enum(ClientType::class)],
+            'contract_starts_on' => ['sometimes', 'nullable', 'date'],
+            'contract_ends_on' => ['sometimes', 'nullable', 'date', 'after_or_equal:contract_starts_on'],
+            'billing_period' => ['sometimes', 'nullable', Rule::enum(BillingPeriod::class)],
+            'contract_terms' => ['sometimes', 'nullable', 'string', 'max:4000'],
         ];
     }
 
