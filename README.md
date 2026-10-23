@@ -717,6 +717,15 @@ passe actuel demandé seulement s'il en a un ; les autres appareils sont déconn
 du numéro, puis nouveau mot de passe ; les autres appareils sont déconnectés. La réponse est identique que le
 numéro ait un compte ou non.
 
+**E-mail en secours** (gratuit) : quand ni WhatsApp ni SMS ne conviennent et qu'une adresse e-mail est connue
+(compte, ou adresse donnée à l'inscription) et que l'envoi d'e-mails est réglé (SMTP de la console ou du serveur), la
+page propose « Recevoir le code par e-mail » (`POST /api/v1/verifications/{jeton}/email`) : même code à 6 chiffres,
+avec un lien qui revient sur la page et le recopie (`?code=`).
+
+**Console › WhatsApp › SMS envoyés** : compteur des SMS du mois et du mois précédent (codes de vérification et
+messages de repli), et interrupteur « Proposer aussi le SMS quand WhatsApp est possible » (réglage `sms.fallback`,
+`PUT /api/v1/console/whatsapp/sms`) : éteint par défaut, chaque SMS coûtant.
+
 **Invitation de l'équipe et des livreurs** (Utilisateurs) : un utilisateur créé **sans mot de passe** donne un lien
 d'invitation personnel (`/invitation/{jeton}`, usage unique, valable 7 jours) que l'administrateur envoie depuis
 **son propre WhatsApp** (bouton « Envoyer par WhatsApp », aucun SMS). Le bouton **Inviter** d'une ligne en prépare un

@@ -35,6 +35,18 @@ class VerificationController extends Controller
         ]);
     }
 
+    /** Code envoyé par e-mail (secours gratuit quand ni WhatsApp ni SMS ne conviennent) */
+    public function email(Request $request, string $token): JsonResponse
+    {
+        $verification = $this->verification($token);
+        $page = $verification->purpose === PhoneVerification::SIGNUP ? '/inscription' : ($verification->purpose === PhoneVerification::LOGIN ? '/' : '/mot-de-passe-oublie');
+        // Le lien du message revient sur la page du navigateur (qui garde le jeton) avec le code prérempli
+        $link = $verification->company->url($page.'?code=__CODE__');
+        $this->verifier->sendEmail($verification, $link);
+
+        return response()->json($this->state($verification->refresh()));
+    }
+
     public function code(Request $request, string $token): JsonResponse
     {
         $data = $request->validate(['code' => ['required', 'string', 'max:12']], [], ['code' => 'code']);
@@ -80,6 +92,11 @@ class VerificationController extends Controller
                 'available' => $verifier->smsOffered($verification),
                 'sent' => $verification->sms_count > 0,
                 'wait_seconds' => $verifier->smsWaitSeconds($verification),
+            ],
+            'email' => [
+                'available' => $verifier->emailOffered($verification),
+                'hint' => ($email = $verifier->emailAddress($verification)) !== null ? PhoneVerifier::maskEmail($email) : null,
+                'sent' => ($verification->payload['email_count'] ?? 0) > 0,
             ],
             'demo' => $verifier->demoMode(),
         ];

@@ -2,9 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\MessageChannel;
 use App\Http\Controllers\Controller;
+use App\Models\OutboundMessage;
+use App\Models\PhoneVerification;
 use App\Models\PlatformConversation;
 use App\Models\PlatformMessage;
+use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Rules\PhoneNumber as PhoneNumberRule;
 use App\Services\Messaging\MessagingException;
@@ -16,7 +20,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Console › WhatsApp : relier le numéro de Jibiat par QR code, lire les conversations et y répondre.
+ * Console › WhatsApp : relier le numéro de Jibiat par QR code, lire les conversations et y répondre ; SMS du mois
+ * (payants) et interrupteur du SMS en secours.
  */
 class ConsoleWhatsAppController extends Controller
 {
@@ -50,6 +55,15 @@ class ConsoleWhatsAppController extends Controller
         }
 
         return response()->json(['data' => $this->describe($live)]);
+    }
+
+    /** SMS en secours pour tout le monde (même quand WhatsApp est possible) : à éviter, chaque SMS coûte */
+    public function sms(Request $request): JsonResponse
+    {
+        $data = $request->validate(['fallback' => ['required', 'boolean']]);
+        PlatformSetting::put('sms.fallback', $data['fallback'] ? 'on' : 'off');
+
+        return response()->json(['data' => $this->describe(null)]);
     }
 
     public function disconnect(): JsonResponse
@@ -136,7 +150,20 @@ class ConsoleWhatsAppController extends Controller
             ...$state,
             'qr' => $state['status'] === 'connected' ? null : ($live['qr'] ?? null),
             'unread' => (int) PlatformConversation::query()->sum('unread'),
+            'sms' => [
+                'month' => $this->smsCount(now()->startOfMonth(), now()->startOfMonth()->addMonth()),
+                'last_month' => $this->smsCount(now()->subMonthNoOverflow()->startOfMonth(), now()->startOfMonth()),
+                'fallback' => PlatformSetting::get('sms.fallback') === 'on',
+                'ready' => ! in_array(config('messaging.sms.driver'), ['log', 'none', null], true),
+            ],
         ];
+    }
+
+    /** SMS partis sur la période : codes de vérification et messages envoyés par SMS (repli de WhatsApp) */
+    private function smsCount(\DateTimeInterface $from, \DateTimeInterface $to): int
+    {
+        return (int) PhoneVerification::query()->where('sms_sent_at', '>=', $from)->where('sms_sent_at', '<', $to)->sum('sms_count')
+            + OutboundMessage::withoutGlobalScopes()->where('channel', MessageChannel::Sms)->where('created_at', '>=', $from)->where('created_at', '<', $to)->count();
     }
 
     /**
