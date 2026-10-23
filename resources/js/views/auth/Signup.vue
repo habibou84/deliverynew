@@ -19,7 +19,7 @@
         <form v-else class="space-y-4" novalidate @submit.prevent="submit">
           <div class="text-center space-y-1">
             <h1 class="text-2xl font-bold">Créer mon compte e-commerçant</h1>
-            <p class="text-sm text-slate-500">Gratuit, en 2 minutes. Votre numéro sera vérifié par WhatsApp ou SMS.</p>
+            <p class="text-sm text-slate-500">Gratuit, en 2 minutes. Votre numéro sera vérifié par WhatsApp : un message à envoyer, rien à recopier.</p>
           </div>
 
           <p v-if="error" class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2" role="alert">{{ error }}</p>
@@ -30,7 +30,7 @@
           <Field id="su-contact" label="Votre nom" :error="errors.contact_name">
             <input id="su-contact" v-model.trim="form.contact_name" :class="inputClass" autocomplete="name" required maxlength="255" placeholder="Prénom et nom">
           </Field>
-          <Field id="su-phone" label="Téléphone (WhatsApp de préférence)" :error="errors.phone">
+          <Field id="su-phone" label="Numéro WhatsApp" :error="errors.phone">
             <input id="su-phone" v-model.trim="form.phone" :class="inputClass" type="tel" inputmode="tel" autocomplete="tel" required placeholder="07 00 00 00 00">
           </Field>
           <Field id="su-email" label="E-mail (facultatif)" :error="errors.email">

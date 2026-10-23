@@ -7,6 +7,7 @@ use App\Models\PlatformConversation;
 use App\Models\PlatformMessage;
 use App\Models\PlatformSetting;
 use App\Models\User;
+use App\Services\Accounts\PhoneVerifier;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\WhatsAppBridge;
 use App\Support\PhoneNumber;
@@ -125,6 +126,16 @@ class PlatformWhatsApp
         }
 
         $text = $event['text'] ?? null;
+        // Code de vérification d'un numéro (inscription, mot de passe oublié) : réponse immédiate, hors messagerie
+        if (is_string($text) && ($answer = app(PhoneVerifier::class)->handlePlatformWhatsApp($phone, $text)) !== null) {
+            try {
+                $this->bridge->send(self::SESSION, $phone, $answer);
+            } catch (MessagingException) {
+                // Service injoignable : la vérification est faite, la réponse manquera seulement
+            }
+
+            return;
+        }
         $body = $text !== null && $text !== '' ? (string) $text : match ($event['kind'] ?? 'other') {
             'image' => '📷 Photo (à voir sur le téléphone)',
             'audio' => '🎤 Message vocal (à écouter sur le téléphone)',
