@@ -41,6 +41,7 @@ use App\Http\Controllers\Api\V1\OrderDraftController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\ParcelController;
+use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PayPlanController;
 use App\Http\Controllers\Api\V1\PlanningController;
@@ -64,6 +65,7 @@ use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VerificationController;
 use App\Http\Controllers\Api\V1\WebhookController;
+use App\Http\Controllers\Api\V1\WhatsAppLoginController;
 use App\Http\Controllers\Api\V1\WhatsAppQrController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\WhatsAppSignupController;
@@ -146,6 +148,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('signup', [SignupController::class, 'options'])->name('signup.options');
     Route::post('signup', [SignupController::class, 'store'])->middleware('throttle:verification-start')->name('signup.store');
     Route::post('password/forgot', [PasswordResetController::class, 'forgot'])->middleware('throttle:verification-start')->name('password.forgot');
+    // Connexion par WhatsApp (sans mot de passe) : le numéro est vérifié puis la session s'ouvre
+    Route::post('auth/whatsapp', [WhatsAppLoginController::class, 'start'])->middleware('throttle:verification-start')->name('auth.whatsapp');
     Route::post('password/reset', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
     Route::get('verifications/{token}', [VerificationController::class, 'show'])->middleware('throttle:90,1')->name('verifications.show');
     Route::post('verifications/{token}/sms', [VerificationController::class, 'sms'])->middleware('throttle:verification-sms')->name('verifications.sms');
@@ -178,6 +182,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::middleware(['auth:sanctum', 'active', 'throttle:tenant'])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+        Route::put('auth/password', [PasswordController::class, 'update'])->middleware('throttle:10,1')->name('auth.password');
         Route::post('company/logo', [BrandingController::class, 'upload'])->name('company.logo.store');
         Route::delete('company/logo', [BrandingController::class, 'destroy'])->name('company.logo.destroy');
         // Apparence des espaces : couleurs, noms et icônes des applications

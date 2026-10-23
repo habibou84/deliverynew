@@ -90,6 +90,7 @@ const routes = [
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },
       { path: 'parametres', redirect: '/admin/reglages' },
+      { path: 'mot-de-passe', component: () => import('../views/admin/Password.vue') },
       { path: 'integrations', component: () => import('../views/admin/Integrations.vue'), meta: { permission: 'integrations.manage', feature: 'api' } },
       { path: 'abonnement', component: () => import('../views/admin/Subscription.vue'), meta: { permission: 'settings.manage' } },
       { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },

@@ -32,10 +32,10 @@
       </nav>
       <!-- Téléphone : qui est connecté et déconnexion (l'en-tête n'a plus la place) -->
       <div class="md:hidden border-t border-white/15 p-3 flex items-center justify-between gap-2">
-        <span class="min-w-0 text-sm">
+        <RouterLink to="/admin/mot-de-passe" class="min-w-0 text-sm" @click="sidebarOpen = false">
           <span class="block truncate font-medium">{{ auth.user?.name }}</span>
-          <span class="block truncate text-white/60">{{ auth.user?.role_label }}</span>
-        </span>
+          <span class="block truncate text-white/60">{{ auth.user?.role_label }} · mot de passe</span>
+        </RouterLink>
         <button class="shrink-0 rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20" @click="logout">Déconnexion</button>
       </div>
     </aside>
@@ -60,9 +60,9 @@
         <div class="flex items-center gap-3">
           <AlertSoundToggle v-if="isDispatch" />
           <NotificationBell />
-          <span class="hidden md:inline text-sm text-gray-600">
+          <RouterLink to="/admin/mot-de-passe" class="hidden md:inline text-sm text-gray-600 hover:underline" title="Mon compte : mot de passe">
             {{ auth.user?.name }} <span class="text-gray-400">· {{ auth.user?.role_label }}</span>
-          </span>
+          </RouterLink>
           <button class="btn-danger hidden md:inline-flex" @click="logout">Déconnexion</button>
         </div>
       </header>

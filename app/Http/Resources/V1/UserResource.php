@@ -41,6 +41,8 @@ class UserResource extends JsonResource
             'role' => $role?->value,
             'role_label' => $role?->label(),
             'status' => $this->status,
+            // Sans mot de passe (inscription ou invitation par WhatsApp) : connexion par WhatsApp, mot de passe à définir
+            'has_password' => $this->password !== null,
             'last_login_at' => $this->last_login_at,
             'company' => CompanyResource::make($this->whenLoaded('company')),
             'merchant_id' => $this->merchant_id,
