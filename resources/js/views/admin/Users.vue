@@ -22,10 +22,16 @@
             <td data-label="Téléphone" class="p-2">{{ u.phone }}</td>
             <td data-label="E-mail" class="p-2">{{ u.email || '—' }}</td>
             <td data-label="Rôle" class="p-2">{{ u.role_label }}</td>
-            <td data-label="Statut" class="p-2"><span :class="u.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ u.status === 'active' ? 'Actif' : 'Suspendu' }}</span></td>
+            <td data-label="Statut" class="p-2">
+              <span :class="u.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ u.status === 'active' ? 'Actif' : 'Suspendu' }}</span>
+              <span v-if="u.has_password === false" class="ml-1 rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-800" title="Se connecte par WhatsApp ou par lien d'invitation">sans mot de passe</span>
+            </td>
             <td data-label="Dernière connexion" class="p-2 text-xs text-gray-500">{{ dateTime(u.last_login_at) }}</td>
-            <td class="p-2 text-right">
-              <button v-if="auth.can('users.manage') && u.id !== auth.user.id && !u.role?.startsWith('merchant')" class="text-blue-600" @click="openForm(u)">Modifier</button>
+            <td class="p-2 text-right whitespace-nowrap space-x-3">
+              <template v-if="auth.can('users.manage') && u.id !== auth.user.id && !u.role?.startsWith('merchant')">
+                <button class="text-emerald-700" :disabled="inviting === u.id" title="Lien de connexion à envoyer par WhatsApp" @click="invite(u)">{{ inviting === u.id ? '…' : 'Inviter' }}</button>
+                <button class="text-blue-600" @click="openForm(u)">Modifier</button>
+              </template>
             </td>
           </tr>
         </tbody>
@@ -54,11 +60,27 @@
           </select>
         </div>
         <div>
-          <label class="label">{{ form.id ? 'Nouveau mot de passe (laisser vide pour ne pas changer)' : 'Mot de passe * (8 caractères min.)' }}</label>
-          <input v-model="form.data.password" type="text" class="input" :required="!form.id" autocomplete="new-password">
+          <label class="label">{{ form.id ? 'Nouveau mot de passe (laisser vide pour ne pas changer)' : 'Mot de passe (facultatif, 8 caractères min.)' }}</label>
+          <input v-model="form.data.password" type="text" class="input" autocomplete="new-password" :placeholder="form.id ? '' : 'Vide : un lien d\'invitation à envoyer par WhatsApp'">
+          <p v-if="!form.id" class="mt-1 text-xs text-gray-500">Sans mot de passe, vous recevez un lien personnel à envoyer par WhatsApp : la personne arrive connectée et choisit son mot de passe si elle veut.</p>
         </div>
-        <button class="btn-primary w-full" :disabled="form.saving">Enregistrer</button>
+        <button class="btn-primary w-full" :disabled="form.saving">{{ form.id || form.data.password ? 'Enregistrer' : 'Créer et préparer l\'invitation' }}</button>
       </form>
+    </Modal>
+
+    <!-- Lien d'invitation : l'administrateur l'envoie depuis son propre WhatsApp (aucun SMS) -->
+    <Modal :open="!!invitation" title="Invitation à envoyer" @close="invitation = null">
+      <div v-if="invitation" class="space-y-3 text-sm">
+        <p>Envoyez ce lien à <strong>{{ invitation.user.name }}</strong> ({{ invitation.user.phone }}). Il est personnel, ne sert qu'une fois et expire le {{ dateTime(invitation.expires_at) }}. En l'ouvrant, la personne arrive connectée dans son espace.</p>
+        <a :href="invitation.whatsapp_link" target="_blank" rel="noopener" class="flex items-center justify-center gap-2 w-full rounded-xl bg-[#25D366] hover:bg-[#1ebe5b] py-3 font-semibold text-white">
+          💬 Envoyer par WhatsApp
+        </a>
+        <div class="flex gap-2">
+          <input :value="invitation.url" readonly class="input flex-1 text-xs" @focus="$event.target.select()">
+          <button type="button" class="btn-secondary" @click="copy(invitation.url)">Copier</button>
+        </div>
+        <p class="text-xs text-gray-500">Pas de WhatsApp ? Donnez-lui le lien autrement, ou renseignez un mot de passe dans « Modifier ».</p>
+      </div>
     </Modal>
   </div>
 </template>
@@ -77,6 +99,8 @@ const users = ref([])
 const assignable = ref([])
 const role = ref('')
 const form = reactive({ open: false, id: null, data: {}, error: '', saving: false })
+const invitation = ref(null)
+const inviting = ref(null)
 
 async function load() {
   users.value = (await http.get('/users', { params: { role: role.value || undefined, per_page: 100 } })).data.data
@@ -102,8 +126,13 @@ async function save() {
   try {
     const payload = Object.fromEntries(Object.entries(form.data).filter(([k, v]) => v !== '' && !(k === 'status' && !form.id)))
     if (!form.data.email && form.id) payload.email = null
-    if (form.id) await http.patch(`/users/${form.id}`, payload)
-    else await http.post('/users', payload)
+    if (form.id) {
+      await http.patch(`/users/${form.id}`, payload)
+    } else {
+      const { data } = await http.post('/users', payload)
+      // Créé sans mot de passe : le lien d'invitation est prêt à envoyer
+      if (data.invitation) invitation.value = { ...data.invitation, user: data.data }
+    }
     form.open = false
     toasts.success('Utilisateur enregistré.')
     load()
@@ -111,6 +140,27 @@ async function save() {
     form.error = apiErrorMessage(e)
   } finally {
     form.saving = false
+  }
+}
+
+async function invite(user) {
+  inviting.value = user.id
+  try {
+    const { data } = await http.post(`/users/${user.id}/invitation`)
+    invitation.value = { ...data.data, user }
+  } catch (e) {
+    toasts.error(apiErrorMessage(e, "L'invitation n'a pas pu être préparée."))
+  } finally {
+    inviting.value = null
+  }
+}
+
+async function copy(text) {
+  try {
+    await navigator.clipboard.writeText(text)
+    toasts.success('Lien copié.')
+  } catch {
+    toasts.error('Copie impossible : sélectionnez le lien et copiez-le.')
   }
 }
 

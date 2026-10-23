@@ -10,6 +10,7 @@ use App\Http\Requests\V1\UpdateUserRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Models\Company;
 use App\Models\User;
+use App\Services\Accounts\Invitations;
 use App\Services\Platform\Subscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -56,7 +57,7 @@ class UserController extends Controller
         return UserResource::collection($users);
     }
 
-    public function store(StoreUserRequest $request, Subscription $subscription): JsonResponse
+    public function store(StoreUserRequest $request, Subscription $subscription, Invitations $invitations): JsonResponse
     {
         $actor = $request->user();
         $data = $request->validated();
@@ -72,7 +73,7 @@ class UserController extends Controller
                 'name' => $data['name'],
                 'phone' => $data['phone'],
                 'email' => $data['email'] ?? null,
-                'password' => $data['password'],
+                'password' => filled($data['password'] ?? null) ? $data['password'] : null,
             ]);
 
             $user->assignRole($data['role']);
@@ -85,9 +86,12 @@ class UserController extends Controller
             $subscription->recordCouriers($user->company);
         }
 
-        return UserResource::make($user->load(['roles', 'company']))
-            ->response()
-            ->setStatusCode(201);
+        $response = UserResource::make($user->load(['roles', 'company']))->additional(
+            // Sans mot de passe : lien d'invitation, que l'administrateur envoie lui-même par WhatsApp
+            $user->password === null ? ['invitation' => $invitations->create($user, $actor)] : [],
+        );
+
+        return $response->response()->setStatusCode(201);
     }
 
     public function show(User $user): UserResource

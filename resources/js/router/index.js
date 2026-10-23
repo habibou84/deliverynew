@@ -38,6 +38,8 @@ const routes = [
   // Inscription d'une entreprise de livraison (adresse de la console : admin.jibiat.com/creer-mon-entreprise)
   { path: '/creer-mon-entreprise', name: 'company-signup', component: () => import('../views/auth/CompanySignup.vue'), meta: { public: true } },
   { path: '/mot-de-passe-oublie', name: 'forgot-password', component: () => import('../views/auth/ForgotPassword.vue'), meta: { guest: true } },
+  // Invitation d'un membre de l'équipe ou d'un livreur (lien envoyé par WhatsApp)
+  { path: '/invitation/:token', name: 'invitation', component: () => import('../views/auth/Invitation.vue'), meta: { public: true } },
   // Ancienne adresse de connexion
   { path: '/login', redirect: (to) => ({ path: '/', query: to.query }) },
   // Pages publiques (destinataire)

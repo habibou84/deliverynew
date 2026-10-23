@@ -717,6 +717,12 @@ passe actuel demandé seulement s'il en a un ; les autres appareils sont déconn
 du numéro, puis nouveau mot de passe ; les autres appareils sont déconnectés. La réponse est identique que le
 numéro ait un compte ou non.
 
+**Invitation de l'équipe et des livreurs** (Utilisateurs) : un utilisateur créé **sans mot de passe** donne un lien
+d'invitation personnel (`/invitation/{jeton}`, usage unique, valable 7 jours) que l'administrateur envoie depuis
+**son propre WhatsApp** (bouton « Envoyer par WhatsApp », aucun SMS). Le bouton **Inviter** d'une ligne en prépare un
+nouveau (l'ancien est annulé). En ouvrant le lien, la personne arrive connectée dans son espace et choisit un mot
+de passe si elle le souhaite (`GET`/`POST /api/v1/invitations/{jeton}[/accept]`, `POST /api/v1/users/{id}/invitation`).
+
 ### Comptes de démonstration
 
 Créés par `DemoSeeder` (environnements `local` et `testing` uniquement). Mot de passe : `password`.

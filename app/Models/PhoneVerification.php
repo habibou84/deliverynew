@@ -19,6 +19,9 @@ class PhoneVerification extends Model
 
     public const LOGIN = 'login';
 
+    /** Lien d'invitation (équipe, livreurs) : pas de code à envoyer, le lien suffit */
+    public const INVITE = 'invite';
+
     protected $fillable = [
         'company_id', 'purpose', 'phone', 'token_hash', 'whatsapp_code', 'sms_code_hash',
         'sms_count', 'sms_sent_at', 'attempts', 'user_id', 'payload', 'ip',
