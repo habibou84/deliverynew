@@ -74,7 +74,7 @@ class VerificationController extends Controller
                 'link' => 'https://wa.me/'.ltrim($whatsapp, '+').'?text='.rawurlencode($text),
             ] : null,
             'sms' => [
-                'available' => $verifier->smsAvailable($verification->phone),
+                'available' => $verifier->smsOffered($verification),
                 'sent' => $verification->sms_count > 0,
                 'wait_seconds' => $verifier->smsWaitSeconds($verification),
             ],

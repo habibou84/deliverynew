@@ -5,10 +5,12 @@ namespace App\Services\Accounts;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Company;
 use App\Models\PhoneVerification;
+use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
 use App\Services\Messaging\Gateways\SmsGateway;
 use App\Services\Messaging\MessagingException;
+use App\Services\Platform\PlatformWhatsApp;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -18,9 +20,11 @@ use Illuminate\Support\Str;
 /**
  * Vérification d'un numéro de téléphone, pour l'inscription d'un e-commerçant ou
  * un mot de passe oublié :
- *  - WhatsApp (gratuit) : la personne envoie depuis son WhatsApp un message prérempli
- *    contenant un code au numéro de l'entreprise ; l'expéditeur prouve le numéro ;
- *  - SMS (secours) : un code secret est envoyé au numéro et saisi sur la page.
+ *  - WhatsApp (gratuit, d'abord) : la personne envoie depuis son WhatsApp un message prérempli
+ *    contenant un code au numéro de l'entreprise (ou à celui de Jibiat si l'entreprise n'en a
+ *    pas de relié) ; l'expéditeur prouve le numéro ;
+ *  - SMS (payant, dernier recours) : un code secret envoyé au numéro et saisi sur la page,
+ *    proposé seulement quand aucun numéro WhatsApp n'est relié.
  */
 class PhoneVerifier
 {
@@ -86,16 +90,31 @@ class PhoneVerifier
     }
 
     /**
-     * Numéro WhatsApp de l'entreprise auquel envoyer le message de vérification
-     * (null si WhatsApp n'est pas branché à l'API Cloud de Meta).
+     * Numéro WhatsApp auquel envoyer le message de vérification : celui de l'entreprise s'il est relié (Meta ou QR
+     * code), sinon celui de Jibiat (console) ; null si aucun n'est relié.
      */
     public function whatsappNumber(Company $company): ?string
     {
         $account = WhatsAppAccount::forCompanyId($company->id);
+        if ($account?->isLive() && filled($account->display_phone)) {
+            return PhoneNumber::normalize($account->display_phone);
+        }
+        $platform = app(PlatformWhatsApp::class)->state();
 
-        return $account?->isLive() && filled($account->display_phone)
-            ? PhoneNumber::normalize($account->display_phone)
-            : null;
+        return $platform['status'] === 'connected' && filled($platform['phone']) ? PhoneNumber::normalize($platform['phone']) : null;
+    }
+
+    /**
+     * SMS proposé pour cette vérification : seulement quand WhatsApp n'est pas possible (aucun numéro relié), sauf
+     * si la console autorise le SMS en secours pour tout le monde (« sms.fallback »).
+     */
+    public function smsOffered(PhoneVerification $verification): bool
+    {
+        if (! $this->smsAvailable($verification->phone)) {
+            return false;
+        }
+
+        return $this->whatsappNumber($verification->company) === null || PlatformSetting::get('sms.fallback') === 'on';
     }
 
     /**
@@ -123,7 +142,7 @@ class PhoneVerifier
     {
         $this->ensureOpen($verification);
 
-        if (! $this->smsAvailable($verification->phone)) {
+        if (! $this->smsOffered($verification)) {
             throw new BusinessRuleException("L'envoi de SMS n'est pas possible vers ce numéro. Utilisez la vérification par WhatsApp.");
         }
 
@@ -214,13 +233,35 @@ class PhoneVerifier
         $verification = PhoneVerification::where('company_id', $company->id)->where('whatsapp_code', $m[1])
             ->pending()->latest('id')->first();
 
+        return $this->answer($verification, $from, false);
+    }
+
+    /**
+     * Message reçu sur le numéro de Jibiat (console) : même chose, pour n'importe quelle entreprise. Le code et le
+     * numéro de l'expéditeur désignent la demande.
+     */
+    public function handlePlatformWhatsApp(string $from, ?string $text): ?string
+    {
+        if (! preg_match('/code\s+de\s+v[ée]rification\D{0,10}(\d{6})/iu', (string) $text, $m)) {
+            return null;
+        }
+
+        $candidates = PhoneVerification::where('whatsapp_code', $m[1])->pending()->latest('id')->get();
+        $verification = $candidates->firstWhere('phone', PhoneNumber::normalize($from)) ?? $candidates->first();
+
+        return $this->answer($verification, $from, true);
+    }
+
+    private function answer(?PhoneVerification $verification, string $from, bool $viaPlatform): string
+    {
         if ($verification === null) {
             return "Ce code n'est plus valable (il expire au bout de ".self::TTL_MINUTES.' minutes). Recommencez depuis la page du site.';
         }
+        $company = $verification->company;
 
         if ($verification->phone !== PhoneNumber::normalize($from)) {
             return 'Ce code a été demandé pour le numéro '.PhoneNumber::display($verification->phone)
-                .'. Envoyez-le depuis le WhatsApp de ce numéro, ou choisissez « Recevoir un code par SMS » sur la page.';
+                .'. Envoyez-le depuis le WhatsApp de ce numéro.';
         }
 
         try {
@@ -231,7 +272,8 @@ class PhoneVerifier
 
         return match ($verification->purpose) {
             PhoneVerification::SIGNUP => "✅ Numéro vérifié ! Bienvenue chez {$company->name}. Votre compte « ".($verification->payload['business_name'] ?? '')
-                .' » est ouvert : retournez sur la page du site, vous y êtes connecté. Vous pouvez aussi créer vos courses ici en tapant « menu ».',
+                .' » est ouvert : retournez sur la page du site, vous y êtes connecté.'
+                .($viaPlatform ? '' : ' Vous pouvez aussi créer vos courses ici en tapant « menu ».'),
             default => $verification->user_id
                 ? '✅ Numéro vérifié. Retournez sur la page du site pour choisir votre nouveau mot de passe.'
                 : "Aucun compte n'est associé à ce numéro chez {$company->name}.",
