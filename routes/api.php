@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\DemoAccountController;
 use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
+use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\MerchantController;
@@ -150,6 +151,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::post('password/forgot', [PasswordResetController::class, 'forgot'])->middleware('throttle:verification-start')->name('password.forgot');
     // Connexion par WhatsApp (sans mot de passe) : le numéro est vérifié puis la session s'ouvre
     Route::post('auth/whatsapp', [WhatsAppLoginController::class, 'start'])->middleware('throttle:verification-start')->name('auth.whatsapp');
+    // Lien d'invitation (équipe, livreurs) : lecture puis ouverture de la session
+    Route::get('invitations/{token}', [InvitationController::class, 'show'])->middleware('throttle:30,1')->name('invitations.show');
+    Route::post('invitations/{token}/accept', [InvitationController::class, 'accept'])->middleware('throttle:10,1')->name('invitations.accept');
     Route::post('password/reset', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
     Route::get('verifications/{token}', [VerificationController::class, 'show'])->middleware('throttle:90,1')->name('verifications.show');
     Route::post('verifications/{token}/sms', [VerificationController::class, 'sms'])->middleware('throttle:verification-sms')->name('verifications.sms');
@@ -276,6 +280,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
         Route::apiResource('companies', CompanyController::class)->except('destroy');
         Route::apiResource('users', UserController::class);
+        Route::post('users/{user}/invitation', [InvitationController::class, 'store'])->name('users.invitation');
 
         // Référentiels
         Route::get('zones', [ZoneController::class, 'index'])->name('zones.index');
