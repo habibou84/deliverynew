@@ -1,5 +1,8 @@
 <template>
-  <form class="space-y-4" :style="{ '--app-color': color }" @submit.prevent="submit">
+  <!-- Connexion par WhatsApp : numéro, message prérempli, session ouverte sans mot de passe -->
+  <WhatsAppLogin v-if="whatsappMode" :tone="tone" :style="{ '--app-color': color }" @back="whatsappMode = false" @done="enter" />
+
+  <form v-else class="space-y-4" :style="{ '--app-color': color }" @submit.prevent="submit">
     <div v-if="error" class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 space-y-2" role="alert">
       <p>{{ error }}</p>
       <!-- Compte d'un autre espace : lien vers sa page de connexion (sauf dans une application limitée à un espace) -->
@@ -45,6 +48,11 @@
       {{ loading ? 'Connexion…' : 'Se connecter' }}
     </button>
 
+    <p class="flex items-center gap-3 text-xs text-slate-400"><span class="h-px flex-1 bg-slate-200"></span>ou<span class="h-px flex-1 bg-slate-200"></span></p>
+    <button type="button" class="w-full rounded-xl border-2 border-[#25D366] py-3 font-semibold text-emerald-700 hover:bg-emerald-50" @click="whatsappMode = true">
+      💬 Me connecter par WhatsApp
+    </button>
+
     <!-- Préproduction seulement (le serveur ne les donne pas ailleurs) : comptes de test en un toucher -->
     <div v-if="demoAccounts.length" class="rounded-xl border border-dashed border-amber-300 bg-amber-50 p-3 text-sm">
       <p class="font-semibold text-amber-900">🧪 Comptes de test (préproduction)</p>
@@ -69,6 +77,8 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { LOGIN_PAGES, SPACE_FROM_SERVER } from '../../bootstrap/session'
 import { appLock } from '../../native'
 import { spaceColor } from '../../composables/useBranding'
+import { readPending } from '../../composables/usePendingVerification'
+import WhatsAppLogin from './WhatsAppLogin.vue'
 
 const props = defineProps({
   // merchant (vert), staff (ardoise), courier (bleu)
@@ -81,6 +91,8 @@ const color = computed(() => spaceColor(TONE_SPACES[props.tone]))
 const ring = 'focus:ring-[var(--app-color)]'
 const button = 'bg-[var(--app-color)] hover:brightness-110'
 
+// Reprise d'une connexion WhatsApp commencée (retour depuis WhatsApp, page rechargée)
+const whatsappMode = ref(!!readPending('login'))
 const login = ref('')
 const password = ref('')
 const showPassword = ref(false)
@@ -113,9 +125,7 @@ async function submit() {
   loading.value = true
   try {
     await auth.login({ login: login.value, password: password.value })
-    // Chacun arrive dans son espace, quelle que soit la page de connexion utilisée
-    const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith(auth.homeRoute) ? route.query.redirect : null
-    router.replace(redirect || auth.homeRoute)
+    enter()
   } catch (e) {
     error.value = apiErrorMessage(e, 'Connexion impossible. Vérifiez votre réseau.')
     const space = SPACE_FROM_SERVER[e.response?.data?.space]
@@ -123,5 +133,11 @@ async function submit() {
   } finally {
     loading.value = false
   }
+}
+
+// Chacun arrive dans son espace, quelle que soit la page de connexion utilisée
+function enter() {
+  const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith(auth.homeRoute) ? route.query.redirect : null
+  router.replace(redirect || auth.homeRoute)
 }
 </script>

@@ -53,12 +53,24 @@
             </Field>
           </fieldset>
 
-          <Field id="su-password" label="Mot de passe (8 caractères minimum)" :error="errors.password">
-            <input id="su-password" v-model="form.password" :class="inputClass" type="password" autocomplete="new-password" required minlength="8">
-          </Field>
-          <Field id="su-password2" label="Confirmez le mot de passe">
-            <input id="su-password2" v-model="form.password_confirmation" :class="inputClass" type="password" autocomplete="new-password" required minlength="8">
-          </Field>
+          <!-- Mot de passe facultatif : sans lui, la connexion se fait par WhatsApp -->
+          <div class="rounded-2xl bg-slate-50 p-4 space-y-3">
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input v-model="withPassword" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+              <span class="text-sm">
+                <span class="font-semibold text-slate-700">Définir un mot de passe maintenant (facultatif)</span>
+                <span class="block text-slate-500">Sans mot de passe, vous vous connecterez par WhatsApp, en un message. Vous pourrez en définir un plus tard dans votre profil.</span>
+              </span>
+            </label>
+            <template v-if="withPassword">
+              <Field id="su-password" label="Mot de passe (8 caractères minimum)" :error="errors.password">
+                <input id="su-password" v-model="form.password" :class="inputClass" type="password" autocomplete="new-password" required minlength="8">
+              </Field>
+              <Field id="su-password2" label="Confirmez le mot de passe">
+                <input id="su-password2" v-model="form.password_confirmation" :class="inputClass" type="password" autocomplete="new-password" required minlength="8">
+              </Field>
+            </template>
+          </div>
 
           <button type="submit" :disabled="busy" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 font-semibold text-white shadow-sm disabled:opacity-60">
             {{ busy ? 'Un instant…' : 'Continuer' }}
@@ -105,6 +117,7 @@ const auth = useAuthStore()
 const toasts = useToastStore()
 
 const options = ref(null)
+const withPassword = ref(false)
 const pending = ref(readPending('signup'))
 const busy = ref(false)
 const error = ref('')
@@ -122,7 +135,13 @@ async function submit() {
   error.value = ''
   errors.value = {}
   try {
-    const { data } = await http.post('/signup', { ...form, email: form.email || null, pickup_landmark: form.pickup_landmark || null })
+    const { data } = await http.post('/signup', {
+      ...form,
+      email: form.email || null,
+      pickup_landmark: form.pickup_landmark || null,
+      password: withPassword.value ? form.password : null,
+      password_confirmation: withPassword.value ? form.password_confirmation : null,
+    })
     pending.value = { token: data.token, data: data.data }
     savePending('signup', pending.value)
   } catch (e) {

@@ -18,8 +18,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
- * Vérification d'un numéro de téléphone, pour l'inscription d'un e-commerçant ou
- * un mot de passe oublié :
+ * Vérification d'un numéro de téléphone, pour l'inscription d'un e-commerçant, un
+ * mot de passe oublié ou une connexion par WhatsApp :
  *  - WhatsApp (gratuit, d'abord) : la personne envoie depuis son WhatsApp un message prérempli
  *    contenant un code au numéro de l'entreprise (ou à celui de Jibiat si l'entreprise n'en a
  *    pas de relié) ; l'expéditeur prouve le numéro ;
@@ -274,6 +274,7 @@ class PhoneVerifier
             PhoneVerification::SIGNUP => "✅ Numéro vérifié ! Bienvenue chez {$company->name}. Votre compte « ".($verification->payload['business_name'] ?? '')
                 .' » est ouvert : retournez sur la page du site, vous y êtes connecté.'
                 .($viaPlatform ? '' : ' Vous pouvez aussi créer vos courses ici en tapant « menu ».'),
+            PhoneVerification::LOGIN => '✅ Numéro vérifié. Retournez sur la page du site : vous y êtes connecté.',
             default => $verification->user_id
                 ? '✅ Numéro vérifié. Retournez sur la page du site pour choisir votre nouveau mot de passe.'
                 : "Aucun compte n'est associé à ce numéro chez {$company->name}.",
@@ -301,7 +302,11 @@ class PhoneVerifier
     private function smsText(PhoneVerification $verification, string $code): string
     {
         $company = $verification->company;
-        $what = $verification->purpose === PhoneVerification::SIGNUP ? 'pour créer votre compte' : 'pour changer votre mot de passe';
+        $what = match ($verification->purpose) {
+            PhoneVerification::SIGNUP => 'pour créer votre compte',
+            PhoneVerification::LOGIN => 'pour vous connecter',
+            default => 'pour changer votre mot de passe',
+        };
 
         return "{$code} est votre code {$company->name} {$what}. Il expire dans ".self::TTL_MINUTES.' minutes. Ne le communiquez à personne.';
     }

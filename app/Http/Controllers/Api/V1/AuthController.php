@@ -16,7 +16,7 @@ use Laravel\Sanctum\PersonalAccessToken;
 class AuthController extends Controller
 {
     /** Compte d'un autre espace que la page de connexion utilisée */
-    private const WRONG_SPACE = [
+    public const WRONG_SPACE = [
         'merchant' => 'Ce compte est un compte e-commerçant : connectez-vous depuis l\'espace e-commerçant.',
         'courier' => 'Ce compte est un compte livreur : connectez-vous depuis l\'espace livreur.',
         'staff' => 'Ce compte est un compte de l\'équipe : connectez-vous depuis l\'espace équipe.',

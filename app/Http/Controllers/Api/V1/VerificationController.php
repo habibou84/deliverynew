@@ -12,8 +12,8 @@ use Illuminate\Http\Request;
 
 /**
  * Suivi d'une vérification de numéro par le navigateur qui l'a demandée (jeton) :
- * état, envoi d'un code par SMS, saisie du code. À la fin d'une inscription, la
- * réponse ouvre la session du nouvel e-commerçant (une seule fois).
+ * état, envoi d'un code par SMS, saisie du code. À la fin d'une inscription ou d'une
+ * connexion par WhatsApp, la réponse ouvre la session (une seule fois).
  */
 class VerificationController extends Controller
 {
@@ -56,6 +56,7 @@ class VerificationController extends Controller
         $status = match (true) {
             $verification->completed_at !== null => 'completed',
             $verification->purpose === PhoneVerification::SIGNUP && $verification->isVerified() && $verification->user_id === null => 'failed',
+            $verification->purpose === PhoneVerification::LOGIN && $verification->isVerified() && ! self::canLogIn($verification) => 'failed',
             $verification->isVerified() => 'verified',
             $verification->isExpired() => 'expired',
             default => 'pending',
@@ -65,7 +66,9 @@ class VerificationController extends Controller
             'purpose' => $verification->purpose,
             'phone' => PhoneNumber::display($verification->phone),
             'status' => $status,
-            'message' => $status === 'failed' ? 'Ce numéro a déjà un compte. Connectez-vous, ou utilisez « Mot de passe oublié ».' : null,
+            'message' => $status !== 'failed' ? null : ($verification->purpose === PhoneVerification::LOGIN
+                ? 'Compte suspendu. Contactez votre administrateur.'
+                : 'Ce numéro a déjà un compte. Connectez-vous, ou utilisez « Mot de passe oublié ».'),
             'verified_via' => $verification->verified_via,
             'expires_at' => $verification->expires_at,
             'whatsapp' => $whatsapp ? [
@@ -89,14 +92,27 @@ class VerificationController extends Controller
     {
         $state = ['data' => self::describe($this->verifier, $verification)];
 
-        // Inscription vérifiée : la première réponse qui le constate ouvre la session
-        if ($verification->purpose === PhoneVerification::SIGNUP && $verification->user_id !== null && $verification->completed_at === null
+        // Inscription ou connexion vérifiée : la première réponse qui le constate ouvre la session
+        $opens = match ($verification->purpose) {
+            PhoneVerification::SIGNUP => $verification->user_id !== null,
+            PhoneVerification::LOGIN => $verification->isVerified() && self::canLogIn($verification),
+            default => false,
+        };
+        if ($opens && $verification->completed_at === null
             && PhoneVerification::whereKey($verification->id)->whereNull('completed_at')->update(['completed_at' => now()]) === 1) {
             $state['data']['status'] = 'completed';
-            $state['session'] = AuthController::session(User::findOrFail($verification->user_id), 'inscription');
+            $state['session'] = AuthController::session(
+                User::findOrFail($verification->user_id),
+                $verification->purpose === PhoneVerification::LOGIN ? ($verification->payload['device'] ?? 'whatsapp') : 'inscription',
+            );
         }
 
         return $state;
+    }
+
+    private static function canLogIn(PhoneVerification $verification): bool
+    {
+        return $verification->user_id !== null && $verification->user?->fresh()?->isActive() === true;
     }
 
     private function verification(string $token): PhoneVerification
