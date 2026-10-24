@@ -2,11 +2,63 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">WhatsApp de Jibiat</h1>
-      <span v-if="state" :class="['rounded-full px-2 py-0.5 text-xs font-medium', STATUS[state.status]?.[1]]">{{ STATUS[state.status]?.[0] }}</span>
+      <span v-if="state" :class="['rounded-full px-2 py-0.5 text-xs font-medium', STATUS[state.status]?.[1]]">
+        {{ STATUS[state.status]?.[0] }}<template v-if="state.status === 'connected'"> · {{ state.channel === 'official' ? 'connexion officielle' : 'QR code' }}</template>
+      </span>
     </div>
 
-    <!-- Connexion du numéro de Jibiat par QR code -->
-    <section v-if="state && state.status !== 'connected'" class="card p-4 space-y-3">
+    <!-- Connexion officielle (API Cloud de Meta), saisie à la main -->
+    <section v-if="state" class="card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold">Connexion officielle (Meta)</h2>
+        <span v-if="state.official" :class="['rounded-full px-2 py-0.5 text-xs font-medium', OFFICIAL[state.official.status]?.[1] || 'bg-slate-100 text-slate-700']">{{ OFFICIAL[state.official.status]?.[0] || state.official.status }}</span>
+      </div>
+      <p class="text-sm text-gray-600">
+        Le numéro de Jibiat sur l'API WhatsApp Business de Meta. Une fois vérifiée, elle est utilisée en priorité pour la messagerie
+        de la console et les codes de vérification ; le QR code reste en secours.
+      </p>
+      <p v-if="state.official?.live" class="text-sm text-emerald-800">
+        ✅ Numéro <strong>{{ state.official.display_phone }}</strong><span v-if="state.official.verified_name"> ({{ state.official.verified_name }})</span> vérifié par Meta<span v-if="state.official.quality_rating"> · qualité {{ QUALITY[state.official.quality_rating] || state.official.quality_rating }}</span>.
+        <span v-if="!state.official.webhook_subscribed" class="text-amber-700">Abonnement aux messages reçus à vérifier.</span>
+      </p>
+      <p v-if="state.official?.error" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ state.official.error }}</p>
+
+      <form class="grid gap-3 md:grid-cols-2" @submit.prevent="saveOfficial">
+        <div>
+          <label class="label" for="wa-phone">Numéro WhatsApp</label>
+          <input id="wa-phone" v-model="official.display_phone" class="input" inputmode="tel" placeholder="+225 07 00 00 00 00">
+        </div>
+        <div>
+          <label class="label" for="wa-pnid">Identifiant du numéro (Phone number ID)</label>
+          <input id="wa-pnid" v-model="official.phone_number_id" class="input font-mono" inputmode="numeric" required>
+        </div>
+        <div>
+          <label class="label" for="wa-waba">Identifiant du compte WhatsApp Business (WABA ID)</label>
+          <input id="wa-waba" v-model="official.waba_id" class="input font-mono" inputmode="numeric" required>
+        </div>
+        <div>
+          <label class="label" for="wa-token">Jeton d'accès permanent</label>
+          <input id="wa-token" v-model="official.access_token" class="input font-mono" type="password" autocomplete="off" :required="!state.official?.has_token" :placeholder="state.official?.has_token ? 'Jeton enregistré : laisser vide pour le garder' : 'Jeton d\'un utilisateur système'">
+        </div>
+        <div class="md:col-span-2 flex flex-wrap gap-2">
+          <button class="btn-primary" :disabled="busy">Enregistrer et vérifier</button>
+          <button v-if="state.official" type="button" class="btn-secondary" :disabled="busy" @click="verifyOfficial">Vérifier à nouveau</button>
+          <button v-if="state.official" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="removeOfficial">Retirer</button>
+        </div>
+      </form>
+      <details class="text-xs text-gray-600">
+        <summary class="cursor-pointer font-medium">Où trouver ces informations ?</summary>
+        <ol class="mt-2 list-decimal space-y-1 pl-5">
+          <li>Meta Business Suite › WhatsApp Manager : l'identifiant du numéro et celui du compte WhatsApp Business.</li>
+          <li>Paramètres de l'entreprise › Utilisateurs système : créez un jeton sans expiration avec les autorisations whatsapp_business_management et whatsapp_business_messaging.</li>
+          <li>Dans l'application Meta, webhook WhatsApp : <code class="break-all">{{ state.webhook_url }}</code> (champ « messages »).</li>
+        </ol>
+      </details>
+    </section>
+
+    <!-- Connexion du numéro de Jibiat par QR code (secours de la connexion officielle) -->
+    <section v-if="state && state.qr_state.status !== 'connected'" class="card p-4 space-y-3">
+      <h2 class="font-semibold">Connexion par QR code<span v-if="state.channel === 'official'" class="font-normal text-gray-500"> (secours)</span></h2>
       <p class="text-sm text-gray-600">
         Reliez le numéro WhatsApp de Jibiat comme WhatsApp Web : les messages des entreprises et des prospects arrivent ici,
         et vous leur répondez depuis la console, avec ce numéro.
@@ -22,15 +74,15 @@
           <li>Touchez « Connecter un appareil » et scannez ce QR code.</li>
         </ol>
       </div>
-      <p v-if="state.error" class="text-sm text-amber-700">{{ state.error }}</p>
+      <p v-if="state.qr_state.error" class="text-sm text-amber-700">{{ state.qr_state.error }}</p>
       <button v-if="!state.qr" type="button" class="btn-success" :disabled="busy || !state.available" @click="connect">
-        {{ state.status === 'disconnected' ? 'Reconnecter par QR code' : 'Afficher le QR code' }}
+        {{ state.qr_state.status === 'disconnected' ? 'Reconnecter par QR code' : 'Afficher le QR code' }}
       </button>
       <p v-if="!state.available" class="text-xs text-gray-500">Le service WhatsApp n'est pas encore installé sur le serveur.</p>
     </section>
 
     <p v-else-if="state" class="text-sm text-gray-600">
-      ✅ Numéro <strong>{{ state.phone }}</strong><span v-if="state.name"> ({{ state.name }})</span> relié.
+      ✅ Numéro <strong>{{ state.qr_state.phone }}</strong><span v-if="state.qr_state.name"> ({{ state.qr_state.name }})</span> relié par QR code<span v-if="state.channel === 'official'"> (secours)</span>.
       <button type="button" class="ml-2 text-red-700 underline" :disabled="busy" @click="disconnect">Déconnecter</button>
     </p>
 
@@ -108,13 +160,13 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { dateTime } from '../../utils/format'
 
 /**
- * Console › WhatsApp : numéro de Jibiat relié par QR code, conversations avec les entreprises et les prospects,
+ * Console › WhatsApp : numéro de Jibiat (connexion officielle de Meta saisie à la main, ou QR code), conversations avec les entreprises et les prospects,
  * réponses depuis la console. Tout se rafraîchit toutes les cinq secondes.
  */
 const toasts = useToastStore()
@@ -136,10 +188,48 @@ const STATUS = {
   connected: ['Connecté', 'bg-emerald-100 text-emerald-800'],
   disconnected: ['Déconnecté', 'bg-red-100 text-red-800'],
 }
+const OFFICIAL = {
+  pending: ['À vérifier', 'bg-amber-100 text-amber-800'],
+  connected: ['Vérifiée par Meta', 'bg-emerald-100 text-emerald-800'],
+  error: ['Erreur', 'bg-red-100 text-red-800'],
+}
+const QUALITY = { green: 'bonne', yellow: 'moyenne', red: 'faible' }
+const official = reactive({ display_phone: '', phone_number_id: '', waba_id: '', access_token: '' })
+let officialFilled = false
 const SENT = { queued: 'en attente', sent: 'envoyé', delivered: 'reçu', read: 'lu', failed: 'échec' }
 
 async function loadState() {
   state.value = (await http.get('/console/whatsapp')).data.data
+  // Formulaire rempli une seule fois (pas à chaque rafraîchissement, pour ne pas effacer la saisie)
+  if (!officialFilled) {
+    const o = state.value.official
+    Object.assign(official, { display_phone: o?.display_phone || '', phone_number_id: o?.phone_number_id || '', waba_id: o?.waba_id || '', access_token: '' })
+    officialFilled = true
+  }
+}
+
+async function officialCall(request, done) {
+  busy.value = true
+  try {
+    state.value = (await request()).data.data
+    official.access_token = ''
+    const o = state.value.official
+    if (o?.live) toasts.success(done)
+    else if (o?.error) toasts.error(o.error)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy.value = false
+  }
+}
+
+const saveOfficial = () => officialCall(() => http.put('/console/whatsapp/official', { ...official, access_token: official.access_token || null }), 'Connexion officielle vérifiée.')
+const verifyOfficial = () => officialCall(() => http.post('/console/whatsapp/official/verify'), 'Connexion officielle vérifiée.')
+
+async function removeOfficial() {
+  if (!window.confirm('Retirer la connexion officielle ? La console repassera par le QR code s\'il est relié.')) return
+  await officialCall(() => http.delete('/console/whatsapp/official'), '')
+  Object.assign(official, { display_phone: '', phone_number_id: '', waba_id: '', access_token: '' })
 }
 
 async function loadConversations() {

@@ -3,11 +3,14 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\Role;
+use App\Models\InboundMessage;
 use App\Models\PhoneVerification;
 use App\Models\PlatformConversation;
 use App\Models\PlatformMessage;
 use App\Models\PlatformSetting;
 use App\Models\User;
+use App\Models\WhatsAppAccount;
+use App\Services\Accounts\PhoneVerifier;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -95,6 +98,90 @@ class ConsoleWhatsAppTest extends TestCase
 
         // Déconnexion
         $this->deleteJson('/api/v1/console/whatsapp/connect')->assertOk()->assertJsonPath('data.status', 'disconnected');
+    }
+
+    public function test_official_connection_is_entered_by_hand_and_used_first(): void
+    {
+        config(['messaging.whatsapp.driver' => 'auto']);
+        Http::fake([
+            '*/555?*' => Http::response(['display_phone_number' => '+225 01 00 00 00 99', 'verified_name' => 'Jibiat', 'quality_rating' => 'GREEN']),
+            '*/777/subscribed_apps' => Http::response(['success' => true]),
+            '*/555/messages' => Http::sequence()
+                ->push(['messages' => [['id' => 'wamid.P1']]])
+                ->push(['error' => ['code' => 131047, 'message' => 'Re-engagement message']], 400),
+        ]);
+        Sanctum::actingAs($this->root);
+
+        // Jeton obligatoire la première fois
+        $this->putJson('/api/v1/console/whatsapp/official', ['phone_number_id' => '555', 'waba_id' => '777'])->assertJsonValidationErrors('access_token');
+
+        $this->putJson('/api/v1/console/whatsapp/official', ['phone_number_id' => '555', 'waba_id' => '777', 'access_token' => 'permanent'])->assertOk()
+            ->assertJsonPath('data.status', 'connected')
+            ->assertJsonPath('data.channel', 'official')
+            ->assertJsonPath('data.phone', '+2250100000099')
+            ->assertJsonPath('data.official.live', true)
+            ->assertJsonPath('data.official.verified_name', 'Jibiat')
+            ->assertJsonPath('data.official.webhook_subscribed', true)
+            ->assertJsonPath('data.official.has_token', true)
+            ->assertJsonMissingPath('data.official.access_token')
+            ->assertJsonPath('data.qr_state.status', 'none');
+        $account = WhatsAppAccount::platform();
+        $this->assertNull($account->company_id);
+        $this->assertSame('permanent', $account->access_token);
+        $this->assertNull(WhatsAppAccount::forCompanyId($this->company->id));
+
+        // Codes de vérification : le numéro officiel de Jibiat
+        $this->assertSame('+2250100000099', app(PhoneVerifier::class)->whatsappNumber($this->company));
+
+        // Message reçu par Meta sur le numéro officiel : conversation de la console
+        $this->postJson('/api/webhooks/whatsapp', ['entry' => [['changes' => [['value' => [
+            'metadata' => ['phone_number_id' => '555'],
+            'contacts' => [['profile' => ['name' => 'Koffi']]],
+            'messages' => [['id' => 'wamid.IN1', 'from' => ltrim($this->admin->phone, '+'), 'type' => 'text', 'text' => ['body' => 'Bonjour Jibiat']]],
+        ]]]]]])->assertOk();
+        $conversation = PlatformConversation::where('phone', $this->admin->phone)->sole();
+        $this->assertSame(['Koffi', $this->company->id, 'Bonjour Jibiat'], [$conversation->name, $conversation->company_id, $conversation->last_message]);
+        $this->assertSame(0, InboundMessage::withoutGlobalScopes()->count());
+
+        // Réponse par Meta, accusé de remise
+        $this->postJson("/api/v1/console/whatsapp/conversations/{$conversation->id}/messages", ['body' => 'Bonjour Koffi'])->assertCreated()->assertJsonPath('data.status', 'sent');
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/555/messages') && $r['text']['body'] === 'Bonjour Koffi' && $r->hasHeader('Authorization', 'Bearer permanent'));
+        $this->postJson('/api/webhooks/whatsapp', ['entry' => [['changes' => [['value' => [
+            'metadata' => ['phone_number_id' => '555'],
+            'statuses' => [['id' => 'wamid.P1', 'status' => 'delivered']],
+        ]]]]]])->assertOk();
+        $this->assertSame('delivered', PlatformMessage::where('provider_message_id', 'wamid.P1')->value('status'));
+
+        // Hors de la fenêtre de 24 heures : explication claire
+        $this->postJson("/api/v1/console/whatsapp/conversations/{$conversation->id}/messages", ['body' => 'Relance'])->assertCreated()
+            ->assertJsonPath('data.status', 'failed')
+            ->assertJsonPath('data.error', 'Plus de 24 heures depuis son dernier message : WhatsApp n\'accepte plus de message libre. Attendez qu\'il vous écrive.');
+
+        // Jeton conservé si le champ reste vide
+        $this->putJson('/api/v1/console/whatsapp/official', ['phone_number_id' => '555', 'waba_id' => '777', 'access_token' => null])->assertOk();
+        $this->assertSame('permanent', WhatsAppAccount::platform()->access_token);
+
+        // Retirée : retour au QR code (non relié)
+        $this->deleteJson('/api/v1/console/whatsapp/official')->assertOk()
+            ->assertJsonPath('data.official', null)
+            ->assertJsonPath('data.channel', 'qr')
+            ->assertJsonPath('data.status', 'none');
+    }
+
+    public function test_official_connection_error_is_explained(): void
+    {
+        config(['messaging.whatsapp.driver' => 'auto']);
+        Http::fake(['*/555?*' => Http::response(['error' => ['code' => 190, 'message' => 'Invalid OAuth access token']], 401)]);
+        Sanctum::actingAs($this->root);
+
+        $this->putJson('/api/v1/console/whatsapp/official', ['phone_number_id' => '555', 'waba_id' => '777', 'access_token' => 'expired'])->assertOk()
+            ->assertJsonPath('data.official.status', 'error')
+            ->assertJsonPath('data.official.live', false)
+            ->assertJsonPath('data.channel', 'qr')
+            ->assertJsonPath('data.official.error', 'Jeton d\'accès invalide ou expiré. Créez un jeton permanent (utilisateur système) dans Meta Business.');
+
+        Sanctum::actingAs($this->admin);
+        $this->putJson('/api/v1/console/whatsapp/official', ['phone_number_id' => '1', 'waba_id' => '2', 'access_token' => 'x'])->assertForbidden();
     }
 
     public function test_reserved_to_the_console(): void

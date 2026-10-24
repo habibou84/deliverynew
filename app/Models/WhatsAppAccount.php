@@ -91,6 +91,19 @@ class WhatsAppAccount extends Model
         };
     }
 
+    /** Numéro officiel de Jibiat (console) : sans entreprise */
+    public const PLATFORM = 'platform';
+
+    public static function platform(): ?self
+    {
+        return static::withoutGlobalScopes()->where('owner_type', self::PLATFORM)->first();
+    }
+
+    public function isPlatform(): bool
+    {
+        return $this->owner_type === self::PLATFORM;
+    }
+
     public static function forCompanyId(int $companyId): ?self
     {
         return static::forCompany($companyId)->where('owner_type', 'company')->first();
