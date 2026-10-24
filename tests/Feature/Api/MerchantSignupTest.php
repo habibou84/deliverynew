@@ -104,6 +104,22 @@ class MerchantSignupTest extends TestCase
             ->assertJsonPath('message', 'Les inscriptions en ligne sont fermées. Contactez-nous pour ouvrir un compte.');
     }
 
+    public function test_whatsapp_still_under_the_old_8_digit_number_is_recognised(): void
+    {
+        Notification::fake();
+        $this->useWhatsApp();
+
+        $text = $this->postJson('/api/v1/signup', $this->signupData(['phone' => '07 47 12 34 56']))->assertCreated()
+            ->json('data.whatsapp.text');
+
+        // Un autre numéro qui finit pareil n'est pas le même
+        $this->assertStringContainsString('arrive du numéro 05 47 12 34 56', $this->whatsapp('+2250547123456', $text));
+
+        // Compte WhatsApp jamais passé à 10 chiffres : +225 47 12 34 56 est le 07 47 12 34 56
+        $this->assertStringContainsString('Numéro vérifié', $this->whatsapp('+22547123456', $text));
+        $this->assertTrue(Merchant::where('phone', '+2250747123456')->exists());
+    }
+
     public function test_whatsapp_message_from_the_number_creates_the_active_account(): void
     {
         Notification::fake();
