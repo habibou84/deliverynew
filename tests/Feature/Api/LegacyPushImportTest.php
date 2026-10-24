@@ -187,6 +187,29 @@ class LegacyPushImportTest extends TestCase
         $this->assertTrue(User::where('phone', '+2250511223344')->exists());
     }
 
+    public function test_one_unexpected_row_does_not_stop_the_batch(): void
+    {
+        $key = $this->key();
+        // Le 2e livreur fait échouer l'enregistrement (simulé) : il est mis de côté avec la raison, les autres passent
+        User::creating(function (User $user) {
+            if ($user->phone === '+2250522222222') {
+                throw new \RuntimeException('valeur refusée par la base');
+            }
+        });
+        $payload = ['step' => 'livreurs', 'users' => [], 'livreurs' => [
+            ['id' => 1, 'nom' => 'Un', 'phone' => '0711111111', 'status' => 'active', 'user_id' => null],
+            ['id' => 2, 'nom' => 'Deux', 'phone' => '0522222222', 'status' => 'active', 'user_id' => null],
+            ['id' => 3, 'nom' => 'Trois', 'phone' => '0133333333', 'status' => 'active', 'user_id' => null],
+        ]];
+
+        $report = $this->send($key, $payload)->assertOk()->json('data');
+        $this->assertSame(2, $report['counts']['couriers']);
+        $this->assertSame('2', $report['skipped'][0]['id']);
+        $this->assertStringContainsString('valeur refusée par la base', $report['skipped'][0]['reason']);
+        $this->assertTrue(User::where('phone', '+2250133333333')->exists());
+        $this->assertFalse(User::where('phone', '+2250522222222')->exists());
+    }
+
     public function test_only_a_valid_key_is_accepted(): void
     {
         $payload = ['step' => 'livreurs', 'livreurs' => [['id' => 9, 'nom' => 'Koffi', 'phone' => '0700000099', 'status' => 'active', 'user_id' => null]], 'users' => []];
