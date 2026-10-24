@@ -38,7 +38,8 @@
           </Field>
 
           <fieldset class="space-y-4 rounded-2xl bg-slate-50 p-4">
-            <legend class="text-sm font-semibold text-slate-700 px-1">Où récupérer vos colis ?</legend>
+            <legend class="sr-only">Où récupérer vos colis ?</legend>
+            <p class="text-sm font-semibold text-slate-700" aria-hidden="true">Où récupérer vos colis ?</p>
             <Field id="su-zone" label="Commune ou quartier" :error="errors.pickup_zone_id">
               <select id="su-zone" v-model="form.pickup_zone_id" :class="inputClass" required>
                 <option :value="null" disabled>Choisissez…</option>
