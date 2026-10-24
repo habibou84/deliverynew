@@ -21,6 +21,7 @@ class CheckWhatsAppTokens extends Command
         $adopted = $warned = $expired = 0;
 
         WhatsAppAccount::withoutGlobalScopes()
+            ->where('owner_type', 'company')
             ->where('platform_token', false)
             ->whereNotNull('token_expires_at')
             ->where('status', 'connected')
