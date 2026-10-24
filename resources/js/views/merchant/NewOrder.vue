@@ -20,38 +20,32 @@
     </div>
   </div>
 
-  <!-- Une question par écran : le client, où, l'argent et le jour, puis le récapitulatif -->
-  <form v-else class="pb-28" :style="lifted ? { paddingBottom: '100vh' } : {}" novalidate autocomplete="off" @submit.prevent="next" @focusin="liftField" @focusout="lifted = false">
-    <div class="flex items-center gap-1 -mt-1 mb-4" :aria-label="`Étape ${step} sur 4`">
-      <i v-for="n in 4" :key="n" :class="['block h-1 flex-1 rounded-full', n <= step ? 'bg-[var(--app-color)]' : 'bg-slate-200']" />
-    </div>
-
-    <div v-if="error" class="mb-3 rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm" role="alert">{{ error }}</div>
-    <p v-if="fromMessage" class="mb-3 rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">Course remplie d'après le message : vérifiez avant d'envoyer.</p>
+  <!-- Toute la course sur une page : le client, où livrer, l'argent, le jour ; le prix suit en bas -->
+  <form v-else class="space-y-4 pb-44" :style="lifted ? { paddingBottom: '100vh' } : {}" novalidate autocomplete="off" @submit.prevent="submit" @focusin="liftField" @focusout="lifted = false">
+    <div v-if="error" class="rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm" role="alert">{{ error }}</div>
+    <p v-if="fromMessage" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">Course remplie d'après le message : vérifiez avant d'envoyer.</p>
 
     <!-- Message collé : remplit toute la course -->
-    <PasteMessage v-if="pasteOpen" mobile start-open class="mb-4" @parsed="applyParsed" />
+    <PasteMessage v-if="pasteOpen" mobile start-open @parsed="applyParsed" />
+    <button v-else type="button" class="tap w-full flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[var(--app-color)] ring-1 ring-slate-200 active:bg-slate-50" @click="pasteOpen = true">
+      <AppIcon name="clip" class="h-[18px] w-[18px]" />Coller un message WhatsApp pour tout remplir
+    </button>
 
     <!-- 1. Le client -->
-    <section v-show="step === 1" class="space-y-4">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h2 class="text-[24px] font-extrabold tracking-tight">À qui livrer ?</h2>
-          <p class="text-sm text-slate-500">Le numéro du client</p>
-        </div>
-        <button v-if="!pasteOpen" type="button" class="tap shrink-0 flex items-center gap-1.5 rounded-full bg-white px-3 py-2 text-[13px] font-bold text-[var(--app-color)] ring-1 ring-slate-200" @click="pasteOpen = true">
-          <AppIcon name="clip" class="h-4 w-4" />Coller un message
-        </button>
+    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-client">
+      <h2 id="step-client" class="m-step"><span class="m-step-num">1</span>Le client</h2>
+      <div>
+        <label class="m-label" for="phone">Téléphone <span class="text-red-600">*</span></label>
+        <input id="phone" ref="phoneInput" :value="form.recipient_phone" :class="['m-input !text-xl !font-bold', missing.phone ? 'ring-2 ring-red-500' : '']" inputmode="tel" autocomplete="jibiat-off" placeholder="07 00 00 00 00" @input="onPhone" @blur="checkDuplicates">
       </div>
-      <input id="phone" ref="phoneInput" :value="form.recipient_phone" :class="['m-input !text-2xl !font-bold !py-4', missing.phone ? 'ring-2 ring-red-500' : '']" inputmode="tel" autocomplete="jibiat-off" placeholder="07 00 00 00 00" aria-label="Téléphone du client" @input="onPhone" @blur="checkDuplicates">
       <!-- Clients déjà livrés : un toucher remplit le nom et l'adresse -->
-      <button v-for="r in suggestions" :key="r.id" type="button" class="tap w-full flex items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left ring-1 ring-slate-200 active:bg-emerald-50" @click="pickRecipient(r)">
-        <span class="min-w-0 flex-1">
+      <button v-for="r in suggestions" :key="r.id" type="button" class="tap w-full flex items-center gap-3 rounded-xl bg-emerald-50 px-3 py-2.5 text-left ring-1 ring-emerald-200" @click="pickRecipient(r)">
+        <span class="min-w-0 flex-1 text-sm">
           <strong class="block truncate">{{ r.name || localPhone(r.phone) }}</strong>
-          <span class="block truncate text-sm text-slate-500">{{ [zoneOf(r), r.deliveries_count ? `livré ${r.deliveries_count} fois` : 'déjà enregistré'].filter(Boolean).join(' · ') }}</span>
+          <span class="block truncate text-slate-600">{{ [zoneOf(r), r.deliveries_count ? `livré ${r.deliveries_count} fois` : 'déjà enregistré'].filter(Boolean).join(' · ') }}</span>
           <span v-if="r.failed_count" class="block text-xs text-red-600">{{ r.failed_count }} livraison(s) échouée(s)</span>
         </span>
-        <span class="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-white bg-[var(--app-color)]">Choisir</span>
+        <span class="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-white bg-[var(--app-color)]">Utiliser</span>
       </button>
       <div v-if="duplicates.length" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">
         Déjà {{ duplicates.length > 1 ? `${duplicates.length} courses` : 'une course' }} pour ce client ces dernières 24 h :
@@ -64,22 +58,22 @@
     </section>
 
     <!-- 2. Où livrer -->
-    <section v-show="step === 2" class="space-y-4">
-      <div>
-        <h2 class="text-[24px] font-extrabold tracking-tight">Où livrer ?</h2>
-        <p class="text-sm text-slate-500">{{ form.delivery_zone_id ? 'Déjà rempli, modifiable' : 'La commune ou le quartier' }}</p>
-      </div>
-      <div id="zone-field" class="space-y-2">
-        <!-- Communes proposées : celles du message, sinon celles des dernières courses -->
-        <button
-          v-for="z in quickZones"
-          :key="z.id"
-          type="button"
-          :class="['tap w-full flex items-center justify-between rounded-2xl px-4 py-3 text-left font-semibold ring-1', form.delivery_zone_id === z.id ? 'ring-2 ring-[var(--app-color)] bg-emerald-50' : 'ring-slate-200 bg-white']"
-          @click="form.delivery_zone_id = z.id"
-        >{{ z.full_name }}<AppIcon v-if="form.delivery_zone_id === z.id" name="check" class="h-5 w-5 text-[var(--app-color)]" /></button>
+    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-where">
+      <h2 id="step-where" class="m-step"><span class="m-step-num">2</span>Où livrer</h2>
+      <div id="zone-field">
+        <label class="m-label" for="zone">Commune ou quartier <span class="text-red-600">*</span></label>
+        <!-- Communes proposées en un toucher : celles du message, sinon celles des dernières courses -->
+        <div v-if="quickZones.length" class="mb-2 flex flex-wrap gap-1.5">
+          <button
+            v-for="z in quickZones"
+            :key="z.id"
+            type="button"
+            :class="['tap rounded-full px-3 py-1.5 text-sm font-semibold ring-1', form.delivery_zone_id === z.id ? 'text-white ring-transparent bg-[var(--app-color)]' : 'bg-white ring-slate-300']"
+            @click="form.delivery_zone_id = z.id"
+          >{{ z.full_name }}</button>
+        </div>
         <ZoneSelect id="zone" v-model="form.delivery_zone_id" :zones="zones" mobile :input-class="['m-input', missing.zone ? 'ring-2 ring-red-500' : '']" />
-        <p v-if="selectedZone?.is_shipping" class="rounded-xl bg-indigo-50 text-indigo-900 text-sm p-3">
+        <p v-if="selectedZone?.is_shipping" class="mt-2 rounded-xl bg-indigo-50 text-indigo-900 text-sm p-3">
           <strong>Expédition</strong> : notre livreur dépose le colis à la gare et paie l'envoi
           <template v-if="selectedZone.shipping_fee_estimate">(environ {{ money(selectedZone.shipping_fee_estimate) }})</template>.
           Ces frais vous sont facturés au réel et déduits de votre point.
@@ -91,14 +85,11 @@
       </div>
     </section>
 
-    <!-- 3. L'argent et le jour -->
-    <section v-show="step === 3" class="space-y-4">
-      <div>
-        <h2 class="text-[24px] font-extrabold tracking-tight">Combien encaisser ?</h2>
-        <p class="text-sm text-slate-500">Prix des articles, sans la livraison. Laissez vide si le client a déjà payé.</p>
-      </div>
+    <!-- 3. L'argent -->
+    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-money">
+      <h2 id="step-money" class="m-step"><span class="m-step-num">3</span>L'argent</h2>
 
-      <button v-if="products.length && !showStock" type="button" class="tap w-full rounded-xl bg-white ring-1 ring-slate-200 px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
+      <button v-if="products.length && !showStock" type="button" class="tap w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
         <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon stock</span><AppIcon name="right" class="h-4 w-4 text-slate-400" />
       </button>
       <div v-if="products.length && showStock" class="space-y-3">
@@ -106,7 +97,7 @@
           <p class="m-label">D'où part le colis ?</p>
           <ChoiceChips v-model="source" :options="sourceOptions" :columns="1" label="Provenance du colis" />
         </div>
-        <div class="m-card divide-y">
+        <div class="rounded-xl ring-1 ring-slate-200 divide-y">
           <div v-for="p in sourceProducts" :key="p.id" class="p-3 flex items-center gap-3">
             <div class="min-w-0 flex-1">
               <p class="font-medium truncate">{{ p.name }}</p>
@@ -122,13 +113,17 @@
         </div>
       </div>
 
-      <div id="amount" class="relative">
-        <input v-model.number="form.items_amount" type="number" min="0" step="50" inputmode="numeric" autocomplete="jibiat-off" class="m-input !text-2xl !font-bold !py-4 pr-12" placeholder="0" aria-label="Montant à encaisser chez le client">
-        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">F</span>
+      <div id="amount">
+        <label class="m-label" for="amount-input">Montant à encaisser chez le client</label>
+        <div class="relative">
+          <input id="amount-input" v-model.number="form.items_amount" type="number" min="0" step="50" inputmode="numeric" autocomplete="jibiat-off" class="m-input !text-2xl !font-bold pr-12" placeholder="0">
+          <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">F</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Prix des articles, sans la livraison. Laissez vide si le client a déjà payé.</p>
       </div>
 
       <div id="fee-payer" :class="['rounded-2xl', missing.feePayer ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
-        <p class="m-label">Qui paie la livraison ?</p>
+        <p class="m-label">Qui paie la livraison ? <span class="text-red-600">*</span></p>
         <ChoiceChips
           v-model="form.fee_payer"
           :columns="2"
@@ -140,9 +135,12 @@
         />
         <p v-if="missing.feePayer" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison.</p>
       </div>
+    </section>
 
+    <!-- 4. Quand livrer -->
+    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-when">
+      <h2 id="step-when" class="m-step"><span class="m-step-num">4</span><span>Quand livrer <span class="text-red-600">*</span></span></h2>
       <div id="when-field" :class="['rounded-2xl', missing.date ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
-        <p class="m-label">Quand livrer ?</p>
         <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de livraison" />
         <p v-if="closed" class="mt-2 text-xs text-slate-500">{{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
         <input v-if="when === 'other'" id="date" v-model="form.delivery_scheduled_date" type="date" :min="minDate" class="m-input mt-2" aria-label="Jour de livraison">
@@ -150,32 +148,13 @@
       </div>
     </section>
 
-    <!-- 4. Le récapitulatif -->
-    <section v-show="step === 4" class="space-y-4">
-      <h2 class="text-[24px] font-extrabold tracking-tight">Tout est bon ?</h2>
-      <div class="m-card divide-y divide-slate-100 px-4">
-        <button v-for="row in recap" :key="row.label" type="button" class="tap w-full flex items-center justify-between gap-3 py-3 text-left text-sm" @click="goTo(row.step)">
-          <span class="text-slate-500">{{ row.label }}</span>
-          <span class="flex items-center gap-1.5 text-right font-bold">{{ row.value }}<AppIcon name="edit" class="h-3.5 w-3.5 text-slate-400" /></span>
-        </button>
-        <div v-if="quote" class="py-3 space-y-1.5 text-sm">
-          <div class="flex justify-between"><span class="text-slate-500">Livraison {{ form.fee_payer === 'merchant' ? '(à ma charge)' : '(payée par le client)' }}</span><b>{{ money(quote.total) }}</b></div>
-          <div v-if="quote.is_shipping" class="flex justify-between"><span class="text-slate-500">Expédition (au réel)</span><b>≈ {{ money(shippingEstimate) }}</b></div>
-          <div class="flex justify-between"><span class="text-slate-500">Le livreur encaisse</span><b>{{ money(codAmount) }}</b></div>
-          <div class="flex justify-between items-baseline pt-1">
-            <span class="font-bold">{{ merchantNet < 0 ? 'À votre charge' : 'Pour vous' }}</span>
-            <span :class="['text-lg font-extrabold', merchantNet < 0 ? 'text-slate-700' : 'text-emerald-700']">{{ quote.is_shipping ? '≈ ' : '' }}{{ money(Math.abs(merchantNet)) }}</span>
-          </div>
-        </div>
-        <p v-else-if="quoteError" class="py-3 text-sm text-red-600">{{ quoteError }}</p>
-      </div>
-
-      <!-- Le reste, seulement si besoin -->
-      <button type="button" class="tap text-sm font-bold text-[var(--app-color)]" :aria-expanded="showMore" @click="showMore = !showMore">
-        {{ showMore ? '− Masquer les options' : '+ Contenu, express, message au livreur' }}
-        <span v-if="!showMore && extrasSummary" class="block font-normal text-slate-500">{{ extrasSummary }}</span>
+    <!-- Le reste, seulement si besoin -->
+    <section class="rounded-2xl bg-white px-4 py-1 ring-1 ring-slate-200">
+      <button type="button" class="tap w-full flex items-center justify-between py-3 text-[15px] font-semibold" :aria-expanded="showMore" @click="showMore = !showMore">
+        <span>{{ showMore ? '−' : '+' }} Contenu du colis, express, message au livreur</span>
+        <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-500">{{ extrasSummary }}</span>
       </button>
-      <div v-show="showMore" class="space-y-4">
+      <div v-show="showMore" class="space-y-4 pt-1 pb-4">
         <div>
           <label class="m-label" for="desc">Que contient le colis ?</label>
           <input id="desc" v-model="form.description" autocomplete="jibiat-off" class="m-input" placeholder="Ex. : 2 robes, 1 sac">
@@ -199,13 +178,22 @@
       </div>
     </section>
 
-    <!-- Retour et suite, toujours en bas -->
-    <div class="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe">
-      <div class="mx-auto max-w-lg px-4 py-3 flex gap-2">
-        <button v-if="step > 1" type="button" class="m-btn-secondary !w-auto px-5" @click="step--">Retour</button>
-        <button type="submit" class="m-btn-primary flex-1" :disabled="saving">
-          {{ step < 4 ? (step === 3 ? 'Voir le récapitulatif' : 'Continuer') : saving ? 'Envoi…' : 'Envoyer la course' }}
-        </button>
+    <!-- Prix en direct et envoi, toujours en bas (caché pendant la saisie au clavier) -->
+    <div v-show="!keyboardOpen" class="fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 pb-safe shadow-[0_-6px_18px_rgba(15,23,42,0.06)]">
+      <div class="mx-auto max-w-lg px-4 py-3 space-y-2">
+        <div v-if="quote" class="flex items-end justify-between gap-3 text-sm">
+          <div class="min-w-0">
+            <p class="text-slate-500">Livraison {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
+            <p class="text-slate-500">Le livreur encaisse <b class="text-slate-800">{{ money(codAmount) }}</b></p>
+          </div>
+          <p :class="['shrink-0 text-right font-bold', merchantNet < 0 ? 'text-slate-700' : 'text-emerald-700']">
+            <span class="block text-xs font-medium text-slate-500">{{ merchantNet < 0 ? 'À votre charge' : 'Pour vous' }}</span>
+            <span class="text-lg">{{ quote.is_shipping ? '≈ ' : '' }}{{ money(Math.abs(merchantNet)) }}</span>
+          </p>
+        </div>
+        <p v-else-if="quoteError" class="text-sm text-red-600">{{ quoteError }}</p>
+        <p v-else class="text-sm text-slate-500">{{ form.delivery_zone_id ? 'Calcul du prix…' : 'Choisissez la commune pour voir le prix.' }}</p>
+        <button type="submit" class="m-btn-primary" :disabled="saving">{{ saving ? 'Envoi…' : 'Envoyer la course' }}</button>
       </div>
     </div>
   </form>
@@ -221,6 +209,7 @@ import ZoneSelect from '../../components/ZoneSelect.vue'
 import { longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { useAuthStore } from '../../stores/auth'
 import { localPhone, money } from '../../utils/format'
+import { keyboardOpen } from '../../composables/useKeyboard'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import { siteOrigin } from '../../native'
 
@@ -370,7 +359,6 @@ function pickRecipient(r) {
   if (r.phone2) showMore.value = true
   suggestions.value = []
   checkDuplicates()
-  goTo(2)
 }
 
 // Adresse et repère réunis en un seul champ
@@ -398,8 +386,7 @@ function applyParsed(data) {
   fromMessage.value = true
   pasteOpen.value = false
   checkDuplicates()
-  // Tout ce qui manque est demandé étape par étape ; sinon, directement le récapitulatif
-  goTo([1, 2, 3].find((n) => problemsOf(n).some(([bad]) => bad)) || 4)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // Même client ces dernières 24 h : risque de doublon
@@ -435,8 +422,6 @@ function validate(n) {
   return !first
 }
 
-// Une question par écran
-const step = ref(1)
 const pasteOpen = ref(route.query.coller === '1')
 const phoneInput = ref(null)
 
@@ -453,23 +438,6 @@ function liftField(event) {
     const top = (label || field).getBoundingClientRect().top
     window.scrollTo({ top: window.scrollY + top - header - 12, behavior: 'smooth' })
   }, 250)
-}
-
-function goTo(n) {
-  error.value = ''
-  step.value = n
-  window.scrollTo({ top: 0 })
-}
-
-function next() {
-  if (step.value < 4) {
-    if (!validate(step.value)) return
-    suggestions.value = []
-    if (step.value === 1) checkDuplicates()
-    goTo(step.value + 1)
-    return
-  }
-  submit()
 }
 
 // Numéro affiché par paires pendant la frappe : « 07 00 00 00 01 »
@@ -500,21 +468,14 @@ async function loadRecentZones() {
   }
 }
 
-// Récapitulatif : chaque ligne ramène à son étape
-const recap = computed(() => [
-  { label: 'Client', value: form.recipient_name || form.recipient_phone, step: 1 },
-  { label: 'Où', value: [zoneName.value, form.delivery_address].filter((v) => v && v !== '—').join(' · '), step: 2 },
-  { label: 'Quand', value: form.delivery_scheduled_date ? longDay(form.delivery_scheduled_date) : '—', step: 3 },
-  { label: 'Prix des articles', value: money(form.items_amount || 0), step: 3 },
-])
-
 async function submit() {
   error.value = ''
   suggestions.value = []
-  // Toutes les étapes revérifiées : la première incomplète est rouverte
+  // Champs obligatoires : le premier oublié est montré à l'écran
   const bad = [1, 2, 3].find((n) => !validate(n))
   if (bad) {
-    step.value = bad
+    const target = { 1: 'phone', 2: 'zone-field', 3: missing.feePayer ? 'fee-payer' : missing.date ? 'when-field' : 'amount' }[bad]
+    setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
     return
   }
   saving.value = true
@@ -533,8 +494,6 @@ async function submit() {
     if (field === 'fee_payer') missing.feePayer = true
     if (field === 'recipient_phone') missing.phone = true
     if (field === 'delivery_zone_id') missing.zone = true
-    // Retour à l'étape du champ refusé
-    step.value = field.startsWith('recipient') ? 1 : field.startsWith('delivery_zone') || field === 'delivery_address' ? 2 : ['fee_payer', 'delivery_scheduled_date', 'items_amount', 'items'].some((f) => field.startsWith(f)) ? 3 : 4
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } finally {
     saving.value = false
@@ -554,7 +513,6 @@ function reset() {
   fromMessage.value = false
   zoneChoices.value = []
   duplicates.value = []
-  step.value = 1
   pasteOpen.value = false
 }
 
