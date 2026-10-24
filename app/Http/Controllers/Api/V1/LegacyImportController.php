@@ -69,6 +69,10 @@ class LegacyImportController extends Controller
         if ($company === null) {
             return response()->json(['message' => 'Clé de reprise invalide ou expirée : créez-en une dans Paramètres › Reprise de l\'ancienne application.'], 401);
         }
+        // La clé suffit à désigner l'entreprise, même envoyée à l'adresse de la plateforme
+        if (! $company->isActive()) {
+            return response()->json(['message' => 'Le service de cette entreprise est suspendu.'], 403);
+        }
 
         // Sur la plateforme, la clé ne vaut que pour l'adresse de son entreprise
         $here = Tenancy::enabled() ? app(Tenancy::class)->company() : null;

@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\Role;
+use App\Models\Company;
 use App\Models\Merchant;
 use App\Models\PricingRule;
 use App\Models\User;
@@ -193,6 +194,29 @@ class LegacyPushImportTest extends TestCase
         // Paquet mal formé
         $key = $this->key();
         $this->send($key, ['step' => 'commandes', 'users' => []])->assertUnprocessable();
+    }
+
+    public function test_the_key_alone_finds_the_company_even_at_the_platform_address(): void
+    {
+        $key = $this->key();
+        config(['platform.domain' => 'jibiat.test']);
+        $this->company->update(['slug' => 'rapide']);
+        $other = Company::factory()->create(['slug' => 'eclair']);
+        $payload = ['step' => 'livreurs', 'livreurs' => [['id' => 9, 'nom' => 'Koffi', 'phone' => '0700000099', 'status' => 'active', 'user_id' => null]], 'users' => []];
+
+        // Adresse de la plateforme (jibiat.com) : la clé désigne l'entreprise
+        $this->withToken($key)->postJson('http://jibiat.test/api/legacy-import', $payload)->assertOk();
+        $this->assertTrue(User::where('phone', '+2250700000099')->where('company_id', $this->company->id)->exists());
+
+        // Adresse d'une autre entreprise : refusée
+        $this->withToken($key)->postJson('http://eclair.jibiat.test/api/legacy-import', $payload)->assertForbidden()
+            ->assertJsonPath('message', 'Cette clé appartient à une autre entreprise : vérifiez l\'adresse saisie.');
+        $this->assertSame(0, User::where('company_id', $other->id)->count());
+
+        // Entreprise suspendue : refusée partout
+        $this->company->update(['status' => 'suspended']);
+        $this->withToken($key)->postJson('http://jibiat.test/api/legacy-import', $payload)->assertForbidden()
+            ->assertJsonPath('message', 'Le service de cette entreprise est suspendu.');
     }
 
     public function test_key_and_module_are_for_administrators(): void
