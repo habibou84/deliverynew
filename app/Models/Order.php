@@ -70,7 +70,7 @@ class Order extends Model
         'delivery_code',
     ];
 
-    protected $hidden = ['delivery_code'];
+    protected $hidden = ['delivery_code', 'rating_token'];
 
     protected function casts(): array
     {
@@ -103,6 +103,7 @@ class Order extends Model
             'prepared_at' => 'datetime',
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'rating_requested_at' => 'datetime',
             'delivery_code_unverified_at' => 'datetime',
             'held_since' => 'datetime',
             'lost_at' => 'datetime',

@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V1\ConsoleWhatsAppController;
 use App\Http\Controllers\Api\V1\CourierAvailabilityController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
+use App\Http\Controllers\Api\V1\CourierRatingController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
 use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\DeliveryDayController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\Api\V1\PlanningController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductPhotoController;
+use App\Http\Controllers\Api\V1\PublicRatingController;
 use App\Http\Controllers\Api\V1\PushSubscriptionController;
 use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Api\V1\ReferenceController;
@@ -180,6 +182,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('tracking/{code}', TrackingController::class)
         ->middleware('throttle:30,1')
         ->name('tracking.show');
+    // Avis du destinataire sur sa livraison (lien reçu après la livraison)
+    Route::get('ratings/{token}', [PublicRatingController::class, 'show'])->middleware('throttle:30,1')->name('ratings.show');
+    Route::post('ratings/{token}', [PublicRatingController::class, 'store'])->middleware('throttle:10,1')->name('ratings.store');
 
     Route::middleware(['auth:sanctum', 'active', 'throttle:tenant'])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
@@ -322,6 +327,16 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('whatsapp/qr', [WhatsAppQrController::class, 'start'])->middleware('throttle:20,1')->name('whatsapp.qr.start');
             Route::delete('whatsapp/qr', [WhatsAppQrController::class, 'destroy'])->name('whatsapp.qr.destroy');
             Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware(['throttle:60,1', 'feature:whatsapp_bot'])->name('whatsapp.simulate');
+        });
+
+        // Notes des livreurs : classement, fiche, évaluation du mois, avis à traiter
+        Route::middleware('can:orders.dispatch')->group(function () {
+            Route::get('courier-ratings', [CourierRatingController::class, 'index'])->name('courier-ratings.index');
+            Route::put('courier-ratings/settings', [CourierRatingController::class, 'settings'])->middleware('can:settings.manage')->name('courier-ratings.settings');
+            Route::post('courier-ratings/{rating}/cancel', [CourierRatingController::class, 'cancel'])->name('courier-ratings.cancel');
+            Route::post('courier-ratings/{rating}/handle', [CourierRatingController::class, 'handle'])->name('courier-ratings.handle');
+            Route::get('couriers/{courier}/ratings', [CourierRatingController::class, 'show'])->name('couriers.ratings');
+            Route::post('couriers/{courier}/reviews', [CourierRatingController::class, 'review'])->name('couriers.reviews.store');
         });
 
         // Remontées terrain des livreurs (notes, problèmes) : consultation et suivi par le dispatch
