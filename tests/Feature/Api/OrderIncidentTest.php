@@ -83,6 +83,18 @@ class OrderIncidentTest extends TestCase
         $this->assertSame(1, $order->recipient->fresh()->failed_count);
     }
 
+    public function test_merchant_alert_names_the_client(): void
+    {
+        Notification::fake();
+        $order = $this->orderOutForDelivery(['recipient_name' => 'Aya Konan']);
+
+        $this->as($this->courierB->user)->move($order, 'delivery_failed', ['incident_reason_id' => $this->reason('unreachable')])->assertOk();
+
+        // L'application marchand affiche le nom du client à la place du code de la course
+        Notification::assertSentTo($this->merchantUser, OrderAlert::class, fn (OrderAlert $n) => $n->kind === 'incident'
+            && $n->toArray($this->merchantUser)['recipient_name'] === 'Aya Konan');
+    }
+
     public function test_postponement_reason_becomes_a_dated_reschedule_without_counting_an_attempt(): void
     {
         $order = $this->orderOutForDelivery();
