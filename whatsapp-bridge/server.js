@@ -137,8 +137,10 @@ class Session {
     const jid = msg.key?.remoteJid || ''
     if (msg.key?.fromMe || !msg.message || jid.endsWith('@g.us') || jid === 'status@broadcast' || jid.endsWith('@newsletter')) return
     // Numéro de l'expéditeur (les comptes récents peuvent arriver sous un identifiant masqué « @lid »)
-    const from = jid.endsWith('@s.whatsapp.net') ? jid : (msg.key.senderPn || msg.key.participantPn || '')
-    if (!from.endsWith('@s.whatsapp.net')) return
+    const pn = jid.endsWith('@s.whatsapp.net') ? jid : (msg.key.remoteJidAlt || msg.key.senderPn || msg.key.participantAlt || msg.key.participantPn || '')
+    if (!pn.endsWith('@s.whatsapp.net')) return
+    // Sans le numéro d'appareil éventuel (« 2250700000001:12@s.whatsapp.net »)
+    const from = pn.split('@')[0].split(':')[0]
 
     const m = msg.message.ephemeralMessage?.message || msg.message
     const text = m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption ||
@@ -149,7 +151,7 @@ class Session {
       type: 'message',
       session: this.id,
       id: msg.key.id,
-      from: '+' + from.split('@')[0],
+      from: '+' + from,
       name: msg.pushName || null,
       kind,
       text,
