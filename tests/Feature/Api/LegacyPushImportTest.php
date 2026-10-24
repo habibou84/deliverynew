@@ -4,7 +4,9 @@ namespace Tests\Feature\Api;
 
 use App\Enums\Role;
 use App\Models\Merchant;
+use App\Models\PricingRule;
 use App\Models\User;
+use App\Models\Zone;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
@@ -83,6 +85,34 @@ class LegacyPushImportTest extends TestCase
         $this->assertTrue(Hash::check('secret123', $adamo->password));
 
         $this->assertNotNull($this->company->fresh()->legacy_import_used_at);
+    }
+
+    public function test_zone_names_arrive_without_prices(): void
+    {
+        $key = $this->key();
+        $zones = Zone::count();
+        $rules = PricingRule::count();
+        $fees = [
+            ['id' => 1, 'destination' => 'Cocody', 'price' => 1500, 'extraprice' => 2000, 'zone' => 'NORD', 'city' => 'Abidjan'],
+            ['id' => 2, 'destination' => 'ZONE  INDUSTRIELLE (1000F)', 'price' => 1000, 'extraprice' => null, 'zone' => 'SUD', 'city' => 'Abidjan'],
+            ['id' => 3, 'destination' => 'Expedition (1500f + frais)', 'price' => 0, 'extraprice' => 0, 'zone' => 'NORD', 'city' => 'Abidjan'],
+        ];
+
+        // Simulation : rien n'est enregistré
+        $this->send($key, ['step' => 'zones', 'dry_run' => true, 'fees' => $fees, 'users' => []])->assertOk()
+            ->assertJsonPath('data.counts.zones_created', 1)
+            ->assertJsonPath('data.counts.zones_existing', 1)
+            ->assertJsonPath('data.skipped.0.id', '3');
+        $this->assertSame($zones, Zone::count());
+
+        // Seul le nom est repris (nettoyé) ; Cocody existe déjà ; aucun tarif créé ni modifié
+        $this->send($key, ['step' => 'zones', 'fees' => $fees, 'users' => []])->assertOk()->assertJsonPath('data.counts.zones_created', 1);
+        $this->assertSame($zones + 1, Zone::count());
+        $this->assertTrue(Zone::where('name', 'Zone Industrielle')->exists());
+        $this->assertSame($rules, PricingRule::count());
+
+        // Relancer ne crée pas de doublon
+        $this->send($key, ['step' => 'zones', 'fees' => $fees, 'users' => []])->assertOk()->assertJsonPath('data.counts.zones_created', 0);
     }
 
     public function test_team_accounts_and_the_admin_client_are_not_imported(): void

@@ -10,22 +10,34 @@ use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
 use App\Services\Messaging\Gateways\QrBridgeGateway;
 use App\Services\Messaging\Messenger;
+use App\Services\Platform\PlatformWhatsApp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
  * Événements du service whatsapp-bridge (connexion par QR code), signés avec WHATSAPP_BRIDGE_TOKEN : état de la
- * session (QR scanné, téléphone déconnecté), messages reçus, messages envoyés, remis, lus ou en échec.
+ * session (QR scanné, téléphone déconnecté), messages reçus, messages envoyés, remis, lus ou en échec. La session
+ * « platform » est le numéro de Jibiat (messagerie de la console).
  */
 class WhatsAppBridgeWebhookController extends Controller
 {
-    public function __construct(private readonly Messenger $messenger) {}
+    public function __construct(
+        private readonly Messenger $messenger,
+        private readonly PlatformWhatsApp $platform,
+    ) {}
 
     public function __invoke(Request $request): JsonResponse
     {
         $token = (string) config('messaging.whatsapp.bridge.token');
         $expected = hash_hmac('sha256', $request->getContent(), $token);
         abort_unless($token !== '' && hash_equals($expected, (string) $request->header('X-Bridge-Signature')), 403, 'Signature invalide.');
+
+        // Numéro de Jibiat : messagerie de la console
+        if ($request->input('session') === PlatformWhatsApp::SESSION) {
+            $this->platform->handle($request->all());
+
+            return response()->json(['received' => true]);
+        }
 
         $account = $this->account((string) $request->input('session'));
         if ($account === null) {

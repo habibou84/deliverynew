@@ -103,6 +103,10 @@ par les scripts de déploiement) et prévient Jibiat sur `/api/webhooks/whatsapp
 jeton). Il tourne sous Supervisor (`<instance>-whatsapp`, journal `storage/logs/whatsapp-bridge.log`) ; `deploy/update.sh`
 installe ses dépendances et le redémarre. En local : `cd whatsapp-bridge && npm install && node server.js`.
 
+**Console › WhatsApp** : le numéro de Jibiat se relie de la même façon (session `platform` du service). Les messages
+des entreprises et des prospects y arrivent en conversations (entreprise reconnue d'après le numéro de son équipe) ;
+l'équipe de Jibiat leur répond depuis la console, ou écrit à un nouveau numéro. Rafraîchissement toutes les 5 secondes.
+
 #### Courses par WhatsApp
 
 Un marchand dont le numéro est connu écrit au numéro de l'agence (message libre, commande transférée de son client
@@ -119,7 +123,7 @@ Claude comprend aussi les messages sans format, avec retour automatique aux règ
 **Réglages** (menu Configuration, `/admin/reglages`) : une carte par thème, avec l'état actuel en résumé et une
 recherche (« heure limite », « logo »…) — Entreprise et marque, Courses et livraison, Zones et tarifs (frais des
 retours dans Tarifs), Alertes et rappels, Messages aux clients (WhatsApp), E-commerçants, Équipe et paie,
-Intégrations (API, reprise de l'ancienne application), Abonnement. Chaque page est courte ; une barre
+Intégrations (API, reprise de l'ancienne application et bascule, voir [`docs/REPRISE-ANCIENNE-APPLICATION.md`](docs/REPRISE-ANCIENNE-APPLICATION.md)), Abonnement. Chaque page est courte ; une barre
 « Enregistrer / Annuler » apparaît dès qu'un réglage change, et quitter sans enregistrer demande confirmation.
 Raccourcis : ⚙️ dans la liste des courses, « Délais d'alerte » sur le tableau de bord. L'ancienne adresse
 `/admin/parametres` mène aux Réglages.
@@ -680,29 +684,53 @@ Chaque e-commerçant ouvre, depuis **Profil › Ma boutique en ligne**, une page
 - **Côté marchand** : ouverture et fermeture, lien personnalisable, présentation, articles (nom, prix, photo PNG,
   JPEG ou WebP, « En boutique »). Limites : 5 commandes par minute et 30 par heure par adresse IP, champ piège à robots.
 
-### Inscription des e-commerçants et mot de passe oublié
+### Inscription des e-commerçants, connexion par WhatsApp et mot de passe oublié
 
-Depuis la page d'accueil, **Créer mon compte** (`/inscription`) : boutique, responsable, téléphone, commune et
-adresse de ramassage, mot de passe. Rien n'est créé avant la vérification du numéro ; ensuite la boutique et le
-compte du gérant sont **actifs aussitôt** (tarif par défaut), la personne est connectée et l'équipe reçoit une
-notification « Nouvel e-commerçant » (filtre **Inscrits en ligne** dans E-commerçants).
+Depuis la page d'accueil, **Créer mon compte** (`/inscription`) : boutique, responsable, numéro WhatsApp, commune et
+adresse de ramassage ; le **mot de passe est facultatif** (case « Définir un mot de passe maintenant »). Rien n'est
+créé avant la vérification du numéro ; ensuite la boutique et le compte du gérant sont **actifs aussitôt** (tarif par
+défaut), la personne est connectée et l'équipe reçoit une notification « Nouvel e-commerçant » (filtre **Inscrits en
+ligne** dans E-commerçants).
 
-Vérification du numéro, valable 30 minutes :
+Vérification du numéro, valable 30 minutes, **sans SMS** tant qu'un WhatsApp est relié :
 
-1. **WhatsApp** (gratuit, proposé en premier si WhatsApp est branché à Meta) : un bouton ouvre WhatsApp avec le
-   message « Code de vérification : 123456 » vers le numéro de l'entreprise. Le webhook le reçoit et vérifie que
-   l'expéditeur est bien le numéro saisi ; la page continue toute seule (elle interroge le serveur toutes les 3 s).
-2. **SMS** (secours) : code à 6 chiffres, uniquement vers les mobiles ivoiriens (01, 05, 07), 5 essais par code,
+1. **WhatsApp** (gratuit, en premier) : un bouton ouvre WhatsApp avec le message « Code de vérification : 123456 »
+   vers le numéro de l'entreprise (relié à Meta ou par QR code) ; à défaut, vers le **numéro de Jibiat** relié dans la
+   console (`/console/whatsapp`), qui confirme pour toutes les entreprises. Le serveur vérifie que l'expéditeur est
+   bien le numéro saisi ; la page continue toute seule (elle interroge le serveur toutes les 3 s).
+2. **SMS** (dernier recours) : proposé seulement si aucun numéro WhatsApp n'est relié, ou si le réglage de plateforme
+   `sms.fallback` vaut `on`. Code à 6 chiffres, uniquement vers les mobiles ivoiriens (01, 05, 07), 5 essais par code,
    un renvoi par minute, 3 SMS par numéro et par heure ; le code n'est pas écrit dans le journal des messages.
 
 Limites : 5 demandes par numéro et par heure, 3 par minute et 10 par heure par adresse IP. Quand les SMS sont simulés
-(`SMS_DRIVER=log`), le code SMS s'affiche sur la page (**mode démonstration**). La vérification par WhatsApp n'est
-proposée que si le numéro de l'entreprise est connecté.
+(`SMS_DRIVER=log`), le code SMS s'affiche sur la page (**mode démonstration**).
 Les inscriptions se ferment dans **Réglages › E-commerçants** (la page d'accueil propose alors le contact WhatsApp).
+
+**Me connecter par WhatsApp** (bouton sous chaque formulaire de connexion, `POST /api/v1/auth/whatsapp`) : la
+personne donne son numéro, envoie le même message prérempli, et la page ouvre sa session, sans mot de passe. Mêmes
+règles que la connexion classique : espace de la page, compte actif, une seule entreprise par adresse. Un compte ouvert
+sans mot de passe (`has_password` à `false`) en définit un quand il veut dans **Profil › Mon compte** (application
+marchand et livreur) ou en touchant son nom dans l'en-tête de l'espace équipe (`PUT /api/v1/auth/password`, mot de
+passe actuel demandé seulement s'il en a un ; les autres appareils sont déconnectés au changement).
 
 **Mot de passe oublié ?** (lien sous chaque formulaire de connexion, `/mot-de-passe-oublie`) : même vérification
 du numéro, puis nouveau mot de passe ; les autres appareils sont déconnectés. La réponse est identique que le
 numéro ait un compte ou non.
+
+**E-mail en secours** (gratuit) : quand ni WhatsApp ni SMS ne conviennent et qu'une adresse e-mail est connue
+(compte, ou adresse donnée à l'inscription) et que l'envoi d'e-mails est réglé (SMTP de la console ou du serveur), la
+page propose « Recevoir le code par e-mail » (`POST /api/v1/verifications/{jeton}/email`) : même code à 6 chiffres,
+avec un lien qui revient sur la page et le recopie (`?code=`).
+
+**Console › WhatsApp › SMS envoyés** : compteur des SMS du mois et du mois précédent (codes de vérification et
+messages de repli), et interrupteur « Proposer aussi le SMS quand WhatsApp est possible » (réglage `sms.fallback`,
+`PUT /api/v1/console/whatsapp/sms`) : éteint par défaut, chaque SMS coûtant.
+
+**Invitation de l'équipe et des livreurs** (Utilisateurs) : un utilisateur créé **sans mot de passe** donne un lien
+d'invitation personnel (`/invitation/{jeton}`, usage unique, valable 7 jours) que l'administrateur envoie depuis
+**son propre WhatsApp** (bouton « Envoyer par WhatsApp », aucun SMS). Le bouton **Inviter** d'une ligne en prépare un
+nouveau (l'ancien est annulé). En ouvrant le lien, la personne arrive connectée dans son espace et choisit un mot
+de passe si elle le souhaite (`GET`/`POST /api/v1/invitations/{jeton}[/accept]`, `POST /api/v1/users/{id}/invitation`).
 
 ### Comptes de démonstration
 

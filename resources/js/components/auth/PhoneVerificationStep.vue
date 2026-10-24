@@ -17,7 +17,7 @@
 
     <template v-else>
       <!-- WhatsApp : la personne envoie le message prérempli depuis son téléphone -->
-      <div v-if="state.whatsapp && !smsMode" class="space-y-3">
+      <div v-if="state.whatsapp && mode === 'whatsapp'" class="space-y-3">
         <ol class="text-sm text-slate-700 space-y-1 list-decimal list-inside">
           <li>Appuyez sur le bouton : WhatsApp s'ouvre avec un message déjà écrit.</li>
           <li>Envoyez-le <strong>depuis le WhatsApp du {{ state.phone }}</strong>, sans le modifier.</li>
@@ -32,21 +32,29 @@
         <p class="text-xs text-slate-500 text-center">
           Le bouton ne marche pas ? Envoyez « {{ state.whatsapp.text }} » au {{ state.whatsapp.number }} sur WhatsApp.
         </p>
-        <button v-if="state.sms.available" type="button" class="block mx-auto text-sm text-slate-600 underline" @click="smsMode = true">
+        <button v-if="state.sms.available" type="button" class="block mx-auto text-sm text-slate-600 underline" @click="mode = 'sms'">
           Pas de WhatsApp sur ce numéro ? Recevoir un code par SMS
         </button>
+        <button v-else-if="state.email?.available" type="button" class="block mx-auto text-sm text-slate-600 underline" @click="mode = 'email'">
+          Pas de WhatsApp sur ce numéro ? Recevoir le code par e-mail ({{ state.email.hint }})
+        </button>
+        <p v-else class="text-xs text-slate-500 text-center">
+          Pas de WhatsApp sur ce numéro ? <button type="button" class="underline" @click="$emit('restart')">Utilisez un numéro qui a WhatsApp</button>, ou contactez-nous.
+        </p>
       </div>
 
-      <!-- SMS : code secret saisi sur la page -->
-      <div v-else-if="state.sms.available" class="space-y-3">
-        <p v-if="!state.sms.sent" class="text-sm text-slate-700 text-center">Nous allons envoyer un code à 6 chiffres par SMS au {{ state.phone }}.</p>
-        <button v-if="!state.sms.sent" type="button" :disabled="busy" :class="['w-full rounded-xl py-3 font-semibold text-white shadow-sm disabled:opacity-60', buttonClass]" @click="sendSms">
-          {{ busy ? 'Envoi…' : 'Recevoir le code par SMS' }}
+      <!-- SMS ou e-mail : code secret saisi sur la page -->
+      <div v-else-if="mode === 'email' ? state.email?.available : state.sms.available" class="space-y-3">
+        <p v-if="!sent" class="text-sm text-slate-700 text-center">
+          {{ mode === 'email' ? `Nous allons envoyer un code à 6 chiffres à ${state.email.hint}.` : `Nous allons envoyer un code à 6 chiffres par SMS au ${state.phone}.` }}
+        </p>
+        <button v-if="!sent" type="button" :disabled="busy" :class="['w-full rounded-xl py-3 font-semibold text-white shadow-sm disabled:opacity-60', buttonClass]" @click="sendCode">
+          {{ busy ? 'Envoi…' : mode === 'email' ? 'Recevoir le code par e-mail' : 'Recevoir le code par SMS' }}
         </button>
 
         <form v-else class="space-y-3" @submit.prevent="checkCode">
           <label class="block">
-            <span class="text-sm font-medium text-slate-700">Code reçu par SMS</span>
+            <span class="text-sm font-medium text-slate-700">{{ mode === 'email' ? `Code reçu par e-mail (${state.email.hint})` : 'Code reçu par SMS' }}</span>
             <input v-model.trim="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required placeholder="000000"
               class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-2xl tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-emerald-500">
           </label>
@@ -55,14 +63,17 @@
           </button>
           <p class="text-center text-sm text-slate-600">
             <span v-if="wait > 0">Nouveau code possible dans {{ wait }} s</span>
-            <button v-else type="button" class="underline" :disabled="busy" @click="sendSms">Renvoyer le code</button>
+            <button v-else type="button" class="underline" :disabled="busy" @click="sendCode">Renvoyer le code</button>
           </p>
         </form>
 
-        <p v-if="demoCode" class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 text-center">
+        <p v-if="demoCode && mode === 'sms'" class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 text-center">
           Mode démonstration (aucun SMS réel configuré) : votre code est <strong>{{ demoCode }}</strong>.
         </p>
-        <button v-if="state.whatsapp" type="button" class="block mx-auto text-sm text-slate-600 underline" @click="smsMode = false">
+        <button v-if="mode === 'sms' && state.email?.available" type="button" class="block mx-auto text-sm text-slate-600 underline" @click="mode = 'email'">
+          Recevoir plutôt le code par e-mail ({{ state.email.hint }})
+        </button>
+        <button v-if="state.whatsapp" type="button" class="block mx-auto text-sm text-slate-600 underline" @click="mode = 'whatsapp'">
           Vérifier plutôt par WhatsApp
         </button>
       </div>
@@ -88,16 +99,22 @@ const props = defineProps({
 const emit = defineEmits(['done', 'restart', 'update'])
 
 const state = ref(props.initial)
-const smsMode = ref(!props.initial.whatsapp)
+// whatsapp (message à envoyer) | sms (code reçu) | email (code reçu, secours gratuit)
+const mode = ref(props.initial.whatsapp ? 'whatsapp' : props.initial.sms.available ? 'sms' : 'email')
 const code = ref('')
 const busy = ref(false)
 const error = ref('')
 const demoCode = ref(null)
 const now = ref(Date.now())
 const smsSentAt = ref(props.initial.sms.wait_seconds ? Date.now() - (60 - props.initial.sms.wait_seconds) * 1000 : null)
+const emailSentAt = ref(null)
 
 const buttonClass = computed(() => (props.tone === 'merchant' ? 'bg-emerald-600 hover:bg-emerald-700' : props.tone === 'courier' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-slate-900 hover:bg-slate-700'))
-const wait = computed(() => (smsSentAt.value ? Math.max(0, 60 - Math.floor((now.value - smsSentAt.value) / 1000)) : 0))
+const wait = computed(() => {
+  const at = mode.value === 'email' ? emailSentAt.value : smsSentAt.value
+  return at ? Math.max(0, 60 - Math.floor((now.value - at) / 1000)) : 0
+})
+const sent = computed(() => (mode.value === 'email' ? !!state.value.email?.sent : state.value.sms.sent))
 
 function apply(response) {
   state.value = response.data
@@ -108,13 +125,16 @@ function apply(response) {
   }
 }
 
-async function sendSms() {
+async function sendCode() {
   busy.value = true
   error.value = ''
   try {
-    const { data } = await http.post(`/verifications/${props.token}/sms`)
-    demoCode.value = data.demo_code
-    smsSentAt.value = Date.now()
+    const { data } = await http.post(`/verifications/${props.token}/${mode.value === 'email' ? 'email' : 'sms'}`)
+    if (mode.value === 'email') emailSentAt.value = Date.now()
+    else {
+      demoCode.value = data.demo_code
+      smsSentAt.value = Date.now()
+    }
     apply(data)
   } catch (e) {
     error.value = apiErrorMessage(e, "Le code n'a pas pu être envoyé.")
@@ -164,6 +184,15 @@ onMounted(() => {
   ticker = setInterval(() => { now.value = Date.now() }, 1000)
   // Retour depuis WhatsApp : vérification immédiate
   document.addEventListener('visibilitychange', poll)
+  // Lien de l'e-mail : le code est dans l'adresse, il est vérifié tout de suite
+  const fromLink = new URLSearchParams(window.location.search).get('code')
+  if (fromLink && /^\d{6}$/.test(fromLink) && state.value.status === 'pending') {
+    mode.value = state.value.email?.sent ? 'email' : mode.value
+    code.value = fromLink
+    window.history.replaceState({}, '', window.location.pathname)
+    checkCode()
+    return
+  }
   poll()
 })
 onBeforeUnmount(stop)

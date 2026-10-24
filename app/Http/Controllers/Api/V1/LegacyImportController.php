@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Services\Legacy\LegacyAccountsImporter;
+use App\Services\Legacy\LegacyZonesImporter;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 /**
  * Reprise depuis l'ancienne application (Laravel 5.8) par un bouton : l'administrateur crée une clé
  * (Paramètres), la colle dans la page « Migration vers Jibiat » de l'ancienne application, qui envoie
- * ses comptes par paquets : e-commerçants, puis livreurs. Les comptes de l'équipe se recréent.
+ * par paquets : les noms des zones (table « fees »), puis les e-commerçants, puis les livreurs. Les comptes de
+ * l'équipe se recréent.
  */
 class LegacyImportController extends Controller
 {
@@ -58,10 +60,10 @@ class LegacyImportController extends Controller
     }
 
     /**
-     * Paquet envoyé par l'ancienne application. « step » : clients ou livreurs, avec les comptes
-     * « users » qui leur sont liés.
+     * Paquet envoyé par l'ancienne application. « step » : zones (lignes « fees », seulement leur nom), clients ou
+     * livreurs, avec les comptes « users » qui leur sont liés.
      */
-    public function receive(Request $request, LegacyAccountsImporter $importer): JsonResponse
+    public function receive(Request $request, LegacyAccountsImporter $importer, LegacyZonesImporter $zones): JsonResponse
     {
         $company = $this->companyForKey((string) $request->bearerToken());
         if ($company === null) {
@@ -75,7 +77,7 @@ class LegacyImportController extends Controller
         }
 
         $data = $request->validate([
-            'step' => ['required', 'in:clients,livreurs'],
+            'step' => ['required', 'in:zones,clients,livreurs'],
             'dry_run' => ['sometimes', 'boolean'],
             'users' => ['present', 'array', 'max:'.self::MAX_ROWS * 3],
             'users.*' => ['array'],
@@ -83,18 +85,23 @@ class LegacyImportController extends Controller
             'clients.*' => ['array'],
             'livreurs' => ['sometimes', 'array', 'max:'.self::MAX_ROWS],
             'livreurs.*' => ['array'],
+            'fees' => ['sometimes', 'array', 'max:'.self::MAX_ROWS],
+            'fees.*' => ['array'],
         ]);
 
         $step = $data['step'];
-        $report = $importer->importRows(
-            $company,
-            $this->rows($data['users']),
-            $step === 'clients' ? $this->rows($data['clients'] ?? []) : [],
-            $step === 'livreurs' ? $this->rows($data['livreurs'] ?? []) : [],
-            (bool) ($data['dry_run'] ?? false),
-        );
+        $dryRun = (bool) ($data['dry_run'] ?? false);
+        $report = $step === 'zones'
+            ? $zones->importRows($company, self::rows($data['fees'] ?? []), $dryRun)
+            : $importer->importRows(
+                $company,
+                self::rows($data['users']),
+                $step === 'clients' ? self::rows($data['clients'] ?? []) : [],
+                $step === 'livreurs' ? self::rows($data['livreurs'] ?? []) : [],
+                $dryRun,
+            );
 
-        if (! ($data['dry_run'] ?? false)) {
+        if (! $dryRun) {
             $company->forceFill(['legacy_import_used_at' => now()])->save();
         }
 
@@ -119,7 +126,7 @@ class LegacyImportController extends Controller
      * @param  array<int, array<string, mixed>>  $rows
      * @return list<array<string, string|null>>
      */
-    private function rows(array $rows): array
+    public static function rows(array $rows): array
     {
         return array_values(array_map(fn (array $row) => array_map(
             fn ($value) => $value === null || is_array($value) ? null : (is_bool($value) ? (string) (int) $value : (string) $value),

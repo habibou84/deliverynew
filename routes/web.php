@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\ProductPhotoController;
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\PwaManifestController;
@@ -32,6 +33,9 @@ Route::get('/robots.txt', fn () => response("User-agent: *\nDisallow:".(config('
 // Validation d'un paiement Wave depuis le lien signé reçu par e-mail ou SMS (code du validateur)
 Route::get('/paiements-wave/valider/{payment}', [WavePaymentValidationController::class, 'show'])->middleware('signed:relative')->whereNumber('payment')->name('wave-payments.validate');
 Route::post('/paiements-wave/valider/{payment}', [WavePaymentValidationController::class, 'decide'])->middleware(['signed:relative', 'throttle:20,1'])->whereNumber('payment');
+
+// Bascule depuis l'ancienne application : le lien à usage unique ouvre la session sur Jibiat
+Route::get('/bascule/{ticket}', [LegacySwitchController::class, 'open'])->where('ticket', '[A-Za-z0-9]{48}')->middleware('throttle:30,1')->name('legacy-switch.open');
 
 Route::view('/confidentialite', 'legal.privacy')->name('privacy');
 Route::view('/conditions', 'legal.terms')->name('terms');

@@ -38,6 +38,8 @@ const routes = [
   // Inscription d'une entreprise de livraison (adresse de la console : admin.jibiat.com/creer-mon-entreprise)
   { path: '/creer-mon-entreprise', name: 'company-signup', component: () => import('../views/auth/CompanySignup.vue'), meta: { public: true } },
   { path: '/mot-de-passe-oublie', name: 'forgot-password', component: () => import('../views/auth/ForgotPassword.vue'), meta: { guest: true } },
+  // Invitation d'un membre de l'équipe ou d'un livreur (lien envoyé par WhatsApp)
+  { path: '/invitation/:token', name: 'invitation', component: () => import('../views/auth/Invitation.vue'), meta: { public: true } },
   // Ancienne adresse de connexion
   { path: '/login', redirect: (to) => ({ path: '/', query: to.query }) },
   // Pages publiques (destinataire)
@@ -90,6 +92,7 @@ const routes = [
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },
       { path: 'parametres', redirect: '/admin/reglages' },
+      { path: 'mot-de-passe', component: () => import('../views/admin/Password.vue') },
       { path: 'integrations', component: () => import('../views/admin/Integrations.vue'), meta: { permission: 'integrations.manage', feature: 'api' } },
       { path: 'abonnement', component: () => import('../views/admin/Subscription.vue'), meta: { permission: 'settings.manage' } },
       { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },
@@ -128,6 +131,7 @@ const routes = [
       { path: 'formules', component: () => import('../views/console/Plans.vue') },
       { path: 'facturation', component: () => import('../views/console/Billing.vue') },
       { path: 'paiements', component: () => import('../views/console/WavePayments.vue') },
+      { path: 'whatsapp', component: () => import('../views/console/WhatsApp.vue') },
       { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue') },
     ],
   },

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Company;
 use App\Services\Legacy\LegacyAccountsImporter;
+use App\Services\Legacy\LegacyZonesImporter;
 use App\Services\Legacy\SqlDumpReader;
 use Illuminate\Console\Command;
 use RuntimeException;
@@ -12,12 +13,12 @@ class ImportLegacyAccounts extends Command
 {
     protected $signature = 'legacy:import
         {company : Adresse de l\'entreprise sur la plateforme (ex. rapide-express)}
-        {file : Export SQL de l\'ancienne application (phpMyAdmin : tables clients, livreurs et users, .sql ou .sql.gz)}
+        {file : Export SQL de l\'ancienne application (phpMyAdmin : tables fees, clients, livreurs et users, .sql ou .sql.gz)}
         {--dry-run : Simule l\'import et affiche le rapport, sans rien enregistrer}';
 
-    protected $description = 'Reprend les e-commerçants et les livreurs de l\'ancienne application (mêmes numéros, mêmes mots de passe)';
+    protected $description = 'Reprend les noms des zones, les e-commerçants et les livreurs de l\'ancienne application (mêmes numéros, mêmes mots de passe)';
 
-    public function handle(LegacyAccountsImporter $importer): int
+    public function handle(LegacyAccountsImporter $importer, LegacyZonesImporter $zonesImporter): int
     {
         $company = Company::where('slug', $this->argument('company'))->first();
         if ($company === null) {
@@ -28,12 +29,14 @@ class ImportLegacyAccounts extends Command
 
         try {
             $dump = SqlDumpReader::fromFile($this->argument('file'));
-            if (! $dump->hasTable('clients') && ! $dump->hasTable('livreurs')) {
-                $this->error('Le fichier ne contient ni la table « clients » ni la table « livreurs ».');
+            if (! $dump->hasTable('fees') && ! $dump->hasTable('clients') && ! $dump->hasTable('livreurs')) {
+                $this->error('Le fichier ne contient ni la table « fees » ni la table « clients » ni la table « livreurs ».');
 
                 return self::FAILURE;
             }
 
+            // Zones d'abord (seulement leur nom) : la commune de chaque e-commerçant y trouve sa zone de ramassage
+            $zones = $dump->hasTable('fees') ? $zonesImporter->import($company, $dump, (bool) $this->option('dry-run')) : null;
             $report = $importer->import($company, $dump, (bool) $this->option('dry-run'));
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
@@ -48,6 +51,7 @@ class ImportLegacyAccounts extends Command
 
         $c = $report['counts'];
         $this->table(['', 'Nombre'], [
+            ['Zones ajoutées (noms de la table fees)', $zones ? $zones['counts']['zones_created'].($zones['counts']['zones_existing'] ? " ({$zones['counts']['zones_existing']} déjà présente(s))" : '') : '—'],
             ['E-commerçants importés', $c['merchants']],
             ['Autres comptes des e-commerçants', $c['merchant_users']],
             ['Livreurs importés', $c['couriers'].($c['couriers_suspended'] ? " (dont {$c['couriers_suspended']} suspendu(s))" : '')],

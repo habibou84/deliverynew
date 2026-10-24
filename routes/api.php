@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
 use App\Http\Controllers\Api\V1\ConsoleWaveController;
+use App\Http\Controllers\Api\V1\ConsoleWhatsAppController;
 use App\Http\Controllers\Api\V1\CourierAvailabilityController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
@@ -24,7 +25,9 @@ use App\Http\Controllers\Api\V1\DeliveryDayController;
 use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
+use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
+use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\MerchantLocationController;
 use App\Http\Controllers\Api\V1\MerchantNotificationController;
@@ -38,6 +41,7 @@ use App\Http\Controllers\Api\V1\OrderDraftController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\ParcelController;
+use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PayPlanController;
 use App\Http\Controllers\Api\V1\PlanningController;
@@ -61,6 +65,7 @@ use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
 use App\Http\Controllers\Api\V1\VerificationController;
 use App\Http\Controllers\Api\V1\WebhookController;
+use App\Http\Controllers\Api\V1\WhatsAppLoginController;
 use App\Http\Controllers\Api\V1\WhatsAppQrController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\WhatsAppSignupController;
@@ -80,6 +85,8 @@ Route::prefix('webhooks')->name('webhooks.')->group(function () {
 
 // Reprise depuis l'ancienne application (Laravel 5.8) : paquets envoyés par son bouton, avec la clé de reprise
 Route::post('legacy-import', [LegacyImportController::class, 'receive'])->middleware('throttle:120,1')->name('legacy-import.receive');
+// Bascule : l'ancienne application demande le lien de connexion du compte ouvert
+Route::post('legacy-switch', [LegacySwitchController::class, 'ticket'])->middleware('throttle:600,1')->name('legacy-switch.ticket');
 
 // API publique des marchands (clé API, quota par clé) : contrat documenté dans public/docs/openapi.yaml
 Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:public-api'])->controller(PublicApiController::class)->group(function () {
@@ -141,10 +148,16 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('signup', [SignupController::class, 'options'])->name('signup.options');
     Route::post('signup', [SignupController::class, 'store'])->middleware('throttle:verification-start')->name('signup.store');
     Route::post('password/forgot', [PasswordResetController::class, 'forgot'])->middleware('throttle:verification-start')->name('password.forgot');
+    // Connexion par WhatsApp (sans mot de passe) : le numéro est vérifié puis la session s'ouvre
+    Route::post('auth/whatsapp', [WhatsAppLoginController::class, 'start'])->middleware('throttle:verification-start')->name('auth.whatsapp');
+    // Lien d'invitation (équipe, livreurs) : lecture puis ouverture de la session
+    Route::get('invitations/{token}', [InvitationController::class, 'show'])->middleware('throttle:30,1')->name('invitations.show');
+    Route::post('invitations/{token}/accept', [InvitationController::class, 'accept'])->middleware('throttle:10,1')->name('invitations.accept');
     Route::post('password/reset', [PasswordResetController::class, 'reset'])->middleware('throttle:10,1')->name('password.reset');
     Route::get('verifications/{token}', [VerificationController::class, 'show'])->middleware('throttle:90,1')->name('verifications.show');
     Route::post('verifications/{token}/sms', [VerificationController::class, 'sms'])->middleware('throttle:verification-sms')->name('verifications.sms');
     Route::post('verifications/{token}/code', [VerificationController::class, 'code'])->middleware('throttle:20,1')->name('verifications.code');
+    Route::post('verifications/{token}/email', [VerificationController::class, 'email'])->middleware('throttle:verification-sms')->name('verifications.email');
 
     // Inscription d'une entreprise de livraison en libre-service (adresse de la console)
     Route::get('company-signup', [CompanySignupController::class, 'options'])->middleware('throttle:60,1')->name('company-signup.options');
@@ -171,6 +184,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::middleware(['auth:sanctum', 'active', 'throttle:tenant'])->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
+        Route::put('auth/password', [PasswordController::class, 'update'])->middleware('throttle:10,1')->name('auth.password');
         Route::post('company/logo', [BrandingController::class, 'upload'])->name('company.logo.store');
         Route::delete('company/logo', [BrandingController::class, 'destroy'])->name('company.logo.destroy');
         // Apparence des espaces : couleurs, noms et icônes des applications
@@ -194,6 +208,17 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('companies/{company}', 'show')->name('companies.show');
             Route::post('companies/{company}/support-session', 'supportSession')->middleware('throttle:10,1')->name('companies.support');
             Route::put('companies/{company}/billing-cycle', 'billingCycle')->name('companies.billing-cycle');
+        });
+        // Messagerie WhatsApp du numéro de Jibiat (relié par QR code)
+        Route::prefix('console/whatsapp')->name('console.whatsapp.')->middleware('role:super_admin')->controller(ConsoleWhatsAppController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('connect', 'connect')->middleware('throttle:20,1')->name('connect');
+            Route::delete('connect', 'disconnect')->name('disconnect');
+            Route::put('sms', 'sms')->name('sms');
+            Route::get('conversations', 'conversations')->name('conversations');
+            Route::post('conversations', 'open')->name('open');
+            Route::get('conversations/{conversation}', 'messages')->name('messages');
+            Route::post('conversations/{conversation}/messages', 'reply')->middleware('throttle:60,1')->name('reply');
         });
         Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsolePlanController::class)->group(function () {
             Route::get('plans', 'index')->name('plans.index');
@@ -229,6 +254,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::delete('key', 'destroyKey')->name('key.destroy');
             Route::get('module', 'module')->name('module');
         });
+        // Bascule depuis l'ancienne application : date, clé, module
+        Route::prefix('company/legacy-switch')->name('company.legacy-switch.')->middleware('can:settings.manage')->controller(LegacySwitchController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::put('/', 'schedule')->name('schedule');
+            Route::post('key', 'createKey')->middleware('throttle:10,1')->name('key.store');
+            Route::delete('key', 'destroyKey')->name('key.destroy');
+            Route::get('module', 'module')->name('module');
+        });
         Route::prefix('company/domain')->name('company.domain.')->middleware('can:settings.manage')->controller(CustomDomainController::class)->group(function () {
             Route::get('/', 'show')->name('show');
             Route::put('/', 'update')->middleware(['feature:custom_domain', 'throttle:10,1'])->name('update');
@@ -246,6 +279,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
         Route::apiResource('companies', CompanyController::class)->except('destroy');
         Route::apiResource('users', UserController::class);
+        Route::post('users/{user}/invitation', [InvitationController::class, 'store'])->name('users.invitation');
 
         // Référentiels
         Route::get('zones', [ZoneController::class, 'index'])->name('zones.index');

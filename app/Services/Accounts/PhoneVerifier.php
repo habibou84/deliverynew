@@ -5,22 +5,33 @@ namespace App\Services\Accounts;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Company;
 use App\Models\PhoneVerification;
+use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
+use App\Notifications\VerificationCodeMail;
 use App\Services\Messaging\Gateways\SmsGateway;
 use App\Services\Messaging\MessagingException;
+use App\Services\Platform\PlatformWhatsApp;
+use App\Services\Platform\WaveSettings;
 use App\Support\PhoneNumber;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
- * Vérification d'un numéro de téléphone, pour l'inscription d'un e-commerçant ou
- * un mot de passe oublié :
- *  - WhatsApp (gratuit) : la personne envoie depuis son WhatsApp un message prérempli
- *    contenant un code au numéro de l'entreprise ; l'expéditeur prouve le numéro ;
- *  - SMS (secours) : un code secret est envoyé au numéro et saisi sur la page.
+ * Vérification d'un numéro de téléphone, pour l'inscription d'un e-commerçant, un
+ * mot de passe oublié ou une connexion par WhatsApp :
+ *  - WhatsApp (gratuit, d'abord) : la personne envoie depuis son WhatsApp un message prérempli
+ *    contenant un code au numéro de l'entreprise (ou à celui de Jibiat si l'entreprise n'en a
+ *    pas de relié) ; l'expéditeur prouve le numéro ;
+ *  - SMS (payant, dernier recours) : un code secret envoyé au numéro et saisi sur la page,
+ *    proposé seulement quand aucun numéro WhatsApp n'est relié ;
+ *  - e-mail (gratuit, en secours) : le même code envoyé à l'adresse du compte, quand elle est connue et que
+ *    l'envoi d'e-mails est réglé.
  */
 class PhoneVerifier
 {
@@ -86,16 +97,31 @@ class PhoneVerifier
     }
 
     /**
-     * Numéro WhatsApp de l'entreprise auquel envoyer le message de vérification
-     * (null si WhatsApp n'est pas branché à l'API Cloud de Meta).
+     * Numéro WhatsApp auquel envoyer le message de vérification : celui de l'entreprise s'il est relié (Meta ou QR
+     * code), sinon celui de Jibiat (console) ; null si aucun n'est relié.
      */
     public function whatsappNumber(Company $company): ?string
     {
         $account = WhatsAppAccount::forCompanyId($company->id);
+        if ($account?->isLive() && filled($account->display_phone)) {
+            return PhoneNumber::normalize($account->display_phone);
+        }
+        $platform = app(PlatformWhatsApp::class)->state();
 
-        return $account?->isLive() && filled($account->display_phone)
-            ? PhoneNumber::normalize($account->display_phone)
-            : null;
+        return $platform['status'] === 'connected' && filled($platform['phone']) ? PhoneNumber::normalize($platform['phone']) : null;
+    }
+
+    /**
+     * SMS proposé pour cette vérification : seulement quand WhatsApp n'est pas possible (aucun numéro relié), sauf
+     * si la console autorise le SMS en secours pour tout le monde (« sms.fallback »).
+     */
+    public function smsOffered(PhoneVerification $verification): bool
+    {
+        if (! $this->smsAvailable($verification->phone)) {
+            return false;
+        }
+
+        return $this->whatsappNumber($verification->company) === null || PlatformSetting::get('sms.fallback') === 'on';
     }
 
     /**
@@ -123,7 +149,7 @@ class PhoneVerifier
     {
         $this->ensureOpen($verification);
 
-        if (! $this->smsAvailable($verification->phone)) {
+        if (! $this->smsOffered($verification)) {
             throw new BusinessRuleException("L'envoi de SMS n'est pas possible vers ce numéro. Utilisez la vérification par WhatsApp.");
         }
 
@@ -173,7 +199,83 @@ class PhoneVerifier
     }
 
     /**
-     * Code reçu par SMS, saisi sur la page.
+     * Adresse e-mail à laquelle un code peut être envoyé : celle du compte (mot de passe oublié, connexion) ou celle
+     * donnée à l'inscription.
+     */
+    public function emailAddress(PhoneVerification $verification): ?string
+    {
+        $email = $verification->user?->email ?? ($verification->payload['email'] ?? null);
+
+        return is_string($email) && filled($email) ? mb_strtolower($email) : null;
+    }
+
+    /**
+     * E-mail proposé : adresse connue et envoi d'e-mails réglé (serveur SMTP de la console ou du serveur).
+     */
+    public function emailOffered(PhoneVerification $verification): bool
+    {
+        return $this->emailAddress($verification) !== null && app(WaveSettings::class)->mailReady();
+    }
+
+    /** « a•••@exemple.ci » */
+    public static function maskEmail(string $email): string
+    {
+        [$name, $domain] = array_pad(explode('@', $email, 2), 2, '');
+
+        return mb_substr($name, 0, 1).'•••@'.$domain;
+    }
+
+    /**
+     * Envoie le code par e-mail (même code que le SMS : saisi sur la page, ou recopié par le lien du message).
+     */
+    public function sendEmail(PhoneVerification $verification, ?string $link = null): void
+    {
+        $this->ensureOpen($verification);
+        $email = $this->emailAddress($verification);
+        if ($email === null || ! $this->emailOffered($verification)) {
+            throw new BusinessRuleException('L\'envoi par e-mail n\'est pas possible pour cette demande.');
+        }
+        $payload = $verification->payload ?? [];
+        $sentAt = isset($payload['email_sent_at']) ? Carbon::parse($payload['email_sent_at']) : null;
+        if ($sentAt !== null && $sentAt->diffInSeconds(now()) < self::SMS_COOLDOWN_SECONDS) {
+            throw new BusinessRuleException('Patientez une minute avant de demander un nouvel e-mail.');
+        }
+        if (($payload['email_count'] ?? 0) >= self::MAX_SMS) {
+            throw new BusinessRuleException('Nombre maximal d\'e-mails atteint pour cette demande. Recommencez plus tard.');
+        }
+
+        $code = (string) random_int(100000, 999999);
+        $verification->forceFill([
+            'sms_code_hash' => Hash::make($code),
+            'attempts' => 0,
+            'payload' => [...$payload, 'code_channel' => 'email', 'email_count' => ($payload['email_count'] ?? 0) + 1, 'email_sent_at' => now()->toIso8601String()],
+        ])->save();
+
+        // Mot de passe oublié ou connexion pour un numéro inconnu : rien n'est envoyé, sans le révéler
+        if ($verification->user_id === null && $verification->purpose !== PhoneVerification::SIGNUP) {
+            return;
+        }
+        $company = $verification->company;
+        $what = match ($verification->purpose) {
+            PhoneVerification::SIGNUP => 'pour créer votre compte',
+            PhoneVerification::LOGIN => 'pour vous connecter',
+            default => 'pour changer votre mot de passe',
+        };
+        $mailer = app(WaveSettings::class)->mailer();
+        try {
+            Notification::route('mail', $email)->notifyNow(new VerificationCodeMail(
+                $code, $what, $company->name, $link !== null ? str_replace('__CODE__', $code, $link) : null, $mailer['mailer'] ?? null, $mailer['from'] ?? null,
+            ));
+        } catch (Throwable $e) {
+            Log::warning('E-mail de vérification non envoyé', ['email' => $email, 'error' => $e->getMessage()]);
+            $verification->forceFill(['payload' => [...$payload, 'email_sent_at' => null]])->save();
+
+            throw new BusinessRuleException('L\'e-mail n\'a pas pu être envoyé. Réessayez dans un instant.');
+        }
+    }
+
+    /**
+     * Code reçu par SMS (ou par e-mail), saisi sur la page.
      */
     public function checkSmsCode(PhoneVerification $verification, string $code): void
     {
@@ -184,7 +286,7 @@ class PhoneVerifier
         }
 
         if ($verification->sms_code_hash === null) {
-            throw new BusinessRuleException("Demandez d'abord un code par SMS.", 'code');
+            throw new BusinessRuleException("Demandez d'abord un code (SMS ou e-mail).", 'code');
         }
 
         if ($verification->attempts >= self::MAX_ATTEMPTS) {
@@ -198,7 +300,7 @@ class PhoneVerifier
             throw new BusinessRuleException($left > 0 ? "Code incorrect. Encore {$left} essai(s)." : 'Code incorrect. Demandez un nouveau code.', 'code');
         }
 
-        $this->markVerified($verification, 'sms');
+        $this->markVerified($verification, ($verification->payload['code_channel'] ?? 'sms') === 'email' ? 'email' : 'sms');
     }
 
     /**
@@ -214,13 +316,35 @@ class PhoneVerifier
         $verification = PhoneVerification::where('company_id', $company->id)->where('whatsapp_code', $m[1])
             ->pending()->latest('id')->first();
 
+        return $this->answer($verification, $from, false);
+    }
+
+    /**
+     * Message reçu sur le numéro de Jibiat (console) : même chose, pour n'importe quelle entreprise. Le code et le
+     * numéro de l'expéditeur désignent la demande.
+     */
+    public function handlePlatformWhatsApp(string $from, ?string $text): ?string
+    {
+        if (! preg_match('/code\s+de\s+v[ée]rification\D{0,10}(\d{6})/iu', (string) $text, $m)) {
+            return null;
+        }
+
+        $candidates = PhoneVerification::where('whatsapp_code', $m[1])->pending()->latest('id')->get();
+        $verification = $candidates->firstWhere('phone', PhoneNumber::normalize($from)) ?? $candidates->first();
+
+        return $this->answer($verification, $from, true);
+    }
+
+    private function answer(?PhoneVerification $verification, string $from, bool $viaPlatform): string
+    {
         if ($verification === null) {
             return "Ce code n'est plus valable (il expire au bout de ".self::TTL_MINUTES.' minutes). Recommencez depuis la page du site.';
         }
+        $company = $verification->company;
 
         if ($verification->phone !== PhoneNumber::normalize($from)) {
             return 'Ce code a été demandé pour le numéro '.PhoneNumber::display($verification->phone)
-                .'. Envoyez-le depuis le WhatsApp de ce numéro, ou choisissez « Recevoir un code par SMS » sur la page.';
+                .'. Envoyez-le depuis le WhatsApp de ce numéro.';
         }
 
         try {
@@ -231,7 +355,9 @@ class PhoneVerifier
 
         return match ($verification->purpose) {
             PhoneVerification::SIGNUP => "✅ Numéro vérifié ! Bienvenue chez {$company->name}. Votre compte « ".($verification->payload['business_name'] ?? '')
-                .' » est ouvert : retournez sur la page du site, vous y êtes connecté. Vous pouvez aussi créer vos courses ici en tapant « menu ».',
+                .' » est ouvert : retournez sur la page du site, vous y êtes connecté.'
+                .($viaPlatform ? '' : ' Vous pouvez aussi créer vos courses ici en tapant « menu ».'),
+            PhoneVerification::LOGIN => '✅ Numéro vérifié. Retournez sur la page du site : vous y êtes connecté.',
             default => $verification->user_id
                 ? '✅ Numéro vérifié. Retournez sur la page du site pour choisir votre nouveau mot de passe.'
                 : "Aucun compte n'est associé à ce numéro chez {$company->name}.",
@@ -259,7 +385,11 @@ class PhoneVerifier
     private function smsText(PhoneVerification $verification, string $code): string
     {
         $company = $verification->company;
-        $what = $verification->purpose === PhoneVerification::SIGNUP ? 'pour créer votre compte' : 'pour changer votre mot de passe';
+        $what = match ($verification->purpose) {
+            PhoneVerification::SIGNUP => 'pour créer votre compte',
+            PhoneVerification::LOGIN => 'pour vous connecter',
+            default => 'pour changer votre mot de passe',
+        };
 
         return "{$code} est votre code {$company->name} {$what}. Il expire dans ".self::TTL_MINUTES.' minutes. Ne le communiquez à personne.';
     }
