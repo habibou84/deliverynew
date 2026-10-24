@@ -66,6 +66,7 @@ use App\Http\Controllers\Api\V1\StorageContractController;
 use App\Http\Controllers\Api\V1\SubscriptionController;
 use App\Http\Controllers\Api\V1\TrackingController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\VehicleController;
 use App\Http\Controllers\Api\V1\VerificationController;
 use App\Http\Controllers\Api\V1\WebhookController;
 use App\Http\Controllers\Api\V1\WhatsAppLoginController;
@@ -344,6 +345,23 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('courier-ratings/{rating}/handle', [CourierRatingController::class, 'handle'])->name('courier-ratings.handle');
             Route::get('couriers/{courier}/ratings', [CourierRatingController::class, 'show'])->name('couriers.ratings');
             Route::post('couriers/{courier}/reviews', [CourierRatingController::class, 'review'])->name('couriers.reviews.store');
+        });
+
+        // Parc des véhicules : consultation par le dispatch, modifications par ceux qui gèrent les comptes
+        Route::middleware('can:orders.dispatch')->controller(VehicleController::class)->group(function () {
+            Route::get('vehicles', 'index')->name('vehicles.index');
+            Route::get('vehicles/{vehicle}', 'show')->name('vehicles.show');
+            Route::get('vehicles/{vehicle}/photo', 'photoFile')->name('vehicles.photo.show');
+            Route::get('vehicle-documents/{document}/file', 'documentFile')->name('vehicle-documents.file');
+            Route::middleware('can:users.manage')->group(function () {
+                Route::post('vehicles', 'store')->name('vehicles.store');
+                Route::patch('vehicles/{vehicle}', 'update')->name('vehicles.update');
+                Route::post('vehicles/{vehicle}/assign', 'assign')->name('vehicles.assign');
+                Route::post('vehicles/{vehicle}/photo', 'photo')->name('vehicles.photo');
+                Route::post('vehicle-documents', 'storeDocument')->name('vehicle-documents.store');
+                Route::post('vehicle-documents/{document}', 'updateDocument')->name('vehicle-documents.update');
+                Route::delete('vehicle-documents/{document}', 'destroyDocument')->name('vehicle-documents.destroy');
+            });
         });
 
         // Remontées terrain des livreurs (notes, problèmes) : consultation et suivi par le dispatch

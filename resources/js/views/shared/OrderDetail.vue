@@ -129,11 +129,14 @@
               <select v-model="assignment[type]" class="input">
                 <option :value="null">Choisir un livreur…</option>
                 <option v-for="c in sortedCouriers(type)" :key="c.id" :value="c.id">
-                  {{ c.name }} · {{ c.active_assignments_count }} en cours{{ c.is_available ? '' : ' · indisponible' }}{{ servesZone(c, type) ? ' · ★ zone' : '' }}
+                  {{ c.name }} · {{ c.active_assignments_count }} en cours{{ c.is_available ? '' : ' · indisponible' }}{{ servesZone(c, type) ? ' · ★ zone' : '' }}{{ vehicleAlert(c) ? ` · 🚨 ${vehicleAlert(c)}` : '' }}
                 </option>
               </select>
               <button class="btn-primary" :disabled="!assignment[type]" @click="assign(type)">OK</button>
             </div>
+            <p v-if="vehicleAlert(couriers.find((c) => c.id === assignment[type]))" class="text-xs font-semibold text-red-700">
+              🚨 {{ vehicleAlert(couriers.find((c) => c.id === assignment[type])) }} : vérifiez avant de lui confier la course.
+            </p>
           </div>
           <button v-if="nextStatuses.length" class="btn-secondary w-full" @click="openStatus(nextStatuses)">Changer le statut…</button>
         </div>
@@ -311,6 +314,9 @@ function servesZone(courier, type) {
   const zoneId = type === 'pickup' ? order.value.pickup.zone_id : order.value.delivery.zone_id
   return courier.zones?.some((z) => z.id === zoneId || z.parent_id === zoneId)
 }
+
+// Véhicule qui ne devrait pas rouler (assurance ou permis expiré, réparation)
+const vehicleAlert = (c) => (c?.vehicle_warnings || []).filter((w) => w.level === 'alert').map((w) => w.text).join(', ')
 
 // Livreurs de la zone et disponibles en premier, puis les moins chargés
 function sortedCouriers(type) {

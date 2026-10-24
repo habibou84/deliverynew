@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1;
 
 use App\Models\Courier;
+use App\Services\Vehicles\VehicleFleet;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -41,6 +42,9 @@ class CourierResource extends JsonResource
             'shift_ends_at' => $this->shift_ends_at,
             'active_assignments_count' => $this->whenCounted('activeAssignments'),
             'notes' => $this->notes,
+            // Parc des véhicules : véhicule confié, et ce qui empêche de rouler (assurance, permis, réparation)
+            'vehicle' => $this->whenLoaded('vehicle', fn () => $this->vehicle ? ['id' => $this->vehicle->id, 'label' => $this->vehicle->label()] : null),
+            'vehicle_warnings' => $this->when($this->relationLoaded('vehicle'), fn () => app(VehicleFleet::class)->warnings($this->resource)),
         ];
     }
 }

@@ -19,7 +19,12 @@
         <p class="text-xs text-gray-500">
           Paie : {{ c.pay_plan ? c.pay_plan.name : 'plan par défaut' }}<span v-if="c.pay_plan?.personal"> (personnel)</span>
         </p>
-        <p class="text-sm text-gray-600">{{ VEHICLES[c.vehicle_type] }} {{ c.vehicle_plate ? `· ${c.vehicle_plate}` : '' }} · <strong>{{ c.active_assignments_count }}</strong> mission(s) en cours</p>
+        <p class="text-sm text-gray-600">
+          <RouterLink v-if="c.vehicle" :to="{ path: '/admin/vehicules', query: { id: c.vehicle.id } }" class="text-blue-600">{{ c.vehicle.label }}</RouterLink>
+          <template v-else>{{ VEHICLES[c.vehicle_type] }} {{ c.vehicle_plate ? `· ${c.vehicle_plate}` : '' }}</template>
+          · <strong>{{ c.active_assignments_count }}</strong> mission(s) en cours
+        </p>
+        <p v-for="w in c.vehicle_warnings || []" :key="w.text" :class="['text-xs font-semibold', w.level === 'alert' ? 'text-red-700' : 'text-amber-700']">{{ w.level === 'alert' ? '🚨' : '⚠️' }} {{ w.text }}</p>
         <p class="text-sm">Zones : {{ c.zones.map((z) => z.name).join(', ') || 'aucune précisée' }}<span v-if="c.backup_zones?.length" class="text-gray-500"> · secours : {{ c.backup_zones.map((z) => z.name).join(', ') }}</span></p>
         <p v-if="c.last_location_at" class="text-xs text-gray-500">
           Position du {{ dateTime(c.last_location_at) }} · <a :href="mapsLink(c.current_lat, c.current_lng)" target="_blank" class="text-blue-600">voir</a>
@@ -35,13 +40,18 @@
 
     <Modal :open="form.open" title="Profil livreur" @close="form.open = false">
       <form class="space-y-3" @submit.prevent="save">
-        <div>
-          <label class="label">Véhicule</label>
-          <select v-model="form.data.vehicle_type" class="input">
-            <option v-for="(label, value) in VEHICLES" :key="value" :value="value">{{ label }}</option>
-          </select>
-        </div>
-        <div><label class="label">Immatriculation</label><input v-model="form.data.vehicle_plate" class="input"></div>
+        <p v-if="form.vehicle" class="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+          Véhicule : <RouterLink :to="{ path: '/admin/vehicules', query: { id: form.vehicle.id } }" class="text-blue-600">{{ form.vehicle.label }}</RouterLink> (à changer dans sa fiche)
+        </p>
+        <template v-else>
+          <div>
+            <label class="label">Véhicule</label>
+            <select v-model="form.data.vehicle_type" class="input">
+              <option v-for="(label, value) in VEHICLES" :key="value" :value="value">{{ label }}</option>
+            </select>
+          </div>
+          <div><label class="label">Immatriculation</label><input v-model="form.data.vehicle_plate" class="input"></div>
+        </template>
         <div v-if="canPay">
           <label class="label" for="courier-plan">Plan de paie</label>
           <select id="courier-plan" v-model="form.data.pay_plan_id" class="input">
@@ -103,7 +113,7 @@ const VEHICLES = { moto: 'Moto', velo: 'Vélo', voiture: 'Voiture', tricycle: 'T
 const auth = useAuthStore()
 const couriers = ref([])
 const zones = ref([])
-const form = reactive({ open: false, id: null, data: {}, error: '' })
+const form = reactive({ open: false, id: null, vehicle: null, data: {}, error: '' })
 const router = useRouter()
 const plans = ref([])
 const canPay = computed(() => auth.can('settings.manage'))
@@ -127,6 +137,7 @@ async function load() {
 
 function openForm(c) {
   form.id = c.id
+  form.vehicle = c.vehicle || null
   form.data = {
     vehicle_type: c.vehicle_type,
     vehicle_plate: c.vehicle_plate,
