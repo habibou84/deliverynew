@@ -75,6 +75,8 @@ class OrderAlert extends Notification implements ShouldQueue
             'body' => $this->body,
             'order_id' => $this->order->id,
             'tracking_code' => $this->order->tracking_code,
+            // Nom du client : l'application marchand l'affiche à la place du code
+            'recipient_name' => $this->order->recipient_name,
             'status' => $this->order->status->value,
             ...$this->extra,
         ];
