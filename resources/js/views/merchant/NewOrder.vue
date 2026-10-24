@@ -14,10 +14,12 @@
       <p class="font-mono text-2xl font-bold tracking-[0.3em]">{{ created.delivery_code }}</p>
     </div>
     <a :href="shareLink" target="_blank" class="m-btn-success"><AppIcon name="chat" class="h-5 w-5" />Envoyer le suivi au client sur WhatsApp</a>
+    <!-- Enchaîner : même client avec un autre colis, ou un autre client (réglages gardés) -->
     <div class="grid grid-cols-2 gap-2">
-      <RouterLink :to="`/marchand/courses/${created.id}`" class="m-btn-secondary">Voir la course</RouterLink>
-      <button class="m-btn-primary" @click="reset">+ Nouvelle</button>
+      <button class="m-btn-secondary" @click="reset(true)">Même client, autre colis</button>
+      <button class="m-btn-primary" @click="reset(false)">Autre client</button>
     </div>
+    <RouterLink :to="`/marchand/courses/${created.id}`" class="block text-sm font-bold text-[var(--app-color)]">Voir la course</RouterLink>
   </div>
 
   <!-- Toute la course sur une page : le client, où livrer, l'argent, le jour ; le prix suit en bas -->
@@ -25,15 +27,31 @@
     <div v-if="error" class="rounded-xl bg-red-50 text-red-700 px-4 py-3 text-sm" role="alert">{{ error }}</div>
     <p v-if="fromMessage" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">Course remplie d'après le message : vérifiez avant d'envoyer.</p>
 
+    <!-- Message copié avec un numéro : la course peut se remplir toute seule -->
+    <div v-if="clipText && !fromMessage" class="rounded-2xl bg-emerald-50 p-4 ring-1 ring-emerald-200 text-sm">
+      <p class="font-bold">Un message copié contient un numéro</p>
+      <p class="mt-0.5 line-clamp-2 text-slate-600">« {{ clipText }} »</p>
+      <div class="mt-3 flex gap-2">
+        <button type="button" class="rounded-lg bg-[var(--app-color)] px-3 py-2 text-[13px] font-bold text-white" :disabled="parsing" @click="parseText(clipText)">{{ parsing ? 'Analyse…' : 'Remplir la course avec' }}</button>
+        <button type="button" class="rounded-lg px-3 py-2 text-[13px] font-bold ring-1 ring-slate-300" @click="clipText = ''">Non merci</button>
+      </div>
+    </div>
+
     <!-- Message collé : remplit toute la course -->
     <PasteMessage v-if="pasteOpen" mobile start-open @parsed="applyParsed" />
-    <button v-else type="button" class="tap w-full flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[var(--app-color)] ring-1 ring-slate-200 active:bg-slate-50" @click="pasteOpen = true">
-      <AppIcon name="clip" class="h-[18px] w-[18px]" />Coller un message WhatsApp pour tout remplir
+    <button v-else-if="!clipText" type="button" class="tap w-full flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[var(--app-color)] ring-1 ring-slate-200 active:bg-slate-50" :disabled="parsing" @click="pasteFromClipboard">
+      <AppIcon name="clip" class="h-[18px] w-[18px]" />{{ parsing ? 'Analyse du message…' : 'Coller un message WhatsApp pour tout remplir' }}
     </button>
 
     <!-- 1. Le client -->
-    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-client">
+    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-client" @pointerdown="enter(1)">
       <h2 id="step-client" class="m-step"><span class="m-step-num">1</span>Le client</h2>
+      <!-- Partie remplie : une ligne, rouverte d'un toucher -->
+      <button v-if="folded.client" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.client = false">
+        <span class="min-w-0 truncate font-semibold">{{ [form.recipient_name, form.recipient_phone].filter(Boolean).join(' · ') }}</span>
+        <span class="shrink-0 font-bold text-[var(--app-color)]">Modifier</span>
+      </button>
+      <template v-else>
       <div>
         <label class="m-label" for="phone">Téléphone <span class="text-red-600">*</span></label>
         <input id="phone" ref="phoneInput" :value="form.recipient_phone" :class="['m-input !text-xl !font-bold', missing.phone ? 'ring-2 ring-red-500' : '']" inputmode="tel" autocomplete="jibiat-off" placeholder="07 00 00 00 00" @input="onPhone" @blur="checkDuplicates">
@@ -47,19 +65,25 @@
         </span>
         <span class="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-white bg-[var(--app-color)]">Utiliser</span>
       </button>
-      <div v-if="duplicates.length" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">
-        Déjà {{ duplicates.length > 1 ? `${duplicates.length} courses` : 'une course' }} pour ce client ces dernières 24 h :
-        <RouterLink v-for="d in duplicates" :key="d.id" :to="`/marchand/courses/${d.id}`" class="underline ml-1">{{ d.tracking_code }} ({{ d.status_label }})</RouterLink>
-      </div>
       <div>
         <label class="m-label" for="name">Nom <span class="font-normal text-slate-500">(facultatif)</span></label>
         <input id="name" v-model="form.recipient_name" class="m-input" autocomplete="jibiat-off" placeholder="Ex. : Jean Kouadio">
       </div>
+      </template>
+      <div v-if="duplicates.length" class="rounded-xl bg-amber-50 text-amber-900 px-4 py-3 text-sm">
+        Déjà {{ duplicates.length > 1 ? `${duplicates.length} courses` : 'une course' }} pour ce client ces dernières 24 h :
+        <RouterLink v-for="d in duplicates" :key="d.id" :to="`/marchand/courses/${d.id}`" class="underline ml-1">{{ d.tracking_code }} ({{ d.status_label }})</RouterLink>
+      </div>
     </section>
 
     <!-- 2. Où livrer -->
-    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-where">
+    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-where" @pointerdown="enter(2)">
       <h2 id="step-where" class="m-step"><span class="m-step-num">2</span>Où livrer</h2>
+      <button v-if="folded.where" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.where = false">
+        <span class="min-w-0 truncate font-semibold">{{ [zoneName, form.delivery_address].filter((v) => v && v !== '—').join(' · ') }}<span v-if="quote" class="font-normal text-slate-500"> · livraison {{ money(quote.total) }}</span></span>
+        <span class="shrink-0 font-bold text-[var(--app-color)]">Modifier</span>
+      </button>
+      <template v-else>
       <div id="zone-field">
         <label class="m-label" for="zone">Commune ou quartier <span class="text-red-600">*</span></label>
         <!-- Communes proposées en un toucher : celles du message, sinon celles des dernières courses -->
@@ -73,6 +97,9 @@
           >{{ z.full_name }}</button>
         </div>
         <ZoneSelect id="zone" v-model="form.delivery_zone_id" :zones="zones" mobile :input-class="['m-input', missing.zone ? 'ring-2 ring-red-500' : '']" />
+        <!-- Le tarif dès que la commune est choisie -->
+        <p v-if="quote" class="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-800">Livraison : {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
+        <p v-else-if="form.delivery_zone_id && !quoteError" class="mt-2 text-sm text-slate-500">Calcul du prix…</p>
         <p v-if="selectedZone?.is_shipping" class="mt-2 rounded-xl bg-indigo-50 text-indigo-900 text-sm p-3">
           <strong>Expédition</strong> : notre livreur dépose le colis à la gare et paie l'envoi
           <template v-if="selectedZone.shipping_fee_estimate">(environ {{ money(selectedZone.shipping_fee_estimate) }})</template>.
@@ -83,11 +110,22 @@
         <label class="m-label" for="address">Adresse et repère</label>
         <input id="address" v-model="form.delivery_address" autocomplete="jibiat-off" class="m-input" placeholder="Ex. : résidence Les Palmiers, face pharmacie">
       </div>
+      <!-- Position du client demandée sur WhatsApp, pour aider le livreur -->
+      <a v-if="phoneValid" :href="positionLink" target="_blank" rel="noopener" class="tap flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm font-bold text-green-800 ring-1 ring-green-200">
+        <AppIcon name="pin" class="h-[18px] w-[18px] shrink-0" />
+        <span>Demander sa position au client sur WhatsApp<span class="block text-xs font-normal text-green-900/80">Collez ensuite le lien reçu dans « Adresse et repère ».</span></span>
+      </a>
+      </template>
     </section>
 
     <!-- 3. L'argent -->
-    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-money">
+    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-money" @pointerdown="enter(3)">
       <h2 id="step-money" class="m-step"><span class="m-step-num">3</span>L'argent</h2>
+      <button v-if="folded.money" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.money = false">
+        <span class="min-w-0 truncate font-semibold">{{ money(form.items_amount || 0) }} · livraison payée par {{ form.fee_payer === 'merchant' ? 'vous' : 'le client' }}</span>
+        <span class="shrink-0 font-bold text-[var(--app-color)]">Modifier</span>
+      </button>
+      <template v-else>
 
       <button v-if="products.length && !showStock" type="button" class="tap w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
         <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon stock</span><AppIcon name="right" class="h-4 w-4 text-slate-400" />
@@ -133,23 +171,26 @@
             { value: 'merchant', label: 'Moi', description: 'déduite de mon paiement' },
           ]"
         />
+        <p v-if="habitsUsed.feePayer && !missing.feePayer" class="mt-1.5 text-xs text-slate-500">Comme la dernière fois.</p>
         <p v-if="missing.feePayer" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison.</p>
       </div>
+      </template>
     </section>
 
     <!-- 4. Quand livrer -->
-    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-when">
+    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-when" @pointerdown="enter(4)">
       <h2 id="step-when" class="m-step"><span class="m-step-num">4</span><span>Quand livrer <span class="text-red-600">*</span></span></h2>
       <div id="when-field" :class="['rounded-2xl', missing.date ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
         <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de livraison" />
         <p v-if="closed" class="mt-2 text-xs text-slate-500">{{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
         <input v-if="when === 'other'" id="date" v-model="form.delivery_scheduled_date" type="date" :min="minDate" class="m-input mt-2" aria-label="Jour de livraison">
+        <p v-if="habitsUsed.when && !missing.date" class="mt-1.5 text-xs text-slate-500">Comme la dernière fois.</p>
         <p v-if="missing.date" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez quand livrer la course.</p>
       </div>
     </section>
 
     <!-- Le reste, seulement si besoin -->
-    <section class="rounded-2xl bg-white px-4 py-1 ring-1 ring-slate-200">
+    <section class="rounded-2xl bg-white px-4 py-1 ring-1 ring-slate-200" @pointerdown="enter(5)">
       <button type="button" class="tap w-full flex items-center justify-between py-3 text-[15px] font-semibold" :aria-expanded="showMore" @click="showMore = !showMore">
         <span>{{ showMore ? '−' : '+' }} Contenu du colis, express, message au livreur</span>
         <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-500">{{ extrasSummary }}</span>
@@ -193,7 +234,8 @@
         </div>
         <p v-else-if="quoteError" class="text-sm text-red-600">{{ quoteError }}</p>
         <p v-else class="text-sm text-slate-500">{{ form.delivery_zone_id ? 'Calcul du prix…' : 'Choisissez la commune pour voir le prix.' }}</p>
-        <button type="submit" class="m-btn-primary" :disabled="saving">{{ saving ? 'Envoi…' : 'Envoyer la course' }}</button>
+        <p v-if="stillMissing.length" class="text-sm font-semibold text-amber-700">Il manque : {{ stillMissing.join(', ') }}</p>
+        <button type="submit" :class="['m-btn-primary', stillMissing.length ? 'opacity-60' : '']" :disabled="saving">{{ saving ? 'Envoi…' : 'Envoyer la course' }}</button>
       </div>
     </div>
   </form>
@@ -206,7 +248,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import PasteMessage from '../../components/PasteMessage.vue'
 import ZoneSelect from '../../components/ZoneSelect.vue'
-import { longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
+import { isoDay, longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { useAuthStore } from '../../stores/auth'
 import { localPhone, money } from '../../utils/format'
 import { keyboardOpen } from '../../composables/useKeyboard'
@@ -252,7 +294,7 @@ const source = ref(null) // null = chez moi, sinon identifiant de l'entrepôt
 const picked = reactive({})
 
 // Jour de livraison : choix obligatoire, « Aujourd'hui » impossible quand l'agence a fermé la journée
-const { when, options: deliveryOptions, closed, closedReason, minDate, isChosen: dateChosen, load: loadDeliveryDay, reset: resetDate } = useDeliveryDate(form)
+const { day, when, options: deliveryOptions, closed, closedReason, minDate, isChosen: dateChosen, load: loadDeliveryDay, reset: resetDate } = useDeliveryDate(form)
 
 // Entrepôts où le marchand a du stock disponible
 const stockHubs = computed(() => hubs.value.filter((h) => products.value.some((p) => p.levels.some((l) => l.hub_id === h.id && l.available > 0))))
@@ -359,6 +401,7 @@ function pickRecipient(r) {
   if (r.phone2) showMore.value = true
   suggestions.value = []
   checkDuplicates()
+  folded.client = true
 }
 
 // Adresse et repère réunis en un seul champ
@@ -372,7 +415,7 @@ const duplicates = ref([])
 function applyParsed(data) {
   const set = (key, value) => { if (value !== undefined && value !== null && value !== '') form[key] = value }
   set('recipient_name', data.recipient_name)
-  set('recipient_phone', (data.recipient_phone || '').replace(/^\+225/, ''))
+  set('recipient_phone', (data.recipient_phone || '').replace(/^\+225/, '').replace(/\D/g, '').replace(/(\d{2})(?=\d)/g, '$1 '))
   set('recipient_phone2', (data.recipient_phone2 || '').replace(/^\+225/, ''))
   set('delivery_address', joinAddress(data.delivery_address, data.delivery_landmark))
   set('items_amount', data.items_amount)
@@ -397,6 +440,123 @@ async function checkDuplicates() {
     duplicates.value = (await http.get('/orders/duplicates', { params: { recipient_phone: form.recipient_phone } })).data.data
   } catch {
     // Simple alerte : sans réponse, on n'affiche rien
+  }
+}
+
+// Ce qui manque encore, rappelé en bas de la page
+const SHORT = { phone: 'le numéro du client', zone: 'la commune', feePayer: 'qui paie la livraison', date: 'le jour de livraison' }
+const phoneValid = computed(() => form.recipient_phone.replace(/\D/g, '').length >= 8)
+const stillMissing = computed(() => [1, 2, 3]
+  .flatMap((n) => problemsOf(n))
+  .filter(([bad]) => bad)
+  .map(([, key]) => SHORT[key] || 'les articles de l\'entrepôt'))
+
+// Parties remplies repliées en une ligne quand on passe à la suite
+const folded = reactive({ client: false, where: false, money: false })
+const PARTS = [['client', 1], ['where', 2], ['money', 3]]
+function enter(n) {
+  PARTS.forEach(([key, i]) => {
+    if (i < n && !problemsOf(i).some(([bad]) => bad)) folded[key] = true
+  })
+}
+
+// Habitudes : qui paie et quand livrer, repris de la dernière course (modifiables)
+const HABITS = 'jibiat.marchand.habitudes'
+const habitsUsed = reactive({ feePayer: false, when: false })
+function readHabits() {
+  try {
+    return JSON.parse(localStorage.getItem(HABITS) || '{}')
+  } catch {
+    return {}
+  }
+}
+function saveHabits() {
+  try {
+    localStorage.setItem(HABITS, JSON.stringify({ fee_payer: form.fee_payer, when: ['today', 'tomorrow'].includes(when.value) ? when.value : null }))
+  } catch {
+    // Navigation privée : rien n'est gardé
+  }
+}
+function applyHabits() {
+  const h = readHabits()
+  if (!form.fee_payer && ['recipient', 'merchant'].includes(h.fee_payer)) {
+    form.fee_payer = h.fee_payer
+    habitsUsed.feePayer = true
+  }
+  const option = deliveryOptions.value.find((o) => o.value === h.when)
+  if (!when.value && option && !option.disabled) {
+    when.value = h.when
+    // Date posée tout de suite (le choix peut revenir à la même valeur juste après une remise à zéro)
+    const today = day.value?.today || isoDay(0)
+    form.delivery_scheduled_date = h.when === 'today' ? today : isoDay(1, today)
+    habitsUsed.when = true
+  }
+}
+watch(() => form.fee_payer, (v, old) => { if (old) habitsUsed.feePayer = false })
+watch(when, (v, old) => { if (old) habitsUsed.when = false })
+
+// Numéro pour WhatsApp : « 07 00 00 00 01 » → « 2250700000001 » (le 0 reste en Côte d'Ivoire)
+const whatsappNumber = (phone) => {
+  const digits = (phone || '').replace(/\D/g, '')
+  return digits.length === 10 ? `225${digits}` : digits
+}
+
+// Position du client demandée sur WhatsApp
+const positionLink = computed(() => {
+  const shop = auth.user?.merchant?.business_name || ''
+  const hello = form.recipient_name ? `Bonjour ${form.recipient_name.split(' ')[0]}` : 'Bonjour'
+  const text = `${hello}, c'est ${shop}. Pour bien vous livrer, pouvez-vous m'envoyer votre position WhatsApp (trombone, puis « Position ») ? Merci !`
+  return `https://wa.me/${whatsappNumber(form.recipient_phone)}?text=${encodeURIComponent(text)}`
+})
+
+// Message copié : lu dans le presse-papiers puis analysé, sinon zone de collage
+const clipText = ref('')
+const parsing = ref(false)
+const PHONE_RE = /(\+?\d[\d\s.-]{7,}\d)/
+
+async function parseText(text) {
+  parsing.value = true
+  error.value = ''
+  try {
+    const { data } = await http.post('/orders/parse-message', { text })
+    const found = Object.keys(data.data).filter((k) => k !== 'zones' || data.data.zones.length)
+    if (!found.length) {
+      error.value = 'Rien de reconnu dans ce message : remplissez la course à la main.'
+      return
+    }
+    applyParsed(data.data)
+    clipText.value = ''
+  } catch (e) {
+    error.value = apiErrorMessage(e)
+  } finally {
+    parsing.value = false
+  }
+}
+
+async function readClipboard() {
+  try {
+    return ((await navigator.clipboard.readText()) || '').trim()
+  } catch {
+    return ''
+  }
+}
+
+// Bouton « Coller » : le message copié est analysé directement, sinon la zone de collage s'ouvre
+async function pasteFromClipboard() {
+  const text = await readClipboard()
+  if (text) await parseText(text)
+  else pasteOpen.value = true
+}
+
+// À l'ouverture : message copié avec un numéro proposé, seulement si le téléphone l'autorise déjà sans demander
+async function offerClipboard() {
+  try {
+    const status = await navigator.permissions?.query({ name: 'clipboard-read' })
+    if (status?.state !== 'granted') return
+    const text = await readClipboard()
+    if (PHONE_RE.test(text)) clipText.value = text.slice(0, 500)
+  } catch {
+    // Navigateur sans cette autorisation : le bouton « Coller » reste disponible
   }
 }
 
@@ -428,8 +588,14 @@ const phoneInput = ref(null)
 // Champ touché remonté sous l'en-tête : le clavier et la liste des communes ont la place en dessous.
 // La marge du bas s'agrandit le temps de la saisie pour que même les derniers champs puissent remonter.
 const lifted = ref(false)
+// Curseur placé tout seul à l'ouverture : la page reste en haut (bouton « Coller », message copié)
+let quietFocus = false
 function liftField(event) {
   const field = event.target
+  if (quietFocus) {
+    quietFocus = false
+    return
+  }
   if (!field.matches('input:not([type=checkbox]):not([type=radio]), textarea, select')) return
   lifted.value = true
   setTimeout(() => {
@@ -474,6 +640,7 @@ async function submit() {
   // Champs obligatoires : le premier oublié est montré à l'écran
   const bad = [1, 2, 3].find((n) => !validate(n))
   if (bad) {
+    folded[PARTS.find(([, i]) => i === bad)?.[0]] = false
     const target = { 1: 'phone', 2: 'zone-field', 3: missing.feePayer ? 'fee-payer' : missing.date ? 'when-field' : 'amount' }[bad]
     setTimeout(() => document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
     return
@@ -487,6 +654,7 @@ async function submit() {
     if (pickedItems.value.length) payload.items = pickedItems.value.map(({ product_id, quantity, unit_price }) => ({ product_id, quantity, unit_price }))
     if (source.value) payload.pickup_hub_id = source.value
     created.value = (await http.post('/orders', payload)).data.data
+    saveHabits()
     loadStock()
   } catch (e) {
     error.value = apiErrorMessage(e)
@@ -500,8 +668,12 @@ async function submit() {
   }
 }
 
-function reset() {
-  Object.assign(form, blank())
+// Après l'envoi : même client avec un autre colis, ou un autre client ; les habitudes reviennent
+function reset(sameClient = false) {
+  const keep = sameClient
+    ? { recipient_phone: form.recipient_phone, recipient_name: form.recipient_name, recipient_phone2: form.recipient_phone2, delivery_zone_id: form.delivery_zone_id, delivery_address: form.delivery_address }
+    : {}
+  Object.assign(form, blank(), keep)
   Object.keys(missing).forEach((key) => { missing[key] = false })
   showMore.value = false
   showStock.value = false
@@ -514,6 +686,12 @@ function reset() {
   zoneChoices.value = []
   duplicates.value = []
   pasteOpen.value = false
+  clipText.value = ''
+  Object.assign(folded, { client: sameClient, where: sameClient, money: false })
+  Object.assign(habitsUsed, { feePayer: false, when: false })
+  applyHabits()
+  if (sameClient) fetchQuote()
+  window.scrollTo({ top: 0 })
 }
 
 // Champ oublié corrigé : plus de cadre rouge, et le message disparaît quand tout est rempli
@@ -533,9 +711,20 @@ async function loadStock() {
 }
 
 onMounted(async () => {
-  loadDeliveryDay()
+  loadDeliveryDay().then(applyHabits)
   loadRecentZones()
-  if (!pasteOpen.value) phoneInput.value?.focus()
+  // « Coller un message » du menu : le message copié est analysé tout de suite s'il y en a un
+  if (pasteOpen.value) {
+    const text = await readClipboard()
+    if (text) {
+      pasteOpen.value = false
+      parseText(text)
+    }
+  } else {
+    quietFocus = true
+    phoneInput.value?.focus()
+    offerClipboard()
+  }
   zones.value = (await http.get('/zones')).data.data
   loadStock()
 })

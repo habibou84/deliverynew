@@ -80,7 +80,7 @@
       <OrderCard v-for="o in visible" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
       <button v-if="hasMore" type="button" class="m-btn-secondary" @click="loadOrders(page + 1)">Voir plus</button>
 
-      <EmptyState v-if="loaded && !orders.length" icon="📦" title="Aucune course aujourd'hui" text="Créez une course en un instant avec le bouton en bas.">
+      <EmptyState v-if="loaded && !orders.length" icon="📦" title="Aucune course aujourd'hui" text="Créez une course en un instant avec le bouton + en bas.">
         <RouterLink v-if="auth.can('orders.create')" to="/marchand/courses/nouvelle" class="m-btn-primary">+ Nouvelle course</RouterLink>
       </EmptyState>
 

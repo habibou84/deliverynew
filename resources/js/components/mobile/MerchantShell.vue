@@ -21,26 +21,28 @@
       </div>
     </header>
 
-    <main :class="['mx-auto max-w-lg px-4 pt-4', showTabs ? 'pb-40' : 'pb-8']">
+    <main :class="['mx-auto max-w-lg px-4 pt-4', showTabs ? 'pb-28' : 'pb-8']">
       <RouterView />
     </main>
-
-    <!-- Bouton « Nouvelle course », toujours au même endroit -->
-    <RouterLink
-      v-if="showFab"
-      :to="`${base}/courses/nouvelle`"
-      class="fixed right-4 z-30 bottom-[calc(80px+env(safe-area-inset-bottom))] flex items-center gap-2 rounded-full px-5 py-3.5 text-base font-bold text-white shadow-[0_10px_24px_rgba(0,0,0,.22)] active:scale-95 transition"
-      :style="{ backgroundColor: color }"
-    >
-      <AppIcon name="plus" class="h-[22px] w-[22px]" :stroke="2.6" />Nouvelle course
-    </RouterLink>
 
     <!-- Barre d'onglets (cachée pendant la saisie au clavier et sur les parcours à étapes) -->
     <nav v-show="showTabs" class="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-slate-200 pb-safe">
       <div class="mx-auto max-w-lg flex h-16">
+        <template v-for="tab in tabs" :key="tab.to">
+        <!-- Bouton rond du milieu : créer, coller un message, importer -->
+        <div v-if="tab.primary" class="flex-1 flex justify-center">
+          <button
+            type="button"
+            class="-mt-6 h-14 w-14 rounded-full grid place-items-center text-white shadow-lg ring-4 ring-[#f6f7f9] active:scale-95 transition"
+            :style="{ backgroundColor: color }"
+            :aria-label="tab.label"
+            @click="menuOpen = true"
+          >
+            <AppIcon name="plus" class="h-7 w-7" :stroke="2.6" />
+          </button>
+        </div>
         <RouterLink
-          v-for="tab in tabs"
-          :key="tab.to"
+          v-else
           :to="tab.to"
           class="flex-1 flex flex-col items-center justify-center gap-0.5 text-xs font-semibold"
           :style="isActive(tab) ? { color } : {}"
@@ -52,18 +54,36 @@
           </span>
           {{ tab.label }}
         </RouterLink>
+        </template>
       </div>
     </nav>
+
+    <BottomSheet v-if="primaryTab" :open="menuOpen" :title="primaryTab.label" @close="menuOpen = false">
+      <div class="space-y-2">
+        <RouterLink
+          v-for="(item, i) in primaryTab.menu"
+          :key="item.to"
+          :to="item.to"
+          :class="['tap flex items-center gap-3 rounded-2xl p-4 ring-1', i === 0 ? 'text-white ring-transparent' : 'bg-white ring-slate-200']"
+          :style="i === 0 ? { backgroundColor: color } : {}"
+          @click="menuOpen = false"
+        >
+          <span :class="['h-10 w-10 shrink-0 rounded-xl grid place-items-center', i === 0 ? 'bg-white/20' : 'bg-slate-100 text-slate-700']"><AppIcon :name="item.icon" class="h-[22px] w-[22px]" /></span>
+          <span><span class="block font-semibold">{{ item.label }}</span><span :class="['text-sm', i === 0 ? 'opacity-85' : 'text-slate-500']">{{ item.text }}</span></span>
+        </RouterLink>
+      </div>
+    </BottomSheet>
 
     <Toasts />
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, watch, watchEffect } from 'vue'
+import { computed, onBeforeUnmount, ref, watch, watchEffect } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
 import Toasts from '../Toasts.vue'
+import BottomSheet from './BottomSheet.vue'
 import { useNotificationStore } from '../../stores/notifications'
 import { useRealtime } from '../../composables/useRealtime'
 import { pwa } from '../../composables/usePwa'
@@ -75,8 +95,7 @@ const props = defineProps({
   color: { type: String, required: true },
   appName: { type: String, required: true },
   initials: { type: String, default: '' },
-  tabs: { type: Array, required: true }, // { to, label, icon, badge?, exact? }
-  canCreate: { type: Boolean, default: false },
+  tabs: { type: Array, required: true }, // { to, label, icon, badge?, exact?, primary?, menu? }
 })
 
 const route = useRoute()
@@ -89,8 +108,8 @@ if (!notifications.loaded) notifications.fetch().catch(() => {})
 const title = computed(() => pageTitle.value || route.meta.title || props.appName)
 watch(() => route.path, () => { pageTitle.value = '' })
 const showTabs = computed(() => !keyboardOpen.value && !route.meta.hideTabs)
-// Pas de bouton flottant sur les fiches et les parcours (ils ont leurs propres boutons en bas)
-const showFab = computed(() => props.canCreate && showTabs.value && !route.meta.back)
+const menuOpen = ref(false)
+const primaryTab = computed(() => props.tabs.find((t) => t.primary && t.menu))
 
 // Couleur de l'application aussi sur <html> : les panneaux du bas (téléportés dans <body>) en héritent
 watchEffect(() => document.documentElement.style.setProperty('--app-color', props.color))
