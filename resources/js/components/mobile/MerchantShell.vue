@@ -30,10 +30,10 @@
       <div class="mx-auto max-w-lg flex h-16">
         <template v-for="tab in tabs" :key="tab.to">
         <!-- Bouton rond du milieu : créer, coller un message, importer -->
-        <div v-if="tab.primary" class="flex-1 flex justify-center">
+        <div v-if="tab.primary" class="flex-1 flex items-center justify-center">
           <button
             type="button"
-            class="-mt-6 h-14 w-14 rounded-full grid place-items-center text-white shadow-lg ring-4 ring-[#f6f7f9] active:scale-95 transition"
+            class="h-12 w-12 rounded-full grid place-items-center text-white shadow-md active:scale-95 transition"
             :style="{ backgroundColor: color }"
             :aria-label="tab.label"
             @click="menuOpen = true"

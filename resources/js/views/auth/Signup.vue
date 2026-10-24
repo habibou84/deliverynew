@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600 px-4 py-8">
+  <div class="min-h-screen bg-[#faf8f4] px-4 py-8">
     <div class="mx-auto w-full max-w-lg">
-      <RouterLink to="/" class="flex justify-center"><BrandLogo size="md" dark /></RouterLink>
+      <RouterLink to="/" class="flex justify-center"><BrandLogo size="md" /></RouterLink>
 
-      <div class="mt-6 rounded-3xl bg-white text-slate-900 shadow-2xl p-6 md:p-8">
+      <div class="mt-6 rounded-3xl bg-white text-slate-900 ring-1 ring-[#efe9df] shadow-sm p-6 md:p-8">
         <div v-if="!options" class="py-10 text-center text-slate-500">Chargement…</div>
 
         <div v-else-if="!options.open" class="space-y-4 text-center">
@@ -18,7 +18,7 @@
         <!-- Étape 1 : informations de la boutique -->
         <form v-else class="space-y-4" novalidate @submit.prevent="submit">
           <div class="text-center space-y-1">
-            <h1 class="text-2xl font-bold">Créer mon compte e-commerçant</h1>
+            <h1 class="text-2xl font-bold">Créer mon compte e&#8209;commerçant</h1>
             <p class="text-sm text-slate-500">Gratuit, en 2 minutes. Votre numéro sera vérifié par WhatsApp : un message à envoyer, rien à recopier.</p>
           </div>
 
@@ -38,7 +38,8 @@
           </Field>
 
           <fieldset class="space-y-4 rounded-2xl bg-slate-50 p-4">
-            <legend class="text-sm font-semibold text-slate-700 px-1">Où récupérer vos colis ?</legend>
+            <legend class="sr-only">Où récupérer vos colis ?</legend>
+            <p class="text-sm font-semibold text-slate-700" aria-hidden="true">Où récupérer vos colis ?</p>
             <Field id="su-zone" label="Commune ou quartier" :error="errors.pickup_zone_id">
               <select id="su-zone" v-model="form.pickup_zone_id" :class="inputClass" required>
                 <option :value="null" disabled>Choisissez…</option>

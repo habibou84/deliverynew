@@ -14,7 +14,7 @@ const shopName = computed(() => auth.user?.merchant?.business_name || 'Mes livra
 // « Boutique Chic Abidjan » → « BC »
 const initials = computed(() => shopName.value.split(/\s+/).filter((w) => /^[\p{L}\d]/u.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join(''))
 
-// Bouton rond du milieu : une nouvelle course, un message WhatsApp collé ou un fichier Excel
+// Bouton rond du milieu : une nouvelle course, plusieurs courses d'un coup ou un fichier Excel
 const tabs = computed(() => [
   { to: '/marchand', label: 'Accueil', icon: 'home', exact: true },
   { to: '/marchand/courses', label: 'Courses', icon: 'box', exact: true },
@@ -24,7 +24,7 @@ const tabs = computed(() => [
     primary: true,
     menu: [
       { to: '/marchand/courses/nouvelle', icon: 'plus', label: 'Une nouvelle course', text: 'Le client, la commune, le montant' },
-      { to: '/marchand/courses/nouvelle?coller=1', icon: 'chat', label: 'Coller un message WhatsApp', text: 'La course se remplit toute seule' },
+      { to: '/marchand/courses/plusieurs', icon: 'box', label: 'Plusieurs courses', text: 'Plusieurs clients d\'un coup, ou une liste collée' },
       { to: '/marchand/courses/import', icon: 'upload', label: 'Importer un fichier Excel', text: 'Beaucoup de courses d\'un coup' },
     ],
   }] : []),
