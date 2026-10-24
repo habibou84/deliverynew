@@ -83,7 +83,8 @@ class JibiatMigrationController extends Controller
         try {
             $response = $this->post($url.'/api/legacy-import', $key, $payload);
         } catch (RuntimeException $e) {
-            return $this->error($e->getMessage(), 502);
+            // Refus ou silence de Jibiat : message à lire sur la page (pas une panne de cette application)
+            return $this->error($e->getMessage(), 422);
         }
 
         return response()->json([

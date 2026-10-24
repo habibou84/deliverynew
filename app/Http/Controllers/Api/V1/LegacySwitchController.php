@@ -83,6 +83,9 @@ class LegacySwitchController extends Controller
         if ($company === null) {
             return response()->json(['message' => 'Clé de bascule invalide : créez-en une dans Réglages › Intégrations › Reprise de l\'ancienne application.'], 401);
         }
+        if (! $company->isActive()) {
+            return response()->json(['message' => 'Le service de cette entreprise est suspendu.'], 403);
+        }
         $here = Tenancy::enabled() ? app(Tenancy::class)->company() : null;
         if ($here !== null && $here->id !== $company->id) {
             return response()->json(['message' => 'Cette clé appartient à une autre entreprise : vérifiez l\'adresse saisie.'], 403);
