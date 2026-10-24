@@ -26,6 +26,7 @@
         </p>
         <div class="flex gap-3 text-sm">
           <RouterLink :to="{ path: '/admin/courses', query: { courier_id: c.id } }" class="text-blue-600">Courses</RouterLink>
+          <RouterLink :to="`/admin/livreurs/${c.id}/notes`" class="text-blue-600">Notes</RouterLink>
           <button v-if="auth.can('users.manage')" class="text-blue-600" @click="openForm(c)">Modifier</button>
         </div>
       </div>
