@@ -6,12 +6,15 @@ use App\Enums\AssignmentType;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Exceptions\BusinessRuleException;
+use App\Http\Controllers\Api\PublicV1\PublicApiController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\TransitionOrderRequest;
 use App\Http\Resources\V1\OrderResource;
 use App\Models\Courier;
+use App\Models\CourierRating;
 use App\Models\Order;
 use App\Models\OrderAttachment;
+use App\Services\Couriers\CourierRatings;
 use App\Services\Orders\OrderDecisions;
 use App\Services\Orders\OrderDispatcher;
 use App\Services\Orders\OrderJournal;
@@ -311,6 +314,17 @@ class OrderActionController extends Controller
             'type' => ['required', Rule::enum(AssignmentType::class)],
             'courier_id' => ['required', 'integer', Rule::exists('couriers', 'id')->where('company_id', $request->user()->company_id)],
         ], [], ['courier_id' => 'livreur', 'type' => 'type de mission']);
+    }
+
+    /** L'e-commerçant note le livreur qui a livré sa course */
+    public function rate(Request $request, Order $order, CourierRatings $ratings): OrderResource
+    {
+        Gate::authorize('rate', $order);
+        $data = PublicApiController::validateRating($request);
+
+        $ratings->record($order, CourierRating::SOURCE_MERCHANT, $data['score'], $data['tags'] ?? [], $data['comment'] ?? null, 'app', $request->user());
+
+        return $this->detail($request, $order);
     }
 
     private function detail(Request $request, Order $order): OrderResource

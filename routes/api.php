@@ -108,6 +108,7 @@ Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:pu
     Route::post('orders/{trackingCode}/decision', 'decision')->middleware($write)->name('orders.decision');
     Route::post('orders/{trackingCode}/return-request', 'returnRequest')->middleware($write)->name('orders.return-request');
     Route::post('orders/{trackingCode}/notes', 'note')->middleware($write)->name('orders.notes');
+    Route::post('orders/{trackingCode}/rating', 'rate')->middleware($write)->name('orders.rating');
     Route::get('reports/summary', 'summary')->middleware($read)->name('reports.summary');
     Route::get('products', 'products')->middleware('api.scope:'.ApiScope::StockRead->value)->name('products');
 
@@ -431,6 +432,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/decision', [OrderActionController::class, 'decide'])->name('orders.decision');
         Route::post('orders/{order}/lost', [OrderActionController::class, 'declareLost'])->name('orders.lost');
         Route::post('orders/{order}/notes', [OrderActionController::class, 'note'])->name('orders.notes');
+        Route::post('orders/{order}/rating', [OrderActionController::class, 'rate'])->name('orders.rating');
         Route::post('orders/{order}/verify-delivery-code', [OrderActionController::class, 'verifyDeliveryCode'])->name('orders.verify-delivery-code');
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
