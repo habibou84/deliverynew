@@ -217,11 +217,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('companies/{company}/support-session', 'supportSession')->middleware('throttle:10,1')->name('companies.support');
             Route::put('companies/{company}/billing-cycle', 'billingCycle')->name('companies.billing-cycle');
         });
-        // Messagerie WhatsApp du numéro de Jibiat (relié par QR code)
+        // Messagerie WhatsApp du numéro de Jibiat (connexion officielle ou QR code)
         Route::prefix('console/whatsapp')->name('console.whatsapp.')->middleware('role:super_admin')->controller(ConsoleWhatsAppController::class)->group(function () {
             Route::get('/', 'show')->name('show');
             Route::post('connect', 'connect')->middleware('throttle:20,1')->name('connect');
             Route::delete('connect', 'disconnect')->name('disconnect');
+            Route::put('official', 'official')->middleware('throttle:20,1')->name('official');
+            Route::post('official/verify', 'verifyOfficial')->middleware('throttle:20,1')->name('official.verify');
+            Route::delete('official', 'removeOfficial')->name('official.remove');
             Route::put('sms', 'sms')->name('sms');
             Route::get('conversations', 'conversations')->name('conversations');
             Route::post('conversations', 'open')->name('open');

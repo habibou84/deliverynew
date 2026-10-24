@@ -10,17 +10,20 @@ use App\Models\PlatformConversation;
 use App\Models\PlatformMessage;
 use App\Models\PlatformSetting;
 use App\Models\User;
+use App\Models\WhatsAppAccount;
 use App\Rules\PhoneNumber as PhoneNumberRule;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\WhatsAppBridge;
+use App\Services\Messaging\WhatsAppConnection;
 use App\Services\Platform\PlatformWhatsApp;
 use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Console › WhatsApp : relier le numéro de Jibiat par QR code, lire les conversations et y répondre ; SMS du mois
+ * Console › WhatsApp : relier le numéro de Jibiat (connexion officielle de Meta saisie à la main, ou QR code), lire les conversations et y répondre ; SMS du mois
  * (payants) et interrupteur du SMS en secours.
  */
 class ConsoleWhatsAppController extends Controller
@@ -28,13 +31,14 @@ class ConsoleWhatsAppController extends Controller
     public function __construct(
         private readonly PlatformWhatsApp $platform,
         private readonly WhatsAppBridge $bridge,
+        private readonly WhatsAppConnection $connection,
     ) {}
 
     /** État de la connexion (QR code à scanner tant qu'elle n'est pas faite) et messages non lus */
     public function show(): JsonResponse
     {
         $live = null;
-        if (WhatsAppBridge::configured() && ! $this->platform->connected() && $this->platform->state()['status'] === 'pending') {
+        if (WhatsAppBridge::configured() && $this->platform->qrState()['status'] === 'pending') {
             try {
                 $live = $this->bridge->status(PlatformWhatsApp::SESSION);
             } catch (MessagingException) {
@@ -62,6 +66,60 @@ class ConsoleWhatsAppController extends Controller
     {
         $data = $request->validate(['fallback' => ['required', 'boolean']]);
         PlatformSetting::put('sms.fallback', $data['fallback'] ? 'on' : 'off');
+
+        return response()->json(['data' => $this->describe(null)]);
+    }
+
+    /**
+     * Connexion officielle (API Cloud de Meta) saisie à la main : identifiants du numéro et du compte WhatsApp
+     * Business, jeton permanent d'un utilisateur système. Vérifiée aussitôt auprès de Meta.
+     */
+    public function official(Request $request): JsonResponse
+    {
+        $account = WhatsAppAccount::platform();
+        $data = $request->validate([
+            'display_phone' => ['nullable', 'string', new PhoneNumberRule],
+            'phone_number_id' => ['required', 'string', 'max:50', 'regex:/^\d+$/', Rule::unique('whatsapp_accounts', 'phone_number_id')->ignore($account?->id)],
+            'waba_id' => ['required', 'string', 'max:50', 'regex:/^\d+$/'],
+            // Laisser vide pour conserver le jeton enregistré
+            'access_token' => [$account?->access_token ? 'nullable' : 'required', 'string', 'max:1000'],
+        ], [], [
+            'phone_number_id' => 'identifiant du numéro',
+            'waba_id' => 'identifiant du compte WhatsApp Business',
+            'access_token' => 'jeton d\'accès',
+            'display_phone' => 'numéro',
+        ]);
+
+        $account ??= new WhatsAppAccount(['owner_type' => WhatsAppAccount::PLATFORM, 'company_id' => null]);
+        $account->fill([
+            'provider' => 'meta_cloud',
+            'display_phone' => filled($data['display_phone'] ?? null) ? PhoneNumber::normalize($data['display_phone']) : $account->display_phone,
+            'phone_number_id' => $data['phone_number_id'],
+            'waba_id' => $data['waba_id'],
+            'platform_token' => false,
+        ]);
+        if (filled($data['access_token'] ?? null)) {
+            $account->access_token = trim($data['access_token']);
+        }
+        $account->save();
+        $this->connection->connect($account);
+
+        return response()->json(['data' => $this->describe(null)]);
+    }
+
+    /** Vérifie à nouveau la connexion officielle auprès de Meta */
+    public function verifyOfficial(): JsonResponse
+    {
+        $account = WhatsAppAccount::platform();
+        abort_if($account === null, 422, 'Renseignez d\'abord la connexion officielle.');
+        $this->connection->connect($account);
+
+        return response()->json(['data' => $this->describe(null)]);
+    }
+
+    public function removeOfficial(): JsonResponse
+    {
+        WhatsAppAccount::platform()?->delete();
 
         return response()->json(['data' => $this->describe(null)]);
     }
@@ -144,11 +202,29 @@ class ConsoleWhatsAppController extends Controller
     private function describe(?array $live): array
     {
         $state = $this->platform->state();
+        $qr = $this->platform->qrState();
+        $official = WhatsAppAccount::platform();
 
         return [
             'available' => WhatsAppBridge::configured(),
             ...$state,
-            'qr' => $state['status'] === 'connected' ? null : ($live['qr'] ?? null),
+            // Connexion par QR code (secours de l'officielle)
+            'qr_state' => $qr,
+            'qr' => $qr['status'] === 'connected' ? null : ($live['qr'] ?? null),
+            'official' => $official ? [
+                'status' => $official->status,
+                'live' => $official->isLive(),
+                'display_phone' => $official->display_phone,
+                'phone_number_id' => $official->phone_number_id,
+                'waba_id' => $official->waba_id,
+                'has_token' => filled($official->access_token),
+                'verified_name' => $official->verified_name,
+                'quality_rating' => $official->quality_rating,
+                'webhook_subscribed' => $official->webhook_subscribed_at !== null,
+                'error' => $official->last_error,
+                'connected_at' => $official->connected_at,
+            ] : null,
+            'webhook_url' => route('webhooks.whatsapp.handle'),
             'unread' => (int) PlatformConversation::query()->sum('unread'),
             'sms' => [
                 'month' => $this->smsCount(now()->startOfMonth(), now()->startOfMonth()->addMonth()),
