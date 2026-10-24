@@ -21,7 +21,7 @@
   </div>
 
   <!-- Une question par écran : le client, où, l'argent et le jour, puis le récapitulatif -->
-  <form v-else class="pb-28" novalidate autocomplete="off" @submit.prevent="next">
+  <form v-else class="pb-28" :style="lifted ? { paddingBottom: '100vh' } : {}" novalidate autocomplete="off" @submit.prevent="next" @focusin="liftField" @focusout="lifted = false">
     <div class="flex items-center gap-1 -mt-1 mb-4" :aria-label="`Étape ${step} sur 4`">
       <i v-for="n in 4" :key="n" :class="['block h-1 flex-1 rounded-full', n <= step ? 'bg-[var(--app-color)]' : 'bg-slate-200']" />
     </div>
@@ -439,6 +439,21 @@ function validate(n) {
 const step = ref(1)
 const pasteOpen = ref(route.query.coller === '1')
 const phoneInput = ref(null)
+
+// Champ touché remonté sous l'en-tête : le clavier et la liste des communes ont la place en dessous.
+// La marge du bas s'agrandit le temps de la saisie pour que même les derniers champs puissent remonter.
+const lifted = ref(false)
+function liftField(event) {
+  const field = event.target
+  if (!field.matches('input:not([type=checkbox]):not([type=radio]), textarea, select')) return
+  lifted.value = true
+  setTimeout(() => {
+    const header = document.querySelector('header')?.offsetHeight || 56
+    const label = field.id && document.querySelector(`label[for="${field.id}"]`)
+    const top = (label || field).getBoundingClientRect().top
+    window.scrollTo({ top: window.scrollY + top - header - 12, behavior: 'smooth' })
+  }, 250)
+}
 
 function goTo(n) {
   error.value = ''
