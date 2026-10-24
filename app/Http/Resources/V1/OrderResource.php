@@ -5,6 +5,7 @@ namespace App\Http\Resources\V1;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Models\Order;
+use App\Services\Couriers\CourierRatings;
 use App\Services\Orders\AwaitingCourier;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -130,6 +131,8 @@ class OrderResource extends JsonResource
             'lost_at' => $this->lost_at,
             'lost_reason' => $this->lost_reason,
 
+            // Notes du livreur : peut-on encore le noter, note de l'e-commerçant, note du client
+            'ratings' => $this->whenLoaded('courierRatings', fn () => app(CourierRatings::class)->summaryFor($this->resource)),
             'events' => OrderEventResource::collection($this->whenLoaded('events')),
             'expenses' => OrderExpenseResource::collection($this->whenLoaded('expenses')),
             'assignments' => $this->when(

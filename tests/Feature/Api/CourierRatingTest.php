@@ -190,6 +190,46 @@ class CourierRatingTest extends TestCase
         $this->as($this->courierB->user)->getJson('/api/v1/courier-ratings')->assertForbidden();
     }
 
+    public function test_merchant_rates_the_courier_from_the_app(): void
+    {
+        Notification::fake();
+        $order = $this->delivered();
+
+        // Avant de noter : la fiche le propose, la note du client y apparaît
+        $this->postJson('/api/v1/ratings/'.$order->rating_token, ['score' => 5, 'comment' => 'Parfait'])->assertCreated();
+        $this->as($this->merchantUser)->getJson("/api/v1/orders/{$order->id}")->assertOk()
+            ->assertJsonPath('data.ratings.can_rate', true)
+            ->assertJsonPath('data.ratings.merchant', null)
+            ->assertJsonPath('data.ratings.recipient.score', 5)
+            ->assertJsonPath('data.ratings.recipient.comment', 'Parfait')
+            ->assertJsonMissingPath('data.ratings.recipient.phone');
+
+        $this->postJson("/api/v1/orders/{$order->id}/rating", ['score' => 2, 'tags' => ['pickup_late', 'customer_mistreated'], 'comment' => 'Il a crié sur ma cliente'])->assertOk()
+            ->assertJsonPath('data.ratings.can_rate', false)
+            ->assertJsonPath('data.ratings.merchant.score', 2);
+
+        $rating = CourierRating::where('source', 'merchant')->sole();
+        $this->assertSame([$this->courierB->id, 'app', $this->merchantUser->id], [$rating->courier_id, $rating->channel, $rating->rater_user_id]);
+        $this->assertTrue($rating->flagged);
+        Notification::assertSentTo($this->dispatcher, CourierRatingAlert::class);
+        $this->postJson("/api/v1/orders/{$order->id}/rating", ['score' => 5])->assertUnprocessable();
+
+        // La note de l'e-commerçant compte dans la fiche du livreur
+        $this->as($this->dispatcher)->getJson("/api/v1/couriers/{$this->courierB->id}/ratings")
+            ->assertJsonPath('data.sources.merchant.score', 2)
+            ->assertJsonPath('data.sources.recipient.score', 5);
+
+        // Ni un autre e-commerçant, ni l'équipe ne notent à sa place
+        $this->as($this->dispatcher)->postJson("/api/v1/orders/{$order->id}/rating", ['score' => 5])->assertForbidden();
+    }
+
+    public function test_merchant_cannot_rate_an_undelivered_order(): void
+    {
+        $order = $this->createOrder();
+        $this->as($this->merchantUser)->getJson("/api/v1/orders/{$order->id}")->assertJsonPath('data.ratings.can_rate', false);
+        $this->postJson("/api/v1/orders/{$order->id}/rating", ['score' => 4])->assertUnprocessable();
+    }
+
     public function test_settings_are_managed_by_the_admin(): void
     {
         $this->as($this->admin)->putJson('/api/v1/courier-ratings/settings', ['ask_recipient_rating' => false, 'rating_alert_threshold' => 4])

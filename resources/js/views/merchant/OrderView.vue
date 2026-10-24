@@ -46,6 +46,32 @@
         </div>
       </section>
 
+      <!-- Noter le livreur, et la note laissée par le client -->
+      <section v-if="order.ratings && (order.ratings.can_rate || order.ratings.merchant || order.ratings.recipient)" class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3">
+        <div v-if="order.ratings.can_rate || order.ratings.merchant" class="space-y-2">
+          <div class="flex items-center gap-3">
+            <span class="h-10 w-10 shrink-0 rounded-full bg-emerald-100 text-emerald-800 grid place-items-center font-bold">{{ (courierName || '?')[0] }}</span>
+            <span class="min-w-0"><b class="block truncate">{{ courierName || 'Le livreur' }}</b><span class="text-sm text-slate-500">a livré ce colis</span></span>
+          </div>
+          <template v-if="order.ratings.merchant">
+            <p class="flex items-center gap-2 text-sm"><StarRating :model-value="order.ratings.merchant.score" readonly size="sm" /><b>Votre note</b></p>
+            <p v-if="order.ratings.merchant.comment" class="text-sm text-slate-600">« {{ order.ratings.merchant.comment }} »</p>
+          </template>
+          <template v-else>
+            <p class="font-bold">Notez le livreur</p>
+            <StarRating :model-value="0" label="Note du livreur" @update:model-value="openRating" />
+            <p class="text-[13px] text-slate-500">Touchez une étoile. Votre note reste anonyme pour le livreur.</p>
+          </template>
+        </div>
+        <div v-if="order.ratings.recipient" :class="order.ratings.can_rate || order.ratings.merchant ? 'border-t border-slate-100 pt-3' : ''">
+          <p class="text-[13px] font-extrabold uppercase tracking-wider text-slate-500">Note du client</p>
+          <p class="mt-1 flex flex-wrap items-center gap-2 text-sm">
+            <StarRating :model-value="order.ratings.recipient.score" readonly size="sm" /><b>{{ order.ratings.recipient.score }}/5</b>
+            <span v-if="order.ratings.recipient.comment" class="text-slate-600">« {{ order.ratings.recipient.comment }} »</span>
+          </p>
+        </div>
+      </section>
+
       <!-- Le client -->
       <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-1">
         <div class="flex justify-between">
@@ -153,6 +179,29 @@
       </div>
     </BottomSheet>
 
+    <BottomSheet :open="sheet === 'rate'" :title="`Noter ${courierFirst}`" @close="sheet = null">
+      <div class="space-y-4">
+        <div>
+          <StarRating v-model="rating.score" label="Note du livreur" />
+          <p class="mt-1 h-5 text-sm font-semibold text-amber-700">{{ SCORE_WORDS[rating.score] || '' }}</p>
+        </div>
+        <div>
+          <p class="m-label">Points forts</p>
+          <div class="flex flex-wrap gap-2">
+            <button v-for="t in MERCHANT_TAGS.filter((x) => x.good)" :key="t.code" type="button" :aria-pressed="rating.tags.includes(t.code)" :class="tagClass(t)" @click="toggleTag(t.code)">{{ t.label }}</button>
+          </div>
+        </div>
+        <div>
+          <p class="m-label">À améliorer</p>
+          <div class="flex flex-wrap gap-2">
+            <button v-for="t in MERCHANT_TAGS.filter((x) => !x.good)" :key="t.code" type="button" :aria-pressed="rating.tags.includes(t.code)" :class="tagClass(t)" @click="toggleTag(t.code)">{{ t.label }}</button>
+          </div>
+        </div>
+        <textarea v-model="rating.comment" rows="2" maxlength="500" class="m-input" placeholder="Un commentaire (facultatif)…" aria-label="Commentaire" />
+        <button class="m-btn-primary" :disabled="busy || !rating.score" @click="doRate">Enregistrer la note</button>
+      </div>
+    </BottomSheet>
+
     <BottomSheet :open="sheet === 'cancel'" title="Annuler la course ?" @close="sheet = null">
       <div class="space-y-3">
         <textarea v-model="noteText" rows="2" class="m-input" placeholder="Raison (facultatif)" />
@@ -196,6 +245,8 @@ import MerchantHistory from '../../components/mobile/MerchantHistory.vue'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
+import StarRating from '../../components/ratings/StarRating.vue'
+import { MERCHANT_TAGS, SCORE_WORDS } from '../../components/ratings/ratingWords'
 import { GROUPS, orderStage } from '../../utils/orderStage'
 import { isoDay, longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { pageTitle } from '../../composables/usePageTitle'
@@ -397,6 +448,22 @@ async function run(action, success) {
 const doReturn = () => run(() => http.post(`/orders/${order.value.id}/return-request`, { note: noteText.value || undefined }), 'Retour demandé.')
 const doCancel = () => run(() => http.post(`/orders/${order.value.id}/status`, { status: 'cancelled', cancel_reason: noteText.value || undefined }), 'Course annulée.')
 const doNote = () => run(() => http.post(`/orders/${order.value.id}/notes`, { note: noteText.value }), 'Message envoyé.')
+
+// Noter le livreur : une étoile touchée ouvre le panneau
+const rating = reactive({ score: 0, tags: [], comment: '' })
+const courierName = computed(() => order.value?.delivery_courier?.name || '')
+const courierFirst = computed(() => courierName.value.split(' ')[0] || 'le livreur')
+function openRating(score) {
+  Object.assign(rating, { score, tags: [], comment: '' })
+  sheet.value = 'rate'
+}
+function toggleTag(code) {
+  rating.tags = rating.tags.includes(code) ? rating.tags.filter((c) => c !== code) : [...rating.tags, code]
+}
+const tagClass = (t) => ['tap rounded-full border-[1.5px] px-3 py-1.5 text-sm font-semibold', rating.tags.includes(t.code)
+  ? (t.good ? 'border-emerald-600 bg-emerald-50 text-emerald-800' : 'border-red-400 bg-red-50 text-red-800')
+  : 'border-slate-300 bg-white text-slate-700']
+const doRate = () => run(() => http.post(`/orders/${order.value.id}/rating`, { score: rating.score, tags: rating.tags, comment: rating.comment || null }), 'Merci pour votre note.')
 
 async function openEdit(thenRedeliver = false) {
   relivrer.value = thenRedeliver === true

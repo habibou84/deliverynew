@@ -115,6 +115,16 @@ class PublicContractTest extends TestCase
         OrderAttachment::create(['order_id' => $delivered->id, 'type' => 'photo_delivery', 'disk' => 'local', 'path' => "orders/{$delivered->id}/colis.jpg", 'mime_type' => 'image/jpeg']);
         $response = $this->api('GET', "orders/{$delivered->tracking_code}")->assertJsonPath('data.status', 'delivered')->assertJsonCount(1, 'data.proof.photos');
         $this->assertContract('order-response', $response->json(), 'livrée');
+        $this->assertTrue($response->json('data.ratings.can_rate'));
+
+        // Contrat 1.3 : le marchand note le livreur
+        $rated = $this->api('POST', "orders/{$delivered->tracking_code}/rating", ['score' => 4, 'tags' => ['pickup_on_time', 'careful'], 'comment' => 'Appeler avant'])->assertOk()
+            ->assertJsonPath('data.ratings.can_rate', false)
+            ->assertJsonPath('data.ratings.merchant.score', 4)
+            ->assertJsonPath('data.ratings.merchant.tags', ['pickup_on_time', 'careful']);
+        $this->assertContract('order-response', $rated->json(), 'notée');
+        $this->api('POST', "orders/{$delivered->tracking_code}/rating", ['score' => 5])->assertUnprocessable();
+        $this->api('POST', "orders/{$delivered->tracking_code}/rating", ['score' => 5, 'tags' => ['inconnue']])->assertJsonValidationErrors('tags.0');
     }
 
     public function test_account_and_reference_responses_follow_the_contract(): void

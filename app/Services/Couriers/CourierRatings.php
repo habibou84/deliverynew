@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 /**
- * Notation des livreurs : avis du destinataire après la livraison (WhatsApp ou lien),
+ * Notation des livreurs : avis du destinataire après la livraison (WhatsApp ou lien) et de l'e-commerçant,
  * évaluation du mois par un responsable, note globale lissée sur 90 jours.
  */
 class CourierRatings
@@ -146,8 +146,8 @@ class CourierRatings
      */
     public function record(Order $order, string $source, int $score, array $tags, ?string $comment, string $channel, ?User $user = null, ?string $phone = null): CourierRating
     {
-        if ($order->status !== OrderStatus::Delivered || $order->delivery_courier_id === null) {
-            throw new BusinessRuleException('Seule une course livrée peut être notée.', 'order');
+        if ($order->status !== OrderStatus::Delivered || $order->delivery_courier_id === null || $order->is_shipping) {
+            throw new BusinessRuleException('Seule une course livrée par un livreur peut être notée.', 'order');
         }
         if ($order->delivered_at?->lt(now()->subDays(self::RATING_DAYS))) {
             throw new BusinessRuleException('Le délai pour noter cette livraison est passé.', 'order');
@@ -156,7 +156,7 @@ class CourierRatings
             throw new BusinessRuleException('La note va de 1 à 5.', 'score');
         }
 
-        $tags = array_values(array_intersect($tags, array_keys(CourierRating::RECIPIENT_TAGS)));
+        $tags = array_values(array_intersect($tags, array_keys(CourierRating::tagsFor($source))));
 
         $already = fn () => new BusinessRuleException('Vous avez déjà noté cette livraison. Merci !', 'order');
         if (CourierRating::forCompany($order->company_id)->where('order_id', $order->id)->where('source', $source)->exists()) {
@@ -184,6 +184,41 @@ class CourierRatings
         $this->flagIfSerious($rating);
 
         return $rating;
+    }
+
+    /**
+     * Notes de la course pour l'e-commerçant et l'API publique (champ « ratings » du contrat 1.3) : peut-il encore
+     * noter, sa note, celle de son client (anonyme).
+     *
+     * @return array<string, mixed>
+     */
+    public function summaryFor(Order $order): array
+    {
+        $ratings = $order->relationLoaded('courierRatings') ? $order->courierRatings : $order->courierRatings()->get();
+        $merchant = $ratings->firstWhere('source', CourierRating::SOURCE_MERCHANT);
+        $recipient = $ratings->first(fn (CourierRating $r) => $r->source === CourierRating::SOURCE_RECIPIENT && $r->cancelled_at === null);
+
+        return [
+            'can_rate' => $merchant === null && $this->rateable($order),
+            'merchant' => $merchant ? [
+                'score' => $merchant->score,
+                'tags' => $merchant->tags ?? [],
+                'comment' => $merchant->comment,
+                'rated_at' => $merchant->created_at?->toIso8601String(),
+            ] : null,
+            'recipient' => $recipient ? [
+                'score' => $recipient->score,
+                'comment' => $recipient->comment,
+                'rated_at' => $recipient->created_at?->toIso8601String(),
+            ] : null,
+        ];
+    }
+
+    /** Course livrée par un livreur, il y a 7 jours au plus */
+    public function rateable(Order $order): bool
+    {
+        return $order->status === OrderStatus::Delivered && $order->delivery_courier_id !== null && ! $order->is_shipping
+            && $order->delivered_at !== null && $order->delivered_at->gte(now()->subDays(self::RATING_DAYS));
     }
 
     /**

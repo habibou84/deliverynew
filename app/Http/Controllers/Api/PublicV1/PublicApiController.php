@@ -11,12 +11,14 @@ use App\Http\Requests\V1\StoreOrderRequest;
 use App\Http\Resources\PublicV1\PublicOrderResource;
 use App\Http\Resources\V1\ProductResource;
 use App\Http\Resources\V1\ZoneResource;
+use App\Models\CourierRating;
 use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\OrderAttachment;
 use App\Models\Product;
 use App\Models\Zone;
+use App\Services\Couriers\CourierRatings;
 use App\Services\Orders\DeliveryDay;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\OrderWorkflow;
@@ -38,7 +40,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class PublicApiController extends Controller
 {
-    private const RELATIONS = ['deliveryZone', 'pickupZone', 'items', 'lastIncidentReason', 'attachments'];
+    private const RELATIONS = ['deliveryZone', 'pickupZone', 'items', 'lastIncidentReason', 'attachments', 'courierRatings'];
 
     public function zones(): AnonymousResourceCollection
     {
@@ -204,6 +206,33 @@ class PublicApiController extends Controller
         $service->addNote($request->user(), $order, $data['note']);
 
         return response()->json(['data' => ['tracking_code' => $order->tracking_code, 'note' => $data['note']]], 201);
+    }
+
+    /**
+     * Note du livreur par le marchand (contrat 1.3) : course livrée, 7 jours au plus, une seule fois.
+     */
+    public function rate(Request $request, string $trackingCode, CourierRatings $ratings): PublicOrderResource
+    {
+        $data = $this->validateRating($request);
+        $order = $this->find($request, $trackingCode);
+        Gate::authorize('rate', $order);
+
+        $ratings->record($order, CourierRating::SOURCE_MERCHANT, $data['score'], $data['tags'] ?? [], $data['comment'] ?? null, 'api', $request->user());
+
+        return PublicOrderResource::make($order->fresh()->load(self::RELATIONS));
+    }
+
+    /**
+     * @return array{score: int, tags?: list<string>, comment?: ?string}
+     */
+    public static function validateRating(Request $request): array
+    {
+        return $request->validate([
+            'score' => ['required', 'integer', 'between:1,5'],
+            'tags' => ['nullable', 'array', 'max:7'],
+            'tags.*' => ['string', Rule::in(array_keys(CourierRating::tagsFor(CourierRating::SOURCE_MERCHANT)))],
+            'comment' => ['nullable', 'string', 'max:500'],
+        ], [], ['score' => 'note', 'tags' => 'remarques', 'comment' => 'commentaire']);
     }
 
     public function summary(Request $request, OrderSummary $summary): JsonResponse

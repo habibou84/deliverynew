@@ -309,6 +309,35 @@ paths:
                 note: { type: string, maxLength: 2000 }
       responses:
         '201': { description: Note enregistrée }
+  /orders/{tracking_code}/rating:
+    post:
+      tags: [Courses]
+      summary: Noter le livreur (course livrée, 7 jours au plus, une seule fois)
+      parameters:
+        - { name: tracking_code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [score]
+              properties:
+                score: { type: integer, minimum: 1, maximum: 5 }
+                tags:
+                  type: array
+                  items: { type: string, enum: [pickup_on_time, careful, good_with_customers, cash_returned, pickup_late, customer_mistreated, unreachable] }
+                comment: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Note enregistrée ; la course porte « ratings »
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Order' }
+        '422': { description: 'Course non livrée, déjà notée ou livrée depuis plus de 7 jours' }
   /orders/{tracking_code}/cancel:
     post:
       tags: [Courses]
@@ -703,6 +732,25 @@ components:
         delivered_at: { type: [string, 'null'], format: date-time }
         cancelled_at: { type: [string, 'null'], format: date-time }
         returned_at: { type: [string, 'null'], format: date-time }
+        ratings:
+          type: object
+          description: Notes du livreur (course livrée)
+          properties:
+            can_rate: { type: boolean, description: 'Le marchand peut encore noter le livreur (7 jours au plus)' }
+            merchant:
+              type: [object, 'null']
+              properties:
+                score: { type: integer, minimum: 1, maximum: 5 }
+                tags: { type: array, items: { type: string } }
+                comment: { type: [string, 'null'] }
+                rated_at: { type: string, format: date-time }
+            recipient:
+              type: [object, 'null']
+              description: Note laissée par le client (anonyme)
+              properties:
+                score: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: [string, 'null'] }
+                rated_at: { type: string, format: date-time }
     Product:
       type: object
       properties:
