@@ -5,6 +5,7 @@ namespace App\Http\Resources\PublicV1;
 use App\Models\Order;
 use App\Models\OrderAttachment;
 use App\Models\OrderEvent;
+use App\Services\Couriers\CourierRatings;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\URL;
@@ -85,6 +86,8 @@ class PublicOrderResource extends JsonResource
                     'taken_at' => $a->created_at,
                 ]),
             ]),
+            // Contrat 1.3 : notes du livreur (l'e-commerçant peut-il encore noter, sa note, celle de son client)
+            'ratings' => $this->whenLoaded('courierRatings', fn () => app(CourierRatings::class)->summaryFor($this->resource)),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
             'delivered_at' => $this->delivered_at,

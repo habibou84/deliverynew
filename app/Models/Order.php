@@ -204,6 +204,12 @@ class Order extends Model
         return $this->belongsTo(Courier::class, 'pickup_courier_id');
     }
 
+    /** Avis sur le livreur (destinataire, e-commerçant) */
+    public function courierRatings(): HasMany
+    {
+        return $this->hasMany(CourierRating::class);
+    }
+
     public function deliveryCourier(): BelongsTo
     {
         return $this->belongsTo(Courier::class, 'delivery_courier_id');

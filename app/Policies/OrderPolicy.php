@@ -54,6 +54,12 @@ class OrderPolicy
         return $this->view($user, $order);
     }
 
+    /** Noter le livreur : l'e-commerçant de la course */
+    public function rate(User $user, Order $order): bool
+    {
+        return $user->merchant_id !== null && $user->merchant_id === $order->merchant_id;
+    }
+
     public function requestReturn(User $user, Order $order): bool
     {
         return $user->merchant_id === $order->merchant_id || $user->can(Permission::OrdersDispatch->value);
