@@ -19,13 +19,11 @@
       <!-- WhatsApp : la personne envoie le message prérempli depuis son téléphone -->
       <div v-if="state.whatsapp && mode === 'whatsapp'" class="space-y-3">
         <ol class="text-sm text-slate-700 space-y-1 list-decimal list-inside">
-          <li>Appuyez sur le bouton : WhatsApp s'ouvre avec un message déjà écrit.</li>
+          <li>Appuyez sur le bouton (sur Android, choisissez WhatsApp ou WhatsApp Business) : le message est déjà écrit.</li>
           <li>Envoyez-le <strong>depuis le WhatsApp du {{ state.phone }}</strong>, sans le modifier.</li>
           <li>Revenez ici : la page continue toute seule.</li>
         </ol>
-        <a :href="state.whatsapp.link" target="_blank" rel="noopener" class="flex items-center justify-center gap-2 w-full rounded-xl bg-[#25D366] hover:bg-[#1ebe5b] py-3 font-semibold text-white shadow-sm">
-          <span aria-hidden="true">💬</span> Envoyer le message WhatsApp
-        </a>
+        <WhatsAppSendButton :link="state.whatsapp.link" :text="state.whatsapp.text" />
         <p class="flex items-center justify-center gap-2 text-sm text-slate-500" aria-live="polite">
           <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true"></span> En attente de votre message…
         </p>
@@ -90,6 +88,7 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import WhatsAppSendButton from './WhatsAppSendButton.vue'
 
 const props = defineProps({
   token: { type: String, required: true },
