@@ -163,7 +163,7 @@
         </select>
         <select v-model="bulk.courier_id" class="input w-auto">
           <option :value="null" disabled>Livreur…</option>
-          <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.active_assignments_count }} en cours){{ c.is_available ? '' : ' · indisponible' }}</option>
+          <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }} ({{ c.active_assignments_count }} en cours){{ c.is_available ? '' : ' · indisponible' }}{{ (c.vehicle_warnings || []).some((w) => w.level === 'alert') ? ' · 🚨 ' + c.vehicle_warnings.filter((w) => w.level === 'alert').map((w) => w.text).join(', ') : '' }}</option>
         </select>
         <button class="btn-primary" :disabled="!bulk.courier_id || assigning" @click="bulkAssign">Assigner</button>
         <button v-if="auth.can('orders.dispatch') && withCourierSelected.length" class="btn-secondary text-red-700" :disabled="assigning" @click="bulkUnassign">

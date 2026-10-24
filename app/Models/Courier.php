@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Courier extends Model
 {
@@ -90,6 +91,18 @@ class Courier extends Model
     }
 
     /** Zones desservies ; is_backup : zone de secours (servie quand personne de la zone principale n'est libre) */
+    /** Véhicule confié en ce moment */
+    public function vehicle(): HasOne
+    {
+        return $this->hasOne(Vehicle::class);
+    }
+
+    /** Papiers du livreur (permis) */
+    public function documents(): HasMany
+    {
+        return $this->hasMany(VehicleDocument::class);
+    }
+
     public function zones(): BelongsToMany
     {
         return $this->belongsToMany(Zone::class)->withPivot('is_backup');

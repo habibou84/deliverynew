@@ -48,3 +48,5 @@ Schedule::command('assignments:watch')->everyMinute()->withoutOverlapping();
 Schedule::command('couriers:planning-digest')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('parcels:kept-deliveries')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('orders:due-today')->dailyAt('06:50')->withoutOverlapping();
+// Papiers des véhicules et permis des livreurs : rappel 15 jours avant la fin, puis le jour même
+Schedule::command('vehicles:documents')->dailyAt('07:40')->withoutOverlapping();
