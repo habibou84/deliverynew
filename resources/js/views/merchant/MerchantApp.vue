@@ -1,5 +1,5 @@
 <template>
-  <MerchantShell base="/marchand" :color="spaceColor('marchand')" :app-name="shopName" :initials="initials" :tabs="tabs" :can-create="auth.can('orders.create')" />
+  <MerchantShell base="/marchand" :color="spaceColor('marchand')" :app-name="shopName" :initials="initials" :tabs="tabs" />
 </template>
 
 <script setup>
@@ -14,11 +14,20 @@ const shopName = computed(() => auth.user?.merchant?.business_name || 'Mes livra
 // « Boutique Chic Abidjan » → « BC »
 const initials = computed(() => shopName.value.split(/\s+/).filter((w) => /^[\p{L}\d]/u.test(w)).slice(0, 2).map((w) => w[0].toUpperCase()).join(''))
 
-// Le bouton flottant « Nouvelle course » remplace l'ancien bouton rond du milieu ;
-// coller un message est en haut de la nouvelle course, l'import Excel dans « Moi »
+// Bouton rond du milieu : une nouvelle course, un message WhatsApp collé ou un fichier Excel
 const tabs = computed(() => [
   { to: '/marchand', label: 'Accueil', icon: 'home', exact: true },
   { to: '/marchand/courses', label: 'Courses', icon: 'box', exact: true },
+  ...(auth.can('orders.create') ? [{
+    to: '/marchand/courses/nouvelle',
+    label: 'Nouvelle course',
+    primary: true,
+    menu: [
+      { to: '/marchand/courses/nouvelle', icon: 'plus', label: 'Une nouvelle course', text: 'Le client, la commune, le montant' },
+      { to: '/marchand/courses/nouvelle?coller=1', icon: 'chat', label: 'Coller un message WhatsApp', text: 'La course se remplit toute seule' },
+      { to: '/marchand/courses/import', icon: 'upload', label: 'Importer un fichier Excel', text: 'Beaucoup de courses d\'un coup' },
+    ],
+  }] : []),
   ...(auth.can('finance.view') ? [{ to: '/marchand/paiements', label: 'Argent', icon: 'wallet' }] : []),
   { to: '/marchand/profil', label: 'Moi', icon: 'user' },
 ])
