@@ -16,8 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class ResolveTenant
 {
-    // Routes indépendantes de l'adresse : l'entreprise vient du message ou de la clé d'API
-    private const ANY_HOST = ['api/webhooks/*', 'api/public/*', 'up', 'robots.txt', 'confidentialite', 'conditions'];
+    // Routes indépendantes de l'adresse : l'entreprise vient du message ou de la clé d'API (ou de reprise, de bascule)
+    private const ANY_HOST = ['api/webhooks/*', 'api/public/*', 'api/legacy-import', 'api/legacy-switch', 'up', 'robots.txt', 'confidentialite', 'conditions'];
 
     // Adresse de la plateforme (jibiat.com) : bouton « Connecter WhatsApp » des entreprises, seule
     // adresse déclarée chez Facebook (page de l'application et ses deux appels, avec ticket)
