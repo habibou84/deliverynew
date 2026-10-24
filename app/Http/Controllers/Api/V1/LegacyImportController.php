@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Throwable;
 
 /**
  * Reprise depuis l'ancienne application (Laravel 5.8) par un bouton : l'administrateur crée une clé
@@ -24,6 +25,8 @@ class LegacyImportController extends Controller
 
     /** Lignes par table et par envoi (l'ancienne application envoie par paquets de 200) */
     private const MAX_ROWS = 500;
+
+    private const STEPS = ['zones' => 'zones', 'clients' => 'e-commerçants', 'livreurs' => 'livreurs'];
 
     /** Module à copier dans l'ancienne application */
     public const MODULE = 'legacy/laravel-5.8/JibiatMigrationController.php';
@@ -95,15 +98,23 @@ class LegacyImportController extends Controller
 
         $step = $data['step'];
         $dryRun = (bool) ($data['dry_run'] ?? false);
-        $report = $step === 'zones'
-            ? $zones->importRows($company, self::rows($data['fees'] ?? []), $dryRun)
-            : $importer->importRows(
-                $company,
-                self::rows($data['users']),
-                $step === 'clients' ? self::rows($data['clients'] ?? []) : [],
-                $step === 'livreurs' ? self::rows($data['livreurs'] ?? []) : [],
-                $dryRun,
-            );
+        try {
+            $report = $step === 'zones'
+                ? $zones->importRows($company, self::rows($data['fees'] ?? []), $dryRun)
+                : $importer->importRows(
+                    $company,
+                    self::rows($data['users']),
+                    $step === 'clients' ? self::rows($data['clients'] ?? []) : [],
+                    $step === 'livreurs' ? self::rows($data['livreurs'] ?? []) : [],
+                    $dryRun,
+                );
+        } catch (Throwable $e) {
+            // Au lieu de « Server Error » : la raison, lisible dans la page de l'ancienne application
+            report($e);
+
+            return response()->json(['message' => 'Erreur pendant l\'import ('.self::STEPS[$step].') : '
+                .Str::limit(trim(strtok($e->getMessage(), "\n")), 200).' Envoyez ce message au support.'], 422);
+        }
 
         if (! $dryRun) {
             $company->forceFill(['legacy_import_used_at' => now()])->save();

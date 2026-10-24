@@ -23,6 +23,7 @@
  *      l'ancienne application), cliquer sur « Simuler », puis sur « Envoyer ».
  *
  * Relancer l'envoi ne crée pas de doublon : un numéro déjà présent sur Jibiat est ignoré.
+ * Une fiche à ne pas envoyer : ajouter son id dans EXCLUDED (ex. le livreur 11).
  * Après la migration, retirer les deux routes et ce fichier.
  */
 
@@ -41,14 +42,17 @@ class JibiatMigrationController extends Controller
     /** Étapes d'envoi et type de compte (« users.usertype ») de chacune */
     const STEPS = ['clients' => 'client', 'livreurs' => 'livreur'];
 
+    /** Fiches à ne pas envoyer (id dans l'ancienne base), par table */
+    const EXCLUDED = ['clients' => [], 'livreurs' => [11]];
+
     public function index()
     {
         $this->authorizeAccess();
 
         return response($this->page([
             'zones' => Schema::hasTable('fees') ? DB::table('fees')->count() : 0,
-            'clients' => DB::table('clients')->count(),
-            'livreurs' => DB::table('livreurs')->count(),
+            'clients' => $this->rows('clients')->count(),
+            'livreurs' => $this->rows('livreurs')->count(),
             'team' => DB::table('users')->whereNotIn(DB::raw('LOWER(TRIM(usertype))'), array_values(self::STEPS))->orWhereNull('usertype')->count(),
         ]));
     }
@@ -127,8 +131,8 @@ class JibiatMigrationController extends Controller
 
         $table = $step;
         $link = $step === 'clients' ? 'client_id' : 'livreur_id';
-        $total = DB::table($table)->count();
-        $rows = DB::table($table)->orderBy('id')->offset($offset)->limit(self::BATCH)->get();
+        $total = $this->rows($table)->count();
+        $rows = $this->rows($table)->orderBy('id')->offset($offset)->limit(self::BATCH)->get();
         $ids = $rows->pluck('id')->all();
         $userIds = $rows->pluck('user_id')->filter()->all();
 
@@ -146,6 +150,16 @@ class JibiatMigrationController extends Controller
         });
 
         return [[$table => $this->arrays($rows), 'users' => $this->arrays($users)], count($rows), $total];
+    }
+
+    /** Fiches d'une table, sans celles exclues (EXCLUDED) */
+    private function rows($table)
+    {
+        $excluded = isset(self::EXCLUDED[$table]) ? self::EXCLUDED[$table] : [];
+
+        return DB::table($table)->when($excluded, function ($query) use ($excluded) {
+            $query->whereNotIn('id', $excluded);
+        });
     }
 
     /** Lignes en tableaux, textes en UTF-8 (certaines tables anciennes sont en latin1) */

@@ -112,7 +112,7 @@ class LegacyAccountsImporter
                 }
                 // Autres comptes « client » rattachés à la boutique (users.client_id) : ses employés
                 $others = $users->filter(fn (array $u) => $u['client_id'] === $client['id'] && $u['id'] !== ($user['id'] ?? null) && $this->isType($u, self::CLIENT_TYPE));
-                $this->importMerchant($company, $client, $user, $others->values()->all());
+                $this->safely('e-commerçant', $client['id'], $client['nom'], fn () => $this->importMerchant($company, $client, $user, $others->values()->all()));
             }
 
             foreach ($livreurs as $courier) {
@@ -122,7 +122,7 @@ class LegacyAccountsImporter
 
                     continue;
                 }
-                $this->importCourier($company, $courier, $user);
+                $this->safely('livreur', $courier['id'], $courier['nom'], fn () => $this->importCourier($company, $courier, $user));
             }
 
             $dryRun ? DB::rollBack() : DB::commit();
@@ -167,8 +167,8 @@ class LegacyAccountsImporter
 
         $merchant = new Merchant([
             'company_id' => $company->id,
-            'business_name' => $name ?: 'Boutique '.PhoneNumber::display($phone),
-            'contact_name' => $this->clean($user['name'] ?? null),
+            'business_name' => Str::limit($name ?: 'Boutique '.PhoneNumber::display($phone), 250, ''),
+            'contact_name' => Str::limit((string) $this->clean($user['name'] ?? null), 250, '') ?: null,
             'phone' => $phone,
             'email' => $email,
             'pickup_zone_id' => $zone?->id,
@@ -187,7 +187,7 @@ class LegacyAccountsImporter
 
         $this->account($company, $user, [
             'merchant_id' => $merchant->id,
-            'name' => $this->clean($user['name'] ?? null) ?: $merchant->business_name,
+            'name' => Str::limit($this->clean($user['name'] ?? null) ?: $merchant->business_name, 250, ''),
             'phone' => $phone,
             'email' => $email,
             'status' => UserStatus::Active,
@@ -223,7 +223,7 @@ class LegacyAccountsImporter
 
         $this->account($company, $user, [
             'merchant_id' => $merchant->id,
-            'name' => $name ?: 'Compte '.PhoneNumber::display($phone),
+            'name' => Str::limit($name ?: 'Compte '.PhoneNumber::display($phone), 250, ''),
             'phone' => $phone,
             'email' => $this->email($company, $user['email'] ?? null),
             'status' => UserStatus::Active,
@@ -262,7 +262,7 @@ class LegacyAccountsImporter
         }
 
         $account = $this->account($company, $user, [
-            'name' => $name ?: 'Livreur '.PhoneNumber::display($phone),
+            'name' => Str::limit($name ?: 'Livreur '.PhoneNumber::display($phone), 250, ''),
             'phone' => $phone,
             'email' => $this->email($company, $user['email'] ?? null),
             'status' => $active ? UserStatus::Active : UserStatus::Suspended,
@@ -369,7 +369,7 @@ class LegacyAccountsImporter
     {
         $email = $this->clean($email);
 
-        return $email !== null && filter_var($email, FILTER_VALIDATE_EMAIL) && ! User::takenIn($company->id, 'email', mb_strtolower($email))
+        return $email !== null && mb_strlen($email) <= 250 && filter_var($email, FILTER_VALIDATE_EMAIL) && ! User::takenIn($company->id, 'email', mb_strtolower($email))
             ? mb_strtolower($email)
             : null;
     }
@@ -402,6 +402,26 @@ class LegacyAccountsImporter
         $value = trim(preg_replace('/\s+/u', ' ', (string) $value));
 
         return $value === '' ? null : $value;
+    }
+
+    /**
+     * Une fiche à la fois, dans un point de sauvegarde : une donnée inattendue (texte trop long, valeur
+     * refusée par la base…) ne fait pas échouer tout le paquet. La fiche est mise de côté avec la raison,
+     * les compteurs reviennent en arrière, et l'erreur est notée dans le journal.
+     */
+    private function safely(string $type, ?string $id, ?string $name, callable $import): void
+    {
+        [$counts, $skipped, $warnings] = [$this->counts, count($this->skipped), count($this->warnings)];
+
+        try {
+            DB::transaction($import);
+        } catch (Throwable $e) {
+            report($e);
+            $this->counts = $counts;
+            array_splice($this->skipped, $skipped);
+            array_splice($this->warnings, $warnings);
+            $this->skip($type, $id, $this->clean($name), 'non repris : erreur inattendue ('.Str::limit(trim(strtok($e->getMessage(), "\n")), 180).')');
+        }
     }
 
     private function skip(string $type, ?string $id, ?string $name, string $reason): void
