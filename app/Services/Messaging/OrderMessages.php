@@ -11,6 +11,7 @@ use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
+use App\Services\Couriers\CourierRatings;
 use App\Services\Orders\DeliveryDay;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -21,7 +22,10 @@ use Carbon\CarbonImmutable;
  */
 class OrderMessages
 {
-    public function __construct(private readonly Messenger $messenger) {}
+    public function __construct(
+        private readonly Messenger $messenger,
+        private readonly CourierRatings $ratings,
+    ) {}
 
     public function handle(Order $order, OrderEvent $event, ?User $actor): void
     {
@@ -91,6 +95,8 @@ class OrderMessages
                 }
                 $this->messenger->toMerchant($merchant, NotificationEvent::OrderDelivered, WhatsAppTemplate::OrderDelivered,
                     [$merchant->business_name, $code, $recipient, Money::format((int) $order->collected_amount)], $order);
+                // Le destinataire est invité à noter le livreur
+                $this->ratings->requestFromRecipient($order);
                 break;
 
             case OrderStatus::DeliveryFailed:

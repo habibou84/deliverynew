@@ -45,6 +45,8 @@ const routes = [
   // Pages publiques (destinataire)
   { path: '/b/:slug', name: 'shop', component: () => import('../views/shop/ShopPage.vue'), meta: { public: true } },
   { path: '/suivi/:code?', name: 'tracking', component: () => import('../views/Tracking.vue'), meta: { public: true } },
+  // Avis du destinataire sur sa livraison (lien envoyé sur WhatsApp)
+  { path: '/avis/:token', name: 'rating', component: () => import('../views/Rating.vue'), meta: { public: true } },
   {
     path: '/etiquette/:id',
     name: 'label',
@@ -76,6 +78,8 @@ const routes = [
       { path: 'disponibilites', component: () => import('../views/admin/CourierAvailability.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'retours', component: () => import('../views/admin/MerchantReturns.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs', component: () => import('../views/admin/Couriers.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'livreurs/notes', component: () => import('../views/admin/CourierRatings.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'livreurs/:id(\\d+)/notes', component: () => import('../views/admin/CourierRatingDetail.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
       { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },
       { path: 'tarifs', component: () => import('../views/admin/Pricing.vue'), meta: { permission: 'settings.manage' } },

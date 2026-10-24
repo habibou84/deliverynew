@@ -95,7 +95,7 @@ class MessagingTest extends TestCase
         $this->assertStringContainsString('12 000 F', $delivered->body);
 
         // Validation et ramassage : désactivés par défaut
-        $this->assertSame(['colis_en_route', 'colis_livre'], $this->templatesSent());
+        $this->assertSame(['colis_en_route', 'colis_livre', 'avis_livraison'], $this->templatesSent());
     }
 
     public function test_merchant_preferences_choose_the_messages(): void
@@ -112,7 +112,7 @@ class MessagingTest extends TestCase
         $order = $this->outForDelivery($this->createOrder());
         $this->move($order, 'delivered')->assertOk();
 
-        $this->assertSame(['colis_recupere', 'colis_en_route'], $this->templatesSent());
+        $this->assertSame(['colis_recupere', 'colis_en_route', 'avis_livraison'], $this->templatesSent());
     }
 
     public function test_incident_alerts_the_merchant_with_the_reason(): void
