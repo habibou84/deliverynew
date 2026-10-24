@@ -2,7 +2,6 @@
 
 namespace App\Services\Messaging;
 
-use App\Models\WhatsAppAccount;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
@@ -10,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Service whatsapp-bridge (dossier whatsapp-bridge, sur le serveur) : connexion WhatsApp par QR code, une session par
- * entreprise. Démarrer la session et lire son QR code, envoyer un message (mis en file, réponse immédiate), se
+ * entreprise (« company-12 ») et une pour le numéro de Jibiat (« platform », messagerie de la console). Démarrer la session et lire son QR code, envoyer un message (mis en file, réponse immédiate), se
  * déconnecter. Les événements du service arrivent sur WhatsAppBridgeWebhookController.
  */
 class WhatsAppBridge
@@ -25,9 +24,9 @@ class WhatsAppBridge
      *
      * @throws MessagingException
      */
-    public function start(WhatsAppAccount $account): array
+    public function start(string $session): array
     {
-        return $this->describe($this->call(fn () => $this->http(30)->post('/sessions/'.$account->bridgeSession().'/start')));
+        return $this->describe($this->call(fn () => $this->http(30)->post('/sessions/'.$session.'/start')));
     }
 
     /**
@@ -35,15 +34,15 @@ class WhatsAppBridge
      *
      * @throws MessagingException
      */
-    public function status(WhatsAppAccount $account): array
+    public function status(string $session): array
     {
-        return $this->describe($this->call(fn () => $this->http()->get('/sessions/'.$account->bridgeSession())));
+        return $this->describe($this->call(fn () => $this->http()->get('/sessions/'.$session)));
     }
 
     /** @throws MessagingException */
-    public function logout(WhatsAppAccount $account): void
+    public function logout(string $session): void
     {
-        $this->call(fn () => $this->http(30)->post('/sessions/'.$account->bridgeSession().'/logout'));
+        $this->call(fn () => $this->http(30)->post('/sessions/'.$session.'/logout'));
     }
 
     /**
@@ -51,9 +50,9 @@ class WhatsAppBridge
      *
      * @throws MessagingException
      */
-    public function send(WhatsAppAccount $account, string $to, string $text): string
+    public function send(string $session, string $to, string $text): string
     {
-        $response = $this->call(fn () => $this->http()->post('/sessions/'.$account->bridgeSession().'/send', ['to' => $to, 'text' => $text]));
+        $response = $this->call(fn () => $this->http()->post('/sessions/'.$session.'/send', ['to' => $to, 'text' => $text]));
 
         return (string) $response->json('id');
     }

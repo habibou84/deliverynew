@@ -7,15 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Vérification d'un numéro de téléphone : inscription d'un e-commerçant ou mot
- * de passe oublié. Le numéro est prouvé par un message WhatsApp envoyé depuis ce
- * numéro (code prérempli) ou par le code reçu par SMS.
+ * Vérification d'un numéro de téléphone : inscription d'un e-commerçant, mot de
+ * passe oublié ou connexion par WhatsApp. Le numéro est prouvé par un message
+ * WhatsApp envoyé depuis ce numéro (code prérempli) ou par le code reçu par SMS.
  */
 class PhoneVerification extends Model
 {
     public const SIGNUP = 'signup';
 
     public const PASSWORD_RESET = 'password_reset';
+
+    public const LOGIN = 'login';
+
+    /** Lien d'invitation (équipe, livreurs) : pas de code à envoyer, le lien suffit */
+    public const INVITE = 'invite';
 
     protected $fillable = [
         'company_id', 'purpose', 'phone', 'token_hash', 'whatsapp_code', 'sms_code_hash',

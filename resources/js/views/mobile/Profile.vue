@@ -43,6 +43,9 @@
       </RouterLink>
     </template>
 
+    <h2 class="px-1 pt-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Mon compte</h2>
+    <PasswordForm class="m-card p-4" />
+
     <h2 class="px-1 pt-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Aide</h2>
     <div class="m-card divide-y">
       <div class="p-4 flex justify-between text-sm"><span class="text-slate-500">Entreprise de livraison</span><span class="font-medium">{{ auth.user?.company?.name }}</span></div>
@@ -63,6 +66,7 @@ import { useRoute, useRouter } from 'vue-router'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import WhatsAppPreferences from '../../components/mobile/WhatsAppPreferences.vue'
 import PushSettings from '../../components/mobile/PushSettings.vue'
+import PasswordForm from '../../components/PasswordForm.vue'
 import { forgetPushDevice } from '../../composables/usePush'
 import { useAuthStore } from '../../stores/auth'
 import { pwa } from '../../composables/usePwa'

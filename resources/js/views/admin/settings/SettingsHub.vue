@@ -117,7 +117,7 @@ const ALL = computed(() => {
         { to: '/admin/integrations', label: 'API et webhooks', permission: 'integrations.manage', feature: 'api' },
         { to: '/admin/reglages/reprise', label: 'Reprise de l\'ancienne application', permission: 'settings.manage' },
       ],
-      keywords: 'api clé webhook boutique import reprise ancienne application',
+      keywords: 'api clé webhook boutique import reprise ancienne application bascule',
     },
     ...(auth.user?.company?.plan ? [{
       key: 'billing', icon: '🧾', title: 'Abonnement', to: '/admin/abonnement', permission: 'settings.manage',

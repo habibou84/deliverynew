@@ -41,6 +41,11 @@ export const useAuthStore = defineStore('auth', {
         space: SERVER_SPACES[currentSpace()],
       })
 
+      await this.adoptSession(data)
+    },
+
+    // Session renvoyée par le serveur (mot de passe ou WhatsApp) : refusée si l'application est limitée à un autre espace
+    async adoptSession(data) {
       // Application livreur ou e-commerçant (installée ou Android) : seuls les comptes de son espace
       const lock = appLock()
       if (lock && !lock.roles.includes(data.user?.role)) {

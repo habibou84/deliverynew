@@ -22,7 +22,8 @@ use Illuminate\Validation\Rules\Password;
 /**
  * Inscription en ligne d'un e-commerçant (page d'accueil du site). Le compte n'est
  * créé qu'une fois le numéro vérifié (voir VerificationController), puis il est
- * actif aussitôt.
+ * actif aussitôt. Le mot de passe est facultatif : sans lui, la connexion se fait
+ * par WhatsApp.
  */
 class SignupController extends Controller
 {
@@ -64,7 +65,8 @@ class SignupController extends Controller
             'pickup_zone_id' => ['required', 'integer', Rule::exists('zones', 'id')->where(fn ($q) => $q->where('company_id', $company->id)->where('is_active', true)->where('is_shipping', false))],
             'pickup_address' => ['required', 'string', 'max:500'],
             'pickup_landmark' => ['nullable', 'string', 'max:255'],
-            'password' => ['required', 'string', 'confirmed', Password::min(8)],
+            // Facultatif : sans mot de passe, la personne se connecte par WhatsApp (et peut en définir un plus tard)
+            'password' => ['nullable', 'string', 'confirmed', Password::min(8)],
         ], [], [
             'business_name' => 'nom de la boutique',
             'contact_name' => 'nom du responsable',
@@ -91,7 +93,7 @@ class SignupController extends Controller
             'pickup_zone_id' => $data['pickup_zone_id'],
             'pickup_address' => trim($data['pickup_address']),
             'pickup_landmark' => filled($data['pickup_landmark'] ?? null) ? trim($data['pickup_landmark']) : null,
-            'password_hash' => Hash::make($data['password']),
+            'password_hash' => filled($data['password'] ?? null) ? Hash::make($data['password']) : null,
         ], $request->ip());
 
         return response()->json(['token' => $token, 'data' => VerificationController::describe($this->verifier, $verification)], 201);
