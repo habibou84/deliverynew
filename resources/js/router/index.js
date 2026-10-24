@@ -79,6 +79,7 @@ const routes = [
       { path: 'retours', component: () => import('../views/admin/MerchantReturns.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs', component: () => import('../views/admin/Couriers.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs/notes', component: () => import('../views/admin/CourierRatings.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'vehicules', component: () => import('../views/admin/Vehicles.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs/:id(\\d+)/notes', component: () => import('../views/admin/CourierRatingDetail.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
       { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },

@@ -31,7 +31,7 @@ class CourierController extends Controller
         ]);
 
         $couriers = Courier::query()
-            ->with(['user', 'zones', 'payPlan'])
+            ->with(['user', 'zones', 'payPlan', 'vehicle.documents', 'documents'])
             ->withCount('activeAssignments')
             ->whereHas('user', fn ($q) => $q->where('status', 'active'))
             ->when($request->has('available'), fn ($q) => $q->where('is_available', $request->boolean('available')))
