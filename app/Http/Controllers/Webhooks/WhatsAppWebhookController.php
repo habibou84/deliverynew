@@ -9,17 +9,21 @@ use App\Models\InboundMessage;
 use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
 use App\Services\Messaging\Messenger;
+use App\Services\Platform\PlatformWhatsApp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 /**
  * Webhook de l'application Meta : accusés de remise des messages envoyés et
- * messages reçus des marchands (création de course par WhatsApp).
+ * messages reçus des marchands (création de course par WhatsApp) ou sur le numéro officiel de Jibiat (console).
  */
 class WhatsAppWebhookController extends Controller
 {
-    public function __construct(private readonly Messenger $messenger) {}
+    public function __construct(
+        private readonly Messenger $messenger,
+        private readonly PlatformWhatsApp $platform,
+    ) {}
 
     /**
      * Vérification de l'abonnement par Meta (hub.challenge).
@@ -51,6 +55,12 @@ class WhatsAppWebhookController extends Controller
                     ->first();
 
                 foreach ($change['value']['messages'] ?? [] as $message) {
+                    // Numéro officiel de Jibiat : messagerie de la console
+                    if ($account?->isPlatform()) {
+                        $this->platform->receiveFromMeta($message, $change['value']['contacts'][0]['profile']['name'] ?? null);
+
+                        continue;
+                    }
                     $this->receive($account, $message);
                 }
             }
@@ -101,15 +111,18 @@ class WhatsAppWebhookController extends Controller
             return;
         }
 
-        $message = OutboundMessage::withoutGlobalScopes()->where('provider_message_id', $status['id'])->first();
-        if ($message === null) {
-            return;
-        }
-
         $error = null;
         if ($newStatus === MessageStatus::Failed) {
             $first = $status['errors'][0] ?? [];
             $error = trim(sprintf('Meta (%s) : %s', $first['code'] ?? '?', $first['error_data']['details'] ?? $first['message'] ?? $first['title'] ?? 'échec de remise'));
+        }
+
+        $message = OutboundMessage::withoutGlobalScopes()->where('provider_message_id', $status['id'])->first();
+        if ($message === null) {
+            // Réponse de la console depuis le numéro officiel de Jibiat
+            $this->platform->acknowledge($status['id'], $newStatus->value, $error);
+
+            return;
         }
 
         if ($message->advanceTo($newStatus, $error) && $newStatus === MessageStatus::Failed) {
