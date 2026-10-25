@@ -88,7 +88,9 @@ export const EVENT_LABELS = {
 }
 
 export const ROLE_LABELS = {
-  super_admin: 'Super admin',
+  super_admin: 'Propriétaire',
+  platform_support: 'Support',
+  platform_accountant: 'Comptable',
   admin: 'Administrateur',
   dispatcher: 'Dispatcher',
   cashier: 'Caissier',

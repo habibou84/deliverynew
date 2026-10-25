@@ -24,6 +24,7 @@ correction a son test. À rejouer chaque trimestre (voir `docs/MAINTENANCE.md`).
 | Basse | Listes paginées sans plafond (`per_page`). | Plafond : 500 dans l'application, 100 dans l'API publique. |
 | Basse | Export CSV : un nom commençant par `=` était lu comme une formule par Excel. | Neutralisé. |
 | Basse | Connexion par WhatsApp d'un compte de la console : erreur 500. | Refusée proprement (mot de passe seulement). |
+| Haute | Console ouverte avec le seul mot de passe. | Code de connexion à 6 chiffres envoyé par e-mail (WhatsApp en secours), 10 min, 5 essais ; appareil retenu 30 jours au choix, oublié au changement de mot de passe. La page Santé signale un compte qui ne peut pas recevoir le code. |
 | Basse | Dépendances JavaScript avec des failles connues (vue, postcss). | Mises à jour (`npm audit` : 0 faille). `composer audit` : 0 faille. |
 
 ## Vérifié et sain
@@ -35,11 +36,9 @@ pages publiques (suivi, avis, boutique), secrets chiffrés ou hachés en base, `
 
 ## Reste à faire (à décider)
 
-1. **Double authentification du super administrateur** (code par application d'authentification ou par WhatsApp)
-   avant d'ouvrir la console. C'est le risque principal restant : un mot de passe volé donne toute la plateforme.
-2. **Politique de sécurité du contenu (CSP)** : à mettre d'abord en mode « rapport seulement », puis à imposer.
-3. **Rejeu des événements du service WhatsApp** : ajouter un horodatage signé (risque faible, le service est local).
-4. **Liste des appareils connectés** avec « tout déconnecter », pour chaque compte.
+1. **Politique de sécurité du contenu (CSP)** : à mettre d'abord en mode « rapport seulement », puis à imposer.
+2. **Rejeu des événements du service WhatsApp** : ajouter un horodatage signé (risque faible, le service est local).
+3. **Liste des appareils connectés** avec « tout déconnecter », pour chaque compte.
 
 ## À vérifier sur le serveur de production
 

@@ -24,7 +24,7 @@ class ChangeUserPassword extends Command
             return self::FAILURE;
         }
 
-        $min = $user->isSuperAdmin() ? 12 : 8;
+        $min = $user->isPlatformStaff() ? 12 : 8;
         $new = password("Nouveau mot de passe ({$min} caractères minimum)", required: true);
         if (mb_strlen($new) < $min) {
             $this->error("Le mot de passe doit contenir au moins {$min} caractères.");

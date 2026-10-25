@@ -2,6 +2,9 @@
   <!-- Connexion par WhatsApp : numéro, message prérempli, session ouverte sans mot de passe -->
   <WhatsAppLogin v-if="whatsappMode" :tone="tone" :style="{ '--app-color': color }" @back="whatsappMode = false" @done="enter" />
 
+  <!-- Console : code reçu par e-mail après le mot de passe -->
+  <TwoFactorStep v-else-if="twoFactor" :challenge="twoFactor" :style="{ '--app-color': color }" @back="twoFactor = null" @done="enter" />
+
   <form v-else class="space-y-4" :style="{ '--app-color': color }" @submit.prevent="submit">
     <div v-if="error" class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 space-y-2" role="alert">
       <p>{{ error }}</p>
@@ -78,6 +81,7 @@ import { LOGIN_PAGES, SPACE_FROM_SERVER } from '../../bootstrap/session'
 import { appLock } from '../../native'
 import { spaceColor } from '../../composables/useBranding'
 import { readPending } from '../../composables/usePendingVerification'
+import TwoFactorStep from './TwoFactorStep.vue'
 import WhatsAppLogin from './WhatsAppLogin.vue'
 
 const props = defineProps({
@@ -99,6 +103,7 @@ const showPassword = ref(false)
 const error = ref('')
 const otherSpace = ref(null)
 const loading = ref(false)
+const twoFactor = ref(null)
 const SPACE_LABELS = { marchand: 'Aller à l\'espace e-commerçant', livreur: 'Aller à l\'espace livreur', admin: 'Aller à l\'espace équipe' }
 
 const auth = useAuthStore()
@@ -124,7 +129,11 @@ async function submit() {
   otherSpace.value = null
   loading.value = true
   try {
-    await auth.login({ login: login.value, password: password.value })
+    const result = await auth.login({ login: login.value, password: password.value })
+    if (result.twoFactor) {
+      twoFactor.value = result.twoFactor
+      return
+    }
     enter()
   } catch (e) {
     error.value = apiErrorMessage(e, 'Connexion impossible. Vérifiez votre réseau.')

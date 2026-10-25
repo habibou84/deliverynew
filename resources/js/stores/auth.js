@@ -11,6 +11,23 @@ import { useNotificationStore } from './notifications'
 const readCachedUser = getCachedUser
 const cacheUser = setCachedUser
 
+// Appareil retenu après le code de connexion de la console (jeton propre à ce navigateur)
+const TRUSTED_DEVICE = 'jibiat.trusted-device'
+function readTrustedDevice() {
+  try {
+    return localStorage.getItem(TRUSTED_DEVICE) || undefined
+  } catch {
+    return undefined
+  }
+}
+function saveTrustedDevice(token) {
+  try {
+    localStorage.setItem(TRUSTED_DEVICE, token)
+  } catch {
+    // Navigation privée : le code sera simplement redemandé
+  }
+}
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: null,
@@ -39,8 +56,21 @@ export const useAuthStore = defineStore('auth', {
         device_name: navigator.userAgent.slice(0, 100),
         // Seuls les comptes de l'espace de cette page de connexion y entrent (contrôlé par le serveur)
         space: SERVER_SPACES[currentSpace()],
+        // Console : appareil retenu après un code de connexion (le code n'est pas redemandé)
+        trusted_device: readTrustedDevice(),
       })
 
+      // Console : un code a été envoyé par e-mail, la session s'ouvrira après ce code
+      if (data.two_factor) return { twoFactor: data.two_factor }
+
+      await this.adoptSession(data)
+      return {}
+    },
+
+    // Code de connexion de la console ; « remember » : appareil retenu 30 jours
+    async confirmTwoFactor({ challenge, code, remember }) {
+      const { data } = await http.post('/auth/two-factor', { challenge, code, remember })
+      if (data.trusted_device) saveTrustedDevice(data.trusted_device)
       await this.adoptSession(data)
     },
 

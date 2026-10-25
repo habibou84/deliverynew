@@ -80,6 +80,18 @@
         <button class="rounded bg-white/20 px-3 py-1 font-medium hover:bg-white/30" @click="logout">Terminer la session</button>
       </div>
 
+      <!-- Assistance Jibiat en cours dans l'espace (vue par les administrateurs, hors session d'assistance) -->
+      <RouterLink
+        v-if="supportActive && !auth.user?.support_session"
+        to="/admin/reglages/assistance"
+        class="block bg-sky-600 px-4 py-2 text-sm text-white print:hidden"
+        role="status"
+      >
+        🛟 L'assistance Jibiat ({{ supportActive.opened_by }}) a accès à votre espace jusqu'à
+        {{ new Date(supportActive.expires_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }}<template v-if="supportActive.reason"> · {{ supportActive.reason }}</template>.
+        <span class="font-medium underline">Voir l'historique</span>
+      </RouterLink>
+
       <!-- Abonnement : facture de la plateforme en retard (administrateurs) -->
       <RouterLink
         v-if="billingBanner"
@@ -224,6 +236,12 @@ function closeSetupReturn() {
   sessionFlag(false)
 }
 
+const supportActive = ref(null)
+async function loadSupport() {
+  if (!auth.can('settings.manage') || !auth.user?.company_id || auth.user?.support_session) return
+  supportActive.value = (await http.get('/company/support-sessions').catch(() => null))?.data?.active ?? null
+}
+
 async function loadSetup() {
   if (!auth.can('settings.manage') || !auth.user?.company_id) return
   setup.value = (await http.get('/setup').catch(() => null))?.data?.data ?? null
@@ -244,6 +262,7 @@ watch(() => route.fullPath, (to, from) => {
 
 onMounted(() => {
   loadSetup()
+  loadSupport()
   if (!isDispatch.value) return
   fetchCounts()
   countsTimer = setInterval(fetchCounts, 60000)

@@ -107,6 +107,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Équipe de la console : Propriétaire (super administrateur), Support ou Comptable, sans entreprise.
+     */
+    public function isPlatformStaff(): bool
+    {
+        return $this->company_id === null && $this->hasAnyRole(Role::values(Role::platform()));
+    }
+
+    /**
      * Crée le profil livreur (véhicule, zones, disponibilité) si l'utilisateur
      * a le rôle livreur et n'en a pas encore.
      */

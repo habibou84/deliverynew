@@ -14,11 +14,16 @@ enum Role: string
     case Courier = 'courier';
     case MerchantOwner = 'merchant_owner';
     case MerchantStaff = 'merchant_staff';
+    // Équipe de la console (plateforme) : le super administrateur est le « Propriétaire »
+    case PlatformSupport = 'platform_support';
+    case PlatformAccountant = 'platform_accountant';
 
     public function label(): string
     {
         return match ($this) {
-            self::SuperAdmin => 'Super administrateur',
+            self::SuperAdmin => 'Propriétaire de la plateforme',
+            self::PlatformSupport => 'Support de la plateforme',
+            self::PlatformAccountant => 'Comptable de la plateforme',
             self::Admin => 'Administrateur',
             self::Dispatcher => 'Dispatcher',
             self::Cashier => 'Caissier',
@@ -38,7 +43,8 @@ enum Role: string
     public function permissions(): array
     {
         return match ($this) {
-            self::SuperAdmin => [],
+            // Console : droits donnés par les routes (role:…), aucun droit dans les entreprises
+            self::SuperAdmin, self::PlatformSupport, self::PlatformAccountant => [],
             self::Admin => Permission::companyScoped(),
             self::Dispatcher => [
                 Permission::UsersView,
@@ -74,6 +80,16 @@ enum Role: string
                 Permission::OrdersCreate,
             ],
         };
+    }
+
+    /**
+     * Rôles de l'équipe de la console (comptes sans entreprise).
+     *
+     * @return list<self>
+     */
+    public static function platform(): array
+    {
+        return [self::SuperAdmin, self::PlatformSupport, self::PlatformAccountant];
     }
 
     /**

@@ -8,12 +8,12 @@
           {{ trialDays ? `${trialDays} jours` : 'aucun' }} (réglage PLATFORM_TRIAL_DAYS).
         </p>
       </div>
-      <button class="btn-primary" @click="edit(null)">+ Nouvelle formule</button>
+      <button v-if="can('owner')" class="btn-primary" @click="edit(null)">+ Nouvelle formule</button>
     </div>
 
     <div v-if="loaded && !plans.length" class="card p-6 text-center space-y-3">
       <p class="text-gray-600">Aucune formule pour l'instant. Partez des quatre formules proposées, puis ajustez prix et limites.</p>
-      <button class="btn-primary" :disabled="creating" @click="createSuggested">Créer À la livraison, Essentiel, Pro et Entreprise</button>
+      <button v-if="can('owner')" class="btn-primary" :disabled="creating" @click="createSuggested">Créer À la livraison, Essentiel, Pro et Entreprise</button>
     </div>
 
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -49,7 +49,7 @@
         </ul>
         <div class="flex items-center justify-between border-t pt-2">
           <span class="text-sm text-gray-500">{{ p.companies_count }} entreprise{{ p.companies_count > 1 ? 's' : '' }}</span>
-          <button class="btn-secondary" @click="edit(p)">Modifier</button>
+          <button v-if="can('owner')" class="btn-secondary" @click="edit(p)">Modifier</button>
         </div>
       </div>
     </div>
@@ -134,6 +134,8 @@
 import { onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
+import { consoleCan } from '../../roles'
+import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money, rate } from '../../utils/format'
 
@@ -143,6 +145,8 @@ const PRICINGS = [
 ]
 
 const toasts = useToastStore()
+const auth = useAuthStore()
+const can = (group) => consoleCan(auth.role, group)
 const plans = ref([])
 const features = ref([])
 const trialDays = ref(0)
