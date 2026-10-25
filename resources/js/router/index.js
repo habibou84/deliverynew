@@ -137,6 +137,8 @@ const routes = [
       { path: 'facturation', component: () => import('../views/console/Billing.vue') },
       { path: 'paiements', component: () => import('../views/console/WavePayments.vue') },
       { path: 'whatsapp', component: () => import('../views/console/WhatsApp.vue') },
+      { path: 'journal', component: () => import('../views/console/Audit.vue') },
+      { path: 'sante', component: () => import('../views/console/Health.vue') },
       { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue') },
     ],
   },

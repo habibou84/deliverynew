@@ -134,7 +134,7 @@ class WavePayments
             'company' => $payment->company?->name ?? '—',
             'number' => $payment->invoice?->number ?? '',
             'claimed' => $claimed,
-            'validate_url' => self::consoleUrl(URL::temporarySignedRoute('wave-payments.validate', now()->addDays(7), ['payment' => $payment->id], absolute: false)),
+            'validate_url' => self::consoleUrl(URL::temporarySignedRoute('wave-payments.validate', now()->addHours(48), ['payment' => $payment->id], absolute: false)),
             'console_url' => self::consoleUrl('/console/paiements'),
         ];
 

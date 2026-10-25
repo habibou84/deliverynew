@@ -64,7 +64,7 @@ class WavePaymentTest extends TestCase
     {
         Sanctum::actingAs($this->root);
         $this->putJson('/api/v1/console/wave', ['link' => 'pay.wave.com/m/M_ci_test/c/ci/?amount={montant}', 'validator_email' => 'paiements@jibiat.com',
-            'validator_phone' => '0507016739', 'validator_pin' => '2468'])->assertOk()
+            'validator_phone' => '0507016739', 'validator_pin' => '246813', 'current_password' => 'password'])->assertOk()
             ->assertJsonPath('data.link', 'https://pay.wave.com/m/M_ci_test/c/ci/?amount={montant}')->assertJsonPath('data.pin_set', true)->assertJsonMissingPath('data.validator_pin');
     }
 
@@ -130,7 +130,7 @@ class WavePaymentTest extends TestCase
         $this->assertTrue($this->get(strtok($url, '?'))->isClientError());
         $this->get($url)->assertOk()->assertSee('25 000 F')->assertSee('07 08 09 10 11');
         $this->post($url, ['code' => '0000', 'decision' => 'received'])->assertOk()->assertSee('Code incorrect.');
-        $this->post($url, ['code' => '2468', 'decision' => 'received'])->assertOk()->assertSee('Paiement confirmé');
+        $this->post($url, ['code' => '246813', 'decision' => 'received'])->assertOk()->assertSee('Paiement confirmé');
         $this->assertSame(PlatformInvoice::PAID, $this->invoice->fresh()->status);
         $this->assertNull($this->invoice->payments()->sole()->recorded_by);
     }

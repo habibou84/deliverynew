@@ -49,8 +49,13 @@
       </div>
       <div class="max-w-xs">
         <label class="label" for="w-pin">Code de validation</label>
-        <input id="w-pin" v-model="form.validator_pin" type="password" inputmode="numeric" autocomplete="new-password" class="input" :placeholder="settings.pin_set ? 'Déjà défini : laisser vide pour le garder' : 'Au moins 4 chiffres'">
+        <input id="w-pin" v-model="form.validator_pin" type="password" inputmode="numeric" autocomplete="new-password" class="input" :placeholder="settings.pin_set ? 'Déjà défini : laisser vide pour le garder' : 'Au moins 6 chiffres'">
         <p class="mt-1 text-xs text-gray-500">Demandé quand vous validez depuis le lien reçu par WhatsApp, e-mail ou SMS.</p>
+      </div>
+      <div class="max-w-xs">
+        <label class="label" for="w-current">Votre mot de passe</label>
+        <input id="w-current" v-model="form.current_password" type="password" autocomplete="current-password" class="input" required>
+        <p class="mt-1 text-xs text-gray-500">Demandé à chaque changement : ces réglages décident où arrive l'argent.</p>
       </div>
       <button class="btn-primary">Enregistrer</button>
     </form>
@@ -124,7 +129,7 @@ const pending = ref([])
 const loaded = ref(false)
 const busy = ref(null)
 const settings = ref(null)
-const form = reactive({ link: '', validator_email: '', validator_phone: '', validator_pin: '' })
+const form = reactive({ link: '', validator_email: '', validator_phone: '', validator_pin: '', current_password: '' })
 const mail = reactive({ host: '', port: 587, username: '', password: '' })
 const testing = ref(false)
 const testResult = ref(null)
@@ -133,7 +138,7 @@ const dateTime = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit'
 
 function fill(data) {
   settings.value = data
-  Object.assign(form, { link: data.link ?? '', validator_email: data.validator_email ?? '', validator_phone: data.validator_phone ?? '', validator_pin: '' })
+  Object.assign(form, { link: data.link ?? '', validator_email: data.validator_email ?? '', validator_phone: data.validator_phone ?? '', validator_pin: '', current_password: '' })
   Object.assign(mail, { host: data.mail.host ?? '', port: Number(data.mail.port ?? 587), username: data.mail.username ?? '', password: '' })
 }
 
@@ -160,6 +165,7 @@ async function decide(p, decision) {
 }
 
 async function save() {
+  if (form.link !== (settings.value?.link ?? '') && !window.confirm('Changer le lien de paiement Wave ? Toutes les entreprises paieront leurs factures sur ce nouveau lien.')) return
   try {
     fill((await http.put('/console/wave', form)).data.data)
     toasts.success('Réglages Wave enregistrés.')

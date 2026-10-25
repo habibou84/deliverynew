@@ -216,6 +216,8 @@ function example(fee) {
 }
 
 async function save() {
+  const used = form.id ? (plans.value.find((p) => p.id === form.id)?.companies_count ?? 0) : 0
+  if (used > 0 && !window.confirm(`Cette formule est utilisée par ${used} entreprise${used > 1 ? 's' : ''} : le changement s'applique à leurs prochaines factures. Enregistrer ?`)) return
   form.saving = true
   form.error = ''
   const percent = form.pricing === 'percent'

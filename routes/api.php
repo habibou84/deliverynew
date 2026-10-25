@@ -11,8 +11,10 @@ use App\Http\Controllers\Api\V1\AppearanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CompanySignupController;
+use App\Http\Controllers\Api\V1\ConsoleAuditController;
 use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
+use App\Http\Controllers\Api\V1\ConsoleHealthController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
 use App\Http\Controllers\Api\V1\ConsoleWaveController;
 use App\Http\Controllers\Api\V1\ConsoleWhatsAppController;
@@ -220,8 +222,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('companies', 'companies')->name('companies');
             Route::get('companies/{company}', 'show')->name('companies.show');
             Route::post('companies/{company}/support-session', 'supportSession')->middleware('throttle:10,1')->name('companies.support');
+            Route::delete('companies/{company}/support-sessions/{session}', 'closeSupportSession')->name('companies.support.close');
             Route::put('companies/{company}/billing-cycle', 'billingCycle')->name('companies.billing-cycle');
         });
+        Route::get('console/audit', [ConsoleAuditController::class, 'index'])->middleware('role:super_admin')->name('console.audit');
+        Route::get('console/health', [ConsoleHealthController::class, 'show'])->middleware('role:super_admin')->name('console.health');
         // Messagerie WhatsApp du numéro de Jibiat (connexion officielle ou QR code)
         Route::prefix('console/whatsapp')->name('console.whatsapp.')->middleware('role:super_admin')->controller(ConsoleWhatsAppController::class)->group(function () {
             Route::get('/', 'show')->name('show');

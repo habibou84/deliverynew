@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuditSuperAdmin;
 use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\EnsureApiScope;
 use App\Http\Middleware\EnsureFeature;
@@ -40,6 +41,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Préproduction : fermée au public par un code d'accès, jamais indexée
         $middleware->prepend(PreprodGate::class);
         $middleware->append(PreventIndexing::class);
+        // Journal des actions des super administrateurs (console, assistance dans une entreprise)
+        $middleware->appendToGroup('api', AuditSuperAdmin::class);
         $middleware->encryptCookies(except: [PreprodGate::COOKIE]);
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
