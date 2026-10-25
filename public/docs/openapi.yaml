@@ -447,6 +447,34 @@ paths:
                           expires_at: { type: [string, 'null'], format: date-time }
                       webhook_events: { type: array, items: { type: string } }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /merchant-app:
+    put:
+      tags: [Compte]
+      summary: Compte Jibiat Marchand du marchand parrainé par l'entreprise (envoyé par Jibiat Marchand)
+      description: >
+        Abonnement du marchand sur Jibiat Marchand et part de cet abonnement revenant à l'entreprise qui l'a parrainé
+        (contrat merchant-app de habibou84/socle). Envoyé à chaque paiement d'abonnement et une fois par jour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MerchantApp' }
+      responses:
+        '200':
+          description: Compte enregistré
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - { $ref: '#/components/schemas/MerchantApp' }
+                      - type: object
+                        properties:
+                          reported_at: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
   /webhooks:
     get:
       tags: [Compte]
@@ -586,6 +614,31 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
   schemas:
+    MerchantApp:
+      type: object
+      required: [store_name, store_url, referred, plan, commission]
+      properties:
+        store_name: { type: string }
+        store_url: { type: string, format: uri }
+        referred: { type: boolean }
+        signed_up_at: { type: [string, 'null'], format: date-time }
+        plan:
+          type: object
+          required: [status]
+          properties:
+            name: { type: [string, 'null'] }
+            status: { type: string, enum: [trialing, active, past_due, cancelled, expired, none] }
+        commission:
+          type: object
+          required: [rate, months, currency, earned_total, earned_month, paid_total]
+          properties:
+            rate: { type: number, minimum: 0, maximum: 1 }
+            months: { type: integer }
+            ends_at: { type: [string, 'null'], format: date }
+            currency: { type: string }
+            earned_total: { type: integer }
+            earned_month: { type: integer }
+            paid_total: { type: integer }
     Error:
       type: object
       properties:
