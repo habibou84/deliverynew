@@ -140,7 +140,7 @@
             <option v-for="u in company.staff" :key="u.id" :value="u.id" :disabled="u.status !== 'active'">{{ u.name }} · {{ ROLES[u.role] || u.role }}{{ u.status !== 'active' ? ' (suspendu)' : '' }}</option>
           </select>
         </div>
-        <div><label class="label" for="s-reason">Motif</label><input id="s-reason" v-model.trim="support.reason" class="input" maxlength="255" placeholder="Ex. : réglage des tarifs à la demande du gérant"></div>
+        <div><label class="label" for="s-reason">Motif (obligatoire)</label><input id="s-reason" v-model.trim="support.reason" class="input" maxlength="255" placeholder="Ex. : réglage des tarifs à la demande du gérant"></div>
         <p v-if="supportError" class="field-error">{{ supportError }}</p>
         <button class="btn-secondary" :disabled="!active || opening" @click="openSupport">{{ opening ? 'Ouverture…' : 'Ouvrir son espace' }}</button>
 
@@ -149,6 +149,7 @@
           <ul class="text-xs text-gray-600 space-y-1">
             <li v-for="s in company.support_sessions" :key="s.id">
               {{ dateTime(s.created_at) }} · {{ s.opened_by }} → {{ s.user }}<span v-if="s.reason"> · {{ s.reason }}</span>
+              <button v-if="s.open" type="button" class="ml-1 text-red-600 underline" @click="closeSupport(s)">Fermer maintenant</button>
             </li>
           </ul>
         </div>
@@ -198,6 +199,10 @@ async function load() {
 }
 
 async function changeCycle(cycle) {
+  if (!window.confirm(`Facturer ${company.value.name} ${cycle === 'weekly' ? 'chaque semaine' : 'chaque mois'} ? Le changement s'applique à la prochaine période.`)) {
+    await load()
+    return
+  }
   try {
     company.value = (await http.put(`/console/companies/${company.value.id}/billing-cycle`, { billing_cycle: cycle })).data.data
     toasts.success('Rythme de facturation enregistré.')
@@ -213,7 +218,10 @@ async function save() {
   try {
     // L'adresse n'est envoyée que si elle change
     const payload = { name: edit.name, phone: edit.phone || null, email: edit.email || null, timezone: edit.timezone }
-    if (edit.slug !== company.value.slug) payload.slug = edit.slug
+    if (edit.slug !== company.value.slug) {
+      if (!window.confirm(`Changer l'adresse de ${company.value.name} en « ${edit.slug} » ? L'ancienne adresse ne marchera plus : prévenez ses équipes, marchands et livreurs.`)) return
+      payload.slug = edit.slug
+    }
     await http.patch(`/companies/${company.value.id}`, payload)
     await load()
     toasts.success('Entreprise enregistrée.')
@@ -225,6 +233,7 @@ async function save() {
 }
 
 async function saveSubscription() {
+  if (!window.confirm(`Enregistrer la formule et la fin d'essai de ${company.value.name} ? Ses prochaines factures en dépendent.`)) return
   subSaving.value = true
   subError.value = ''
   try {
@@ -250,13 +259,23 @@ async function toggleStatus() {
   }
 }
 
+async function closeSupport(session) {
+  try {
+    await http.delete(`/console/companies/${company.value.id}/support-sessions/${session.id}`)
+    session.open = false
+    toasts.success('Session d\'assistance fermée.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
 async function openSupport() {
   opening.value = true
   supportError.value = ''
   // Fenêtre ouverte tout de suite (sinon bloquée comme fenêtre surgissante), puis dirigée vers l'espace
   const win = window.open('', '_blank')
   try {
-    const { data } = await http.post(`/console/companies/${company.value.id}/support-session`, { user_id: support.user_id, reason: support.reason || null })
+    const { data } = await http.post(`/console/companies/${company.value.id}/support-session`, { user_id: support.user_id, reason: support.reason })
     if (win) win.location.href = data.data.url
     else window.location.href = data.data.url
     support.reason = ''

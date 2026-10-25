@@ -31,7 +31,7 @@ class CompanyController extends Controller
             ->withCount('users')
             ->when($request->filled('search'), fn ($q) => $q->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower($request->string('search')).'%']))
             ->orderBy('name')
-            ->paginate($request->integer('per_page', 20));
+            ->paginate(min(max($request->integer('per_page', 20), 1), 500));
 
         return CompanyResource::collection($companies);
     }

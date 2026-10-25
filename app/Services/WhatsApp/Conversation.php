@@ -80,15 +80,19 @@ class Conversation
             'payload' => $buttonId ? ['button_id' => $buttonId] : null,
         ]);
 
+        // Simulateur des réglages : ni vérification de numéro ni avis (le numéro est choisi librement, il
+        // n'appartient pas à la personne qui tape)
+        $simulated = (bool) ($meta['simulated'] ?? false);
+
         // Message de vérification d'un numéro (inscription, mot de passe oublié)
-        if ($type === 'text' && ($answer = $this->verifier->handleWhatsApp($company, $this->phone, $text)) !== null) {
+        if (! $simulated && $type === 'text' && ($answer = $this->verifier->handleWhatsApp($company, $this->phone, $text)) !== null) {
             $this->reply($answer);
 
             return $this->done();
         }
 
         // Avis d'un destinataire sur sa livraison (note de 1 à 5, puis un mot)
-        if ($type === 'text' && ($answer = $this->ratings->handleWhatsApp($company, $this->phone, $text)) !== false) {
+        if (! $simulated && $type === 'text' && ($answer = $this->ratings->handleWhatsApp($company, $this->phone, $text)) !== false) {
             if ($answer !== null) {
                 $this->reply($answer);
             }

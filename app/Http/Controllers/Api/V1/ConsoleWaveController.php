@@ -41,11 +41,14 @@ class ConsoleWaveController extends Controller
             }],
             'validator_email' => ['nullable', 'email', 'max:190'],
             'validator_phone' => ['nullable', new PhoneRule],
-            'validator_pin' => ['nullable', 'string', 'min:4', 'max:40'],
-        ], [], ['link' => 'lien Wave', 'validator_email' => 'e-mail du validateur', 'validator_phone' => 'téléphone du validateur', 'validator_pin' => 'code de validation']);
+            'validator_pin' => ['nullable', 'string', 'min:6', 'max:40'],
+            // Où arrive l'argent : le mot de passe est redemandé (jeton volé ou poste laissé ouvert)
+            'current_password' => ['required', 'string', 'current_password:sanctum'],
+        ], ['current_password.current_password' => 'Mot de passe incorrect.'], ['current_password' => 'mot de passe', 'link' => 'lien Wave', 'validator_email' => 'e-mail du validateur', 'validator_phone' => 'téléphone du validateur', 'validator_pin' => 'code de validation']);
         if (filled($data['validator_phone'] ?? null)) {
             $data['validator_phone'] = PhoneNumber::normalize($data['validator_phone']);
         }
+        unset($data['current_password']);
         $this->settings->update($data);
 
         return $this->show();

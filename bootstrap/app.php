@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuditSuperAdmin;
 use App\Http\Middleware\AuthenticateApiKey;
 use App\Http\Middleware\EnsureApiScope;
 use App\Http\Middleware\EnsureFeature;
@@ -8,6 +9,7 @@ use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\PreprodGate;
 use App\Http\Middleware\PreventIndexing;
 use App\Http\Middleware\ResolveTenant;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -40,6 +42,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Préproduction : fermée au public par un code d'accès, jamais indexée
         $middleware->prepend(PreprodGate::class);
         $middleware->append(PreventIndexing::class);
+        $middleware->append(SecurityHeaders::class);
+        // Journal des actions des super administrateurs (console, assistance dans une entreprise)
+        $middleware->appendToGroup('api', AuditSuperAdmin::class);
         $middleware->encryptCookies(except: [PreprodGate::COOKIE]);
         $middleware->alias([
             'active' => EnsureUserIsActive::class,

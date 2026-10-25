@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\CompanyStatus;
 use App\Models\Company;
+use App\Services\Platform\CustomDomains;
 use Illuminate\Http\Request;
 
 /**
@@ -76,6 +77,11 @@ class Tenancy
         } else {
             // Domaine personnalisé de l'entreprise (avec ou sans « www. »)
             $company = Company::query()->whereIn('custom_domain', array_unique([$host, preg_replace('/^www\./', '', $host)]))->first();
+            // Domaine pas encore vérifié : seule l'adresse de vérification répond (un domaine qui pointe encore
+            // vers la plateforme ne doit pas servir l'espace d'une entreprise qui l'a seulement déclaré)
+            if ($company !== null && $company->custom_domain_status !== 'active' && '/'.ltrim($request->path(), '/') !== CustomDomains::CHECK_PATH) {
+                $company = null;
+            }
         }
 
         if ($company === null) {
