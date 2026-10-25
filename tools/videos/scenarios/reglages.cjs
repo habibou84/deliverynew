@@ -13,6 +13,8 @@ function build(device) {
     },
     captions: {
       guide: 'La page « Mise en route » vous guide pas à pas',
+      menu: 'Tous les réglages sont aussi dans le menu « Réglages »',
+      hub: 'Rangés par thème, avec une recherche',
       company: 'Nom, téléphone, adresse et logo de l\'entreprise',
       zones: 'Les zones que vous desservez',
       pricing: 'Vos tarifs de livraison, zone par zone',
@@ -35,7 +37,7 @@ function build(device) {
       intro: 'reglages-00.mp3',
       outro: 'reglages-99.mp3',
       marks: {
-        guide: 'reglages-01.mp3', company: 'reglages-02.mp3', zones: 'reglages-03.mp3', pricing: 'reglages-04.mp3',
+        guide: 'reglages-01.mp3', menu: 'reglages-18.mp3', hub: 'reglages-19.mp3', company: 'reglages-02.mp3', zones: 'reglages-03.mp3', pricing: 'reglages-04.mp3',
         couriers: 'reglages-05.mp3', merchants: 'reglages-06.mp3', whatsapp: 'reglages-07.mp3', orders: 'reglages-08.mp3',
         alerts: 'reglages-09.mp3', planning: 'reglages-10.mp3', rule: 'reglages-11.mp3', autoPickup: 'reglages-12.mp3',
         autoDelivery: 'reglages-13.mp3', trial: 'reglages-14.mp3', finance: 'reglages-15.mp3', pay: 'reglages-16.mp3',
@@ -86,6 +88,31 @@ function build(device) {
     await show('text=Étapes essentielles :', 1800);
     await show('text=Prochaine étape', 1600);
     await scroll(360, 1200);
+
+    // Le menu « Réglages » : tous les réglages, rangés par thème
+    s.mark('menu');
+    s.unfocus();
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    await s.wait(500);
+    const settingsLink = page.locator('a[href="/admin/reglages"]').first();
+    if (phone) {
+      // Téléphone : le menu complet s'ouvre depuis la barre du bas
+      await s.tap('button[aria-label="Menu complet"]');
+      await s.wait(900);
+    }
+    await show(settingsLink, 1300);
+    await s.tap(settingsLink);
+    await page.waitForLoadState('networkidle');
+    await s.wait(600);
+    s.mark('hub');
+    s.unfocus();
+    await s.wait(900);
+    for (const title of ['Entreprise et marque', 'Courses et livraison', 'Zones et tarifs', 'Alertes et rappels', 'Messages aux clients', 'E-commerçants', 'Équipe et paie']) {
+      await show(page.getByText(title, { exact: true }).first(), 1250);
+    }
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    await s.wait(400);
+    await show('input[placeholder^="Chercher un réglage"]', 1600);
 
     // 1. Entreprise
     s.mark('company');

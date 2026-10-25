@@ -88,12 +88,16 @@ Une même voix pour toute la série, ton posé et chaleureux. Les durées indiqu
 | `whatsapp-06` | 4,7 s | Il peut aussi suivre un colis, ou demander son point du jour, à tout moment. |
 | `whatsapp-99` | fin, 3,6 s | Jibiat : toute votre entreprise de livraison dans une seule application. Essayez-le gratuitement pendant trente jours, sur jibiat.com. |
 
-## 7. Bien démarrer : les réglages (16:9)
+## 7. Bien démarrer : les réglages (16:9 et 9:16)
+
+Voix générée (ElevenLabs, voix « Tony », celle des autres vidéos), fichiers dans `voix/reglages/`.
 
 | Fichier | À l'image (actuel) | Texte |
 |---|---|---|
 | `reglages-00` | ouverture, 2,8 s | Voici les réglages à faire pour que Jibiat travaille pour vous. |
 | `reglages-01` | 6,2 s | La page Mise en route vous guide pas à pas. Chaque étape se coche toute seule quand elle est faite. |
+| `reglages-18` | menu Réglages | Et à tout moment, vous retrouvez tous ces réglages dans le menu Réglages. |
+| `reglages-19` | thèmes | Ils sont rangés par thème : l'entreprise, les courses et la livraison, les zones et les tarifs, les alertes, les messages aux clients, les e-commerçants, l'équipe et la paie. Et la recherche vous mène directement au bon réglage. |
 | `reglages-02` | 5,6 s | D'abord, votre entreprise : son nom, son téléphone, son adresse et son logo. |
 | `reglages-03` | 5,2 s | Ensuite, les zones que vous desservez, commune par commune. |
 | `reglages-04` | 5,6 s | Puis vos tarifs de livraison, d'une zone à l'autre. |
