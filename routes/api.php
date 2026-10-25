@@ -94,7 +94,7 @@ Route::prefix('webhooks')->name('webhooks.')->group(function () {
 // Reprise depuis l'ancienne application (Laravel 5.8) : paquets envoyés par son bouton, avec la clé de reprise
 Route::post('legacy-import', [LegacyImportController::class, 'receive'])->middleware('throttle:120,1')->name('legacy-import.receive');
 // Bascule : l'ancienne application demande le lien de connexion du compte ouvert
-Route::post('legacy-switch', [LegacySwitchController::class, 'ticket'])->middleware('throttle:600,1')->name('legacy-switch.ticket');
+Route::post('legacy-switch', [LegacySwitchController::class, 'ticket'])->middleware('throttle:120,1')->name('legacy-switch.ticket');
 
 // API publique des marchands (clé API, quota par clé) : contrat documenté dans public/docs/openapi.yaml
 Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:public-api'])->controller(PublicApiController::class)->group(function () {
