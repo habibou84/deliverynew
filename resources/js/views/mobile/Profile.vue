@@ -25,6 +25,9 @@
         </span>
       </span><span class="text-slate-400">›</span>
     </RouterLink>
+    <RouterLink v-if="auth.user?.merchant_id && auth.can('finance.view')" to="/marchand/moyens-de-paiement" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
+      <span class="font-medium">💳 Comment être payé<span class="block text-sm font-normal text-slate-500">Wave, Orange Money, MTN, Moov ou banque, avec lien et QR code</span></span><span class="text-slate-400">›</span>
+    </RouterLink>
     <RouterLink v-if="auth.user?.merchant_id && auth.hasFeature('stock')" to="/marchand/stock" class="tap m-card p-4 flex justify-between items-center active:bg-slate-50">
       <span class="font-medium">📦 Mon stock</span><span class="text-slate-400">›</span>
     </RouterLink>

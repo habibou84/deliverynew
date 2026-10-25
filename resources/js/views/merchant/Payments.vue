@@ -8,6 +8,13 @@
       <span v-else-if="lastPaid" class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700">Dernier versement le {{ date(lastPaid.paid_at) }}</span>
     </section>
 
+    <!-- Comment être payé : rappel tant qu'aucun moyen n'est donné -->
+    <RouterLink to="/marchand/moyens-de-paiement" class="tap flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200 active:bg-slate-50">
+      <span class="text-sm font-medium">💳 Comment être payé
+        <span :class="['block text-[12.5px] font-normal', methodsCount === 0 ? 'text-amber-700' : 'text-slate-500']">{{ methodsCount === 0 ? 'Indiquez votre Wave, Orange Money, MTN, Moov ou banque' : `${methodsCount} moyen${methodsCount > 1 ? 's' : ''} de paiement` }}</span>
+      </span><span class="text-slate-400">›</span>
+    </RouterLink>
+
     <!-- Le chemin de l'argent -->
     <template v-if="summary">
       <h2 class="text-[13px] font-extrabold uppercase tracking-wider text-slate-500">Où est votre argent</h2>
@@ -64,6 +71,8 @@ const entries = ref([])
 const payouts = ref([])
 const loaded = ref(false)
 const showEntries = ref(false)
+// Moyens de paiement donnés à l'agence (null : pas encore chargé)
+const methodsCount = ref(null)
 
 const longDate = (value) => new Date(value).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
@@ -98,6 +107,7 @@ onMounted(async () => {
     summary.value = ledger.data.summary
     entries.value = ledger.data.data
     payouts.value = list.data.data
+    methodsCount.value = (await cachedGet(`/merchants/${auth.user.merchant_id}/payment-methods`)).data.data.length
   } finally {
     loaded.value = true
   }
