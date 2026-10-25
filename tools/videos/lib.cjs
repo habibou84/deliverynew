@@ -65,6 +65,8 @@ class Segment {
     this.device = device;
     this.frames = [];
     this.marks = [];
+    // Zoom au montage : point visé (pixels CSS) ou retour à l'écran entier
+    this.focuses = [];
     this.mouse = { x: 640, y: 500 };
   }
 
@@ -97,17 +99,44 @@ class Segment {
     return this.page.waitForTimeout(ms);
   }
 
+  // Le montage zoome sur ce point (pixels CSS de la page), puis revient à l'écran entier
+  focus(x, y, kind = 'point') {
+    this.focuses.push({ t: Date.now() - this.startedAt, x, y, kind });
+  }
+
+  unfocus() {
+    this.focuses.push({ t: Date.now() - this.startedAt, kind: 'out' });
+  }
+
+  async focusOn(locator) {
+    const target = typeof locator === 'string' ? this.page.locator(locator).first() : locator;
+    await target.scrollIntoViewIfNeeded().catch(() => {});
+    const box = await target.boundingBox().catch(() => null);
+    if (!box) return null;
+    const x = box.x + Math.min(box.width / 2, 160);
+    const y = box.y + box.height / 2;
+    if (this.device === 'desktop') {
+      await this.page.mouse.move(x, y, { steps: 30 });
+      this.mouse = { x, y };
+    }
+    this.focus(x, y);
+    return { x, y };
+  }
+
   // Toucher (téléphone) ou clic avec déplacement visible de la souris (ordinateur)
   async tap(selector, options = {}) {
     const target = typeof selector === 'string' ? this.page.locator(selector).first() : selector;
     await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
+    const x = box.x + box.width / 2;
+    const y = box.y + box.height / 2;
+    this.focus(x, y, 'tap');
     if (this.device === 'desktop') {
-      const box = await target.boundingBox();
-      const x = box.x + box.width / 2;
-      const y = box.y + box.height / 2;
       await this.page.mouse.move(x, y, { steps: options.steps || 25 });
       this.mouse = { x, y };
       await this.wait(250);
+    } else {
+      await this.wait(350);
     }
     await target.click();
   }
@@ -128,7 +157,7 @@ class Segment {
     this.mark('end');
     await this.cdp.send('Page.stopScreencast');
     await this.wait(200);
-    fs.writeFileSync(path.join(this.dir, 'timeline.json'), JSON.stringify({ device: this.device, frames: this.frames, marks: this.marks }));
+    fs.writeFileSync(path.join(this.dir, 'timeline.json'), JSON.stringify({ device: this.device, viewport: DEVICES[this.device].viewport, frames: this.frames, marks: this.marks, focuses: this.focuses }));
     console.log(`  ${path.basename(this.dir)} : ${this.frames.length} images, ${(this.marks.at(-1).t / 1000).toFixed(1)} s`);
     await this.browser.close();
   }

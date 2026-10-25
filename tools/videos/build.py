@@ -5,7 +5,9 @@
 Entrées : spec.json et un dossier par segment (frames/ + timeline.json), écrits par record.cjs.
 Sortie : <dossier>/out/<nom>.mp4 — 1080 × 1920 (format « vertical ») ou 1920 × 1080 (« horizontal »).
 """
+import bisect
 import json
+import math
 import subprocess
 import sys
 from pathlib import Path
@@ -28,11 +30,23 @@ ORANGE = (249, 111, 2)
 FLAME = (241, 52, 14)
 PEACH = (255, 173, 112)
 FONT = '/usr/share/fonts/opentype/inter/Inter-{}.otf'
+ROOT = Path(__file__).resolve().parents[2]
+VOICE = SPEC.get('voice') or {}
+VOICE_DIR = ROOT / VOICE['dir'] if VOICE else None
 OUTRO = [['title', 'Toute votre entreprise de livraison dans une seule application'], ['pill', 'Essai gratuit 30 jours'], ['url', 'jibiat.com']]
 
 
 def font(weight, size):
     return ImageFont.truetype(FONT.format(weight), size)
+
+
+def duration(path):
+    out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(path)], capture_output=True, text=True)
+    return float(out.stdout.strip())
+
+
+def voice_file(name):
+    return VOICE_DIR / name if VOICE and name else None
 
 
 def run(cmd):
@@ -201,37 +215,124 @@ class Layout:
         return img, ((W - 1320) // 2, 4)
 
 
+# --- Zoom sur l'action ------------------------------------------------------
+class Zoom:
+    """Recadrage doux vers le point visé (clic, toucher, élément montré), puis retour à l'écran entier."""
+
+    HOLD = 3.2      # secondes de zoom après le dernier point visé
+    EASE = 0.28     # constante de temps du mouvement de caméra
+
+    def __init__(self, focuses, device, scale):
+        self.events = sorted(focuses, key=lambda e: e['t'])
+        self.times = [e['t'] / 1000 for e in self.events]
+        self.level = 1.75 if device == 'desktop' else 1.45
+        self.scale = scale
+        self.z, self.cx, self.cy = 1.0, None, None
+        self.last = None
+
+    def target(self, t, w, h):
+        i = bisect.bisect_right(self.times, t) - 1
+        if i < 0:
+            return 1.0, w / 2, h / 2, None
+        e = self.events[i]
+        if e['kind'] == 'out' or t - self.times[i] > self.HOLD:
+            return 1.0, w / 2, h / 2, None
+        return self.level, e['x'] * self.scale, e['y'] * self.scale, (t - self.times[i], e)
+
+    def step(self, t, dt, w, h):
+        z, x, y, ring = self.target(t, w, h)
+        if self.cx is None:
+            self.cx, self.cy = x, y
+        k = 1 - math.exp(-dt / self.EASE) if dt > 0 else 0
+        self.z += (z - self.z) * k
+        self.cx += (x - self.cx) * k
+        self.cy += (y - self.cy) * k
+        cw, ch = w / self.z, h / self.z
+        left = min(max(self.cx - cw / 2, 0), w - cw)
+        top = min(max(self.cy - ch / 2, 0), h - ch)
+        return (left, top, left + cw, top + ch), ring
+
+
+def render_screen(timeline, plan, size, target):
+    """Images de l'écran à 30 i/s : temps du montage (pauses de la voix comprises), zoom et cercle sur l'action."""
+    frames = timeline['frames']
+    ftimes = [f['t'] / 1000 for f in frames]
+    first = Image.open(frames[0]['file'])
+    w, h = first.size
+    scale = w / timeline.get('viewport', {}).get('width', w)
+    zoom = Zoom(timeline.get('focuses', []), timeline['device'], scale)
+    ring_r = 34 if timeline['device'] == 'desktop' else 30
+    proc = subprocess.Popen(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{size[0]}x{size[1]}', '-r', str(FPS), '-i', '-',
+                             '-c:v', 'libx264', '-crf', '15', '-preset', 'medium', '-pix_fmt', 'yuv420p', str(target)], stdin=subprocess.PIPE)
+    cache = {}
+    for n in range(int(plan['total'] * FPS)):
+        src = plan['source'](n / FPS)
+        idx = max(bisect.bisect_right(ftimes, src) - 1, 0)
+        if idx not in cache:
+            cache.clear()
+            cache[idx] = Image.open(frames[idx]['file']).convert('RGB')
+        img = cache[idx]
+        box, ring = zoom.step(src, 1 / FPS, w, h)
+        out = img.crop(tuple(round(v) for v in box)).resize(size, Image.BILINEAR)
+        if ring and ring[0] < 1.1:
+            age, e = ring
+            fx = (e['x'] * scale - box[0]) * size[0] / (box[2] - box[0])
+            fy = (e['y'] * scale - box[1]) * size[1] / (box[3] - box[1])
+            r = ring_r * (1 + age * 0.9)
+            alpha = max(0, 1 - age / 1.1)
+            layer = Image.new('RGBA', size, (0, 0, 0, 0))
+            ImageDraw.Draw(layer).ellipse((fx - r, fy - r, fx + r, fy + r), outline=(249, 111, 2, int(230 * alpha)), width=7)
+            out = Image.alpha_composite(out.convert('RGBA'), layer).convert('RGB')
+        proc.stdin.write(out.tobytes())
+    proc.stdin.close()
+    if proc.wait():
+        sys.exit('ffmpeg (écran) a échoué')
+
+
+def plan_segment(marks):
+    """Durée de chaque étape : au moins le temps de sa phrase de voix off ; l'écran se fige le temps qu'elle finisse."""
+    steps = []
+    out = 0.0
+    for i, m in enumerate(marks[:-1]):
+        a, b = m['t'] / 1000, marks[i + 1]['t'] / 1000
+        clip = voice_file(VOICE.get('marks', {}).get(m['id']))
+        need = duration(clip) + 0.6 if clip else 0
+        length = max(b - a, need)
+        steps.append({'id': m['id'], 'src': (a, b), 'out': (out, out + length), 'clip': clip})
+        out += length
+
+    def source(t):
+        for st in steps:
+            if t < st['out'][1]:
+                return min(st['src'][0] + (t - st['out'][0]), st['src'][1] - 0.001)
+        return steps[-1]['src'][1] - 0.001
+
+    return {'steps': steps, 'total': out, 'source': source}
+
+
 # --- Un segment : écran filmé + mise en page + sous-titres -----------------
 def build_segment(k, seg):
     timeline = json.loads((WORK / seg['id'] / 'timeline.json').read_text())
-    frames, marks = timeline['frames'], timeline['marks']
-    end = marks[-1]['t'] / 1000
+    marks = timeline['marks']
+    plan = plan_segment(marks)
+    end = plan['total']
     layout = Layout(seg['layout'], seg.get('address'))
     tmp = TMP / seg['id']
     tmp.mkdir(exist_ok=True)
-
-    # Images à leur instant réel (durée minimale infime : les images arrivent jusqu'à 60 par seconde)
-    lines = []
-    for i, f in enumerate(frames):
-        nxt = frames[i + 1]['t'] / 1000 if i + 1 < len(frames) else end
-        lines += [f"file '{f['file']}'", f'duration {max(nxt - f["t"] / 1000, 0.001):.4f}']
-    lines.append(f"file '{frames[-1]['file']}'")
-    (tmp / 'frames.txt').write_text('\n'.join(lines))
-    run(['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', str(tmp / 'frames.txt'), '-vf', f'fps={FPS},scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p',
-         '-c:v', 'libx264', '-crf', '14', '-preset', 'medium', str(tmp / 'screen.mp4')])
+    render_screen(timeline, plan, (layout.sw - layout.sw % 2, layout.sh - layout.sh % 2), tmp / 'screen.mp4')
 
     layout.background().save(tmp / 'bg.png')
     layout.mask().save(tmp / 'mask.png')
 
     captions = []
-    for i, m in enumerate(marks[:-1]):
-        text = SPEC['captions'].get(m['id'])
+    for i, st in enumerate(plan['steps']):
+        text = SPEC['captions'].get(st['id'])
         if not text:
             continue
-        img, pos = layout.caption(text, SPEC.get('steps', {}).get(m['id']))
+        img, pos = layout.caption(text, SPEC.get('steps', {}).get(st['id']))
         path = tmp / f'cap{i}.png'
         img.save(path)
-        captions.append((path, pos, m['t'] / 1000, marks[i + 1]['t'] / 1000))
+        captions.append((path, pos, *st['out']))
 
     loop = ['-loop', '1', '-t', f'{end:.3f}', '-i']
     inputs = [*loop, str(tmp / 'bg.png'), '-i', str(tmp / 'screen.mp4'), *loop, str(tmp / 'mask.png')]
@@ -248,7 +349,8 @@ def build_segment(k, seg):
     target = TMP / f'main{k}.mp4'
     run(['ffmpeg', '-y', *inputs, '-filter_complex', ';'.join(graph), '-map', '[out]', '-t', f'{end:.3f}',
          '-c:v', 'libx264', '-crf', '18', '-preset', 'medium', str(target)])
-    return target, end
+    voices = [(st['clip'], st['out'][0] + 0.25) for st in plan['steps'] if st['clip']]
+    return target, end, voices
 
 
 # --- Ouverture et fin ------------------------------------------------------
@@ -284,6 +386,11 @@ def still(png, seconds, mp4):
 
 
 intro_s, outro_s = SPEC.get('intro_seconds', 2.8), SPEC.get('outro_seconds', 3.6)
+intro_voice, outro_voice = voice_file(VOICE.get('intro')), voice_file(VOICE.get('outro'))
+if intro_voice:
+    intro_s = max(intro_s, duration(intro_voice) + 0.9)
+if outro_voice:
+    outro_s = max(outro_s, duration(outro_voice) + 1.0)
 card(SPEC['intro'], TMP / 'intro.png')
 card(SPEC.get('outro', OUTRO), TMP / 'outro.png')
 still(TMP / 'intro.png', intro_s, TMP / 'intro.mp4')
@@ -291,18 +398,34 @@ still(TMP / 'outro.png', outro_s, TMP / 'outro.mp4')
 
 parts = [TMP / 'intro.mp4']
 total = intro_s + outro_s
+clips = [(intro_voice, 0.4)] if intro_voice else []
+offset = intro_s
 for k, seg in enumerate(SPEC['segments']):
-    path, seconds = build_segment(k, seg)
+    path, seconds, voices = build_segment(k, seg)
     parts.append(path)
+    clips += [(c, offset + t) for c, t in voices]
+    offset += seconds
     total += seconds
 parts.append(TMP / 'outro.mp4')
+if outro_voice:
+    clips.append((outro_voice, offset + 0.4))
 
-# --- Assemblage, piste son muette (certains réseaux l'exigent) -------------
+# --- Piste son : voix off placée sur chaque étape, sinon silence (certains réseaux exigent une piste) ---
+audio = TMP / 'voice.m4a'
+if clips:
+    ins = [arg for c, _ in clips for arg in ('-i', str(c))]
+    graph = ';'.join(f'[{i}:a]aresample=44100,aformat=channel_layouts=stereo,adelay={int(t * 1000)}:all=1[a{i}]' for i, (_, t) in enumerate(clips))
+    graph += ';' + ''.join(f'[a{i}]' for i in range(len(clips))) + f'amix=inputs={len(clips)}:normalize=0,apad,atrim=0:{total:.2f}[a]'
+    run(['ffmpeg', '-y', *ins, '-filter_complex', graph, '-map', '[a]', '-c:a', 'aac', '-b:a', '128k', str(audio)])
+else:
+    run(['ffmpeg', '-y', '-f', 'lavfi', '-t', f'{total:.2f}', '-i', 'anullsrc=r=44100:cl=stereo', '-c:a', 'aac', '-b:a', '64k', str(audio)])
+
+# --- Assemblage ------------------------------------------------------------
 inputs = [arg for p in parts for arg in ('-i', str(p))]
 n = len(parts)
 target = OUT / f"{SPEC['name']}.mp4"
-run(['ffmpeg', '-y', *inputs, '-f', 'lavfi', '-t', f'{total:.2f}', '-i', 'anullsrc=r=44100:cl=stereo',
+run(['ffmpeg', '-y', *inputs, '-i', str(audio),
      '-filter_complex', ''.join(f'[{i}:v]' for i in range(n)) + f'concat=n={n}:v=1:a=0[v]', '-map', '[v]', '-map', f'{n}:a',
      '-c:v', 'libx264', '-crf', '20', '-preset', 'slow', '-profile:v', 'high', '-pix_fmt', 'yuv420p',
-     '-c:a', 'aac', '-b:a', '64k', '-shortest', '-movflags', '+faststart', str(target)])
+     '-c:a', 'aac', '-b:a', '128k', '-shortest', '-movflags', '+faststart', str(target)])
 print(target, f'{total:.1f} s')
