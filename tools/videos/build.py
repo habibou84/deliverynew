@@ -225,7 +225,9 @@ class Zoom:
     def __init__(self, focuses, device, scale):
         self.events = sorted(focuses, key=lambda e: e['t'])
         self.times = [e['t'] / 1000 for e in self.events]
-        self.level = 1.75 if device == 'desktop' else 1.45
+        # Téléphone : les blocs prennent toute la largeur, zoom léger et centré pour ne pas couper le texte
+        self.level = 1.75 if device == 'desktop' else 1.18
+        self.center_x = device != 'desktop'
         self.scale = scale
         self.z, self.cx, self.cy = 1.0, None, None
         self.last = None
@@ -237,7 +239,7 @@ class Zoom:
         e = self.events[i]
         if e['kind'] == 'out' or t - self.times[i] > self.HOLD:
             return 1.0, w / 2, h / 2, None
-        return self.level, e['x'] * self.scale, e['y'] * self.scale, (t - self.times[i], e)
+        return self.level, w / 2 if self.center_x else e['x'] * self.scale, e['y'] * self.scale, (t - self.times[i], e)
 
     def step(self, t, dt, w, h):
         z, x, y, ring = self.target(t, w, h)
