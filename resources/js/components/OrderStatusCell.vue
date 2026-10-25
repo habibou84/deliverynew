@@ -20,7 +20,7 @@
       🕒 Après {{ order.awaiting_courier.cutoff_time }}
     </div>
     <div v-if="order.last_incident && ['delivery_failed', 'rescheduled'].includes(order.status)" class="text-xs text-red-600 mt-0.5">{{ order.last_incident.label }}</div>
-    <div v-if="order.return_requested && !['returned', 'return_assigned', 'returning'].includes(order.status)" class="text-xs text-rose-600">Retour demandé</div>
+    <div v-if="order.return_requested && !['returned', 'return_assigned', 'returning'].includes(order.status)" class="mt-0.5"><span class="inline-block rounded-full bg-rose-600 px-2 py-0.5 text-xs font-semibold text-white">↩️ Retour demandé</span></div>
     <div v-if="order.delivery.scheduled_date && (order.status === 'rescheduled' || (order.delivery.scheduled_date > todayIso && !['delivered', 'cancelled', 'rejected', 'returned', 'lost'].includes(order.status)))" :class="['text-xs', order.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-gray-600']">📅 {{ order.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(order.delivery.scheduled_date) }}</div>
     <!-- Décision du marchand encore d'actualité -->
     <div v-if="order.merchant_decision" class="mt-1 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-800 whitespace-nowrap">

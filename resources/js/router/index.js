@@ -159,6 +159,7 @@ const routes = [
       { path: 'lieu-de-ramassage', component: () => import('../views/merchant/PickupLocation.vue'), meta: { title: 'Lieu de ramassage', back: true } },
       { path: 'paiements', component: () => import('../views/merchant/Payments.vue'), meta: { title: 'Mon argent', permission: 'finance.view' } },
       { path: 'paiements/:id(\\d+)', component: () => import('../views/merchant/PayoutView.vue'), meta: { title: 'Relevé', back: true, permission: 'finance.view' } },
+      { path: 'moyens-de-paiement', component: () => import('../views/merchant/PaymentMethods.vue'), meta: { title: 'Comment être payé', back: true, permission: 'finance.view' } },
       { path: 'notifications', component: () => import('../views/merchant/Notifications.vue'), meta: { title: 'Notifications', back: true } },
       { path: 'profil', component: mobile.profile, meta: { title: 'Mon profil' } },
     ],

@@ -22,6 +22,12 @@
       <span class="text-sm font-medium text-blue-600 whitespace-nowrap">{{ setup.ready ? 'Revoir' : 'Continuer' }} →</span>
     </RouterLink>
 
+    <!-- Les réglages en vidéo -->
+    <GuideVideo
+      v-if="!query" compact name="reglages" title="Bien démarrer : les réglages" duration="2 min"
+      text="Où trouver chaque réglage et comment le faire, en vidéo."
+    />
+
     <p v-if="!cards.length" class="card p-6 text-center text-gray-500">Aucun réglage ne correspond à « {{ query }} ».</p>
 
     <div class="grid gap-3 sm:grid-cols-2">
@@ -49,6 +55,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import http from '../../../bootstrap/axios'
+import GuideVideo from '../../../components/GuideVideo.vue'
 import { useAuthStore } from '../../../stores/auth'
 import { ACCEPT_MODES, AUTO_MODES, DELIVERY_MODES, delay, VALIDATION_MODES } from './options'
 

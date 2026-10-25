@@ -341,16 +341,25 @@ class Order extends Model
     }
 
     /**
-     * Courses d'un jour pour la liste de l'agence : celles à livrer ce jour-là et celles encore en cours dont
-     * le jour est déjà passé (en retard). Pour demain, les courses d'aujourd'hui ne sont pas encore en retard.
+     * Courses d'un jour pour la liste de l'agence : seulement celles à livrer ce jour-là. Les retards ont leur
+     * propre file (« En retard »).
      */
     public function scopeOfDay(Builder $query, string $day): Builder
     {
-        $final = OrderStatus::values(array_filter(OrderStatus::cases(), fn (OrderStatus $s) => $s->isFinal()));
-        $overdue = min($day, today()->toDateString());
+        return $query->whereRaw(self::DELIVERY_DAY_SQL.' = ?', [$day]);
+    }
 
-        return $query->where(fn ($q) => $q->whereRaw(self::DELIVERY_DAY_SQL.' = ?', [$day])
-            ->orWhere(fn ($q) => $q->whereRaw(self::DELIVERY_DAY_SQL.' < ?', [$overdue])->whereNotIn('status', $final)));
+    /**
+     * En retard : jour de livraison passé et course toujours en cours. Pour demain, les courses d'aujourd'hui ne
+     * sont pas encore en retard. Les retours demandés n'y sont pas : ils ont leur file « À retourner ».
+     */
+    public function scopeOverdue(Builder $query, string $day): Builder
+    {
+        $final = OrderStatus::values(array_filter(OrderStatus::cases(), fn (OrderStatus $s) => $s->isFinal()));
+
+        return $query->whereRaw(self::DELIVERY_DAY_SQL.' < ?', [min($day, today()->toDateString())])
+            ->whereNotIn('status', $final)
+            ->where('return_requested', false);
     }
 
     public function activeAssignment(AssignmentType $type): ?OrderAssignment
