@@ -11,7 +11,7 @@
 
     <DeliveryDayBar v-if="isStaff && auth.can('orders.dispatch')" @changed="load(1); dispatchCounts.fetchCounts().catch(() => {})" />
 
-    <!-- Jour affiché : aujourd'hui par défaut (retards compris), gardé d'un onglet à l'autre -->
+    <!-- Jour affiché : aujourd'hui par défaut (retards à part), gardé d'un onglet à l'autre -->
     <div v-if="isStaff" class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Jour affiché">
       <span class="text-gray-600">📅 Jour :</span>
       <button
@@ -28,7 +28,7 @@
         aria-label="Autre jour" title="Autre jour"
         @change="$event.target.value && setDay($event.target.value)"
       >
-      <span v-if="filters.day" class="hidden sm:inline text-gray-500">· courses du jour et retards encore en cours</span>
+      <span v-if="filters.day" class="hidden sm:inline text-gray-500">· seulement les courses prévues ce jour (retards dans « En retard »)</span>
     </div>
 
     <!-- Files d'attente du dispatch -->
@@ -36,16 +36,30 @@
       <button
         v-for="q in visibleQueues"
         :key="q.value"
-        :class="['btn whitespace-nowrap', filters.queue === q.value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300']"
+        :class="['btn whitespace-nowrap', filters.queue === q.value ? 'bg-slate-900 text-white' : ALERT_TABS[q.value] && tabCount(q.value) ? ALERT_TABS[q.value].tab : 'bg-white border border-slate-300']"
         @click="setQueue(q.value)"
       >
         {{ q.label }}
-        <span v-if="tabCount(q.value)" :class="['ml-1 rounded-full px-1.5 text-xs font-semibold', filters.queue === q.value ? 'bg-white/20' : 'bg-slate-100 text-slate-700']">{{ tabCount(q.value) }}</span>
+        <span v-if="tabCount(q.value)" :class="['ml-1 rounded-full px-1.5 text-xs font-semibold', filters.queue === q.value ? 'bg-white/20' : ALERT_TABS[q.value] ? ALERT_TABS[q.value].count : 'bg-slate-100 text-slate-700']">{{ tabCount(q.value) }}</span>
         <span
           v-if="tabLate(q.value)"
           class="ml-1 rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white"
           :title="`${tabLate(q.value)} course(s) sans livreur depuis trop longtemps`"
         >⏰ {{ tabLate(q.value) }}</span>
+      </button>
+    </div>
+
+    <!-- Jour choisi : retards et retours demandés à part, bien visibles -->
+    <div v-if="isDispatch && filters.day && (filters.queue === '' || isWorkQueue) && (tabCount('late') || tabCount('to_return'))" class="grid gap-2 sm:grid-cols-2">
+      <button v-if="tabCount('to_return')" type="button" class="card flex items-center gap-3 border-rose-300 bg-rose-50 px-3 py-2 text-left text-rose-900" @click="setQueue('to_return')">
+        <span class="text-2xl">↩️</span>
+        <span class="min-w-0 flex-1 text-sm"><b>{{ tabCount('to_return') }} retour{{ tabCount('to_return') > 1 ? 's' : '' }} demandé{{ tabCount('to_return') > 1 ? 's' : '' }}</b> par les e-commerçants : colis à leur rendre</span>
+        <span class="text-sm font-semibold underline">Voir</span>
+      </button>
+      <button v-if="tabCount('late')" type="button" class="card flex items-center gap-3 border-amber-300 bg-amber-50 px-3 py-2 text-left text-amber-900" @click="setQueue('late')">
+        <span class="text-2xl">⏳</span>
+        <span class="min-w-0 flex-1 text-sm"><b>{{ tabCount('late') }} course{{ tabCount('late') > 1 ? 's' : '' }} en retard</b> des jours précédents, toujours en cours</span>
+        <span class="text-sm font-semibold underline">Voir</span>
       </button>
     </div>
 
@@ -73,7 +87,7 @@
         · <button type="button" class="font-medium underline" @click="toggleLater">Masquer</button>
       </template>
     </p>
-    <p v-else-if="filters.day && filters.queue && !isWorkQueue && filters.queue !== 'scheduled'" class="text-xs text-gray-500">
+    <p v-else-if="filters.day && filters.queue && !isWorkQueue && !['scheduled', 'late'].includes(filters.queue)" class="text-xs text-gray-500">
       Cette file montre toutes les dates : chaque cas reste visible jusqu'à ce qu'il soit réglé.
     </p>
 
@@ -180,7 +194,7 @@
           v-for="o in orders"
           v-else
           :key="o.id"
-          :class="['card p-3 space-y-1.5 cursor-pointer', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : '']"
+          :class="['card p-3 space-y-1.5 cursor-pointer', returnPending(o) ? 'border-l-4 border-l-rose-500' : '', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : returnPending(o) ? 'bg-rose-50/60' : '']"
           @click="open(o)"
         >
           <div class="flex items-center justify-between gap-2">
@@ -231,7 +245,7 @@
               v-for="o in orders"
               v-else
               :key="o.id"
-              :class="['hover:bg-slate-50 cursor-pointer', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : '']"
+              :class="['hover:bg-slate-50 cursor-pointer', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : returnPending(o) ? 'bg-rose-50/60 shadow-[inset_4px_0_0_#f43f5e]' : '']"
               @click="open(o)"
             >
               <td v-if="isStaff" class="p-2" @click.stop><input v-model="selected" type="checkbox" :value="o.id" :aria-label="`Sélectionner ${o.tracking_code}`"></td>
@@ -303,12 +317,15 @@ const initialDay = () => {
   if (q === 'all') return ''
   return /^\d{4}-\d{2}-\d{2}$/.test(q || '') ? q : todayIso
 }
-// Files de travail (limitées au jour et aux retards) ; on peut y ajouter les courses prévues plus tard
+// Files de travail (limitées au jour) ; on peut y ajouter les courses prévues plus tard
 const WORK_QUEUES = ['to_pickup', 'by_client', 'to_prepare', 'to_deliver', 'unassigned']
 const LATER_QUEUES = { to_pickup: 'à ramasser', by_client: 'à ramasser', to_prepare: 'à préparer', unassigned: 'à ramasser' }
 
 const queues = [
   { value: '', label: 'Toutes' },
+  // Jour de livraison passé, course toujours en cours (hors retours demandés)
+  { value: 'late', label: '⏳ En retard' },
+  { value: 'to_return', label: '↩️ Retours demandés' },
   { value: 'to_confirm', label: 'À valider' },
   { value: 'to_pickup', label: 'À ramasser' },
   { value: 'by_client', label: '🏪 Ramassages par client' },
@@ -318,7 +335,6 @@ const queues = [
   { value: 'to_decide', label: 'À décider' },
   { value: 'scheduled', label: 'Prévues plus tard' },
   { value: 'incidents', label: 'Incidents' },
-  { value: 'to_return', label: 'À retourner' },
   // Livrées hors connexion avec un code client incorrect
   { value: 'code_to_verify', label: '⚠️ Codes à vérifier' },
 ]
@@ -383,8 +399,8 @@ const allSelected = computed(() => orders.value.length > 0 && selected.value.len
 const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
 const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_deliver: 'to_deliver', unassigned: 'unassigned' }
-// Jour choisi : compteurs de ce jour (retards compris) ; sinon compteurs généraux
-const DAY_COUNTED = { '': 'all', to_confirm: 'to_confirm', to_pickup: 'to_pickup', by_client: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned' }
+// Jour choisi : compteurs de ce jour ; sinon compteurs généraux
+const DAY_COUNTED = { '': 'all', late: 'late', to_return: 'to_return', to_confirm: 'to_confirm', to_pickup: 'to_pickup', by_client: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned' }
 const dayCounts = computed(() => (filters.day && dispatchCounts.dayCounts?.date === filters.day ? dispatchCounts.dayCounts : null))
 const tabCount = (queue) => {
   if (!isDispatch.value) return 0
@@ -396,6 +412,13 @@ const laterCount = computed(() => {
   if (!filters.day || !LATER_QUEUES[filters.queue]) return 0
   return dayCounts.value?.later?.[filters.queue === 'by_client' ? 'to_pickup' : filters.queue] || 0
 })
+// Onglets mis en évidence tant qu'ils ne sont pas vides
+const ALERT_TABS = {
+  late: { tab: 'bg-amber-50 border border-amber-300 text-amber-900', count: 'bg-amber-500 text-white' },
+  to_return: { tab: 'bg-rose-50 border border-rose-300 text-rose-900', count: 'bg-rose-600 text-white' },
+}
+// Retour demandé par l'e-commerçant, pas encore parti
+const returnPending = (o) => o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)
 const isWorkQueue = computed(() => WORK_QUEUES.includes(filters.queue))
 // En retard : le jour de livraison est passé et la course est toujours en cours
 const isLate = (o) => !!filters.day && !FINAL.includes(o.status) && deliveryDay(o) < (filters.day < todayIso ? filters.day : todayIso)

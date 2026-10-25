@@ -11,8 +11,8 @@ use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
 /**
- * Liste de l'agence sur un jour : les courses du jour et les retards, les files de travail limitées à ce qui
- * est dû, les courses prévues plus tard à part (ramassage en avance sur demande), les exceptions complètes.
+ * Liste de l'agence sur un jour : seulement les courses du jour (files de travail comprises), les retards et les
+ * retours demandés dans leurs files, les courses prévues plus tard à part (sur demande), les exceptions complètes.
  */
 class OrderListDayTest extends TestCase
 {
@@ -46,7 +46,10 @@ class OrderListDayTest extends TestCase
             'tomorrow' => $make(OrderStatus::Confirmed, ['delivery_scheduled_date' => self::TOMORROW]),
             'delivered' => $make(OrderStatus::Delivered, [], '2026-11-30 12:00:00'),
             'later' => $make(OrderStatus::Rescheduled, ['delivery_scheduled_date' => '2026-12-03']),
+            // Retour demandé par l'e-commerçant : file « Retours demandés », pas « En retard »
+            'back' => $make(OrderStatus::AtHub, [], '2026-11-29 10:00:00'),
         ];
+        $this->o['back']->forceFill(['return_requested' => true])->saveQuietly();
         Sanctum::actingAs($this->dispatcher);
     }
 
@@ -59,31 +62,32 @@ class OrderListDayTest extends TestCase
         return $ids->map(fn ($id) => $names[$id])->all();
     }
 
-    public function test_all_shows_the_day_with_late_courses_first(): void
+    public function test_all_shows_only_the_day_and_late_courses_have_their_own_queue(): void
     {
-        // Aujourd'hui : la course du jour et les retards encore en cours, les retards en tête
-        $today = $this->names(['day' => self::TODAY]);
-        $this->assertEqualsCanonicalizing(['late', 'pending', 'today'], $today);
-        $this->assertSame('today', end($today));
+        // Aujourd'hui et demain : seulement les courses prévues ce jour-là
+        $this->assertSame(['today'], $this->names(['day' => self::TODAY]));
+        $this->assertSame(['tomorrow'], $this->names(['day' => self::TOMORROW]));
 
-        // Demain : les courses de demain et les retards d'avant aujourd'hui, pas celles d'aujourd'hui
-        $this->assertEqualsCanonicalizing(['late', 'pending', 'tomorrow'], $this->names(['day' => self::TOMORROW]));
+        // En retard : les jours passés encore en cours, sans les retours demandés (file à part)
+        $this->assertEqualsCanonicalizing(['late', 'pending'], $this->names(['day' => self::TODAY, 'queue' => 'late']));
+        // Pour demain, la course d'aujourd'hui n'est pas encore en retard
+        $this->assertEqualsCanonicalizing(['late', 'pending'], $this->names(['day' => self::TOMORROW, 'queue' => 'late']));
+        $this->assertSame(['back'], $this->names(['day' => self::TODAY, 'queue' => 'to_return']));
 
         // Sans jour ou avec une période : comme avant
-        $this->assertCount(6, $this->names([]));
+        $this->assertCount(7, $this->names([]));
         $this->assertSame(['later'], $this->names(['day' => self::TODAY, 'from' => '2026-12-03', 'date_basis' => 'delivery']));
     }
 
-    public function test_work_queues_hold_what_is_due_and_later_courses_on_request(): void
+    public function test_work_queues_hold_the_day_and_later_courses_on_request(): void
     {
         $this->assertSame(['today'], $this->names(['day' => self::TODAY, 'queue' => 'to_pickup']));
         $this->assertEqualsCanonicalizing(['today', 'tomorrow'], $this->names(['day' => self::TODAY, 'queue' => 'to_pickup', 'include_later' => 1]));
-        $this->assertSame(['late'], $this->names(['day' => self::TODAY, 'queue' => 'to_deliver']));
-        $this->assertSame(['late', 'today'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned']));
-        $this->assertEqualsCanonicalizing(['late', 'today', 'tomorrow'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned', 'include_later' => 1]));
-
-        // Demain : la course de demain est à ramasser, celle d'aujourd'hui aussi (toujours pas ramassée)
-        $this->assertEqualsCanonicalizing(['today', 'tomorrow'], $this->names(['day' => self::TOMORROW, 'queue' => 'to_pickup']));
+        // Le retard n'est plus mêlé aux files du jour : il est dans « En retard »
+        $this->assertSame([], $this->names(['day' => self::TODAY, 'queue' => 'to_deliver']));
+        $this->assertSame(['today'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned']));
+        $this->assertEqualsCanonicalizing(['today', 'tomorrow'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned', 'include_later' => 1]));
+        $this->assertSame(['tomorrow'], $this->names(['day' => self::TOMORROW, 'queue' => 'to_pickup']));
 
         // Files d'exception : complètes, quel que soit le jour
         $this->assertSame(['pending'], $this->names(['day' => self::TOMORROW, 'queue' => 'to_confirm']));
@@ -93,15 +97,17 @@ class OrderListDayTest extends TestCase
     public function test_counts_and_pickup_groups_follow_the_day(): void
     {
         $counts = $this->getJson('/api/v1/orders/counts?day='.self::TODAY)->assertOk();
-        $counts->assertJsonPath('data.day.all', 3)
+        $counts->assertJsonPath('data.day.all', 1)
+            ->assertJsonPath('data.day.late', 2)
+            ->assertJsonPath('data.day.to_return', 1)
             ->assertJsonPath('data.day.to_confirm', 1)
             ->assertJsonPath('data.day.to_pickup', 1)
-            ->assertJsonPath('data.day.to_deliver', 1)
-            ->assertJsonPath('data.day.unassigned', 2)
+            ->assertJsonPath('data.day.to_deliver', 0)
+            ->assertJsonPath('data.day.unassigned', 1)
             ->assertJsonPath('data.day.later.to_pickup', 1)
             ->assertJsonPath('data.day.later.unassigned', 1)
-            ->assertJsonPath('data.day.days.today', 3)
-            ->assertJsonPath('data.day.days.tomorrow', 3)
+            ->assertJsonPath('data.day.days.today', 1)
+            ->assertJsonPath('data.day.days.tomorrow', 1)
             // Compteurs généraux (menu, tableau de bord) inchangés
             ->assertJsonPath('data.to_pickup', 2);
         $this->getJson('/api/v1/orders/counts')->assertJsonMissingPath('data.day');
