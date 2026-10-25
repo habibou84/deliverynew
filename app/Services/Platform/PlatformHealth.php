@@ -2,7 +2,9 @@
 
 namespace App\Services\Platform;
 
+use App\Enums\Role;
 use App\Models\PlatformWavePayment;
+use App\Models\User;
 use App\Models\WhatsAppAccount;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +40,7 @@ class PlatformHealth
             $this->guard('backup', 'Sauvegarde de la base', fn () => $this->backup()),
             $this->guard('wave', 'Paiements Wave en attente', fn () => $this->wavePending()),
             $this->guard('security', 'Réglages de sécurité du serveur', fn () => $this->security()),
+            $this->guard('two_factor', 'Code de connexion à la console', fn () => $this->twoFactor()),
         ]));
     }
 
@@ -189,6 +192,20 @@ class PlatformHealth
         $late = PlatformWavePayment::query()->where('status', PlatformWavePayment::PENDING)->where('created_at', '<', now()->subDay())->count();
 
         return $late > 0 ? ['warning', $late.' paiement(s) attendent depuis plus de 24 h : Console › Paiements Wave.'] : ['ok', 'Rien en retard.'];
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function twoFactor(): array
+    {
+        $admins = User::query()->whereNull('company_id')->where('status', 'active')->role(Role::SuperAdmin->value)->get();
+        $mail = $this->wave->mailReady();
+        $whatsapp = $this->whatsapp->connected();
+        $without = $admins->filter(fn (User $u) => ! (($mail && filled($u->email)) || ($whatsapp && filled($u->phone))));
+        if ($without->isNotEmpty()) {
+            return ['error', 'Le code ne peut pas partir pour '.$without->pluck('name')->implode(', ').' : la console s\'ouvre avec le seul mot de passe. Reliez Gmail et renseignez l\'e-mail du compte.'];
+        }
+
+        return ['ok', 'Code envoyé '.($mail ? 'par e-mail' : 'par WhatsApp').' à chaque connexion (appareil retenu 30 jours).'];
     }
 
     /** @return array{0: string, 1: string} */

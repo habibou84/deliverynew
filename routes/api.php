@@ -154,6 +154,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:login')
         ->name('auth.login');
+    Route::post('auth/two-factor', [AuthController::class, 'twoFactor'])->middleware('throttle:10,1')->name('auth.two-factor');
 
     // Inscription des e-commerçants et mot de passe oublié : numéro vérifié par WhatsApp ou SMS
     Route::get('signup', [SignupController::class, 'options'])->name('signup.options');
