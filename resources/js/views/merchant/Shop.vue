@@ -3,6 +3,17 @@
     <p v-if="!settings" class="text-slate-500">Chargement…</p>
 
     <template v-else>
+      <!-- Étape suivante : une vraie boutique sur Jibiat Marchand, parrainée par l'entreprise -->
+      <section v-if="settings.jibiat_marchand_url" class="m-card space-y-2 border border-emerald-200 bg-emerald-50 p-4">
+        <p class="font-semibold text-emerald-900">Envie d'une vraie boutique en ligne ?</p>
+        <p class="text-sm text-emerald-900">
+          Publicités Facebook et TikTok, votre propre nom de domaine, paiement en ligne, messages WhatsApp transformés en commandes :
+          passez à Jibiat Marchand. Vous gardez votre entreprise de livraison, vos courses lui sont envoyées toutes seules, et vous
+          avez un mois d'essai en plus.
+        </p>
+        <a :href="settings.jibiat_marchand_url" target="_blank" rel="noopener" class="m-btn-success !py-3 block text-center">Découvrir Jibiat Marchand</a>
+      </section>
+
       <!-- Ouverture et lien -->
       <section class="m-card p-4 space-y-4">
         <ToggleRow

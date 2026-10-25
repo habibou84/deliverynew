@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
+use App\Http\Controllers\Api\V1\MerchantAppReferralController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\MerchantLocationController;
 use App\Http\Controllers\Api\V1\MerchantNotificationController;
@@ -119,6 +120,7 @@ Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:pu
         $webhooks = 'api.scope:'.ApiScope::WebhooksWrite->value;
         $payouts = 'api.scope:'.ApiScope::PayoutsRead->value;
         Route::get('me', 'me')->name('me');
+        Route::put('merchant-app', 'merchantApp')->name('merchant-app');
         Route::get('webhooks', 'webhooks')->middleware($webhooks)->name('webhooks.index');
         Route::post('webhooks', 'storeWebhook')->middleware($webhooks)->name('webhooks.store');
         Route::delete('webhooks/{webhook}', 'destroyWebhook')->middleware($webhooks)->whereNumber('webhook')->name('webhooks.destroy');
@@ -336,6 +338,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::delete('whatsapp/qr', [WhatsAppQrController::class, 'destroy'])->name('whatsapp.qr.destroy');
             Route::post('whatsapp/simulate', [WhatsAppSettingsController::class, 'simulate'])->middleware(['throttle:60,1', 'feature:whatsapp_bot'])->name('whatsapp.simulate');
         });
+
+        // E-commerçants parrainés sur Jibiat Marchand et part de leur abonnement revenant à l'entreprise
+        Route::get('jibiat-marchand/referrals', [MerchantAppReferralController::class, 'index'])->middleware('can:settings.manage')->name('jibiat-marchand.referrals');
 
         // Notes des livreurs : classement, fiche, évaluation du mois, avis à traiter
         Route::middleware('can:orders.dispatch')->group(function () {

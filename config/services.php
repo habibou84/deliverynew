@@ -54,9 +54,13 @@ return [
         'timeout' => 10,
     ],
 
-    // Jibiat Marchand : lien d'invitation des e-commerçants (un mois d'essai en plus via l'annuaire)
+    // Jibiat Marchand : lien d'invitation des e-commerçants (un mois d'essai en plus via l'annuaire) ; part de
+    // l'abonnement versée à l'entreprise pour un e-commerçant parrainé (affichage : les montants viennent de
+    // Jibiat Marchand)
     'jibiat_marchand' => [
         'url' => rtrim((string) env('JIBIAT_MARCHAND_URL', 'https://jibiat-marchand.com'), '/'),
+        'referral_rate' => (float) env('JIBIAT_MARCHAND_REFERRAL_RATE', 0.2),
+        'referral_months' => (int) env('JIBIAT_MARCHAND_REFERRAL_MONTHS', 12),
     ],
 
 ];
