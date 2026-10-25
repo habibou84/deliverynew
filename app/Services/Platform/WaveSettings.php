@@ -99,7 +99,7 @@ class WaveSettings
      */
     public function mailReady(): bool
     {
-        return $this->smtp() !== null || config('mail.default') !== 'log';
+        return app(GmailConnection::class)->connected() || $this->smtp() !== null || config('mail.default') !== 'log';
     }
 
     /**
@@ -117,6 +117,12 @@ class WaveSettings
      */
     public function mailer(): ?array
     {
+        // Gmail relié par la connexion Google : en priorité, depuis l'adresse de ce compte
+        $gmail = app(GmailConnection::class);
+        if ($gmail->connected()) {
+            return ['mailer' => 'gmail', 'from' => $gmail->email()];
+        }
+
         if (($smtp = $this->smtp()) !== null) {
             config(['mail.mailers.console_smtp' => [
                 'transport' => 'smtp',
@@ -170,7 +176,8 @@ class WaveSettings
             'pin_set' => $this->value('wave.validator_pin') !== null,
             'enabled' => $this->enabled(),
             'mail' => [
-                'source' => $this->value('mail.host') !== null ? 'console' : (config('mail.default') !== 'log' ? 'server' : null),
+                'source' => app(GmailConnection::class)->connected() ? 'gmail' : ($this->value('mail.host') !== null ? 'console' : (config('mail.default') !== 'log' ? 'server' : null)),
+                'gmail' => app(GmailConnection::class)->state(),
                 'host' => $this->value('mail.host'),
                 'port' => $this->value('mail.port'),
                 'username' => $this->value('mail.username'),
