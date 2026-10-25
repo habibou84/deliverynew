@@ -130,6 +130,9 @@ class PublicContractTest extends TestCase
     public function test_account_and_reference_responses_follow_the_contract(): void
     {
         $this->assertContract('me', $this->api('GET', 'me')->assertOk()->json());
+        $report = Contract::example('merchant-app')['data'];
+        unset($report['reported_at']);
+        $this->assertContract('merchant-app', $this->api('PUT', 'merchant-app', $report)->assertOk()->json());
         $this->assertContract('zones', $this->api('GET', 'zones')->assertOk()->json());
         $this->assertContract('delivery-day', $this->api('GET', 'delivery-day')->assertOk()->json());
         $this->assertContract('quote', $this->api('POST', 'quotes', ['delivery_zone_id' => $this->yopougon->id, 'pickup_zone_id' => $this->cocody->id])->assertOk()->json());

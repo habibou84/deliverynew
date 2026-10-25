@@ -6,6 +6,7 @@ use App\Enums\FeePayer;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Merchant;
+use App\Models\MerchantAppAccount;
 use App\Services\Shop\ShopCheckout;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +74,8 @@ class MerchantShopController extends Controller
             'shop_fee_payer' => ShopCheckout::feePayer($merchant)->value,
             'suggested_slug' => $merchant->shop_slug ?? self::freeSlug($merchant),
             'url' => $merchant->shop_slug ? $merchant->company->url("/b/{$merchant->shop_slug}") : null,
+            // Étape suivante : une vraie boutique sur Jibiat Marchand, parrainée par l'entreprise (null : déjà inscrit)
+            'jibiat_marchand_url' => MerchantAppAccount::where('merchant_id', $merchant->id)->exists() ? null : $merchant->company->jibiatMarchandInviteUrl(),
         ];
     }
 

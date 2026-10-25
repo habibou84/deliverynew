@@ -6,6 +6,7 @@ use App\Enums\WebhookEvent;
 use App\Http\Controllers\Controller;
 use App\Models\ApiKey;
 use App\Models\Merchant;
+use App\Models\MerchantAppAccount;
 use App\Models\MerchantLedgerEntry;
 use App\Models\MerchantPayout;
 use App\Models\WebhookSubscription;
@@ -14,6 +15,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Jibiat\Socle\Contract\Contract;
 
 /**
  * API publique, compte du marchand : identité (/me), adresses webhook et reversements. Sert notamment aux
@@ -54,6 +56,76 @@ class PublicAccountController extends Controller
             ],
             'webhook_events' => WebhookEvent::values(),
         ]]);
+    }
+
+    /**
+     * Compte Jibiat Marchand du marchand, parrainé par l'entreprise (contrat merchant-app) : abonnement et part de
+     * l'abonnement revenant à l'entreprise. Rapporté par Jibiat Marchand à chaque paiement et une fois par jour.
+     */
+    public function merchantApp(Request $request): JsonResponse
+    {
+        $merchant = $this->merchant($request);
+        $data = $request->validate([
+            'store_name' => ['required', 'string', 'max:120'],
+            'store_url' => ['required', 'url:https,http', 'max:255'],
+            'referred' => ['required', 'boolean'],
+            'signed_up_at' => ['nullable', 'date'],
+            'plan' => ['required', 'array'],
+            'plan.name' => ['nullable', 'string', 'max:80'],
+            'plan.status' => ['required', Rule::in(Contract::MERCHANT_APP_PLAN_STATUSES)],
+            'commission' => ['required', 'array'],
+            'commission.rate' => ['required', 'numeric', 'between:0,1'],
+            'commission.months' => ['required', 'integer', 'between:0,120'],
+            'commission.ends_at' => ['nullable', 'date'],
+            'commission.currency' => ['required', 'string', 'size:3'],
+            'commission.earned_total' => ['required', 'integer', 'min:0'],
+            'commission.earned_month' => ['required', 'integer', 'min:0'],
+            'commission.paid_total' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $account = MerchantAppAccount::updateOrCreate(['merchant_id' => $merchant->id], [
+            'company_id' => $merchant->company_id,
+            'store_name' => $data['store_name'],
+            'store_url' => $data['store_url'],
+            'referred' => $data['referred'],
+            'signed_up_at' => $data['signed_up_at'] ?? null,
+            'plan_name' => $data['plan']['name'] ?? null,
+            'plan_status' => $data['plan']['status'],
+            'commission_rate' => $data['commission']['rate'],
+            'commission_months' => $data['commission']['months'],
+            'commission_ends_at' => $data['commission']['ends_at'] ?? null,
+            'currency' => strtoupper($data['commission']['currency']),
+            'earned_total' => $data['commission']['earned_total'],
+            'earned_month' => $data['commission']['earned_month'],
+            'paid_total' => $data['commission']['paid_total'],
+            'reported_at' => now(),
+        ]);
+
+        return response()->json(['data' => self::presentMerchantApp($account)]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function presentMerchantApp(MerchantAppAccount $account): array
+    {
+        return [
+            'store_name' => $account->store_name,
+            'store_url' => $account->store_url,
+            'referred' => $account->referred,
+            'signed_up_at' => $account->signed_up_at?->toIso8601String(),
+            'plan' => ['name' => $account->plan_name, 'status' => $account->plan_status],
+            'commission' => [
+                'rate' => $account->commission_rate,
+                'months' => $account->commission_months,
+                'ends_at' => $account->commission_ends_at?->toDateString(),
+                'currency' => $account->currency,
+                'earned_total' => $account->earned_total,
+                'earned_month' => $account->earned_month,
+                'paid_total' => $account->paid_total,
+            ],
+            'reported_at' => $account->reported_at->toIso8601String(),
+        ];
     }
 
     public function webhooks(Request $request): JsonResponse
