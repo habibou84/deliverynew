@@ -108,7 +108,7 @@ function build(device) {
     s.unfocus();
     await s.wait(900);
     for (const title of ['Entreprise et marque', 'Courses et livraison', 'Zones et tarifs', 'Alertes et rappels', 'Messages aux clients', 'E-commerçants', 'Équipe et paie']) {
-      await show(page.getByText(title, { exact: true }).first(), 1250);
+      await show(page.locator('main').getByText(title, { exact: true }).first(), 1250);
     }
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
     await s.wait(400);
