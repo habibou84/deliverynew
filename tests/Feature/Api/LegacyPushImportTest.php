@@ -116,6 +116,19 @@ class LegacyPushImportTest extends TestCase
         $this->send($key, ['step' => 'zones', 'fees' => $fees, 'users' => []])->assertOk()->assertJsonPath('data.counts.zones_created', 0);
     }
 
+    public function test_a_zone_without_city_gets_the_default_city(): void
+    {
+        $key = $this->key();
+        $fees = [
+            ['id' => 1, 'destination' => 'Bingerville Centre', 'price' => 1500, 'city' => null],
+            ['id' => 2, 'destination' => 'Anyama Gare', 'price' => 2000],
+        ];
+
+        $this->send($key, ['step' => 'zones', 'fees' => $fees, 'users' => []])->assertOk()->assertJsonPath('data.counts.zones_created', 2);
+        $this->assertSame('Abidjan', Zone::where('name', 'Bingerville Centre')->value('city'));
+        $this->assertSame('Abidjan', Zone::where('name', 'Anyama Gare')->value('city'));
+    }
+
     public function test_team_accounts_and_the_admin_client_are_not_imported(): void
     {
         $key = $this->key();
