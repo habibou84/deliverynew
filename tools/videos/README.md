@@ -11,6 +11,7 @@ Chaque scénario se rejoue à l'identique après une modification des écrans.
 | `caisse` | Le point de caisse en 2 minutes | 16:9 |
 | `statistiques` | Vos statistiques | 16:9 |
 | `de-a-a-z` | Une course de A à Z (e-commerçant, agence, livreur, caisse) | 16:9 |
+| `reglages` | Bien démarrer : les réglages (mise en route, planning, ramassage et livraison automatiques) | 16:9 |
 
 ## Fichiers
 

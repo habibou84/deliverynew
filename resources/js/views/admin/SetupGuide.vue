@@ -5,6 +5,11 @@
       <p class="text-sm text-gray-600">Étape par étape, ce qu'il faut régler pour que l'application travaille bien. Chaque étape se coche toute seule quand c'est fait.</p>
     </div>
 
+    <GuideVideo
+      name="reglages" title="Bien démarrer : les réglages" duration="2 min"
+      text="Tous les réglages en vidéo : entreprise, zones, livreurs, WhatsApp, planning, ramassage et livraison automatiques, caisse."
+    />
+
     <p v-if="error" class="field-error">{{ error }}</p>
 
     <template v-if="guide">
@@ -89,6 +94,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import GuideVideo from '../../components/GuideVideo.vue'
 
 /**
  * Parcours de mise en route : étapes essentielles puis conseillées, vérifiées par le serveur sur les vraies données.

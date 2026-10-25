@@ -38,6 +38,7 @@
             <td data-label="Statut" class="p-2"><span :class="m.status === 'active' ? 'text-emerald-700' : 'text-red-600'">{{ m.status === 'active' ? 'Actif' : 'Suspendu' }}</span></td>
             <td class="p-2 text-right whitespace-nowrap">
               <RouterLink :to="{ path: '/admin/courses', query: { merchant_id: m.id } }" class="text-blue-600 mr-3">Courses</RouterLink>
+              <button v-if="auth.can('finance.view')" class="text-blue-600 mr-3" @click="openPayment(m)">Paiement</button>
               <button v-if="auth.can('merchants.manage')" class="text-blue-600" @click="openForm(m)">Modifier</button>
             </td>
           </tr>
@@ -109,6 +110,10 @@
         <button class="btn-primary w-full" :disabled="form.saving">Enregistrer</button>
       </form>
     </Modal>
+    <!-- Moyens de paiement du marchand : vérifier, refuser, saisir, historique -->
+    <Modal :open="!!payment" :title="`Paiement · ${payment?.business_name || ''}`" @close="payment = null">
+      <PaymentMethodsManager v-if="payment" :merchant-id="payment.id" :can-edit="auth.can('finance.manage')" />
+    </Modal>
   </div>
 </template>
 
@@ -119,6 +124,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ConnectRequests from '../../components/ConnectRequests.vue'
 import LocationPicker from '../../components/LocationPicker.vue'
 import Modal from '../../components/Modal.vue'
+import PaymentMethodsManager from '../../components/payment/PaymentMethodsManager.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
@@ -131,6 +137,11 @@ const search = ref('')
 const route = useRoute()
 // Lien de la notification « Nouvel e-commerçant » : ?nouveaux=1
 const onlySignups = ref(!!route.query.nouveaux)
+// Fenêtre « Paiement » ouverte (lien de la caisse ou de l'alerte : ?id=…&onglet=paiement)
+const payment = ref(null)
+function openPayment(m) {
+  payment.value = { id: m.id, business_name: m.business_name }
+}
 const form = reactive({ open: false, id: null, data: {}, owner: {}, error: '', saving: false, location: null, initialLocation: null, source: null })
 const SOURCES = { merchant: 'par le marchand', staff: 'par l\'agence', courier: 'estimée (livreurs)' }
 const locationChanged = computed(() => form.location?.lat !== form.initialLocation?.lat || form.location?.lng !== form.initialLocation?.lng)
@@ -190,7 +201,11 @@ async function save() {
 }
 
 onMounted(async () => {
-  load()
+  await load()
+  if (route.query.onglet === 'paiement' && route.query.id) {
+    const m = merchants.value.find((x) => x.id === Number(route.query.id))
+    payment.value = { id: Number(route.query.id), business_name: m?.business_name || '' }
+  }
   zones.value = (await http.get('/zones')).data.data
   if (auth.can('settings.manage')) grids.value = (await http.get('/pricing-grids')).data.data
 })
