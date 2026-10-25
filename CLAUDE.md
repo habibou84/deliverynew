@@ -21,6 +21,7 @@ Toujours répondre en français. Textes de l'interface, messages, commits et PR 
   `docs/PREPRODUCTION.md`, `resources/js/components/auth/LoginForm.vue` (partie démo), routes `demo-accounts` de `routes/api.php`,
   `tests/Feature/Api/DemoAccountsTest.php`.
 - **PR #100** : exemption `api/public/*` dans `PreprodGate` (et son test dans `PreprodGateTest`).
+- **PR #184** : exemption `api/legacy-switch` et cookie posé par `/bascule/*` dans `PreprodGate` (et son test dans `PreprodGateTest`).
 
 ## Tests et style
 ```bash
