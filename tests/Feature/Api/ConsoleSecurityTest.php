@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Enums\Role;
 use App\Models\PlatformAuditLog;
+use App\Models\TrustedDevice;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -87,7 +88,10 @@ class ConsoleSecurityTest extends TestCase
 
     public function test_super_admin_session_lasts_twelve_hours(): void
     {
-        $this->postJson($this->console('/auth/login'), ['login' => '0700000099', 'password' => 'password'])->assertOk();
+        // Appareil retenu : pas de code de connexion à saisir
+        $device = 'td_'.str_repeat('a', 48);
+        TrustedDevice::create(['user_id' => $this->root->id, 'token_hash' => hash('sha256', $device), 'expires_at' => now()->addDay()]);
+        $this->postJson($this->console('/auth/login'), ['login' => '0700000099', 'password' => 'password', 'trusted_device' => $device])->assertOk()->assertJsonPath('user.id', $this->root->id);
         $expires = PersonalAccessToken::query()->where('tokenable_id', $this->root->id)->sole()->expires_at;
         $this->assertTrue($expires->between(now()->addHours(11), now()->addHours(13)));
 

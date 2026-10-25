@@ -50,7 +50,7 @@ class AuditSuperAdmin
         $token = $user->currentAccessToken();
         $tokenName = is_object($token) && isset($token->name) ? (string) $token->name : '';
         $support = str_starts_with($tokenName, SupportSession::TOKEN_PREFIX);
-        if (! $support && ! $user->isSuperAdmin()) {
+        if (! $support && ! $user->isPlatformStaff()) {
             return;
         }
 

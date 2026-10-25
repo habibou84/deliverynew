@@ -149,7 +149,8 @@ class WavePayments
 
         // Cloche de la console, quoi qu'il arrive
         try {
-            $admins = User::query()->whereNull('company_id')->where('status', 'active')->role(Role::SuperAdmin->value)->get();
+            // Propriétaires et comptables de la console
+            $admins = User::query()->whereNull('company_id')->where('status', 'active')->role([Role::SuperAdmin->value, Role::PlatformAccountant->value])->get();
             Notification::send($admins, new WavePaymentReceived($payment, $claimed));
         } catch (Throwable $e) {
             report($e);

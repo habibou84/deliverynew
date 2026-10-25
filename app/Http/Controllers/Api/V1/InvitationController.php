@@ -39,6 +39,8 @@ class InvitationController extends Controller
             'role_label' => $user->primaryRole()?->label(),
             'company' => $user->company?->name,
             'has_password' => $user->password !== null,
+            // Équipe de la console : mot de passe obligatoire, puis connexion avec le code envoyé par e-mail
+            'console' => $user->isPlatformStaff(),
             'expires_at' => $invitation->expires_at,
         ]]);
     }
@@ -48,12 +50,18 @@ class InvitationController extends Controller
         $invitation = $this->invitations->find($token);
         abort_if($invitation === null, 404, "Cette invitation n'est plus valable. Demandez-en une nouvelle à votre administrateur.");
 
+        $console = $invitation->user?->isPlatformStaff() ?? false;
         $data = $request->validate([
-            'password' => ['nullable', 'string', 'confirmed', Password::min(8)],
+            'password' => [$console ? 'required' : 'nullable', 'string', 'confirmed', Password::min($console ? 12 : 8)],
             'device_name' => ['nullable', 'string', 'max:100'],
         ], [], ['password' => 'mot de passe']);
 
         $user = $this->invitations->accept($invitation, $data['password'] ?? null);
+
+        // Console : pas de session ouverte par le lien, la connexion passe par le mot de passe et le code
+        if ($console) {
+            return response()->json(['login' => true, 'message' => 'Mot de passe enregistré : connectez-vous avec votre téléphone ou votre e-mail.']);
+        }
 
         return response()->json(AuthController::session($user, $data['device_name'] ?? 'invitation'));
     }

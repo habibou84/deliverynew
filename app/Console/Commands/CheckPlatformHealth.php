@@ -40,7 +40,7 @@ class CheckPlatformHealth extends Command
             return self::SUCCESS;
         }
 
-        $admins = User::query()->whereNull('company_id')->where('status', 'active')->role(Role::SuperAdmin->value)->get();
+        $admins = User::query()->whereNull('company_id')->where('status', 'active')->role([Role::SuperAdmin->value, Role::PlatformSupport->value])->get();
         Notification::send($admins, new PlatformHealthAlert($new));
 
         $text = "Jibiat · ⚠️ À vérifier sur la plateforme :\n".collect($new)->map(fn (array $p) => '• '.$p['label'].' : '.$p['detail'])->implode("\n");

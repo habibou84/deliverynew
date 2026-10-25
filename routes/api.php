@@ -11,12 +11,17 @@ use App\Http\Controllers\Api\V1\AppearanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CompanySignupController;
+use App\Http\Controllers\Api\V1\CompanySupportController;
+use App\Http\Controllers\Api\V1\ConsoleAccountController;
 use App\Http\Controllers\Api\V1\ConsoleAuditController;
 use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
+use App\Http\Controllers\Api\V1\ConsoleDashboardController;
 use App\Http\Controllers\Api\V1\ConsoleGmailController;
 use App\Http\Controllers\Api\V1\ConsoleHealthController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
+use App\Http\Controllers\Api\V1\ConsoleSearchController;
+use App\Http\Controllers\Api\V1\ConsoleTeamController;
 use App\Http\Controllers\Api\V1\ConsoleWaveController;
 use App\Http\Controllers\Api\V1\ConsoleWhatsAppController;
 use App\Http\Controllers\Api\V1\CourierAvailabilityController;
@@ -153,6 +158,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::post('auth/login', [AuthController::class, 'login'])
         ->middleware('throttle:login')
         ->name('auth.login');
+    Route::post('auth/two-factor', [AuthController::class, 'twoFactor'])->middleware('throttle:10,1')->name('auth.two-factor');
 
     // Inscription des e-commerçants et mot de passe oublié : numéro vérifié par WhatsApp ou SMS
     Route::get('signup', [SignupController::class, 'options'])->name('signup.options');
@@ -215,59 +221,82 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::delete('push/subscriptions', [PushSubscriptionController::class, 'destroy'])->name('push.unsubscribe');
         Route::post('push/test', [PushSubscriptionController::class, 'test'])->middleware('throttle:5,1')->name('push.test');
 
-        // Console du super administrateur (plateforme)
-        Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsoleController::class)->group(function () {
+        // Console de la plateforme. Rôles : Propriétaire (super_admin) partout ; Support : entreprises, assistance,
+        // santé, conversations WhatsApp ; Comptable : factures et paiements Wave. Les autres lisent seulement.
+        $owner = 'role:super_admin';
+        $support = 'role:super_admin|platform_support';
+        $accounting = 'role:super_admin|platform_accountant';
+        $team = 'role:super_admin|platform_support|platform_accountant';
+
+        Route::prefix('console')->name('console.')->middleware($team)->controller(ConsoleController::class)->group(function () use ($support, $accounting) {
             Route::get('companies', 'companies')->name('companies');
             Route::get('companies/{company}', 'show')->name('companies.show');
-            Route::post('companies/{company}/support-session', 'supportSession')->middleware('throttle:10,1')->name('companies.support');
-            Route::delete('companies/{company}/support-sessions/{session}', 'closeSupportSession')->name('companies.support.close');
-            Route::put('companies/{company}/billing-cycle', 'billingCycle')->name('companies.billing-cycle');
+            Route::post('companies/{company}/support-session', 'supportSession')->middleware([$support, 'throttle:10,1'])->name('companies.support');
+            Route::delete('companies/{company}/support-sessions/{session}', 'closeSupportSession')->middleware($support)->name('companies.support.close');
+            Route::put('companies/{company}/billing-cycle', 'billingCycle')->middleware($accounting)->name('companies.billing-cycle');
         });
-        Route::get('console/audit', [ConsoleAuditController::class, 'index'])->middleware('role:super_admin')->name('console.audit');
-        Route::get('console/health', [ConsoleHealthController::class, 'show'])->middleware('role:super_admin')->name('console.health');
-        Route::post('console/gmail/connect', [ConsoleGmailController::class, 'connect'])->middleware(['role:super_admin', 'throttle:10,1'])->name('console.gmail.connect');
-        Route::delete('console/gmail', [ConsoleGmailController::class, 'disconnect'])->middleware('role:super_admin')->name('console.gmail.disconnect');
-        // Messagerie WhatsApp du numéro de Jibiat (connexion officielle ou QR code)
-        Route::prefix('console/whatsapp')->name('console.whatsapp.')->middleware('role:super_admin')->controller(ConsoleWhatsAppController::class)->group(function () {
+        Route::get('console/dashboard', [ConsoleDashboardController::class, 'show'])->middleware($team)->name('console.dashboard');
+        Route::get('console/search', [ConsoleSearchController::class, 'search'])->middleware([$team, 'throttle:60,1'])->name('console.search');
+        Route::get('console/audit', [ConsoleAuditController::class, 'index'])->middleware($owner)->name('console.audit');
+        Route::get('console/health', [ConsoleHealthController::class, 'show'])->middleware($support)->name('console.health');
+        Route::prefix('console/account')->name('console.account.')->middleware($team)->controller(ConsoleAccountController::class)->group(function () {
             Route::get('/', 'show')->name('show');
-            Route::post('connect', 'connect')->middleware('throttle:20,1')->name('connect');
-            Route::delete('connect', 'disconnect')->name('disconnect');
-            Route::put('official', 'official')->middleware('throttle:20,1')->name('official');
-            Route::post('official/verify', 'verifyOfficial')->middleware('throttle:20,1')->name('official.verify');
-            Route::delete('official', 'removeOfficial')->name('official.remove');
-            Route::put('sms', 'sms')->name('sms');
+            Route::put('/', 'update')->middleware('throttle:10,1')->name('update');
+            Route::delete('devices/{device?}', 'forgetDevices')->whereNumber('device')->name('devices.forget');
+        });
+        // Équipe de la console : invitations, rôles, suspension (Propriétaire)
+        Route::prefix('console/team')->name('console.team.')->middleware($owner)->controller(ConsoleTeamController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'invite')->middleware('throttle:20,1')->name('invite');
+            Route::patch('{member}', 'update')->name('update');
+            Route::post('{member}/invitation', 'reinvite')->middleware('throttle:20,1')->name('reinvite');
+        });
+        Route::post('console/gmail/connect', [ConsoleGmailController::class, 'connect'])->middleware([$owner, 'throttle:10,1'])->name('console.gmail.connect');
+        Route::delete('console/gmail', [ConsoleGmailController::class, 'disconnect'])->middleware($owner)->name('console.gmail.disconnect');
+        // Messagerie WhatsApp du numéro de Jibiat (connexion officielle ou QR code) : réglages au Propriétaire,
+        // conversations aussi au Support
+        Route::prefix('console/whatsapp')->name('console.whatsapp.')->middleware($support)->controller(ConsoleWhatsAppController::class)->group(function () use ($owner) {
+            Route::get('/', 'show')->name('show');
+            Route::post('connect', 'connect')->middleware([$owner, 'throttle:20,1'])->name('connect');
+            Route::delete('connect', 'disconnect')->middleware($owner)->name('disconnect');
+            Route::put('official', 'official')->middleware([$owner, 'throttle:20,1'])->name('official');
+            Route::post('official/verify', 'verifyOfficial')->middleware([$owner, 'throttle:20,1'])->name('official.verify');
+            Route::delete('official', 'removeOfficial')->middleware($owner)->name('official.remove');
+            Route::put('sms', 'sms')->middleware($owner)->name('sms');
             Route::get('conversations', 'conversations')->name('conversations');
             Route::post('conversations', 'open')->name('open');
             Route::get('conversations/{conversation}', 'messages')->name('messages');
             Route::post('conversations/{conversation}/messages', 'reply')->middleware('throttle:60,1')->name('reply');
         });
-        Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsolePlanController::class)->group(function () {
+        Route::prefix('console')->name('console.')->middleware($team)->controller(ConsolePlanController::class)->group(function () use ($owner) {
             Route::get('plans', 'index')->name('plans.index');
-            Route::post('plans', 'store')->name('plans.store');
-            Route::post('plans/suggested', 'suggested')->name('plans.suggested');
-            Route::patch('plans/{plan}', 'update')->name('plans.update');
+            Route::post('plans', 'store')->middleware($owner)->name('plans.store');
+            Route::post('plans/suggested', 'suggested')->middleware($owner)->name('plans.suggested');
+            Route::patch('plans/{plan}', 'update')->middleware($owner)->name('plans.update');
         });
-        Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsoleBillingController::class)->group(function () {
-            Route::get('invoices', 'index')->name('invoices.index');
-            Route::post('invoices/generate', 'generate')->name('invoices.generate');
-            Route::get('invoices/{invoice}', 'show')->name('invoices.show');
-            Route::post('invoices/{invoice}/payments', 'pay')->name('invoices.pay');
-            Route::post('invoices/{invoice}/void', 'void')->name('invoices.void');
+        Route::prefix('console')->name('console.')->middleware($team)->controller(ConsoleBillingController::class)->group(function () use ($owner, $accounting) {
+            Route::get('invoices', 'index')->middleware($accounting)->name('invoices.index');
+            Route::post('invoices/generate', 'generate')->middleware($accounting)->name('invoices.generate');
+            Route::get('invoices/{invoice}', 'show')->middleware($accounting)->name('invoices.show');
+            Route::post('invoices/{invoice}/payments', 'pay')->middleware($accounting)->name('invoices.pay');
+            Route::post('invoices/{invoice}/void', 'void')->middleware($accounting)->name('invoices.void');
             Route::get('settings', 'settings')->name('settings.show');
-            Route::put('settings', 'updateSettings')->name('settings.update');
+            Route::put('settings', 'updateSettings')->middleware($owner)->name('settings.update');
         });
-        Route::prefix('console')->name('console.')->middleware('role:super_admin')->controller(ConsoleWaveController::class)->group(function () {
-            Route::get('wave', 'show')->name('wave.show');
-            Route::put('wave', 'update')->name('wave.update');
-            Route::post('wave/qr', 'uploadQr')->name('wave.qr');
-            Route::delete('wave/qr', 'removeQr')->name('wave.qr.remove');
-            Route::put('wave/mail', 'updateMail')->name('wave.mail');
-            Route::post('wave/test-alert', 'testAlert')->middleware('throttle:5,1')->name('wave.test-alert');
-            Route::get('wave/payments', 'pending')->name('wave.pending');
-            Route::post('wave/payments/{payment}/decide', 'decide')->name('wave.decide');
+        Route::prefix('console')->name('console.')->middleware($team)->controller(ConsoleWaveController::class)->group(function () use ($owner, $accounting) {
+            Route::get('wave', 'show')->middleware($owner)->name('wave.show');
+            Route::put('wave', 'update')->middleware($owner)->name('wave.update');
+            Route::post('wave/qr', 'uploadQr')->middleware($owner)->name('wave.qr');
+            Route::delete('wave/qr', 'removeQr')->middleware($owner)->name('wave.qr.remove');
+            Route::put('wave/mail', 'updateMail')->middleware($owner)->name('wave.mail');
+            Route::post('wave/test-alert', 'testAlert')->middleware([$owner, 'throttle:5,1'])->name('wave.test-alert');
+            Route::get('wave/payments', 'pending')->middleware($accounting)->name('wave.pending');
+            Route::post('wave/payments/{payment}/decide', 'decide')->middleware($accounting)->name('wave.decide');
         });
 
         // Domaine personnalisé de l'entreprise (module de la formule pour le choisir)
+        // Ouvertures de l'espace par l'assistance Jibiat
+        Route::get('company/support-sessions', [CompanySupportController::class, 'index'])->middleware('can:settings.manage')->name('company.support-sessions');
         // Reprise de l'ancienne application : clé à coller dans son bouton, module à y copier
         Route::prefix('company/legacy-import')->name('company.legacy-import.')->middleware('can:settings.manage')->controller(LegacyImportController::class)->group(function () {
             Route::get('/', 'show')->name('show');

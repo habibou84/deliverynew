@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Entreprises de livraison</h1>
-      <button class="btn-primary" @click="openCreate">+ Nouvelle entreprise</button>
+      <button v-if="can('owner')" class="btn-primary" @click="openCreate">+ Nouvelle entreprise</button>
     </div>
 
     <div v-if="meta.totals" class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -22,7 +22,7 @@
         </template>
         <template v-else>fermée (les entreprises sont créées ici)</template>
       </p>
-      <button class="btn-secondary !py-1" :disabled="signupOpen === null" @click="toggleSignup">{{ signupOpen ? 'Fermer' : 'Ouvrir' }}</button>
+      <button v-if="can('owner')" class="btn-secondary !py-1" :disabled="signupOpen === null" @click="toggleSignup">{{ signupOpen ? 'Fermer' : 'Ouvrir' }}</button>
     </div>
 
     <div class="flex flex-wrap gap-2">
@@ -133,6 +133,8 @@ import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
 import StatCard from '../../components/StatCard.vue'
+import { consoleCan } from '../../roles'
+import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { date, dateTime, money } from '../../utils/format'
 
@@ -146,6 +148,8 @@ const TIMEZONES = [
 
 const router = useRouter()
 const toasts = useToastStore()
+const auth = useAuthStore()
+const can = (group) => consoleCan(auth.role, group)
 const companies = ref([])
 const meta = ref({})
 const loaded = ref(false)

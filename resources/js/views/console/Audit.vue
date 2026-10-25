@@ -3,7 +3,7 @@
     <div>
       <h1 class="text-xl font-bold">Journal des actions</h1>
       <p class="text-sm text-gray-600">
-        Chaque modification faite par un super administrateur (console, fiches entreprises, sessions d'assistance).
+        Chaque modification faite par l'équipe de la console (console, fiches entreprises, sessions d'assistance).
         Les mots de passe, codes et jetons ne sont jamais enregistrés.
       </p>
     </div>
@@ -62,6 +62,17 @@ import { dateTime } from '../../utils/format'
 const LABELS = {
   'auth.login': 'Connexion',
   'auth.logout': 'Déconnexion',
+  'auth.two-factor': 'Connexion avec le code reçu',
+  'auth.password': 'Mot de passe changé',
+  'console.account.update': 'Mon compte modifié (nom, téléphone, e-mail)',
+  'console.account.devices.forget': 'Appareils retenus oubliés',
+  'console.search': 'Recherche dans la console',
+  'console.team.invite': 'Personne invitée dans l\'équipe de la console',
+  'console.team.reinvite': 'Nouveau lien d\'invitation (équipe de la console)',
+  'console.team.update': 'Rôle ou état d\'un membre de la console changé',
+  'console.not-me': '« Ce n\'était pas moi » : compte sécurisé',
+  'console.gmail.connect': 'Connexion de Gmail demandée',
+  'console.gmail.disconnect': 'Gmail déconnecté',
   'companies.store': 'Entreprise créée',
   'companies.update': 'Fiche entreprise modifiée',
   'console.companies.support': 'Session d\'assistance ouverte',
@@ -97,6 +108,8 @@ const GROUPS = [
   { value: 'console.wave', label: 'Paiements Wave' },
   { value: 'console.whatsapp', label: 'WhatsApp et SMS' },
   { value: 'auth', label: 'Connexions' },
+  { value: 'console.team', label: 'Équipe de la console' },
+  { value: 'console.search', label: 'Recherches' },
 ]
 
 const route = useRoute()

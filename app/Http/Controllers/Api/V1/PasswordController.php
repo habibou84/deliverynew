@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\UserResource;
+use App\Models\TrustedDevice;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +26,7 @@ class PasswordController extends Controller
 
         $data = $request->validate([
             'current_password' => [$hasPassword ? 'required' : 'nullable', 'string'],
-            'password' => ['required', 'string', 'confirmed', Password::min($user->isSuperAdmin() ? 12 : 8)],
+            'password' => ['required', 'string', 'confirmed', Password::min($user->isPlatformStaff() ? 12 : 8)],
         ], [], ['current_password' => 'mot de passe actuel', 'password' => 'nouveau mot de passe']);
 
         if ($hasPassword && ! Hash::check($data['current_password'], $user->password)) {
@@ -38,6 +39,8 @@ class PasswordController extends Controller
             // Changement : les sessions ouvertes ailleurs sont fermées ; définition : rien à fermer
             $current = $request->user()->currentAccessToken();
             $user->tokens()->when($current instanceof PersonalAccessToken, fn ($q) => $q->whereKeyNot($current->id))->delete();
+            // Console : les appareils retenus redemanderont le code
+            TrustedDevice::query()->where('user_id', $user->id)->delete();
         });
 
         return response()->json([

@@ -134,10 +134,14 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import { consoleCan } from '../../roles'
+import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
 
 const toasts = useToastStore()
+const auth = useAuthStore()
+const can = (group) => consoleCan(auth.role, group)
 const CHANNELS = { whatsapp: 'WhatsApp', mail: 'e-mail', sms: 'SMS', journal: 'SMS non envoyé (pas de fournisseur)' }
 const pending = ref([])
 const loaded = ref(false)
@@ -260,7 +264,8 @@ onMounted(async () => {
   else if (gmail === 'erreur') toasts.error(String(route.query.message || 'Gmail n\'a pas pu être relié.'))
   if (gmail) router.replace({ query: {} })
 
-  fill((await http.get('/console/wave')).data.data)
+  // Réglages Wave et envoi des alertes : Propriétaire seulement (le Comptable valide les paiements)
+  if (can('owner')) fill((await http.get('/console/wave')).data.data)
   await loadPending()
 })
 </script>
