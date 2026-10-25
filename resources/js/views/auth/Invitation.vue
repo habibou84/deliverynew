@@ -13,18 +13,30 @@
           <RouterLink to="/admin/connexion" class="inline-block text-sm underline text-slate-600">Aller à la connexion</RouterLink>
         </div>
 
+        <div v-else-if="done" class="text-center space-y-3">
+          <p class="text-3xl" aria-hidden="true">✅</p>
+          <h1 class="text-xl font-bold">Compte prêt</h1>
+          <p class="text-sm text-slate-600">{{ done }} Un code vous sera envoyé par e-mail à chaque nouvel appareil.</p>
+          <RouterLink to="/admin/connexion" class="inline-block rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white">Se connecter</RouterLink>
+        </div>
+
         <form v-else class="space-y-4" @submit.prevent="accept">
           <div class="text-center space-y-1">
             <p class="text-3xl" aria-hidden="true">👋</p>
             <h1 class="text-xl font-bold">Bienvenue, {{ invitation.name }}</h1>
             <p class="text-sm text-slate-600">
-              Votre compte <strong>{{ invitation.role_label }}</strong> chez <strong>{{ invitation.company }}</strong> est prêt ({{ invitation.phone }}).
+              Votre compte <strong>{{ invitation.role_label }}</strong>
+              <template v-if="invitation.console">de la console Jibiat</template><template v-else>chez <strong>{{ invitation.company }}</strong></template>
+              est prêt ({{ invitation.phone }}).
             </p>
           </div>
           <p v-if="error" class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2" role="alert">{{ error }}</p>
 
           <div class="rounded-2xl bg-slate-50 p-4 space-y-3">
-            <label class="flex items-start gap-3 cursor-pointer">
+            <p v-if="invitation.console" class="text-sm text-slate-600">
+              Choisissez un mot de passe solide (12 caractères minimum). Il protège l'accès à toute la plateforme.
+            </p>
+            <label v-else class="flex items-start gap-3 cursor-pointer">
               <input v-model="withPassword" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300">
               <span class="text-sm">
                 <span class="font-semibold text-slate-700">Choisir un mot de passe maintenant (facultatif)</span>
@@ -33,18 +45,18 @@
             </label>
             <template v-if="withPassword">
               <label class="block">
-                <span class="text-sm font-medium text-slate-700">Mot de passe (8 caractères minimum)</span>
-                <input v-model="password" type="password" autocomplete="new-password" required minlength="8" :class="inputClass">
+                <span class="text-sm font-medium text-slate-700">Mot de passe ({{ minLength }} caractères minimum)</span>
+                <input v-model="password" type="password" autocomplete="new-password" required :minlength="minLength" :class="inputClass">
               </label>
               <label class="block">
                 <span class="text-sm font-medium text-slate-700">Confirmez le mot de passe</span>
-                <input v-model="passwordConfirmation" type="password" autocomplete="new-password" required minlength="8" :class="inputClass">
+                <input v-model="passwordConfirmation" type="password" autocomplete="new-password" required :minlength="minLength" :class="inputClass">
               </label>
             </template>
           </div>
 
           <button type="submit" :disabled="busy" class="w-full rounded-xl bg-slate-900 hover:bg-slate-700 py-3 font-semibold text-white shadow-sm disabled:opacity-60">
-            {{ busy ? 'Ouverture…' : 'Ouvrir mon espace' }}
+            {{ busy ? 'Ouverture…' : (invitation.console ? 'Enregistrer mon mot de passe' : 'Ouvrir mon espace') }}
           </button>
         </form>
       </div>
@@ -53,7 +65,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import BrandLogo from '../../components/auth/BrandLogo.vue'
@@ -76,6 +88,8 @@ const password = ref('')
 const passwordConfirmation = ref('')
 const busy = ref(false)
 const error = ref('')
+const done = ref('')
+const minLength = computed(() => (invitation.value?.console ? 12 : 8))
 
 async function accept() {
   busy.value = true
@@ -86,6 +100,11 @@ async function accept() {
       password_confirmation: withPassword.value ? passwordConfirmation.value : null,
       device_name: navigator.userAgent.slice(0, 100),
     })
+    // Équipe de la console : pas de session ouverte par le lien, connexion normale avec le code reçu par e-mail
+    if (data.login) {
+      done.value = data.message
+      return
+    }
     await auth.adoptSession(data)
     toasts.success(`Bienvenue chez ${invitation.value.company} !`)
     router.replace(auth.homeRoute)
@@ -100,6 +119,7 @@ onMounted(async () => {
   loadBranding()
   try {
     invitation.value = (await http.get(`/invitations/${route.params.token}`)).data.data
+    if (invitation.value.console) withPassword.value = true
   } catch (e) {
     invalid.value = apiErrorMessage(e, "Cette invitation n'est plus valable.")
   } finally {

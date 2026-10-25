@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\LoginRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Models\User;
+use App\Services\Accounts\ConsoleLoginAlerts;
+use App\Services\Accounts\ConsoleTwoFactor;
 use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +24,7 @@ class AuthController extends Controller
         'staff' => 'Ce compte est un compte de l\'équipe : connectez-vous depuis l\'espace équipe.',
     ];
 
-    public function login(LoginRequest $request): JsonResponse
+    public function login(LoginRequest $request, ConsoleTwoFactor $twoFactor): JsonResponse
     {
         $login = trim($request->string('login'));
 
@@ -68,7 +70,46 @@ class AuthController extends Controller
             return response()->json(['message' => 'Compte suspendu. Contactez votre administrateur.'], 403);
         }
 
-        return response()->json(self::session($user, $request->input('device_name') ?: 'api'));
+        $device = $request->input('device_name') ?: 'api';
+
+        // Console : code envoyé par e-mail avant d'ouvrir la session (sauf appareil retenu)
+        if ($twoFactor->applies($user) && ! $twoFactor->trusted($user, $request->input('trusted_device'))) {
+            $challenge = $twoFactor->start($user, $device, (string) $request->ip());
+            if ($challenge !== null) {
+                return response()->json(['two_factor' => $challenge]);
+            }
+        }
+
+        $session = self::session($user, $device);
+        self::alertConsoleLogin($user, $device, $request);
+
+        return response()->json($session);
+    }
+
+    /**
+     * Code de connexion de la console : la session s'ouvre ; « remember » retient l'appareil 30 jours.
+     */
+    public function twoFactor(Request $request, ConsoleTwoFactor $twoFactor): JsonResponse
+    {
+        $data = $request->validate([
+            'challenge' => ['required', 'string', 'size:48'],
+            'code' => ['required', 'string', 'max:12'],
+            'remember' => ['sometimes', 'boolean'],
+        ], [], ['code' => 'code']);
+
+        $result = $twoFactor->verify($data['challenge'], $data['code'], (bool) ($data['remember'] ?? false), $request->ip());
+        $session = self::session($result['user'], $result['device']);
+        self::alertConsoleLogin($result['user'], $result['device'], $request);
+
+        return response()->json([...$session, 'trusted_device' => $result['trusted_device']]);
+    }
+
+    /** Console : alerte « nouvelle connexion » à la personne (e-mail, WhatsApp en secours) */
+    private static function alertConsoleLogin(User $user, string $device, Request $request): void
+    {
+        if ($user->isPlatformStaff()) {
+            app(ConsoleLoginAlerts::class)->send($user, $device, (string) $request->ip());
+        }
     }
 
     /**
@@ -86,7 +127,7 @@ class AuthController extends Controller
 
         return [
             // Super administrateur : session de 12 heures (la console donne accès à toute la plateforme)
-            'token' => $user->createToken($device, ['*'], $user->isSuperAdmin() ? now()->addHours(12) : null)->plainTextToken,
+            'token' => $user->createToken($device, ['*'], $user->isPlatformStaff() ? now()->addHours(12) : null)->plainTextToken,
             'token_type' => 'Bearer',
             'user' => UserResource::make($user->load(['company.plan', 'merchant', 'courier']))->withPermissions(),
         ];

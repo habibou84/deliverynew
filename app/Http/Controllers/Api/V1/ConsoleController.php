@@ -9,15 +9,19 @@ use App\Models\Company;
 use App\Models\PlatformInvoice;
 use App\Models\SupportSession;
 use App\Models\User;
+use App\Notifications\SupportSessionOpened;
 use App\Services\Onboarding\SetupGuide;
 use App\Services\Platform\Billing;
 use App\Services\Platform\CompanySignup;
+use App\Services\Platform\PlatformWhatsApp;
 use App\Services\Platform\Subscription;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Console du super administrateur : les entreprises de la plateforme, leur activité,
@@ -118,6 +122,28 @@ class ConsoleController extends Controller
     }
 
     /**
+     * L'entreprise est prévenue : cloche de ses administrateurs et WhatsApp depuis le numéro de Jibiat.
+     */
+    private function announceSupport(Company $company, SupportSession $session, string $by): void
+    {
+        $admins = User::query()->where('company_id', $company->id)->where('status', 'active')->role(Role::Admin->value)->get();
+        try {
+            Notification::send($admins, new SupportSessionOpened($session, $by));
+        } catch (Throwable $e) {
+            report($e);
+        }
+        $text = "Jibiat · L'assistance Jibiat a ouvert l'espace de {$company->name}.\nPar : {$by}, jusqu'à "
+            .$session->expires_at->timezone($company->timezone ?: config('app.timezone'))->format('H:i')."\nMotif : {$session->reason}\nDétail : Réglages › Accès de l'assistance.";
+        foreach ($admins->pluck('phone')->filter()->unique() as $phone) {
+            try {
+                app(PlatformWhatsApp::class)->notify($phone, $text);
+            } catch (Throwable) {
+                // WhatsApp de Jibiat non relié : la cloche suffit
+            }
+        }
+    }
+
+    /**
      * Ferme une session d'assistance avant l'heure : son jeton ne marche plus.
      */
     public function closeSupportSession(Company $company, SupportSession $session): JsonResponse
@@ -159,7 +185,7 @@ class ConsoleController extends Controller
         $expires = now()->addMinutes(SupportSession::MINUTES);
         $token = $user->createToken(SupportSession::TOKEN_PREFIX.$request->user()->id, ['*'], $expires)->plainTextToken;
 
-        SupportSession::create([
+        $session = SupportSession::create([
             'company_id' => $company->id,
             'opened_by' => $request->user()->id,
             'user_id' => $user->id,
@@ -167,6 +193,7 @@ class ConsoleController extends Controller
             'ip' => $request->ip(),
             'expires_at' => $expires,
         ]);
+        $this->announceSupport($company, $session, $request->user()->name);
 
         return response()->json(['data' => [
             // Le jeton est dans le fragment (#) : il n'est jamais envoyé au serveur ni journalisé

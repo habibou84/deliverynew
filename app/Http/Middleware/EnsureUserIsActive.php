@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\Role;
 use App\Support\Tenancy;
 use Closure;
 use Illuminate\Http\Request;
@@ -46,7 +45,7 @@ class EnsureUserIsActive
 
         return match ($tenancy->zone()) {
             Tenancy::COMPANY => $user->company_id !== null && $user->company_id === $tenancy->company()?->id,
-            Tenancy::CONSOLE => $user->hasRole(Role::SuperAdmin->value),
+            Tenancy::CONSOLE => $user->isPlatformStaff(),
             default => true,
         };
     }

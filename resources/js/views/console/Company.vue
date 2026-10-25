@@ -2,7 +2,7 @@
   <div v-if="company" class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
-        <RouterLink to="/console" class="text-sm text-blue-600">← Entreprises</RouterLink>
+        <RouterLink to="/console/entreprises" class="text-sm text-blue-600">← Entreprises</RouterLink>
         <h1 class="text-xl font-bold">{{ company.name }}</h1>
         <a :href="company.url" target="_blank" rel="noopener" class="text-sm text-blue-600">{{ company.url.replace(/^https?:\/\//, '') }}</a>
         <p v-if="company.custom_domain_status === 'pending'" class="mt-1 max-w-xl rounded bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -15,7 +15,7 @@
         <span :class="['rounded-full px-3 py-1 text-sm font-medium', active ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700']">
           {{ active ? 'Active' : 'Suspendue' }}
         </span>
-        <button :class="active ? 'btn-danger' : 'btn-success'" @click="toggleStatus">{{ active ? 'Suspendre' : 'Réactiver' }}</button>
+        <button v-if="can('owner')" :class="active ? 'btn-danger' : 'btn-success'" @click="toggleStatus">{{ active ? 'Suspendre' : 'Réactiver' }}</button>
       </div>
     </div>
 
@@ -30,6 +30,8 @@
       <!-- Informations -->
       <form class="card p-4 space-y-3" @submit.prevent="save">
         <h2 class="font-semibold">Informations</h2>
+        <!-- Modifications : Propriétaire seulement (le serveur refuse aussi) -->
+        <fieldset :disabled="!can('owner')" class="space-y-3">
         <div><label class="label" for="e-name">Nom</label><input id="e-name" v-model.trim="edit.name" class="input" required></div>
         <div>
           <label class="label" for="e-slug">Adresse</label>
@@ -47,7 +49,8 @@
         </div>
         <div><label class="label" for="e-tz">Fuseau horaire</label><input id="e-tz" v-model.trim="edit.timezone" class="input" placeholder="Africa/Abidjan"></div>
         <p v-if="editError" class="field-error">{{ editError }}</p>
-        <button class="btn-primary" :disabled="saving">Enregistrer</button>
+        <button v-if="can('owner')" class="btn-primary" :disabled="saving">Enregistrer</button>
+        </fieldset>
       </form>
 
       <!-- Abonnement : formule, essai, consommation du mois -->
@@ -58,14 +61,14 @@
             <SubscriptionSummary :summary="company.subscription" />
             <div v-if="company.subscription.plan" class="text-sm">
               <label class="label" for="s-cycle">Rythme de facturation</label>
-              <select id="s-cycle" :value="company.subscription.billing_period.next_cycle ?? company.subscription.billing_period.cycle" class="input w-auto" @change="changeCycle($event.target.value)">
+              <select id="s-cycle" :value="company.subscription.billing_period.next_cycle ?? company.subscription.billing_period.cycle" class="input w-auto" :disabled="!can('accounting')" @change="changeCycle($event.target.value)">
                 <option value="monthly">Au mois</option>
                 <option value="weekly">À la semaine</option>
               </select>
               <p v-if="company.subscription.billing_period.next_cycle" class="mt-1 text-xs text-amber-700">Changement le lundi {{ company.subscription.billing_period.next_cycle_from }}.</p>
             </div>
           </div>
-          <form class="space-y-3" @submit.prevent="saveSubscription">
+          <form v-if="can('owner')" class="space-y-3" @submit.prevent="saveSubscription">
             <div>
               <label class="label" for="s-plan">Formule</label>
               <select id="s-plan" v-model="sub.plan_id" class="input">
@@ -126,8 +129,8 @@
         </div>
       </div>
 
-      <!-- Assistance -->
-      <div class="card p-4 space-y-3">
+      <!-- Assistance : Propriétaire et Support -->
+      <div v-if="can('support')" class="card p-4 space-y-3">
         <h2 class="font-semibold">🛟 Assistance</h2>
         <p class="text-sm text-gray-600">
           Ouvre l'espace de l'entreprise avec le compte d'un membre de son équipe, pour une heure. Un bandeau rouge le signale
@@ -166,6 +169,8 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatCard from '../../components/StatCard.vue'
 import InvoiceStatus from '../../components/InvoiceStatus.vue'
 import SubscriptionSummary from '../../components/SubscriptionSummary.vue'
+import { consoleCan } from '../../roles'
+import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { dateTime, money } from '../../utils/format'
 
@@ -173,6 +178,8 @@ const ROLES = { admin: 'Administrateur', dispatcher: 'Dispatch', cashier: 'Caiss
 
 const route = useRoute()
 const toasts = useToastStore()
+const auth = useAuthStore()
+const can = (group) => consoleCan(auth.role, group)
 const company = ref(null)
 const domain = ref(null)
 const edit = reactive({})
