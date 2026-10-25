@@ -39,7 +39,7 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'code_to_verify'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'code_to_verify'])],
             // File « Sans livreur » : ramassage, livraison ou les deux
             'awaiting' => ['nullable', Rule::in([AwaitingCourier::PICKUP, AwaitingCourier::DELIVERY])],
             'merchant_id' => ['nullable', 'integer'],
@@ -69,8 +69,8 @@ class OrderController extends Controller
             ->when($queue !== '' && $queue !== 'unassigned', fn ($q) => $this->applyQueue($q, $queue, $day))
             ->when($queue === 'unassigned', fn ($q) => AwaitingCourier::scope($q, $request->input('awaiting'), $day))
             ->when($day !== null, fn ($q) => $this->applyDay($q, $queue, $day, $request->boolean('include_later')))
-            // Jour choisi : les retards d'abord
-            ->when($day !== null && ($queue === '' || in_array($queue, self::WORK_QUEUES, true)), fn ($q) => $q->orderByRaw(Order::DELIVERY_DAY_SQL))
+            // En retard : du plus ancien au plus récent
+            ->when($queue === 'late', fn ($q) => $q->orderByRaw(Order::DELIVERY_DAY_SQL))
             // Sans livreur : de la plus ancienne attente à la plus récente
             ->when($queue === 'unassigned', fn ($q) => $q->orderBy('status_changed_at'))
             ->when($request->filled('merchant_id'), fn ($q) => $q->where('merchant_id', $request->integer('merchant_id')))
@@ -152,7 +152,9 @@ class OrderController extends Controller
             'date' => $day,
             'all' => Order::query()->ofDay($day)->count(),
             'to_confirm' => $queue('to_confirm')->count(),
-            ...collect(self::WORK_QUEUES)->mapWithKeys(fn (string $name) => [$name => $queue($name)->dueBy($day)->count()])->all(),
+            'late' => $queue('late')->count(),
+            'to_return' => $queue('to_return')->count(),
+            ...collect(self::WORK_QUEUES)->mapWithKeys(fn (string $name) => [$name => $queue($name)->ofDay($day)->count()])->all(),
             'later' => collect(self::LATER_QUEUES)->mapWithKeys(fn (string $name) => [$name => $later($name)])->all(),
             'days' => [
                 'today' => Order::query()->ofDay(today()->toDateString())->count(),
@@ -161,22 +163,24 @@ class OrderController extends Controller
         ];
     }
 
-    /** Files de travail : limitées au jour choisi et aux retards */
+    /** Files de travail : limitées au jour choisi (les retards sont dans « En retard ») */
     private const WORK_QUEUES = ['to_pickup', 'to_prepare', 'to_deliver', 'unassigned'];
 
     /** Files où l'on peut ajouter les courses prévues plus tard (ramassage ou préparation en avance) */
     private const LATER_QUEUES = ['to_pickup', 'to_prepare', 'unassigned'];
 
     /**
-     * Jour choisi dans la liste : « Toutes » montre les courses du jour et les retards encore en cours, les files
-     * de travail ce qui est dû (plus, sur demande, ce qui est prévu plus tard) ; les autres files (à valider,
+     * Jour choisi dans la liste : « Toutes » et les files de travail montrent les courses du jour (plus, sur demande, ce qui
+     * est prévu plus tard), « En retard » celles d'avant encore en cours ; les autres files (à valider,
      * à décider, incidents, retours, codes) restent complètes : un problème reste visible jusqu'à sa résolution.
      */
     private function applyDay(Builder $query, string $queue, string $day, bool $includeLater): Builder
     {
         return match (true) {
             $queue === '' => $query->ofDay($day),
-            in_array($queue, self::WORK_QUEUES, true) => $includeLater && in_array($queue, self::LATER_QUEUES, true) ? $query : $query->dueBy($day),
+            in_array($queue, self::WORK_QUEUES, true) => $includeLater && in_array($queue, self::LATER_QUEUES, true)
+                ? $query->whereRaw(Order::DELIVERY_DAY_SQL.' >= ?', [$day])
+                : $query->ofDay($day),
             default => $query,
         };
     }
@@ -235,6 +239,8 @@ class OrderController extends Controller
 
         return match ($queue) {
             'to_confirm' => $query->where('status', OrderStatus::Pending),
+            // En retard : jour de livraison passé, course toujours en cours (hors retours demandés)
+            'late' => $query->overdue($day),
             'to_pickup' => $query->where('status', OrderStatus::Confirmed)->whereNull('pickup_hub_id'),
             // Commandes d'entrepôt validées, à préparer avant la livraison
             'to_prepare' => $query->where('status', OrderStatus::Confirmed)->whereNotNull('pickup_hub_id'),
