@@ -227,6 +227,15 @@ class Company extends Model
     }
 
     /**
+     * Lien d'invitation sur Jibiat Marchand : l'e-commerçant qui s'inscrit par ce lien est parrainé par l'entreprise
+     * (mois d'essai en plus pour lui, part de son abonnement pour l'entreprise), si elle figure dans l'annuaire.
+     */
+    public function jibiatMarchandInviteUrl(): string
+    {
+        return config('services.jibiat_marchand.url').'/creer-ma-boutique?partenaire='.rawurlencode((string) $this->slug);
+    }
+
+    /**
      * Adresse de l'entreprise (sous-domaine) : minuscules, chiffres et tirets, 3 à 40
      * caractères, ni réservée (www, admin…) ni déjà prise.
      *

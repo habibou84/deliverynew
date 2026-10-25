@@ -265,6 +265,12 @@ le fait aussi depuis **Intégrations (API)**) :
   seulement la livraison ensuite), `POST /orders/{code}/decision` (`redeliver` avec une date, ou `return`, quand
   `needs_decision`), `POST /orders/{code}/return-request` et `POST /orders/{code}/notes`. L'historique de la course
   indique « via Jibiat Marchand » (en-tête `X-Client-App`) ou « via API ».
+- **Parrainage sur Jibiat Marchand** (**Réglages › E-commerçants**) : lien d'invitation, QR code et message WhatsApp.
+  Un e-commerçant inscrit par ce lien (entreprise de l'annuaire) a un mois d'essai en plus, et l'entreprise reçoit une
+  part de son abonnement (20 % pendant 12 mois à partir du premier paiement, payée par Jibiat Marchand). Jibiat
+  Marchand rapporte son compte par `PUT /api/public/v1/merchant-app` (contrat `merchant-app`) avec la clé de la
+  connexion ; la page liste les e-commerçants parrainés, leur abonnement et la part gagnée. Dans l'application
+  marchand, **Ma boutique** invite à passer à Jibiat Marchand tant que le marchand n'y est pas.
 - **Contrat avec Jibiat Marchand** (`habibou84/socle`, `contract/v1`) : `PublicContractTest` valide les vraies réponses
   et les vrais webhooks envoyés contre les schémas partagés, et vérifie que les statuts et événements sont ceux du
   contrat. Ajouter un champ est libre ; en retirer ou en renommer un demande une version majeure du contrat.
