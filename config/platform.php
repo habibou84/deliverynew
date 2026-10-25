@@ -63,4 +63,8 @@ return [
 
     // Sous-domaines qui ne peuvent pas être attribués à une entreprise
     'reserved_subdomains' => ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp', 'ws', 'socket', 'static', 'cdn', 'docs', 'status', 'support', 'aide', 'blog'],
+
+    // Dossier des sauvegardes de la base (docs/MAINTENANCE.md) : la console vérifie qu'il y en a une de moins de 26 h
+    'backup_path' => env('PLATFORM_BACKUP_PATH', '/var/backups/livraison'),
+
 ];

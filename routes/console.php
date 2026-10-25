@@ -3,8 +3,10 @@
 use App\Models\CourierLocation;
 use App\Models\IdempotencyKey;
 use App\Models\WebhookDelivery;
+use App\Services\Platform\PlatformHealth;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -12,6 +14,9 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
+// Battement des tâches planifiées (Console › Santé) et alertes de panne aux super administrateurs
+Schedule::call(fn () => Cache::put(PlatformHealth::HEARTBEAT, now()->toIso8601String(), now()->addDay()))->everyMinute()->name('platform:heartbeat');
+Schedule::command('platform:health --alert')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('reports:send')->everyFiveMinutes()->withoutOverlapping();
 // Point de la semaine des administrateurs : vérifié toutes les 15 minutes, envoyé le lundi à 7 h 30 (heure de l'entreprise)

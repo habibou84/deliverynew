@@ -34,6 +34,16 @@ class UserPolicy
             && ! $user->isSuperAdmin();
     }
 
+    /**
+     * Identifiants de connexion (téléphone, e-mail, mot de passe, lien d'invitation) : pas ceux d'un autre
+     * administrateur, sinon un administrateur pourrait prendre le compte d'un autre.
+     */
+    public function changeCredentials(User $actor, User $user): bool
+    {
+        return $this->update($actor, $user)
+            && ($actor->is($user) || ! $user->hasRole(Role::Admin->value));
+    }
+
     public function delete(User $actor, User $user): bool
     {
         return ! $actor->is($user) && $this->update($actor, $user);

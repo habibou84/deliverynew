@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AssignmentStatus;
 use App\Enums\AssignmentType;
 use App\Enums\FeePayer;
 use App\Enums\OrderEventType;
@@ -378,7 +379,8 @@ class Order extends Model
         }
 
         if ($user->isCourier()) {
-            return $query->whereHas('assignments', fn ($q) => $q->where('courier_id', $user->courier?->id ?? 0));
+            return $query->whereHas('assignments', fn ($q) => $q->where('courier_id', $user->courier?->id ?? 0)
+                ->whereNotIn('status', [AssignmentStatus::Refused->value, AssignmentStatus::Cancelled->value]));
         }
 
         return $query;

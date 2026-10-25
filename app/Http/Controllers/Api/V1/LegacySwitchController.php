@@ -32,6 +32,9 @@ class LegacySwitchController extends Controller
 
     private const TICKET_SECONDS = 120;
 
+    /** La bascule ouvre des sessions pendant 60 jours après sa date, puis la clé ne sert plus à rien */
+    public const OPEN_DAYS = 60;
+
     public function show(Request $request): JsonResponse
     {
         return response()->json(['data' => $this->describe($request->user()->company)]);
@@ -104,6 +107,9 @@ class LegacySwitchController extends Controller
 
         if ($company->legacy_switch_at === null || $company->legacy_switch_at->isFuture()) {
             return response()->json(['status' => 'scheduled', 'switch_at' => $company->legacy_switch_at?->toIso8601String()]);
+        }
+        if ($company->legacy_switch_at->copy()->addDays(self::OPEN_DAYS)->isPast()) {
+            return response()->json(['status' => 'closed', 'message' => 'La période de bascule est terminée : les comptes se connectent directement sur Jibiat.'], 410);
         }
 
         $courier = str_contains(mb_strtolower($data['usertype']), 'livreur');
@@ -179,6 +185,7 @@ class LegacySwitchController extends Controller
         return [
             'switch_at' => $company->legacy_switch_at?->toIso8601String(),
             'started' => $company->legacy_switch_at !== null && ! $company->legacy_switch_at->isFuture(),
+            'ends_at' => $company->legacy_switch_at?->copy()->addDays(self::OPEN_DAYS)->toIso8601String(),
             'key_active' => $company->legacy_switch_key_hash !== null,
             'switched' => ['merchants' => $switched(false), 'couriers' => $switched(true)],
         ];

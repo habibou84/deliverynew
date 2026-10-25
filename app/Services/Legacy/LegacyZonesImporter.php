@@ -51,8 +51,10 @@ class LegacyZonesImporter
                 }
 
                 if (! $dryRun) {
+                    // Ville absente dans l'ancienne application : la ville par défaut des zones (Abidjan)
                     $city = trim((string) ($row['city'] ?? ''));
-                    Zone::withoutGlobalScopes()->create(['company_id' => $company->id, 'name' => $name, 'city' => $city === '' ? null : $city, 'is_active' => true]);
+                    Zone::withoutGlobalScopes()->create(['company_id' => $company->id, 'name' => $name, 'is_active' => true]
+                        + ($city === '' ? [] : ['city' => $city]));
                 }
                 $existing[$key] = true;
                 $counts['zones_created']++;

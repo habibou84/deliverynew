@@ -113,14 +113,17 @@ class ConsoleTest extends TestCase
         $url = $this->console("/console/companies/{$this->company->id}/support-session");
 
         // Un membre précis de l'équipe ; ni livreur, ni marchand, ni compte d'une autre entreprise
-        $this->postJson($url, ['user_id' => $this->dispatcher->id])->assertCreated()->assertJsonPath('data.user.id', $this->dispatcher->id);
-        $this->postJson($url, ['user_id' => $this->courierA->user_id])->assertJsonValidationErrors('user_id');
-        $this->postJson($url, ['user_id' => $this->merchantUser->id])->assertJsonValidationErrors('user_id');
+        $reason = ['reason' => 'Demande du gérant'];
+        $this->postJson($url, ['user_id' => $this->dispatcher->id, ...$reason])->assertCreated()->assertJsonPath('data.user.id', $this->dispatcher->id);
+        $this->postJson($url, ['user_id' => $this->courierA->user_id, ...$reason])->assertJsonValidationErrors('user_id');
+        $this->postJson($url, ['user_id' => $this->merchantUser->id, ...$reason])->assertJsonValidationErrors('user_id');
         $stranger = User::factory()->withRole(Role::Admin)->create();
-        $this->postJson($url, ['user_id' => $stranger->id])->assertJsonValidationErrors('user_id');
+        $this->postJson($url, ['user_id' => $stranger->id, ...$reason])->assertJsonValidationErrors('user_id');
+        // Le motif est obligatoire
+        $this->postJson($url, ['user_id' => $this->dispatcher->id])->assertJsonValidationErrors('reason');
 
         $this->company->update(['status' => 'suspended']);
-        $this->postJson($url)->assertJsonValidationErrors('company');
+        $this->postJson($url, $reason)->assertJsonValidationErrors('company');
 
         // Hors console : les autres comptes n'y ont pas accès
         Sanctum::actingAs($this->admin);

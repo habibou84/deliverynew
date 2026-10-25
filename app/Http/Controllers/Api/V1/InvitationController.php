@@ -21,7 +21,7 @@ class InvitationController extends Controller
 
     public function store(Request $request, User $user): JsonResponse
     {
-        Gate::authorize('update', $user);
+        Gate::authorize('changeCredentials', $user);
         abort_if($user->merchant_id !== null, 422, 'Les e-commerçants se connectent par WhatsApp ou s\'inscrivent eux-mêmes.');
 
         return response()->json(['data' => $this->invitations->create($user, $request->user())], 201);

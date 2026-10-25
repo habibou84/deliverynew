@@ -35,6 +35,9 @@
       <p v-if="state.started" class="text-sm font-medium text-emerald-700">
         🚀 Bascule commencée le {{ dateTime(state.switch_at) }} : les comptes qui ouvrent l'ancienne application arrivent sur Jibiat.
       </p>
+      <p v-if="state.started && state.ends_at" class="text-xs text-gray-600">
+        Par sécurité, la bascule s'arrête le {{ dateTime(state.ends_at) }} : ensuite, la clé ne sert plus et chacun se connecte directement sur Jibiat. Retirez alors le module de l'ancienne application.
+      </p>
       <p v-else-if="state.switch_at" class="text-sm font-medium">📅 Bascule prévue le {{ dateTime(state.switch_at) }}.</p>
       <p v-else class="text-sm text-gray-600">Aucune bascule prévue.</p>
 

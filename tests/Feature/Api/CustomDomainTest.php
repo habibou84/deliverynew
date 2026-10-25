@@ -103,6 +103,9 @@ class CustomDomainTest extends TestCase
         $this->company->forceFill(['custom_domain' => 'livraison.rapide.ci', 'custom_domain_status' => 'pending'])->save();
 
         $this->getJson('http://livraison.rapide.ci'.CustomDomains::CHECK_PATH)->assertOk()->assertJsonPath('slug', 'rapide');
+        // Pas encore vérifié : seule l'adresse de vérification répond (le domaine n'est pas prouvé à l'entreprise)
+        $this->getJson('http://www.livraison.rapide.ci/api/v1/branding')->assertNotFound();
+        $this->company->forceFill(['custom_domain_status' => 'active'])->save();
         $this->getJson('http://www.livraison.rapide.ci/api/v1/branding')->assertOk()->assertJsonPath('data.name', $this->company->name);
         // Domaine inconnu
         $this->getJson('http://inconnu.ci/api/v1/branding')->assertNotFound();
