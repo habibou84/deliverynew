@@ -7,13 +7,14 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpFoundation\Cookie;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Préproduction fermée au public : avant toute page, un code d'accès (PREPROD_ACCESS_CODE), saisi une fois
  * puis mémorisé 30 jours pour la plateforme, la console et toutes les entreprises de test. Restent ouverts :
- * les webhooks entrants (Meta), l'API publique (protégée par la clé du marchand : Jibiat Marchand de préproduction
- * s'y connecte) et la sonde /up. Jamais actif en production.
+ * les webhooks entrants (Meta), la reprise et la bascule de l'ancienne application, l'API publique (protégée par la
+ * clé du marchand : Jibiat Marchand de préproduction s'y connecte) et la sonde /up. Jamais actif en production.
  */
 class PreprodGate
 {
@@ -35,12 +36,24 @@ class PreprodGate
         $code = (string) config('platform.preprod_access_code');
         // Fichiers publics des applications installables : le navigateur télécharge le manifeste et les
         // icônes sans cookie, la page du code rendrait l'application impossible à installer
-        // Reprise de l'ancienne application : envoyée par son serveur, protégée par la clé de reprise
-        if ($code === '' || app()->isProduction() || $request->is('up', 'api/webhooks/*', 'api/public/*', 'api/legacy-import', ...self::APP_FILES)) {
+        // Reprise et bascule de l'ancienne application : appelées par son serveur, protégées par leur clé
+        if ($code === '' || app()->isProduction() || $request->is('up', 'api/webhooks/*', 'api/public/*', 'api/legacy-import', 'api/legacy-switch', ...self::APP_FILES)) {
             return $next($request);
         }
 
         $pass = hash_hmac('sha256', $code, (string) config('app.key'));
+
+        // Lien de bascule (ticket à usage unique donné au serveur de l'ancienne application) : le compte arrive
+        // sans le code d'accès ; un ticket valable ouvre aussi la préproduction, sinon sa session serait perdue
+        if ($request->is('bascule/*')) {
+            $response = $next($request);
+            if ($response instanceof RedirectResponse && str_contains($response->getTargetUrl(), '#session=')) {
+                $response->headers->setCookie($this->cookie($request, $pass));
+            }
+
+            return $response;
+        }
+
         if (hash_equals($pass, (string) $request->cookies->get(self::COOKIE))) {
             return $next($request);
         }
@@ -69,11 +82,16 @@ class PreprodGate
         }
         RateLimiter::clear($key);
 
-        // Valable sur la plateforme, la console et toutes les entreprises de test (*.domaine), 30 jours
+        return redirect($back)->withCookie($this->cookie($request, $pass));
+    }
+
+    // Valable sur la plateforme, la console et toutes les entreprises de test (*.domaine), 30 jours
+    private function cookie(Request $request, string $pass): Cookie
+    {
         $domain = Tenancy::domain();
         $cookieDomain = str_contains($domain, '.') && str_ends_with($request->getHost(), $domain) ? '.'.$domain : null;
 
-        return redirect($back)->withCookie(Cookie::create(self::COOKIE, $pass, now()->addDays(30), '/', $cookieDomain, $request->isSecure(), true, false, Cookie::SAMESITE_LAX));
+        return Cookie::create(self::COOKIE, $pass, now()->addDays(30), '/', $cookieDomain, $request->isSecure(), true, false, Cookie::SAMESITE_LAX);
     }
 
     // Retour seulement vers une page de ce site

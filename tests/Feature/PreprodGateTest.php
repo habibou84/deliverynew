@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Middleware\PreprodGate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
@@ -70,6 +71,25 @@ class PreprodGateTest extends TestCase
             ->assertJsonMissing(['message' => 'Préproduction : saisissez le code d\'accès.']);
         // Le reste de l'API reste derrière le code
         $this->getJson('http://express-ds.preprod.jibiat.test/api/v1/auth/me')->assertForbidden();
+    }
+
+    public function test_the_old_app_switch_reaches_preproduction(): void
+    {
+        // Appel du serveur de l'ancienne application, sans cookie : c'est la clé de bascule qui protège
+        $this->postJson('http://express-ds.preprod.jibiat.test/api/legacy-switch', [])->assertUnauthorized()
+            ->assertJsonMissing(['message' => 'Préproduction : saisissez le code d\'accès.']);
+
+        // Lien de bascule valable : la session s'ouvre et la préproduction aussi
+        $ticket = str_repeat('a', 48);
+        Cache::put('legacy-switch:'.hash('sha256', $ticket), $this->merchantUser->id, 120);
+        $response = $this->get('http://express-ds.preprod.jibiat.test/bascule/'.$ticket);
+        $this->assertStringContainsString('/marchand#session=', $response->headers->get('Location'));
+        $cookie = $response->getCookie(PreprodGate::COOKIE, false);
+        $this->withUnencryptedCookie(PreprodGate::COOKIE, $cookie->getValue())->get('http://express-ds.preprod.jibiat.test/marchand')->assertOk();
+
+        // Ticket inconnu ou déjà utilisé : retour à l'accueil, sans ouvrir la préproduction
+        $response = $this->get('http://express-ds.preprod.jibiat.test/bascule/'.$ticket)->assertRedirect('/');
+        $this->assertNull($response->getCookie(PreprodGate::COOKIE, false));
     }
 
     public function test_apps_stay_installable_behind_the_code(): void
