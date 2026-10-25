@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\AppearanceController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CompanySignupController;
+use App\Http\Controllers\Api\V1\ConsoleAccountController;
 use App\Http\Controllers\Api\V1\ConsoleAuditController;
 use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleController;
@@ -229,6 +230,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
         });
         Route::get('console/audit', [ConsoleAuditController::class, 'index'])->middleware('role:super_admin')->name('console.audit');
         Route::get('console/health', [ConsoleHealthController::class, 'show'])->middleware('role:super_admin')->name('console.health');
+        Route::prefix('console/account')->name('console.account.')->middleware('role:super_admin')->controller(ConsoleAccountController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::put('/', 'update')->middleware('throttle:10,1')->name('update');
+            Route::delete('devices/{device?}', 'forgetDevices')->whereNumber('device')->name('devices.forget');
+        });
         Route::post('console/gmail/connect', [ConsoleGmailController::class, 'connect'])->middleware(['role:super_admin', 'throttle:10,1'])->name('console.gmail.connect');
         Route::delete('console/gmail', [ConsoleGmailController::class, 'disconnect'])->middleware('role:super_admin')->name('console.gmail.disconnect');
         // Messagerie WhatsApp du numéro de Jibiat (connexion officielle ou QR code)

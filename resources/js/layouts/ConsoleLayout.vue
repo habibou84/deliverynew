@@ -16,7 +16,7 @@
         </div>
         <div class="flex items-center gap-3 text-sm">
           <NotificationBell class="[&>button]:hover:bg-white/10" />
-          <span class="text-slate-300">{{ auth.user?.name }}</span>
+          <RouterLink to="/console/compte" class="text-slate-300 hover:text-white hover:underline" title="Mon compte">👤 {{ auth.user?.name }}</RouterLink>
           <button class="rounded bg-white/10 px-3 py-1.5 hover:bg-white/20" @click="logout">Déconnexion</button>
         </div>
       </div>

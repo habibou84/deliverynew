@@ -110,4 +110,31 @@ class ConsoleTwoFactorTest extends TestCase
         ])->assertOk();
         $this->assertSame(0, TrustedDevice::count());
     }
+
+    public function test_my_account_page_changes_identity_and_forgets_devices(): void
+    {
+        $url = 'http://admin.jibiat.test/api/v1/console/account';
+        TrustedDevice::create(['user_id' => $this->root->id, 'token_hash' => hash('sha256', 'td_a'), 'label' => 'Mozilla Chrome Windows', 'expires_at' => now()->addDay()]);
+        TrustedDevice::create(['user_id' => $this->root->id, 'token_hash' => hash('sha256', 'td_b'), 'expires_at' => now()->addDay()]);
+        $this->actingAs($this->root, 'sanctum');
+
+        $this->getJson($url)->assertOk()->assertJsonPath('data.email', 'habib@gmail.com')->assertJsonCount(2, 'data.devices');
+
+        // Le nom seul : sans mot de passe ; l'e-mail : mot de passe redemandé
+        $this->putJson($url, ['name' => 'Habib', 'phone' => '0700000099', 'email' => 'habib@gmail.com'])->assertOk()->assertJsonPath('data.name', 'Habib');
+        $this->putJson($url, ['name' => 'Habib', 'phone' => '0700000099', 'email' => 'nouveau@gmail.com'])->assertJsonValidationErrors('current_password');
+        $this->putJson($url, ['name' => 'Habib', 'phone' => '0700000099', 'email' => 'nouveau@gmail.com', 'current_password' => 'faux'])
+            ->assertJsonValidationErrors(['current_password' => 'Mot de passe incorrect.']);
+        $this->putJson($url, ['name' => 'Habib', 'phone' => '0700000099', 'email' => 'Nouveau@Gmail.com', 'current_password' => 'password'])
+            ->assertOk()->assertJsonPath('data.email', 'nouveau@gmail.com');
+
+        // Un appareil, puis tous
+        $first = TrustedDevice::query()->orderBy('id')->value('id');
+        $this->deleteJson($url.'/devices/'.$first)->assertOk()->assertJsonCount(1, 'data.devices');
+        $this->deleteJson($url.'/devices')->assertOk()->assertJsonCount(0, 'data.devices');
+
+        // Réservé au super administrateur
+        $this->company->update(['slug' => 'rapide']);
+        $this->actingAs($this->admin, 'sanctum')->getJson('http://rapide.jibiat.test/api/v1/console/account')->assertForbidden();
+    }
 }

@@ -62,6 +62,12 @@ import { dateTime } from '../../utils/format'
 const LABELS = {
   'auth.login': 'Connexion',
   'auth.logout': 'Déconnexion',
+  'auth.two-factor': 'Connexion avec le code reçu',
+  'auth.password': 'Mot de passe changé',
+  'console.account.update': 'Mon compte modifié (nom, téléphone, e-mail)',
+  'console.account.devices.forget': 'Appareils retenus oubliés',
+  'console.gmail.connect': 'Connexion de Gmail demandée',
+  'console.gmail.disconnect': 'Gmail déconnecté',
   'companies.store': 'Entreprise créée',
   'companies.update': 'Fiche entreprise modifiée',
   'console.companies.support': 'Session d\'assistance ouverte',

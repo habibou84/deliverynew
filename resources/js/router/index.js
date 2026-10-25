@@ -139,6 +139,7 @@ const routes = [
       { path: 'whatsapp', component: () => import('../views/console/WhatsApp.vue') },
       { path: 'journal', component: () => import('../views/console/Audit.vue') },
       { path: 'sante', component: () => import('../views/console/Health.vue') },
+      { path: 'compte', component: () => import('../views/console/Account.vue') },
       { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue') },
     ],
   },
