@@ -112,8 +112,25 @@ class ConsoleController extends Controller
                     'reason' => $s->reason,
                     'created_at' => $s->created_at,
                     'expires_at' => $s->expires_at,
+                    'open' => $s->expires_at->isFuture(),
                 ]),
         ]]);
+    }
+
+    /**
+     * Ferme une session d'assistance avant l'heure : son jeton ne marche plus.
+     */
+    public function closeSupportSession(Company $company, SupportSession $session): JsonResponse
+    {
+        abort_unless($session->company_id === $company->id, 404);
+        User::query()->find($session->user_id)?->tokens()
+            ->where('name', SupportSession::TOKEN_PREFIX.$session->opened_by)
+            ->where('expires_at', '>', now())->delete();
+        if ($session->expires_at->isFuture()) {
+            $session->forceFill(['expires_at' => now()])->save();
+        }
+
+        return response()->json(['data' => ['id' => $session->id, 'open' => false]]);
     }
 
     /**
@@ -124,7 +141,7 @@ class ConsoleController extends Controller
     {
         $data = $request->validate([
             'user_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where('company_id', $company->id)->whereNull('merchant_id')],
-            'reason' => ['nullable', 'string', 'max:255'],
+            'reason' => ['required', 'string', 'min:3', 'max:255'],
         ], [], ['user_id' => 'compte', 'reason' => 'motif']);
 
         if (! $company->isActive()) {
@@ -146,7 +163,7 @@ class ConsoleController extends Controller
             'company_id' => $company->id,
             'opened_by' => $request->user()->id,
             'user_id' => $user->id,
-            'reason' => $data['reason'] ?? null,
+            'reason' => $data['reason'],
             'ip' => $request->ip(),
             'expires_at' => $expires,
         ]);

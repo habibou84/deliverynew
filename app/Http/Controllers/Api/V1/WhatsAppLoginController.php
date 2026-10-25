@@ -61,6 +61,11 @@ class WhatsAppLoginController extends Controller
             return response()->json(['message' => 'Compte suspendu. Contactez votre administrateur.'], 403);
         }
 
+        // Comptes de la plateforme (console) : connexion par mot de passe seulement
+        if ($user->company === null) {
+            throw ValidationException::withMessages(['phone' => 'Ce compte se connecte avec son mot de passe.']);
+        }
+
         [$verification, $token] = $this->verifier->start($user->company, PhoneVerification::LOGIN, $phone, $user, [
             'device' => $data['device_name'] ?? 'whatsapp',
         ], $request->ip());

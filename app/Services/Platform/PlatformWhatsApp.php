@@ -132,6 +132,20 @@ class PlatformWhatsApp
     }
 
     /**
+     * Alerte de la plateforme (ex. paiement Wave à vérifier) depuis le numéro de Jibiat, sans conversation enregistrée.
+     *
+     * @throws MessagingException
+     */
+    public function notify(string $phone, string $text): string
+    {
+        if (! $this->connected()) {
+            throw new MessagingException('Le numéro WhatsApp de Jibiat n\'est pas relié (console › WhatsApp).');
+        }
+
+        return $this->send($phone, $text);
+    }
+
+    /**
      * Texte libre depuis le numéro de Jibiat, par la connexion utilisée. Avec la connexion officielle, Meta ne
      * l'accepte que dans les 24 heures qui suivent le dernier message de la personne.
      *

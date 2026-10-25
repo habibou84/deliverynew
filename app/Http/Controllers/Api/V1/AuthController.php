@@ -85,7 +85,8 @@ class AuthController extends Controller
         request()->setUserResolver(fn () => $user);
 
         return [
-            'token' => $user->createToken($device)->plainTextToken,
+            // Super administrateur : session de 12 heures (la console donne accès à toute la plateforme)
+            'token' => $user->createToken($device, ['*'], $user->isSuperAdmin() ? now()->addHours(12) : null)->plainTextToken,
             'token_type' => 'Bearer',
             'user' => UserResource::make($user->load(['company.plan', 'merchant', 'courier']))->withPermissions(),
         ];
