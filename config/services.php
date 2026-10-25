@@ -18,6 +18,12 @@ return [
         'key' => env('POSTMARK_API_KEY'),
     ],
 
+    // Envoi des e-mails de la plateforme par Gmail, connexion Google sans mot de passe (docs/GMAIL.md)
+    'google_mail' => [
+        'client_id' => env('GOOGLE_MAIL_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_MAIL_CLIENT_SECRET'),
+    ],
+
     'resend' => [
         'key' => env('RESEND_API_KEY'),
     ],

@@ -132,6 +132,14 @@ class PlatformHealth
     /** @return array{0: string, 1: string} */
     private function mail(): array
     {
+        $gmail = app(GmailConnection::class)->state();
+        if ($gmail['error']) {
+            return ['error', $gmail['error']];
+        }
+        if ($gmail['connected']) {
+            return ['ok', 'Gmail relié ('.$gmail['email'].').'];
+        }
+
         return $this->wave->mailReady() ? ['ok', 'Un serveur d\'e-mail est réglé.'] : ['warning', 'Aucun serveur d\'e-mail : facultatif si WhatsApp est relié.'];
     }
 
