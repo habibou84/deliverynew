@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\ConsoleGmailController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\ProductPhotoController;
 use App\Http\Controllers\BrandingController;
@@ -36,6 +37,9 @@ Route::post('/paiements-wave/valider/{payment}', [WavePaymentValidationControlle
 
 // Bascule depuis l'ancienne application : le lien à usage unique ouvre la session sur Jibiat
 Route::get('/bascule/{ticket}', [LegacySwitchController::class, 'open'])->where('ticket', '[A-Za-z0-9]{48}')->middleware('throttle:30,1')->name('legacy-switch.open');
+
+// Retour de Google après « Connecter Gmail » (console : envoi des e-mails sans mot de passe)
+Route::get('/gmail/callback', [ConsoleGmailController::class, 'callback'])->middleware('throttle:20,1')->name('console.gmail.callback');
 
 Route::view('/confidentialite', 'legal.privacy')->name('privacy');
 Route::view('/conditions', 'legal.terms')->name('terms');

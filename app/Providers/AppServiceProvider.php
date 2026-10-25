@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Mail\GmailApiTransport;
 use App\Models\PlatformInvoice;
 use App\Models\User;
 use App\Services\Messaging\Gateways\AutoWhatsAppGateway;
@@ -12,6 +13,7 @@ use App\Services\Messaging\Gateways\QrBridgeGateway;
 use App\Services\Messaging\Gateways\SmsGateway;
 use App\Services\Messaging\Gateways\TwilioSmsGateway;
 use App\Services\Messaging\Gateways\WhatsAppGateway;
+use App\Services\Platform\GmailConnection;
 use App\Services\WhatsApp\ClaudeOrderParser;
 use App\Services\WhatsApp\HeuristicOrderParser;
 use App\Services\WhatsApp\OrderMessageParser;
@@ -21,6 +23,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -65,6 +68,9 @@ class AppServiceProvider extends ServiceProvider
         Model::preventSilentlyDiscardingAttributes($strict);
 
         DB::prohibitDestructiveCommands($this->app->isProduction());
+
+        // Envoi des e-mails par Gmail relié dans la console (sans mot de passe d'application)
+        Mail::extend('gmail', fn () => new GmailApiTransport(app(GmailConnection::class)));
 
         // Le super administrateur de la plateforme a tous les droits
         Gate::before(fn (User $user) => $user->isSuperAdmin() ? true : null);

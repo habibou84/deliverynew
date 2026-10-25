@@ -70,6 +70,11 @@ return [
             'path' => env('MAIL_SENDMAIL_PATH', '/usr/sbin/sendmail -bs -i'),
         ],
 
+        // Gmail relié dans la console (connexion Google, API de Gmail)
+        'gmail' => [
+            'transport' => 'gmail',
+        ],
+
         'log' => [
             'transport' => 'log',
             'channel' => env('MAIL_LOG_CHANNEL'),

@@ -1,0 +1,52 @@
+# Envoyer les e-mails de Jibiat par Gmail, sans mot de passe d'application
+
+Jibiat envoie ses e-mails (alertes de paiement Wave, codes) depuis votre compte Gmail grâce à la **connexion
+Google** : vous autorisez Jibiat à **envoyer** des e-mails, rien d'autre (Jibiat ne peut pas lire votre boîte).
+Aucun mot de passe n'est enregistré ; vous pouvez retirer l'autorisation à tout moment sur
+myaccount.google.com › Sécurité › Applications tierces.
+
+Il faut d'abord créer, une seule fois, un petit « projet Google » qui représente Jibiat (environ 15 minutes).
+
+## 1. Créer le projet Google (une seule fois)
+
+Sur **console.cloud.google.com**, connecté avec votre compte Google :
+
+1. En haut, **Sélectionner un projet › Nouveau projet** : nom « Jibiat », puis **Créer**.
+2. Menu **API et services › Bibliothèque** : cherchez **Gmail API**, puis **Activer**.
+3. Menu **Google Auth Platform** (ou **Écran de consentement OAuth**) › **Commencer** :
+   - nom de l'application : Jibiat ; e-mail d'assistance : votre adresse ;
+   - audience : **Externe** ; coordonnées : votre adresse ; acceptez les conditions, puis **Créer**.
+4. **Accès aux données › Ajouter ou supprimer des champs d'application** : cochez
+   `.../auth/gmail.send` (« Envoyer des e-mails en votre nom »), plus `openid` et `.../auth/userinfo.email`,
+   puis **Mettre à jour** et **Enregistrer**.
+5. **Audience › Publier l'application** (statut « En production »). Important : en mode « Test », Google retire
+   l'autorisation au bout de 7 jours. Aucune vérification par Google n'est nécessaire pour votre propre compte.
+6. **Clients › Créer un client** : type **Application Web**, nom « Jibiat ». Dans **URI de redirection
+   autorisés**, ajoutez :
+   - `https://admin.jibiat.com/gmail/callback`
+   - (préproduction) `https://admin.preprod.jibiat.com/gmail/callback`
+   puis **Créer**. Google affiche l'**ID client** et le **code secret du client**.
+
+## 2. Mettre les deux valeurs sur le serveur
+
+Dans le fichier `.env` du serveur (jamais dans une conversation, un e-mail ou une capture) :
+
+```
+GOOGLE_MAIL_CLIENT_ID=…apps.googleusercontent.com
+GOOGLE_MAIL_CLIENT_SECRET=…
+```
+
+puis `php artisan config:cache` (ou attendez la prochaine mise à jour automatique).
+
+## 3. Relier Gmail dans la console
+
+**Console › Paiements Wave › Envoi des alertes › Connecter Gmail** : choisissez votre compte, puis autorisez.
+Google affiche « Google n'a pas validé cette application » : c'est normal, c'est votre propre application ;
+touchez **Paramètres avancés › Accéder à Jibiat**, puis **Continuer**. Enfin, **Envoyer une alerte d'essai**.
+
+## Bon à savoir
+
+- Gmail accepte environ 500 e-mails par jour depuis un compte personnel : largement assez pour les alertes.
+- Si l'autorisation est retirée (dans le compte Google, ou après un changement de mot de passe Google), la console
+  et la page **Santé** l'indiquent : il suffit de toucher à nouveau **Connecter Gmail**.
+- Le réglage SMTP (« Autre serveur d'e-mail ») reste possible, mais n'est plus nécessaire.

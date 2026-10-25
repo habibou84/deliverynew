@@ -74,7 +74,7 @@
         </li>
         <li>
           <span :class="settings.mail.source ? 'text-emerald-700' : 'text-amber-700'">{{ settings.mail.source ? '✓' : '✗' }} E-mail :</span>
-          {{ settings.mail.source === 'console' ? `par ${settings.mail.host} (réglé ci-dessous)` : settings.mail.source === 'server' ? 'par le serveur' : 'facultatif, non réglé' }}
+          {{ settings.mail.source === 'gmail' ? `par Gmail (${settings.mail.gmail.email})` : settings.mail.source === 'console' ? `par ${settings.mail.host} (réglé ci-dessous)` : settings.mail.source === 'server' ? 'par le serveur' : 'facultatif, non réglé' }}
         </li>
         <li>
           <span :class="settings.sms_ready ? 'text-emerald-700' : 'text-amber-700'">{{ settings.sms_ready ? '✓' : '✗' }} SMS :</span>
@@ -84,18 +84,31 @@
       <p v-if="settings.whatsapp_ready && !settings.mail.source" class="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800">
         WhatsApp suffit : l'e-mail n'est qu'un secours, vous pouvez le laisser vide.
       </p>
-      <details class="rounded-lg bg-slate-50 p-3" :open="!!settings.mail.source">
-      <summary class="cursor-pointer font-medium">E-mail de secours (facultatif)</summary>
+      <div class="space-y-2 rounded-lg bg-slate-50 p-3">
+        <p class="font-medium">E-mail par Gmail, sans mot de passe</p>
+        <template v-if="settings.mail.gmail.connected">
+          <p class="text-emerald-700">✓ Gmail relié : les e-mails partent de <b>{{ settings.mail.gmail.email }}</b>.</p>
+          <p v-if="settings.mail.gmail.error" class="text-red-600">{{ settings.mail.gmail.error }}</p>
+          <button type="button" class="btn-secondary" @click="disconnectGmail">Déconnecter Gmail</button>
+        </template>
+        <template v-else-if="settings.mail.gmail.available">
+          <p class="text-xs text-gray-600">
+            Vous choisissez votre compte Gmail et Google demande d'autoriser Jibiat à <b>envoyer</b> des e-mails (Jibiat ne peut pas lire votre boîte).
+            Aucun mot de passe n'est enregistré. Si Google affiche « application non vérifiée », touchez « Paramètres avancés » puis « Accéder à Jibiat ».
+          </p>
+          <p v-if="settings.mail.gmail.error" class="text-red-600">{{ settings.mail.gmail.error }}</p>
+          <button type="button" class="btn-primary" :disabled="gmailBusy" @click="connectGmail">{{ gmailBusy ? 'Ouverture…' : 'Connecter Gmail' }}</button>
+        </template>
+        <p v-else class="text-xs text-amber-800">
+          Le projet Google n'est pas encore réglé sur le serveur (GOOGLE_MAIL_CLIENT_ID et GOOGLE_MAIL_CLIENT_SECRET) : suivez docs/GMAIL.md, une seule fois.
+        </p>
+      </div>
+      <details class="rounded-lg bg-slate-50 p-3" :open="settings.mail.source === 'console'">
+      <summary class="cursor-pointer font-medium">Autre serveur d'e-mail (SMTP, facultatif)</summary>
       <form class="mt-3 space-y-3" @submit.prevent="saveMail">
         <p class="text-xs text-gray-600">
-          Le plus simple : un compte gratuit Brevo (brevo.com) › SMTP et API › « Générer une clé SMTP ». Serveur smtp-relay.brevo.com,
-          port 587, identifiant et clé donnés par Brevo. Avec Gmail, Google exige un « mot de passe d'application »
-          (myaccount.google.com/apppasswords, validation en deux étapes activée) : votre mot de passe habituel ne marche pas.
+          Seulement si vous n'utilisez pas Gmail ci-dessus : boîte mail de votre domaine ou service d'envoi (serveur, port, identifiant, mot de passe).
         </p>
-        <div class="flex flex-wrap gap-2">
-          <button type="button" class="btn-secondary" @click="Object.assign(mail, { host: 'smtp-relay.brevo.com', port: 587 })">Utiliser Brevo</button>
-          <button type="button" class="btn-secondary" @click="Object.assign(mail, { host: 'smtp.gmail.com', port: 587 })">Utiliser Gmail</button>
-        </div>
         <div class="grid gap-3 sm:grid-cols-[1fr_6rem]">
           <div><label class="label" for="m-host">Serveur</label><input id="m-host" v-model.trim="mail.host" class="input" placeholder="smtp.gmail.com"></div>
           <div><label class="label" for="m-port">Port</label><input id="m-port" v-model.number="mail.port" type="number" class="input"></div>
@@ -119,6 +132,7 @@
 
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
@@ -132,6 +146,7 @@ const settings = ref(null)
 const form = reactive({ link: '', validator_email: '', validator_phone: '', validator_pin: '', current_password: '' })
 const mail = reactive({ host: '', port: 587, username: '', password: '' })
 const testing = ref(false)
+const gmailBusy = ref(false)
 const testResult = ref(null)
 
 const dateTime = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -169,6 +184,26 @@ async function save() {
   try {
     fill((await http.put('/console/wave', form)).data.data)
     toasts.success('Réglages Wave enregistrés.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function connectGmail() {
+  gmailBusy.value = true
+  try {
+    window.location.href = (await http.post('/console/gmail/connect')).data.data.url
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+    gmailBusy.value = false
+  }
+}
+
+async function disconnectGmail() {
+  if (!window.confirm('Déconnecter Gmail ? Les e-mails ne partiront plus par ce compte.')) return
+  try {
+    fill((await http.delete('/console/gmail')).data.data)
+    toasts.success('Gmail déconnecté.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }
@@ -214,7 +249,17 @@ async function testAlert() {
   }
 }
 
+const route = useRoute()
+const router = useRouter()
+
 onMounted(async () => {
+  // Retour de Google après « Connecter Gmail »
+  const gmail = route.query.gmail
+  if (gmail === 'ok') toasts.success('Gmail relié : les e-mails partiront de votre compte.')
+  else if (gmail === 'refus') toasts.error('Autorisation refusée dans Google : Gmail n\'est pas relié.')
+  else if (gmail === 'erreur') toasts.error(String(route.query.message || 'Gmail n\'a pas pu être relié.'))
+  if (gmail) router.replace({ query: {} })
+
   fill((await http.get('/console/wave')).data.data)
   await loadPending()
 })
