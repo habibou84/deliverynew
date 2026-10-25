@@ -26,7 +26,7 @@ class PasswordController extends Controller
 
         $data = $request->validate([
             'current_password' => [$hasPassword ? 'required' : 'nullable', 'string'],
-            'password' => ['required', 'string', 'confirmed', Password::min($user->isSuperAdmin() ? 12 : 8)],
+            'password' => ['required', 'string', 'confirmed', Password::min($user->isPlatformStaff() ? 12 : 8)],
         ], [], ['current_password' => 'mot de passe actuel', 'password' => 'nouveau mot de passe']);
 
         if ($hasPassword && ! Hash::check($data['current_password'], $user->password)) {

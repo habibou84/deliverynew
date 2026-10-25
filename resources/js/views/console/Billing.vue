@@ -59,7 +59,7 @@
       </table>
     </div>
 
-    <form class="card p-4 space-y-3" @submit.prevent="saveSettings">
+    <form v-if="can('owner')" class="card p-4 space-y-3" @submit.prevent="saveSettings">
       <h2 class="font-semibold">Mentions des factures</h2>
       <div>
         <label class="label" for="s-issuer">Émetteur (première ligne : nom ; puis adresse, téléphone, RCCM…)</label>
@@ -99,10 +99,14 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import InvoiceStatus from '../../components/InvoiceStatus.vue'
 import Modal from '../../components/Modal.vue'
 import StatCard from '../../components/StatCard.vue'
+import { consoleCan } from '../../roles'
+import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { date, money, today } from '../../utils/format'
 
 const toasts = useToastStore()
+const auth = useAuthStore()
+const can = (group) => consoleCan(auth.role, group)
 const invoices = ref([])
 const totals = ref(null)
 const methods = ref({})

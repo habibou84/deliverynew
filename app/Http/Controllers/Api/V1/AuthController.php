@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\LoginRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Models\User;
+use App\Services\Accounts\ConsoleLoginAlerts;
 use App\Services\Accounts\ConsoleTwoFactor;
 use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
@@ -79,7 +80,10 @@ class AuthController extends Controller
             }
         }
 
-        return response()->json(self::session($user, $device));
+        $session = self::session($user, $device);
+        self::alertConsoleLogin($user, $device, $request);
+
+        return response()->json($session);
     }
 
     /**
@@ -94,8 +98,18 @@ class AuthController extends Controller
         ], [], ['code' => 'code']);
 
         $result = $twoFactor->verify($data['challenge'], $data['code'], (bool) ($data['remember'] ?? false), $request->ip());
+        $session = self::session($result['user'], $result['device']);
+        self::alertConsoleLogin($result['user'], $result['device'], $request);
 
-        return response()->json([...self::session($result['user'], $result['device']), 'trusted_device' => $result['trusted_device']]);
+        return response()->json([...$session, 'trusted_device' => $result['trusted_device']]);
+    }
+
+    /** Console : alerte « nouvelle connexion » à la personne (e-mail, WhatsApp en secours) */
+    private static function alertConsoleLogin(User $user, string $device, Request $request): void
+    {
+        if ($user->isPlatformStaff()) {
+            app(ConsoleLoginAlerts::class)->send($user, $device, (string) $request->ip());
+        }
     }
 
     /**
@@ -113,7 +127,7 @@ class AuthController extends Controller
 
         return [
             // Super administrateur : session de 12 heures (la console donne accès à toute la plateforme)
-            'token' => $user->createToken($device, ['*'], $user->isSuperAdmin() ? now()->addHours(12) : null)->plainTextToken,
+            'token' => $user->createToken($device, ['*'], $user->isPlatformStaff() ? now()->addHours(12) : null)->plainTextToken,
             'token_type' => 'Bearer',
             'user' => UserResource::make($user->load(['company.plan', 'merchant', 'courier']))->withPermissions(),
         ];

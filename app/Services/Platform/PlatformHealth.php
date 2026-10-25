@@ -197,7 +197,7 @@ class PlatformHealth
     /** @return array{0: string, 1: string} */
     private function twoFactor(): array
     {
-        $admins = User::query()->whereNull('company_id')->where('status', 'active')->role(Role::SuperAdmin->value)->get();
+        $admins = User::query()->whereNull('company_id')->where('status', 'active')->role(Role::values(Role::platform()))->get();
         $mail = $this->wave->mailReady();
         $whatsapp = $this->whatsapp->connected();
         $without = $admins->filter(fn (User $u) => ! (($mail && filled($u->email)) || ($whatsapp && filled($u->phone))));

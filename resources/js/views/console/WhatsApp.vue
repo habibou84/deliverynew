@@ -8,7 +8,7 @@
     </div>
 
     <!-- Connexion officielle (API Cloud de Meta), saisie à la main -->
-    <section v-if="state" class="card p-4 space-y-3">
+    <section v-if="state && can('owner')" class="card p-4 space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="font-semibold">Connexion officielle (Meta)</h2>
         <span v-if="state.official" :class="['rounded-full px-2 py-0.5 text-xs font-medium', OFFICIAL[state.official.status]?.[1] || 'bg-slate-100 text-slate-700']">{{ OFFICIAL[state.official.status]?.[0] || state.official.status }}</span>
@@ -57,7 +57,7 @@
     </section>
 
     <!-- Connexion du numéro de Jibiat par QR code (secours de la connexion officielle) -->
-    <section v-if="state && state.qr_state.status !== 'connected'" class="card p-4 space-y-3">
+    <section v-if="state && can('owner') && state.qr_state.status !== 'connected'" class="card p-4 space-y-3">
       <h2 class="font-semibold">Connexion par QR code<span v-if="state.channel === 'official'" class="font-normal text-gray-500"> (secours)</span></h2>
       <p class="text-sm text-gray-600">
         Reliez le numéro WhatsApp de Jibiat comme WhatsApp Web : les messages des entreprises et des prospects arrivent ici,
@@ -81,13 +81,13 @@
       <p v-if="!state.available" class="text-xs text-gray-500">Le service WhatsApp n'est pas encore installé sur le serveur.</p>
     </section>
 
-    <p v-else-if="state" class="text-sm text-gray-600">
+    <p v-else-if="state && state.qr_state.status === 'connected'" class="text-sm text-gray-600">
       ✅ Numéro <strong>{{ state.qr_state.phone }}</strong><span v-if="state.qr_state.name"> ({{ state.qr_state.name }})</span> relié par QR code<span v-if="state.channel === 'official'"> (secours)</span>.
-      <button type="button" class="ml-2 text-red-700 underline" :disabled="busy" @click="disconnect">Déconnecter</button>
+      <button v-if="can('owner')" type="button" class="ml-2 text-red-700 underline" :disabled="busy" @click="disconnect">Déconnecter</button>
     </p>
 
     <!-- SMS : coût à surveiller, secours à n'activer qu'en connaissance de cause -->
-    <section v-if="state?.sms" class="card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+    <section v-if="state?.sms && can('owner')" class="card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
       <div>
         <p class="font-semibold">SMS envoyés (payants)</p>
         <p class="text-gray-600">
@@ -162,6 +162,8 @@
 <script setup>
 import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import { consoleCan } from '../../roles'
+import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { dateTime } from '../../utils/format'
 
@@ -170,6 +172,8 @@ import { dateTime } from '../../utils/format'
  * réponses depuis la console. Tout se rafraîchit toutes les cinq secondes.
  */
 const toasts = useToastStore()
+const auth = useAuthStore()
+const can = (group) => consoleCan(auth.role, group)
 const state = ref(null)
 const conversations = ref([])
 const thread = ref(null)

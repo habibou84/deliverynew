@@ -4,19 +4,17 @@
       <div class="mx-auto max-w-6xl px-4 py-3 flex flex-wrap items-center justify-between gap-2">
         <div class="flex flex-wrap items-center gap-4">
           <RouterLink to="/console" class="font-bold">🛰️ Console de la plateforme</RouterLink>
-          <nav class="flex gap-1 text-sm">
-            <RouterLink to="/console" class="rounded px-3 py-1.5 hover:bg-white/10" exact-active-class="bg-white/15">Entreprises</RouterLink>
-            <RouterLink to="/console/formules" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">Formules</RouterLink>
-            <RouterLink to="/console/facturation" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">Facturation</RouterLink>
-            <RouterLink to="/console/paiements" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">Paiements Wave</RouterLink>
-            <RouterLink to="/console/whatsapp" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">WhatsApp</RouterLink>
-            <RouterLink to="/console/sante" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">Santé</RouterLink>
-            <RouterLink to="/console/journal" class="rounded px-3 py-1.5 hover:bg-white/10" active-class="bg-white/15">Journal</RouterLink>
+          <nav class="flex flex-wrap gap-1 text-sm">
+            <RouterLink
+              v-for="item in menu" :key="item.to" :to="item.to" class="rounded px-3 py-1.5 hover:bg-white/10"
+              :exact-active-class="item.exact ? 'bg-white/15' : undefined" :active-class="item.exact ? undefined : 'bg-white/15'"
+            >{{ item.label }}</RouterLink>
           </nav>
         </div>
         <div class="flex items-center gap-3 text-sm">
+          <ConsoleSearch />
           <NotificationBell class="[&>button]:hover:bg-white/10" />
-          <RouterLink to="/console/compte" class="text-slate-300 hover:text-white hover:underline" title="Mon compte">👤 {{ auth.user?.name }}</RouterLink>
+          <RouterLink to="/console/compte" class="text-slate-300 hover:text-white hover:underline" title="Mon compte">👤 {{ auth.user?.name }} · {{ ROLE_LABELS[auth.role] }}</RouterLink>
           <button class="rounded bg-white/10 px-3 py-1.5 hover:bg-white/20" @click="logout">Déconnexion</button>
         </div>
       </div>
@@ -28,12 +26,30 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import ConsoleSearch from '../components/console/ConsoleSearch.vue'
 import NotificationBell from '../components/NotificationBell.vue'
+import { CONSOLE_ROLES } from '../roles'
 import { useAuthStore } from '../stores/auth'
+import { ROLE_LABELS } from '../utils/format'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+// Menu selon le rôle (Propriétaire, Support, Comptable) ; le serveur refuse de toute façon le reste
+const ITEMS = [
+  { to: '/console', label: 'Tableau de bord', exact: true, roles: CONSOLE_ROLES.team },
+  { to: '/console/entreprises', label: 'Entreprises', roles: CONSOLE_ROLES.team },
+  { to: '/console/formules', label: 'Formules', roles: CONSOLE_ROLES.team },
+  { to: '/console/facturation', label: 'Facturation', roles: CONSOLE_ROLES.accounting },
+  { to: '/console/paiements', label: 'Paiements Wave', roles: CONSOLE_ROLES.accounting },
+  { to: '/console/whatsapp', label: 'WhatsApp', roles: CONSOLE_ROLES.support },
+  { to: '/console/sante', label: 'Santé', roles: CONSOLE_ROLES.support },
+  { to: '/console/journal', label: 'Journal', roles: CONSOLE_ROLES.owner },
+  { to: '/console/equipe', label: 'Équipe', roles: CONSOLE_ROLES.owner },
+]
+const menu = computed(() => ITEMS.filter((i) => i.roles.includes(auth.role)))
 
 async function logout() {
   await auth.logout()

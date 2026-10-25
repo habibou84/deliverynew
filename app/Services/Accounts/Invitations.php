@@ -5,6 +5,7 @@ namespace App\Services\Accounts;
 use App\Exceptions\BusinessRuleException;
 use App\Models\PhoneVerification;
 use App\Models\User;
+use App\Services\Platform\WavePayments;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -42,7 +43,7 @@ class Invitations
             ]);
         });
 
-        $url = $user->company ? $user->company->url('/invitation/'.$token) : url('/invitation/'.$token);
+        $url = $user->company ? $user->company->url('/invitation/'.$token) : WavePayments::consoleUrl('/invitation/'.$token);
         $text = $this->text($user, $url);
 
         return [

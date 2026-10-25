@@ -34,7 +34,7 @@ class ConsoleTwoFactor
     /** Compte concerné : les super administrateurs de la plateforme */
     public function applies(User $user): bool
     {
-        return $user->company_id === null && $user->isSuperAdmin();
+        return $user->isPlatformStaff();
     }
 
     /** Appareil retenu (jeton gardé par le navigateur) encore valable pour ce compte */

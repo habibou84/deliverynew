@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { SPACES } from '../roles'
+import { CONSOLE_ROLES, SPACES } from '../roles'
 import { allowedInApp, appLock, nativeApp, nativeCompany } from '../native'
 import { spaceForPath } from '../bootstrap/session'
 
@@ -96,6 +96,7 @@ const routes = [
       { path: 'reglages/alertes', component: () => import('../views/admin/settings/SettingsAlerts.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'reglages/assistance', component: () => import('../views/admin/settings/SettingsSupport.vue'), meta: { permission: 'settings.manage' } },
       { path: 'parametres', redirect: '/admin/reglages' },
       { path: 'mot-de-passe', component: () => import('../views/admin/Password.vue') },
       { path: 'integrations', component: () => import('../views/admin/Integrations.vue'), meta: { permission: 'integrations.manage', feature: 'api' } },
@@ -131,16 +132,18 @@ const routes = [
     component: () => import('../layouts/ConsoleLayout.vue'),
     meta: { roles: SPACES.console },
     children: [
-      { path: '', name: 'console', component: () => import('../views/console/Companies.vue') },
+      { path: '', name: 'console', component: () => import('../views/console/Dashboard.vue') },
+      { path: 'entreprises', component: () => import('../views/console/Companies.vue') },
       { path: 'entreprises/:id(\\d+)', component: () => import('../views/console/Company.vue') },
       { path: 'formules', component: () => import('../views/console/Plans.vue') },
-      { path: 'facturation', component: () => import('../views/console/Billing.vue') },
-      { path: 'paiements', component: () => import('../views/console/WavePayments.vue') },
-      { path: 'whatsapp', component: () => import('../views/console/WhatsApp.vue') },
-      { path: 'journal', component: () => import('../views/console/Audit.vue') },
-      { path: 'sante', component: () => import('../views/console/Health.vue') },
+      { path: 'facturation', component: () => import('../views/console/Billing.vue'), meta: { roles: CONSOLE_ROLES.accounting } },
+      { path: 'paiements', component: () => import('../views/console/WavePayments.vue'), meta: { roles: CONSOLE_ROLES.accounting } },
+      { path: 'whatsapp', component: () => import('../views/console/WhatsApp.vue'), meta: { roles: CONSOLE_ROLES.support } },
+      { path: 'journal', component: () => import('../views/console/Audit.vue'), meta: { roles: CONSOLE_ROLES.owner } },
+      { path: 'sante', component: () => import('../views/console/Health.vue'), meta: { roles: CONSOLE_ROLES.support } },
+      { path: 'equipe', component: () => import('../views/console/Team.vue'), meta: { roles: CONSOLE_ROLES.owner } },
       { path: 'compte', component: () => import('../views/console/Account.vue') },
-      { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue') },
+      { path: 'factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { roles: CONSOLE_ROLES.accounting } },
     ],
   },
   // Application e-commerçant (PWA mobile)

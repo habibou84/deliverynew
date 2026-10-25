@@ -114,8 +114,8 @@ const ALL = computed(() => {
     {
       key: 'team', icon: '🛵', title: 'Équipe et paie',
       description: 'Rémunération des livreurs, comptes et rôles de l\'équipe.',
-      links: [{ to: '/admin/paie-livreurs', label: 'Paie des livreurs', permission: 'settings.manage' }, { to: '/admin/utilisateurs', label: 'Utilisateurs et rôles', permission: 'users.view' }],
-      keywords: 'paie salaire plan rémunération primes utilisateurs rôles équipe',
+      links: [{ to: '/admin/paie-livreurs', label: 'Paie des livreurs', permission: 'settings.manage' }, { to: '/admin/utilisateurs', label: 'Utilisateurs et rôles', permission: 'users.view' }, { to: '/admin/reglages/assistance', label: "Accès de l'assistance Jibiat", permission: 'settings.manage' }],
+      keywords: 'paie salaire plan rémunération primes utilisateurs rôles équipe assistance support jibiat accès',
     },
     {
       key: 'integrations', icon: '🔌', title: 'Intégrations',
