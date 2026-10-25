@@ -13,6 +13,7 @@ use App\Services\Messaging\Gateways\SmsGateway;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Notifications\AnonymousNotifiable;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
@@ -138,8 +139,33 @@ class WavePaymentTest extends TestCase
     {
         config(['mail.default' => 'log']);
         $this->configure();
-        $this->postJson('/api/v1/console/wave/test-alert')->assertOk()->assertJsonPath('data.mail.ok', false)->assertJsonPath('data.sms.ok', false)
+        $this->postJson('/api/v1/console/wave/test-alert')->assertOk()->assertJsonPath('data.whatsapp.ok', false)->assertJsonPath('data.mail.ok', false)->assertJsonPath('data.sms.ok', false)
             ->assertJsonPath('data.mail.detail', fn ($d) => str_contains($d, 'serveur d\'e-mail'));
-        $this->getJson('/api/v1/console/wave')->assertJsonPath('data.mail.source', null)->assertJsonPath('data.sms_ready', false);
+        $this->getJson('/api/v1/console/wave')->assertJsonPath('data.mail.source', null)->assertJsonPath('data.sms_ready', false)->assertJsonPath('data.whatsapp_ready', false);
+    }
+
+    public function test_the_alert_goes_first_by_whatsapp_from_the_jibiat_number(): void
+    {
+        Notification::fake();
+        config(['messaging.whatsapp.bridge.url' => 'http://bridge.test', 'messaging.whatsapp.bridge.token' => 'secret-bridge']);
+        Http::fake(['bridge.test/sessions/platform/send' => Http::response(['id' => 'qr-w1'], 202)]);
+        PlatformSetting::put('whatsapp.status', 'connected');
+        $this->configure();
+        $this->getJson('/api/v1/console/wave')->assertJsonPath('data.whatsapp_ready', true);
+
+        Sanctum::actingAs($this->admin);
+        $id = $this->postJson("/api/v1/subscription/invoices/{$this->invoice->id}/wave", ['payer_phone' => '0708091011'])->assertCreated()->json('data.id');
+
+        // Ni e-mail ni SMS : le message WhatsApp suffit ; la cloche de la console reste prévenue
+        $this->assertSame('whatsapp', PlatformWavePayment::find($id)->alerts[0]['channel']);
+        $this->assertCount(0, $this->sms);
+        Notification::assertNothingSentTo(new AnonymousNotifiable, WavePaymentToValidate::class);
+        Notification::assertSentTo($this->root, WavePaymentReceived::class);
+        Http::assertSent(fn ($request) => $request['to'] === '+2250507016739'
+            && str_contains($request['text'], '25 000 F') && str_contains($request['text'], '/paiements-wave/valider/'));
+
+        // Essai depuis la console : WhatsApp parti
+        Sanctum::actingAs($this->root);
+        $this->postJson('/api/v1/console/wave/test-alert')->assertOk()->assertJsonPath('data.whatsapp.ok', true);
     }
 }

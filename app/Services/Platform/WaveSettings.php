@@ -12,7 +12,8 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Réglages du paiement des factures par le lien marchand Wave, choisis dans la console : lien et QR code, validateur
- * (e-mail, téléphone, code haché) et serveur d'e-mail des alertes (Gmail…, mot de passe chiffré).
+ * (e-mail, téléphone, code haché) et serveur d'e-mail des alertes, facultatif (mot de passe chiffré). Les alertes
+ * partent d'abord par le WhatsApp de Jibiat (voir WavePayments).
  */
 class WaveSettings
 {
@@ -177,6 +178,7 @@ class WaveSettings
                 'password_set' => $this->value('mail.password') !== null,
             ],
             'sms_ready' => $this->smsReady(),
+            'whatsapp_ready' => app(PlatformWhatsApp::class)->connected(),
         ];
     }
 

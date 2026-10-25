@@ -45,48 +45,66 @@
       </div>
       <div class="grid gap-3 sm:grid-cols-2">
         <div><label class="label" for="w-email">E-mail du validateur</label><input id="w-email" v-model.trim="form.validator_email" type="email" class="input" placeholder="paiements@…"></div>
-        <div><label class="label" for="w-phone">Téléphone du validateur</label><input id="w-phone" v-model.trim="form.validator_phone" type="tel" class="input" placeholder="07 00 00 00 00"></div>
+        <div><label class="label" for="w-phone">WhatsApp du validateur</label><input id="w-phone" v-model.trim="form.validator_phone" type="tel" class="input" placeholder="07 00 00 00 00"></div>
       </div>
       <div class="max-w-xs">
         <label class="label" for="w-pin">Code de validation</label>
         <input id="w-pin" v-model="form.validator_pin" type="password" inputmode="numeric" autocomplete="new-password" class="input" :placeholder="settings.pin_set ? 'Déjà défini : laisser vide pour le garder' : 'Au moins 4 chiffres'">
-        <p class="mt-1 text-xs text-gray-500">Demandé quand vous validez depuis le lien reçu par e-mail ou SMS.</p>
+        <p class="mt-1 text-xs text-gray-500">Demandé quand vous validez depuis le lien reçu par WhatsApp, e-mail ou SMS.</p>
       </div>
       <button class="btn-primary">Enregistrer</button>
     </form>
 
     <div v-if="settings" class="card space-y-3 p-4 text-sm">
       <h2 class="font-semibold">Envoi des alertes</h2>
-      <p class="text-gray-600">À chaque paiement, un e-mail part d'abord ; s'il ne part pas, un SMS. Le paiement apparaît aussi dans la cloche et sur cette page.</p>
+      <p class="text-gray-600">
+        À chaque paiement, le validateur reçoit un message <b>WhatsApp depuis le numéro de Jibiat</b>, avec le lien pour confirmer.
+        S'il ne part pas : un e-mail, puis un SMS. Le paiement apparaît aussi dans la cloche et sur cette page.
+      </p>
       <ul class="space-y-1">
         <li>
+          <span :class="settings.whatsapp_ready ? 'text-emerald-700' : 'text-amber-700'">{{ settings.whatsapp_ready ? '✓' : '✗' }} WhatsApp :</span>
+          {{ settings.whatsapp_ready ? 'le numéro de Jibiat est relié' : 'le numéro de Jibiat n\'est pas relié' }}
+          <RouterLink v-if="!settings.whatsapp_ready" to="/console/whatsapp" class="text-blue-600 underline">Relier le numéro</RouterLink>
+        </li>
+        <li>
           <span :class="settings.mail.source ? 'text-emerald-700' : 'text-amber-700'">{{ settings.mail.source ? '✓' : '✗' }} E-mail :</span>
-          {{ settings.mail.source === 'console' ? `par ${settings.mail.host} (réglé ci-dessous)` : settings.mail.source === 'server' ? 'par le serveur' : 'aucun serveur d\'e-mail : les e-mails ne partent pas' }}
+          {{ settings.mail.source === 'console' ? `par ${settings.mail.host} (réglé ci-dessous)` : settings.mail.source === 'server' ? 'par le serveur' : 'facultatif, non réglé' }}
         </li>
         <li>
           <span :class="settings.sms_ready ? 'text-emerald-700' : 'text-amber-700'">{{ settings.sms_ready ? '✓' : '✗' }} SMS :</span>
           {{ settings.sms_ready ? 'le serveur envoie les SMS' : 'pas de fournisseur de SMS sur le serveur : les SMS ne partent pas' }}
         </li>
       </ul>
-      <form class="space-y-3 rounded-lg bg-slate-50 p-3" @submit.prevent="saveMail">
-        <p class="font-medium">Envoi des e-mails</p>
+      <p v-if="settings.whatsapp_ready && !settings.mail.source" class="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800">
+        WhatsApp suffit : l'e-mail n'est qu'un secours, vous pouvez le laisser vide.
+      </p>
+      <details class="rounded-lg bg-slate-50 p-3" :open="!!settings.mail.source">
+      <summary class="cursor-pointer font-medium">E-mail de secours (facultatif)</summary>
+      <form class="mt-3 space-y-3" @submit.prevent="saveMail">
         <p class="text-xs text-gray-600">
-          Avec Gmail : activez la validation en deux étapes de votre compte Google (myaccount.google.com, Sécurité), puis créez un
-          « mot de passe d'application » (myaccount.google.com/apppasswords). Collez ce code de 16 lettres ici, pas votre mot de passe habituel.
+          Le plus simple : un compte gratuit Brevo (brevo.com) › SMTP et API › « Générer une clé SMTP ». Serveur smtp-relay.brevo.com,
+          port 587, identifiant et clé donnés par Brevo. Avec Gmail, Google exige un « mot de passe d'application »
+          (myaccount.google.com/apppasswords, validation en deux étapes activée) : votre mot de passe habituel ne marche pas.
         </p>
-        <button type="button" class="btn-secondary" @click="Object.assign(mail, { host: 'smtp.gmail.com', port: 587 })">Utiliser Gmail</button>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn-secondary" @click="Object.assign(mail, { host: 'smtp-relay.brevo.com', port: 587 })">Utiliser Brevo</button>
+          <button type="button" class="btn-secondary" @click="Object.assign(mail, { host: 'smtp.gmail.com', port: 587 })">Utiliser Gmail</button>
+        </div>
         <div class="grid gap-3 sm:grid-cols-[1fr_6rem]">
           <div><label class="label" for="m-host">Serveur</label><input id="m-host" v-model.trim="mail.host" class="input" placeholder="smtp.gmail.com"></div>
           <div><label class="label" for="m-port">Port</label><input id="m-port" v-model.number="mail.port" type="number" class="input"></div>
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
-          <div><label class="label" for="m-user">Adresse Gmail (identifiant)</label><input id="m-user" v-model.trim="mail.username" type="email" class="input" autocomplete="off" placeholder="vous@gmail.com"></div>
-          <div><label class="label" for="m-pass">Mot de passe d'application</label><input id="m-pass" v-model="mail.password" type="password" class="input" autocomplete="new-password" :placeholder="settings.mail.password_set ? 'Déjà enregistré : laisser vide pour le garder' : '16 lettres'"></div>
+          <div><label class="label" for="m-user">Identifiant</label><input id="m-user" v-model.trim="mail.username" type="email" class="input" autocomplete="off" placeholder="vous@…"></div>
+          <div><label class="label" for="m-pass">Clé SMTP ou mot de passe d'application</label><input id="m-pass" v-model="mail.password" type="password" class="input" autocomplete="new-password" :placeholder="settings.mail.password_set ? 'Déjà enregistré : laisser vide pour le garder' : 'Clé donnée par le service'"></div>
         </div>
-        <button class="btn-primary">Enregistrer l'envoi des e-mails</button>
+        <button class="btn-primary">Enregistrer l'e-mail de secours</button>
       </form>
+      </details>
       <button class="btn-secondary" :disabled="testing" @click="testAlert">{{ testing ? 'Envoi…' : 'Envoyer une alerte d\'essai' }}</button>
       <ul v-if="testResult" class="space-y-1">
+        <li :class="testResult.whatsapp.ok ? 'text-emerald-700' : 'text-red-600'">{{ testResult.whatsapp.ok ? '✓' : '✗' }} WhatsApp : {{ testResult.whatsapp.detail }}</li>
         <li :class="testResult.mail.ok ? 'text-emerald-700' : 'text-red-600'">{{ testResult.mail.ok ? '✓' : '✗' }} E-mail : {{ testResult.mail.detail }}</li>
         <li :class="testResult.sms.ok ? 'text-emerald-700' : 'text-red-600'">{{ testResult.sms.ok ? '✓' : '✗' }} SMS : {{ testResult.sms.detail }}</li>
       </ul>
@@ -101,7 +119,7 @@ import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
 
 const toasts = useToastStore()
-const CHANNELS = { mail: 'e-mail', sms: 'SMS', journal: 'SMS non envoyé (pas de fournisseur)' }
+const CHANNELS = { whatsapp: 'WhatsApp', mail: 'e-mail', sms: 'SMS', journal: 'SMS non envoyé (pas de fournisseur)' }
 const pending = ref([])
 const loaded = ref(false)
 const busy = ref(null)

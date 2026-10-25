@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 
 /**
- * Validation d'un paiement Wave depuis le lien signé reçu par e-mail ou SMS, avec le code du validateur.
+ * Validation d'un paiement Wave depuis le lien signé reçu par WhatsApp, e-mail ou SMS, avec le code du validateur.
  */
 class WavePaymentValidationController extends Controller
 {
