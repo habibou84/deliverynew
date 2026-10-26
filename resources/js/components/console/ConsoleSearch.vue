@@ -1,11 +1,11 @@
 <template>
   <div ref="root" class="relative">
     <input
-      v-model="q" type="search" class="w-56 rounded bg-white/10 px-3 py-1.5 text-white placeholder:text-slate-400 focus:w-72 focus:bg-white focus:text-slate-900 focus:outline-none transition-all"
+      v-model="q" type="search" class="w-full rounded bg-white/10 px-3 py-1.5 text-white placeholder:text-slate-400 sm:w-56 sm:focus:w-72 focus:bg-white focus:text-slate-900 focus:outline-none transition-all"
       placeholder="🔎 Rechercher partout…" aria-label="Rechercher dans toute la plateforme"
       @input="debounced" @focus="open = !!results" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter.prevent="go(flat[active])" @keydown.esc="open = false"
     >
-    <div v-if="open && results" class="absolute right-0 z-50 mt-2 w-[30rem] max-w-[90vw] rounded-xl bg-white p-2 text-sm text-slate-900 shadow-2xl ring-1 ring-slate-200">
+    <div v-if="open && results" class="absolute left-0 right-0 z-50 mt-2 sm:left-auto sm:w-[30rem] sm:max-w-[90vw] rounded-xl bg-white p-2 text-sm text-slate-900 shadow-2xl ring-1 ring-slate-200">
       <p v-if="!flat.length" class="p-3 text-slate-500">Aucun résultat pour « {{ q }} ».</p>
       <template v-for="group in GROUPS" :key="group.key">
         <template v-if="results[group.key]?.length">
