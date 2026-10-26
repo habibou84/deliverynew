@@ -100,8 +100,22 @@
           <button type="button" class="btn-primary" :disabled="gmailBusy" @click="connectGmail">{{ gmailBusy ? 'Ouverture…' : 'Connecter Gmail' }}</button>
         </template>
         <p v-else class="text-xs text-amber-800">
-          Le projet Google n'est pas encore réglé sur le serveur (GOOGLE_MAIL_CLIENT_ID et GOOGLE_MAIL_CLIENT_SECRET) : suivez docs/GMAIL.md, une seule fois.
+          Réglez d'abord l'application Google ci-dessous : vous pouvez reprendre celle de Jibiat Marchand.
         </p>
+        <!-- Application Google (client OAuth) : la même que Jibiat Marchand peut servir -->
+        <details class="rounded-lg bg-white p-3 ring-1 ring-slate-200" :open="!settings.mail.gmail.available">
+          <summary class="cursor-pointer font-medium">Application Google {{ settings.mail.gmail.available ? '✓' : '(à régler)' }}</summary>
+          <form class="mt-3 space-y-3" @submit.prevent="saveGmailClient">
+            <p class="text-xs text-gray-600">
+              Mêmes identifiants que dans la console de Jibiat Marchand (Google Cloud › Identifiants › ID client OAuth).
+              Dans ce client Google, ajoutez aussi cette adresse aux « URI de redirection autorisés » :
+            </p>
+            <p class="break-all rounded bg-slate-50 p-2 font-mono text-xs">{{ settings.mail.gmail.redirect_uri }}</p>
+            <div><label class="label" for="g-id">ID client</label><input id="g-id" v-model.trim="gmailClient.client_id" class="input font-mono" autocomplete="off" placeholder="….apps.googleusercontent.com" required></div>
+            <div><label class="label" for="g-secret">Code secret du client</label><input id="g-secret" v-model="gmailClient.client_secret" type="password" class="input font-mono" autocomplete="new-password" :required="!settings.mail.gmail.available" :placeholder="settings.mail.gmail.available ? 'Déjà enregistré : laisser vide pour le garder' : 'GOCSPX-…'"></div>
+            <button class="btn-primary" :disabled="gmailBusy">Enregistrer l'application Google</button>
+          </form>
+        </details>
       </div>
       <details class="rounded-lg bg-slate-50 p-3" :open="settings.mail.source === 'console'">
       <summary class="cursor-pointer font-medium">Autre serveur d'e-mail (SMTP, facultatif)</summary>
@@ -153,6 +167,7 @@ const mail = reactive({ host: '', port: 587, username: '', password: '' })
 const testing = ref(false)
 const qrBusy = ref(false)
 const gmailBusy = ref(false)
+const gmailClient = reactive({ client_id: '', client_secret: '' })
 const testResult = ref(null)
 
 const dateTime = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -160,6 +175,7 @@ const dateTime = (iso) => new Date(iso).toLocaleString('fr-FR', { day: '2-digit'
 function fill(data) {
   settings.value = data
   Object.assign(form, { link: data.link ?? '', validator_email: data.validator_email ?? '', validator_phone: data.validator_phone ?? '', validator_pin: '', current_password: '' })
+  Object.assign(gmailClient, { client_id: data.mail.gmail.client_id ?? '', client_secret: '' })
   Object.assign(mail, { host: data.mail.host ?? '', port: Number(data.mail.port ?? 587), username: data.mail.username ?? '', password: '' })
 }
 
@@ -212,6 +228,18 @@ async function disconnectGmail() {
     toasts.success('Gmail déconnecté.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
+  }
+}
+
+async function saveGmailClient() {
+  gmailBusy.value = true
+  try {
+    fill((await http.put('/console/gmail/client', gmailClient)).data.data)
+    toasts.success('Application Google enregistrée : vous pouvez connecter Gmail.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    gmailBusy.value = false
   }
 }
 

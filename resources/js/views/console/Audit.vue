@@ -71,6 +71,7 @@ const LABELS = {
   'console.team.reinvite': 'Nouveau lien d\'invitation (équipe de la console)',
   'console.team.update': 'Rôle ou état d\'un membre de la console changé',
   'console.not-me': '« Ce n\'était pas moi » : compte sécurisé',
+  'console.gmail.client': 'Application Google (Gmail) réglée',
   'console.gmail.connect': 'Connexion de Gmail demandée',
   'console.gmail.disconnect': 'Gmail déconnecté',
   'companies.store': 'Entreprise créée',
