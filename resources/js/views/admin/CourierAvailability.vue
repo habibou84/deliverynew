@@ -8,6 +8,8 @@
       </p>
     </div>
 
+    <SettingsShortcut :blocks="['unassignedAlerts']" title="Livreurs disponibles" intro="Quand prévenir le dispatch des courses sans livreur." more="/admin/reglages/alertes" />
+
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
       <StatCard title="Livreurs libres" :value="counts.free" icon="🟢" />
       <StatCard :title="`Bientôt libres (≤ ${soon} missions)`" :value="counts.soon" icon="🟡" />
@@ -107,6 +109,7 @@
 </template>
 
 <script setup>
+import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

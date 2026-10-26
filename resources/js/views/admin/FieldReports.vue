@@ -11,6 +11,8 @@
       </p>
     </div>
 
+    <SettingsShortcut :blocks="['fieldReminder']" title="Remontées terrain" more="/admin/reglages/alertes" />
+
     <!-- État -->
     <div class="flex gap-2 overflow-x-auto">
       <button
@@ -125,6 +127,7 @@
 </template>
 
 <script setup>
+import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { alertSound } from '../../composables/useAlertSound'

@@ -11,6 +11,8 @@
       </div>
     </div>
 
+    <SettingsShortcut :blocks="['merchantSignup', 'directory']" title="E-commerçants" intro="Comment les e-commerçants rejoignent votre entreprise." more="/admin/reglages/e-commercants" />
+
     <ConnectRequests v-if="auth.can('merchants.manage')" @accepted="load" />
 
     <div class="card overflow-x-auto">
@@ -118,6 +120,7 @@
 </template>
 
 <script setup>
+import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
