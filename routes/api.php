@@ -497,6 +497,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/bulk-confirm', [OrderActionController::class, 'bulkConfirm'])->name('orders.bulk-confirm');
         // Avant la ressource : « counts » n'est pas un identifiant de course
         Route::get('orders/counts', [OrderController::class, 'counts'])->name('orders.counts');
+        Route::get('orders/labels', [OrderController::class, 'labels'])->middleware('throttle:30,1')->name('orders.labels');
         Route::get('orders/pickup-groups', [OrderController::class, 'pickupGroups'])->name('orders.pickup-groups');
         // Aide à la saisie : analyse d'un message collé, doublons du jour
         Route::post('orders/parse-message', [OrderDraftController::class, 'parse'])->middleware('throttle:30,1')->name('orders.parse-message');

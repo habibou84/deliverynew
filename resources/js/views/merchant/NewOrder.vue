@@ -19,6 +19,7 @@
       <button class="m-btn-secondary" @click="reset(true)">Même client, autre colis</button>
       <button class="m-btn-primary" @click="reset(false)">Autre client</button>
     </div>
+    <RouterLink :to="`/etiquette/${created.id}`" class="m-btn-secondary">🖨️ Imprimer l'étiquette du colis</RouterLink>
     <RouterLink :to="`/marchand/courses/${created.id}`" class="block text-sm font-bold text-[var(--app-color)]">Voir la course</RouterLink>
   </div>
 

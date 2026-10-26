@@ -13,6 +13,7 @@
         <span v-else class="shrink-0 text-xs font-semibold text-red-600">{{ r.error || 'Non envoyée' }}</span>
       </div>
     </div>
+    <RouterLink v-if="sentRows.length" :to="{ path: '/etiquettes', query: { ids: sentRows.map((r) => r.order.id).join(',') } }" class="m-btn-primary">🖨️ Imprimer les {{ sentRows.length }} étiquette{{ sentRows.length > 1 ? 's' : '' }}</RouterLink>
     <button v-if="failedRows.length" class="m-btn-secondary" @click="retry">Corriger celles qui restent</button>
     <div class="grid grid-cols-2 gap-2">
       <RouterLink to="/marchand/courses" class="m-btn-secondary">Voir mes courses</RouterLink>
