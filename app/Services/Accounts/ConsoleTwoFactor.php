@@ -27,10 +27,6 @@ class ConsoleTwoFactor
 
     private const MAX_ATTEMPTS = 5;
 
-    // TEMPORAIRE (demandé par le propriétaire) : le code est aussi affiché sur l'écran de connexion, en attendant que
-    // l'envoi par e-mail marche en production. À remettre à false (le code ne part alors que par e-mail).
-    public const SHOW_CODE_ON_SCREEN = true;
-
     public const TRUST_DAYS = 30;
 
     public function __construct(private readonly WaveSettings $mail, private readonly PlatformWhatsApp $whatsapp) {}
@@ -74,8 +70,7 @@ class ConsoleTwoFactor
         Cache::put(self::key($challenge), ['user_id' => $user->id, 'code_hash' => Hash::make($code), 'attempts' => 0, 'device' => $device],
             now()->addMinutes(self::CODE_MINUTES));
 
-        return ['challenge' => $challenge, 'channel' => $channel, 'to' => $to, 'expires_in' => self::CODE_MINUTES * 60]
-            + (self::SHOW_CODE_ON_SCREEN ? ['code' => $code] : []);
+        return ['challenge' => $challenge, 'channel' => $channel, 'to' => $to, 'expires_in' => self::CODE_MINUTES * 60];
     }
 
     /**
