@@ -31,10 +31,36 @@ class GmailConnection
 
     private const ACCESS_CACHE = 'platform:gmail-access-token';
 
-    /** Identifiants du projet Google réglés sur le serveur (GOOGLE_MAIL_CLIENT_ID et _SECRET) */
+    /**
+     * Application Google (client OAuth) : saisie dans la console comme dans Jibiat Marchand (le même client peut
+     * servir aux deux), sinon posée sur le serveur (GOOGLE_MAIL_CLIENT_ID et _SECRET). Le secret est chiffré en base.
+     */
+    public function clientId(): ?string
+    {
+        return PlatformSetting::get('gmail.client_id') ?: (config('services.google_mail.client_id') ?: null);
+    }
+
+    private function clientSecret(): ?string
+    {
+        $secret = PlatformSetting::get('gmail.client_secret');
+
+        return filled($secret) ? Crypt::decryptString($secret) : (config('services.google_mail.client_secret') ?: null);
+    }
+
+    public function saveClient(?string $clientId, ?string $clientSecret): void
+    {
+        if ($clientId !== null) {
+            PlatformSetting::put('gmail.client_id', trim($clientId) ?: null);
+        }
+        if (filled($clientSecret)) {
+            PlatformSetting::put('gmail.client_secret', Crypt::encryptString(trim($clientSecret)));
+        }
+    }
+
+    /** Application Google réglée : « Connecter Gmail » peut être proposé */
     public function available(): bool
     {
-        return filled(config('services.google_mail.client_id')) && filled(config('services.google_mail.client_secret'));
+        return filled($this->clientId()) && filled($this->clientSecret());
     }
 
     public function connected(): bool
@@ -48,12 +74,14 @@ class GmailConnection
     }
 
     /**
-     * @return array{available: bool, connected: bool, email: ?string, connected_at: ?string, error: ?string}
+     * @return array{available: bool, client_id: ?string, redirect_uri: string, connected: bool, email: ?string, connected_at: ?string, error: ?string}
      */
     public function state(): array
     {
         return [
             'available' => $this->available(),
+            'client_id' => $this->clientId(),
+            'redirect_uri' => self::redirectUri(),
             'connected' => $this->connected(),
             'email' => $this->email(),
             'connected_at' => PlatformSetting::get('gmail.connected_at') ?: null,
@@ -73,13 +101,13 @@ class GmailConnection
     public function authorizationUrl(User $user): string
     {
         if (! $this->available()) {
-            throw new RuntimeException('Le projet Google n\'est pas réglé sur le serveur (voir docs/GMAIL.md).');
+            throw new RuntimeException('Réglez d\'abord l\'application Google (identifiant et code secret).');
         }
         $state = Str::random(40);
         Cache::put('gmail-oauth:'.$state, $user->id, now()->addMinutes(15));
 
         return self::AUTH_URL.'?'.http_build_query([
-            'client_id' => config('services.google_mail.client_id'),
+            'client_id' => $this->clientId(),
             'redirect_uri' => self::redirectUri(),
             'response_type' => 'code',
             'scope' => self::SCOPES,
@@ -103,8 +131,8 @@ class GmailConnection
 
         $response = Http::asForm()->timeout(15)->post(self::TOKEN_URL, [
             'code' => $code,
-            'client_id' => config('services.google_mail.client_id'),
-            'client_secret' => config('services.google_mail.client_secret'),
+            'client_id' => $this->clientId(),
+            'client_secret' => $this->clientSecret(),
             'redirect_uri' => self::redirectUri(),
             'grant_type' => 'authorization_code',
         ]);
@@ -138,8 +166,8 @@ class GmailConnection
         }
 
         $response = Http::asForm()->timeout(15)->post(self::TOKEN_URL, [
-            'client_id' => config('services.google_mail.client_id'),
-            'client_secret' => config('services.google_mail.client_secret'),
+            'client_id' => $this->clientId(),
+            'client_secret' => $this->clientSecret(),
             'refresh_token' => Crypt::decryptString((string) PlatformSetting::get('gmail.refresh_token')),
             'grant_type' => 'refresh_token',
         ]);
