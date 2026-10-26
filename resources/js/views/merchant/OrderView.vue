@@ -30,6 +30,8 @@
         </div>
         <button class="tap rounded-xl bg-white px-3 py-2 text-sm font-bold ring-1 ring-slate-300" @click="copy(order.delivery_code)">Copier</button>
       </section>
+      <!-- Étiquette à coller sur le colis avant le passage du livreur -->
+      <RouterLink v-if="!isFinal" :to="`/etiquette/${order.id}`" class="tap flex items-center justify-center gap-2 rounded-2xl bg-white p-3 text-sm font-bold ring-1 ring-slate-200">🖨️ Imprimer l'étiquette du colis</RouterLink>
 
       <!-- L'argent de la course -->
       <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-1.5 text-sm">

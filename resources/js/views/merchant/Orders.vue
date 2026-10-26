@@ -28,6 +28,11 @@
       </button>
     </div>
 
+    <!-- Étiquettes des colis que le livreur n'a pas encore récupérés (courses affichées) -->
+    <RouterLink v-if="toLabel.length" :to="{ path: '/etiquettes', query: { ids: toLabel.join(',') } }" class="tap flex items-center justify-center gap-2 rounded-xl bg-white py-2.5 text-sm font-bold ring-1 ring-slate-300">
+      🖨️ Étiquettes à coller ({{ toLabel.length }})
+    </RouterLink>
+
     <!-- Courses rangées par étape, de la plus urgente à la plus avancée -->
     <section v-for="g in groups" :key="g.key" class="space-y-2">
       <h2 :class="['flex items-center gap-2 pt-1 text-[13px] font-extrabold uppercase tracking-wider', g.color]">
@@ -94,6 +99,9 @@ const EMPTY = {
 }
 
 // Anciennes adresses (?filtre=active…) toujours valables
+// Pas encore récupérées par le livreur : leur étiquette est à coller sur le colis (100 au plus d'un coup)
+const BEFORE_PICKUP = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress']
+const toLabel = computed(() => orders.value.filter((o) => BEFORE_PICKUP.includes(o.status)).map((o) => o.id).slice(0, 100))
 const filter = ref(tabs.some((f) => f.value === route.query.filtre) ? route.query.filtre : 'all')
 const period = ref(periodFromQuery(route.query, 'today'))
 const search = ref('')

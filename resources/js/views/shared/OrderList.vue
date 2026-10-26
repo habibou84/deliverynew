@@ -184,6 +184,7 @@
         <button v-if="auth.can('orders.dispatch') && withCourierSelected.length" class="btn-secondary text-red-700" :disabled="assigning" @click="bulkUnassign">
           Retirer le livreur ({{ withCourierSelected.length }})
         </button>
+        <button class="btn-secondary" title="Imprimer les étiquettes des courses sélectionnées" @click="printLabels(selected)">🖨️ Étiquettes</button>
         <button class="btn-secondary" @click="selected = []">Annuler</button>
       </div>
 
@@ -368,6 +369,10 @@ const loading = ref(false)
 const merchants = ref([])
 const couriers = ref([])
 const selected = ref([])
+// Étiquettes des courses choisies, dans un nouvel onglet (100 au plus d'un coup)
+function printLabels(ids) {
+  window.open(router.resolve({ path: '/etiquettes', query: { ids: ids.slice(0, 100).join(',') } }).href, '_blank')
+}
 const bulk = reactive({ type: route.query.queue === 'unassigned' ? 'auto' : 'pickup', courier_id: null })
 const AWAITING = [
   { value: '', label: 'Les deux' },
