@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Models\TrustedDevice;
 use App\Models\User;
 use App\Notifications\ConsoleLoginCode;
+use App\Services\Accounts\ConsoleTwoFactor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Notification;
@@ -74,6 +75,13 @@ class ConsoleTwoFactorTest extends TestCase
         // Retenu 30 jours seulement
         $this->travel(31)->days();
         $this->login(['trusted_device' => $session['trusted_device']])->assertOk()->assertJsonPath('two_factor.channel', 'mail');
+    }
+
+    public function test_the_code_is_also_shown_on_screen_while_the_temporary_switch_is_on(): void
+    {
+        Notification::fake();
+        $shown = $this->login()->assertOk()->json('two_factor.code');
+        $this->assertSame(ConsoleTwoFactor::SHOW_CODE_ON_SCREEN ? $this->sentCode() : null, $shown);
     }
 
     public function test_five_wrong_codes_end_the_attempt(): void
