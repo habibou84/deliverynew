@@ -27,16 +27,18 @@ Sur **console.cloud.google.com**, connecté avec votre compte Google :
    - (préproduction) `https://admin.preprod.jibiat.com/gmail/callback`
    puis **Créer**. Google affiche l'**ID client** et le **code secret du client**.
 
-## 2. Mettre les deux valeurs sur le serveur
+## 2. Saisir l'application Google dans la console
 
-Dans le fichier `.env` du serveur (jamais dans une conversation, un e-mail ou une capture) :
+Le plus simple : **reprendre le client Google de Jibiat Marchand** (même projet Google). Dans ce client, ajoutez
+seulement les adresses de retour de Jibiat ci-dessus aux « URI de redirection autorisés ».
 
-```
-GOOGLE_MAIL_CLIENT_ID=…apps.googleusercontent.com
-GOOGLE_MAIL_CLIENT_SECRET=…
-```
+**Console › Paiements Wave › Envoi des alertes › Application Google** : collez l'**ID client** et le **code
+secret du client**, puis **Enregistrer**. Le code secret est chiffré et n'est jamais réaffiché (laisser le champ
+vide le garde). Ne le collez jamais dans une conversation, un e-mail ou une capture.
 
-puis `php artisan config:cache` (ou attendez la prochaine mise à jour automatique).
+En secours, les mêmes valeurs peuvent être posées dans le `.env` du serveur (`GOOGLE_MAIL_CLIENT_ID` et
+`GOOGLE_MAIL_CLIENT_SECRET`, ou les noms de Jibiat Marchand `GOOGLE_CLIENT_ID` et `GOOGLE_CLIENT_SECRET`) ; ce qui
+est saisi dans la console a priorité.
 
 ## 3. Relier Gmail dans la console
 
