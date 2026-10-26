@@ -11,6 +11,8 @@
       </div>
     </div>
 
+    <SettingsShortcut v-if="!track" :blocks="['unassignedAlerts']" title="Carte des livreurs" intro="Quand prévenir le dispatch des courses sans livreur." more="/admin/reglages/alertes" />
+
     <div class="grid lg:grid-cols-[1fr_20rem] gap-4">
       <div class="card overflow-hidden relative">
         <div ref="mapEl" class="h-[60vh] lg:h-[75vh] w-full z-0" role="application" aria-label="Carte des livreurs" />
@@ -111,6 +113,7 @@
 </template>
 
 <script setup>
+import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import L from 'leaflet'

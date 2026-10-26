@@ -8,6 +8,8 @@
       <button class="btn-primary" @click="openRule()">+ Nouvelle règle</button>
     </div>
 
+    <SettingsShortcut :blocks="['autoPickup', 'acceptance', 'autoDelivery']" title="Planning des livreurs" intro="Ce que le planning fait tout seul." more="/admin/reglages/courses" @saved="load" />
+
     <!-- Ramassage automatique : état et lien vers le réglage -->
     <div v-if="board?.automation?.paused" class="card px-3 py-2 text-sm bg-red-50 text-red-900 flex flex-wrap items-center gap-2">
       <span class="flex-1 min-w-0">
@@ -20,7 +22,6 @@
       <span class="flex-1 min-w-0">
         {{ AUTO[board.auto_pickup].text }}
         <template v-if="board.auto_delivery !== 'off'"> Livraison du jour même automatique {{ board.auto_delivery === 'on' ? 'active' : 'à l\'essai' }}.</template>
-        <RouterLink v-if="auth.can('settings.manage')" to="/admin/reglages/courses" class="ml-1 font-medium underline">Régler</RouterLink>
       </span>
       <button v-if="board.auto_pickup !== 'off' || board.auto_delivery !== 'off'" class="btn-secondary" :disabled="pausing" @click="pause(true)">⏸ Suspendre l'automatisation</button>
     </div>
@@ -182,6 +183,7 @@
 </template>
 
 <script setup>
+import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'

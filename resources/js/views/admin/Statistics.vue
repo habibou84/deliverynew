@@ -16,6 +16,8 @@
       </div>
     </div>
 
+    <SettingsShortcut :blocks="['weeklyReport']" title="Statistiques" more="/admin/reglages/alertes" />
+
     <nav ref="tabBar" class="flex gap-1 overflow-x-auto border-b">
       <button
         v-for="t in tabs"
@@ -184,6 +186,7 @@
 </template>
 
 <script setup>
+import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
