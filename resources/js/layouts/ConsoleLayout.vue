@@ -11,11 +11,12 @@
             >{{ item.label }}</RouterLink>
           </nav>
         </div>
-        <div class="flex items-center gap-3 text-sm">
-          <ConsoleSearch />
+        <!-- Téléphone : recherche sur toute la largeur, puis cloche, compte et déconnexion (rien ne dépasse de l'écran) -->
+        <div class="flex w-full min-w-0 flex-wrap items-center gap-2 text-sm sm:w-auto sm:gap-3">
+          <ConsoleSearch class="w-full sm:w-auto" />
           <NotificationBell class="[&>button]:hover:bg-white/10" />
-          <RouterLink to="/console/compte" class="text-slate-300 hover:text-white hover:underline" title="Mon compte">👤 {{ auth.user?.name }} · {{ ROLE_LABELS[auth.role] }}</RouterLink>
-          <button class="rounded bg-white/10 px-3 py-1.5 hover:bg-white/20" @click="logout">Déconnexion</button>
+          <RouterLink to="/console/compte" class="min-w-0 flex-1 truncate text-slate-300 hover:text-white hover:underline sm:flex-none" title="Mon compte">👤 {{ auth.user?.name }}<span class="hidden sm:inline"> · {{ ROLE_LABELS[auth.role] }}</span></RouterLink>
+          <button class="shrink-0 rounded bg-white/10 px-3 py-1.5 hover:bg-white/20" @click="logout">Déconnexion</button>
         </div>
       </div>
     </header>

@@ -39,7 +39,7 @@
         <p class="text-xs text-gray-500">Affiché aux entreprises sur ordinateur : elles le scannent avec Wave sur leur téléphone.</p>
         <div class="flex flex-wrap items-center gap-4">
           <img v-if="settings.qr_url" :src="settings.qr_url" alt="QR code Wave" class="h-32 w-32 rounded object-contain ring-1 ring-slate-200">
-          <label class="btn-secondary cursor-pointer">{{ settings.qr_url ? 'Remplacer' : 'Ajouter le QR code' }}<input type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="uploadQr"></label>
+          <label class="btn-secondary cursor-pointer">{{ qrBusy ? 'Envoi…' : (settings.qr_url ? 'Remplacer' : 'Ajouter le QR code') }}<input type="file" accept="image/*" class="hidden" :disabled="qrBusy" @change="uploadQr"></label>
           <button v-if="settings.qr_url" type="button" class="text-red-600 underline" @click="removeQr">Retirer</button>
         </div>
       </div>
@@ -138,6 +138,7 @@ import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
+import { shrinkImage } from '../../utils/image'
 
 const toasts = useToastStore()
 const auth = useAuthStore()
@@ -150,6 +151,7 @@ const settings = ref(null)
 const form = reactive({ link: '', validator_email: '', validator_phone: '', validator_pin: '', current_password: '' })
 const mail = reactive({ host: '', port: 587, username: '', password: '' })
 const testing = ref(false)
+const qrBusy = ref(false)
 const gmailBusy = ref(false)
 const testResult = ref(null)
 
@@ -225,13 +227,17 @@ async function saveMail() {
 async function uploadQr(event) {
   const file = event.target.files?.[0]
   if (!file) return
-  const data = new FormData()
-  data.append('image', file)
+  qrBusy.value = true
   try {
+    // Photo du téléphone : réduite avant l'envoi (limite de 4 Mo sur le serveur)
+    const data = new FormData()
+    data.append('image', await shrinkImage(file))
     fill((await http.post('/console/wave/qr', data)).data.data)
+    toasts.success('QR code enregistré.')
   } catch (e) {
-    toasts.error(apiErrorMessage(e))
+    toasts.error(apiErrorMessage(e, 'Le QR code n\'a pas pu être envoyé. Essayez une capture d\'écran du QR code.'))
   } finally {
+    qrBusy.value = false
     event.target.value = ''
   }
 }
