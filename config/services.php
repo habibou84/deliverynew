@@ -20,8 +20,9 @@ return [
 
     // Envoi des e-mails de la plateforme par Gmail, connexion Google sans mot de passe (docs/GMAIL.md)
     'google_mail' => [
-        'client_id' => env('GOOGLE_MAIL_CLIENT_ID'),
-        'client_secret' => env('GOOGLE_MAIL_CLIENT_SECRET'),
+        // Ou les noms de Jibiat Marchand (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) ; la console a priorité
+        'client_id' => env('GOOGLE_MAIL_CLIENT_ID', env('GOOGLE_CLIENT_ID')),
+        'client_secret' => env('GOOGLE_MAIL_CLIENT_SECRET', env('GOOGLE_CLIENT_SECRET')),
     ],
 
     'resend' => [

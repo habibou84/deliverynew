@@ -18,6 +18,21 @@ class ConsoleGmailController extends Controller
 {
     public function __construct(private readonly GmailConnection $gmail) {}
 
+    /**
+     * Application Google (client OAuth, le même que Jibiat Marchand possible) : identifiant et code secret. Le
+     * secret n'est jamais renvoyé ; vide, il est gardé.
+     */
+    public function client(Request $request, WaveSettings $settings): JsonResponse
+    {
+        $data = $request->validate([
+            'client_id' => ['required', 'string', 'max:255', 'regex:/^[A-Za-z0-9._-]+$/'],
+            'client_secret' => [$this->gmail->available() ? 'nullable' : 'required', 'string', 'max:255'],
+        ], [], ['client_id' => 'identifiant du client', 'client_secret' => 'code secret du client']);
+        $this->gmail->saveClient($data['client_id'], $data['client_secret'] ?? null);
+
+        return response()->json(['data' => $settings->present()]);
+    }
+
     /** Lien vers la page d'autorisation de Google */
     public function connect(Request $request): JsonResponse
     {

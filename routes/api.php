@@ -251,6 +251,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::patch('{member}', 'update')->name('update');
             Route::post('{member}/invitation', 'reinvite')->middleware('throttle:20,1')->name('reinvite');
         });
+        Route::put('console/gmail/client', [ConsoleGmailController::class, 'client'])->middleware([$owner, 'throttle:10,1'])->name('console.gmail.client');
         Route::post('console/gmail/connect', [ConsoleGmailController::class, 'connect'])->middleware([$owner, 'throttle:10,1'])->name('console.gmail.connect');
         Route::delete('console/gmail', [ConsoleGmailController::class, 'disconnect'])->middleware($owner)->name('console.gmail.disconnect');
         // Messagerie WhatsApp du numéro de Jibiat (connexion officielle ou QR code) : réglages au Propriétaire,

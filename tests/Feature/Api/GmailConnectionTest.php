@@ -64,6 +64,25 @@ class GmailConnectionTest extends TestCase
         $this->postJson('/api/v1/console/gmail/connect')->assertJsonValidationErrors('gmail');
     }
 
+    public function test_the_google_client_is_entered_in_the_console_like_jibiat_marchand(): void
+    {
+        Sanctum::actingAs(User::factory()->withRole(Role::PlatformSupport)->create(['company_id' => null]));
+        $this->putJson('/api/v1/console/gmail/client', ['client_id' => 'x', 'client_secret' => 'y'])->assertForbidden();
+
+        Sanctum::actingAs($this->root);
+        $this->putJson('/api/v1/console/gmail/client', ['client_id' => 'client-789.apps.googleusercontent.com'])->assertJsonValidationErrors('client_secret');
+        $data = $this->putJson('/api/v1/console/gmail/client', ['client_id' => 'client-789.apps.googleusercontent.com', 'client_secret' => 'GOCSPX-secret'])
+            ->assertOk()->assertJsonPath('data.mail.gmail.available', true)
+            ->assertJsonPath('data.mail.gmail.client_id', 'client-789.apps.googleusercontent.com')->json();
+        $this->assertStringNotContainsString('GOCSPX-secret', json_encode($data));
+        $this->assertStringNotContainsString('GOCSPX-secret', (string) PlatformSetting::get('gmail.client_secret'));
+
+        // Le secret vide est gardé ; le lien Google utilise le client saisi
+        $this->putJson('/api/v1/console/gmail/client', ['client_id' => 'client-789.apps.googleusercontent.com', 'client_secret' => ''])->assertOk();
+        $url = $this->postJson('/api/v1/console/gmail/connect')->assertOk()->json('data.url');
+        $this->assertStringContainsString('client_id=client-789.apps.googleusercontent.com', $url);
+    }
+
     public function test_connecting_gmail_then_sending_through_its_api(): void
     {
         $this->configure();
