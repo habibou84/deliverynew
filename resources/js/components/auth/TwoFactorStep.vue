@@ -6,7 +6,13 @@
         {{ challenge.channel === 'whatsapp' ? 'Un code à 6 chiffres vient d\'être envoyé par WhatsApp au' : 'Un code à 6 chiffres vient d\'être envoyé à' }}
         <b>{{ challenge.to }}</b>. Il est valable 10 minutes.
       </p>
-      <p v-if="challenge.channel !== 'whatsapp'" class="text-xs text-slate-500">Regardez aussi dans les spams.</p>
+      <p v-if="challenge.channel === 'mail'" class="text-xs text-slate-500">Regardez aussi dans les spams.</p>
+    </div>
+
+    <!-- Temporaire : code affiché à l'écran tant que l'envoi par e-mail n'est pas sûr en production -->
+    <div v-if="challenge.code" class="rounded-xl bg-amber-50 p-3 text-center text-amber-900 ring-1 ring-amber-200">
+      <p class="text-xs">Affichage temporaire du code :</p>
+      <p class="font-mono text-2xl font-bold tracking-[0.4em]">{{ challenge.code }}</p>
     </div>
 
     <p v-if="error" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
