@@ -265,6 +265,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('official', 'official')->middleware([$owner, 'throttle:20,1'])->name('official');
             Route::post('official/verify', 'verifyOfficial')->middleware([$owner, 'throttle:20,1'])->name('official.verify');
             Route::delete('official', 'removeOfficial')->middleware($owner)->name('official.remove');
+            Route::post('templates/submit', 'submitTemplates')->middleware([$owner, 'throttle:5,1'])->name('templates.submit');
+            Route::post('templates/sync', 'syncTemplates')->middleware([$owner, 'throttle:20,1'])->name('templates.sync');
             Route::put('sms', 'sms')->middleware($owner)->name('sms');
             Route::get('conversations', 'conversations')->name('conversations');
             Route::post('conversations', 'open')->name('open');

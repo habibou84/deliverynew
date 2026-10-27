@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\CompanyStatus;
+use App\Enums\PlatformTemplate;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
@@ -140,11 +141,11 @@ class ConsoleController extends Controller
         } catch (Throwable $e) {
             report($e);
         }
-        $text = "Jibiat · L'assistance Jibiat a ouvert l'espace de {$company->name}.\nPar : {$by}, jusqu'à "
-            .$session->expires_at->timezone($company->timezone ?: config('app.timezone'))->format('H:i')."\nMotif : {$session->reason}\nDétail : Réglages › Accès de l'assistance.";
+        $until = $session->expires_at->timezone($company->timezone ?: config('app.timezone'))->format('H:i');
+        $text = "Jibiat · L'assistance Jibiat a ouvert l'espace de {$company->name}.\nPar : {$by}, jusqu'à {$until}\nMotif : {$session->reason}\nDétail : Réglages › Accès de l'assistance.";
         foreach ($admins->pluck('phone')->filter()->unique() as $phone) {
             try {
-                app(PlatformWhatsApp::class)->notify($phone, $text);
+                app(PlatformWhatsApp::class)->notify($phone, $text, PlatformTemplate::SupportAccess, [$company->name, $by, $until, (string) $session->reason]);
             } catch (Throwable) {
                 // WhatsApp de Jibiat non relié : la cloche suffit
             }

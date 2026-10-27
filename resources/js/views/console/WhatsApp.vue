@@ -54,6 +54,32 @@
           <li>Dans l'application Meta, webhook WhatsApp : <code class="break-all">{{ state.webhook_url }}</code> (champ « messages »).</li>
         </ol>
       </details>
+
+      <!-- Modèles du numéro officiel : messages que Jibiat envoie en premier -->
+      <div v-if="state.official" class="space-y-2 border-t pt-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-sm font-semibold">Modèles de messages du numéro de Jibiat</h3>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="btn-secondary text-sm" :disabled="busy || !state.official.live" @click="templatesCall('submit')">Soumettre les modèles</button>
+            <button type="button" class="btn-secondary text-sm" :disabled="busy || !state.official.live" @click="templatesCall('sync')">Actualiser l'état</button>
+          </div>
+        </div>
+        <p class="text-xs text-gray-600">
+          Au-delà de 24 heures après le dernier message d'une personne, WhatsApp n'accepte que des modèles approuvés par Meta.
+          Ils partent d'eux-mêmes chez Meta à la vérification du numéro ; sans modèle approuvé, Jibiat envoie le texte libre.
+        </p>
+        <ul class="divide-y rounded-lg border">
+          <li v-for="t in state.templates" :key="t.name" class="flex flex-wrap items-start justify-between gap-2 p-3">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-medium">{{ t.description }}</p>
+              <p class="mt-0.5 text-xs text-gray-500"><code>{{ t.name }}</code> · {{ t.category === 'authentication' ? 'authentification' : 'utilitaire' }}</p>
+              <p class="mt-1 text-xs text-gray-600">{{ t.body }}</p>
+              <p v-if="t.rejected_reason" class="mt-1 text-xs text-red-700">Refusé : {{ t.rejected_reason }}</p>
+            </div>
+            <span :class="['shrink-0 rounded-full px-2 py-0.5 text-xs font-medium', TEMPLATE[t.status]?.[1] || 'bg-slate-100 text-slate-700']">{{ TEMPLATE[t.status]?.[0] || t.status }}</span>
+          </li>
+        </ul>
+      </div>
     </section>
 
     <!-- Connexion du numéro de Jibiat par QR code (secours de la connexion officielle) -->
@@ -198,6 +224,14 @@ const OFFICIAL = {
   error: ['Erreur', 'bg-red-100 text-red-800'],
 }
 const QUALITY = { green: 'bonne', yellow: 'moyenne', red: 'faible' }
+const TEMPLATE = {
+  none: ['Pas encore soumis', 'bg-slate-100 text-slate-700'],
+  pending: ['En validation', 'bg-amber-100 text-amber-800'],
+  approved: ['Approuvé', 'bg-emerald-100 text-emerald-800'],
+  rejected: ['Refusé', 'bg-red-100 text-red-800'],
+  paused: ['En pause', 'bg-amber-100 text-amber-800'],
+  disabled: ['Désactivé', 'bg-red-100 text-red-800'],
+}
 const official = reactive({ display_phone: '', phone_number_id: '', waba_id: '', access_token: '' })
 let officialFilled = false
 const SENT = { queued: 'en attente', sent: 'envoyé', delivered: 'reçu', read: 'lu', failed: 'échec' }
@@ -234,6 +268,21 @@ async function removeOfficial() {
   if (!window.confirm('Retirer la connexion officielle ? La console repassera par le QR code s\'il est relié.')) return
   await officialCall(() => http.delete('/console/whatsapp/official'), '')
   Object.assign(official, { display_phone: '', phone_number_id: '', waba_id: '', access_token: '' })
+}
+
+async function templatesCall(action) {
+  busy.value = true
+  try {
+    const { data } = await http.post(`/console/whatsapp/templates/${action}`)
+    state.value = data.data
+    const failed = Object.entries(data.results || {}).filter(([, r]) => r !== 'ok')
+    if (failed.length) toasts.error(`${failed.length} modèle(s) non soumis : ${failed[0][1]}`)
+    else toasts.success(action === 'submit' ? 'Modèles envoyés à Meta pour validation.' : 'État des modèles actualisé.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy.value = false
+  }
 }
 
 async function loadConversations() {
