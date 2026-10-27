@@ -42,7 +42,7 @@
 
     <EmptyState
       v-if="loaded && !products.length"
-      icon="📦"
+      art="stock"
       :title="filter === 'low' ? 'Aucun produit en stock bas' : 'Aucun produit'"
       :text="filter === 'low' ? '' : 'Ajoutez vos produits pour suivre votre stock et les choisir en créant une course. Vous pouvez aussi les déposer à l\'entrepôt de l\'agence.'"
     />

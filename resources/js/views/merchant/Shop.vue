@@ -79,7 +79,7 @@
         </div>
         <p class="text-sm text-slate-500">Les articles de votre stock apparaissent ici. Le stock suivi est réservé à chaque commande ; un article épuisé ne peut pas être commandé.</p>
 
-        <EmptyState v-if="!products.length" icon="🛍️" title="Aucun article" text="Ajoutez vos articles avec une photo et un prix." />
+        <EmptyState v-if="!products.length" art="boutique" title="Aucun article" text="Ajoutez vos articles avec une photo et un prix." />
 
         <div v-for="p in products" :key="p.id" class="m-card p-3 flex gap-3">
           <label class="relative h-20 w-20 shrink-0 rounded-xl bg-slate-100 overflow-hidden grid place-items-center cursor-pointer" :title="p.photo_url ? 'Changer la photo' : 'Ajouter une photo'">

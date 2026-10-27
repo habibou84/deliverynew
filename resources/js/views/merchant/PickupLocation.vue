@@ -10,7 +10,7 @@
     <template v-else>
       <section class="m-card p-4 space-y-3">
         <div>
-          <h2 class="font-semibold">📍 Position de votre boutique</h2>
+          <h2 class="flex items-center gap-2 font-semibold"><ColorIcon name="lieu" :size="32" />Position de votre boutique</h2>
           <p class="text-sm text-slate-600">
             Le plus simple : <strong>depuis votre boutique</strong>, touchez le bouton ci-dessous. Sinon, placez le repère sur la carte.
           </p>
@@ -44,6 +44,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import LocationPicker from '../../components/LocationPicker.vue'
 import { useAuthStore } from '../../stores/auth'

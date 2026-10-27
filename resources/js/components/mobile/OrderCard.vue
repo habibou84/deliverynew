@@ -1,6 +1,6 @@
 <template>
-  <!-- Carte d'une course : colis à la couleur de l'état, barre en 4 traits, glisser à gauche pour appeler ou écrire -->
-  <div class="relative overflow-hidden rounded-2xl" @touchstart.passive="start" @touchmove="move" @touchend="end">
+  <!-- Carte d'une course : icône en couleur de l'état, barre en 4 traits, glisser à gauche pour appeler ou écrire -->
+  <div class="relative overflow-hidden rounded-[20px]" @touchstart.passive="start" @touchmove="move" @touchend="end">
     <div v-show="offset" class="absolute inset-y-0 right-0 flex">
       <a :href="telLink(order.recipient.phone)" class="tap w-[72px] grid place-items-center content-center gap-1 bg-teal-700 text-white text-xs font-bold">
         <AppIcon name="phone" class="h-5 w-5" />Appeler
@@ -10,11 +10,9 @@
       </a>
     </div>
 
-    <div class="relative bg-white ring-1 ring-slate-200 rounded-2xl" :style="{ transform: `translateX(${offset}px)`, transition: dragging ? 'none' : 'transform .2s ease' }">
-      <RouterLink :to="to" class="flex items-start gap-3 p-3.5 active:bg-slate-50 rounded-2xl" @click="onClick">
-        <span :class="['h-11 w-11 shrink-0 rounded-xl grid place-items-center', stage.badge]" aria-hidden="true">
-          <AppIcon name="box" class="h-[22px] w-[22px]" />
-        </span>
+    <div class="relative bg-white shadow-soft rounded-[20px]" :style="{ transform: `translateX(${offset}px)`, transition: dragging ? 'none' : 'transform .2s ease' }">
+      <RouterLink :to="to" class="flex items-start gap-3 p-3.5 active:bg-slate-50 rounded-[20px]" @click="onClick">
+        <ColorIcon :name="stageIcon" :size="46" />
         <div class="min-w-0 flex-1">
           <div class="flex items-baseline justify-between gap-2">
             <p class="font-bold text-[15.5px] truncate">{{ order.recipient.name || localPhone(order.recipient.phone) }}</p>
@@ -42,9 +40,10 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
+import ColorIcon from './ColorIcon.vue'
 import { localPhone, money, telLink } from '../../utils/format'
 import { laterDay } from '../../utils/merchantStatus'
-import { orderStage } from '../../utils/orderStage'
+import { STAGE_ICONS, orderStage } from '../../utils/orderStage'
 import { openCard } from '../../composables/useSwipeCards'
 
 const props = defineProps({
@@ -54,6 +53,7 @@ const props = defineProps({
 
 const stage = computed(() => orderStage(props.order))
 const later = computed(() => laterDay(props.order))
+const stageIcon = computed(() => STAGE_ICONS[stage.value.group] || 'colis')
 
 // « Adjamé · Résidence Les Palmiers » sans répéter la commune
 const place = computed(() => {
