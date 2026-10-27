@@ -1,29 +1,45 @@
 <template>
-  <div v-if="order" class="-mx-4 -mt-4 pb-24">
-    <!-- Bandeau de la couleur de l'état : une phrase complète sur où en est le colis -->
-    <section :class="['px-4 pt-4 pb-5', stage.soft]">
-      <span :class="['inline-flex rounded-full bg-white px-2.5 py-1 text-xs font-bold', stage.color]">{{ groupLabel }}</span>
-      <p :class="['mt-2 text-[22px] font-extrabold leading-tight', stage.color]">{{ headline }}</p>
-      <p v-if="subline" :class="['mt-1 text-sm font-medium', stage.color]">{{ subline }}</p>
-      <div class="mt-3 flex gap-[3px]" :aria-label="`Étape ${stage.step} sur 4`">
-        <i v-for="n in 4" :key="n" :class="['block h-[5px] flex-1 rounded', n <= stage.step ? stage.bar : 'bg-white']" />
+  <div v-if="order" class="-mx-4 pb-24">
+    <!-- Où en est le colis : l'icône de l'étape, une phrase complète et le suivi en 4 étapes -->
+    <section class="mx-4 rounded-[24px] bg-white p-4 shadow-soft">
+      <div class="flex items-center gap-3.5">
+        <ColorIcon :name="STAGE_ICONS[stage.group] || 'colis'" :size="60" />
+        <div class="min-w-0">
+          <span :class="['inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold', stage.badge]">{{ groupLabel }}</span>
+          <p class="mt-1 text-[20px] font-extrabold leading-tight text-slate-900">{{ headline }}</p>
+          <p v-if="subline" class="mt-0.5 text-[13.5px] text-slate-500">{{ subline }}</p>
+        </div>
       </div>
-      <p v-if="plannedDay" class="mt-3 flex items-center gap-2 text-sm font-medium text-slate-700"><AppIcon name="calendar" class="h-4 w-4" />Livraison prévue le <strong>{{ plannedDay }}</strong></p>
+      <ol class="relative mt-4 flex" :aria-label="`Étape ${stage.step} sur 4`">
+        <span class="absolute top-[13px] left-[12.5%] right-[12.5%] h-[3px] rounded bg-slate-200" aria-hidden="true">
+          <span class="block h-full rounded bg-gradient-to-r from-[#22A06B] to-[#4C8DF6]" :style="{ width: `${Math.min(stage.step - 1, 3) / 3 * 100}%` }" />
+        </span>
+        <li v-for="(label, n) in STEP_LABELS" :key="label" class="relative z-10 flex flex-1 flex-col items-center gap-1.5 text-center">
+          <span :class="['grid h-7 w-7 place-items-center rounded-full', n + 1 < stage.step || (n + 1 === stage.step && stage.step === 4) ? 'bg-[#22A06B] text-white' : n + 1 === stage.step ? 'bg-[#4C8DF6] text-white ring-4 ring-[#DCE9FF]' : 'bg-slate-200']">
+            <AppIcon v-if="n + 1 < stage.step || (n + 1 === stage.step && stage.step === 4)" name="check" class="h-3.5 w-3.5" :stroke="3.2" />
+            <i v-else :class="['block h-2 w-2 rounded-full', n + 1 === stage.step ? 'bg-white' : 'bg-slate-400']" />
+          </span>
+          <span :class="['text-[11.5px] font-semibold', n + 1 === stage.step ? 'text-[#1D5BC7]' : n + 1 < stage.step ? 'text-slate-700' : 'text-slate-400']">{{ label }}</span>
+        </li>
+      </ol>
+      <p v-if="plannedDay" class="mt-3 flex items-center gap-2 rounded-xl bg-[#FFF6F7] px-3 py-2 text-sm text-slate-700"><ColorIcon name="calendrier" :size="22" :tile="false" />Livraison prévue le <strong>{{ plannedDay }}</strong></p>
     </section>
 
-    <div class="px-4 pt-4 space-y-3">
+    <div class="px-4 pt-3 space-y-3">
       <!-- Échec de livraison : la décision d'abord -->
-      <section v-if="order.needs_decision" class="rounded-2xl bg-orange-50 p-4 ring-1 ring-orange-200">
-        <p class="font-bold">Ce colis attend votre décision</p>
-        <p class="text-sm text-slate-600">{{ failureLine }}</p>
+      <section v-if="order.needs_decision" class="rounded-[22px] bg-[#FFF7EB] p-4 ring-1 ring-[#FFD89A]">
+        <div class="flex items-center gap-3">
+          <ColorIcon name="aregler" :size="44" />
+          <div class="min-w-0"><p class="font-bold">Ce colis attend votre décision</p><p class="text-sm text-slate-600">{{ failureLine }}</p></div>
+        </div>
         <button class="m-btn-primary mt-3 !py-3" @click="openDecision()">Décider</button>
       </section>
-      <p v-else-if="canChangeDecision" class="rounded-2xl bg-white p-4 text-sm text-slate-600 ring-1 ring-slate-200">
+      <p v-else-if="canChangeDecision" class="rounded-[22px] bg-white p-4 text-sm text-slate-600 shadow-soft">
         Décision prise. <button class="font-bold text-[var(--app-color)]" @click="openDecision()">Changer la décision</button>
       </p>
 
       <!-- Code à donner au livreur (tant que la course n'est pas terminée) -->
-      <section v-if="!isFinal" class="flex items-center justify-between rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+      <section v-if="!isFinal" class="flex items-center justify-between rounded-[22px] bg-white p-4 shadow-soft">
         <div>
           <p class="text-sm text-slate-500">Code de livraison du client</p>
           <p class="font-mono text-2xl font-extrabold tracking-[0.3em]">{{ order.delivery_code }}</p>
@@ -31,10 +47,15 @@
         <button class="tap rounded-xl bg-white px-3 py-2 text-sm font-bold ring-1 ring-slate-300" @click="copy(order.delivery_code)">Copier</button>
       </section>
       <!-- Étiquette à coller sur le colis avant le passage du livreur -->
-      <RouterLink v-if="!isFinal" :to="`/etiquette/${order.id}`" class="tap flex items-center justify-center gap-2 rounded-2xl bg-white p-3 text-sm font-bold ring-1 ring-slate-200">🖨️ Imprimer l'étiquette du colis</RouterLink>
+      <RouterLink v-if="!isFinal" :to="`/etiquette/${order.id}`" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-soft active:scale-[.99] transition">
+        <ColorIcon name="etiquette" :size="40" />
+        <span class="flex-1 text-[14.5px] font-bold">Imprimer l'étiquette du colis</span>
+        <AppIcon name="right" class="h-5 w-5 text-slate-400" />
+      </RouterLink>
 
       <!-- L'argent de la course -->
-      <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-1.5 text-sm">
+      <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-1.5 text-sm">
+        <p class="flex items-center gap-2 pb-1 text-[15px] font-bold"><ColorIcon name="billets" :size="30" />L'argent de la course</p>
         <div class="flex justify-between"><span class="text-slate-500">{{ collected !== null ? 'Encaissé chez le client' : 'À encaisser chez le client' }}</span><b>{{ money(collected ?? order.amounts.cod_amount) }}</b></div>
         <div class="flex justify-between"><span class="text-slate-500">Livraison, payée par {{ order.amounts.fee_payer === 'recipient' ? 'le client' : 'vous' }}</span><b>− {{ money(order.amounts.total_fees) }}</b></div>
         <div v-if="order.is_shipping" class="flex justify-between">
@@ -49,7 +70,7 @@
       </section>
 
       <!-- Noter le livreur, et la note laissée par le client -->
-      <section v-if="order.ratings && (order.ratings.can_rate || order.ratings.merchant || order.ratings.recipient)" class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3">
+      <section v-if="order.ratings && (order.ratings.can_rate || order.ratings.merchant || order.ratings.recipient)" class="rounded-[22px] bg-white p-4 shadow-soft space-y-3">
         <div v-if="order.ratings.can_rate || order.ratings.merchant" class="space-y-2">
           <div class="flex items-center gap-3">
             <span class="h-10 w-10 shrink-0 rounded-full bg-emerald-100 text-emerald-800 grid place-items-center font-bold">{{ (courierName || '?')[0] }}</span>
@@ -75,9 +96,9 @@
       </section>
 
       <!-- Le client -->
-      <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-1">
-        <div class="flex justify-between">
-          <p class="text-sm text-slate-500">Client</p>
+      <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-1">
+        <div class="flex items-center justify-between">
+          <p class="flex items-center gap-2 text-[15px] font-bold"><ColorIcon name="profil" :size="30" />Client</p>
           <button v-if="canEdit" class="text-sm font-bold text-[var(--app-color)]" @click="openEdit()">Modifier</button>
         </div>
         <p class="text-lg font-bold">{{ order.recipient.name || localPhone(order.recipient.phone) }}</p>
@@ -90,7 +111,7 @@
       </section>
 
       <!-- Articles -->
-      <section v-if="order.items?.length || order.from_warehouse" class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-1 text-sm">
+      <section v-if="order.items?.length || order.from_warehouse" class="rounded-[22px] bg-white p-4 shadow-soft space-y-1 text-sm">
         <p class="text-slate-500">{{ order.from_warehouse ? `Préparée à ${order.pickup.hub_name}` : 'Articles' }}</p>
         <p v-for="item in order.items" :key="item.id">
           <strong>{{ item.quantity }} ×</strong> {{ item.label }}
@@ -100,7 +121,7 @@
       </section>
 
       <!-- Frais facturés au marchand -->
-      <section v-if="order.expenses?.length" class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-2 text-sm">
+      <section v-if="order.expenses?.length" class="rounded-[22px] bg-white p-4 shadow-soft space-y-2 text-sm">
         <h2 class="font-bold">Frais de la course</h2>
         <div v-for="e in order.expenses" :key="e.id" :class="['flex justify-between gap-3', e.cancelled_at ? 'line-through text-slate-400' : '']">
           <span class="text-slate-600">{{ e.description }}</span><span class="whitespace-nowrap">− {{ money(e.amount) }}</span>
@@ -109,14 +130,14 @@
       </section>
 
       <!-- Expédition -->
-      <section v-if="order.is_shipping && order.shipping.carrier" class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-1 text-sm">
+      <section v-if="order.is_shipping && order.shipping.carrier" class="rounded-[22px] bg-white p-4 shadow-soft space-y-1 text-sm">
         <h2 class="font-bold">Colis expédié</h2>
         <p>Par <strong>{{ order.shipping.carrier }}</strong><span v-if="order.shipping.reference"> · ticket {{ order.shipping.reference }}</span></p>
         <p class="text-slate-500">Frais d'expédition de {{ money(order.shipping.fee) }} déduits de votre point.</p>
       </section>
 
       <!-- L'histoire du colis -->
-      <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+      <section class="rounded-[22px] bg-white p-4 shadow-soft">
         <MerchantHistory v-if="!fullHistory" :events="[...order.events].reverse()" :next="nextStep" />
         <OrderTimeline v-else :events="[...order.events].reverse()" />
         <button class="mt-3 text-sm font-bold text-[var(--app-color)]" @click="fullHistory = !fullHistory">{{ fullHistory ? 'Voir l\'essentiel' : 'Voir le détail complet' }}</button>
@@ -245,11 +266,12 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import OrderTimeline from '../../components/OrderTimeline.vue'
 import MerchantHistory from '../../components/mobile/MerchantHistory.vue'
 import AppIcon from '../../components/mobile/AppIcon.vue'
+import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import StarRating from '../../components/ratings/StarRating.vue'
 import { MERCHANT_TAGS, SCORE_WORDS } from '../../components/ratings/ratingWords'
-import { GROUPS, orderStage } from '../../utils/orderStage'
+import { GROUPS, STAGE_ICONS, orderStage } from '../../utils/orderStage'
 import { isoDay, longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { pageTitle } from '../../composables/usePageTitle'
 import { useAuthStore } from '../../stores/auth'
@@ -279,6 +301,8 @@ const fullHistory = ref(false)
 
 const isFinal = computed(() => FINAL.includes(order.value?.status))
 const stage = computed(() => orderStage(order.value))
+// Les 4 étapes du suivi
+const STEP_LABELS = ['Créée', 'Récupérée', 'En route', 'Livrée']
 const groupLabel = computed(() => GROUPS.find((g) => g.key === stage.value.group)?.label)
 const shopName = computed(() => auth.user?.merchant?.business_name || '')
 

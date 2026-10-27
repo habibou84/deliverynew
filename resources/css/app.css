@@ -112,6 +112,31 @@
     @apply m-btn bg-emerald-600 text-white;
 }
 
+/* ─────────── Application e-commerçant : style « dégradé doux » ─────────── */
+
+/* Ombre très légère des cartes (à la place du contour) */
+@utility shadow-soft {
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 6px 20px -8px rgb(15 23 42 / 0.12);
+}
+/* Dégradé de la couleur de l'entreprise (boutons principaux, carte du jour, bouton +) */
+@utility bg-brand-grad {
+    background-color: var(--app-color);
+    background-image: linear-gradient(135deg, color-mix(in srgb, var(--app-color) 80%, white), color-mix(in srgb, var(--app-color) 88%, black));
+}
+/* Fond doux de la couleur de l'entreprise (onglet actif, choix mis en avant) */
+@utility bg-brand-soft {
+    background-color: color-mix(in srgb, var(--app-color) 11%, white);
+}
+
+/* Dans l'application e-commerçant, les cartes et boutons communs prennent le même style doux */
+.app-marchand .m-card {
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), 0 6px 20px -8px rgb(15 23 42 / 0.12);
+}
+.app-marchand .m-btn-primary {
+    background-image: linear-gradient(135deg, color-mix(in srgb, var(--app-color) 80%, white), color-mix(in srgb, var(--app-color) 88%, black));
+    box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--app-color) 75%, transparent);
+}
+
 /* Défilement horizontal sans barre visible (rangées de pastilles) */
 @utility no-scrollbar {
     scrollbar-width: none;

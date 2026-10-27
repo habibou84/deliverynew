@@ -1,68 +1,68 @@
 <template>
-  <div class="space-y-4">
-    <div>
-      <p class="text-[28px] font-extrabold tracking-tight leading-tight">Bonjour {{ firstName }}</p>
-      <p class="text-slate-500 first-letter:uppercase">{{ todayLabel }}</p>
-    </div>
-
+  <div class="space-y-3.5">
     <!-- Ma journée : une barre de couleurs montre où en sont les courses du jour -->
-    <section class="rounded-2xl bg-white ring-1 ring-slate-200 p-4">
-      <div class="flex items-end justify-between gap-3">
-        <div>
-          <p class="text-sm font-semibold text-slate-500">Ma journée</p>
-          <p class="text-[32px] font-extrabold leading-none mt-0.5">{{ total }} course{{ total > 1 ? 's' : '' }}</p>
-        </div>
-        <span v-if="total" class="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">{{ countOf('delivered') }} livrée{{ countOf('delivered') > 1 ? 's' : '' }} sur {{ total }}</span>
-      </div>
+    <section class="relative overflow-hidden rounded-[24px] bg-brand-grad p-4 text-white">
+      <svg class="pointer-events-none absolute -right-6 -top-8 opacity-[.12]" width="170" height="170" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5.5 40.5 14v20L24 42.5 7.5 34V14z" fill="#fff" /></svg>
+      <p class="text-[13px] font-medium opacity-90">Ma journée</p>
+      <p class="text-[30px] font-extrabold leading-tight tabular-nums">{{ total }} course{{ total > 1 ? 's' : '' }}</p>
       <template v-if="total">
-        <div class="mt-3.5 flex h-3 gap-0.5 overflow-hidden rounded-full" aria-hidden="true">
-          <span v-for="part in parts" :key="part.key" :class="part.bar" :style="{ flex: part.count }" />
+        <div class="mt-3 flex h-2.5 gap-[2px] overflow-hidden rounded-full bg-white/20" aria-hidden="true">
+          <span v-for="part in parts" :key="part.key" :style="{ flex: part.count, background: part.light }" />
         </div>
-        <div class="mt-3 flex flex-wrap gap-1.5">
-          <button v-for="part in parts" :key="part.key" type="button" :class="['rounded-full px-2.5 py-1 text-xs font-bold', part.chip]" @click="filter = part.filter">
-            {{ part.count }} {{ part.label }}
+        <div class="mt-2.5 flex flex-wrap gap-x-3 gap-y-1.5">
+          <button v-for="part in parts" :key="part.key" type="button" :class="['tap inline-flex items-center gap-1.5 rounded-full px-1 text-[12.5px] font-semibold', filter === part.filter ? 'bg-white/20 px-2' : '']" @click="filter = filter === part.filter ? 'all' : part.filter">
+            <i class="block h-2 w-2 rounded-full" :style="{ background: part.light }" />{{ part.count }} {{ part.label }}
           </button>
         </div>
       </template>
-      <p v-else-if="loaded" class="mt-2 text-sm text-slate-500">Aucune course à livrer aujourd'hui.</p>
+      <p v-else-if="loaded" class="mt-1 text-sm opacity-90">Aucune course à livrer aujourd'hui.</p>
     </section>
 
-    <!-- Lieu de ramassage à indiquer -->
-    <RouterLink v-if="needsPickupLocation" to="/marchand/lieu-de-ramassage" class="tap flex items-center gap-3 rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200 active:bg-amber-100">
-      <AppIcon name="pin" class="h-6 w-6 shrink-0 text-amber-700" />
-      <span class="flex-1 text-sm"><strong class="block">Indiquez où récupérer vos colis</strong>En un geste, depuis votre boutique : vos ramassages seront plus rapides.</span>
-      <AppIcon name="right" class="h-5 w-5 text-slate-400" />
-    </RouterLink>
+    <!-- Actions rapides : une seule icône (le colis) pour les courses -->
+    <section v-if="auth.can('orders.create')" class="grid grid-cols-4 gap-2">
+      <RouterLink v-for="a in quickActions" :key="a.label" :to="a.to" class="tap flex flex-col items-center gap-1.5 rounded-[20px] bg-white py-3 px-1 text-center shadow-soft active:scale-95 transition">
+        <ColorIcon :name="a.icon" :size="46" />
+        <span class="text-[12px] font-semibold leading-tight text-slate-700">{{ a.label }}</span>
+      </RouterLink>
+    </section>
 
     <!-- Colis qui attendent une décision (toutes dates) : le choix le plus courant en un toucher -->
-    <section v-if="alerts.length" class="rounded-2xl bg-orange-50 p-4 ring-1 ring-orange-200">
-      <div class="flex gap-2.5">
-        <AppIcon name="alert" class="h-[22px] w-[22px] shrink-0 text-orange-700" />
+    <section v-if="alerts.length" class="rounded-[22px] bg-[#FFF7EB] p-4 ring-1 ring-[#FFD89A]">
+      <div class="flex items-center gap-3">
+        <ColorIcon name="aregler" :size="44" />
         <div class="min-w-0 text-sm">
           <p class="text-[15px] font-bold">{{ alertsTotal > 1 ? `${alertsTotal} colis attendent votre décision` : 'Un colis attend votre décision' }}</p>
-          <p class="text-slate-600">{{ alertLine(alerts[0]) }}</p>
+          <p class="truncate text-slate-600">{{ alertLine(alerts[0]) }}</p>
         </div>
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2">
         <RouterLink :to="`/marchand/courses/${alerts[0].id}?action=decider&choix=demain`" class="m-btn-primary !py-3 !text-[15px]">Relivrer demain</RouterLink>
-        <RouterLink :to="alertsTotal > 1 ? '/marchand/courses?filtre=problems&periode=all' : `/marchand/courses/${alerts[0].id}?action=decider`" class="m-btn-secondary !py-3 !text-[15px]">{{ alertsTotal > 1 ? 'Tout voir' : 'Autre choix' }}</RouterLink>
+        <RouterLink :to="alertsTotal > 1 ? '/marchand/courses?filtre=problems&periode=all' : `/marchand/courses/${alerts[0].id}?action=decider`" class="m-btn-secondary !py-3 !text-[15px] !ring-0 shadow-soft">{{ alertsTotal > 1 ? 'Tout voir' : 'Autre choix' }}</RouterLink>
       </div>
     </section>
 
     <!-- L'argent : ce qui va revenir au marchand -->
-    <RouterLink v-if="balance" to="/marchand/paiements" class="tap flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200 active:bg-slate-50">
-      <div class="flex-1">
-        <p class="text-sm font-semibold text-slate-500">{{ balance.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'À recevoir' }}</p>
-        <p class="text-2xl font-extrabold">{{ money(Math.abs(balance.unpaid_total)) }}</p>
-        <p v-if="balance.pending_cash > 0" class="text-sm text-slate-500">dont {{ money(balance.pending_cash) }} encore chez les livreurs</p>
+    <RouterLink v-if="balance" to="/marchand/paiements" class="tap flex items-center gap-3.5 rounded-[22px] bg-white p-4 shadow-soft active:scale-[.99] transition">
+      <ColorIcon name="argent" :size="52" />
+      <div class="min-w-0 flex-1">
+        <p class="text-[13px] font-medium text-slate-500">{{ balance.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'À recevoir' }}</p>
+        <p class="text-[24px] font-extrabold leading-tight tabular-nums">{{ money(Math.abs(balance.unpaid_total)) }}</p>
+        <p v-if="balance.pending_cash > 0" class="text-[12.5px] text-slate-500">dont {{ money(balance.pending_cash) }} encore chez les livreurs</p>
       </div>
       <AppIcon name="right" class="h-5 w-5 text-slate-400" />
+    </RouterLink>
+
+    <!-- Lieu de ramassage à indiquer -->
+    <RouterLink v-if="needsPickupLocation" to="/marchand/lieu-de-ramassage" class="tap flex items-center gap-3 rounded-[20px] border border-[#FFC1CB] bg-[#FFF6F7] p-3.5 active:scale-[.99] transition">
+      <ColorIcon name="lieu" :size="44" />
+      <span class="min-w-0 flex-1"><strong class="block text-[14.5px]">Votre lieu de ramassage</strong><span class="text-[12.5px] text-slate-600">Un geste : les livreurs vous trouvent plus vite.</span></span>
+      <span class="shrink-0 rounded-full bg-[#E54A6E] px-3 py-1.5 text-[12.5px] font-bold text-white">Indiquer</span>
     </RouterLink>
 
     <!-- Toutes les courses du jour, la plus urgente en premier -->
     <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-[13px] font-extrabold uppercase tracking-wider text-slate-500">Mes courses du jour · {{ total }}</h2>
+        <h2 class="text-[16px] font-bold text-slate-900">Mes courses du jour<span v-if="total" class="text-slate-400"> · {{ total }}</span></h2>
         <RouterLink to="/marchand/courses?periode=week" class="text-sm font-bold text-[var(--app-color)]">Autres dates ›</RouterLink>
       </div>
       <div v-if="total" class="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar" role="radiogroup" aria-label="Filtrer les courses du jour">
@@ -72,20 +72,28 @@
           type="button"
           role="radio"
           :aria-checked="filter === f.value"
-          :class="['tap shrink-0 rounded-full px-3 py-1.5 text-[13.5px] font-bold ring-1', filter === f.value ? 'bg-slate-900 text-white ring-transparent' : 'bg-white text-slate-700 ring-slate-300']"
+          :class="['tap shrink-0 inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3.5 pr-1.5 text-[13.5px] font-semibold', filter === f.value ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 shadow-soft']"
           @click="filter = f.value"
-        >{{ f.label }} {{ f.count }}</button>
+        >
+          {{ f.label }}
+          <span class="min-w-[22px] h-[22px] px-1.5 rounded-full grid place-items-center text-[12px] font-bold tabular-nums" :style="filter === f.value ? { background: 'rgba(255,255,255,.18)', color: '#fff' } : { background: f.soft, color: f.deep }">{{ f.count }}</span>
+        </button>
       </div>
 
       <OrderCard v-for="o in visible" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
       <button v-if="hasMore" type="button" class="m-btn-secondary" @click="loadOrders(page + 1)">Voir plus</button>
 
-      <EmptyState v-if="loaded && !orders.length" icon="📦" title="Aucune course aujourd'hui" text="Créez une course en un instant avec le bouton + en bas.">
-        <RouterLink v-if="auth.can('orders.create')" to="/marchand/courses/nouvelle" class="m-btn-primary">+ Nouvelle course</RouterLink>
-      </EmptyState>
+      <div v-if="loaded && !orders.length" class="rounded-[24px] bg-white shadow-soft">
+        <EmptyState art="livraison" title="Aucune course aujourd'hui" text="Un livreur passe chercher le colis chez vous et vous rapporte l'argent.">
+          <template v-if="auth.can('orders.create')">
+            <RouterLink to="/marchand/courses/nouvelle" class="m-btn-primary">Créer une course</RouterLink>
+            <RouterLink to="/marchand/courses/nouvelle?coller=1" class="mt-3 block text-[13.5px] font-bold text-[var(--app-color)]">ou collez un message WhatsApp</RouterLink>
+          </template>
+        </EmptyState>
+      </div>
 
-      <RouterLink v-if="laterCount" to="/marchand/courses?periode=later" class="tap flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200 text-sm active:bg-slate-50">
-        <AppIcon name="calendar" class="h-[22px] w-[22px] text-slate-600" />
+      <RouterLink v-if="laterCount" to="/marchand/courses?periode=later" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft text-sm active:scale-[.99] transition">
+        <ColorIcon name="calendrier" :size="42" />
         <span class="flex-1"><strong class="block">Prévues plus tard · {{ laterCount }}</strong><span class="text-slate-500">À livrer les prochains jours</span></span>
         <AppIcon name="right" class="h-5 w-5 text-slate-400" />
       </RouterLink>
@@ -93,13 +101,13 @@
 
     <!-- Pour aller plus loin -->
     <section class="space-y-2">
-      <RouterLink to="/marchand/statistiques" class="tap flex items-center gap-3 rounded-2xl bg-white p-4 ring-1 ring-slate-200 text-sm active:bg-slate-50">
-        <AppIcon name="chart" class="h-[22px] w-[22px] text-slate-600" />
+      <RouterLink to="/marchand/statistiques" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft text-sm active:scale-[.99] transition">
+        <ColorIcon name="stats" :size="42" />
         <span class="flex-1"><strong class="block">Mes statistiques</strong><span class="text-slate-500">Taux de livraison, motifs d'échec</span></span>
         <AppIcon name="right" class="h-5 w-5 text-slate-400" />
       </RouterLink>
-      <RouterLink v-if="stock.total" :to="stock.low ? '/marchand/stock?filtre=bas' : '/marchand/stock'" :class="['tap flex items-center gap-3 rounded-2xl p-4 text-sm ring-1', stock.low ? 'bg-amber-50 ring-amber-300' : 'bg-white ring-slate-200']">
-        <AppIcon name="store" class="h-[22px] w-[22px] text-slate-600" />
+      <RouterLink v-if="stock.total" :to="stock.low ? '/marchand/stock?filtre=bas' : '/marchand/stock'" :class="['tap flex items-center gap-3 rounded-[20px] p-3.5 text-sm active:scale-[.99] transition', stock.low ? 'bg-[#FFF7EB] ring-1 ring-[#FFD89A]' : 'bg-white shadow-soft']">
+        <ColorIcon name="stock" :size="42" />
         <span class="flex-1"><strong class="block">Mon stock · {{ stock.total }} produit{{ stock.total > 1 ? 's' : '' }}</strong><span :class="stock.low ? 'font-semibold text-amber-700' : 'text-slate-500'">{{ stock.low ? `${stock.low} en stock bas` : 'Voir mes produits' }}</span></span>
         <AppIcon name="right" class="h-5 w-5 text-slate-400" />
       </RouterLink>
@@ -117,6 +125,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { cachedGet } from '../../composables/useCachedApi'
 import AppIcon from '../../components/mobile/AppIcon.vue'
+import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import OrderCard from '../../components/mobile/OrderCard.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
@@ -129,8 +138,6 @@ import { ORDER_FILTERS, filterParams } from '../../utils/orderFilters'
 import { periodFromQuery } from '../../utils/periods'
 
 const auth = useAuthStore()
-const firstName = computed(() => (auth.user?.name || '').split(' ')[0])
-const todayLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
 const orders = ref([])
 const total = ref(0)
@@ -154,11 +161,11 @@ const countOf = (...groups) => staged.value.filter((s) => groups.includes(s.stag
 
 // Morceaux de la barre et filtres de la liste
 const PARTS = [
-  { key: 'delivered', groups: ['delivered'], label: 'livrée', plural: 'livrées', bar: 'bg-emerald-700', chip: 'bg-emerald-100 text-emerald-800', filter: 'delivered' },
-  { key: 'moving', groups: ['route', 'picked'], label: 'en route', plural: 'en route', bar: 'bg-blue-600', chip: 'bg-blue-100 text-blue-800', filter: 'moving' },
-  { key: 'pickup', groups: ['pickup'], label: 'à ramasser', plural: 'à ramasser', bar: 'bg-slate-300', chip: 'bg-slate-100 text-slate-700', filter: 'pickup' },
-  { key: 'decide', groups: ['decide'], label: 'à régler', plural: 'à régler', bar: 'bg-orange-500', chip: 'bg-orange-100 text-orange-800', filter: 'decide' },
-  { key: 'returns', groups: ['returns', 'closed'], label: 'retour ou annulée', plural: 'retours ou annulées', bar: 'bg-violet-500', chip: 'bg-violet-100 text-violet-800', filter: 'returns' },
+  { key: 'delivered', light: '#A8F0CB', groups: ['delivered'], label: 'livrée', plural: 'livrées', soft: '#E3F7EE', deep: '#127A50', filter: 'delivered' },
+  { key: 'moving', light: '#9CC8FF', groups: ['route', 'picked'], label: 'en route', plural: 'en route', soft: '#E8F1FF', deep: '#1D5BC7', filter: 'moving' },
+  { key: 'pickup', light: '#E2E8F0', groups: ['pickup'], label: 'à ramasser', plural: 'à ramasser', soft: '#EEF1F5', deep: '#3B4859', filter: 'pickup' },
+  { key: 'decide', light: '#FFD89A', groups: ['decide'], label: 'à régler', plural: 'à régler', soft: '#FFF4E0', deep: '#B76E00', filter: 'decide' },
+  { key: 'returns', light: '#D2C4FF', groups: ['returns', 'closed'], label: 'retour ou annulée', plural: 'retours ou annulées', soft: '#F1ECFF', deep: '#5B3FC4', filter: 'returns' },
 ]
 const parts = computed(() => PARTS
   .map((p) => {
@@ -167,14 +174,26 @@ const parts = computed(() => PARTS
   })
   .filter((p) => p.count))
 const chips = computed(() => [
-  { value: 'all', label: 'Toutes', count: orders.value.length },
-  ...parts.value.map((p) => ({ value: p.filter, label: p.key === 'delivered' ? 'Livrées' : p.key === 'moving' ? 'En route' : p.key === 'pickup' ? 'À ramasser' : p.key === 'decide' ? 'À régler' : 'Retours', count: p.count })),
+  { value: 'all', label: 'Toutes', count: orders.value.length, soft: '#EEF1F5', deep: '#3B4859' },
+  ...parts.value.map((p) => ({ value: p.filter, label: p.key === 'delivered' ? 'Livrées' : p.key === 'moving' ? 'En route' : p.key === 'pickup' ? 'À ramasser' : p.key === 'decide' ? 'À régler' : 'Retours', count: p.count, soft: p.soft, deep: p.deep })),
 ])
 const visible = computed(() => {
   if (filter.value === 'all') return staged.value.map((s) => s.order)
   const part = PARTS.find((p) => p.filter === filter.value)
   return staged.value.filter((s) => part.groups.includes(s.stage.group)).map((s) => s.order)
 })
+
+// Actions rapides de l'accueil ; « Étiquettes » quand des colis du jour attendent le livreur, sinon les statistiques
+const BEFORE_PICKUP = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress']
+const toLabel = computed(() => orders.value.filter((o) => BEFORE_PICKUP.includes(o.status)).map((o) => o.id).slice(0, 100))
+const quickActions = computed(() => [
+  { icon: 'colis', label: 'Nouvelle course', to: '/marchand/courses/nouvelle' },
+  { icon: 'colis', label: 'Plusieurs courses', to: '/marchand/courses/plusieurs' },
+  { icon: 'coller', label: 'Coller WhatsApp', to: '/marchand/courses/nouvelle?coller=1' },
+  toLabel.value.length
+    ? { icon: 'etiquette', label: 'Étiquettes', to: { path: '/etiquettes', query: { ids: toLabel.value.join(',') } } }
+    : { icon: 'stats', label: 'Statistiques', to: '/marchand/statistiques' },
+])
 
 const alertLine = (o) => [o.recipient.name || localPhone(o.recipient.phone), o.delivery.zone_name, o.last_incident?.label?.toLowerCase()].filter(Boolean).join(' · ')
 
