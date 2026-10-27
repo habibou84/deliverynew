@@ -2,6 +2,7 @@
 
 namespace App\Services\Platform;
 
+use App\Enums\PlatformTemplate;
 use App\Enums\Role;
 use App\Models\PlatformInvoice;
 use App\Models\PlatformWavePayment;
@@ -182,7 +183,9 @@ class WavePayments
                 $details['validate_url'],
             ]);
         try {
-            $this->whatsapp->notify($phone, $text);
+            $this->whatsapp->notify($phone, $text, PlatformTemplate::WavePayment, ($details['test'] ?? false)
+                ? ['Essai des alertes de paiement Wave', '0 F', '—', 'Jibiat', 'ESSAI', $details['console_url']]
+                : [$details['claimed'] ? 'Paiement Wave déclaré payé' : 'Paiement Wave en cours', $details['amount'], $details['payer'], $details['company'], $details['number'], $details['validate_url']]);
 
             return null;
         } catch (Throwable $e) {

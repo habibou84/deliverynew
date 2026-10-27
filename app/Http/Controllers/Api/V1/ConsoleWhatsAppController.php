@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\MessageChannel;
+use App\Enums\PlatformTemplate;
 use App\Http\Controllers\Controller;
 use App\Models\OutboundMessage;
 use App\Models\PhoneVerification;
@@ -12,6 +13,7 @@ use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
 use App\Rules\PhoneNumber as PhoneNumberRule;
+use App\Services\Messaging\Gateways\MetaCloudGateway;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\WhatsAppBridge;
 use App\Services\Messaging\WhatsAppConnection;
@@ -103,6 +105,56 @@ class ConsoleWhatsAppController extends Controller
         }
         $account->save();
         $this->connection->connect($account);
+        // Numéro vérifié : ses modèles partent tout de suite chez Meta
+        if ($account->status === 'connected') {
+            try {
+                $this->connection->submitPlatformTemplates($account);
+            } catch (MessagingException) {
+                // Les modèles pourront être soumis avec le bouton de la console
+            }
+        }
+
+        return response()->json(['data' => $this->describe(null)]);
+    }
+
+    /**
+     * Soumet à Meta les modèles du numéro officiel qui ne sont ni approuvés ni en cours de validation.
+     */
+    public function submitTemplates(): JsonResponse
+    {
+        $account = WhatsAppAccount::platform();
+        abort_if($account === null, 422, 'Renseignez d\'abord la connexion officielle.');
+
+        try {
+            $results = $this->connection->submitPlatformTemplates($account);
+        } catch (MessagingException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        return response()->json(['data' => $this->describe(null), 'results' => $results]);
+    }
+
+    /** État d'approbation des modèles du numéro officiel, lu chez Meta */
+    public function syncTemplates(MetaCloudGateway $gateway): JsonResponse
+    {
+        $account = WhatsAppAccount::platform();
+        abort_if($account === null, 422, 'Renseignez d\'abord la connexion officielle.');
+
+        try {
+            $remote = $gateway->templates($account);
+        } catch (MessagingException $e) {
+            abort(422, $e->getMessage());
+        }
+        $names = array_map(fn (PlatformTemplate $t) => $t->value, PlatformTemplate::cases());
+        foreach ($remote as $template) {
+            if (! in_array($template['name'], $names, true)) {
+                continue;
+            }
+            $account->templates()->updateOrCreate(
+                ['name' => $template['name'], 'language' => $template['language']],
+                ['status' => $template['status'], 'category' => $template['category'], 'rejected_reason' => $template['rejected_reason'], 'synced_at' => now()],
+            );
+        }
 
         return response()->json(['data' => $this->describe(null)]);
     }
@@ -224,6 +276,8 @@ class ConsoleWhatsAppController extends Controller
                 'error' => $official->last_error,
                 'connected_at' => $official->connected_at,
             ] : null,
+            // Modèles du numéro officiel : messages que Jibiat envoie en premier (au-delà des 24 heures)
+            'templates' => $this->templates($official),
             'webhook_url' => route('webhooks.whatsapp.handle'),
             'unread' => (int) PlatformConversation::query()->sum('unread'),
             'sms' => [
@@ -233,6 +287,25 @@ class ConsoleWhatsAppController extends Controller
                 'ready' => ! in_array(config('messaging.sms.driver'), ['log', 'none', null], true),
             ],
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function templates(?WhatsAppAccount $official): array
+    {
+        $known = $official
+            ? $official->templates()->where('language', PlatformTemplate::LANGUAGE)->get()->keyBy('name')
+            : collect();
+
+        return array_map(fn (PlatformTemplate $t) => [
+            'name' => $t->value,
+            'description' => $t->description(),
+            'category' => $t->category(),
+            'body' => $t->render($t->example()),
+            'status' => $known[$t->value]->status ?? 'none',
+            'rejected_reason' => $known[$t->value]->rejected_reason ?? null,
+        ], PlatformTemplate::cases());
     }
 
     /** SMS partis sur la période : codes de vérification et messages envoyés par SMS (repli de WhatsApp) */
