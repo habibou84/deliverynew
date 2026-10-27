@@ -66,6 +66,15 @@
             <td class="py-2 text-right">—</td>
             <td class="py-2 text-right">{{ money(invoice.extra_couriers_amount) }}</td>
           </tr>
+          <tr v-if="invoice.premium_cards_amount">
+            <td class="py-2">
+              Cartes Membre Premium Jibiat Marchand
+              <span class="block text-xs text-gray-500">Cartes offertes à vos meilleurs e-commerçants</span>
+            </td>
+            <td class="py-2 text-right">{{ invoice.premium_cards_count }}</td>
+            <td class="py-2 text-right">{{ money(invoice.premium_cards_amount / Math.max(1, invoice.premium_cards_count)) }}</td>
+            <td class="py-2 text-right">{{ money(invoice.premium_cards_amount) }}</td>
+          </tr>
           <tr v-if="invoice.carried_amount">
             <td class="py-2">
               Montants reportés des factures précédentes

@@ -69,6 +69,8 @@ class Company extends Model
         'same_courier_delivery',
         // Heure limite différente certains jours : {"6": "12:00"} (1 = lundi … 7 = dimanche)
         'cutoff_by_day',
+        // Cartes Membre Premium Jibiat Marchand : offertes toutes seules aux marchands qui remplissent les conditions
+        'premium_auto',
         'status',
         'plan_id',
         'trial_ends_at',
@@ -109,6 +111,8 @@ class Company extends Model
             'late_pickup_alert_minutes' => 'integer',
             'courier_available_alert' => 'boolean',
             'directory_listed' => 'boolean',
+            'premium_auto' => 'boolean',
+            'premium_quota' => 'integer',
             'automation_paused_at' => 'datetime',
             'setup_skipped' => 'array',
             'setup_test_delivered_at' => 'datetime',

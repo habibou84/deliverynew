@@ -299,6 +299,7 @@ const menu = computed(() => {
       label: 'Clients',
       items: [
         { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
+        { to: '/admin/premium', icon: '💎', label: 'Programme Premium', permission: 'merchants.view' },
         { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
         { to: '/admin/messages', icon: '💬', label: 'Messages', permission: 'orders.dispatch' },
       ],
