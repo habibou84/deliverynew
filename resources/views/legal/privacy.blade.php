@@ -105,7 +105,8 @@
     <h2 id="suppression">8. Supprimer vos données</h2>
     <p>Pour demander la suppression de vos données (y compris celles liées à WhatsApp) :</p>
     <ul>
-        <li>e-commerçant ou livreur : demandez la fermeture de votre compte à votre entreprise de livraison ;</li>
+        <li>e-commerçant ou livreur : supprimez votre compte vous-même depuis votre profil
+            (<a href="/suppression-du-compte">comment faire</a>), ou demandez sa fermeture à votre entreprise de livraison ;</li>
         <li>destinataire d'un colis, ou à défaut de réponse : écrivez-nous
             @if ($email) à <a href="mailto:{{ $email }}?subject=Suppression%20de%20mes%20donn%C3%A9es">{{ $email }}</a>@endif
             en indiquant votre numéro de téléphone.</li>

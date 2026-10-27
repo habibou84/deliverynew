@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { CONSOLE_ROLES, SPACES } from '../roles'
-import { allowedInApp, appLock, nativeApp, nativeCompany } from '../native'
+import { allowedInApp, appLock, brandedCompany, nativeApp, nativeCompany } from '../native'
 import { spaceForPath } from '../bootstrap/session'
 
 const shared = {
@@ -145,6 +145,7 @@ const routes = [
       { path: 'entreprises/:id(\\d+)', component: () => import('../views/console/Company.vue') },
       { path: 'formules', component: () => import('../views/console/Plans.vue') },
       { path: 'premium', component: () => import('../views/console/Premium.vue') },
+      { path: 'applications', component: () => import('../views/console/BrandedApps.vue') },
       { path: 'facturation', component: () => import('../views/console/Billing.vue'), meta: { roles: CONSOLE_ROLES.accounting } },
       { path: 'paiements', component: () => import('../views/console/WavePayments.vue'), meta: { roles: CONSOLE_ROLES.accounting } },
       { path: 'whatsapp', component: () => import('../views/console/WhatsApp.vue'), meta: { roles: CONSOLE_ROLES.support } },
@@ -198,6 +199,8 @@ router.beforeEach(async (to) => {
 
   // Application Android : d'abord le code de l'entreprise
   if (nativeApp && !nativeCompany()) return to.path === '/entreprise' ? true : '/entreprise'
+  // Application au nom d'une entreprise : pas d'écran « Code de votre entreprise »
+  if (brandedCompany && to.path === '/entreprise') return appLock()?.login || '/'
 
   // Application (Android, ou installée depuis le navigateur) : seulement les pages de son espace
   const lock = appLock()

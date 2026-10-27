@@ -54,12 +54,35 @@
     </div>
 
     <button class="m-btn-secondary text-red-600" @click="logout">Se déconnecter</button>
+
+    <!-- Suppression du compte (exigée par Google Play) : explication, confirmation, puis compte fermé tout de suite -->
+    <section v-if="canDelete" class="rounded-[22px] bg-white shadow-soft p-4 space-y-3">
+      <button v-if="!deleting" type="button" class="w-full text-center text-sm font-semibold text-red-600" @click="deleting = true">Supprimer mon compte</button>
+      <template v-else>
+        <h3 class="font-bold text-red-700">Supprimer mon compte</h3>
+        <ul class="list-disc space-y-1 pl-5 text-sm text-slate-600">
+          <li>Votre compte est fermé tout de suite, sur tous vos téléphones.</li>
+          <li>{{ auth.user?.company?.name || 'Votre entreprise de livraison' }} est prévenue et peut le rouvrir à votre demande pendant 30 jours.</li>
+          <li>Après 30 jours, votre nom, votre numéro, votre e-mail et votre mot de passe sont effacés. Les courses et la comptabilité restent, sous un nom anonyme.</li>
+        </ul>
+        <label class="flex items-start gap-2 text-sm">
+          <input v-model="understood" type="checkbox" class="mt-1 h-4 w-4">
+          <span>J'ai compris : je veux supprimer mon compte.</span>
+        </label>
+        <p v-if="deleteError" class="text-sm text-red-700" role="alert">{{ deleteError }}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" class="m-btn-secondary" :disabled="sending" @click="deleting = false; understood = false">Annuler</button>
+          <button type="button" class="m-btn-primary !bg-red-600" :disabled="!understood || sending" @click="deleteAccount">{{ sending ? '…' : 'Supprimer' }}</button>
+        </div>
+        <a :href="siteUrl('/suppression-du-compte')" target="_blank" rel="noopener" class="block text-center text-xs text-slate-500 underline">En savoir plus</a>
+      </template>
+    </section>
     <p class="text-center text-xs text-slate-400">Version {{ installedLabel }}</p>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import ColorIcon from '../../components/mobile/ColorIcon.vue'
@@ -72,7 +95,9 @@ import { useAuthStore } from '../../stores/auth'
 import { pwa } from '../../composables/usePwa'
 import { offlineQueue } from '../../composables/useOfflineQueue'
 import { localPhone, telLink } from '../../utils/format'
-import { appLock } from '../../native'
+import { appLock, siteUrl } from '../../native'
+import http, { apiErrorMessage } from '../../bootstrap/axios'
+import { useToastStore } from '../../stores/toasts'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -98,6 +123,32 @@ const toolRows = computed(() => (auth.user?.merchant_id
       auth.can('integrations.manage') && auth.hasFeature('api') && { to: '/marchand/integrations', icon: 'reglages', label: 'Intégrations (API, webhooks)' },
     ].filter(Boolean)
   : []))
+// Suppression du compte : e-commerçant (propriétaire ou employé) et livreur
+const canDelete = computed(() => ['merchant_owner', 'merchant_staff', 'courier'].includes(auth.role))
+const deleting = ref(false)
+const understood = ref(false)
+const sending = ref(false)
+const deleteError = ref('')
+const toasts = useToastStore()
+
+async function deleteAccount() {
+  sending.value = true
+  deleteError.value = ''
+  try {
+    const { data } = await http.post('/account/deletion', { confirm: true })
+    await forgetPushDevice().catch(() => {})
+    const login = appLock()?.login || (auth.role === 'courier' ? '/livreur/connexion' : '/')
+    // Connexion déjà coupée par le serveur : on oublie seulement la session de ce téléphone
+    auth.clear()
+    toasts.success(data.data.message)
+    router.push(login)
+  } catch (e) {
+    deleteError.value = apiErrorMessage(e)
+  } finally {
+    sending.value = false
+  }
+}
+
 const installedLabel = computed(() => (pwa.installed ? 'application installée' : 'web'))
 
 async function logout() {

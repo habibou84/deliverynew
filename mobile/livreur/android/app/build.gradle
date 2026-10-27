@@ -4,11 +4,12 @@ android {
     namespace = "com.jibiat.livreur"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.jibiat.livreur"
+        // Application au nom d'une entreprise (workflow branded-app.yml) : -PappId, -PversionCode, -PversionName
+        applicationId project.findProperty('appId') ?: "com.jibiat.livreur"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode((project.findProperty('versionCode') ?: '1') as Integer)
+        versionName project.findProperty('versionName') ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +17,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Signature des versions pour le Play Store : clé de l'entreprise (PKCS12) donnée par le workflow branded-app.yml
+    def keystorePath = System.getenv('ANDROID_KEYSTORE')
+    signingConfigs {
+        if (keystorePath) {
+            release {
+                storeFile file(keystorePath)
+                storeType 'pkcs12'
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystorePath) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

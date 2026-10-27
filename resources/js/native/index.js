@@ -55,8 +55,22 @@ export function appLock() {
   return nativeConfig || (installedApp ? APPS[installedApp] : null)
 }
 
-/** Entreprise choisie sur l'appareil : { code, name, url, logo_url } */
+// Application au nom d'une entreprise (console › Applications à leur nom) : l'entreprise est intégrée à la
+// compilation, pas de code à saisir ni de changement d'entreprise
+function readBranded() {
+  try {
+    const value = import.meta.env.VITE_BRANDED_COMPANY
+    const company = value ? (typeof value === 'string' ? JSON.parse(value) : value) : null
+    return company?.url ? company : null
+  } catch {
+    return null
+  }
+}
+export const brandedCompany = readBranded()
+
+/** Entreprise choisie sur l'appareil (ou intégrée à l'application) : { code, name, url, logo_url } */
 export function nativeCompany() {
+  if (brandedCompany) return brandedCompany
   try {
     return JSON.parse(localStorage.getItem(COMPANY_KEY) || 'null')
   } catch {
@@ -65,12 +79,14 @@ export function nativeCompany() {
 }
 
 export function setNativeCompany(company) {
+  if (brandedCompany) return
   localStorage.setItem(COMPANY_KEY, JSON.stringify(company))
   // Nom et logo de l'entreprise précédente : rechargés depuis la nouvelle
   localStorage.removeItem('branding')
 }
 
 export function clearNativeCompany() {
+  if (brandedCompany) return
   localStorage.removeItem(COMPANY_KEY)
   localStorage.removeItem('branding')
 }
