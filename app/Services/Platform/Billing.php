@@ -12,8 +12,10 @@ use App\Models\Order;
 use App\Models\Plan;
 use App\Models\PlatformInvoice;
 use App\Models\PlatformPayment;
+use App\Models\PremiumCard;
 use App\Models\User;
 use App\Notifications\PlatformBillingNotice;
+use App\Services\Premium\PremiumCards;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -90,11 +92,13 @@ class Billing
         $share = $cycle === PlatformInvoice::WEEKLY ? $days / 7 * 12 / 52 : $days / $periodStart->daysInMonth;
         $amounts = $this->amounts($plan, $company, $start, $end->addDay(), $share, $cycle);
         $extra = $this->extraCouriers($plan, $company, $start, $end, $cycle);
+        // Cartes Membre Premium payées par l'entreprise, offertes jusqu'à la fin de la période
+        $premium = app(PremiumCards::class)->billable($company, $end->addDay());
 
         // Petites factures précédentes reportées sur celle-ci
         $carried = PlatformInvoice::query()->where('company_id', $company->id)->where('status', PlatformInvoice::CARRIED)->whereNull('carried_into_id')->get();
         $carriedAmount = (int) $carried->sum('total');
-        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $extra['amount'] + $carriedAmount;
+        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $extra['amount'] + $premium['amount'] + $carriedAmount;
 
         if ($total <= 0) {
             return null;
@@ -102,7 +106,7 @@ class Billing
         // Trop petite pour une facture à part : reportée sur la suivante
         $isCarried = $plan->min_invoice !== null && $total < $plan->min_invoice;
 
-        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $carried, $carriedAmount, $total, $isCarried, $tz) {
+        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $carried, $carriedAmount, $total, $isCarried, $tz) {
             $today = CarbonImmutable::now($tz);
             $dueDays = (int) config($cycle === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_due_days' : 'platform.billing.due_days');
 
@@ -126,6 +130,8 @@ class Billing
                 'extra_courier_days' => $extra['days'],
                 'extra_courier_price' => $extra['days'] > 0 ? $extra['price'] : 0,
                 'extra_couriers_amount' => $extra['amount'],
+                'premium_cards_count' => $premium['count'],
+                'premium_cards_amount' => $premium['amount'],
                 'carried_amount' => $carriedAmount,
                 'total' => $total,
                 'status' => $isCarried ? PlatformInvoice::CARRIED : PlatformInvoice::OPEN,
@@ -133,6 +139,9 @@ class Billing
                 'due_at' => $today->addDays($dueDays)->toDateString(),
                 'last_reminder' => 'issued',
             ]);
+            if ($premium['ids'] !== []) {
+                PremiumCard::forCompany($company->id)->whereKey($premium['ids'])->update(['platform_invoice_id' => $invoice->id]);
+            }
             if ($carried->isNotEmpty()) {
                 PlatformInvoice::query()->whereKey($carried->modelKeys())->update(['carried_into_id' => $invoice->id]);
             }

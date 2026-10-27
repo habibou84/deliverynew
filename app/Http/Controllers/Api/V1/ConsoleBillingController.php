@@ -167,6 +167,9 @@ class ConsoleBillingController extends Controller
             'extra_courier_days' => (int) $i->extra_courier_days,
             'extra_courier_price' => (int) $i->extra_courier_price,
             'extra_couriers_amount' => (int) $i->extra_couriers_amount,
+            // Cartes Membre Premium Jibiat Marchand payées par l'entreprise
+            'premium_cards_count' => (int) $i->premium_cards_count,
+            'premium_cards_amount' => (int) $i->premium_cards_amount,
             'carried_into' => $i->carried_into_id ? $i->carriedInto?->number : null,
             'total' => $i->total,
             'amount_paid' => $i->amount_paid,

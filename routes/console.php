@@ -55,3 +55,5 @@ Schedule::command('parcels:kept-deliveries')->everyFifteenMinutes()->withoutOver
 Schedule::command('orders:due-today')->dailyAt('06:50')->withoutOverlapping();
 // Papiers des véhicules et permis des livreurs : rappel 15 jours avant la fin, puis le jour même
 Schedule::command('vehicles:documents')->dailyAt('07:40')->withoutOverlapping();
+// Cartes Membre Premium Jibiat Marchand : état relu chez Jibiat Marchand, carte automatique aux marchands qui y ont droit
+Schedule::command('premium:award')->dailyAt('10:20')->withoutOverlapping();

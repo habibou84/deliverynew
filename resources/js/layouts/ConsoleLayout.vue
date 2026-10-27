@@ -43,6 +43,7 @@ const ITEMS = [
   { to: '/console', label: 'Tableau de bord', exact: true, roles: CONSOLE_ROLES.team },
   { to: '/console/entreprises', label: 'Entreprises', roles: CONSOLE_ROLES.team },
   { to: '/console/formules', label: 'Formules', roles: CONSOLE_ROLES.team },
+  { to: '/console/premium', label: 'Cartes Premium', roles: CONSOLE_ROLES.team },
   { to: '/console/facturation', label: 'Facturation', roles: CONSOLE_ROLES.accounting },
   { to: '/console/paiements', label: 'Paiements Wave', roles: CONSOLE_ROLES.accounting },
   { to: '/console/whatsapp', label: 'WhatsApp', roles: CONSOLE_ROLES.support },
