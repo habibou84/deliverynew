@@ -24,6 +24,7 @@ enum WhatsAppTemplate: string
     case OrderConfirmedForDate = 'course_validee_date';
     case RatingRequest = 'avis_livraison';
     case PaymentMethodChanged = 'moyen_paiement_modifie';
+    case PremiumCardOffered = 'carte_premium_offerte';
 
     public const LANGUAGE = 'fr';
 
@@ -44,6 +45,7 @@ enum WhatsAppTemplate: string
             self::ReturnHanded => 'Bonjour {{1}}, {{2}} colis vous ont été rendus (bon de retour {{3}}), reçus par {{4}}. Détail du bon : {{5}} . Merci.',
             self::RatingRequest => 'Bonjour {{1}}, votre colis de {{2}} a été livré par {{3}}. Comment s\'est passée la livraison ? Répondez par un chiffre de 1 (mauvais) à 5 (excellent), ou donnez votre avis ici : {{4}} . Merci !',
             self::PaymentMethodChanged => 'Bonjour {{1}}, un moyen de paiement a été {{2}} sur votre compte : {{3}}. Si ce n\'est pas vous, prévenez votre agence tout de suite. Merci.',
+            self::PremiumCardOffered => 'Bonjour {{1}}, {{2}} vous offre la carte Membre Premium Jibiat Marchand : {{3}} mois offerts pour vendre en ligne avec votre propre boutique. Activez-la ici : {{4}} . Merci de votre confiance.',
             self::ManagerReport => 'Bonjour {{1}}, voici le point de la semaine {{2}} pour {{3}} : {{4}} courses créées ({{5}}), {{6}} livrées, taux de livraison {{7}}. Chiffre d\'affaires : {{8}} ({{9}}). E-commerçants à relancer : {{10}}. Toutes les statistiques : {{11}} .',
         };
     }
@@ -68,6 +70,7 @@ enum WhatsAppTemplate: string
             self::ManagerReport => '📊 Point de la semaine',
             self::RatingRequest => '⭐ Votre avis',
             self::PaymentMethodChanged => '🔒 Moyen de paiement modifié',
+            self::PremiumCardOffered => '🎁 Votre carte Membre Premium',
         };
     }
 
@@ -89,6 +92,7 @@ enum WhatsAppTemplate: string
             self::ManagerReport => 'Aux administrateurs de l\'entreprise, point de la semaine (lundi matin)',
             self::RatingRequest => 'Au destinataire, après la livraison : noter le livreur (réponse de 1 à 5 ou lien)',
             self::PaymentMethodChanged => 'Au marchand, quand un moyen de paiement est ajouté, modifié ou retiré sur son compte (sécurité)',
+            self::PremiumCardOffered => 'Au marchand, quand l\'entreprise lui offre la carte Membre Premium Jibiat Marchand (avec le lien pour l\'activer)',
         };
     }
 
@@ -114,6 +118,7 @@ enum WhatsAppTemplate: string
             self::ReturnHanded => ['Boutique Chic', '4', 'BR-261009-00012', 'Mariam Koné', 'https://exemple.ci/bon-de-retour/12'],
             self::RatingRequest => ['Awa', 'Boutique Chic', 'Koffi', 'https://exemple.ci/avis/Xk29aLm4'],
             self::PaymentMethodChanged => ['Boutique Chic', 'ajouté', 'Wave 07 09 98 08 85'],
+            self::PremiumCardOffered => ['Boutique Chic', 'Rapide Express', '6', 'https://jibiat-marchand.com/cle/K7M4Q2XP'],
             self::ManagerReport => ['Awa', 'du 05/10 au 11/10', 'Rapide Express', '312', '+12 %', '287', '94 %', '430 500 F', '+8 %', '3', 'https://exemple.ci/admin/statistiques'],
         };
     }

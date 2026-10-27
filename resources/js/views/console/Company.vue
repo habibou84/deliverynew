@@ -110,6 +110,17 @@
         </div>
       </div>
 
+      <!-- Cartes Membre Premium Jibiat Marchand offertes par l'entreprise -->
+      <div v-if="company.premium" class="card p-4 space-y-2">
+        <h2 class="font-semibold">💎 Cartes Premium Jibiat Marchand</h2>
+        <p class="text-sm">{{ company.premium.used }} offerte(s) sur {{ company.premium.effective_quota }} · {{ company.premium.auto ? 'carte automatique activée' : 'offertes à la main' }}</p>
+        <label v-if="can('owner')" class="flex flex-wrap items-center gap-2 text-sm">Nombre de cartes de cette entreprise
+          <input v-model="premiumQuota" type="number" min="0" class="input w-24" placeholder="Console">
+          <button type="button" class="btn-secondary" @click="savePremiumQuota">Enregistrer</button>
+          <span class="w-full text-xs text-gray-500">Vide : le nombre réglé dans Cartes Premium.</span>
+        </label>
+      </div>
+
       <!-- Mise en route de l'entreprise : pour l'accompagner au démarrage -->
       <div v-if="company.setup" class="card p-4 space-y-3">
         <h2 class="font-semibold">🧭 Mise en route</h2>
@@ -194,10 +205,23 @@ const subError = ref('')
 const subSaving = ref(false)
 
 const active = computed(() => company.value?.status === 'active')
+const premiumQuota = ref('')
+
+async function savePremiumQuota() {
+  try {
+    const quota = premiumQuota.value === '' || premiumQuota.value === null ? null : Number(premiumQuota.value)
+    const { data } = await http.put(`/console/premium/companies/${company.value.id}`, { quota })
+    company.value.premium = { ...company.value.premium, ...data.data }
+    toasts.success('Nombre de cartes enregistré.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
 
 async function load() {
   company.value = (await http.get(`/console/companies/${route.params.id}`)).data.data
   domain.value = company.value.domain
+  premiumQuota.value = company.value.premium?.quota ?? ''
   Object.assign(sub, { plan_id: company.value.plan?.id ?? null, trial_ends_at: company.value.trial_ends_at || '' })
   Object.assign(edit, {
     name: company.value.name, slug: company.value.slug, phone: company.value.phone || '',

@@ -52,6 +52,35 @@
       <AppIcon name="right" class="h-5 w-5 text-slate-400" />
     </RouterLink>
 
+    <!-- Carte Membre Premium Jibiat Marchand : gagnée (ou offerte), ou ce qu'il reste pour la gagner -->
+    <section v-if="premium?.card" class="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-[#14161F] to-[#2B2F3D] p-4 text-white">
+      <p class="text-[12px] font-bold uppercase tracking-[.14em] text-[#F2C45A]">Membre Premium</p>
+      <p class="mt-1 text-[17px] font-extrabold leading-snug">Vous êtes Membre Premium Jibiat Marchand</p>
+      <p class="mt-0.5 text-[13px] text-white/75">
+        {{ premium.card.label }} · offerte par {{ premium.company }}<template v-if="premium.card.free_until && premium.card.state === 'free'">, gratuite jusqu'au {{ date(premium.card.free_until) }}</template>
+      </p>
+      <a :href="premium.card.store_url || premium.card.url" target="_blank" rel="noopener" class="tap mt-3 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F2C45A] to-[#E3A72F] py-3 text-[15px] font-extrabold text-[#2B1D00] active:scale-[.99] transition">
+        {{ premium.card.store_url ? 'Ouvrir mon espace Jibiat Marchand' : 'Activer ma carte' }}
+      </a>
+    </section>
+    <section v-else-if="premium?.progress" class="rounded-[22px] bg-white p-4 shadow-soft">
+      <div class="flex items-center gap-3">
+        <ColorIcon name="boutique" :size="46" />
+        <div class="min-w-0">
+          <p class="text-[15px] font-bold leading-snug">{{ premiumTitle }}</p>
+          <p class="text-[12.5px] text-slate-500">Carte Membre Premium Jibiat Marchand offerte par {{ premium.company }} : votre boutique en ligne</p>
+        </div>
+      </div>
+      <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" :aria-valuenow="premium.progress.delivered" aria-valuemin="0" :aria-valuemax="premium.progress.target">
+        <span class="block h-full rounded-full bg-gradient-to-r from-[#F2C45A] to-[#E3A72F]" :style="{ width: `${Math.min(100, Math.round(premium.progress.delivered / premium.progress.target * 100))}%` }" />
+      </div>
+      <div class="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[12.5px] text-slate-600">
+        <span class="tabular-nums"><strong class="text-slate-900">{{ premium.progress.delivered }}/{{ premium.progress.target }}</strong> livrées en {{ premium.progress.window_days }} jours</span>
+        <span v-if="premium.progress.success_rate !== null" :class="premium.progress.checks.success_rate ? '' : 'font-semibold text-amber-700'">Taux {{ Math.round(premium.progress.success_rate * 100) }} % (il faut {{ Math.round(premium.progress.min_success_rate * 100) }} %)</span>
+      </div>
+      <p v-if="premium.progress.late_debt" class="mt-1.5 text-[12.5px] font-semibold text-amber-700">Réglez ce que vous devez à l'agence pour gagner la carte.</p>
+    </section>
+
     <!-- Lieu de ramassage à indiquer -->
     <RouterLink v-if="needsPickupLocation" to="/marchand/lieu-de-ramassage" class="tap flex items-center gap-3 rounded-[20px] border border-[#FFC1CB] bg-[#FFF6F7] p-3.5 active:scale-[.99] transition">
       <ColorIcon name="lieu" :size="44" />
@@ -132,7 +161,7 @@ import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import PushInvite from '../../components/mobile/PushInvite.vue'
 import { useAuthStore } from '../../stores/auth'
 import { orderChanges } from '../../composables/useRealtime'
-import { localPhone, money } from '../../utils/format'
+import { date, localPhone, money } from '../../utils/format'
 import { GROUPS, orderStage } from '../../utils/orderStage'
 import { ORDER_FILTERS, filterParams } from '../../utils/orderFilters'
 import { periodFromQuery } from '../../utils/periods'
@@ -149,6 +178,25 @@ const alertsTotal = ref(0)
 const laterCount = ref(0)
 const balance = ref(null)
 const filter = ref('all')
+
+// Carte Membre Premium (rien quand l'entreprise ne la propose pas)
+const premium = ref(null)
+const premiumTitle = computed(() => {
+  const p = premium.value?.progress
+  if (!p) return ''
+  if (p.missing > 0) return `Plus que ${p.missing} course${p.missing > 1 ? 's' : ''} livrée${p.missing > 1 ? 's' : ''} pour gagner votre carte`
+  if (!p.checks.success_rate) return 'Encore un peu moins de retours pour gagner votre carte'
+  if (!p.checks.client_since) return 'Votre carte arrive bientôt : il faut être client depuis quelques mois'
+  return p.late_debt ? 'Presque : votre carte vous attend' : 'Bravo ! Votre carte arrive dans la journée'
+})
+async function loadPremium() {
+  if (!auth.user?.merchant_id) return
+  try {
+    premium.value = (await cachedGet('/merchant/premium')).data.data
+  } catch {
+    // Facultatif
+  }
+}
 
 const needsPickupLocation = computed(() => !!auth.user?.merchant && !auth.user.merchant.has_pickup_location)
 
@@ -255,6 +303,7 @@ watch(orderChanges, () => {
 })
 onMounted(() => {
   load()
+  loadPremium()
   loadStock()
   loadBalance()
 })
