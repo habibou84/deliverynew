@@ -2,6 +2,7 @@
 
 namespace App\Services\Platform;
 
+use App\Enums\PlatformTemplate;
 use App\Models\Company;
 use App\Models\PlatformConversation;
 use App\Models\PlatformMessage;
@@ -133,16 +134,36 @@ class PlatformWhatsApp
 
     /**
      * Alerte de la plateforme (ex. paiement Wave à vérifier) depuis le numéro de Jibiat, sans conversation enregistrée.
+     * Avec la connexion officielle, le modèle donné part s'il est approuvé ; sinon le texte libre (24 heures).
+     *
+     * @param  list<string>  $params  paramètres du modèle
      *
      * @throws MessagingException
      */
-    public function notify(string $phone, string $text): string
+    public function notify(string $phone, string $text, ?PlatformTemplate $template = null, array $params = []): string
     {
         if (! $this->connected()) {
             throw new MessagingException('Le numéro WhatsApp de Jibiat n\'est pas relié (console › WhatsApp).');
         }
 
+        // Connexion officielle : message que Jibiat envoie en premier, par son modèle approuvé (sans limite de 24 heures)
+        $official = $this->official();
+        if ($official !== null && $template !== null && $this->approved($official, $template)) {
+            $params = PlatformTemplate::clean($params);
+
+            return $template === PlatformTemplate::ConsoleCode
+                ? $this->meta->sendAuthenticationCode($official, $phone, $template->value, PlatformTemplate::LANGUAGE, $params[0] ?? '')
+                : $this->meta->sendTemplate($official, $phone, $template->value, PlatformTemplate::LANGUAGE, $params);
+        }
+
         return $this->send($phone, $text);
+    }
+
+    /** Modèle du numéro officiel approuvé par Meta */
+    public function approved(WhatsAppAccount $account, PlatformTemplate $template): bool
+    {
+        return $account->templates()->where('name', $template->value)->where('language', PlatformTemplate::LANGUAGE)
+            ->where('status', 'approved')->exists();
     }
 
     /**
@@ -162,7 +183,7 @@ class PlatformWhatsApp
             return $this->meta->sendReply($official, $phone, $text);
         } catch (MessagingException $e) {
             throw new MessagingException($e->providerCode === '131047'
-                ? 'Plus de 24 heures depuis son dernier message : WhatsApp n\'accepte plus de message libre. Attendez qu\'il vous écrive.'
+                ? 'Plus de 24 heures depuis son dernier message : WhatsApp n\'accepte plus de message libre. Attendez qu\'il vous écrive (ou faites approuver les modèles du numéro de Jibiat, console › WhatsApp).'
                 : $e->getMessage(), providerCode: $e->providerCode);
         }
     }

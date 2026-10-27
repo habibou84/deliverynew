@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounts;
 
+use App\Enums\PlatformTemplate;
 use App\Models\TrustedDevice;
 use App\Models\User;
 use App\Notifications\ConsoleLoginCode;
@@ -138,7 +139,7 @@ class ConsoleTwoFactor
         }
         if (filled($user->phone) && $this->whatsapp->connected()) {
             try {
-                $this->whatsapp->notify($user->phone, "Jibiat · Code de connexion à la console : {$code}\nValable 10 minutes. Ne le donnez à personne.");
+                $this->whatsapp->notify($user->phone, "Jibiat · Code de connexion à la console : {$code}\nValable 10 minutes. Ne le donnez à personne.", PlatformTemplate::ConsoleCode, [$code]);
 
                 return ['whatsapp', '…'.substr((string) $user->phone, -4)];
             } catch (Throwable $e) {
