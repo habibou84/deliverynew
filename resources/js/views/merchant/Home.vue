@@ -75,7 +75,7 @@
         <span class="block h-full rounded-full bg-gradient-to-r from-[#F2C45A] to-[#E3A72F]" :style="{ width: `${Math.min(100, Math.round(premium.progress.delivered / premium.progress.target * 100))}%` }" />
       </div>
       <div class="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[12.5px] text-slate-600">
-        <span class="tabular-nums"><strong class="text-slate-900">{{ premium.progress.delivered }}/{{ premium.progress.target }}</strong> livrées en {{ premium.progress.window_days }} jours</span>
+        <span class="tabular-nums"><strong class="text-slate-900">{{ Math.min(premium.progress.delivered, premium.progress.target) }}/{{ premium.progress.target }}</strong> livrées en {{ premium.progress.window_days }} jours</span>
         <span v-if="premium.progress.success_rate !== null" :class="premium.progress.checks.success_rate ? '' : 'font-semibold text-amber-700'">Taux {{ Math.round(premium.progress.success_rate * 100) }} % (il faut {{ Math.round(premium.progress.min_success_rate * 100) }} %)</span>
       </div>
       <p v-if="premium.progress.late_debt" class="mt-1.5 text-[12.5px] font-semibold text-amber-700">Réglez ce que vous devez à l'agence pour gagner la carte.</p>
