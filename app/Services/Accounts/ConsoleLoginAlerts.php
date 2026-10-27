@@ -2,6 +2,7 @@
 
 namespace App\Services\Accounts;
 
+use App\Enums\PlatformTemplate;
 use App\Models\PlatformAuditLog;
 use App\Models\TrustedDevice;
 use App\Models\User;
@@ -41,7 +42,7 @@ class ConsoleLoginAlerts
         }
         if (filled($user->phone) && $this->whatsapp->connected()) {
             try {
-                $this->whatsapp->notify($user->phone, "Jibiat · Nouvelle connexion à la console : {$when}, {$label}, IP {$ip}.\nCe n'était pas vous ? {$url}");
+                $this->whatsapp->notify($user->phone, "Jibiat · Nouvelle connexion à la console : {$when}, {$label}, IP {$ip}.\nCe n'était pas vous ? {$url}", PlatformTemplate::ConsoleLogin, [$when, $label, $ip, $url]);
             } catch (Throwable) {
                 // Aucun moyen d'alerter : la connexion reste au journal
             }

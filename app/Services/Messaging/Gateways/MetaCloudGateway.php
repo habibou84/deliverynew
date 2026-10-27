@@ -43,6 +43,30 @@ class MetaCloudGateway implements WhatsAppGateway
         return (string) $response->json('messages.0.id');
     }
 
+    /**
+     * Modèle d'authentification (code à usage unique) : le code va dans le texte et dans le bouton Copier le code.
+     */
+    public function sendAuthenticationCode(?WhatsAppAccount $account, string $to, string $template, string $language, string $code): string
+    {
+        $account = $this->ensureConfigured($account);
+
+        $response = $this->call(fn () => $this->client($account)->post("{$account->phone_number_id}/messages", [
+            'messaging_product' => 'whatsapp',
+            'to' => ltrim($to, '+'),
+            'type' => 'template',
+            'template' => [
+                'name' => $template,
+                'language' => ['code' => $language],
+                'components' => [
+                    ['type' => 'body', 'parameters' => [['type' => 'text', 'text' => $code]]],
+                    ['type' => 'button', 'sub_type' => 'url', 'index' => '0', 'parameters' => [['type' => 'text', 'text' => $code]]],
+                ],
+            ],
+        ]));
+
+        return (string) $response->json('messages.0.id');
+    }
+
     public function sendReply(?WhatsAppAccount $account, string $to, string $text, array $buttons = []): string
     {
         $account = $this->ensureConfigured($account);

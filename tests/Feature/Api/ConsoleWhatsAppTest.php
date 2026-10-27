@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\PlatformTemplate;
 use App\Enums\Role;
 use App\Models\InboundMessage;
 use App\Models\PhoneVerification;
@@ -11,6 +12,7 @@ use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
 use App\Services\Accounts\PhoneVerifier;
+use App\Services\Platform\PlatformWhatsApp;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
@@ -106,6 +108,7 @@ class ConsoleWhatsAppTest extends TestCase
         Http::fake([
             '*/555?*' => Http::response(['display_phone_number' => '+225 01 00 00 00 99', 'verified_name' => 'Jibiat', 'quality_rating' => 'GREEN']),
             '*/777/subscribed_apps' => Http::response(['success' => true]),
+            '*/777/message_templates' => Http::response(['id' => 't1', 'status' => 'PENDING']),
             '*/555/messages' => Http::sequence()
                 ->push(['messages' => [['id' => 'wamid.P1']]])
                 ->push(['error' => ['code' => 131047, 'message' => 'Re-engagement message']], 400),
@@ -155,7 +158,7 @@ class ConsoleWhatsAppTest extends TestCase
         // Hors de la fenêtre de 24 heures : explication claire
         $this->postJson("/api/v1/console/whatsapp/conversations/{$conversation->id}/messages", ['body' => 'Relance'])->assertCreated()
             ->assertJsonPath('data.status', 'failed')
-            ->assertJsonPath('data.error', 'Plus de 24 heures depuis son dernier message : WhatsApp n\'accepte plus de message libre. Attendez qu\'il vous écrive.');
+            ->assertJsonPath('data.error', 'Plus de 24 heures depuis son dernier message : WhatsApp n\'accepte plus de message libre. Attendez qu\'il vous écrive (ou faites approuver les modèles du numéro de Jibiat, console › WhatsApp).');
 
         // Jeton conservé si le champ reste vide
         $this->putJson('/api/v1/console/whatsapp/official', ['phone_number_id' => '555', 'waba_id' => '777', 'access_token' => null])->assertOk();
@@ -166,6 +169,62 @@ class ConsoleWhatsAppTest extends TestCase
             ->assertJsonPath('data.official', null)
             ->assertJsonPath('data.channel', 'qr')
             ->assertJsonPath('data.status', 'none');
+    }
+
+    public function test_official_number_templates_are_submitted_then_used_for_messages_jibiat_sends_first(): void
+    {
+        config(['messaging.whatsapp.driver' => 'auto']);
+        Http::fake([
+            '*/555?*' => Http::response(['display_phone_number' => '+225 01 00 00 00 99', 'verified_name' => 'Jibiat', 'quality_rating' => 'GREEN']),
+            '*/777/subscribed_apps' => Http::response(['success' => true]),
+            '*/777/message_templates?*' => Http::response(['data' => [
+                ['name' => 'jibiat_code_connexion', 'language' => 'fr', 'status' => 'APPROVED', 'category' => 'AUTHENTICATION'],
+                ['name' => 'jibiat_connexion_console', 'language' => 'fr', 'status' => 'APPROVED', 'category' => 'UTILITY'],
+                ['name' => 'jibiat_paiement_wave', 'language' => 'fr', 'status' => 'REJECTED', 'category' => 'UTILITY', 'rejected_reason' => 'INVALID_FORMAT'],
+                ['name' => 'course_confirmee', 'language' => 'fr', 'status' => 'APPROVED', 'category' => 'UTILITY'],
+            ]]),
+            '*/777/message_templates' => Http::response(['id' => 't1', 'status' => 'PENDING']),
+            '*/555/messages' => Http::response(['messages' => [['id' => 'wamid.T1']]]),
+        ]);
+        Sanctum::actingAs($this->root);
+
+        // Numéro vérifié : les quatre modèles de Jibiat partent chez Meta (le code en authentification, avec Copier)
+        $this->putJson('/api/v1/console/whatsapp/official', ['phone_number_id' => '555', 'waba_id' => '777', 'access_token' => 'permanent'])->assertOk()
+            ->assertJsonCount(4, 'data.templates')
+            ->assertJsonPath('data.templates.0.status', 'pending');
+        $submitted = collect(Http::recorded())->map(fn ($pair) => $pair[0])
+            ->filter(fn (Request $r) => $r->method() === 'POST' && str_ends_with($r->url(), '/777/message_templates'));
+        $this->assertSame(['jibiat_code_connexion', 'jibiat_connexion_console', 'jibiat_paiement_wave', 'jibiat_acces_assistance'], $submitted->map(fn ($r) => $r['name'])->values()->all());
+        $code = $submitted->first();
+        $this->assertSame(['AUTHENTICATION', 'COPY_CODE'], [$code['category'], $code['components'][2]['buttons'][0]['otp_type']]);
+        $this->assertSame('UTILITY', $submitted->last()['category']);
+
+        // Déjà en validation : rien n'est renvoyé
+        $this->postJson('/api/v1/console/whatsapp/templates/submit')->assertOk()->assertJsonPath('results', []);
+
+        // État lu chez Meta (seuls les modèles de Jibiat sont gardés)
+        $this->postJson('/api/v1/console/whatsapp/templates/sync')->assertOk()
+            ->assertJsonPath('data.templates.0.status', 'approved')
+            ->assertJsonPath('data.templates.2.status', 'rejected')
+            ->assertJsonPath('data.templates.2.rejected_reason', 'INVALID_FORMAT')
+            ->assertJsonPath('data.templates.3.status', 'pending');
+        $this->assertFalse(WhatsAppAccount::platform()->templates()->where('name', 'course_confirmee')->exists());
+
+        $whatsapp = app(PlatformWhatsApp::class);
+        // Code de connexion : modèle d'authentification, code dans le texte et le bouton
+        $whatsapp->notify('+2250700000011', 'Code 482913', PlatformTemplate::ConsoleCode, ['482913']);
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/555/messages') && ($r['template']['name'] ?? null) === 'jibiat_code_connexion'
+            && $r['template']['components'][1]['parameters'][0]['text'] === '482913');
+        // Alerte approuvée : modèle, paramètres sur une ligne
+        $whatsapp->notify('+2250700000011', 'Nouvelle connexion', PlatformTemplate::ConsoleLogin, ["mardi\n27/10", 'Chrome', '1.2.3.4', 'https://x.test']);
+        Http::assertSent(fn (Request $r) => ($r['template']['name'] ?? null) === 'jibiat_connexion_console' && $r['template']['components'][0]['parameters'][0]['text'] === 'mardi 27/10');
+        // Modèle refusé : texte libre (dans les 24 heures)
+        $whatsapp->notify('+2250700000011', 'Paiement Wave en cours', PlatformTemplate::WavePayment, ['a', 'b', 'c', 'd', 'e', 'f']);
+        Http::assertSent(fn (Request $r) => ($r['text']['body'] ?? null) === 'Paiement Wave en cours');
+
+        // Réservé au Propriétaire
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/v1/console/whatsapp/templates/submit')->assertForbidden();
     }
 
     public function test_official_connection_error_is_explained(): void

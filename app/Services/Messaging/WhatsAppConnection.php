@@ -2,6 +2,7 @@
 
 namespace App\Services\Messaging;
 
+use App\Enums\PlatformTemplate;
 use App\Enums\WhatsAppTemplate;
 use App\Models\Company;
 use App\Models\WhatsAppAccount;
@@ -289,6 +290,48 @@ class WhatsAppConnection
                 $account->templates()->updateOrCreate(
                     ['name' => $template->value, 'language' => WhatsAppTemplate::LANGUAGE],
                     ['status' => $status, 'category' => 'utility', 'rejected_reason' => null, 'synced_at' => now()],
+                );
+                $results[$template->value] = 'ok';
+            } catch (MessagingException $e) {
+                $results[$template->value] = $this->explain($e);
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Numéro officiel de Jibiat : soumet à Meta ses propres modèles (PlatformTemplate) qui ne sont ni approuvés ni en
+     * cours de validation. Renvoie, par modèle soumis, « ok » ou le message d'erreur.
+     *
+     * @return array<string, string>
+     */
+    public function submitPlatformTemplates(WhatsAppAccount $account): array
+    {
+        if (! $account->isConfigured() || blank($account->waba_id)) {
+            throw new MessagingException('Renseignez et vérifiez d\'abord la connexion officielle, avec l\'identifiant du compte WhatsApp Business (WABA ID).');
+        }
+
+        $known = $account->templates()->where('language', PlatformTemplate::LANGUAGE)->pluck('status', 'name');
+        $results = [];
+
+        foreach (PlatformTemplate::cases() as $template) {
+            if (in_array($known[$template->value] ?? null, ['approved', 'pending'], true)) {
+                continue;
+            }
+
+            try {
+                $response = $this->call(fn () => $this->client($account)->post("{$account->waba_id}/message_templates", [
+                    'name' => $template->value,
+                    'language' => PlatformTemplate::LANGUAGE,
+                    'category' => strtoupper($template->category()),
+                    'components' => $template->components(),
+                ]), allowExisting: true);
+
+                $status = $response ? strtolower($response->json('status') ?? 'pending') : 'pending';
+                $account->templates()->updateOrCreate(
+                    ['name' => $template->value, 'language' => PlatformTemplate::LANGUAGE],
+                    ['status' => $status, 'category' => $template->category(), 'rejected_reason' => null, 'synced_at' => now()],
                 );
                 $results[$template->value] = 'ok';
             } catch (MessagingException $e) {
