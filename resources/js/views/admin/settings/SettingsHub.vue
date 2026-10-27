@@ -43,6 +43,10 @@
           <span class="block font-semibold">{{ card.title }}</span>
           <span class="block text-sm text-gray-600">{{ card.description }}</span>
           <span v-if="card.summary" class="block text-xs font-medium text-slate-700">{{ card.summary }}</span>
+          <!-- Aussi réglable depuis ces pages, par leur bouton ⚙️ -->
+          <span v-if="card.also" class="flex flex-wrap gap-1 pt-1">
+            <button v-for="a in card.also" :key="a.to" type="button" class="rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-800 hover:bg-sky-100" @click.prevent.stop="router.push(a.to)">aussi dans : {{ a.label }}</button>
+          </span>
           <span v-if="card.links" class="flex flex-wrap gap-x-3 gap-y-1 pt-1">
             <RouterLink v-for="l in card.links" :key="l.to" :to="l.to" class="text-sm font-medium text-blue-600">{{ l.label }} →</RouterLink>
           </span>
@@ -54,6 +58,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import http from '../../../bootstrap/axios'
 import GuideVideo from '../../../components/GuideVideo.vue'
 import { useAuthStore } from '../../../stores/auth'
@@ -64,6 +69,7 @@ import { ACCEPT_MODES, AUTO_MODES, DELIVERY_MODES, delay, VALIDATION_MODES } fro
  * Une carte ou un lien sans le droit ou le module correspondant n'apparaît pas.
  */
 const auth = useAuthStore()
+const router = useRouter()
 const company = ref(null)
 const query = ref('')
 const setup = ref(null)
@@ -83,6 +89,7 @@ const ALL = computed(() => {
     },
     {
       key: 'orders', icon: '📦', title: 'Courses et livraison', to: '/admin/reglages/courses', permission: 'settings.manage',
+      also: [{ to: '/admin/courses', label: 'Courses' }, { to: '/admin/planning', label: 'Planning' }, { to: '/admin/livreurs', label: 'Livreurs' }],
       description: 'Validation des courses, heure limite, tentatives, code de livraison, hors connexion, garde ou dépôt.',
       summary: c && `Validation ${mode?.short || '—'} · heure limite ${c.daily_cutoff_time?.slice(0, 5) || 'aucune'} · ${c.default_max_attempts} tentatives · ramassage automatique ${AUTO_MODES.find((m) => m.value === c.auto_pickup)?.short || 'désactivé'} · livraison automatique ${DELIVERY_MODES.find((m) => m.value === c.auto_delivery)?.short || 'désactivée'} · missions ${ACCEPT_MODES.find((m) => m.value === c.mission_acceptance)?.short || 'au choix du livreur'}`,
       keywords: 'validation heure limite journée tentatives code livraison hors connexion offline garde dépôt fermeture assignation automatique planning acceptation missions refus empêchement injoignable retard livraison jour même plafond',
@@ -96,6 +103,7 @@ const ALL = computed(() => {
     },
     {
       key: 'alerts', icon: '⏰', title: 'Alertes et rappels', to: '/admin/reglages/alertes', permission: 'settings.manage',
+      also: [{ to: '/admin/disponibilites', label: 'Livreurs disponibles' }, { to: '/admin/colis-livreurs', label: 'Colis chez les livreurs' }, { to: '/admin/terrain', label: 'Remontées terrain' }, { to: '/admin/statistiques', label: 'Statistiques' }],
       description: 'Quand prévenir le dispatch : courses sans livreur, colis gardés, remontées terrain, point de la semaine.',
       summary: c && `Ramassage ${delay(c.pickup_assign_alert_minutes)} · livraison ${delay(c.delivery_assign_alert_minutes)} · point de la semaine : ${onOff(c.weekly_report)}`,
       keywords: 'alerte délai sans livreur colis gardé livreur relance remontées terrain point semaine rapport',
@@ -107,6 +115,7 @@ const ALL = computed(() => {
     },
     {
       key: 'merchants', icon: '🏪', title: 'E-commerçants', to: '/admin/reglages/e-commercants', permission: 'settings.manage',
+      also: [{ to: '/admin/marchands', label: 'E-commerçants' }],
       description: 'Inscriptions en ligne des e-commerçants.',
       summary: c && (c.merchant_signup ? 'Inscriptions en ligne ouvertes' : 'Inscriptions en ligne fermées'),
       keywords: 'inscription en ligne créer compte e-commerçant marchand',

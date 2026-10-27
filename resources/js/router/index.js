@@ -53,6 +53,13 @@ const routes = [
     component: () => import('../views/Label.vue'),
     meta: { roles: [...SPACES.admin, ...SPACES.marchand] },
   },
+  // Plusieurs étiquettes d'un coup : /etiquettes?ids=12,15,18
+  {
+    path: '/etiquettes',
+    name: 'labels',
+    component: () => import('../views/Label.vue'),
+    meta: { roles: [...SPACES.admin, ...SPACES.marchand] },
+  },
   {
     path: '/bon-de-retour/:id',
     name: 'return-slip',

@@ -8,6 +8,8 @@
       </p>
     </div>
 
+    <SettingsShortcut :blocks="['holdAlert']" title="Colis chez les livreurs" more="/admin/reglages/alertes" @saved="alertSaved" />
+
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
       <StatCard title="Colis chez les livreurs" :value="store.counts.total" icon="📦" />
       <StatCard :title="alertHours ? `Depuis plus de ${alertHours} h` : 'En retard'" :value="store.counts.overdue" icon="⏰" />
@@ -80,6 +82,7 @@
 </template>
 
 <script setup>
+import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatCard from '../../components/StatCard.vue'
@@ -94,6 +97,8 @@ const store = useHeldParcelStore()
 const toasts = useToastStore()
 const couriers = ref([])
 const alertHours = ref(24)
+// Délai changé depuis le panneau ⚙️ : la page suit tout de suite
+const alertSaved = (form) => { alertHours.value = form.parcel_hold_alert_hours }
 const loaded = ref(false)
 const overdueOnly = ref(false)
 const search = ref('')

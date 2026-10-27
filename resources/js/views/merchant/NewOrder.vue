@@ -1,7 +1,7 @@
 <template>
   <!-- Course enregistrée -->
   <div v-if="created" class="text-center space-y-5 pt-6">
-    <div class="mx-auto h-20 w-20 rounded-full bg-emerald-100 grid place-items-center text-emerald-700"><AppIcon name="check" class="h-10 w-10" :stroke="2.4" /></div>
+    <div class="flex justify-center"><ColorIcon name="livre" :size="88" /></div>
     <div>
       <p class="text-2xl font-bold">Course enregistrée</p>
       <p class="text-slate-500">{{ created.from_warehouse ? 'L\'agence prépare votre commande à l\'entrepôt.' : 'Nous allons envoyer un livreur récupérer le colis.' }}</p>
@@ -19,6 +19,7 @@
       <button class="m-btn-secondary" @click="reset(true)">Même client, autre colis</button>
       <button class="m-btn-primary" @click="reset(false)">Autre client</button>
     </div>
+    <RouterLink :to="`/etiquette/${created.id}`" class="m-btn-secondary !justify-start !ring-0 shadow-soft"><ColorIcon name="etiquette" :size="32" :tile="false" />Imprimer l'étiquette du colis</RouterLink>
     <RouterLink :to="`/marchand/courses/${created.id}`" class="block text-sm font-bold text-[var(--app-color)]">Voir la course</RouterLink>
   </div>
 
@@ -39,13 +40,14 @@
 
     <!-- Message collé : remplit toute la course -->
     <PasteMessage v-if="pasteOpen" mobile start-open @parsed="applyParsed" />
-    <button v-else-if="!clipText" type="button" class="tap w-full flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-bold text-[var(--app-color)] ring-1 ring-slate-200 active:bg-slate-50" :disabled="parsing" @click="pasteFromClipboard">
-      <AppIcon name="clip" class="h-[18px] w-[18px]" />{{ parsing ? 'Analyse du message…' : 'Coller un message WhatsApp pour tout remplir' }}
+    <button v-else-if="!clipText" type="button" class="tap w-full flex items-center gap-3 rounded-[22px] border-2 border-dashed border-[#A8E6C9] bg-[#F1FBF6] p-3.5 text-left active:scale-[.99] transition" :disabled="parsing" @click="pasteFromClipboard">
+      <ColorIcon name="coller" :size="46" />
+      <span class="min-w-0"><span class="block text-[15px] font-bold text-slate-900">{{ parsing ? 'Analyse du message…' : 'Coller le message du client' }}</span><span class="text-[12.5px] text-slate-600">Jibiat remplit tout seul : numéro, commune, montant.</span></span>
     </button>
 
     <!-- 1. Le client -->
-    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-client" @pointerdown="enter(1)">
-      <h2 id="step-client" class="m-step"><span class="m-step-num">1</span>Le client</h2>
+    <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-3" aria-labelledby="step-client" @pointerdown="enter(1)">
+      <h2 id="step-client" class="m-step"><ColorIcon name="profil" :size="34" />Le client</h2>
       <!-- Partie remplie : une ligne, rouverte d'un toucher -->
       <button v-if="folded.client" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.client = false">
         <span class="min-w-0 truncate font-semibold">{{ [form.recipient_name, form.recipient_phone].filter(Boolean).join(' · ') }}</span>
@@ -77,8 +79,8 @@
     </section>
 
     <!-- 2. Où livrer -->
-    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-where" @pointerdown="enter(2)">
-      <h2 id="step-where" class="m-step"><span class="m-step-num">2</span>Où livrer</h2>
+    <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-3" aria-labelledby="step-where" @pointerdown="enter(2)">
+      <h2 id="step-where" class="m-step"><ColorIcon name="lieu" :size="34" />Où livrer</h2>
       <button v-if="folded.where" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.where = false">
         <span class="min-w-0 truncate font-semibold">{{ [zoneName, form.delivery_address].filter((v) => v && v !== '—').join(' · ') }}<span v-if="quote" class="font-normal text-slate-500"> · livraison {{ money(quote.total) }}</span></span>
         <span class="shrink-0 font-bold text-[var(--app-color)]">Modifier</span>
@@ -119,8 +121,8 @@
     </section>
 
     <!-- 3. L'argent -->
-    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-money" @pointerdown="enter(3)">
-      <h2 id="step-money" class="m-step"><span class="m-step-num">3</span>L'argent</h2>
+    <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-3" aria-labelledby="step-money" @pointerdown="enter(3)">
+      <h2 id="step-money" class="m-step"><ColorIcon name="billets" :size="34" />L'argent</h2>
       <button v-if="folded.money" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.money = false">
         <span class="min-w-0 truncate font-semibold">{{ money(form.items_amount || 0) }} · livraison payée par {{ form.fee_payer === 'merchant' ? 'vous' : 'le client' }}</span>
         <span class="shrink-0 font-bold text-[var(--app-color)]">Modifier</span>
@@ -178,8 +180,8 @@
     </section>
 
     <!-- 4. Quand livrer -->
-    <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3" aria-labelledby="step-when" @pointerdown="enter(4)">
-      <h2 id="step-when" class="m-step"><span class="m-step-num">4</span><span>Quand livrer <span class="text-red-600">*</span></span></h2>
+    <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-3" aria-labelledby="step-when" @pointerdown="enter(4)">
+      <h2 id="step-when" class="m-step"><ColorIcon name="calendrier" :size="34" /><span>Quand livrer <span class="text-red-600">*</span></span></h2>
       <div id="when-field" :class="['rounded-2xl', missing.date ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
         <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de livraison" />
         <p v-if="closed" class="mt-2 text-xs text-slate-500">{{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
@@ -190,7 +192,7 @@
     </section>
 
     <!-- Le reste, seulement si besoin -->
-    <section class="rounded-2xl bg-white px-4 py-1 ring-1 ring-slate-200" @pointerdown="enter(5)">
+    <section class="rounded-[22px] bg-white px-4 py-1 shadow-soft" @pointerdown="enter(5)">
       <button type="button" class="tap w-full flex items-center justify-between py-3 text-[15px] font-semibold" :aria-expanded="showMore" @click="showMore = !showMore">
         <span>{{ showMore ? '−' : '+' }} Contenu du colis, express, message au livreur</span>
         <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-500">{{ extrasSummary }}</span>
@@ -234,8 +236,9 @@
         </div>
         <p v-else-if="quoteError" class="text-sm text-red-600">{{ quoteError }}</p>
         <p v-else class="text-sm text-slate-500">{{ form.delivery_zone_id ? 'Calcul du prix…' : 'Choisissez la commune pour voir le prix.' }}</p>
-        <p v-if="stillMissing.length" class="text-sm font-semibold text-amber-700">Il manque : {{ stillMissing.join(', ') }}</p>
-        <button type="submit" :class="['m-btn-primary', stillMissing.length ? 'opacity-60' : '']" :disabled="saving">{{ saving ? 'Envoi…' : 'Envoyer la course' }}</button>
+        <!-- Ce qui manque : seulement après un premier essai d'envoi -->
+        <p v-if="tried && stillMissing.length" class="text-sm font-semibold text-amber-700">Il manque : {{ stillMissing.join(', ') }}</p>
+        <button type="submit" :class="['m-btn-primary', tried && stillMissing.length ? 'opacity-60' : '']" :disabled="saving">{{ saving ? 'Envoi…' : 'Envoyer la course' }}</button>
       </div>
     </div>
   </form>
@@ -253,6 +256,7 @@ import { useAuthStore } from '../../stores/auth'
 import { localPhone, money } from '../../utils/format'
 import { keyboardOpen } from '../../composables/useKeyboard'
 import AppIcon from '../../components/mobile/AppIcon.vue'
+import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import { siteOrigin } from '../../native'
 
 const route = useRoute()
@@ -634,7 +638,11 @@ async function loadRecentZones() {
   }
 }
 
+// Premier essai d'envoi fait : ce qui manque peut s'afficher
+const tried = ref(false)
+
 async function submit() {
+  tried.value = true
   error.value = ''
   suggestions.value = []
   // Champs obligatoires : le premier oublié est montré à l'écran
@@ -675,6 +683,7 @@ function reset(sameClient = false) {
     : {}
   Object.assign(form, blank(), keep)
   Object.keys(missing).forEach((key) => { missing[key] = false })
+  tried.value = false
   showMore.value = false
   showStock.value = false
   created.value = null

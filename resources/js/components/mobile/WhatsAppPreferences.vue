@@ -9,7 +9,7 @@
 
     <div class="m-card divide-y">
       <button type="button" class="tap w-full p-4 flex items-center gap-3 text-left active:bg-slate-50" @click="openPhone">
-        <span class="text-2xl">💬</span>
+        <ColorIcon name="whatsapp" :size="40" />
         <span class="flex-1">
           <span class="block text-sm text-slate-500">{{ onPhone ? 'WhatsApp de secours' : 'Messages WhatsApp envoyés au' }}</span>
           <span class="block font-medium">{{ localPhone(settings.messaging_phone) || 'Aucun numéro' }}</span>
@@ -67,6 +67,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
+import ColorIcon from './ColorIcon.vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import BottomSheet from './BottomSheet.vue'
 import ChoiceChips from './ChoiceChips.vue'

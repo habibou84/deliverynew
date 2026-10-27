@@ -5,6 +5,8 @@
       <RouterLink v-if="auth.can('users.manage')" to="/admin/utilisateurs" class="btn-secondary">+ Créer un compte livreur</RouterLink>
     </div>
 
+    <SettingsShortcut :blocks="['couriers']" title="Livreurs" intro="Comment les livreurs travaillent sur le terrain." more="/admin/reglages/courses" />
+
     <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
       <div v-for="c in couriers" :key="c.id" class="card p-4 space-y-2">
         <div class="flex items-center justify-between">
@@ -101,6 +103,7 @@
 
 import { ACCEPT_MODES } from './settings/options'
 <script setup>
+import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
