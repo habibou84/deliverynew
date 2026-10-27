@@ -15,6 +15,7 @@ use App\Services\Platform\Billing;
 use App\Services\Platform\CompanySignup;
 use App\Services\Platform\PlatformWhatsApp;
 use App\Services\Platform\Subscription;
+use App\Services\Premium\PremiumCards;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -101,6 +102,13 @@ class ConsoleController extends Controller
             // Mise en route de l'entreprise : étapes et bilan de santé (accompagnement au démarrage)
             'setup' => app(SetupGuide::class)->for($company),
             'billing' => app(Billing::class)->state($company),
+            // Cartes Membre Premium Jibiat Marchand : nombre propre à l'entreprise (null : celui de la console)
+            'premium' => [
+                'quota' => $company->premium_quota,
+                'effective_quota' => app(PremiumCards::class)->quota($company),
+                'used' => app(PremiumCards::class)->used($company),
+                'auto' => (bool) $company->premium_auto,
+            ],
             'invoices' => PlatformInvoice::query()->where('company_id', $company->id)->orderByDesc('period')->limit(24)->get()
                 ->map(fn (PlatformInvoice $i) => ConsoleBillingController::invoiceData($i))->values(),
             // Comptes de l'équipe qui peuvent servir à l'assistance

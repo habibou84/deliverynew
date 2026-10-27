@@ -68,6 +68,11 @@ return [
         'url' => rtrim((string) env('JIBIAT_MARCHAND_URL', 'https://jibiat-marchand.com'), '/'),
         'referral_rate' => (float) env('JIBIAT_MARCHAND_REFERRAL_RATE', 0.2),
         'referral_months' => (int) env('JIBIAT_MARCHAND_REFERRAL_MONTHS', 12),
+        // Secret partagé avec Jibiat Marchand pour les cartes Membre Premium (contrat socle 1.6) : sur le serveur
+        // seulement, jamais dans le code
+        'premium_secret' => env('JIBIAT_PREMIUM_SECRET'),
+        // API serveur à serveur de Jibiat Marchand (cartes Premium), sur son domaine api.
+        'api_url' => rtrim((string) env('JIBIAT_MARCHAND_API_URL', 'https://api.jibiat-marchand.com'), '/'),
     ],
 
 ];

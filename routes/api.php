@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V1\ConsoleDashboardController;
 use App\Http\Controllers\Api\V1\ConsoleGmailController;
 use App\Http\Controllers\Api\V1\ConsoleHealthController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
+use App\Http\Controllers\Api\V1\ConsolePremiumController;
 use App\Http\Controllers\Api\V1\ConsoleSearchController;
 use App\Http\Controllers\Api\V1\ConsoleTeamController;
 use App\Http\Controllers\Api\V1\ConsoleWaveController;
@@ -56,6 +57,7 @@ use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PayPlanController;
 use App\Http\Controllers\Api\V1\PlanningController;
+use App\Http\Controllers\Api\V1\PremiumProgramController;
 use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductPhotoController;
@@ -269,6 +271,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('conversations/{conversation}', 'messages')->name('messages');
             Route::post('conversations/{conversation}/messages', 'reply')->middleware('throttle:60,1')->name('reply');
         });
+        // Programme Premium Jibiat Marchand : réglages au Propriétaire
+        Route::prefix('console/premium')->name('console.premium.')->middleware($team)->controller(ConsolePremiumController::class)->group(function () use ($owner) {
+            Route::get('/', 'show')->name('show');
+            Route::put('/', 'update')->middleware($owner)->name('update');
+            Route::put('companies/{company}', 'company')->middleware($owner)->name('company');
+        });
         Route::prefix('console')->name('console.')->middleware($team)->controller(ConsolePlanController::class)->group(function () use ($owner) {
             Route::get('plans', 'index')->name('plans.index');
             Route::post('plans', 'store')->middleware($owner)->name('plans.store');
@@ -377,6 +385,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // E-commerçants parrainés sur Jibiat Marchand et part de leur abonnement revenant à l'entreprise
         Route::get('jibiat-marchand/referrals', [MerchantAppReferralController::class, 'index'])->middleware('can:settings.manage')->name('jibiat-marchand.referrals');
+        // Programme Premium Jibiat Marchand : cartes offertes aux meilleurs marchands
+        Route::prefix('premium')->name('premium.')->controller(PremiumProgramController::class)->group(function () {
+            Route::get('/', 'show')->middleware('can:merchants.view')->name('show');
+            Route::post('cards', 'offer')->middleware(['can:merchants.manage', 'throttle:30,1'])->name('cards.offer');
+            Route::post('cards/{card}/revoke', 'revoke')->middleware('can:merchants.manage')->name('cards.revoke');
+            Route::put('auto', 'auto')->middleware('can:settings.manage')->name('auto');
+        });
 
         // Notes des livreurs : classement, fiche, évaluation du mois, avis à traiter
         Route::middleware('can:orders.dispatch')->group(function () {
@@ -443,6 +458,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('merchant/pickup-location', [MerchantLocationController::class, 'mine'])->name('merchant.pickup-location');
         // Statistiques de l'e-commerçant (son application)
         Route::get('merchant/stats', [StatisticsController::class, 'merchant'])->middleware('can:orders.view')->name('merchant.stats');
+        // Carte Membre Premium Jibiat Marchand de l'e-commerçant, ou ce qu'il lui reste pour la gagner
+        Route::get('merchant/premium', [PremiumProgramController::class, 'mine'])->name('merchant.premium');
         Route::put('merchant/pickup-location', [MerchantLocationController::class, 'updateMine'])->name('merchant.pickup-location.update');
         // Lien Google Maps collé → coordonnées
         Route::post('geo/link', [MerchantLocationController::class, 'resolveLink'])->middleware('throttle:20,1')->name('geo.link');
