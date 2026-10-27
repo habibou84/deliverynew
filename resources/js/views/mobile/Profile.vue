@@ -72,7 +72,7 @@
         <p v-if="deleteError" class="text-sm text-red-700" role="alert">{{ deleteError }}</p>
         <div class="grid grid-cols-2 gap-2">
           <button type="button" class="m-btn-secondary" :disabled="sending" @click="deleting = false; understood = false">Annuler</button>
-          <button type="button" class="m-btn-primary !bg-red-600" :disabled="!understood || sending" @click="deleteAccount">{{ sending ? '…' : 'Supprimer' }}</button>
+          <button type="button" class="m-btn-danger" :disabled="!understood || sending" @click="deleteAccount">{{ sending ? '…' : 'Supprimer' }}</button>
         </div>
         <a :href="siteUrl('/suppression-du-compte')" target="_blank" rel="noopener" class="block text-center text-xs text-slate-500 underline">En savoir plus</a>
       </template>
