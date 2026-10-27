@@ -28,6 +28,9 @@ export const GROUPS = [
   { key: 'closed', label: 'Annulées ou refusées', tone: 'gray' },
 ]
 
+/** Icône en couleur de chaque groupe (une seule icône, le colis, pour une course pas encore partie) */
+export const STAGE_ICONS = { decide: 'aregler', route: 'moto', picked: 'moto', pickup: 'colis', delivered: 'livre', returns: 'retour', closed: 'attente' }
+
 const hour = (value) => (value ? new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '')
 const firstName = (person) => (person?.name || '').split(' ')[0]
 

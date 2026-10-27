@@ -115,6 +115,24 @@ class OrderController extends Controller
         return response()->json(['data' => $groups->toAssign($request->user(), $day ? Carbon::parse($day)->toDateString() : null)]);
     }
 
+    /**
+     * Étiquettes à imprimer en lot : les courses demandées que la personne a le droit de voir (les autres sont
+     * ignorées), dans l'ordre demandé.
+     */
+    public function labels(Request $request): AnonymousResourceCollection
+    {
+        Gate::authorize('viewAny', Order::class);
+        $ids = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['integer'],
+        ])['ids'];
+
+        $orders = Order::query()->visibleTo($request->user())->with(self::LIST_RELATIONS)->whereIn('id', $ids)->get()
+            ->sortBy(fn (Order $o) => array_search($o->id, $ids))->values();
+
+        return OrderResource::collection($orders);
+    }
+
     public function counts(Request $request, AwaitingCourier $awaiting): JsonResponse
     {
         Gate::authorize('dispatch', Order::class);

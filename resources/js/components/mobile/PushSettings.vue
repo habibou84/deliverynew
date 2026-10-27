@@ -1,9 +1,12 @@
 <template>
   <div v-if="push.checked && push.serverEnabled" class="m-card p-4 space-y-3">
     <div class="flex items-center justify-between gap-3">
-      <div>
-        <p class="font-medium">🔔 Notifications sur ce téléphone</p>
-        <p class="text-sm text-slate-500">{{ status }}</p>
+      <div class="flex min-w-0 items-center gap-3">
+        <ColorIcon name="cloche" :size="40" />
+        <div class="min-w-0">
+          <p class="font-medium">Notifications sur ce téléphone</p>
+          <p class="text-sm text-slate-500">{{ status }}</p>
+        </div>
       </div>
       <button
         v-if="push.supported && push.permission !== 'denied'"
@@ -25,6 +28,7 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import ColorIcon from './ColorIcon.vue'
 import { disablePush, enablePush, initPush, needsInstallFirst, push, testPush } from '../../composables/usePush'
 import { useToastStore } from '../../stores/toasts'
 import { apiErrorMessage } from '../../bootstrap/axios'

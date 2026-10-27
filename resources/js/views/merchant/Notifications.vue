@@ -11,10 +11,10 @@
     </div>
 
     <template v-for="section in sections" :key="section.label">
-      <h2 class="pt-1 text-[13px] font-extrabold uppercase tracking-wider text-slate-500">{{ section.label }}</h2>
-      <div class="rounded-2xl bg-white ring-1 ring-slate-200 divide-y divide-slate-100">
+      <h2 class="px-1 pt-1 text-[12.5px] font-bold uppercase tracking-wider text-slate-400">{{ section.label }}</h2>
+      <div class="rounded-[22px] bg-white shadow-soft divide-y divide-slate-100">
         <div v-for="item in section.items" :key="item.key" class="flex gap-3 p-3.5">
-          <span :class="['h-10 w-10 shrink-0 rounded-full grid place-items-center', item.look.tone]"><AppIcon :name="item.look.icon" class="h-5 w-5" /></span>
+          <ColorIcon :name="item.look.color" :size="42" />
           <div class="min-w-0 flex-1 text-sm">
             <button type="button" class="block w-full text-left" @click="open(item)">
               <b class="block text-[14.5px]">{{ item.title }}</b>
@@ -32,14 +32,14 @@
       </div>
     </template>
 
-    <EmptyState v-if="store.loaded && !sections.length" icon="🔔" :title="tab === 'todo' ? 'Rien à traiter' : 'Aucune notification'" :text="tab === 'todo' ? 'Aucun colis n\'attend votre décision. 👍' : 'Vous serez prévenu ici de chaque étape importante.'" />
+    <EmptyState v-if="store.loaded && !sections.length" :art="tab === 'todo' ? 'livre' : 'cloche'" :title="tab === 'todo' ? 'Rien à traiter' : 'Aucune notification'" :text="tab === 'todo' ? 'Aucun colis n\'attend votre décision. 👍' : 'Vous serez prévenu ici de chaque étape importante.'" />
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import AppIcon from '../../components/mobile/AppIcon.vue'
+import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
 import http from '../../bootstrap/axios'
 import { useNotificationStore } from '../../stores/notifications'
@@ -56,22 +56,22 @@ const tabs = computed(() => [
 
 // Icône et couleur par type de notification
 const LOOKS = {
-  incident: { icon: 'alert', tone: 'bg-orange-100 text-orange-700' },
-  pickup_failed: { icon: 'alert', tone: 'bg-orange-100 text-orange-700' },
-  delivered: { icon: 'check', tone: 'bg-emerald-100 text-emerald-700' },
-  picked_up: { icon: 'moto', tone: 'bg-blue-100 text-blue-700' },
-  out_for_delivery: { icon: 'moto', tone: 'bg-blue-100 text-blue-700' },
-  rescheduled: { icon: 'calendar', tone: 'bg-blue-100 text-blue-700' },
-  confirmed: { icon: 'check', tone: 'bg-slate-100 text-slate-600' },
-  returned: { icon: 'back', tone: 'bg-violet-100 text-violet-700' },
-  cancelled: { icon: 'x', tone: 'bg-slate-100 text-slate-600' },
-  rejected: { icon: 'ban', tone: 'bg-red-100 text-red-700' },
-  note: { icon: 'chat', tone: 'bg-sky-100 text-sky-700' },
-  expense: { icon: 'wallet', tone: 'bg-slate-100 text-slate-600' },
-  low_stock: { icon: 'store', tone: 'bg-amber-100 text-amber-700' },
-  shop_order: { icon: 'store', tone: 'bg-emerald-100 text-emerald-700' },
+  incident: { color: 'aregler' },
+  pickup_failed: { color: 'aregler' },
+  delivered: { color: 'livre' },
+  picked_up: { color: 'moto' },
+  out_for_delivery: { color: 'moto' },
+  rescheduled: { color: 'calendrier' },
+  confirmed: { color: 'colis' },
+  returned: { color: 'retour' },
+  cancelled: { color: 'attente' },
+  rejected: { color: 'retour' },
+  note: { color: 'whatsapp' },
+  expense: { color: 'billets' },
+  low_stock: { color: 'stock' },
+  shop_order: { color: 'boutique' },
 }
-const look = (kind) => LOOKS[kind] || { icon: 'bell', tone: 'bg-slate-100 text-slate-600' }
+const look = (kind) => LOOKS[kind] || { color: 'cloche' }
 
 // Le nom du client plutôt que le code de la course
 function titleOf(n) {

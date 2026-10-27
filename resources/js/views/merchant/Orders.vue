@@ -3,30 +3,37 @@
     <!-- Recherche (toutes dates) et choix de la date -->
     <div class="flex gap-2">
       <div class="relative flex-1">
-        <input ref="searchInput" v-model="search" type="search" class="m-input !py-3 pl-10" placeholder="Client, numéro, code…" aria-label="Rechercher une course" @input="debouncedLoad">
-        <AppIcon name="search" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-slate-400" />
+        <input ref="searchInput" v-model="search" type="search" class="m-input !py-3 pl-11 !border-0 shadow-soft !rounded-2xl" placeholder="Nom, numéro, code…" aria-label="Rechercher une course" @input="debouncedLoad">
+        <ColorIcon name="recherche" :size="22" :tile="false" class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2" />
       </div>
-      <button type="button" class="tap shrink-0 flex items-center gap-1.5 rounded-xl bg-white px-3.5 text-sm font-bold ring-1 ring-slate-300" :class="search ? 'opacity-50' : ''" @click="dateSheet = true">
-        <AppIcon name="calendar" class="h-[18px] w-[18px]" />{{ period.label }}
+      <button type="button" class="tap shrink-0 flex items-center gap-1.5 rounded-2xl bg-white px-3 text-sm font-semibold shadow-soft active:scale-95 transition" :class="search ? 'opacity-50' : ''" @click="dateSheet = true">
+        <ColorIcon name="calendrier" :size="22" :tile="false" />{{ period.label }}
       </button>
     </div>
     <p v-if="search" class="text-xs text-slate-500">Recherche sur toutes les dates.</p>
 
     <!-- Toutes par défaut ; les onglets ne font que réduire la liste -->
-    <div class="flex rounded-xl bg-slate-200/70 p-1" role="radiogroup" aria-label="Catégorie">
+    <div class="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar" role="radiogroup" aria-label="Catégorie">
       <button
         v-for="f in tabs"
         :key="f.value"
         type="button"
         role="radio"
         :aria-checked="filter === f.value"
-        :class="['tap flex-1 rounded-lg py-2 text-[13px] font-bold whitespace-nowrap', filter === f.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600']"
+        :class="['tap shrink-0 inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3.5 text-[13.5px] font-semibold whitespace-nowrap', counts[f.value] !== undefined ? 'pr-1.5' : 'pr-3.5', filter === f.value ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 shadow-soft']"
         @click="setFilter(f.value)"
       >
         {{ f.label }}
-        <span v-if="counts[f.value] !== undefined" :class="['ml-0.5 rounded-full px-1.5 text-[11px]', f.warn && counts[f.value] ? 'bg-orange-100 text-orange-800' : filter === f.value ? 'bg-emerald-100 text-emerald-800' : 'bg-white/70']">{{ counts[f.value] }}</span>
+        <span v-if="counts[f.value] !== undefined" class="min-w-[22px] h-[22px] px-1.5 rounded-full grid place-items-center text-[12px] font-bold tabular-nums" :style="filter === f.value ? { background: 'rgba(255,255,255,.18)', color: '#fff' } : TAB_TONES[f.value]">{{ counts[f.value] }}</span>
       </button>
     </div>
+
+    <!-- Étiquettes des colis que le livreur n'a pas encore récupérés (courses affichées) -->
+    <RouterLink v-if="toLabel.length" :to="{ path: '/etiquettes', query: { ids: toLabel.join(',') } }" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3 text-sm shadow-soft active:scale-[.99] transition">
+      <ColorIcon name="etiquette" :size="40" />
+      <span class="flex-1"><strong class="block text-[14.5px]">Étiquettes à coller · {{ toLabel.length }}</strong><span class="text-slate-500">Pour les colis pas encore récupérés</span></span>
+      <AppIcon name="right" class="h-5 w-5 text-slate-400" />
+    </RouterLink>
 
     <!-- Courses rangées par étape, de la plus urgente à la plus avancée -->
     <section v-for="g in groups" :key="g.key" class="space-y-2">
@@ -36,8 +43,14 @@
       <OrderCard v-for="o in g.orders" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
     </section>
 
-    <EmptyState v-if="!loading && !orders.length" icon="🔎" :title="search ? 'Aucune course trouvée' : emptyTitle" :text="search ? 'Essayez un autre nom, numéro ou code.' : 'Choisissez une autre date avec le bouton en haut.'" />
-    <p v-if="loading" class="text-center text-slate-400 py-6">Chargement…</p>
+    <EmptyState v-if="!loading && !orders.length" :art="search ? 'recherche' : 'colis'" :title="search ? 'Aucune course trouvée' : emptyTitle" :text="search ? 'Essayez un autre nom, numéro ou code.' : 'Choisissez une autre date avec le bouton en haut.'" />
+    <!-- Chargement : des cartes grises animées à la place de la liste -->
+    <div v-if="loading && !orders.length" class="space-y-2.5" aria-label="Chargement">
+      <div v-for="n in 3" :key="n" class="flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft animate-pulse">
+        <span class="h-[46px] w-[46px] rounded-[14px] bg-slate-100" />
+        <span class="flex-1 space-y-2"><span class="block h-3.5 w-2/3 rounded bg-slate-100" /><span class="block h-3 w-1/2 rounded bg-slate-100" /></span>
+      </div>
+    </div>
     <button v-if="hasMore && !loading" class="m-btn-secondary" @click="load(page + 1)">Voir plus</button>
 
     <!-- Choix de la date -->
@@ -70,6 +83,7 @@ import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { cachedGet } from '../../composables/useCachedApi'
 import AppIcon from '../../components/mobile/AppIcon.vue'
+import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import OrderCard from '../../components/mobile/OrderCard.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
@@ -85,6 +99,15 @@ const router = useRouter()
 const byValue = Object.fromEntries(ORDER_FILTERS.map((f) => [f.value, f]))
 const tabs = [byValue.all, byValue.problems, byValue.active, byValue.delivered]
 const presets = ['today', 'later', 'yesterday', 'week', 'month', 'all'].map((k) => PERIOD_PRESETS[k])
+// Par défaut les 7 derniers jours : la liste n'est pas vide le matin avant la première course du jour
+const DEFAULT_PERIOD = 'week'
+// Couleur du compteur de chaque onglet
+const TAB_TONES = {
+  all: { background: '#EEF1F5', color: '#3B4859' },
+  problems: { background: '#FFF4E0', color: '#B76E00' },
+  active: { background: '#E8F1FF', color: '#1D5BC7' },
+  delivered: { background: '#E3F7EE', color: '#127A50' },
+}
 
 const EMPTY = {
   all: 'Aucune course sur ces dates',
@@ -94,8 +117,11 @@ const EMPTY = {
 }
 
 // Anciennes adresses (?filtre=active…) toujours valables
+// Pas encore récupérées par le livreur : leur étiquette est à coller sur le colis (100 au plus d'un coup)
+const BEFORE_PICKUP = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress']
+const toLabel = computed(() => orders.value.filter((o) => BEFORE_PICKUP.includes(o.status)).map((o) => o.id).slice(0, 100))
 const filter = ref(tabs.some((f) => f.value === route.query.filtre) ? route.query.filtre : 'all')
-const period = ref(periodFromQuery(route.query, 'today'))
+const period = ref(periodFromQuery(route.query, DEFAULT_PERIOD))
 const search = ref('')
 const searchInput = ref(null)
 const orders = ref([])
@@ -140,7 +166,7 @@ async function loadCounts() {
 
 // Onglet et dates gardés dans l'adresse (retour depuis une fiche)
 function syncQuery() {
-  router.replace({ query: { ...(filter.value === 'all' ? {} : { filtre: filter.value }), ...periodQuery(period.value, 'today') } })
+  router.replace({ query: { ...(filter.value === 'all' ? {} : { filtre: filter.value }), ...periodQuery(period.value, DEFAULT_PERIOD) } })
 }
 
 function setFilter(value) {
