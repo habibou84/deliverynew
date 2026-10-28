@@ -11,6 +11,19 @@
       </div>
     </div>
 
+    <!-- Comptes dont la suppression a été demandée depuis le profil : annulable avant l'effacement -->
+    <section v-if="deletions.length" class="card border-red-200 p-4 space-y-2">
+      <h2 class="font-semibold text-red-800">Demandes de suppression de compte ({{ deletions.length }})</h2>
+      <p class="text-xs text-gray-600">Comptes fermés à la demande de leur titulaire. Les données personnelles sont effacées à la date indiquée ; les courses et la comptabilité restent, sous un nom anonyme.</p>
+      <ul class="divide-y text-sm">
+        <li v-for="d in deletions" :key="d.id" class="flex flex-wrap items-center gap-3 py-2">
+          <span class="min-w-0 flex-1 font-medium">{{ d.name }}</span>
+          <span class="text-gray-500">Effacement le {{ date(d.erase_after) }}</span>
+          <button v-if="auth.can('users.manage')" class="text-emerald-700" :disabled="cancelling === d.id" @click="cancelDeletion(d)">Annuler et rouvrir le compte</button>
+        </li>
+      </ul>
+    </section>
+
     <div class="card overflow-x-auto">
       <table class="w-full text-sm stack-table">
         <thead class="bg-slate-50 text-left text-gray-600">
@@ -91,7 +104,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
-import { dateTime } from '../../utils/format'
+import { date, dateTime } from '../../utils/format'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -101,9 +114,26 @@ const role = ref('')
 const form = reactive({ open: false, id: null, data: {}, error: '', saving: false })
 const invitation = ref(null)
 const inviting = ref(null)
+const deletions = ref([])
+const cancelling = ref(null)
 
 async function load() {
   users.value = (await http.get('/users', { params: { role: role.value || undefined, per_page: 100 } })).data.data
+  deletions.value = (await http.get('/account-deletions').catch(() => ({ data: { data: [] } }))).data.data
+}
+
+async function cancelDeletion(d) {
+  if (!window.confirm(`Rouvrir le compte de ${d.name} ? Il pourra de nouveau se connecter.`)) return
+  cancelling.value = d.id
+  try {
+    await http.post(`/account-deletions/${d.id}/cancel`)
+    toasts.success('Compte rouvert.')
+    load()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    cancelling.value = null
+  }
 }
 
 function openForm(user = null) {

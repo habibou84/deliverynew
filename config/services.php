@@ -64,6 +64,17 @@ return [
     // Jibiat Marchand : lien d'invitation des e-commerçants (un mois d'essai en plus via l'annuaire) ; part de
     // l'abonnement versée à l'entreprise pour un e-commerçant parrainé (affichage : les montants viennent de
     // Jibiat Marchand)
+    // Applications Android au nom des entreprises (console › Applications à leur nom) : fabriquées par le workflow
+    // GitHub « branded-app.yml », lancé avec ce jeton (droit Actions en écriture sur le dépôt), gardé sur le serveur
+    'github_apps' => [
+        'token' => env('GITHUB_APPS_TOKEN'),
+        'repo' => env('GITHUB_APPS_REPO', 'habibou84/deliverynew'),
+        'ref' => env('GITHUB_APPS_REF', 'production'),
+        'workflow' => 'branded-app.yml',
+        // Début du numéro de version affiché (1.0 → 1.0.<numéro de fabrication>)
+        'version' => env('GITHUB_APPS_VERSION', '1.0'),
+    ],
+
     'jibiat_marchand' => [
         'url' => rtrim((string) env('JIBIAT_MARCHAND_URL', 'https://jibiat-marchand.com'), '/'),
         'referral_rate' => (float) env('JIBIAT_MARCHAND_REFERRAL_RATE', 0.2),

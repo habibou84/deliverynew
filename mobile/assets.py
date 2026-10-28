@@ -1,9 +1,12 @@
 """Icônes et écrans de démarrage Android et iOS des applications, à partir des icônes du site.
 
     python3 mobile/assets.py
+    python3 mobile/assets.py --app ecommercant --source icone.png   # application au nom d'une entreprise
 
-Source : public/app-icons/<icône>-maskable-512.png (symbole dans la zone sûre, fond plein).
+Source : public/app-icons/<icône>-maskable-512.png (symbole dans la zone sûre, fond plein), ou l'icône de
+l'entreprise (même format, téléchargée par mobile/brand.mjs).
 """
+import argparse
 from pathlib import Path
 
 from PIL import Image
@@ -27,9 +30,9 @@ def round_mask(image: Image.Image) -> Image.Image:
     return out
 
 
-for app, icon in APPS.items():
+def generate(app: str, source: Path) -> None:
     res = ROOT / app / 'android' / 'app' / 'src' / 'main' / 'res'
-    maskable = Image.open(ICONS / f'{icon}-maskable-512.png').convert('RGBA')
+    maskable = Image.open(source).convert('RGBA')
     background = maskable.getpixel((2, 2))[:3]
     hex_color = '#%02X%02X%02X' % background
 
@@ -71,3 +74,14 @@ for app, icon in APPS.items():
             canvas.save(splash)
 
     print(app, hex_color)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument('--app', choices=sorted(APPS), help='une seule application')
+    parser.add_argument('--source', type=Path, help='icône carrée à utiliser (avec --app)')
+    args = parser.parse_args()
+    if args.source and not args.app:
+        parser.error('--source demande --app')
+    for name in ([args.app] if args.app else APPS):
+        generate(name, args.source or ICONS / f'{APPS[name]}-maskable-512.png')

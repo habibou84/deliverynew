@@ -1,11 +1,13 @@
 <?php
 
 use App\Enums\ApiScope;
+use App\Http\Controllers\Api\BrandedAppBuildController;
 use App\Http\Controllers\Api\Connect\ConnectController;
 use App\Http\Controllers\Api\Connect\PublicConnectController;
 use App\Http\Controllers\Api\NativeAppController;
 use App\Http\Controllers\Api\PublicV1\PublicAccountController;
 use App\Http\Controllers\Api\PublicV1\PublicApiController;
+use App\Http\Controllers\Api\V1\AccountDeletionController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AppearanceController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -15,6 +17,7 @@ use App\Http\Controllers\Api\V1\CompanySupportController;
 use App\Http\Controllers\Api\V1\ConsoleAccountController;
 use App\Http\Controllers\Api\V1\ConsoleAuditController;
 use App\Http\Controllers\Api\V1\ConsoleBillingController;
+use App\Http\Controllers\Api\V1\ConsoleBrandedAppController;
 use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\ConsoleDashboardController;
 use App\Http\Controllers\Api\V1\ConsoleGmailController;
@@ -152,6 +155,14 @@ Route::prefix('public/connect')->name('public.connect.')->controller(PublicConne
 Route::get('public/apps/companies/{code}', [NativeAppController::class, 'company'])
     ->middleware('throttle:30,1')->where('code', '[A-Za-z0-9-]{1,60}')->name('public.apps.company');
 
+// Fabrication des applications au nom d'une entreprise (workflow GitHub branded-app.yml, jeton de la version)
+Route::prefix('public/apps/builds/{build}')->name('public.apps.builds.')->whereNumber('build')->middleware('throttle:60,1')
+    ->controller(BrandedAppBuildController::class)->group(function () {
+        Route::get('manifest', 'manifest')->name('manifest');
+        Route::post('status', 'status')->name('status');
+        Route::post('files', 'upload')->name('files');
+    });
+
 // Photo de preuve d'une course (lien signé et temporaire renvoyé par l'API publique, sans clé)
 Route::get('public/v1/attachments/{attachment}', [PublicApiController::class, 'attachment'])
     ->middleware('signed')->whereNumber('attachment')->name('public.attachments.show');
@@ -206,6 +217,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('auth/me', [AuthController::class, 'me'])->name('auth.me');
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::put('auth/password', [PasswordController::class, 'update'])->middleware('throttle:10,1')->name('auth.password');
+        // Suppression du compte (e-commerçant, livreur) et demandes en cours vues par l'entreprise
+        Route::post('account/deletion', [AccountDeletionController::class, 'store'])->middleware('throttle:5,1')->name('account.deletion');
+        Route::get('account-deletions', [AccountDeletionController::class, 'index'])->middleware('can:users.view')->name('account-deletions.index');
+        Route::post('account-deletions/{deletion}/cancel', [AccountDeletionController::class, 'cancel'])->middleware('can:users.manage')->name('account-deletions.cancel');
         Route::post('company/logo', [BrandingController::class, 'upload'])->name('company.logo.store');
         Route::delete('company/logo', [BrandingController::class, 'destroy'])->name('company.logo.destroy');
         // Apparence des espaces : couleurs, noms et icônes des applications
@@ -278,6 +293,20 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', 'show')->name('show');
             Route::put('/', 'update')->middleware($owner)->name('update');
             Route::put('companies/{company}', 'company')->middleware($owner)->name('company');
+        });
+        // Applications Android au nom des entreprises : réglages et fabrication au Propriétaire
+        Route::prefix('console/branded-apps')->name('console.branded-apps.')->middleware($team)->controller(ConsoleBrandedAppController::class)->group(function () use ($owner) {
+            Route::get('/', 'index')->name('index');
+            // Jeton GitHub (avant les routes {company})
+            Route::put('github-token', 'saveToken')->middleware([$owner, 'throttle:10,1'])->name('github-token.save');
+            Route::post('github-token/check', 'checkToken')->middleware([$owner, 'throttle:20,1'])->name('github-token.check');
+            Route::delete('github-token', 'removeToken')->middleware($owner)->name('github-token.remove');
+            Route::get('{company}', 'show')->name('show');
+            Route::post('{company}', 'store')->middleware($owner)->name('store');
+            Route::put('{company}', 'update')->middleware($owner)->name('update');
+            Route::post('{company}/builds', 'build')->middleware([$owner, 'throttle:10,1'])->name('build');
+            Route::post('{company}/builds/{build}/published', 'published')->middleware($owner)->name('published');
+            Route::get('{company}/builds/{build}/{app}.{kind}', 'download')->where(['app' => 'ecommercant|livreur', 'kind' => 'aab|apk'])->name('download');
         });
         Route::prefix('console')->name('console.')->middleware($team)->controller(ConsolePlanController::class)->group(function () use ($owner) {
             Route::get('plans', 'index')->name('plans.index');
