@@ -25,3 +25,4 @@ Thumbs.db
 
 # Applications mobiles : écrans compilés (npm run mobile:livreur / mobile:ecommercant)
 /mobile/*/www
+/mobile/*/brand-icon.png

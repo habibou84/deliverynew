@@ -48,6 +48,8 @@ Route::get('/gmail/callback', [ConsoleGmailController::class, 'callback'])->midd
 
 Route::view('/confidentialite', 'legal.privacy')->name('privacy');
 Route::view('/conditions', 'legal.terms')->name('terms');
+// Suppression du compte (exigée par Google Play pour les applications) : comment faire, délai, ce qui est gardé
+Route::view('/suppression-du-compte', 'legal.account-deletion')->name('account-deletion');
 
 // Documentation de l'API publique (spécification : public/docs/openapi.yaml)
 Route::view('/developpeurs/api', 'api-docs')->name('api.docs');

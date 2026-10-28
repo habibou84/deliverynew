@@ -17,6 +17,8 @@ export default defineConfig(({ mode }) => {
         plugins: [vue(), tailwindcss()],
         define: {
             'import.meta.env.VITE_NATIVE_APP': JSON.stringify(mode),
+            // Application au nom d'une entreprise (mobile/brand.mjs) : { code, name, url, logo_url } en JSON
+            'import.meta.env.VITE_BRANDED_COMPANY': JSON.stringify(process.env.VITE_BRANDED_COMPANY || ''),
         },
         build: {
             outDir: `${mode}/www`,
