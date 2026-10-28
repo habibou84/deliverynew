@@ -46,7 +46,12 @@ class Appearance
             $own = $saved['spaces'][$space] ?? [];
             // Même apparence : la couleur et l'icône de l'espace e-commerçant partout
             $source = $same ? ($saved['spaces']['marchand'] ?? []) : $own;
-            $spaces[$space] = ['color' => self::spaceColor($company, $space)];
+            $spaces[$space] = [
+                'color' => self::spaceColor($company, $space),
+                // Couleur choisie (et non celle par défaut) ; « from_logo » : proposée d'après le logo, sans retouche
+                'chosen' => self::color($own['color'] ?? null) !== null,
+                'from_logo' => (bool) ($own['from_logo'] ?? false),
+            ];
             if (in_array($space, self::APPS, true)) {
                 $default = self::defaultAppName($company, $space);
                 // « Mes livraisons » enregistré tel quel (ancien nom par défaut) : remplacé par le nom par défaut
@@ -59,6 +64,26 @@ class Appearance
         }
 
         return ['same' => $same, 'spaces' => $spaces];
+    }
+
+    /**
+     * Nouveau logo : la couleur principale du logo devient celle de l'espace e-commerçant, sauf si l'entreprise a
+     * déjà choisi sa couleur elle-même (une couleur venue d'un ancien logo est remplacée).
+     *
+     * @param  array<string, mixed>  $palette
+     */
+    public static function applyLogoPalette(Company $company, ?array $palette): bool
+    {
+        $saved = $company->appearance ?? [];
+        $own = $saved['spaces']['marchand'] ?? [];
+        if ($palette === null || (self::color($own['color'] ?? null) !== null && ! ($own['from_logo'] ?? false))) {
+            return false;
+        }
+        $saved['spaces']['marchand']['color'] = $palette['color'];
+        $saved['spaces']['marchand']['from_logo'] = true;
+        $company->forceFill(['appearance' => $saved])->save();
+
+        return true;
     }
 
     /**

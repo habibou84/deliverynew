@@ -34,7 +34,7 @@
       <MoreHelp>Affiché sur la page d'accueil des e-commerçants (adresse du site), les pages de connexion, l'en-tête de chaque espace et l'icône des applications.</MoreHelp>
     </section>
 
-    <AppearanceSettings v-if="company" />
+    <AppearanceSettings v-if="company" ref="appearance" />
     <CustomDomainSettings />
   </SettingsPage>
 </template>
@@ -55,6 +55,7 @@ const { form, company, dirty, saving, error, save, reset } = useCompanySettings(
 const toasts = useToastStore()
 const logoUrl = ref(null)
 const uploading = ref(false)
+const appearance = ref(null)
 watch(company, (c) => { logoUrl.value = c?.logo_url ?? null })
 
 async function uploadLogo(event) {
@@ -65,9 +66,12 @@ async function uploadLogo(event) {
   try {
     const body = new FormData()
     body.append('logo', file)
-    logoUrl.value = (await http.post('/company/logo', body)).data.data.logo_url
-    loadBranding(true)
-    toasts.success('Logo enregistré.')
+    const data = (await http.post('/company/logo', body)).data.data
+    logoUrl.value = data.logo_url
+    await loadBranding(true)
+    // Couleurs du logo : palettes proposées dans Apparence (la principale appliquée si aucune couleur n'était choisie)
+    appearance.value?.fromLogo(data)
+    toasts.success(data.applied ? 'Logo enregistré, couleurs prises dans le logo.' : 'Logo enregistré.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -78,6 +82,7 @@ async function uploadLogo(event) {
 async function removeLogo() {
   await http.delete('/company/logo')
   logoUrl.value = null
+  appearance.value?.forgetLogo()
   loadBranding(true)
 }
 </script>
