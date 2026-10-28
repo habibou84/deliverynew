@@ -20,7 +20,7 @@ class OrderAlert extends Notification implements ShouldQueue
     use Queueable;
 
     // Alertes envoyées aussi en notification push sur le téléphone du livreur
-    public const PUSH_KINDS = ['new_mission', 'mission_removed', 'dispatch_message', 'order_edited'];
+    public const PUSH_KINDS = ['new_mission', 'mission_removed', 'dispatch_message', 'order_edited', 'relay', 'relay_missing'];
 
     public function __construct(
         public Order $order,
@@ -56,7 +56,7 @@ class OrderAlert extends Notification implements ShouldQueue
         return [
             'title' => $this->title,
             'body' => $this->body,
-            'url' => $assignment ? "/livreur/missions/{$assignment}" : '/livreur',
+            'url' => $this->extra['url'] ?? ($assignment ? "/livreur/missions/{$assignment}" : '/livreur'),
             'tag' => $this->kind.'-'.$this->order->id,
             'urgent' => $this->kind === 'dispatch_message',
             // Nouvelle mission : vibration propre sur le téléphone du livreur

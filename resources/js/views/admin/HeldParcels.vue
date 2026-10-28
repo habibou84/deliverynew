@@ -16,6 +16,8 @@
       <StatCard title="Livreurs concernés" :value="couriers.length" icon="🛵" />
     </div>
 
+    <RelaysPanel ref="relaysPanel" @changed="load" />
+
     <div class="flex flex-wrap gap-2 items-center">
       <button v-for="f in filters" :key="f.value" :class="['btn whitespace-nowrap', overdueOnly === f.value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300']" @click="overdueOnly = f.value; load()">
         {{ f.label }}
@@ -86,6 +88,7 @@ import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatCard from '../../components/StatCard.vue'
+import RelaysPanel from '../../components/relays/RelaysPanel.vue'
 import { orderChanges } from '../../composables/useRealtime'
 import { useAuthStore } from '../../stores/auth'
 import { useHeldParcelStore } from '../../stores/heldParcels'
@@ -132,6 +135,8 @@ function toggleAll(c) {
   selected.value = allSelected(c) ? selected.value.filter((id) => !ids.includes(id)) : [...new Set([...selected.value, ...ids])]
 }
 
+const relaysPanel = ref(null)
+
 async function load() {
   const { data } = await http.get('/parcels/held', { params: overdueOnly.value ? { overdue: 1 } : {} })
   couriers.value = data.data
@@ -157,7 +162,10 @@ async function receive(c) {
 let timer
 watch([orderChanges, () => store.version], () => {
   clearTimeout(timer)
-  timer = setTimeout(load, 500)
+  timer = setTimeout(() => {
+    load()
+    relaysPanel.value?.load()
+  }, 500)
 })
 
 onMounted(load)
