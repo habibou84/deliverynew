@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CompanySignupController;
 use App\Http\Controllers\Api\V1\CompanySupportController;
 use App\Http\Controllers\Api\V1\ConsoleAccountController;
+use App\Http\Controllers\Api\V1\ConsoleAppOptionController;
 use App\Http\Controllers\Api\V1\ConsoleAuditController;
 use App\Http\Controllers\Api\V1\ConsoleBillingController;
 use App\Http\Controllers\Api\V1\ConsoleBrandedAppController;
@@ -309,6 +310,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('{company}/builds/{build}/published', 'published')->middleware($owner)->name('published');
             Route::get('{company}/builds/{build}/{app}.{kind}', 'download')->where(['app' => 'ecommercant|livreur', 'kind' => 'aab|apk'])->name('download');
         });
+        // Options « Applications à leur nom » demandées par les entreprises : décisions au Propriétaire
+        Route::prefix('console/app-options')->name('console.app-options.')->middleware($team)->controller(ConsoleAppOptionController::class)->group(function () use ($owner) {
+            Route::get('/', 'index')->name('index');
+            Route::post('{option}/accept', 'accept')->middleware($owner)->name('accept');
+            Route::post('{option}/refuse', 'refuse')->middleware($owner)->name('refuse');
+            Route::post('{option}/stop', 'stop')->middleware($owner)->name('stop');
+        });
         Route::prefix('console')->name('console.')->middleware($team)->controller(ConsolePlanController::class)->group(function () use ($owner) {
             Route::get('plans', 'index')->name('plans.index');
             Route::post('plans', 'store')->middleware($owner)->name('plans.store');
@@ -362,6 +370,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Formule, essai et consommation du mois de l'entreprise
         Route::get('subscription', [SubscriptionController::class, 'show'])->middleware('can:settings.manage')->name('subscription.show');
+        Route::post('subscription/apps/{platform}', [SubscriptionController::class, 'requestApps'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.apps.request');
+        Route::delete('subscription/apps/{platform}', [SubscriptionController::class, 'stopApps'])->middleware('can:settings.manage')->name('subscription.apps.stop');
         Route::get('subscription/invoices/{invoice}', [SubscriptionController::class, 'invoice'])->middleware('can:settings.manage')->name('subscription.invoice');
         Route::put('subscription/billing-cycle', [SubscriptionController::class, 'updateCycle'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.cycle');
         Route::post('subscription/invoices/{invoice}/wave', [SubscriptionController::class, 'waveStart'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.wave');

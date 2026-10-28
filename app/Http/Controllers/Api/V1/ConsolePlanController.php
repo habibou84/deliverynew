@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\PlatformFeature;
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Services\Platform\AppOptions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -25,6 +26,7 @@ class ConsolePlanController extends Controller
                     'key' => $f->value, 'label' => $f->label(), 'description' => $f->description(),
                 ], PlatformFeature::cases()),
                 'trial_days' => (int) config('platform.trial_days'),
+                'app_platforms' => array_map(fn ($p) => ['key' => $p, 'label' => AppOptions::LABELS[$p], 'soon' => in_array($p, AppOptions::SOON, true)], AppOptions::PLATFORMS),
             ],
         ]);
     }
@@ -84,6 +86,12 @@ class ConsolePlanController extends Controller
             'min_invoice' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000'],
             'features' => ['sometimes', 'array'],
             'features.*' => ['string', Rule::enum(PlatformFeature::class)],
+            // Applications à leur nom : incluses, en option (prix par mois) ou non disponibles, pour Android et iPhone
+            'apps' => ['sometimes', 'array'],
+            'apps.android' => ['sometimes', Rule::in([AppOptions::INCLUDED, AppOptions::OPTION, AppOptions::NONE])],
+            'apps.ios' => ['sometimes', Rule::in([AppOptions::INCLUDED, AppOptions::OPTION, AppOptions::NONE])],
+            'apps.android_price' => ['nullable', 'integer', 'min:0', 'max:10000000', Rule::requiredIf(fn () => $request->input('apps.android') === AppOptions::OPTION)],
+            'apps.ios_price' => ['nullable', 'integer', 'min:0', 'max:10000000', Rule::requiredIf(fn () => $request->input('apps.ios') === AppOptions::OPTION)],
             'is_active' => ['sometimes', 'boolean'],
             'position' => ['sometimes', 'integer', 'min:0', 'max:1000'],
         ], [], [
@@ -94,6 +102,8 @@ class ConsolePlanController extends Controller
             'max_couriers' => 'livreurs',
             'extra_courier_price' => 'prix d\'un livreur en plus',
             'features' => 'modules',
+            'apps.android_price' => 'prix de l\'option Android',
+            'apps.ios_price' => 'prix de l\'option iPhone',
             'percent_rate' => 'pourcentage par course',
             'percent_min' => 'minimum par course',
             'percent_max' => 'maximum par course',
@@ -103,6 +113,9 @@ class ConsolePlanController extends Controller
             'min_invoice' => 'montant minimum d\'une facture',
         ]);
 
+        if (array_key_exists('apps', $data)) {
+            $data['apps'] = AppOptions::normalize($data['apps']);
+        }
         if (array_key_exists('features', $data)) {
             $data['features'] = array_values(array_unique($data['features']));
         } elseif ($plan === null) {
@@ -135,6 +148,7 @@ class ConsolePlanController extends Controller
             'cap_amount' => $p->cap_amount,
             'min_invoice' => $p->min_invoice,
             'features' => $p->features ?? [],
+            'apps' => AppOptions::normalize($p->apps ?? []),
             'is_active' => $p->is_active,
             'position' => $p->position,
             'companies_count' => $p->companies_count,

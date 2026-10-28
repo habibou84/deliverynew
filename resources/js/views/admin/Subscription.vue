@@ -21,6 +21,33 @@
         <SubscriptionSummary :summary="summary" />
       </div>
 
+      <!-- Applications à votre nom : incluses, en option ou non disponibles -->
+      <div v-if="summary.plan && summary.apps?.length" class="card p-4 space-y-3 text-sm">
+        <div>
+          <h2 class="font-semibold">📱 Applications à votre nom</h2>
+          <p class="text-gray-600">Vos e-commerçants et vos livreurs installent une application à votre nom, avec votre logo et vos couleurs.</p>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div v-for="a in summary.apps" :key="a.platform" class="flex gap-3 rounded-lg border p-3">
+            <span :class="['grid h-11 w-11 flex-none place-items-center rounded-xl text-xl', a.status === 'unavailable' ? 'bg-slate-100' : 'bg-emerald-50']">{{ a.platform === 'ios' ? '🍎' : '🤖' }}</span>
+            <div class="min-w-0 flex-1 space-y-1">
+              <p class="flex flex-wrap items-center gap-2 font-medium">
+                {{ a.label }}
+                <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', APP_STATUS[a.status].cls]">{{ APP_STATUS[a.status].label }}</span>
+                <span v-if="a.soon" class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Bientôt</span>
+              </p>
+              <p class="text-gray-600">{{ appHelp(a) }}</p>
+              <div class="flex flex-wrap gap-2 pt-1">
+                <button v-if="a.status === 'available' && !a.soon" class="btn-primary !py-1" :disabled="appBusy" @click="requestApps(a)">Demander l'option</button>
+                <button v-if="a.status === 'pending'" class="btn-secondary !py-1" :disabled="appBusy" @click="stopApps(a, 'Retirer votre demande ?')">Retirer la demande</button>
+                <button v-if="a.status === 'active'" class="btn-secondary !py-1 text-red-700" :disabled="appBusy" @click="stopApps(a, 'Arrêter l\'option ? Vos applications déjà installées continueront de marcher, mais ne seront plus mises à jour.')">Arrêter l'option</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500">L'option est facturée au prorata des jours, à partir de son acceptation par Jibiat. Si vous l'arrêtez, vos applications installées continuent de marcher, sans nouvelle version.</p>
+      </div>
+
       <!-- Comparaison des formules sur les 30 derniers jours -->
       <div v-if="summary.comparison?.length > 1" class="card p-4 space-y-2 text-sm">
         <h2 class="font-semibold">Combien vous auriez payé avec chaque formule</h2>
@@ -176,6 +203,60 @@ async function changeCycle(cycle) {
 
 async function load() {
   summary.value = (await http.get('/subscription')).data.data
+}
+
+const APP_STATUS = {
+  included: { label: 'Incluse', cls: 'bg-emerald-100 text-emerald-800' },
+  active: { label: 'Option active', cls: 'bg-emerald-100 text-emerald-800' },
+  pending: { label: 'Demande envoyée', cls: 'bg-sky-100 text-sky-800' },
+  available: { label: 'En option', cls: 'bg-amber-100 text-amber-800' },
+  unavailable: { label: 'Non disponible', cls: 'bg-slate-100 text-slate-600' },
+}
+
+const names = (list) => list.map((p) => p.name).join(', ')
+
+function appHelp(a) {
+  const upgrade = a.included_in.length ? ` Incluse dans la formule ${names(a.included_in)}.` : ''
+  switch (a.status) {
+    case 'included': return 'Comprise dans votre formule, sans frais en plus.'
+    case 'active': return `${money(a.price)} par mois, ajouté à votre facture${a.since ? ` depuis le ${date(a.since)}` : ''}.`
+    case 'pending': return 'Jibiat valide votre demande, en général sous 48 h. Vous serez facturé à partir de l\'acceptation.'
+    case 'available': return `Application e-commerçant et application livreur : ${money(a.price)} par mois, ajouté à votre facture.${upgrade}`
+    default: {
+      const option = a.option_in.length ? ` En option avec la formule ${a.option_in.map((p) => `${p.name} (${money(p.price)} / mois)`).join(', ')}.` : ''
+      return `Pas dans votre formule.${option}${upgrade}`
+    }
+  }
+}
+
+const appBusy = ref(false)
+
+async function requestApps(a) {
+  if (!window.confirm(`Demander l'option ${a.label} à ${money(a.price)} par mois ?`)) return
+  appBusy.value = true
+  try {
+    const { data } = await http.post(`/subscription/apps/${a.platform}`)
+    summary.value = { ...summary.value, apps: data.data }
+    toasts.success(data.message)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    appBusy.value = false
+  }
+}
+
+async function stopApps(a, question) {
+  if (!window.confirm(question)) return
+  appBusy.value = true
+  try {
+    await http.delete(`/subscription/apps/${a.platform}`)
+    await load()
+    toasts.success('C\'est fait.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    appBusy.value = false
+  }
 }
 
 onMounted(load)

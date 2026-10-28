@@ -170,6 +170,8 @@ class ConsoleBillingController extends Controller
             // Cartes Membre Premium Jibiat Marchand payées par l'entreprise
             'premium_cards_count' => (int) $i->premium_cards_count,
             'premium_cards_amount' => (int) $i->premium_cards_amount,
+            'app_options_amount' => (int) $i->app_options_amount,
+            'app_options' => $i->app_options ?? [],
             'carried_into' => $i->carried_into_id ? $i->carriedInto?->number : null,
             'total' => $i->total,
             'amount_paid' => $i->amount_paid,

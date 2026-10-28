@@ -97,6 +97,8 @@ class Subscription
         }
         // Livreurs en plus de la formule depuis le début de la période
         $extra = $plan ? $this->billing->extraCouriers($plan, $company, $current['start'], CarbonImmutable::now($company->timezone)->startOfDay(), $current['cycle']) : ['days' => 0, 'amount' => 0];
+        // Options « Applications à votre nom » de la période entière
+        $apps = $plan ? app(AppOptions::class)->billable($company, $plan, $current['start'], $current['end'], $current['cycle']) : ['amount' => 0];
         $couriers = $this->activeCouriers($company);
         $from = $company->billing_cycle_from;
 
@@ -149,7 +151,8 @@ class Subscription
                 'deliveries' => $deliveries['deliveries_amount'] ?? 0,
                 'cap_applied' => $deliveries['cap_applied'] ?? false,
                 'extra_couriers' => $extra['amount'],
-                'total' => $company->onTrial() ? 0 : $base + $overageAmount + ($deliveries['deliveries_amount'] ?? 0) + $extra['amount'],
+                'app_options' => $apps['amount'],
+                'total' => $company->onTrial() ? 0 : $base + $overageAmount + ($deliveries['deliveries_amount'] ?? 0) + $extra['amount'] + $apps['amount'],
             ],
             // Prix de chaque formule sur les 30 derniers jours, pour comparer
             'comparison' => $this->billing->comparison($company),
@@ -159,6 +162,8 @@ class Subscription
                 'description' => $f->description(),
                 'included' => $company->hasFeature($f),
             ], PlatformFeature::cases()),
+            // Applications à votre nom : incluses, en option ou non disponibles, et l'option demandée
+            'apps' => app(AppOptions::class)->state($company),
         ];
     }
 }

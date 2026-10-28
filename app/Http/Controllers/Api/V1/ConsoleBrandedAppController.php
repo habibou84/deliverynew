@@ -128,6 +128,8 @@ class ConsoleBrandedAppController extends Controller
     {
         $app = BrandedApp::query()->where('company_id', $company->id)->firstOrFail();
         abort_unless($app->enabled, 422, 'Les applications de cette entreprise sont désactivées.');
+        // Formule : applications incluses ou option active (sinon l'application publiée marche, sans nouvelle version)
+        abort_unless($this->apps->access($company)['allowed'], 422, 'Applications à son nom non comprises dans la formule de l\'entreprise : incluez-les dans sa formule ou acceptez son option (Console › Formules).');
         abort_if($app->builds()->whereIn('status', ['queued', 'building'])->where('token_expires_at', '>', now())->exists(), 422, 'Une fabrication est déjà en cours.');
 
         $build = $this->apps->build($app, $request->user());
