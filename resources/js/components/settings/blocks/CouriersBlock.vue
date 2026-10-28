@@ -10,6 +10,12 @@
         <span class="block text-gray-500">Sans réseau, le livreur enregistre quand même ses étapes ; l'application les envoie au retour du réseau.</span>
       </span>
     </label>
+    <label class="flex items-start gap-2 text-sm">
+      <input v-model="form.relay_required" type="checkbox" class="mt-1">
+      <span>Relais obligatoire entre livreurs
+        <span class="block text-gray-500">Si le colis est chez un autre livreur, celui qui livre doit d'abord le recevoir avec un code à 4 chiffres avant de partir livrer.</span>
+      </span>
+    </label>
     <MoreHelp>
       Hors connexion, le livreur peut enregistrer « récupéré », « en route », « livré » (avec l'encaissement), un échec, un report ou une note,
       à l'heure où ils ont été faits. Une livraison avec un code client faux est gardée mais signalée (file « Codes à vérifier »).

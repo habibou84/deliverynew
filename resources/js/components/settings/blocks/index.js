@@ -24,8 +24,8 @@ export const BLOCKS = {
   day: { component: DayBlock, fields: ['daily_cutoff_time', 'cutoff_by_day', 'default_max_attempts'], summary: (f) => [['Heure limite', (f.daily_cutoff_time || '').slice(0, 5) || 'aucune']] },
   couriers: {
     component: CouriersBlock,
-    fields: ['require_delivery_code', 'offline_courier_actions', 'pickup_mission_custody', 'depot_closes_at'],
-    summary: (f) => [['Code de livraison', f.require_delivery_code ? 'exigé' : 'non'], ['Hors connexion', f.offline_courier_actions ? 'oui' : 'non']],
+    fields: ['require_delivery_code', 'offline_courier_actions', 'relay_required', 'pickup_mission_custody', 'depot_closes_at'],
+    summary: (f) => [['Code de livraison', f.require_delivery_code ? 'exigé' : 'non'], ['Hors connexion', f.offline_courier_actions ? 'oui' : 'non'], ['Relais', f.relay_required ? 'obligatoire' : 'libre']],
   },
   autoPickup: { component: AutoPickupBlock, fields: ['auto_pickup'], summary: (f) => [['Ramassage auto', short(AUTO_MODES, f.auto_pickup)]] },
   autoDelivery: {

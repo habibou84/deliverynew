@@ -51,7 +51,9 @@ trait BuildsDeliveryWorld
     {
         $this->seed([RolesAndPermissionsSeeder::class, IncidentReasonsSeeder::class]);
 
-        $this->company = Company::factory()->create();
+        // Relais obligatoire désactivé : les tests passent souvent un colis d'un livreur à l'autre sans relais
+        // (ParcelRelayTest le réactive)
+        $this->company = Company::factory()->create(['relay_required' => false]);
         $this->cocody = $this->zone('Cocody');
         $this->yopougon = $this->zone('Yopougon');
         $this->plateau = $this->zone('Plateau');
