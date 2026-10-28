@@ -5,8 +5,12 @@ namespace Tests\Feature\Api;
 use App\Enums\Role;
 use App\Models\BrandedApp;
 use App\Models\BrandedAppBuild;
+use App\Models\PlatformAuditLog;
+use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Services\Platform\BrandedApps;
+use App\Services\Platform\GithubAppsToken;
+use App\Services\Platform\PlatformHealth;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request as HttpRequest;
 use Illuminate\Http\UploadedFile;
@@ -93,7 +97,7 @@ class BrandedAppsTest extends TestCase
             ->assertJsonPath('build.status', 'failed')
             ->assertJsonPath('build.version_name', '1.0.1')
             ->assertJsonPath('data.state', 'link');
-        $this->assertStringContainsString('GITHUB_APPS_TOKEN', BrandedAppBuild::sole()->error);
+        $this->assertStringContainsString('Jeton GitHub absent', BrandedAppBuild::sole()->error);
         $this->assertNull(BrandedAppBuild::sole()->token_hash);
     }
 
@@ -187,5 +191,62 @@ class BrandedAppsTest extends TestCase
         // Jeton expiré
         $this->travel(4)->hours();
         $this->assertFalse(app(BrandedApps::class)->authorize($build->fresh(), $token));
+    }
+
+    public function test_github_token_entered_in_the_console_is_kept_encrypted_and_used(): void
+    {
+        config(['services.github_apps.token' => null]);
+        Http::fake([
+            'api.github.com/repos/*/actions/workflows/branded-app.yml' => Http::sequence()
+                ->push(['id' => 1], 200, ['github-authentication-token-expiration' => now()->addDays(20)->format('Y-m-d H:i:s').' UTC'])
+                ->push(['message' => 'Bad credentials'], 401),
+            'api.github.com/repos/*/dispatches' => Http::response(null, 204),
+        ]);
+        $token = 'github_pat_'.str_repeat('A1b2', 10).'zz9f';
+        Sanctum::actingAs($this->root);
+
+        // Pas un jeton GitHub
+        $this->putJson('/api/v1/console/branded-apps/github-token', ['token' => 'n-importe-quoi'])->assertJsonValidationErrors('token');
+
+        $this->putJson('/api/v1/console/branded-apps/github-token', ['token' => $token])->assertOk()
+            ->assertJsonPath('data.ready', true)
+            ->assertJsonPath('data.source', 'console')
+            ->assertJsonPath('data.last4', 'zz9f')
+            ->assertJsonPath('data.error', null)
+            ->assertJsonPath('data.expires_soon', true)
+            ->assertJsonMissingPath('data.token');
+        // Chiffré en base, jamais renvoyé ni écrit au journal
+        $this->assertStringNotContainsString($token, (string) PlatformSetting::query()->whereKey('github_apps.token')->value('value'));
+        $this->assertStringNotContainsString($token, $this->getJson('/api/v1/console/branded-apps')->assertOk()->getContent());
+        $this->assertStringNotContainsString($token, (string) PlatformAuditLog::query()->get()->toJson());
+        Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/actions/workflows/branded-app.yml') && $r->hasHeader('Authorization', 'Bearer '.$token));
+
+        // Alerte de la santé de la plateforme : expire dans moins d'un mois
+        $check = collect(app(PlatformHealth::class)->checks())->firstWhere('key', 'github_apps');
+        $this->assertSame('warning', $check['status']);
+
+        // La fabrication part avec ce jeton
+        $this->postJson("/api/v1/console/branded-apps/{$this->company->id}")->assertCreated();
+        $this->postJson("/api/v1/console/branded-apps/{$this->company->id}/builds")->assertCreated()->assertJsonPath('build.status', 'queued');
+        Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/dispatches') && $r->hasHeader('Authorization', 'Bearer '.$token));
+
+        // Vérification : jeton refusé
+        $this->postJson('/api/v1/console/branded-apps/github-token/check')->assertOk()->assertJsonPath('data.error', 'Jeton refusé par GitHub (faux ou expiré).');
+
+        // Le .env reste prioritaire et ne se modifie pas depuis la console
+        config(['services.github_apps.token' => 'ghp_'.str_repeat('E', 30).'envv']);
+        $this->getJson('/api/v1/console/branded-apps')->assertJsonPath('data.github.source', 'env')->assertJsonPath('data.github.last4', 'envv');
+        $this->putJson('/api/v1/console/branded-apps/github-token', ['token' => $token])->assertStatus(422);
+        config(['services.github_apps.token' => null]);
+
+        // Réservé au Propriétaire
+        Sanctum::actingAs(User::factory()->withRole(Role::PlatformSupport)->create(['company_id' => null]));
+        $this->putJson('/api/v1/console/branded-apps/github-token', ['token' => $token])->assertForbidden();
+        $this->deleteJson('/api/v1/console/branded-apps/github-token')->assertForbidden();
+
+        // Retiré
+        Sanctum::actingAs($this->root);
+        $this->deleteJson('/api/v1/console/branded-apps/github-token')->assertOk()->assertJsonPath('data.ready', false);
+        $this->assertNull(app(GithubAppsToken::class)->token());
     }
 }

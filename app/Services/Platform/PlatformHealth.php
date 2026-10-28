@@ -3,6 +3,7 @@
 namespace App\Services\Platform;
 
 use App\Enums\Role;
+use App\Models\BrandedApp;
 use App\Models\PlatformWavePayment;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
@@ -41,6 +42,7 @@ class PlatformHealth
             $this->guard('wave', 'Paiements Wave en attente', fn () => $this->wavePending()),
             $this->guard('security', 'Réglages de sécurité du serveur', fn () => $this->security()),
             $this->guard('two_factor', 'Code de connexion à la console', fn () => $this->twoFactor()),
+            $this->guard('github_apps', 'Jeton GitHub (applications à leur nom)', fn () => $this->githubApps()),
         ]));
     }
 
@@ -67,6 +69,25 @@ class PlatformHealth
         }
 
         return ['key' => $key, 'label' => $label, 'status' => $status, 'detail' => $detail];
+    }
+
+    /** @return array{0: string, 1: string} */
+    private function githubApps(): array
+    {
+        $state = app(GithubAppsToken::class)->state();
+        if (! $state['ready']) {
+            return BrandedApp::query()->where('enabled', true)->exists()
+                ? ['warning', 'Aucun jeton : les applications à leur nom ne peuvent pas être fabriquées (console › Applications à leur nom).']
+                : ['ok', 'Pas utilisé.'];
+        }
+        if ($state['expired']) {
+            return ['error', 'Jeton expiré le '.$state['expires_at'].' : créez-en un nouveau sur GitHub et enregistrez-le.'];
+        }
+        if ($state['expires_soon']) {
+            return ['warning', 'Le jeton expire le '.$state['expires_at'].' : préparez-en un nouveau.'];
+        }
+
+        return $state['error'] ? ['warning', $state['error']] : ['ok', 'Jeton enregistré'.($state['expires_at'] ? ', valable jusqu\'au '.$state['expires_at'] : '').'.'];
     }
 
     /** @return array{0: string, 1: string} */

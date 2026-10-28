@@ -131,14 +131,15 @@ class BrandedApps
     private function dispatch(BrandedAppBuild $build, string $token): void
     {
         $config = config('services.github_apps');
-        if (blank($config['token'] ?? null)) {
-            $this->fail($build, 'Jeton GitHub absent sur le serveur (GITHUB_APPS_TOKEN dans le fichier .env) : la fabrication ne peut pas être lancée.');
+        $githubToken = app(GithubAppsToken::class)->token();
+        if ($githubToken === null) {
+            $this->fail($build, 'Jeton GitHub absent : enregistrez-le dans la console (Applications à leur nom › Jeton GitHub) ou dans le fichier .env du serveur (GITHUB_APPS_TOKEN). La fabrication ne peut pas être lancée.');
 
             return;
         }
 
         try {
-            $response = Http::withToken((string) $config['token'])->acceptJson()->timeout(15)
+            $response = Http::withToken($githubToken)->acceptJson()->timeout(15)
                 ->withHeaders(['X-GitHub-Api-Version' => '2022-11-28'])
                 ->post("https://api.github.com/repos/{$config['repo']}/actions/workflows/{$config['workflow']}/dispatches", [
                     'ref' => $config['ref'],
@@ -156,7 +157,7 @@ class BrandedApps
 
         if (! $response->successful()) {
             $this->fail($build, match ($response->status()) {
-                401 => 'Jeton GitHub refusé (expiré ou faux) : remplacez GITHUB_APPS_TOKEN sur le serveur.',
+                401 => 'Jeton GitHub refusé (expiré ou faux) : remplacez-le dans la console (Applications à leur nom › Jeton GitHub).',
                 403, 404 => 'Ce jeton GitHub ne peut pas lancer le workflow branded-app.yml de '.$config['repo'].' (droit Actions en écriture, branche '.$config['ref'].').',
                 default => 'GitHub a refusé le lancement (HTTP '.$response->status().').',
             });
@@ -387,7 +388,7 @@ class BrandedApps
             'key_created_at' => $app->keystore_created_at?->toIso8601String(),
             'checklist' => $this->checklist($app),
             'builds' => $app->builds()->with('author:id,name')->latest('id')->limit(20)->get()->map(fn ($b) => $this->presentBuild($b))->values(),
-            'github_ready' => filled(config('services.github_apps.token')),
+            'github_ready' => app(GithubAppsToken::class)->token() !== null,
         ];
     }
 

@@ -93,11 +93,18 @@ publiées sur son propre compte Google Play. Tout se fait dans la console : **Ap
 4. **Fichiers.** AAB à envoyer au Play Store, APK pour essayer sur un téléphone. Après l'envoi au Play Store,
    « Marquer publiée ».
 
-Réglages du serveur (`.env`) :
+**Jeton GitHub** : à créer sur GitHub (« fine-grained », limité au dépôt, droit **Actions : lecture et écriture**
+seulement, avec une date d'expiration), puis à coller dans **console › Applications à leur nom › Jeton GitHub**
+(Propriétaire). Il y est gardé chiffré avec la clé du serveur (`APP_KEY`), ne s'affiche plus jamais (seulement
+ses 4 derniers caractères) et n'est pas écrit au journal. « Vérifier » interroge GitHub et note sa date
+d'expiration ; la santé de la plateforme prévient 30 jours avant. On peut aussi le mettre dans le `.env`
+(`GITHUB_APPS_TOKEN`), qui est alors prioritaire et ne se modifie pas depuis la console.
+
+Réglages du serveur (`.env`, facultatifs) :
 
 | Variable | Rôle |
 |---|---|
-| `GITHUB_APPS_TOKEN` | Jeton GitHub « fine-grained » limité au dépôt, droit **Actions : lecture et écriture** |
+| `GITHUB_APPS_TOKEN` | Jeton GitHub (sinon celui saisi dans la console) |
 | `GITHUB_APPS_REPO` | Dépôt du workflow (par défaut `habibou84/deliverynew`) |
 | `GITHUB_APPS_REF` | Branche fabriquée (par défaut `production`) |
 | `GITHUB_APPS_VERSION` | Début du numéro de version affiché (par défaut `1.0`, donne `1.0.<n>`) |
