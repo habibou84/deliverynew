@@ -7,6 +7,7 @@ use App\Models\PlatformInvoice;
 use App\Models\PlatformSetting;
 use App\Models\PlatformWavePayment;
 use App\Rules\PhoneNumber as PhoneRule;
+use App\Services\Platform\AppOptions;
 use App\Services\Platform\Billing;
 use App\Services\Platform\Subscription;
 use App\Services\Platform\WavePayments;
@@ -38,6 +39,34 @@ class SubscriptionController extends Controller
                 ->orderByDesc('period')->limit(24)->get()
                 ->map(fn (PlatformInvoice $i) => ConsoleBillingController::invoiceData($i))->values(),
         ]]);
+    }
+
+    /**
+     * Option « Applications à votre nom » demandée à Jibiat (Android ; iPhone bientôt).
+     */
+    public function requestApps(Request $request, AppOptions $options, Subscription $subscription, string $platform): JsonResponse
+    {
+        abort_unless(in_array($platform, AppOptions::PLATFORMS, true), 404);
+        $company = $request->user()->company;
+        abort_if($company === null, 404, 'Aucune entreprise.');
+        $options->request($company, $request->user(), $platform);
+
+        return response()->json(['data' => $options->state($company), 'message' => 'Demande envoyée à Jibiat : vous serez prévenu dès qu\'elle est validée.'], 201);
+    }
+
+    /**
+     * Option arrêtée (ou demande retirée) : plus facturée à partir de demain ; l'application déjà installée continue
+     * de marcher, sans nouvelle version.
+     */
+    public function stopApps(Request $request, AppOptions $options, string $platform): JsonResponse
+    {
+        abort_unless(in_array($platform, AppOptions::PLATFORMS, true), 404);
+        $company = $request->user()->company;
+        $option = $company ? $options->current($company, $platform) : null;
+        abort_if($option === null, 404, 'Aucune option en cours.');
+        $options->stop($option, $request->user());
+
+        return response()->json(['data' => $options->state($company)]);
     }
 
     /**

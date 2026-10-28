@@ -55,6 +55,7 @@
           <div class="flex justify-between"><span>Forfait</span><span>{{ money(summary.estimate.base) }}</span></div>
           <div class="flex justify-between"><span>Courses en plus</span><span>{{ money(summary.estimate.overage) }}</span></div>
         </template>
+        <div v-if="summary.estimate.app_options" class="flex justify-between"><span>Applications à votre nom (option)</span><span>{{ money(summary.estimate.app_options) }}</span></div>
         <div v-if="summary.estimate.extra_couriers" class="flex justify-between"><span>Livreurs en plus ({{ summary.usage.extra_courier_days }} jour{{ summary.usage.extra_courier_days > 1 ? 's' : '' }} de livreur)</span><span>{{ money(summary.estimate.extra_couriers) }}</span></div>
         <div class="flex justify-between border-t pt-1 font-semibold">
           <span>Total</span><span>{{ summary.on_trial ? 'Offert (essai)' : money(summary.estimate.total) }}</span>
