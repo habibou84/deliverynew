@@ -34,6 +34,8 @@ class OrderAssignmentResource extends JsonResource
             'can_report_impediment' => $this->when($this->resource->hasAttribute('can_report_impediment'), fn () => $this->resource->getAttribute('can_report_impediment')),
             'unread_messages' => $this->when($this->resource->getAttribute('unread_messages') !== null, fn () => $this->resource->getAttribute('unread_messages')),
             // Espace livreur : gain attendu (mission en cours) ou acquis (mission terminée)
+            // Course modifiée depuis la mission : changements pour le livreur, vus ou non
+            'last_edit' => $this->when($this->resource->hasAttribute('last_edit'), fn () => $this->resource->getAttribute('last_edit')),
             'gain' => $this->when($this->resource->hasAttribute('gain'), fn () => $this->resource->getAttribute('gain')),
             // Ramassage : même client, même adresse → regroupés en une seule mission dans l'application
             'pickup_group' => $this->when(

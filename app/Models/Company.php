@@ -32,6 +32,7 @@ class Company extends Model
         'timezone',
         'auto_confirm_orders',
         'validation_mode',
+        'merchant_edit_approval',
         'default_max_attempts',
         'require_delivery_code',
         'offline_courier_actions',
@@ -179,6 +180,9 @@ class Company extends Model
     {
         return $this->automation_paused_at !== null;
     }
+
+    /** Modifications des e-commerçants : tout de suite, à valider si le prix change, toujours à valider */
+    public const EDIT_APPROVAL_MODES = ['never', 'price', 'always'];
 
     public const VALIDATION_MANUAL = 'manual';
 

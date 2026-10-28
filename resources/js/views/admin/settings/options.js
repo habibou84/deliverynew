@@ -44,3 +44,10 @@ export function delay(minutes) {
   if (!minutes) return 'jamais'
   return minutes % 60 === 0 ? `${minutes / 60} h` : `${minutes} min`
 }
+
+// Modifications des courses par les e-commerçants (réglage merchant_edit_approval)
+export const EDIT_APPROVAL_MODES = [
+  { value: 'never', label: 'Toujours appliquées tout de suite', short: 'tout de suite', help: 'L\'e-commerçant modifie sa course sans validation, même si le prix change.' },
+  { value: 'price', label: 'À valider par l\'équipe si le prix change', short: 'à valider si le prix change', help: 'Téléphone, adresse dans la même zone, repère, date : tout de suite. Nouvelle zone, montant ou option qui changent le prix : file « Modifications à valider ».' },
+  { value: 'always', label: 'Toujours à valider par l\'équipe', short: 'toujours à valider', help: 'Chaque modification de l\'e-commerçant attend l\'équipe dans la file « Modifications à valider ».' },
+]

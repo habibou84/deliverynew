@@ -568,6 +568,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/rating', [OrderActionController::class, 'rate'])->name('orders.rating');
         Route::post('orders/{order}/verify-delivery-code', [OrderActionController::class, 'verifyDeliveryCode'])->name('orders.verify-delivery-code');
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
+        Route::post('orders/{order}/edit-preview', [OrderController::class, 'editPreview'])->middleware('throttle:120,1')->name('orders.edit-preview');
+        Route::post('orders/{order}/change-request', [OrderActionController::class, 'decideChange'])->name('orders.change-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
         Route::get('orders/{order}/messages', [MessageController::class, 'forOrder'])->name('orders.messages');
         Route::get('orders/{order}/courier-messages', [CourierMessageController::class, 'index'])->name('orders.courier-messages.index');
@@ -651,6 +653,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('missions', [CourierSpaceController::class, 'missions'])->name('missions');
             Route::post('assignments/{assignment}/accept', [CourierSpaceController::class, 'accept'])->name('assignments.accept');
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
+            Route::post('assignments/{assignment}/edit-seen', [CourierSpaceController::class, 'editSeen'])->name('assignments.edit-seen');
             Route::patch('status', [CourierSpaceController::class, 'updateStatus'])->name('status');
             // Actions faites hors connexion, envoyées au retour du réseau
             Route::post('sync', OfflineSyncController::class)->middleware('throttle:120,1')->name('sync');

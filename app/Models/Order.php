@@ -259,6 +259,12 @@ class Order extends Model
         return $this->hasMany(OrderAssignment::class);
     }
 
+    /** Modification de l'e-commerçant en attente de l'équipe */
+    public function pendingChange(): HasOne
+    {
+        return $this->hasOne(OrderChangeRequest::class)->where('status', OrderChangeRequest::PENDING)->latestOfMany();
+    }
+
     public function events(): HasMany
     {
         return $this->hasMany(OrderEvent::class);

@@ -8,7 +8,7 @@
       </div>
     </div>
 
-    <SettingsShortcut v-if="isStaff" :blocks="['validation', 'day', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/reglages/courses" />
+    <SettingsShortcut v-if="isStaff" :blocks="['validation', 'editApproval', 'day', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/reglages/courses" />
 
     <DeliveryDayBar v-if="isStaff && auth.can('orders.dispatch')" @changed="load(1); dispatchCounts.fetchCounts().catch(() => {})" />
 
@@ -222,6 +222,15 @@
             <span v-if="o.held_by" class="text-amber-700">🎒 {{ o.held_by.name }}</span>
           </div>
           <div class="text-xs text-gray-400">Livraison {{ date(o.delivery.scheduled_date || o.created_at) }} · créée {{ dateTime(o.created_at) }}</div>
+          <div v-if="o.pending_change && isDispatch" class="flex gap-2 pt-1" @click.stop>
+            <span class="flex-1 text-xs text-amber-800">✏️ {{ changeSummary(o) }}</span>
+            <button class="btn-primary !py-1 text-xs" @click="decideChange(o, 'approve')">Valider</button>
+            <button class="btn-secondary !py-1 text-xs" @click="decideChange(o, 'refuse')">Refuser</button>
+          </div>
+          <button v-else-if="canEdit(o)" type="button" class="btn-secondary w-full !py-1.5 text-sm" @click.stop="editing = o">
+            ✏️ {{ o.edit_scope === 'all' ? 'Modifier' : 'Modifier la livraison' }}
+          </button>
+          <p v-else-if="o.status === 'out_for_delivery'" class="text-xs text-gray-400">🔒 En route vers le client, plus modifiable</p>
         </article>
       </div>
 
@@ -238,11 +247,12 @@
               <th class="p-2">Livreur</th>
               <th class="p-2 text-right">À encaisser</th>
               <th class="p-2">Livraison · création</th>
+              <th class="p-2 w-10"><span class="sr-only">Modifier</span></th>
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr v-if="loading"><td colspan="9" class="p-6 text-center text-gray-500">Chargement…</td></tr>
-            <tr v-else-if="!orders.length"><td colspan="9" class="p-6 text-center text-gray-500">Aucune course.</td></tr>
+            <tr v-if="loading"><td colspan="10" class="p-6 text-center text-gray-500">Chargement…</td></tr>
+            <tr v-else-if="!orders.length"><td colspan="10" class="p-6 text-center text-gray-500">Aucune course.</td></tr>
             <tr
               v-for="o in orders"
               v-else
@@ -272,6 +282,20 @@
                 <div class="font-medium text-gray-800">{{ date(o.delivery.scheduled_date || o.created_at) }}</div>
                 <div class="text-gray-500">créée {{ dateTime(o.created_at) }}</div>
               </td>
+              <td class="p-2 text-right whitespace-nowrap" @click.stop>
+                <!-- Modification de l'e-commerçant à valider -->
+                <template v-if="o.pending_change && isDispatch">
+                  <button class="btn-primary !px-2 !py-1 text-xs" :title="changeSummary(o)" @click="decideChange(o, 'approve')">Valider</button>
+                  <button class="btn-secondary !px-2 !py-1 text-xs ml-1" @click="decideChange(o, 'refuse')">Refuser</button>
+                </template>
+                <button
+                  v-else-if="canEdit(o)" type="button"
+                  class="inline-grid h-8 w-8 place-items-center rounded-lg border border-slate-300 bg-white hover:bg-slate-900 hover:text-white"
+                  :title="o.edit_scope === 'all' ? 'Modifier la course' : 'Modifier la livraison (colis déjà récupéré)'" :aria-label="`Modifier ${o.tracking_code}`"
+                  @click="editing = o"
+                >✏️</button>
+                <span v-else-if="o.status === 'out_for_delivery'" class="text-xs text-gray-400" title="Le livreur est en route vers le client">🔒</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -279,6 +303,7 @@
       <Pagination :meta="meta" @change="load" />
     </template>
 
+    <OrderEditModal :open="!!editing" :order="editing" @close="editing = null" @saved="replaceOrder" />
     <OrderDecision :open="!!deciding" :order="deciding" :couriers="couriers" @close="deciding = null" @decided="decided" />
   </div>
 </template>
@@ -292,6 +317,7 @@ import OrderStatusCell from '../../components/OrderStatusCell.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import Pagination from '../../components/Pagination.vue'
 import OrderDecision from '../../components/OrderDecision.vue'
+import OrderEditModal from '../../components/OrderEditModal.vue'
 import PickupGroupsPanel from '../../components/PickupGroupsPanel.vue'
 import DeliveryDayBar from '../../components/DeliveryDayBar.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -340,10 +366,12 @@ const queues = [
   { value: 'incidents', label: 'Incidents' },
   // Livrées hors connexion avec un code client incorrect
   { value: 'code_to_verify', label: '⚠️ Codes à vérifier' },
+  // Modifications des e-commerçants qui changent le prix, à valider
+  { value: 'change_requests', label: '✏️ Modifications à valider' },
 ]
 
 // Écran à part, réservé au dispatch (pas une file de la liste)
-const visibleQueues = computed(() => queues.filter((q) => q.value !== 'by_client' || auth.can('orders.dispatch')))
+const visibleQueues = computed(() => queues.filter((q) => !['by_client', 'change_requests'].includes(q.value) || auth.can('orders.dispatch')))
 
 const filters = reactive({
   queue: route.query.queue || '',
@@ -411,6 +439,7 @@ const DAY_COUNTED = { '': 'all', late: 'late', to_return: 'to_return', to_confir
 const dayCounts = computed(() => (filters.day && dispatchCounts.dayCounts?.date === filters.day ? dispatchCounts.dayCounts : null))
 const tabCount = (queue) => {
   if (!isDispatch.value) return 0
+  if (queue === 'change_requests') return dispatchCounts.counts.change_requests || 0
   if (dayCounts.value) return dayCounts.value[DAY_COUNTED[queue]] || 0
   return COUNTED[queue] ? dispatchCounts.counts[COUNTED[queue]] : 0
 }
@@ -423,6 +452,7 @@ const laterCount = computed(() => {
 const ALERT_TABS = {
   late: { tab: 'bg-amber-50 border border-amber-300 text-amber-900', count: 'bg-amber-500 text-white' },
   to_return: { tab: 'bg-rose-50 border border-rose-300 text-rose-900', count: 'bg-rose-600 text-white' },
+  change_requests: { tab: 'bg-amber-50 border border-amber-300 text-amber-900', count: 'bg-amber-500 text-white' },
 }
 // Retour demandé par l'e-commerçant, pas encore parti
 const returnPending = (o) => o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)
@@ -536,6 +566,29 @@ function decided(order) {
 
 function open(order) {
   router.push(`${auth.homeRoute}/courses/${order.id}`)
+}
+
+// ✏️ Modifier depuis la liste : tant que la course se modifie (pas en route vers le client, pas terminée)
+const editing = ref(null)
+const canEdit = (o) => !!o.edit_scope && (isStaff.value ? auth.can('orders.dispatch') : auth.can('orders.create'))
+function replaceOrder(updated) {
+  const i = orders.value.findIndex((o) => o.id === updated.id)
+  if (i !== -1) orders.value[i] = updated
+}
+const changeSummary = (o) => (o.pending_change?.changes ?? []).map((c) => `${c.label} : ${c.from || '—'} → ${c.to || '—'}`).join(' · ')
+  + (o.pending_change && o.pending_change.fees.from !== o.pending_change.fees.to ? ` · livraison ${money(o.pending_change.fees.from)} → ${money(o.pending_change.fees.to)}` : '')
+
+async function decideChange(o, decision) {
+  const reason = decision === 'refuse' ? window.prompt('Motif du refus (envoyé à l\'e-commerçant) :') : ''
+  if (reason === null) return
+  try {
+    const { data } = await http.post(`/orders/${o.id}/change-request`, { decision, reason: reason || undefined })
+    replaceOrder(data.data)
+    toasts.success(decision === 'approve' ? 'Modification appliquée.' : 'Modification refusée : l\'e-commerçant est prévenu.')
+    dispatchCounts.fetchCounts().catch(() => {})
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
 }
 
 async function bulkConfirm() {

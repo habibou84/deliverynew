@@ -29,6 +29,7 @@ class CompanyResource extends JsonResource
             'timezone' => $this->timezone,
             'auto_confirm_orders' => $this->auto_confirm_orders,
             'validation_mode' => $this->validation_mode,
+            'merchant_edit_approval' => $this->merchant_edit_approval ?? 'price',
             'default_max_attempts' => $this->default_max_attempts,
             'require_delivery_code' => $this->require_delivery_code,
             'offline_courier_actions' => $this->offline_courier_actions,

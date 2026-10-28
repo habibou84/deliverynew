@@ -10,6 +10,22 @@
       </div>
     </div>
 
+    <!-- Modification de l'e-commerçant en attente : l'équipe valide ou refuse -->
+    <div v-if="order.pending_change" class="card border-amber-300 bg-amber-50 p-4 space-y-2 text-sm text-amber-900">
+      <p class="font-semibold">⏳ Modification demandée par {{ order.pending_change.requested_by || 'l\'e-commerçant' }}, à valider</p>
+      <ul class="space-y-0.5">
+        <li v-for="c in order.pending_change.changes" :key="c.field">{{ c.label }} : <span class="text-gray-500 line-through">{{ c.from || '—' }}</span> → <b>{{ c.to || '—' }}</b></li>
+      </ul>
+      <p v-if="order.pending_change.fees.from !== order.pending_change.fees.to || order.pending_change.cod.from !== order.pending_change.cod.to">
+        💰 Livraison {{ money(order.pending_change.fees.from) }} → <b>{{ money(order.pending_change.fees.to) }}</b> · à encaisser {{ money(order.pending_change.cod.from) }} → <b>{{ money(order.pending_change.cod.to) }}</b>
+      </p>
+      <div v-if="isDispatcher" class="flex flex-wrap gap-2 pt-1">
+        <button class="btn-primary" :disabled="changeBusy" @click="decideChange('approve')">Valider la modification</button>
+        <button class="btn-secondary" :disabled="changeBusy" @click="decideChange('refuse')">Refuser</button>
+      </div>
+      <p v-else class="text-xs">Votre agence valide la modification avant qu'elle s'applique.</p>
+    </div>
+
     <div class="grid lg:grid-cols-3 gap-4">
       <div class="lg:col-span-2 space-y-4">
         <div class="grid sm:grid-cols-2 gap-4">
@@ -36,7 +52,7 @@
             <p v-if="order.delivery.landmark" class="text-gray-600">Repère : {{ order.delivery.landmark }}</p>
             <p v-if="order.delivery.scheduled_date">Prévue le {{ date(order.delivery.scheduled_date) }} {{ order.delivery.time_slot ? `(${order.delivery.time_slot}h)` : '' }}</p>
             <p v-if="order.delivery_courier" class="pt-1">Livreur : <strong>{{ order.delivery_courier.name }}</strong></p>
-            <button v-if="canEditDelivery" class="text-blue-600 text-xs underline pt-1" @click="openEdit">Modifier la livraison</button>
+            <button v-if="canEditDelivery" class="text-blue-600 text-xs underline pt-1" @click="editModal = true">{{ order.edit_scope === 'all' ? 'Modifier la course' : 'Modifier la livraison' }}</button>
           </div>
         </div>
 
@@ -186,22 +202,7 @@
       <StatusChangeForm v-if="statusModal.open" :order="order" :choices="statusModal.choices" @done="statusDone" />
     </Modal>
 
-    <Modal :open="editModal" title="Modifier la livraison" @close="editModal = false">
-      <form class="space-y-3" @submit.prevent="saveEdit">
-        <div><label class="label">Téléphone</label><input v-model="edit.recipient_phone" class="input" required></div>
-        <div><label class="label">Second téléphone</label><input v-model="edit.recipient_phone2" class="input"></div>
-        <div>
-          <label class="label">Zone</label>
-          <select v-model="edit.delivery_zone_id" class="input">
-            <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-          </select>
-        </div>
-        <div><label class="label">Adresse</label><input v-model="edit.delivery_address" class="input"></div>
-        <div><label class="label">Repère</label><input v-model="edit.delivery_landmark" class="input"></div>
-        <p v-if="editError" class="field-error">{{ editError }}</p>
-        <button class="btn-primary w-full">Enregistrer</button>
-      </form>
-    </Modal>
+    <OrderEditModal :open="editModal" :order="order" @close="editModal = false" @saved="order = $event" />
 
     <LostParcelDialog :open="losing" :order="order" :couriers="couriers" @close="losing = false" @declared="declaredLost" />
     <OrderDecision :open="deciding" :order="order" :couriers="couriers" @close="deciding = false" @decided="decided" />
@@ -219,6 +220,7 @@ import OrderTimeline from '../../components/OrderTimeline.vue'
 import Modal from '../../components/Modal.vue'
 import OrderDecision from '../../components/OrderDecision.vue'
 import LostParcelDialog from '../../components/LostParcelDialog.vue'
+import OrderEditModal from '../../components/OrderEditModal.vue'
 import OrderMessages from '../../components/OrderMessages.vue'
 import OrderExpenses from '../../components/OrderExpenses.vue'
 import StatusChangeForm from '../../components/StatusChangeForm.vue'
@@ -259,6 +261,7 @@ function declaredLost() {
 
 // Suite à donner à un colis non livré (relivrer, retourner, remettre en stock)
 const deciding = ref(false)
+const changeBusy = ref(false)
 function decided() {
   deciding.value = false
   toasts.success('Décision enregistrée.')
@@ -269,8 +272,6 @@ const assignment = reactive({ pickup: null, delivery: null, return: null })
 const note = reactive({ text: '', internal: false })
 const statusModal = reactive({ open: false, choices: [] })
 const editModal = ref(false)
-const edit = reactive({})
-const editError = ref('')
 const courierMessages = ref([])
 
 const isMerchant = computed(() => !!auth.user?.merchant_id)
@@ -414,28 +415,18 @@ async function requestReturn() {
   }
 }
 
-async function openEdit() {
-  if (!zones.value.length) zones.value = (await http.get('/zones')).data.data
-  Object.assign(edit, {
-    recipient_phone: order.value.recipient.phone,
-    recipient_phone2: order.value.recipient.phone2,
-    delivery_zone_id: order.value.delivery.zone_id,
-    delivery_address: order.value.delivery.address,
-    delivery_landmark: order.value.delivery.landmark,
-  })
-  editError.value = ''
-  editModal.value = true
-}
-
-async function saveEdit() {
+async function decideChange(decision) {
+  const reason = decision === 'refuse' ? window.prompt('Motif du refus (envoyé à l\'e-commerçant) :') : ''
+  if (reason === null) return
+  changeBusy.value = true
   try {
-    const payload = Object.fromEntries(Object.entries(edit).filter(([, v]) => v !== null && v !== ''))
-    const { data } = await http.patch(`/orders/${order.value.id}`, payload)
+    const { data } = await http.post(`/orders/${order.value.id}/change-request`, { decision, reason: reason || undefined })
     order.value = data.data
-    editModal.value = false
-    toasts.success('Course modifiée.')
+    toasts.success(decision === 'approve' ? 'Modification appliquée.' : 'Modification refusée : l\'e-commerçant est prévenu.')
   } catch (e) {
-    editError.value = apiErrorMessage(e)
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    changeBusy.value = false
   }
 }
 
