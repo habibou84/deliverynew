@@ -85,6 +85,7 @@ export const EVENT_LABELS = {
   expense_added: 'Frais ajoutés',
   expense_cancelled: 'Frais annulés',
   parcel_received: 'Colis rendu au dépôt',
+  relay: 'Relais entre livreurs',
 }
 
 export const ROLE_LABELS = {

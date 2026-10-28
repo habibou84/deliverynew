@@ -58,6 +58,7 @@ use App\Http\Controllers\Api\V1\OrderDraftController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\ParcelController;
+use App\Http\Controllers\Api\V1\ParcelRelayController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PayPlanController;
@@ -486,6 +487,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('parcels/held/counts', [ParcelController::class, 'counts'])->name('parcels.held.counts');
         Route::post('couriers/{courier}/parcels/receive', [ParcelController::class, 'receive'])->name('couriers.parcels.receive');
 
+        // Relais entre livreurs (dispatch)
+        Route::get('relays', [ParcelRelayController::class, 'index'])->name('relays.index');
+        Route::post('relays/validate', [ParcelRelayController::class, 'validateRelay'])->name('relays.validate');
+
         // Journal des messages WhatsApp et SMS
         Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
         Route::post('messages/{message}/retry', [MessageController::class, 'retry'])->name('messages.retry');
@@ -664,6 +669,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
             Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');
             Route::get('return-slips', [ReturnSlipController::class, 'mine'])->name('return-slips');
+            // Relais : remettre des colis à un autre livreur (code) ou les recevoir
+            Route::get('relays', [ParcelRelayController::class, 'mine'])->name('relays');
+            Route::post('relays', [ParcelRelayController::class, 'offer'])->middleware('throttle:30,1')->name('relays.offer');
+            Route::post('relays/{relay}/confirm', [ParcelRelayController::class, 'confirm'])->middleware('throttle:30,1')->name('relays.confirm');
         });
     });
 });

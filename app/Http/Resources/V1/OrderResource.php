@@ -6,6 +6,7 @@ use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Services\Couriers\CourierRatings;
+use App\Services\Couriers\ParcelRelays;
 use App\Services\Orders\AwaitingCourier;
 use App\Services\Orders\OrderService;
 use Illuminate\Http\Request;
@@ -112,6 +113,8 @@ class OrderResource extends JsonResource
                 ...$this->courierSummary($this->holder),
                 'since' => $this->held_since,
             ] : null),
+            // Colis encore chez un autre livreur que celui qui livre : relais à faire avant le départ (personnel)
+            'relay_needed' => $user?->merchant_id === null && ParcelRelays::needed($this->resource, $user?->company),
             // Sans livreur de ramassage ou de livraison : depuis quand, en retard ou non (dispatch)
             'awaiting_courier' => $this->when(
                 $user?->merchant_id === null && ! $isCourier && $user?->company !== null,

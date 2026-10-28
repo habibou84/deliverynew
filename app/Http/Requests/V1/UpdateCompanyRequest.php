@@ -49,6 +49,7 @@ class UpdateCompanyRequest extends FormRequest
             'auto_confirm_orders' => ['sometimes', 'boolean'],
             'validation_mode' => ['sometimes', 'in:manual,auto,rules'],
             'merchant_edit_approval' => ['sometimes', 'in:never,price,always'],
+            'relay_required' => ['sometimes', 'boolean'],
             'default_max_attempts' => ['sometimes', 'integer', 'min:1', 'max:10'],
             'require_delivery_code' => ['sometimes', 'boolean'],
             'offline_courier_actions' => ['sometimes', 'boolean'],

@@ -9,11 +9,13 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\Permission;
 use App\Exceptions\BusinessRuleException;
+use App\Models\Courier;
 use App\Models\IncidentReason;
 use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\User;
 use App\Services\Assignment\AutoAssigner;
+use App\Services\Couriers\ParcelRelays;
 use App\Services\Finance\FinanceRecorder;
 use App\Services\Merchants\MerchantLocation;
 use App\Services\Stock\StockKeeper;
@@ -253,6 +255,13 @@ class OrderWorkflow
 
         if ($order->attempts_count >= $order->max_attempts) {
             throw new BusinessRuleException('Nombre maximal de tentatives atteint : organisez le retour du colis.', 'status');
+        }
+
+        // Colis encore chez un autre livreur : le relais passe avant le départ en livraison
+        if (ParcelRelays::needed($order)) {
+            $holder = Courier::withoutGlobalScopes()->with('user:id,name')->find($order->held_by_courier_id);
+
+            throw new BusinessRuleException('Colis encore chez '.($holder?->user?->name ?? 'un autre livreur').' : faites d\'abord le relais.', 'status');
         }
     }
 
