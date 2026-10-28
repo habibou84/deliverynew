@@ -29,7 +29,7 @@
             <input v-model="checked[g.courier_id]" type="checkbox" :value="o.id" class="h-5 w-5">
             <span class="flex-1 min-w-0">
               <span class="block font-medium truncate">{{ o.recipient_name || o.tracking_code }}</span>
-              <span class="block text-xs text-slate-500">{{ o.tracking_code }} · {{ o.zone }} · {{ money(o.cod_amount) }}</span>
+              <span class="block text-xs text-slate-500">{{ o.tracking_code }} · {{ o.is_return ? `↩️ retour à ${o.merchant}` : `${o.zone} · ${money(o.cod_amount)}` }}</span>
             </span>
           </label>
         </div>
@@ -53,7 +53,7 @@
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">À remettre à</p>
           <p class="text-lg font-bold">{{ g.name }}</p>
-          <p class="text-sm text-slate-500">{{ g.parcels.length }} colis à livrer par ce livreur</p>
+          <p class="text-sm text-slate-500">{{ g.parcels.length }} colis : c'est ce livreur qui part avec</p>
         </div>
         <ContactButtons :courier="g" />
 
@@ -68,7 +68,7 @@
             <input v-model="checked[g.courier_id]" type="checkbox" :value="o.id" class="h-5 w-5">
             <span class="flex-1 min-w-0">
               <span class="block font-medium truncate">{{ o.recipient_name || o.tracking_code }}</span>
-              <span class="block text-xs text-slate-500">{{ o.tracking_code }} · {{ o.merchant }} · {{ o.zone }}</span>
+              <span class="block text-xs text-slate-500">{{ o.tracking_code }} · {{ o.is_return ? `↩️ retour à ${o.merchant}` : `${o.merchant} · ${o.zone}` }}</span>
             </span>
           </label>
         </div>

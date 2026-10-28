@@ -2,6 +2,8 @@
 
 namespace App\Services\Couriers;
 
+use App\Enums\AssignmentStatus;
+use App\Enums\AssignmentType;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Enums\Role;
@@ -34,11 +36,26 @@ class ParcelRelays
 
     public function __construct(private readonly OrderJournal $journal) {}
 
-    /** Le départ en livraison attend le relais : colis chez un autre livreur, réglage actif */
-    public static function needed(Order $order, ?Company $company = null): bool
+    /** Livreur qui reçoit le colis : celui du retour s'il y en a un, sinon celui de la livraison */
+    private const RECEIVER = 'COALESCE(orders.return_courier_id, orders.delivery_courier_id)';
+
+    public static function receiverId(Order $order): ?int
     {
-        if ($order->held_by_courier_id === null || $order->delivery_courier_id === null
-            || $order->held_by_courier_id === $order->delivery_courier_id) {
+        return $order->return_courier_id ?? $order->delivery_courier_id;
+    }
+
+    /**
+     * Le départ (en livraison, ou pour rapporter le colis au marchand) attend le relais : colis chez un autre
+     * livreur, réglage actif. $for : la mission qui part (sinon la prochaine : retour, puis livraison).
+     */
+    public static function needed(Order $order, ?Company $company = null, ?AssignmentType $for = null): bool
+    {
+        $receiver = match ($for) {
+            AssignmentType::Return => $order->return_courier_id,
+            AssignmentType::Delivery => $order->delivery_courier_id,
+            default => self::receiverId($order),
+        };
+        if ($order->held_by_courier_id === null || $receiver === null || $order->held_by_courier_id === $receiver) {
             return false;
         }
 
@@ -48,14 +65,22 @@ class ParcelRelays
         return (bool) ($company?->relay_required ?? true);
     }
 
-    /** Colis à relayer : chez un livreur, livraison confiée à un autre */
+    /**
+     * Colis à relayer : chez un livreur, livraison ou retour confié à un autre (mission en cours, pas un nom resté
+     * sur la course).
+     */
     public static function awaitingQuery(): Builder
     {
         return Order::query()
             ->whereNotNull('held_by_courier_id')
-            ->whereNotNull('delivery_courier_id')
-            ->whereColumn('held_by_courier_id', '!=', 'delivery_courier_id')
-            ->whereNotIn('status', OrderStatus::values(self::NOT_RELAYABLE));
+            ->whereRaw(self::RECEIVER.' IS NOT NULL')
+            ->whereRaw('orders.held_by_courier_id <> '.self::RECEIVER)
+            ->whereNotIn('status', OrderStatus::values(self::NOT_RELAYABLE))
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('order_assignments')
+                ->whereColumn('order_assignments.order_id', 'orders.id')
+                ->whereIn('order_assignments.type', [AssignmentType::Delivery->value, AssignmentType::Return->value])
+                ->whereIn('order_assignments.status', AssignmentStatus::activeValues())
+                ->whereRaw('order_assignments.courier_id = '.self::RECEIVER));
     }
 
     /**
@@ -66,8 +91,8 @@ class ParcelRelays
     public function board(Courier $courier): array
     {
         $orders = self::awaitingQuery()
-            ->where(fn ($q) => $q->where('held_by_courier_id', $courier->id)->orWhere('delivery_courier_id', $courier->id))
-            ->with(['holder.user', 'deliveryCourier.user', 'merchant:id,business_name', 'deliveryZone:id,name'])
+            ->where(fn ($q) => $q->where('held_by_courier_id', $courier->id)->orWhereRaw(self::RECEIVER.' = ?', [$courier->id]))
+            ->with(['holder.user', 'deliveryCourier.user', 'returnCourier.user', 'merchant:id,business_name', 'deliveryZone:id,name'])
             ->orderBy('held_since')->orderBy('id')
             ->get();
 
@@ -76,9 +101,9 @@ class ParcelRelays
             ->where('expires_at', '>', now())
             ->get();
 
-        $give = $orders->where('held_by_courier_id', $courier->id)->groupBy('delivery_courier_id')
+        $give = $orders->where('held_by_courier_id', $courier->id)->groupBy(fn (Order $o) => self::receiverId($o))
             ->map(function (Collection $parcels) use ($pending, $courier) {
-                $other = $parcels->first()->deliveryCourier;
+                $other = self::receiver($parcels->first());
                 $relay = $pending->first(fn (ParcelRelay $r) => $r->from_courier_id === $courier->id && $r->to_courier_id === $other->id);
 
                 return [
@@ -88,7 +113,7 @@ class ParcelRelays
                 ];
             })->values();
 
-        $receive = $orders->where('delivery_courier_id', $courier->id)->groupBy('held_by_courier_id')
+        $receive = $orders->filter(fn (Order $o) => self::receiverId($o) === $courier->id)->groupBy('held_by_courier_id')
             ->map(function (Collection $parcels) use ($pending, $courier) {
                 $other = $parcels->first()->holder;
                 $relay = $pending->first(fn (ParcelRelay $r) => $r->to_courier_id === $courier->id && $r->from_courier_id === $other->id);
@@ -107,7 +132,7 @@ class ParcelRelays
     public function count(Courier $courier): int
     {
         return self::awaitingQuery()
-            ->where(fn ($q) => $q->where('held_by_courier_id', $courier->id)->orWhere('delivery_courier_id', $courier->id))
+            ->where(fn ($q) => $q->where('held_by_courier_id', $courier->id)->orWhereRaw(self::RECEIVER.' = ?', [$courier->id]))
             ->count();
     }
 
@@ -120,7 +145,7 @@ class ParcelRelays
     {
         $orderIds = array_values(array_unique(array_map('intval', $orderIds)));
         $orders = self::awaitingQuery()->whereIn('id', $orderIds)
-            ->where('held_by_courier_id', $from->id)->where('delivery_courier_id', $to->id)
+            ->where('held_by_courier_id', $from->id)->whereRaw(self::RECEIVER.' = ?', [$to->id])
             ->get();
 
         if ($orderIds === [] || $orders->count() !== count($orderIds)) {
@@ -197,7 +222,7 @@ class ParcelRelays
     {
         $orderIds = array_values(array_unique(array_map('intval', $orderIds)));
         $count = self::awaitingQuery()->whereIn('id', $orderIds)
-            ->where('held_by_courier_id', $from->id)->where('delivery_courier_id', $to->id)
+            ->where('held_by_courier_id', $from->id)->whereRaw(self::RECEIVER.' = ?', [$to->id])
             ->count();
 
         if ($orderIds === [] || $count !== count($orderIds)) {
@@ -233,20 +258,20 @@ class ParcelRelays
     public function today(): array
     {
         $orders = self::awaitingQuery()
-            ->with(['holder.user', 'deliveryCourier.user', 'merchant:id,business_name', 'deliveryZone:id,name'])
+            ->with(['holder.user', 'deliveryCourier.user', 'returnCourier.user', 'merchant:id,business_name', 'deliveryZone:id,name'])
             ->orderBy('held_since')->orderBy('id')
             ->get();
 
         $pending = ParcelRelay::query()->where('status', ParcelRelay::PENDING)->where('expires_at', '>', now())->get();
 
-        $awaiting = $orders->groupBy(fn (Order $o) => $o->held_by_courier_id.'-'.$o->delivery_courier_id)
+        $awaiting = $orders->groupBy(fn (Order $o) => $o->held_by_courier_id.'-'.self::receiverId($o))
             ->map(function (Collection $parcels) use ($pending) {
                 $first = $parcels->first();
-                $relay = $pending->first(fn (ParcelRelay $r) => $r->from_courier_id === $first->held_by_courier_id && $r->to_courier_id === $first->delivery_courier_id);
+                $relay = $pending->first(fn (ParcelRelay $r) => $r->from_courier_id === $first->held_by_courier_id && $r->to_courier_id === self::receiverId($first));
 
                 return [
                     'from' => self::courierData($first->holder),
-                    'to' => self::courierData($first->deliveryCourier),
+                    'to' => self::courierData(self::receiver($first)),
                     'parcels' => $parcels->map(fn (Order $o) => self::parcelData($o))->values(),
                     'code_given_at' => $relay?->created_at,
                     'oldest' => $first->held_since,
@@ -297,7 +322,7 @@ class ParcelRelays
 
             // Toujours chez le premier livreur et à livrer par le second (rien n'a changé entre-temps)
             $received = self::awaitingQuery()->whereIn('id', $receivedIds)
-                ->where('held_by_courier_id', $relay->from_courier_id)->where('delivery_courier_id', $relay->to_courier_id)
+                ->where('held_by_courier_id', $relay->from_courier_id)->whereRaw(self::RECEIVER.' = ?', [$relay->to_courier_id])
                 ->orderBy('id')->lockForUpdate()->get();
             $missing = array_values(array_diff($relay->order_ids, $received->modelKeys()));
 
@@ -356,6 +381,11 @@ class ParcelRelays
         }
     }
 
+    private static function receiver(Order $order): ?Courier
+    {
+        return $order->return_courier_id !== null ? $order->returnCourier : $order->deliveryCourier;
+    }
+
     /** @return array<string, mixed> */
     private static function courierData(?Courier $courier): array
     {
@@ -394,6 +424,8 @@ class ParcelRelays
             'zone' => $order->deliveryZone?->name,
             'cod_amount' => $order->cod_amount,
             'held_since' => $order->held_since,
+            // Colis à rapporter au marchand (retour), pas à livrer
+            'is_return' => $order->return_courier_id !== null,
         ];
     }
 }

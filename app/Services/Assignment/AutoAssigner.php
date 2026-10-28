@@ -132,7 +132,9 @@ class AutoAssigner
     public static function excluded(Order $order, AssignmentType $type): array
     {
         return $order->assignments()->where('type', $type->value)
-            ->where(fn ($q) => $q->where('status', AssignmentStatus::Refused->value)->orWhereNotNull('unreachable_at'))
+            ->where(fn ($q) => $q->where('status', AssignmentStatus::Refused->value)->orWhereNotNull('unreachable_at')
+                // Ramassage échoué aujourd'hui (boutique fermée…) : pas renvoyé au même livreur le même jour
+                ->when($type === AssignmentType::Pickup, fn ($q) => $q->orWhere(fn ($f) => $f->where('status', AssignmentStatus::Failed->value)->where('completed_at', '>=', today()))))
             ->pluck('courier_id')->unique()->values()->all();
     }
 

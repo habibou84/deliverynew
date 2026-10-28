@@ -94,15 +94,14 @@ class OrderActionController extends Controller
         Gate::authorize('dispatch', Order::class);
 
         $data = $this->validateAssignment($request);
+        $type = AssignmentType::from($data['type']);
+        $courier = Courier::findOrFail($data['courier_id']);
+        // Livreur absent ou hors service, colis chez un autre livreur : assigné quand même, le dispatch est prévenu
+        $warnings = $this->dispatcher->warnings($order, $type, $courier);
 
-        $this->dispatcher->assign(
-            $request->user(),
-            $order,
-            AssignmentType::from($data['type']),
-            Courier::findOrFail($data['courier_id']),
-        );
+        $this->dispatcher->assign($request->user(), $order, $type, $courier);
 
-        return $this->detail($request, $order);
+        return $this->detail($request, $order)->additional(['meta' => ['warnings' => $warnings]]);
     }
 
     /**
