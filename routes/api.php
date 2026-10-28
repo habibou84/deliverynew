@@ -229,6 +229,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Apparence des espaces : couleurs, noms et icônes des applications
         Route::get('company/appearance', [AppearanceController::class, 'show'])->name('company.appearance.show');
         Route::put('company/appearance', [AppearanceController::class, 'update'])->name('company.appearance.update');
+        Route::get('company/appearance/logo-colors', [AppearanceController::class, 'logoColors'])->name('company.appearance.logo-colors');
         Route::post('company/appearance/icons/{space}', [AppearanceController::class, 'uploadIcon'])->name('company.appearance.icon.store');
         Route::delete('company/appearance/icons/{space}', [AppearanceController::class, 'destroyIcon'])->name('company.appearance.icon.destroy');
 

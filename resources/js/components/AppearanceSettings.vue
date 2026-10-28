@@ -5,6 +5,72 @@
       <p class="text-sm text-gray-600">Couleurs de l'espace e-commerçant, de l'espace livreur et de l'espace équipe, nom et icône des applications installées sur les téléphones. Le logo ci-dessus s'affiche dans chaque espace.</p>
     </div>
 
+    <!-- Couleur principale du logo appliquée à l'envoi du logo -->
+    <div v-if="autoApplied" class="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+      <span class="flex-1">🎨 Couleurs prises dans votre logo : la palette « {{ autoApplied }} » est appliquée à l'espace e-commerçant.</span>
+      <button type="button" class="btn-secondary text-xs" @click="undoAuto">Annuler</button>
+    </div>
+
+    <!-- Palettes proposées d'après le logo -->
+    <div v-if="branding.logo_url" class="rounded-lg border p-3 space-y-3">
+      <div class="flex flex-wrap items-start gap-3">
+        <div class="flex-1 min-w-48">
+          <h3 class="font-semibold">Couleurs de votre logo</h3>
+          <p class="text-xs text-gray-500">Le fond, le blanc, le noir et les gris sont ignorés.</p>
+        </div>
+        <button v-if="!logo" type="button" class="btn-secondary text-xs" :disabled="loadingLogo" @click="loadLogoColors">
+          {{ loadingLogo ? 'Analyse du logo…' : 'Proposer des couleurs depuis mon logo' }}
+        </button>
+      </div>
+
+      <template v-if="logo">
+        <p v-if="!logo.palettes.length" class="text-sm text-gray-600">
+          Votre logo est en noir et blanc (ou en gris) : aucune couleur à proposer. Vos couleurs actuelles sont gardées ; choisissez-en une plus bas si vous voulez.
+        </p>
+        <template v-else>
+          <div class="flex flex-wrap gap-3">
+            <div v-for="c in logo.colors" :key="c.hex" class="flex flex-col items-center text-[11px] text-slate-600">
+              <span class="h-9 w-9 rounded-lg border" :style="{ backgroundColor: c.hex }" />
+              <span>{{ c.name }}</span>
+              <span>{{ c.share }} %</span>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500">Chaque palette : couleur principale (barre, boutons), version foncée (textes), version claire (fonds). Le texte blanc reste toujours lisible.</p>
+          <div class="grid gap-3 sm:grid-cols-3">
+            <div v-for="p in logo.palettes" :key="p.key" :class="['rounded-lg border p-2 space-y-2', isApplied(p) ? 'border-emerald-500 ring-1 ring-emerald-500' : '']">
+              <p class="flex items-center gap-2 text-sm font-semibold">
+                {{ p.label }}
+                <span v-if="isApplied(p)" class="rounded-full bg-emerald-100 px-2 text-[11px] font-semibold text-emerald-800">Appliquée</span>
+              </p>
+              <div class="grid grid-cols-3 gap-1">
+                <span v-for="t in [p.color, p.dark, p.light]" :key="t" class="h-5 rounded border" :style="{ backgroundColor: t }" />
+              </div>
+              <p :class="['text-[11px]', p.adjusted ? 'text-amber-700' : 'text-emerald-700']">
+                {{ p.adjusted ? `${p.from} du logo, assombri pour que le texte blanc reste lisible` : (p.from ? `${p.from} du logo · texte blanc lisible` : 'Plus calme · texte blanc lisible') }}
+              </p>
+              <!-- Aperçu : haut de l'accueil de l'e-commerçant -->
+              <div class="rounded-lg overflow-hidden border bg-slate-50">
+                <div class="px-2 py-1.5 text-white" :style="{ backgroundColor: p.color }">
+                  <p class="text-[10px] opacity-90">Ma journée</p>
+                  <p class="text-sm font-bold">8 courses</p>
+                </div>
+                <div class="p-2 space-y-1.5">
+                  <span class="inline-block rounded-full px-2 text-[10px] font-semibold" :style="{ backgroundColor: p.light, color: p.dark }">Toutes 8</span>
+                  <div class="rounded-md py-1 text-center text-[11px] font-semibold text-white" :style="{ backgroundColor: p.color }">+ Nouvelle course</div>
+                </div>
+              </div>
+              <p v-if="isApplied(p)" class="rounded-md bg-emerald-50 py-1.5 text-center text-sm font-semibold text-emerald-800">Appliquée ✓</p>
+              <button v-else type="button" class="btn-secondary w-full text-sm" :disabled="saving" @click="applyPalette(p)">Appliquer</button>
+            </div>
+          </div>
+          <label v-if="accentPalette && !look.same" class="flex items-center gap-2 text-sm">
+            <input v-model="courierAccent" type="checkbox">
+            Espace livreur : l'autre couleur du logo, pour bien distinguer les deux applications
+          </label>
+        </template>
+      </template>
+    </div>
+
     <label class="flex items-center gap-2 text-sm font-medium">
       <input v-model="look.same" type="checkbox">
       Même apparence pour tous les espaces (couleur et icône de l'espace e-commerçant partout)
@@ -71,12 +137,12 @@
       Les applications Android téléchargées (APK) gardent leur icône, mais leurs écrans prennent la couleur et le logo.
     </p>
     <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-    <button type="button" class="btn-primary" :disabled="saving" @click="save">{{ saving ? 'Enregistrement…' : 'Enregistrer l\'apparence' }}</button>
+    <button type="button" class="btn-primary" :disabled="saving" @click="save()">{{ saving ? 'Enregistrement…' : 'Enregistrer l\'apparence' }}</button>
   </section>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { branding, loadBranding } from '../composables/useBranding'
 import { useToastStore } from '../stores/toasts'
@@ -95,6 +161,14 @@ const toasts = useToastStore()
 const look = ref(null)
 const saving = ref(false)
 const error = ref('')
+// Couleurs repérées dans le logo et palettes proposées (GET /company/appearance/logo-colors, ou envoi du logo)
+const logo = ref(null)
+const loadingLogo = ref(false)
+const autoApplied = ref('')
+const courierAccent = ref(false)
+
+const accentPalette = computed(() => logo.value?.palettes.find((p) => p.key === 'accent') ?? null)
+const isApplied = (p) => look.value.spaces.marchand.color === p.color
 
 const colorOf = (space) => (look.value.same ? look.value.spaces.marchand.color : look.value.spaces[space].color)
 // Icône générée par le serveur (après enregistrement) ; sinon aperçu de la couleur
@@ -117,20 +191,59 @@ function apply(data) {
   look.value = data
 }
 
-async function save() {
+async function save(colors = {}, message = 'Apparence enregistrée.') {
   saving.value = true
   error.value = ''
   try {
-    const spaces = Object.fromEntries(SPACES.map((s) => [s.key, { color: look.value.spaces[s.key].color, app_name: look.value.spaces[s.key].app_name || null }]))
+    const spaces = Object.fromEntries(SPACES.map((s) => [s.key, {
+      color: s.key in colors ? colors[s.key] : look.value.spaces[s.key].color,
+      app_name: look.value.spaces[s.key].app_name || null,
+    }]))
     apply((await http.put('/company/appearance', { same: look.value.same, spaces })).data.data)
     await loadBranding(true)
-    toasts.success('Apparence enregistrée.')
+    toasts.success(message)
   } catch (e) {
     error.value = apiErrorMessage(e)
   } finally {
     saving.value = false
   }
 }
+
+async function loadLogoColors() {
+  loadingLogo.value = true
+  try {
+    logo.value = (await http.get('/company/appearance/logo-colors')).data.data
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    loadingLogo.value = false
+  }
+}
+
+// Palette choisie : couleur de l'espace e-commerçant (et l'autre couleur du logo pour l'espace livreur si demandé)
+async function applyPalette(p) {
+  const colors = { marchand: p.color }
+  if (courierAccent.value && !look.value.same && accentPalette.value) {
+    colors.livreur = p.key === 'accent' ? logo.value.palettes[0].color : accentPalette.value.color
+  }
+  autoApplied.value = ''
+  await save(colors, `Palette « ${p.label} » appliquée.`)
+}
+
+// Annuler la couleur prise dans le logo : retour à la couleur par défaut de l'espace e-commerçant
+async function undoAuto() {
+  autoApplied.value = ''
+  await save({ marchand: null }, 'Couleur par défaut remise.')
+}
+
+/** Appelé après l'envoi du logo (Paramètres › Entreprise et marque) */
+function fromLogo(data) {
+  logo.value = { colors: data.colors ?? [], palettes: data.palettes ?? [] }
+  if (data.appearance) apply(data.appearance)
+  autoApplied.value = data.applied ? (logo.value.palettes.find((p) => p.key === data.applied)?.label ?? '') : ''
+}
+
+defineExpose({ fromLogo, forgetLogo: () => { logo.value = null; autoApplied.value = '' } })
 
 async function uploadIcon(space, event) {
   const file = event.target.files[0]
