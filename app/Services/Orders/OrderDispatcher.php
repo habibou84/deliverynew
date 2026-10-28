@@ -9,6 +9,7 @@ use App\Enums\OrderStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Company;
 use App\Models\Courier;
+use App\Models\CourierAbsence;
 use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\User;
@@ -73,6 +74,10 @@ class OrderDispatcher
             $statusBefore = $from === self::assignedStatus($type) && $previous?->order_status_before
                 ? $previous->order_status_before
                 : $from;
+            // Ramassage repris à un livreur déjà en route : sans lui, la course redevient simplement validée
+            if ($type === AssignmentType::Pickup && in_array($statusBefore, [OrderStatus::PickupAssigned, OrderStatus::PickupInProgress], true)) {
+                $statusBefore = OrderStatus::Confirmed;
+            }
 
             $order->assignments()->active()->where('type', $type->value)
                 ->update(['status' => AssignmentStatus::Cancelled, 'completed_at' => now()]);
@@ -80,6 +85,8 @@ class OrderDispatcher
             if ($type === AssignmentType::Return) {
                 $order->assignments()->active()->where('type', AssignmentType::Delivery->value)
                     ->update(['status' => AssignmentStatus::Cancelled, 'completed_at' => now()]);
+                // Plus de livraison prévue : le livreur de livraison n'est plus rattaché à la course
+                $order->delivery_courier_id = null;
             }
 
             // Acceptée d'office : mission du planning, ou règle de l'entreprise (ou du livreur) sans choix
@@ -134,6 +141,34 @@ class OrderDispatcher
     }
 
     /**
+     * Ce que le dispatch doit savoir avant de compter sur ce livreur : absent, hors service, colis chez un autre.
+     *
+     * @return list<string>
+     */
+    public function warnings(Order $order, AssignmentType $type, Courier $courier): array
+    {
+        $courier->loadMissing('user');
+        $name = $courier->user?->name ?? 'Ce livreur';
+        $today = now(Company::query()->whereKey($order->company_id)->value('timezone') ?: config('app.timezone'))->toDateString();
+        $warnings = [];
+
+        if (CourierAbsence::forCompany($order->company_id)->where('courier_id', $courier->id)
+            ->whereDate('starts_on', '<=', $today)->whereDate('ends_on', '>=', $today)->exists()) {
+            $warnings[] = "{$name} est absent aujourd'hui.";
+        } elseif (! $courier->is_available) {
+            $warnings[] = "{$name} n'est pas en service en ce moment.";
+        }
+
+        $holder = $order->held_by_courier_id;
+        if ($type !== AssignmentType::Pickup && $holder !== null && $holder !== $courier->id) {
+            $other = Courier::query()->with('user')->find($holder);
+            $warnings[] = "{$order->tracking_code} : colis chez ".($other?->user?->name ?? 'un autre livreur').', relais à faire avant de partir.';
+        }
+
+        return $warnings;
+    }
+
+    /**
      * Assigne plusieurs courses au même livreur. Les erreurs n'interrompent pas le lot.
      *
      * @param  list<int>  $orderIds
@@ -145,10 +180,11 @@ class OrderDispatcher
 
         foreach (Order::whereIn('id', $orderIds)->with('holder.user')->orderBy('id')->get() as $order) {
             try {
+                $warnings = $this->warnings($order, $type, $courier);
                 $this->assign($actor, $order, $type, $courier);
                 $result['assigned'][] = $order->id;
-                if ($type === AssignmentType::Delivery && $order->held_by_courier_id !== null && $order->held_by_courier_id !== $courier->id) {
-                    $result['warnings'][$order->id] = "{$order->tracking_code} : colis chez ".($order->holder?->user?->name ?? 'un autre livreur').', prévoir la passation.';
+                if ($warnings !== []) {
+                    $result['warnings'][$order->id] = implode(' ', $warnings);
                 }
             } catch (BusinessRuleException $e) {
                 $result['errors'][$order->id] = $e->getMessage();
@@ -298,7 +334,7 @@ class OrderDispatcher
 
             // La course revient à son état d'avant l'assignation (une course en attente reste validée)
             if ($from === self::assignedStatus($assignment->type) && $assignment->order_status_before !== null) {
-                $order->status = $assignment->order_status_before === OrderStatus::Pending
+                $order->status = in_array($assignment->order_status_before, [OrderStatus::Pending, OrderStatus::PickupAssigned, OrderStatus::PickupInProgress], true)
                     ? OrderStatus::Confirmed
                     : $assignment->order_status_before;
             }

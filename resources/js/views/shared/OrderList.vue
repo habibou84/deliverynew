@@ -622,12 +622,15 @@ async function bulkAssign() {
         return acc
       }, {}))
       : [[bulk.type, selected.value]]
-    const result = { assigned: [], errors: {} }
+    const result = { assigned: [], errors: {}, warnings: {} }
     for (const [type, ids] of groups) {
       const { data } = await http.post('/orders/bulk-assign', { order_ids: ids, type, courier_id: bulk.courier_id })
       result.assigned.push(...data.data.assigned)
       Object.assign(result.errors, data.data.errors)
+      Object.assign(result.warnings, data.data.warnings || {})
     }
+    // Livreur absent ou hors service, colis chez un autre livreur : une fois chaque message
+    ;[...new Set(Object.values(result.warnings).flatMap((w) => w.split(/(?<=\.) /)))].forEach((w) => toasts.push(`⚠️ ${w}`, 'info', { timeout: 9000 }))
     const data = { data: result }
     const errors = Object.entries(data.data.errors)
     if (data.data.assigned.length) toasts.success(`${data.data.assigned.length} course(s) assignée(s).`)

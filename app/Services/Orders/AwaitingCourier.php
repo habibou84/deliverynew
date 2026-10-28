@@ -36,8 +36,8 @@ class AwaitingCourier
         return match (true) {
             $order->status === OrderStatus::Confirmed && $order->pickup_hub_id === null => self::PICKUP,
             in_array($order->status, self::DELIVERY_STATUSES, true) && ! $order->return_requested
-                // Un report peut déjà avoir son livreur tout en restant « reporté »
-                && ! ($order->status === OrderStatus::Rescheduled && $this->hasDeliveryCourier($order)) => self::DELIVERY,
+                // Livraison déjà confiée (avant le ramassage, ou un report) : la course ne l'attend plus, comme dans la file
+                && ! $this->hasDeliveryCourier($order) => self::DELIVERY,
             default => null,
         };
     }
