@@ -5,7 +5,7 @@
     <!-- Colis encore chez un autre livreur : relais avant de partir livrer -->
     <section v-if="mission.relay_from" class="rounded-2xl border border-violet-300 bg-violet-50 p-4 space-y-3 text-violet-900">
       <p class="font-bold">🤝 Colis encore chez {{ mission.relay_from.name }}</p>
-      <p class="text-sm">Récupérez-le avec son code à 4 chiffres avant de partir livrer.</p>
+      <p class="text-sm">Récupérez-le avec son code à 4 chiffres avant de {{ mission.type === 'return' ? 'le rapporter au marchand' : 'partir livrer' }}.</p>
       <div class="grid grid-cols-3 gap-2">
         <a :href="telLink(mission.relay_from.phone)" class="tap rounded-2xl bg-white py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-violet-100"><span class="text-2xl">📞</span>Appeler</a>
         <a :href="whatsappLink(mission.relay_from.phone)" target="_blank" class="tap rounded-2xl bg-white py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-violet-100"><span class="text-2xl">💬</span>WhatsApp</a>
@@ -326,8 +326,8 @@ const primary = computed(() => {
   const t = mission.value.type
   if (t === 'pickup' && s === 'pickup_assigned') return { label: '🛵 Je pars chercher le colis', class: 'm-btn-primary', action: () => move('pickup_in_progress') }
   if (t === 'pickup' && ['pickup_assigned', 'pickup_in_progress'].includes(s)) return { label: '✓ J\'ai récupéré le colis', class: 'm-btn-success', action: () => move('picked_up') }
-  // Relais à faire : le départ attend la réception du colis
-  if (t === 'delivery' && mission.value.relay_from) return { label: '🤝 Recevoir le colis (relais)', class: 'm-btn-primary !bg-violet-600', action: () => router.push('/livreur/relais') }
+  // Relais à faire : le départ (livraison ou retour au marchand) attend la réception du colis
+  if (['delivery', 'return'].includes(t) && mission.value.relay_from) return { label: '🤝 Recevoir le colis (relais)', class: 'm-btn-primary !bg-violet-600', action: () => router.push('/livreur/relais') }
   if (t === 'delivery' && ['delivery_assigned', 'picked_up', 'at_hub', 'delivery_failed', 'rescheduled'].includes(s)) return { label: shipping.value ? '🚌 Je pars à la gare' : '🛵 Je pars livrer', class: 'm-btn-primary', action: () => move('out_for_delivery') }
   if (t === 'delivery' && s === 'out_for_delivery') return { label: shipping.value ? '✓ Colis expédié' : '✓ Colis livré', class: 'm-btn-success', action: openDelivered }
   if (t === 'return' && s === 'return_assigned') return { label: '🛵 Je rapporte le colis', class: 'm-btn-primary', action: () => move('returning') }

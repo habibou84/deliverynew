@@ -133,6 +133,7 @@ async function assign(g) {
   try {
     const { data } = await http.post('/orders/bulk-assign', { order_ids: chosen(g), type: 'pickup', courier_id: courier[g.key] })
     if (data.data.assigned.length) toasts.success(`${data.data.assigned.length} colis confié(s) pour ${g.merchant?.business_name || 'ce client'}.`)
+    ;[...new Set(Object.values(data.data.warnings || {}))].forEach((w) => toasts.push(`⚠️ ${w}`, 'info', { timeout: 9000 }))
     Object.entries(data.data.errors).forEach(([id, message]) => {
       const code = g.orders.find((o) => o.id === Number(id))?.tracking_code || id
       toasts.error(`${code} : ${message}`)

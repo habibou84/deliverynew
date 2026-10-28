@@ -138,6 +138,11 @@ class PickupGroups
         if (in_array($sibling->status, [AssignmentStatus::Accepted, AssignmentStatus::InProgress], true)) {
             $assignment->forceFill(['status' => AssignmentStatus::Accepted, 'accepted_at' => now()])->save();
         }
+        // Même consigne que les autres colis de la mission ramassage : garder jusqu'à la livraison ou rapporter au dépôt
+        $plan = Order::query()->whereKey($sibling->order_id)->value('custody_plan');
+        if ($plan !== null) {
+            $order->forceFill(['custody_plan' => $plan])->save();
+        }
 
         $this->journal->record($order, null, OrderEventType::Note, [
             'note' => "Ajouté automatiquement au ramassage déjà confié à {$sibling->courier->user->name} chez ce client.",

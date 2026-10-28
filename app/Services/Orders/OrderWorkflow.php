@@ -53,8 +53,13 @@ class OrderWorkflow
      *     occurred_at?: Carbon,
      * }  $context
      */
+    /** Livraison rendue par son livreur en rapportant le colis au dépôt (notée au journal après la transition) */
+    private ?OrderAssignment $dropped = null;
+
     public function transition(User $actor, Order $order, OrderStatus $to, array $context = []): Order
     {
+        $this->dropped = null;
+
         return DB::transaction(function () use ($actor, $order, $to, $context) {
             $order = Order::query()->lockForUpdate()->findOrFail($order->id);
             $from = $order->status;
@@ -103,6 +108,21 @@ class OrderWorkflow
                     'delivery_code_unverified' => $to === OrderStatus::Delivered && $order->delivery_code_unverified_at ? true : null,
                 ], fn ($v) => $v !== null),
             ]);
+
+            // Livraison rendue au dépôt : la course attend un autre livreur ; le livreur est prévenu si ce n'est pas lui
+            if ($this->dropped !== null) {
+                $courier = $this->dropped->courier()->with('user')->first();
+                $this->journal->record($order, $actor, OrderEventType::Unassigned, [
+                    'assignment_id' => $this->dropped->id,
+                    'note' => 'Colis rapporté au dépôt : livraison à confier de nouveau',
+                    'visible_to_merchant' => false,
+                    'meta' => [
+                        'type' => AssignmentType::Delivery->value, 'type_label' => AssignmentType::Delivery->label(),
+                        'courier_id' => $courier?->id, 'courier_user_id' => $courier?->user_id, 'courier_name' => $courier?->user?->name,
+                    ],
+                ]);
+                $this->dropped = null;
+            }
 
             // Course validée : le colis va au livreur déjà prévu chez ce client, sinon au livreur du planning
             if ($from === OrderStatus::Pending && $to === OrderStatus::Confirmed
@@ -234,6 +254,7 @@ class OrderWorkflow
 
         match ($to) {
             OrderStatus::OutForDelivery => $this->validateOutForDelivery($order),
+            OrderStatus::Returning => $this->validateRelay($order, AssignmentType::Return, 'rapporter le colis'),
             OrderStatus::DeliveryFailed => $reason ?? throw new BusinessRuleException('Indiquez le motif de l\'échec.', 'incident_reason_id'),
             OrderStatus::Rescheduled => $this->validateRescheduleDate($context['rescheduled_to'] ?? null),
             // Retour à « Validée » depuis le ramassage = échec du ramassage, motif obligatoire
@@ -257,8 +278,13 @@ class OrderWorkflow
             throw new BusinessRuleException('Nombre maximal de tentatives atteint : organisez le retour du colis.', 'status');
         }
 
-        // Colis encore chez un autre livreur : le relais passe avant le départ en livraison
-        if (ParcelRelays::needed($order)) {
+        $this->validateRelay($order, AssignmentType::Delivery);
+    }
+
+    /** Colis encore chez un autre livreur : le relais passe avant le départ (livraison ou retour au marchand) */
+    private function validateRelay(Order $order, AssignmentType $for, string $action = 'partir livrer'): void
+    {
+        if (ParcelRelays::needed($order, null, $for)) {
             $holder = Courier::withoutGlobalScopes()->with('user:id,name')->find($order->held_by_courier_id);
 
             throw new BusinessRuleException('Colis encore chez '.($holder?->user?->name ?? 'un autre livreur').' : faites d\'abord le relais.', 'status');
@@ -367,8 +393,13 @@ class OrderWorkflow
                     return null;
                 }
 
-                // Colis rapporté au dépôt sans tentative : la livraison prévue est annulée
-                $this->finish($delivery, AssignmentStatus::Cancelled);
+                // Déposé par le ramasseur : simple passage au dépôt, la livraison prévue reste prévue. Rapporté par le
+                // livreur de livraison lui-même (sans tentative) : il rend la mission, qui est annulée
+                if ($delivery !== null && $from !== OrderStatus::PickedUp && $order->held_by_courier_id === $delivery->courier_id) {
+                    $this->finish($delivery, AssignmentStatus::Cancelled);
+                    $order->delivery_courier_id = null;
+                    $this->dropped = $delivery;
+                }
                 $order->handTo(null);
 
                 return null;
