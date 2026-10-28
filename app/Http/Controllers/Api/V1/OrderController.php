@@ -27,6 +27,7 @@ class OrderController extends Controller
     public const LIST_RELATIONS = [
         'merchant', 'pickupZone', 'deliveryZone', 'lastIncidentReason', 'pickupHub', 'items',
         'pickupCourier.user', 'deliveryCourier.user', 'returnCourier.user', 'holder.user', 'merchantDecision',
+        'pendingChange.requester',
     ];
 
     public function __construct(private readonly OrderService $orders) {}
@@ -39,7 +40,7 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'code_to_verify'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'code_to_verify', 'change_requests'])],
             // File « Sans livreur » : ramassage, livraison ou les deux
             'awaiting' => ['nullable', Rule::in([AwaitingCourier::PICKUP, AwaitingCourier::DELIVERY])],
             'merchant_id' => ['nullable', 'integer'],
@@ -145,6 +146,7 @@ class OrderController extends Controller
             'to_pickup' => $count('to_pickup'),
             'to_deliver' => $count('to_deliver'),
             'unassigned' => AwaitingCourier::scope(Order::query())->count(),
+            'change_requests' => $count('change_requests'),
             'late' => $awaiting->lateCounts($request->user()->company),
             // Tableau de bord : en attente d'un livreur, par étape
             'waiting' => $awaiting->summary($request->user()->company),
@@ -224,9 +226,22 @@ class OrderController extends Controller
 
     public function update(UpdateOrderRequest $request, Order $order): OrderResource
     {
-        $order = $this->orders->update($request->user(), $order, $request->validated());
+        $data = $request->validated();
+        $notify = (bool) ($data['notify_courier'] ?? true);
+        unset($data['notify_courier']);
+        // E-commerçant : validation par l'équipe si le réglage de l'entreprise le demande
+        $order = $this->orders->update($request->user(), $order, $data, ['approval' => true, 'notify_courier' => $notify]);
 
         return OrderResource::make($this->loadDetail($order));
+    }
+
+    /** Aperçu d'une modification : changements, nouveau tarif, montant à encaisser, validation nécessaire */
+    public function editPreview(UpdateOrderRequest $request, Order $order): JsonResponse
+    {
+        $data = $request->validated();
+        unset($data['notify_courier']);
+
+        return response()->json(['data' => $this->orders->preview($request->user(), $order, $data)]);
     }
 
     public static function loadDetailRelations(Request $request): array
@@ -280,6 +295,8 @@ class OrderController extends Controller
             'incidents' => $query->whereIn('status', OrderStatus::values([OrderStatus::DeliveryFailed, OrderStatus::Rescheduled])),
             // Livrées hors connexion avec un code client incorrect : à vérifier auprès du destinataire
             'code_to_verify' => $query->whereNotNull('delivery_code_unverified_at'),
+            // Modifications des e-commerçants à valider (prix qui change)
+            'change_requests' => $query->whereHas('pendingChange'),
         };
     }
 }

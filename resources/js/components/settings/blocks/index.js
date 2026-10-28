@@ -1,12 +1,13 @@
 // Blocs de réglages de l'entreprise : un même bloc s'affiche dans la page Réglages et dans le panneau ⚙️ de la page
 // concernée. Chaque bloc déclare ses champs (chargés et enregistrés ensemble) et son résumé (étiquettes en haut de page).
-import { ACCEPT_MODES, AUTO_MODES, DELIVERY_MODES, VALIDATION_MODES } from '../../../views/admin/settings/options'
+import { ACCEPT_MODES, AUTO_MODES, DELIVERY_MODES, EDIT_APPROVAL_MODES, VALIDATION_MODES } from '../../../views/admin/settings/options'
 import AcceptanceBlock from './AcceptanceBlock.vue'
 import AutoDeliveryBlock from './AutoDeliveryBlock.vue'
 import AutoPickupBlock from './AutoPickupBlock.vue'
 import CouriersBlock from './CouriersBlock.vue'
 import DayBlock from './DayBlock.vue'
 import DirectoryBlock from './DirectoryBlock.vue'
+import EditApprovalBlock from './EditApprovalBlock.vue'
 import FieldReminderBlock from './FieldReminderBlock.vue'
 import HoldAlertBlock from './HoldAlertBlock.vue'
 import MerchantSignupBlock from './MerchantSignupBlock.vue'
@@ -19,6 +20,7 @@ const minutes = (v) => (v ? `${v} min` : 'aucune')
 
 export const BLOCKS = {
   validation: { component: ValidationBlock, fields: ['validation_mode'], summary: (f) => [['Validation', short(VALIDATION_MODES, f.validation_mode)]] },
+  editApproval: { component: EditApprovalBlock, fields: ['merchant_edit_approval'], summary: (f) => [['Modifications', short(EDIT_APPROVAL_MODES, f.merchant_edit_approval)]] },
   day: { component: DayBlock, fields: ['daily_cutoff_time', 'cutoff_by_day', 'default_max_attempts'], summary: (f) => [['Heure limite', (f.daily_cutoff_time || '').slice(0, 5) || 'aucune']] },
   couriers: {
     component: CouriersBlock,

@@ -99,6 +99,7 @@
             <p class="font-semibold truncate">
               {{ c.first.type === 'pickup' ? c.first.order.merchant?.business_name : (c.first.order.recipient.name || c.first.order.recipient.phone) }}
               <span v-if="c.first.unread_messages" class="ml-1 rounded-full bg-sky-600 px-2 py-0.5 text-xs text-white">💬 {{ c.first.unread_messages }}</span>
+              <span v-if="c.missions.some((m) => m.last_edit && !m.last_edit.seen)" class="ml-1 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white">⚠️ Modifiée</span>
             </p>
             <p class="text-sm text-slate-500 truncate">
               📍 {{ c.first.type === 'pickup' ? c.first.order.pickup.zone_name : c.first.order.delivery.zone_name }}
