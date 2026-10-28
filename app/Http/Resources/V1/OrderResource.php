@@ -7,6 +7,7 @@ use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Services\Couriers\CourierRatings;
 use App\Services\Orders\AwaitingCourier;
+use App\Services\Orders\OrderService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -121,6 +122,10 @@ class OrderResource extends JsonResource
             // Colis non livré : décision attendue, ou décision déjà prise par le marchand
             'needs_decision' => $this->needsDecision(),
             'decision_editable' => $this->decisionEditable(),
+            // Modifiable : tout (avant le ramassage), la livraison seulement, ou null
+            'edit_scope' => OrderService::editScope($this->resource),
+            // Modification de l'e-commerçant en attente de l'équipe
+            'pending_change' => $this->whenLoaded('pendingChange', fn () => $this->pendingChange?->summary()),
             'merchant_decision' => $this->whenLoaded('merchantDecision', fn () => $this->merchantDecisionSummary()),
             'return_requested' => $this->return_requested,
             'last_incident' => $this->whenLoaded('lastIncidentReason', fn () => $this->lastIncidentReason ? [

@@ -55,6 +55,21 @@ class OrderNotifier
                 }
                 break;
 
+            case OrderEventType::Edited:
+                // Livreur en mission sur la course : prévenu si ce qui le concerne change (adresse, téléphone, montant…)
+                $changes = $event->meta['changes'] ?? [];
+                $what = OrderChanges::labels($changes, OrderChanges::COURIER_FIELDS);
+                if ($what !== '' && ($event->meta['notify_courier'] ?? true)) {
+                    foreach ($order->assignments()->active()->with('courier.user')->get() as $assignment) {
+                        if ($assignment->courier?->user) {
+                            $this->send(collect([$assignment->courier->user]), $actor, $order, 'order_edited',
+                                "Course {$code} modifiée", "{$what}. Ouvrez la mission pour voir les changements.",
+                                extra: ['assignment_id' => $assignment->id]);
+                        }
+                    }
+                }
+                break;
+
             case OrderEventType::AssignmentRefused:
                 $toStaff = ! empty($event->meta['impediment'])
                     ? ['mission_refused', "Empêchement sur {$code}", ($event->actor_name ?? 'Le livreur').' ne peut pas faire la mission.'.$note]

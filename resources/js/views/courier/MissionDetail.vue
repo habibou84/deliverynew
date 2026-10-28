@@ -2,6 +2,18 @@
   <div v-if="mission" class="space-y-4 pb-36">
     <DispatchMessages :order-id="order.id" />
 
+    <!-- Course modifiée depuis la mission : changements surlignés, « J'ai vu » -->
+    <section v-if="mission.last_edit && !mission.last_edit.seen" class="rounded-2xl border border-amber-300 bg-amber-50 p-4 space-y-2 text-amber-900">
+      <p class="font-bold">⚠️ Course modifiée {{ sinceText(mission.last_edit.at) }} par {{ mission.last_edit.by }}</p>
+      <ul class="space-y-1 text-sm">
+        <li v-for="c in mission.last_edit.changes" :key="c.field">
+          <b>{{ c.label }}</b> : <span class="rounded bg-amber-200/70 px-1">{{ c.to || '—' }}</span>
+          <span v-if="c.from" class="text-xs text-amber-700/70 line-through ml-1">{{ c.from }}</span>
+        </li>
+      </ul>
+      <button class="m-btn-primary !bg-amber-600" @click="editSeen">J'ai vu</button>
+    </section>
+
     <!-- Où aller -->
     <section class="m-card p-4 space-y-2">
       <div class="flex items-center justify-between">
@@ -225,7 +237,7 @@ import { useToastStore } from '../../stores/toasts'
 import { currentPosition } from '../../composables/useGeolocation'
 import { enqueue, isNetworkError, sendStatus, withPending } from '../../composables/useOfflineQueue'
 import { pwa } from '../../composables/usePwa'
-import { date, DELIVERY_PAYMENT_METHODS, mapsLink, money, PAYMENT_METHODS, telLink, today, whatsappLink } from '../../utils/format'
+import { dateTime, date, DELIVERY_PAYMENT_METHODS, mapsLink, money, PAYMENT_METHODS, telLink, today, whatsappLink } from '../../utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -233,6 +245,23 @@ const auth = useAuthStore()
 const toasts = useToastStore()
 
 const mission = ref(null)
+
+// « Modifiée il y a 5 min »
+function sinceText(iso) {
+  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000)
+  if (minutes < 1) return 'à l\'instant'
+  if (minutes < 60) return `il y a ${minutes} min`
+  return `le ${dateTime(iso)}`
+}
+
+async function editSeen() {
+  try {
+    await http.post(`/courier/assignments/${mission.value.id}/edit-seen`)
+    mission.value = { ...mission.value, last_edit: { ...mission.value.last_edit, seen: true } }
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
 const order = computed(() => mission.value?.order)
 const impediment = computed(() => mission.value?.status === 'accepted')
 const reasons = ref([])

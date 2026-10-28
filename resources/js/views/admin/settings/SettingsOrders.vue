@@ -14,6 +14,6 @@ import { BLOCKS, fieldsOf } from '../../../components/settings/blocks'
 import { useCompanySettings } from '../../../composables/useCompanySettings'
 
 // Mêmes blocs que les panneaux ⚙️ des pages Courses, Planning et Livreurs
-const KEYS = ['validation', 'day', 'couriers', 'autoPickup', 'autoDelivery', 'acceptance']
+const KEYS = ['validation', 'editApproval', 'day', 'couriers', 'autoPickup', 'autoDelivery', 'acceptance']
 const { form, dirty, saving, error, save, reset } = useCompanySettings(fieldsOf(KEYS))
 </script>
