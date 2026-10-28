@@ -159,7 +159,7 @@ class PlanTest extends TestCase
 
         $this->assertSame('Essentiel', $data['plan']['name']);
         $this->assertSame(['orders' => 3, 'included_orders' => 2, 'overage_orders' => 1, 'couriers' => 2, 'max_couriers' => null, 'extra_couriers' => 0, 'extra_courier_days' => 0], $data['usage']);
-        $this->assertSame(['base' => 25000, 'overage' => 30, 'deliveries' => 0, 'cap_applied' => false, 'extra_couriers' => 0, 'total' => 25030], $data['estimate']);
+        $this->assertSame(['base' => 25000, 'overage' => 30, 'deliveries' => 0, 'cap_applied' => false, 'extra_couriers' => 0, 'app_options' => 0, 'total' => 25030], $data['estimate']);
         $this->assertFalse(collect($data['features'])->firstWhere('key', 'api')['included']);
 
         // Pendant l'essai : rien à payer

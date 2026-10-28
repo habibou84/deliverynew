@@ -94,11 +94,13 @@ class Billing
         $extra = $this->extraCouriers($plan, $company, $start, $end, $cycle);
         // Cartes Membre Premium payées par l'entreprise, offertes jusqu'à la fin de la période
         $premium = app(PremiumCards::class)->billable($company, $end->addDay());
+        // Options « Applications à votre nom » actives sur la période
+        $apps = app(AppOptions::class)->billable($company, $plan, $start, $end, $cycle);
 
         // Petites factures précédentes reportées sur celle-ci
         $carried = PlatformInvoice::query()->where('company_id', $company->id)->where('status', PlatformInvoice::CARRIED)->whereNull('carried_into_id')->get();
         $carriedAmount = (int) $carried->sum('total');
-        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $extra['amount'] + $premium['amount'] + $carriedAmount;
+        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $extra['amount'] + $premium['amount'] + $apps['amount'] + $carriedAmount;
 
         if ($total <= 0) {
             return null;
@@ -106,7 +108,7 @@ class Billing
         // Trop petite pour une facture à part : reportée sur la suivante
         $isCarried = $plan->min_invoice !== null && $total < $plan->min_invoice;
 
-        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $carried, $carriedAmount, $total, $isCarried, $tz) {
+        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $apps, $carried, $carriedAmount, $total, $isCarried, $tz) {
             $today = CarbonImmutable::now($tz);
             $dueDays = (int) config($cycle === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_due_days' : 'platform.billing.due_days');
 
@@ -132,6 +134,8 @@ class Billing
                 'extra_couriers_amount' => $extra['amount'],
                 'premium_cards_count' => $premium['count'],
                 'premium_cards_amount' => $premium['amount'],
+                'app_options_amount' => $apps['amount'],
+                'app_options' => $apps['lines'] ?: null,
                 'carried_amount' => $carriedAmount,
                 'total' => $total,
                 'status' => $isCarried ? PlatformInvoice::CARRIED : PlatformInvoice::OPEN,

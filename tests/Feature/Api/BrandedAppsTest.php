@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Enums\Role;
 use App\Models\BrandedApp;
 use App\Models\BrandedAppBuild;
+use App\Models\Plan;
 use App\Models\PlatformAuditLog;
 use App\Models\PlatformSetting;
 use App\Models\User;
@@ -34,7 +35,9 @@ class BrandedAppsTest extends TestCase
     {
         parent::setUp();
         $this->buildWorld();
-        $this->company->forceFill(['slug' => 'livraison-express', 'name' => 'Livraison Express'])->save();
+        // Formule qui inclut les applications Android à son nom (sinon pas de nouvelle version)
+        $plan = Plan::create(['name' => 'Pro', 'price_monthly' => 60000, 'features' => [], 'apps' => ['android' => 'included']]);
+        $this->company->forceFill(['slug' => 'livraison-express', 'name' => 'Livraison Express', 'plan_id' => $plan->id])->save();
         $this->root = User::factory()->withRole(Role::SuperAdmin)->create(['company_id' => null]);
         Storage::fake('local');
     }
