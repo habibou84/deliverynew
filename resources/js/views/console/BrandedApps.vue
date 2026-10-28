@@ -6,9 +6,41 @@
     </div>
 
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
-    <p v-if="loaded && !githubReady" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-      Le jeton GitHub n'est pas réglé sur le serveur (GITHUB_APPS_TOKEN dans le fichier .env) : les versions ne peuvent pas être fabriquées.
-    </p>
+    <!-- Jeton GitHub qui lance les fabrications : gardé chiffré, jamais réaffiché -->
+    <section v-if="loaded" class="card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold">Jeton GitHub</h2>
+        <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', github.ready && !github.error && !github.expired ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800']">
+          {{ !github.ready ? 'Aucun jeton' : github.expired ? 'Expiré' : github.error ? 'À vérifier' : 'Prêt' }}
+        </span>
+      </div>
+      <p v-if="!github.ready" class="text-sm text-amber-800">Sans jeton, les versions ne peuvent pas être fabriquées.</p>
+      <p v-else class="text-sm text-gray-700">
+        Jeton {{ github.source === 'env' ? 'réglé dans le fichier .env du serveur' : 'enregistré' }}, se termine par <code>…{{ github.last4 }}</code>
+        <template v-if="github.expires_at"> · valable jusqu'au {{ date(github.expires_at) }}</template>
+        <template v-if="github.checked_at"> · vérifié le {{ date(github.checked_at) }}</template>.
+      </p>
+      <p v-if="github.ready && github.expires_soon && !github.expired" class="text-sm text-amber-800">Il expire bientôt : créez-en un nouveau sur GitHub et enregistrez-le ici.</p>
+      <p v-if="github.error" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ github.error }}</p>
+      <form v-if="owner && github.source !== 'env'" class="flex flex-wrap gap-2" @submit.prevent="saveToken">
+        <label class="sr-only" for="github-token">Jeton GitHub</label>
+        <input id="github-token" v-model="tokenInput" class="input min-w-0 flex-1 font-mono" type="password" autocomplete="off" spellcheck="false"
+          :placeholder="github.ready ? 'Nouveau jeton (remplace l\'actuel)' : 'github_pat_…'" required>
+        <button class="btn-primary" :disabled="busy || !tokenInput">Enregistrer</button>
+        <button v-if="github.ready" type="button" class="btn-secondary" :disabled="busy" @click="tokenCall('check')">Vérifier</button>
+        <button v-if="github.ready" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="tokenCall('remove')">Retirer</button>
+      </form>
+      <button v-else-if="owner" type="button" class="btn-secondary" :disabled="busy" @click="tokenCall('check')">Vérifier</button>
+      <details class="text-xs text-gray-600">
+        <summary class="cursor-pointer font-medium">Créer le jeton sur GitHub</summary>
+        <ol class="mt-2 list-decimal space-y-1 pl-5">
+          <li>GitHub › Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token.</li>
+          <li>Repository access : seulement le dépôt de Jibiat. Permissions : Actions en lecture et écriture, rien d'autre.</li>
+          <li>Une date d'expiration (un an par exemple) : la console prévient un mois avant.</li>
+          <li>Collez-le ici. Il est gardé chiffré et ne s'affiche plus jamais.</li>
+        </ol>
+      </details>
+    </section>
 
     <div v-if="loaded" class="grid gap-4 lg:grid-cols-[20rem_1fr]">
       <!-- Entreprises qui ont l'option -->
@@ -179,6 +211,8 @@ const error = ref('')
 const apps = ref([])
 const companies = ref([])
 const githubReady = ref(true)
+const github = ref({ ready: false })
+const tokenInput = ref('')
 const adding = ref('')
 const selectedId = ref(null)
 const detail = ref(null)
@@ -204,6 +238,7 @@ async function loadList() {
   apps.value = data.data.apps
   companies.value = data.data.companies
   githubReady.value = data.data.github_ready
+  github.value = data.data.github
   loaded.value = true
 }
 
@@ -228,6 +263,41 @@ async function call(request, done) {
   } catch (e) {
     error.value = apiErrorMessage(e)
     return null
+  } finally {
+    busy.value = false
+  }
+}
+
+async function saveToken() {
+  busy.value = true
+  try {
+    const { data } = await http.put('/console/branded-apps/github-token', { token: tokenInput.value })
+    github.value = data.data
+    githubReady.value = data.data.ready
+    tokenInput.value = ''
+    if (data.data.error) toasts.error(data.message)
+    else toasts.success(data.message)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy.value = false
+  }
+}
+
+async function tokenCall(action) {
+  if (action === 'remove' && !window.confirm('Retirer le jeton GitHub ? Les fabrications ne pourront plus être lancées.')) return
+  busy.value = true
+  try {
+    const { data } = action === 'remove'
+      ? await http.delete('/console/branded-apps/github-token')
+      : await http.post('/console/branded-apps/github-token/check')
+    github.value = data.data
+    githubReady.value = data.data.ready
+    if (action === 'remove') toasts.success('Jeton GitHub retiré.')
+    else if (data.data.error) toasts.error(data.message)
+    else toasts.success(data.message)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
   } finally {
     busy.value = false
   }

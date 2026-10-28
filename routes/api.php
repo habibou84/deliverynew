@@ -300,6 +300,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Applications Android au nom des entreprises : réglages et fabrication au Propriétaire
         Route::prefix('console/branded-apps')->name('console.branded-apps.')->middleware($team)->controller(ConsoleBrandedAppController::class)->group(function () use ($owner) {
             Route::get('/', 'index')->name('index');
+            // Jeton GitHub (avant les routes {company})
+            Route::put('github-token', 'saveToken')->middleware([$owner, 'throttle:10,1'])->name('github-token.save');
+            Route::post('github-token/check', 'checkToken')->middleware([$owner, 'throttle:20,1'])->name('github-token.check');
+            Route::delete('github-token', 'removeToken')->middleware($owner)->name('github-token.remove');
             Route::get('{company}', 'show')->name('show');
             Route::post('{company}', 'store')->middleware($owner)->name('store');
             Route::put('{company}', 'update')->middleware($owner)->name('update');

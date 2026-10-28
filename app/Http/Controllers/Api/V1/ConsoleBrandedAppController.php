@@ -7,6 +7,7 @@ use App\Models\BrandedApp;
 use App\Models\BrandedAppBuild;
 use App\Models\Company;
 use App\Services\Platform\BrandedApps;
+use App\Services\Platform\GithubAppsToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +23,7 @@ class ConsoleBrandedAppController extends Controller
     /** Identifiant Android : segments en minuscules séparés par des points (ci.entreprise.ecommercant) */
     private const APP_ID = '/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/';
 
-    public function __construct(private readonly BrandedApps $apps) {}
+    public function __construct(private readonly BrandedApps $apps, private readonly GithubAppsToken $github) {}
 
     public function index(): JsonResponse
     {
@@ -33,8 +34,41 @@ class ConsoleBrandedAppController extends Controller
             // Entreprises qu'on peut ajouter
             'companies' => Company::query()->whereNotIn('id', $apps->pluck('company_id'))->orderBy('name')->get(['id', 'name'])
                 ->map(fn (Company $c) => ['id' => $c->id, 'name' => $c->name])->values(),
-            'github_ready' => filled(config('services.github_apps.token')),
+            'github_ready' => $this->github->token() !== null,
+            'github' => $this->github->state(),
         ]]);
+    }
+
+    /**
+     * Jeton GitHub saisi par le Propriétaire : gardé chiffré, jamais renvoyé, vérifié aussitôt auprès de GitHub.
+     * Celui du fichier .env reste prioritaire.
+     */
+    public function saveToken(Request $request): JsonResponse
+    {
+        abort_if($this->github->source() === 'env', 422, 'Le jeton est réglé dans le fichier .env du serveur : modifiez-le là-bas.');
+        $data = $request->validate(['token' => ['required', 'string', 'regex:'.GithubAppsToken::PATTERN]], [
+            'token.regex' => 'Ce n\'est pas un jeton GitHub (il commence par github_pat_ ou ghp_).',
+        ], ['token' => 'jeton GitHub']);
+
+        $this->github->save($data['token']);
+        $error = $this->github->check();
+
+        return response()->json(['data' => $this->github->state(), 'message' => $error ?? 'Jeton enregistré et vérifié auprès de GitHub.']);
+    }
+
+    public function checkToken(): JsonResponse
+    {
+        $error = $this->github->check();
+
+        return response()->json(['data' => $this->github->state(), 'message' => $error ?? 'Le jeton GitHub marche.']);
+    }
+
+    public function removeToken(): JsonResponse
+    {
+        abort_if($this->github->source() === 'env', 422, 'Le jeton est réglé dans le fichier .env du serveur : retirez-le là-bas.');
+        $this->github->remove();
+
+        return response()->json(['data' => $this->github->state()]);
     }
 
     public function show(Company $company): JsonResponse
