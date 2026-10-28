@@ -90,14 +90,15 @@ class CourierSpaceController extends Controller
             });
         }
 
-        // Livraison dont le colis est encore chez un autre livreur : relais à faire avant « Je pars livrer »
+        // Livraison ou retour dont le colis est encore chez un autre livreur : relais à faire avant de partir
         $company = $request->user()->company;
+        $relayed = fn (OrderAssignment $a) => in_array($a->type, [AssignmentType::Delivery, AssignmentType::Return], true) && $a->order
+            && ParcelRelays::needed($a->order, $company, $a->type);
         $holders = Courier::query()->with('user:id,name,phone')
-            ->whereIn('id', $assignments->filter(fn (OrderAssignment $a) => $a->type === AssignmentType::Delivery && $a->order
-                && ParcelRelays::needed($a->order, $company))->pluck('order.held_by_courier_id')->unique())
+            ->whereIn('id', $assignments->filter($relayed)->pluck('order.held_by_courier_id')->unique())
             ->get()->keyBy('id');
-        $assignments->each(function (OrderAssignment $a) use ($holders, $company) {
-            $holder = $a->type === AssignmentType::Delivery && $a->order && ParcelRelays::needed($a->order, $company) ? $holders->get($a->order->held_by_courier_id) : null;
+        $assignments->each(function (OrderAssignment $a) use ($holders, $relayed) {
+            $holder = $relayed($a) ? $holders->get($a->order->held_by_courier_id) : null;
             if ($holder) {
                 $a->setAttribute('relay_from', [
                     'courier_id' => $holder->id, 'name' => $holder->user?->name, 'phone' => $holder->user?->phone,

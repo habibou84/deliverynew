@@ -124,7 +124,7 @@ class PickupCustodyTest extends TestCase
         // Le dispatch confie l'autre colis à un autre livreur : passation signalée, plus de garde prévue
         $this->postJson('/api/v1/orders/bulk-assign', ['order_ids' => [$other->id], 'type' => 'delivery', 'courier_id' => $this->courierB->id])
             ->assertOk()
-            ->assertJsonPath("data.warnings.{$other->id}", "{$other->tracking_code} : colis chez Koffi Ramasseur, prévoir la passation.");
+            ->assertJsonPath("data.warnings.{$other->id}", "Awa Livreuse n'est pas en service en ce moment. {$other->tracking_code} : colis chez Koffi Ramasseur, relais à faire avant de partir.");
         $this->assertNull($other->fresh()->custody_plan);
         $this->assertStringContainsString('Passation', $other->events()->latest('id')->first()->note);
 

@@ -10,6 +10,7 @@ use App\Exceptions\BusinessRuleException;
 use App\Models\Company;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Assignment\CourierPlanning;
 use App\Services\Orders\OrderDispatcher;
 use App\Services\Orders\OrderJournal;
 use Carbon\CarbonImmutable;
@@ -30,6 +31,7 @@ class PickupCustody
     public function __construct(
         private readonly OrderDispatcher $dispatcher,
         private readonly OrderJournal $journal,
+        private readonly CourierPlanning $planning,
     ) {}
 
     public function setting(Company $company): string
@@ -119,9 +121,12 @@ class PickupCustody
                 return;
             }
 
+            $absent = $this->planning->absentOn($company->id, $today);
             foreach ($orders as $order) {
                 $courier = $order->holder;
-                if (! $courier?->user?->isActive()) {
+                // Absent (congé) ou compte inactif : la livraison reste à confier (à un autre livreur, avec un relais).
+                // Pas encore « en service » à cette heure du matin : normal, la livraison lui est confiée
+                if (! $courier?->user?->isActive() || in_array($courier->id, $absent, true)) {
                     continue;
                 }
 

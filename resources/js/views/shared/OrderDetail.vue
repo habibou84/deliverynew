@@ -358,6 +358,8 @@ async function assign(type) {
     order.value = data.data
     assignment[type] = null
     toasts.success('Mission assignée.')
+    // Livreur absent ou hors service, colis chez un autre livreur
+    ;(data.meta?.warnings || []).forEach((w) => toasts.push(`⚠️ ${w}`, 'info', { timeout: 9000 }))
     loadCouriers()
   } catch (e) {
     toasts.error(apiErrorMessage(e))
