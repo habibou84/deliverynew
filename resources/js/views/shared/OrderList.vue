@@ -261,7 +261,7 @@
               @click="open(o)"
             >
               <td v-if="isStaff" class="p-2" @click.stop><input v-model="selected" type="checkbox" :value="o.id" :aria-label="`Sélectionner ${o.tracking_code}`"></td>
-              <td class="p-2 font-mono text-xs">{{ o.tracking_code }}</td>
+              <td class="p-2 font-mono text-xs">{{ o.tracking_code }}<span v-if="o.legacy_id" class="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-violet-800" :title="`Reprise de l'ancienne application, n° ${o.legacy_id}`">anc. {{ o.legacy_id }}</span></td>
               <td v-if="isStaff" class="p-2">{{ o.merchant?.business_name }}</td>
               <td class="p-2">
                 <div>{{ o.recipient.name || '—' }}</div>

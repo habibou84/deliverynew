@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
+use App\Http\Controllers\Api\V1\LegacyOrdersController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\MerchantAppReferralController;
 use App\Http\Controllers\Api\V1\MerchantController;
@@ -355,6 +356,19 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', 'show')->name('show');
             Route::post('key', 'createKey')->middleware('throttle:10,1')->name('key.store');
             Route::delete('key', 'destroyKey')->name('key.destroy');
+            Route::get('module', 'module')->name('module');
+        });
+        // Reprise des commandes de l'ancienne application : lecture par Jibiat, copie en continu, soldes
+        Route::prefix('company/legacy-orders')->name('company.legacy-orders.')->middleware('can:settings.manage')->controller(LegacyOrdersController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::put('/', 'update')->name('update');
+            Route::post('key', 'createKey')->middleware('throttle:10,1')->name('key.store');
+            Route::post('test', 'test')->middleware('throttle:20,1')->name('test');
+            Route::post('run/{mode}', 'run')->whereIn('mode', ['simulate', 'import'])->middleware('throttle:10,1')->name('run');
+            Route::put('enabled', 'toggle')->name('toggle');
+            Route::post('sync', 'syncNow')->middleware('throttle:10,1')->name('sync');
+            Route::get('balances', 'balances')->name('balances');
+            Route::post('balances/validate', 'validateBalances')->name('balances.validate');
             Route::get('module', 'module')->name('module');
         });
         // Bascule depuis l'ancienne application : date, clé, module

@@ -5,6 +5,8 @@
       <h1 class="text-xl font-bold font-mono">{{ order.tracking_code }}</h1>
       <StatusBadge :status="order.status" :label="order.status_label" />
       <span v-if="order.return_requested && !['returned', 'return_assigned', 'returning'].includes(order.status)" class="text-xs rounded-full bg-rose-100 text-rose-700 px-2 py-0.5">Retour demandé</span>
+      <span v-if="order.legacy_id" class="text-xs rounded-full bg-violet-100 text-violet-800 px-2 py-0.5 font-semibold">Ancienne application · n° {{ order.legacy_id }}</span>
+      <span v-if="order.legacy_conflict" class="text-xs rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 font-semibold" title="Modifiée dans l'ancienne application après la bascule : rien n'a été changé ici">⚠️ Modifiée dans l'ancienne application</span>
       <div class="ml-auto flex gap-2">
         <RouterLink :to="`/etiquette/${order.id}`" target="_blank" class="btn-secondary">🖨️ Étiquette</RouterLink>
       </div>

@@ -79,7 +79,7 @@ class Company extends Model
     ];
 
     /** Empreinte de la clé de reprise : jamais renvoyée */
-    protected $hidden = ['legacy_import_key_hash', 'legacy_switch_key_hash'];
+    protected $hidden = ['legacy_import_key_hash', 'legacy_switch_key_hash', 'legacy_sync_key'];
 
     protected function casts(): array
     {
@@ -126,6 +126,12 @@ class Company extends Model
             'legacy_import_key_expires_at' => 'datetime',
             'legacy_import_used_at' => 'datetime',
             'legacy_switch_at' => 'datetime',
+            'legacy_sync_key' => 'encrypted',
+            'legacy_sync_enabled' => 'boolean',
+            'legacy_sync_last_at' => 'datetime',
+            'legacy_sync_stats' => 'array',
+            'legacy_orders_imported_at' => 'datetime',
+            'legacy_balances_validated_at' => 'datetime',
         ];
     }
 

@@ -113,6 +113,9 @@ class OrderResource extends JsonResource
                 ...$this->courierSummary($this->holder),
                 'since' => $this->held_since,
             ] : null),
+            // Course reprise de l'ancienne application : son ancien numéro (personnel)
+            'legacy_id' => $this->when($user?->merchant_id === null && $this->legacy_id !== null, fn () => $this->legacy_id),
+            'legacy_conflict' => $this->when($user?->merchant_id === null && $this->legacy_conflict_at !== null, true),
             // Colis encore chez un autre livreur que celui qui livre : relais à faire avant le départ (personnel)
             'relay_needed' => $user?->merchant_id === null && ParcelRelays::needed($this->resource, $user?->company),
             // Sans livreur de ramassage ou de livraison : depuis quand, en retard ou non (dispatch)
