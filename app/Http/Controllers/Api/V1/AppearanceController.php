@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Support\Appearance;
+use App\Support\LogoColors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -25,7 +26,8 @@ class AppearanceController extends Controller
         $data = $request->validate([
             'same' => ['required', 'boolean'],
             'spaces' => ['required', 'array'],
-            'spaces.*.color' => ['required', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            // Couleur vide : retour à la couleur par défaut (« Annuler » après une couleur prise dans le logo)
+            'spaces.*.color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'spaces.*.app_name' => ['nullable', 'string', 'max:30'],
         ], [], ['spaces.*.color' => 'couleur', 'spaces.*.app_name' => 'nom de l\'application']);
 
@@ -35,7 +37,18 @@ class AppearanceController extends Controller
             if (! isset($data['spaces'][$space])) {
                 continue;
             }
-            $saved['spaces'][$space]['color'] = strtolower($data['spaces'][$space]['color']);
+            $color = $data['spaces'][$space]['color'] ?? null;
+            $previous = $saved['spaces'][$space] ?? [];
+            unset($saved['spaces'][$space]['color']);
+            if ($color !== null) {
+                $saved['spaces'][$space]['color'] = strtolower($color);
+            }
+            // Une couleur venue du logo et renvoyée telle quelle le reste ; retouchée, elle devient un choix de l'entreprise
+            $keep = $color !== null && ($previous['from_logo'] ?? false) && strtolower($color) === ($previous['color'] ?? null);
+            unset($saved['spaces'][$space]['from_logo']);
+            if ($keep) {
+                $saved['spaces'][$space]['from_logo'] = true;
+            }
             if (in_array($space, Appearance::APPS, true)) {
                 $saved['spaces'][$space]['app_name'] = trim((string) ($data['spaces'][$space]['app_name'] ?? '')) ?: null;
             }
@@ -43,6 +56,12 @@ class AppearanceController extends Controller
         $company->forceFill(['appearance' => $saved])->save();
 
         return response()->json(['data' => Appearance::for($company)]);
+    }
+
+    /** Couleurs repérées dans le logo et palettes proposées pour l'espace e-commerçant */
+    public function logoColors(Request $request): JsonResponse
+    {
+        return response()->json(['data' => LogoColors::for($this->company($request))]);
     }
 
     /** Icône carrée de l'application d'un espace (à la place du logo sur la couleur de l'espace) */

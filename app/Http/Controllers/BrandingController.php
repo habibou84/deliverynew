@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Support\Appearance;
 use App\Support\Branding;
+use App\Support\LogoColors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -62,7 +63,17 @@ class BrandingController extends Controller
             Storage::disk('local')->delete($previous);
         }
 
-        return response()->json(['data' => ['logo_url' => Branding::logoUrl($company)]]);
+        // Couleurs du logo : palettes proposées, la principale appliquée à l'espace e-commerçant si sa couleur
+        // n'a pas été choisie
+        $colors = LogoColors::for($company);
+        $applied = Appearance::applyLogoPalette($company, $colors['palettes'][0] ?? null);
+
+        return response()->json(['data' => [
+            'logo_url' => Branding::logoUrl($company),
+            ...$colors,
+            'applied' => $applied ? $colors['palettes'][0]['key'] : null,
+            'appearance' => Appearance::for($company),
+        ]]);
     }
 
     public function destroy(Request $request): JsonResponse
