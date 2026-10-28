@@ -40,7 +40,13 @@
       <h2 :class="['flex items-center gap-2 pt-1 text-[13px] font-extrabold uppercase tracking-wider', g.color]">
         <i :class="['block h-2 w-2 rounded-full', g.dot]" />{{ g.label }} · {{ g.orders.length }}
       </h2>
-      <OrderCard v-for="o in g.orders" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
+      <OrderCard v-for="o in g.orders" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`">
+        <template v-if="o.pending_change || (o.edit_scope && canCreate)" #actions>
+          <!-- Modification envoyée, en attente de l'agence -->
+          <p v-if="o.pending_change" class="flex-1 rounded-xl bg-[#FFF7EB] px-3 py-2 text-[12.5px] font-semibold text-[#7A4A00]">⏳ Modification envoyée, l'agence la valide</p>
+          <button v-else type="button" class="m-btn-secondary !w-auto !py-2 !px-3 text-[13px]" @click="editing = o"><AppIcon name="edit" class="h-4 w-4" />Modifier</button>
+        </template>
+      </OrderCard>
     </section>
 
     <EmptyState v-if="!loading && !orders.length" :art="search ? 'recherche' : 'colis'" :title="search ? 'Aucune course trouvée' : emptyTitle" :text="search ? 'Essayez un autre nom, numéro ou code.' : 'Choisissez une autre date avec le bouton en haut.'" />
@@ -52,6 +58,8 @@
       </div>
     </div>
     <button v-if="hasMore && !loading" class="m-btn-secondary" @click="load(page + 1)">Voir plus</button>
+
+    <EditOrderSheet :open="!!editing" :order="editing" @close="editing = null" @saved="replaceOrder" />
 
     <!-- Choix de la date -->
     <BottomSheet :open="dateSheet" title="Quelles dates ?" @close="dateSheet = false">
@@ -86,8 +94,10 @@ import AppIcon from '../../components/mobile/AppIcon.vue'
 import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import OrderCard from '../../components/mobile/OrderCard.vue'
+import EditOrderSheet from '../../components/merchant/EditOrderSheet.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
 import { orderChanges } from '../../composables/useRealtime'
+import { useAuthStore } from '../../stores/auth'
 import { date as formatDate, today } from '../../utils/format'
 import { groupOrders } from '../../utils/orderStage'
 import { ORDER_FILTERS, filterParams } from '../../utils/orderFilters'
@@ -125,6 +135,14 @@ const period = ref(periodFromQuery(route.query, DEFAULT_PERIOD))
 const search = ref('')
 const searchInput = ref(null)
 const orders = ref([])
+// ✏️ Modifier depuis la liste (sans passer par la fiche)
+const auth = useAuthStore()
+const canCreate = computed(() => auth.can('orders.create'))
+const editing = ref(null)
+function replaceOrder(updated) {
+  const i = orders.value.findIndex((o) => o.id === updated.id)
+  if (i !== -1) orders.value[i] = updated
+}
 const counts = reactive({})
 const page = ref(1)
 const hasMore = ref(false)

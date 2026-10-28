@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\AssignmentStatus;
 use App\Enums\AssignmentType;
 use App\Enums\EarningType;
+use App\Enums\OrderEventType;
 use App\Events\CourierLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CourierResource;
@@ -12,10 +13,14 @@ use App\Http\Resources\V1\OrderAssignmentResource;
 use App\Models\CourierEarning;
 use App\Models\CourierMessage;
 use App\Models\OrderAssignment;
+use App\Models\OrderEvent;
 use App\Services\Assignment\AutoAssigner;
 use App\Services\Couriers\CourierTracker;
 use App\Services\Finance\CourierPay;
+use App\Services\Orders\OrderChanges;
 use App\Services\Orders\OrderDispatcher;
+use App\Services\Orders\OrderJournal;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -67,6 +72,22 @@ class CourierSpaceController extends Controller
             $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('gain', $pay->expectedFor($courier, $a->type, $a->order)));
         }
 
+        // Dernière modification de la course depuis la mission, ce qui concerne le livreur (vue ou non)
+        if (! $request->boolean('history')) {
+            $edits = OrderEvent::query()->whereIn('order_id', $assignments->pluck('order_id'))->where('type', OrderEventType::Edited->value)
+                ->latest('id')->get()->groupBy('order_id');
+            $assignments->each(function (OrderAssignment $a) use ($edits) {
+                $event = $edits->get($a->order_id)?->first(fn (OrderEvent $e) => $e->created_at >= $a->assigned_at
+                    && OrderChanges::describe($e->meta['changes'] ?? [], OrderChanges::COURIER_FIELDS) !== []);
+                $a->setAttribute('last_edit', $event ? [
+                    'at' => $event->created_at->toIso8601String(),
+                    'by' => $event->actor_role === 'merchant_owner' || $event->actor_role === 'merchant_staff' ? 'l\'e-commerçant' : 'l\'agence',
+                    'changes' => OrderChanges::describe($event->meta['changes'] ?? [], OrderChanges::COURIER_FIELDS),
+                    'seen' => $a->edit_seen_at !== null && $a->edit_seen_at >= $event->created_at,
+                ] : null);
+            });
+        }
+
         // Mission acceptée pas encore commencée : le livreur peut la rendre (empêchement), sauf missions d'office sans refus
         $canReport = $courier->canReportImpediment();
         $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('can_report_impediment', $canReport && $a->status === AssignmentStatus::Accepted));
@@ -76,6 +97,20 @@ class CourierSpaceController extends Controller
             // Toutes consignes non lues (y compris sur des missions terminées)
             'unread_messages' => CourierMessage::where('courier_id', $courier->id)->whereNull('read_at')->where('created_at', '>=', now()->subDays(2))->count(),
         ]]);
+    }
+
+    /** « J'ai vu » : le livreur a lu la modification de sa mission (noté dans le journal pour l'équipe) */
+    public function editSeen(Request $request, OrderAssignment $assignment, OrderJournal $journal): JsonResponse
+    {
+        abort_unless($assignment->courier_id === $request->user()->courier?->id, 403);
+        $assignment->forceFill(['edit_seen_at' => now()])->save();
+        $journal->record($assignment->order, $request->user(), OrderEventType::Note, [
+            'note' => 'Le livreur a vu la modification de la course.',
+            'visible_to_merchant' => false,
+            'assignment_id' => $assignment->id,
+        ]);
+
+        return response()->json(['data' => ['seen' => true]]);
     }
 
     public function accept(Request $request, OrderAssignment $assignment, OrderDispatcher $dispatcher): OrderAssignmentResource

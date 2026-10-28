@@ -159,7 +159,7 @@
     <BottomSheet :open="sheet === 'more'" title="Autres actions" @close="sheet = null">
       <div class="space-y-2">
         <button v-if="!isFinal" class="m-btn-secondary !justify-start" @click="sheet = 'note'"><AppIcon name="chat" class="h-5 w-5" />Écrire au livreur ou à l'agence</button>
-        <button v-if="canEdit" class="m-btn-secondary !justify-start" @click="openEdit()"><AppIcon name="edit" class="h-5 w-5" />Modifier le numéro ou l'adresse</button>
+        <button v-if="canEdit" class="m-btn-secondary !justify-start" @click="openEdit()"><AppIcon name="edit" class="h-5 w-5" />Modifier la course</button>
         <button v-if="order.needs_decision || canChangeDecision" class="m-btn-secondary !justify-start" @click="openDecision()"><AppIcon name="refresh" class="h-5 w-5" />Décider de la suite</button>
         <button v-else-if="!isFinal && !beforePickup && !order.return_requested" class="m-btn-secondary !justify-start" @click="openDecision('return')"><AppIcon name="back" class="h-5 w-5" />Demander le retour du colis</button>
         <button class="m-btn-secondary !justify-start" @click="copy(trackingUrl)"><AppIcon name="link" class="h-5 w-5" />Copier le lien de suivi</button>
@@ -240,26 +240,13 @@
       </div>
     </BottomSheet>
 
-    <BottomSheet :open="sheet === 'edit'" title="Modifier la livraison" @close="sheet = null">
-      <div class="space-y-3">
-        <div><label class="m-label">Téléphone</label><input v-model="edit.recipient_phone" class="m-input" inputmode="tel"></div>
-        <div><label class="m-label">Autre numéro</label><input v-model="edit.recipient_phone2" class="m-input" inputmode="tel"></div>
-        <div>
-          <label class="m-label">Commune / quartier</label>
-          <select v-model="edit.delivery_zone_id" class="m-input">
-            <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-          </select>
-        </div>
-        <div><label class="m-label">Adresse</label><input v-model="edit.delivery_address" class="m-input"></div>
-        <div><label class="m-label">Repère</label><input v-model="edit.delivery_landmark" class="m-input"></div>
-        <button class="m-btn-primary" :disabled="busy" @click="doEdit">{{ relivrer ? 'Enregistrer puis choisir le jour' : 'Enregistrer' }}</button>
-      </div>
-    </BottomSheet>
+    <EditOrderSheet :open="sheet === 'edit'" :order="order" @close="sheet = null" @saved="edited" />
   </div>
   <p v-else class="text-center text-slate-400 py-10">{{ error || 'Chargement…' }}</p>
 </template>
 
 <script setup>
+import EditOrderSheet from '../../components/merchant/EditOrderSheet.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
@@ -290,8 +277,6 @@ const error = ref('')
 const sheet = ref(null)
 const busy = ref(false)
 const noteText = ref('')
-const zones = ref([])
-const edit = reactive({})
 const reschedule = reactive({ delivery_scheduled_date: null, note: '' })
 // Jours de relivraison : mêmes règles que la nouvelle course (« Aujourd'hui » grisé si la journée est fermée)
 const { day, when, options: deliveryOptions, closed, closedReason, minDate, isChosen: dateChosen, load: loadDeliveryDay, reset: resetDate } = useDeliveryDate(reschedule)
@@ -364,7 +349,7 @@ const net = computed(() => (collected.value ?? order.value.amounts.cod_amount) -
 const showNet = computed(() => order.value.status === 'delivered' || !isFinal.value)
 const trackingUrl = computed(() => `${siteOrigin()}/suivi/${order.value.tracking_code}`)
 const beforePickup = computed(() => BEFORE_PICKUP.includes(order.value?.status))
-const canEdit = computed(() => !isFinal.value && order.value?.status !== 'out_for_delivery')
+const canEdit = computed(() => !!order.value?.edit_scope)
 const canChangeDecision = computed(() => !!order.value.decision_editable)
 
 const whatsappShare = computed(() => {
@@ -491,26 +476,15 @@ const tagClass = (t) => ['tap rounded-full border-[1.5px] px-3 py-1.5 text-sm fo
   : 'border-slate-300 bg-white text-slate-700']
 const doRate = () => run(() => http.post(`/orders/${order.value.id}/rating`, { score: rating.score, tags: rating.tags, comment: rating.comment || null }), 'Merci pour votre note.')
 
-async function openEdit(thenRedeliver = false) {
+function openEdit(thenRedeliver = false) {
   relivrer.value = thenRedeliver === true
-  if (!zones.value.length) zones.value = (await http.get('/zones')).data.data
-  Object.assign(edit, {
-    recipient_phone: order.value.recipient.phone,
-    recipient_phone2: order.value.recipient.phone2 || '',
-    delivery_zone_id: order.value.delivery.zone_id,
-    delivery_address: order.value.delivery.address || '',
-    delivery_landmark: order.value.delivery.landmark || '',
-  })
   sheet.value = 'edit'
 }
 
-async function doEdit() {
-  const ok = await run(
-    () => http.patch(`/orders/${order.value.id}`, Object.fromEntries(Object.entries(edit).filter(([, v]) => v !== ''))),
-    'Livraison modifiée.',
-  )
+function edited(updated) {
+  order.value = updated
   // Adresse corrigée : reste à choisir le jour de la nouvelle livraison
-  if (ok && relivrer.value && (order.value.needs_decision || order.value.decision_editable)) openDecision('tomorrow')
+  if (relivrer.value && !updated.pending_change && (updated.needs_decision || updated.decision_editable)) openDecision('tomorrow')
   relivrer.value = false
 }
 

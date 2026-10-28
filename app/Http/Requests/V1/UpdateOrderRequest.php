@@ -48,6 +48,8 @@ class UpdateOrderRequest extends FormRequest
             'merchant_note' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'items_amount' => ['sometimes', 'integer', 'min:0', 'max:100000000'],
             'fee_payer' => ['sometimes', Rule::enum(FeePayer::class)],
+            // Équipe : prévenir le livreur de la mission (oui par défaut)
+            'notify_courier' => ['sometimes', 'boolean'],
         ];
     }
 

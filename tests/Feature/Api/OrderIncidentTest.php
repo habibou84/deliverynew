@@ -256,6 +256,8 @@ class OrderIncidentTest extends TestCase
     {
         $order = $this->createOrder(['fee_payer' => 'recipient']);
         $this->assertSame(11500, $order->cod_amount);
+        // Modifications de l'e-commerçant appliquées tout de suite (sinon à valider quand le prix change)
+        $this->company->update(['merchant_edit_approval' => 'never']);
 
         $this->as($this->merchantUser)
             ->patchJson("/api/v1/orders/{$order->id}", ['delivery_zone_id' => $this->cocody->id])

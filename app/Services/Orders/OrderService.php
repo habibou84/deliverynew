@@ -9,6 +9,7 @@ use App\Exceptions\BusinessRuleException;
 use App\Models\Hub;
 use App\Models\Merchant;
 use App\Models\Order;
+use App\Models\OrderChangeRequest;
 use App\Models\Product;
 use App\Models\Recipient;
 use App\Models\User;
@@ -17,6 +18,7 @@ use App\Services\Assignment\AutoAssigner;
 use App\Services\Platform\Billing;
 use App\Services\Pricing\PricingService;
 use App\Services\Stock\StockKeeper;
+use App\Support\Money;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -178,51 +180,27 @@ class OrderService
     /**
      * Modifie une course. Les champs modifiables dépendent de l'avancement :
      * ramassage avant récupération, livraison tant que le colis n'est pas en chemin.
+     * Modification d'un e-commerçant depuis l'application : à valider par l'équipe selon le réglage de l'entreprise
+     * (prix qui change, ou toujours) ; la course reste alors comme avant et une demande attend dans la file.
      *
      * @param  array<string, mixed>  $data  données validées (UpdateOrderRequest)
+     * @param  array{notify_courier?: bool, approval?: bool}  $options  approval : appliquer la règle de validation
      */
-    public function update(User $actor, Order $order, array $data): Order
+    public function update(User $actor, Order $order, array $data, array $options = []): Order
     {
-        return DB::transaction(function () use ($actor, $order, $data) {
+        return DB::transaction(function () use ($actor, $order, $data, $options) {
             $order = Order::query()->lockForUpdate()->findOrFail($order->id);
-            $status = $order->status;
-
-            if ($status->isFinal() || $status === OrderStatus::OutForDelivery) {
-                throw new BusinessRuleException("Une course « {$status->label()} » ne peut plus être modifiée.", 'status');
-            }
-
-            if ($order->fromWarehouse() && array_intersect(array_keys($data), self::PICKUP_FIELDS)) {
-                throw new BusinessRuleException('Cette commande part de l\'entrepôt : l\'adresse de ramassage ne se modifie pas.', 'pickup_zone_id');
-            }
-
-            if (! $status->isBeforePickup() && array_intersect(array_keys($data), [...self::PICKUP_FIELDS, ...self::MONEY_FIELDS, 'is_fragile', 'weight_kg', 'package_size'])) {
-                throw new BusinessRuleException('Le colis a déjà été récupéré : seules les informations de livraison sont modifiables.', 'status');
-            }
-
-            $order->fill(Arr::only($data, [...self::PICKUP_FIELDS, ...self::DELIVERY_FIELDS, ...self::PACKAGE_FIELDS]));
-
-            if (array_key_exists('fee_payer', $data)) {
-                $order->fee_payer = FeePayer::from($data['fee_payer']);
-            }
-
-            if (array_key_exists('items_amount', $data)) {
-                $order->items_amount = (int) $data['items_amount'];
-            }
-
-            if ($order->isDirty(['pickup_zone_id', 'delivery_zone_id', 'is_express', 'is_fragile', 'weight_kg'])) {
-                $order->fill($this->price($order->merchant, $order->only([
-                    'pickup_zone_id', 'delivery_zone_id', 'is_express', 'is_fragile', 'weight_kg',
-                ])));
-            }
-
-            $order->cod_amount = Order::computeCodAmount($order->items_amount, $order->totalFees(), $order->fee_payer);
-
-            $changes = collect($order->getDirty())->except(['updated_at', 'pricing_details'])
-                ->map(fn ($new, $field) => ['from' => $order->getRawOriginal($field), 'to' => $order->getAttributes()[$field]])
-                ->all();
+            [$fees, $cod] = [$order->totalFees(), (int) $order->cod_amount];
+            $changes = $this->prepare($order, $data);
 
             if ($changes === []) {
                 return $order;
+            }
+
+            if (($options['approval'] ?? false) && $this->needsApproval($actor, $order, $changes, $fees)) {
+                $this->requestChange($actor, $order->fresh(), $data, $changes, $fees, $cod, $order);
+
+                return $order->fresh();
             }
 
             if ($order->isDirty(['recipient_phone', 'delivery_zone_id', 'delivery_address', 'recipient_name'])) {
@@ -235,10 +213,169 @@ class OrderService
             $order->save();
 
             $this->journal->record($order, $actor, OrderEventType::Edited, [
-                'meta' => ['changes' => $changes],
+                'meta' => ['changes' => $changes, 'notify_courier' => $options['notify_courier'] ?? true],
             ]);
 
             return $order;
+        });
+    }
+
+    /**
+     * Aperçu avant d'enregistrer : changements lisibles, nouveau tarif et montant à encaisser, validation par
+     * l'équipe nécessaire ou non. Rien n'est enregistré.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function preview(User $actor, Order $order, array $data): array
+    {
+        $copy = Order::query()->findOrFail($order->id);
+        [$fees, $cod] = [$copy->totalFees(), (int) $copy->cod_amount];
+        $changes = $this->prepare($copy, $data);
+
+        return [
+            'changes' => OrderChanges::describe($changes),
+            'fees' => ['from' => $fees, 'to' => $copy->totalFees()],
+            'cod' => ['from' => $cod, 'to' => (int) $copy->cod_amount],
+            'needs_approval' => $changes !== [] && $this->needsApproval($actor, $copy, $changes, $fees),
+        ];
+    }
+
+    /** Ce qui reste modifiable : tout (avant le ramassage), la livraison seulement, ou rien */
+    public static function editScope(Order $order): ?string
+    {
+        $status = $order->status;
+
+        return match (true) {
+            $status->isFinal() || $status === OrderStatus::OutForDelivery => null,
+            $status->isBeforePickup() => 'all',
+            default => 'delivery',
+        };
+    }
+
+    /**
+     * Applique les champs sur la course (sans enregistrer) après les contrôles d'avancement, recalcule le prix et le
+     * montant à encaisser.
+     *
+     * @return array<string, array{from: mixed, to: mixed}> changements
+     */
+    private function prepare(Order $order, array $data): array
+    {
+        $status = $order->status;
+
+        if ($status->isFinal() || $status === OrderStatus::OutForDelivery) {
+            throw new BusinessRuleException("Une course « {$status->label()} » ne peut plus être modifiée.", 'status');
+        }
+
+        if ($order->fromWarehouse() && array_intersect(array_keys($data), self::PICKUP_FIELDS)) {
+            throw new BusinessRuleException('Cette commande part de l\'entrepôt : l\'adresse de ramassage ne se modifie pas.', 'pickup_zone_id');
+        }
+
+        if (! $status->isBeforePickup() && array_intersect(array_keys($data), [...self::PICKUP_FIELDS, ...self::MONEY_FIELDS, 'is_fragile', 'weight_kg', 'package_size'])) {
+            throw new BusinessRuleException('Le colis a déjà été récupéré : seules les informations de livraison sont modifiables.', 'status');
+        }
+
+        $order->fill(Arr::only($data, [...self::PICKUP_FIELDS, ...self::DELIVERY_FIELDS, ...self::PACKAGE_FIELDS]));
+
+        if (array_key_exists('fee_payer', $data)) {
+            $order->fee_payer = FeePayer::from($data['fee_payer']);
+        }
+
+        if (array_key_exists('items_amount', $data)) {
+            $order->items_amount = (int) $data['items_amount'];
+        }
+
+        if ($order->isDirty(['pickup_zone_id', 'delivery_zone_id', 'is_express', 'is_fragile', 'weight_kg'])) {
+            $order->fill($this->price($order->merchant, $order->only([
+                'pickup_zone_id', 'delivery_zone_id', 'is_express', 'is_fragile', 'weight_kg',
+            ])));
+        }
+
+        $order->cod_amount = Order::computeCodAmount($order->items_amount, $order->totalFees(), $order->fee_payer);
+
+        return collect($order->getDirty())->except(['updated_at', 'pricing_details'])
+            ->map(fn ($new, $field) => ['from' => $order->getRawOriginal($field), 'to' => $order->getAttributes()[$field]])
+            ->all();
+    }
+
+    /**
+     * Validation par l'équipe : seulement pour un e-commerçant, selon le réglage (prix ou montant qui change, ou
+     * toujours).
+     */
+    private function needsApproval(User $actor, Order $order, array $changes, int $feesBefore): bool
+    {
+        if ($actor->merchant_id === null) {
+            return false;
+        }
+
+        return match ($order->company?->merchant_edit_approval ?? 'price') {
+            'always' => true,
+            'never' => false,
+            default => $order->totalFees() !== $feesBefore || array_intersect(array_keys($changes), ['items_amount', 'fee_payer', 'cod_amount']) !== [],
+        };
+    }
+
+    private function requestChange(User $actor, Order $order, array $data, array $changes, int $fees, int $cod, Order $changed): OrderChangeRequest
+    {
+        // Une seule demande en attente par course : la plus récente remplace la précédente
+        OrderChangeRequest::query()->where('order_id', $order->id)->where('status', OrderChangeRequest::PENDING)
+            ->update(['status' => OrderChangeRequest::REPLACED, 'decided_at' => now()]);
+
+        $request = OrderChangeRequest::create([
+            'company_id' => $order->company_id,
+            'order_id' => $order->id,
+            'requested_by' => $actor->id,
+            'status' => OrderChangeRequest::PENDING,
+            'data' => $data,
+            'changes' => OrderChanges::describe($changes),
+            'fees_before' => $fees,
+            'fees_after' => $changed->totalFees(),
+            'cod_before' => $cod,
+            'cod_after' => (int) $changed->cod_amount,
+        ]);
+
+        $price = $fees !== $changed->totalFees() ? ' · livraison '.Money::format($fees).' → '.Money::format($changed->totalFees()) : '';
+        $this->journal->record($order, $actor, OrderEventType::Note, [
+            'note' => 'Modification demandée, à valider : '.OrderChanges::labels($changes).$price,
+            'meta' => ['change_request_id' => $request->id],
+        ]);
+
+        return $request;
+    }
+
+    /** Modification acceptée par l'équipe : appliquée telle que demandée (contrôles d'avancement refaits) */
+    public function approveChange(User $actor, OrderChangeRequest $request): Order
+    {
+        return DB::transaction(function () use ($actor, $request) {
+            $request = OrderChangeRequest::query()->lockForUpdate()->findOrFail($request->id);
+            if ($request->status !== OrderChangeRequest::PENDING) {
+                throw new BusinessRuleException('Cette modification a déjà été traitée.', 'status');
+            }
+            $order = $this->update($actor, $request->order, $request->data);
+            $request->forceFill(['status' => OrderChangeRequest::APPROVED, 'decided_by' => $actor->id, 'decided_at' => now()])->save();
+            $this->journal->record($order, $actor, OrderEventType::Note, [
+                'note' => 'Modification acceptée par l\'agence.',
+                'meta' => ['change_request_id' => $request->id],
+            ]);
+
+            return $order->fresh();
+        });
+    }
+
+    public function refuseChange(User $actor, OrderChangeRequest $request, ?string $reason): Order
+    {
+        return DB::transaction(function () use ($actor, $request, $reason) {
+            $request = OrderChangeRequest::query()->lockForUpdate()->findOrFail($request->id);
+            if ($request->status !== OrderChangeRequest::PENDING) {
+                throw new BusinessRuleException('Cette modification a déjà été traitée.', 'status');
+            }
+            $request->forceFill(['status' => OrderChangeRequest::REFUSED, 'decided_by' => $actor->id, 'decided_at' => now(), 'note' => $reason])->save();
+            $this->journal->record($request->order, $actor, OrderEventType::Note, [
+                'note' => 'Modification refusée par l\'agence'.($reason ? ' : '.$reason : '.').' La course reste comme avant.',
+                'meta' => ['change_request_id' => $request->id],
+            ]);
+
+            return $request->order->fresh();
         });
     }
 

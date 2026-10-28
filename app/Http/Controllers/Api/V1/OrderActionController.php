@@ -260,6 +260,23 @@ class OrderActionController extends Controller
         return $this->detail($request, $order);
     }
 
+    /** Modification demandée par l'e-commerçant : acceptée (appliquée) ou refusée avec un motif */
+    public function decideChange(Request $request, Order $order): OrderResource
+    {
+        Gate::authorize('dispatch', Order::class);
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['approve', 'refuse'])],
+            'reason' => ['nullable', 'string', 'max:300'],
+        ], [], ['reason' => 'motif']);
+        $change = $order->pendingChange ?? throw new BusinessRuleException('Aucune modification en attente sur cette course.', 'decision');
+
+        $data['decision'] === 'approve'
+            ? $this->orders->approveChange($request->user(), $change)
+            : $this->orders->refuseChange($request->user(), $change, $data['reason'] ?? null);
+
+        return $this->detail($request, $order);
+    }
+
     /**
      * Photo de preuve (ramassage, livraison, incident) prise par le livreur ou le personnel.
      */
