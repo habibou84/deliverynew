@@ -47,12 +47,58 @@
             {{ p.features.includes(f.key) ? '✓' : '✗' }} {{ f.label }}
           </li>
         </ul>
+        <ul class="text-sm space-y-1 border-t pt-2">
+          <li v-for="ap in appPlatforms" :key="ap.key" :class="p.apps[ap.key] === 'none' ? 'text-gray-400' : 'text-gray-800'">
+            📱 Applications {{ ap.label }} à son nom : {{ appText(p, ap.key) }}
+            <span v-if="ap.soon" class="ml-1 rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800">bientôt</span>
+          </li>
+        </ul>
         <div class="flex items-center justify-between border-t pt-2">
           <span class="text-sm text-gray-500">{{ p.companies_count }} entreprise{{ p.companies_count > 1 ? 's' : '' }}</span>
           <button v-if="can('owner')" class="btn-secondary" @click="edit(p)">Modifier</button>
         </div>
       </div>
     </div>
+
+    <!-- Options « Applications à son nom » demandées par les entreprises -->
+    <section class="card p-4 space-y-3">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="font-semibold">Demandes d'option : applications à leur nom</h2>
+        <span v-if="pendingCount" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{{ pendingCount }} à traiter</span>
+      </div>
+      <p v-if="!options.length" class="text-sm text-gray-500">Aucune demande pour l'instant. Les entreprises demandent l'option depuis Réglages › Abonnement.</p>
+      <div v-else class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="text-left text-gray-500"><tr><th class="py-1 pr-3">Entreprise</th><th class="pr-3">Formule</th><th class="pr-3">Option</th><th class="pr-3">Prix</th><th class="pr-3">Date</th><th /></tr></thead>
+          <tbody>
+            <tr v-for="o in options" :key="o.id" class="border-t">
+              <td class="py-2 pr-3 font-medium">{{ o.company.name }}</td>
+              <td class="pr-3">{{ o.plan || '—' }}</td>
+              <td class="pr-3">{{ o.label }}</td>
+              <td class="pr-3">{{ o.price ? `${money(o.price)} / mois` : '—' }}</td>
+              <td class="pr-3 text-gray-500">{{ shortDate(o.started_at || o.requested_at) }}</td>
+              <td class="py-2 text-right whitespace-nowrap">
+                <template v-if="o.status === 'pending'">
+                  <template v-if="can('owner')">
+                    <button class="btn-primary text-xs" @click="decide(o, 'accept')">Accepter</button>
+                    <button class="btn-secondary text-xs ml-1" @click="decide(o, 'refuse')">Refuser</button>
+                  </template>
+                  <span v-else class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">En attente</span>
+                </template>
+                <template v-else-if="o.status === 'active'">
+                  <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">Active</span>
+                  <button v-if="can('owner')" class="btn-secondary text-xs ml-1 text-red-700" @click="decide(o, 'stop')">Arrêter</button>
+                </template>
+                <span v-else :class="['rounded-full px-2 py-0.5 text-xs font-semibold', o.status === 'stopped' ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-700']">
+                  {{ o.status === 'stopped' ? 'Arrêtée' : (o.note || 'Refusée') }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-500">Acceptée : l'option est facturée au prorata à partir d'aujourd'hui et la fabrication est permise (Console › Applications). Arrêtée : l'application installée continue de marcher, sans nouvelle version.</p>
+    </section>
 
     <Modal :open="form.open" :title="form.id ? `Formule ${form.name}` : 'Nouvelle formule'" @close="form.open = false">
       <form class="space-y-3" @submit.prevent="save">
@@ -119,6 +165,21 @@
           </label>
           <p class="text-xs text-gray-500">Courses, livreurs, caisse, suivi, notifications et import Excel sont inclus dans toutes les formules.</p>
         </fieldset>
+        <fieldset class="border rounded p-3 space-y-3">
+          <legend class="text-sm font-medium px-1">📱 Applications à son nom (e-commerçant et livreur)</legend>
+          <div v-for="ap in appPlatforms" :key="ap.key" class="space-y-1">
+            <p class="text-sm font-medium">{{ ap.label }} <span v-if="ap.soon" class="ml-1 rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800">bientôt</span></p>
+            <div class="grid grid-cols-3 overflow-hidden rounded-lg border text-sm">
+              <button v-for="m in APP_MODES" :key="m.value" type="button" :class="['py-1.5', form.apps[ap.key] === m.value ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600']" @click="form.apps[ap.key] = m.value">{{ m.label }}</button>
+            </div>
+            <div v-if="form.apps[ap.key] === 'option'" class="flex items-center gap-2 text-sm">
+              <label :for="`p-app-${ap.key}`">Prix de l'option</label>
+              <input :id="`p-app-${ap.key}`" v-model.number="form.apps[`${ap.key}_price`]" type="number" min="0" class="input w-32" required>
+              <span>F / mois</span>
+            </div>
+          </div>
+          <p class="text-xs text-gray-500">Option : l'entreprise la demande dans Réglages › Abonnement, vous l'acceptez dans « Demandes d'option » en bas de cette page, puis elle est facturée au prorata. Le prix retenu est celui du jour de l'acceptation.</p>
+        </fieldset>
         <label v-if="form.id" class="flex items-start gap-2 text-sm">
           <input v-model="form.is_active" type="checkbox" class="mt-1">
           <span>Proposée aux nouvelles entreprises<span class="block text-gray-500">Décochée : la formule est retirée, les entreprises qui l'ont la gardent.</span></span>
@@ -139,6 +200,11 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money, rate } from '../../utils/format'
 
+const APP_MODES = [
+  { value: 'included', label: 'Incluse' },
+  { value: 'option', label: 'Option' },
+  { value: 'none', label: 'Non' },
+]
 const PRICINGS = [
   { value: 'flat', label: 'Forfait', help: 'Prix fixe, courses incluses, puis prix par course en plus' },
   { value: 'percent', label: 'À la livraison', help: 'Pourcentage des frais de chaque course prise en charge' },
@@ -149,6 +215,9 @@ const auth = useAuthStore()
 const can = (group) => consoleCan(auth.role, group)
 const plans = ref([])
 const features = ref([])
+const appPlatforms = ref([])
+const options = ref([])
+const pendingCount = ref(0)
 const trialDays = ref(0)
 const loaded = ref(false)
 const creating = ref(false)
@@ -157,13 +226,47 @@ const form = reactive({ open: false })
 function apply(data) {
   plans.value = data.data
   features.value = data.meta.features
+  appPlatforms.value = data.meta.app_platforms ?? []
   trialDays.value = data.meta.trial_days
   loaded.value = true
 }
 
 async function load() {
   apply((await http.get('/console/plans')).data)
+  await loadOptions()
 }
+
+async function loadOptions() {
+  const { data } = await http.get('/console/app-options')
+  options.value = data.data
+  pendingCount.value = data.meta.pending
+}
+
+const DECISIONS = {
+  accept: ['Accepter l\'option ? Elle sera facturée à partir d\'aujourd\'hui.', 'Option acceptée.'],
+  refuse: ['Refuser cette demande ?', 'Demande refusée.'],
+  stop: ['Arrêter l\'option ? L\'application installée continue de marcher, mais sans nouvelle version.', 'Option arrêtée.'],
+}
+
+async function decide(option, action) {
+  if (!window.confirm(DECISIONS[action][0])) return
+  try {
+    await http.post(`/console/app-options/${option.id}/${action}`)
+    toasts.success(DECISIONS[action][1])
+    await loadOptions()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+function appText(p, platform) {
+  const mode = p.apps?.[platform] ?? 'none'
+  if (mode === 'included') return 'incluses'
+  if (mode === 'option') return `en option, ${money(p.apps[`${platform}_price`] ?? 0)} / mois`
+  return 'non disponibles'
+}
+
+const shortDate = (iso) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—')
 
 async function createSuggested() {
   creating.value = true
@@ -198,6 +301,7 @@ function edit(plan) {
     cap_amount: plan ? (plan.cap_amount ?? '') : 60000,
     min_invoice: plan ? (plan.min_invoice ?? '') : 1000,
     features: [...(plan?.features ?? [])],
+    apps: { android: 'none', android_price: '', ios: 'none', ios_price: '', ...(plan?.apps ?? {}) },
     is_active: plan?.is_active ?? true,
   })
 }
@@ -242,6 +346,12 @@ async function save() {
     cap_amount: percent ? orNull(form.cap_amount) : null,
     min_invoice: orNull(form.min_invoice),
     features: form.features,
+    apps: {
+      android: form.apps.android,
+      android_price: form.apps.android === 'option' ? orNull(form.apps.android_price) : null,
+      ios: form.apps.ios,
+      ios_price: form.apps.ios === 'option' ? orNull(form.apps.ios_price) : null,
+    },
     ...(form.id ? { is_active: form.is_active } : {}),
   }
   try {

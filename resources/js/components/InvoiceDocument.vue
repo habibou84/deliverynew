@@ -66,6 +66,15 @@
             <td class="py-2 text-right">—</td>
             <td class="py-2 text-right">{{ money(invoice.extra_couriers_amount) }}</td>
           </tr>
+          <tr v-for="(line, i) in (invoice.app_options || [])" :key="`app-${i}`">
+            <td class="py-2">
+              {{ line.label }}
+              <span class="block text-xs text-gray-500">{{ money(line.price) }} par mois, au prorata des jours de l'option ({{ line.days }} jour(s))</span>
+            </td>
+            <td class="py-2 text-right">{{ line.days }} j</td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right">{{ money(line.amount) }}</td>
+          </tr>
           <tr v-if="invoice.premium_cards_amount">
             <td class="py-2">
               Cartes Membre Premium Jibiat Marchand

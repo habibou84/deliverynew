@@ -24,6 +24,7 @@ class PlatformInvoice extends Model
         'total', 'amount_paid', 'status', 'issued_at', 'due_at', 'paid_at', 'last_reminder', 'notes', 'cycle',
         'pricing', 'deliveries_amount', 'cap_applied', 'carried_amount', 'carried_into_id',
         'extra_courier_days', 'extra_courier_price', 'extra_couriers_amount', 'premium_cards_count', 'premium_cards_amount',
+        'app_options_amount', 'app_options',
     ];
 
     // Petite facture reportée sur la suivante (rien à payer à part)
@@ -55,6 +56,8 @@ class PlatformInvoice extends Model
             'extra_couriers_amount' => 'integer',
             'premium_cards_count' => 'integer',
             'premium_cards_amount' => 'integer',
+            'app_options_amount' => 'integer',
+            'app_options' => 'array',
             'cap_applied' => 'boolean',
             'amount_paid' => 'integer',
         ];

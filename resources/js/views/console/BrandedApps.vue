@@ -73,11 +73,13 @@
             <div>
               <h2 class="text-lg font-semibold">{{ detail.company.name }}</h2>
               <p class="text-xs text-gray-500">Icônes et couleurs prises dans l'apparence de l'entreprise (Paramètres › Apparence des espaces)</p>
-              <p v-if="!detail.top_plan" class="mt-1 text-xs text-amber-700">Cette entreprise n'est pas sur la formule la plus haute.</p>
+              <p v-if="detail.access" :class="['mt-1 text-xs', detail.access.allowed ? 'text-emerald-700' : 'text-amber-700']">
+                📱 {{ detail.access.label }}<template v-if="!detail.access.allowed"> · <RouterLink to="/console/formules" class="underline">Formules</RouterLink></template>
+              </p>
             </div>
             <div class="flex flex-wrap gap-2">
               <RouterLink :to="`/console/entreprises/${detail.company.id}`" class="btn-secondary">Fiche de l'entreprise</RouterLink>
-              <button v-if="owner" class="btn-primary" :disabled="busy || !detail.enabled || building" @click="build">
+              <button v-if="owner" class="btn-primary" :disabled="busy || !detail.enabled || building || !detail.access?.allowed" @click="build">
                 {{ building ? 'Fabrication en cours…' : 'Fabriquer une nouvelle version' }}
               </button>
             </div>

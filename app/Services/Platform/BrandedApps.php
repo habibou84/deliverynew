@@ -5,7 +5,6 @@ namespace App\Services\Platform;
 use App\Models\BrandedApp;
 use App\Models\BrandedAppBuild;
 use App\Models\Company;
-use App\Models\Plan;
 use App\Models\User;
 use App\Support\Appearance;
 use App\Support\Branding;
@@ -287,12 +286,28 @@ class BrandedApps
         ];
     }
 
-    /** La formule de l'entreprise est la plus haute (l'option lui est réservée, sans blocage) */
-    public function topPlan(Company $company): bool
+    /**
+     * Droit aux applications à son nom d'après la formule : incluses, option active, option à demander ou non
+     * disponibles. Sans ce droit, l'application déjà publiée continue de marcher, mais pas de nouvelle version.
+     *
+     * @return array{allowed: bool, status: string, label: string}
+     */
+    public function access(Company $company): array
     {
-        $top = Plan::query()->where('is_active', true)->max('position');
+        $android = collect(app(AppOptions::class)->state($company))->firstWhere('platform', 'android');
+        $plan = $company->loadMissing('plan')->plan?->name ?? 'sans formule';
 
-        return $company->plan_id !== null && $top !== null && (int) $company->loadMissing('plan')->plan?->position >= (int) $top;
+        return [
+            'allowed' => in_array($android['status'], ['included', 'active'], true),
+            'status' => $android['status'],
+            'label' => match ($android['status']) {
+                'included' => "Incluses dans la formule {$plan}",
+                'active' => "Option active (formule {$plan}, ".number_format((int) $android['price'], 0, ',', ' ').' F / mois)',
+                'pending' => "Option demandée, à accepter (formule {$plan})",
+                'available' => "Option pas prise (formule {$plan}) : nouvelles versions bloquées",
+                default => "Non disponibles dans la formule {$plan} : nouvelles versions bloquées",
+            },
+        ];
     }
 
     /**
@@ -356,7 +371,7 @@ class BrandedApps
             'enabled' => $app->enabled,
             'state' => $state,
             'state_label' => $label,
-            'top_plan' => $this->topPlan($company),
+            'access' => $this->access($company),
             'last_version' => $app->builds()->latest('id')->value('version_name'),
         ];
         if (! $full) {
