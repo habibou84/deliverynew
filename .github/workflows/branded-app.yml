@@ -1,0 +1,116 @@
+name: Applications à leur nom
+
+# Applications Android E-commerçant et Livreur au nom d'une entreprise, lancées depuis la console
+# (Applications à leur nom › Fabriquer). Le workflow lit la fiche de la version sur la plateforme avec le jeton
+# de la version (valable 3 heures, une seule version), fabrique et signe les deux applications (AAB pour le
+# Play Store, APK pour essayer), puis renvoie les fichiers à la plateforme.
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: Numéro de la version (console)
+        required: true
+      token:
+        description: Jeton de la version (donné par la console)
+        required: true
+      platform_url:
+        description: Adresse de la plateforme
+        required: true
+
+concurrency:
+  group: branded-app-${{ inputs.build_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [ecommercant, livreur]
+    env:
+      APP: ${{ matrix.app }}
+      BUILD_ID: ${{ inputs.build_id }}
+      BUILD_TOKEN: ${{ inputs.token }}
+      PLATFORM_URL: ${{ inputs.platform_url }}
+    steps:
+      - name: Secrets masqués
+        run: echo "::add-mask::$BUILD_TOKEN"
+
+      - uses: actions/checkout@v4
+
+      - name: Fiche de la version
+        run: |
+          set -euo pipefail
+          case "$BUILD_ID" in ''|*[!0-9]*) echo "Numéro de version invalide" >&2; exit 1 ;; esac
+          API="${PLATFORM_URL%/}/api/public/apps/builds/$BUILD_ID"
+          echo "API=$API" >> "$GITHUB_ENV"
+          curl -fsS -H "X-Build-Token: $BUILD_TOKEN" -H 'Accept: application/json' "$API/manifest" -o "$RUNNER_TEMP/manifest.json"
+          echo "::add-mask::$(jq -r '.data.signing.password' "$RUNNER_TEMP/manifest.json")"
+          echo "VERSION_NAME=$(jq -r '.data.build.version_name' "$RUNNER_TEMP/manifest.json")" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$(jq -r '.data.build.version_code' "$RUNNER_TEMP/manifest.json")" >> "$GITHUB_ENV"
+          curl -fsS -H "X-Build-Token: $BUILD_TOKEN" -H 'Accept: application/json' "$API/status" \
+            --data-urlencode status=building --data-urlencode "run_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Pillow (icônes)
+        run: python3 -m pip install --quiet pillow
+
+      - run: npm ci
+
+      - name: Nom, identifiant, couleur et icône de l'entreprise
+        run: |
+          set -euo pipefail
+          node mobile/brand.mjs --app "$APP" --manifest "$RUNNER_TEMP/manifest.json" > "$RUNNER_TEMP/brand.json"
+          ICON="$(jq -r '.icon // empty' "$RUNNER_TEMP/brand.json")"
+          if [ -n "$ICON" ]; then python3 mobile/assets.py --app "$APP" --source "$ICON"; fi
+          echo "APP_ID=$(jq -r '.app_id' "$RUNNER_TEMP/brand.json")" >> "$GITHUB_ENV"
+          echo "VITE_BRANDED_COMPANY=$(jq -c '.company' "$RUNNER_TEMP/brand.json")" >> "$GITHUB_ENV"
+
+      - name: Écrans de l'application
+        run: VITE_PLATFORM_URL="$PLATFORM_URL" npm run "mobile:$APP"
+
+      - name: Versions signées (AAB et APK)
+        working-directory: mobile/${{ matrix.app }}/android
+        run: |
+          set -euo pipefail
+          jq -r '.data.signing.keystore' "$RUNNER_TEMP/manifest.json" | base64 -d > "$RUNNER_TEMP/upload.p12"
+          export ANDROID_KEYSTORE="$RUNNER_TEMP/upload.p12"
+          export ANDROID_KEYSTORE_PASSWORD="$(jq -r '.data.signing.password' "$RUNNER_TEMP/manifest.json")"
+          export ANDROID_KEY_ALIAS="$(jq -r '.data.signing.alias' "$RUNNER_TEMP/manifest.json")"
+          ./gradlew bundleRelease assembleRelease --no-daemon \
+            -PappId="$APP_ID" -PversionCode="$VERSION_CODE" -PversionName="$VERSION_NAME"
+
+      - name: Envoi à la plateforme
+        working-directory: mobile/${{ matrix.app }}/android/app/build/outputs
+        run: |
+          set -euo pipefail
+          curl -fsS -H "X-Build-Token: $BUILD_TOKEN" -H 'Accept: application/json' "$API/files" \
+            -F app="$APP" -F kind=apk -F "file=@apk/release/app-release.apk" > /dev/null
+          curl -fsS -H "X-Build-Token: $BUILD_TOKEN" -H 'Accept: application/json' "$API/files" \
+            -F app="$APP" -F kind=aab -F "file=@bundle/release/app-release.aab" > /dev/null
+
+      - name: Échec signalé à la console
+        if: failure()
+        run: |
+          curl -sS -H "X-Build-Token: $BUILD_TOKEN" -H 'Accept: application/json' "${PLATFORM_URL%/}/api/public/apps/builds/$BUILD_ID/status" \
+            --data-urlencode status=failed \
+            --data-urlencode "error=Application $APP : la fabrication a échoué. Détail sur GitHub." \
+            --data-urlencode "run_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null || true
+
+      - name: Nettoyage de la clé
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.p12" "$RUNNER_TEMP/manifest.json" "$RUNNER_TEMP/brand.json"

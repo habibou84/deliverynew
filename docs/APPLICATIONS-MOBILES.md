@@ -73,8 +73,55 @@ Les portées ne doivent jamais se recouvrir : une application dont la portée es
 Une application installée avant ce réglage (portée `/`) se met à jour d'elle-même sous quelques jours ;
 pour aller plus vite, la désinstaller puis la réinstaller.
 
+## Applications à leur nom (Android)
+
+Une entreprise peut avoir ses deux applications (e-commerçant et livreur) à son nom, son icône et sa couleur,
+publiées sur son propre compte Google Play. Tout se fait dans la console : **Applications à leur nom**.
+
+1. **Compte Google Play de l'entreprise.** L'entreprise ouvre son compte développeur Google Play (25 $ une fois)
+   et invite Jibiat comme administrateur (Utilisateurs et autorisations). Aucun mot de passe n'est échangé.
+   Dans la console, cocher « Compte Google Play relié ».
+2. **Ajouter l'entreprise.** La console propose les identifiants (`ci.<entreprise>.ecommercant`,
+   `ci.<entreprise>.livreur`) et les noms, et crée la clé de signature (PKCS12, alias `upload`, valable 25 ans).
+   La clé est gardée chiffrée par Jibiat, elle ne sort jamais de la plateforme sauf vers le workflow de
+   fabrication. Les identifiants ne changent plus après la première version fabriquée.
+3. **Fabriquer.** Le bouton lance le workflow `.github/workflows/branded-app.yml` (GitHub Actions). Il lit la fiche
+   de la version (`/api/public/apps/builds/{id}/manifest`) avec un jeton propre à la version (3 heures, effacé
+   une fois la version prête ou en échec), applique le nom, l'identifiant, la couleur et l'icône
+   (`mobile/brand.mjs`, `mobile/assets.py`), intègre l'entreprise (`VITE_BRANDED_COMPANY` : l'écran
+   « code de l'entreprise » disparaît), signe et renvoie les fichiers à la console.
+4. **Fichiers.** AAB à envoyer au Play Store, APK pour essayer sur un téléphone. Après l'envoi au Play Store,
+   « Marquer publiée ».
+
+**Jeton GitHub** : à créer sur GitHub (« fine-grained », limité au dépôt, droit **Actions : lecture et écriture**
+seulement, avec une date d'expiration), puis à coller dans **console › Applications à leur nom › Jeton GitHub**
+(Propriétaire). Il y est gardé chiffré avec la clé du serveur (`APP_KEY`), ne s'affiche plus jamais (seulement
+ses 4 derniers caractères) et n'est pas écrit au journal. « Vérifier » interroge GitHub et note sa date
+d'expiration ; la santé de la plateforme prévient 30 jours avant. On peut aussi le mettre dans le `.env`
+(`GITHUB_APPS_TOKEN`), qui est alors prioritaire et ne se modifie pas depuis la console.
+
+Réglages du serveur (`.env`, facultatifs) :
+
+| Variable | Rôle |
+|---|---|
+| `GITHUB_APPS_TOKEN` | Jeton GitHub (sinon celui saisi dans la console) |
+| `GITHUB_APPS_REPO` | Dépôt du workflow (par défaut `habibou84/deliverynew`) |
+| `GITHUB_APPS_REF` | Branche fabriquée (par défaut `production`) |
+| `GITHUB_APPS_VERSION` | Début du numéro de version affiché (par défaut `1.0`, donne `1.0.<n>`) |
+
+Le jeton de la version apparaît dans les paramètres de l'exécution GitHub (visibles des personnes ayant accès
+au dépôt) : il ne sert qu'à cette version et expire vite.
+
+### Suppression du compte
+
+Exigée par Google Play. Dans l'application (onglet **Moi**), un e-commerçant ou un livreur peut supprimer son
+compte : il est fermé tout de suite (déconnecté partout), les administrateurs de l'entreprise sont prévenus et
+peuvent l'annuler depuis **Utilisateurs** pendant 30 jours. Ensuite la tâche `accounts:erase-deleted`
+(chaque nuit à 3 h 40) efface le nom, le téléphone, l'adresse e-mail et le mot de passe ; les courses et la
+comptabilité restent. Page publique à donner à Google : `/suppression-du-compte` (liée depuis `/confidentialite`).
+
 ## Étapes suivantes
 
 - Notifications natives (Firebase pour Android, Apple pour iOS) branchées sur les notifications existantes.
 - Position du livreur en arrière-plan, appareil photo, ouverture des liens de suivi dans l'application.
-- Versions signées pour le Play Store et l'App Store, suppression du compte depuis l'application.
+- Envoi automatique au Play Store, versions iPhone à leur nom (App Store).
