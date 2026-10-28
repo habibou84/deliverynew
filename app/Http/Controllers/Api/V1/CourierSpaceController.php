@@ -10,12 +10,14 @@ use App\Events\CourierLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\CourierResource;
 use App\Http\Resources\V1\OrderAssignmentResource;
+use App\Models\Courier;
 use App\Models\CourierEarning;
 use App\Models\CourierMessage;
 use App\Models\OrderAssignment;
 use App\Models\OrderEvent;
 use App\Services\Assignment\AutoAssigner;
 use App\Services\Couriers\CourierTracker;
+use App\Services\Couriers\ParcelRelays;
 use App\Services\Finance\CourierPay;
 use App\Services\Orders\OrderChanges;
 use App\Services\Orders\OrderDispatcher;
@@ -88,6 +90,22 @@ class CourierSpaceController extends Controller
             });
         }
 
+        // Livraison dont le colis est encore chez un autre livreur : relais à faire avant « Je pars livrer »
+        $company = $request->user()->company;
+        $holders = Courier::query()->with('user:id,name,phone')
+            ->whereIn('id', $assignments->filter(fn (OrderAssignment $a) => $a->type === AssignmentType::Delivery && $a->order
+                && ParcelRelays::needed($a->order, $company))->pluck('order.held_by_courier_id')->unique())
+            ->get()->keyBy('id');
+        $assignments->each(function (OrderAssignment $a) use ($holders, $company) {
+            $holder = $a->type === AssignmentType::Delivery && $a->order && ParcelRelays::needed($a->order, $company) ? $holders->get($a->order->held_by_courier_id) : null;
+            if ($holder) {
+                $a->setAttribute('relay_from', [
+                    'courier_id' => $holder->id, 'name' => $holder->user?->name, 'phone' => $holder->user?->phone,
+                    'lat' => $holder->current_lat, 'lng' => $holder->current_lng, 'located_at' => $holder->last_location_at,
+                ]);
+            }
+        });
+
         // Mission acceptée pas encore commencée : le livreur peut la rendre (empêchement), sauf missions d'office sans refus
         $canReport = $courier->canReportImpediment();
         $assignments->each(fn (OrderAssignment $a) => $a->setAttribute('can_report_impediment', $canReport && $a->status === AssignmentStatus::Accepted));
@@ -95,6 +113,8 @@ class CourierSpaceController extends Controller
         return OrderAssignmentResource::collection($assignments)->additional(['meta' => [
             'acceptance' => $courier->acceptanceMode(),
             // Toutes consignes non lues (y compris sur des missions terminées)
+            // Colis à remettre ou à recevoir en relais
+            'relays' => app(ParcelRelays::class)->count($courier),
             'unread_messages' => CourierMessage::where('courier_id', $courier->id)->whereNull('read_at')->where('created_at', '>=', now()->subDays(2))->count(),
         ]]);
     }

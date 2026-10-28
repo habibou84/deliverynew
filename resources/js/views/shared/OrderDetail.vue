@@ -5,6 +5,8 @@
       <h1 class="text-xl font-bold font-mono">{{ order.tracking_code }}</h1>
       <StatusBadge :status="order.status" :label="order.status_label" />
       <span v-if="order.return_requested && !['returned', 'return_assigned', 'returning'].includes(order.status)" class="text-xs rounded-full bg-rose-100 text-rose-700 px-2 py-0.5">Retour demandé</span>
+      <span v-if="order.legacy_id" class="text-xs rounded-full bg-violet-100 text-violet-800 px-2 py-0.5 font-semibold">Ancienne application · n° {{ order.legacy_id }}</span>
+      <span v-if="order.legacy_conflict" class="text-xs rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 font-semibold" title="Modifiée dans l'ancienne application après la bascule : rien n'a été changé ici">⚠️ Modifiée dans l'ancienne application</span>
       <div class="ml-auto flex gap-2">
         <RouterLink :to="`/etiquette/${order.id}`" target="_blank" class="btn-secondary">🖨️ Étiquette</RouterLink>
       </div>
@@ -24,6 +26,13 @@
         <button class="btn-secondary" :disabled="changeBusy" @click="decideChange('refuse')">Refuser</button>
       </div>
       <p v-else class="text-xs">Votre agence valide la modification avant qu'elle s'applique.</p>
+    </div>
+
+    <!-- Colis chez un autre livreur que celui qui livre : relais avant le départ -->
+    <div v-if="order.relay_needed" class="card border-violet-300 bg-violet-50 p-4 space-y-2 text-sm text-violet-900">
+      <p class="font-semibold">🤝 Relais à faire : colis chez {{ order.held_by?.name || 'un livreur' }}, livré par {{ order.delivery_courier?.name || 'un autre livreur' }}</p>
+      <p>Le livreur ne peut pas partir livrer avant de l'avoir reçu avec le code à 4 chiffres. Si le relais a bien eu lieu mais qu'un téléphone ne marche pas, validez-le à leur place.</p>
+      <button v-if="isDispatcher" class="btn-secondary" :disabled="relayBusy" @click="validateRelay">Valider le relais à leur place</button>
     </div>
 
     <div class="grid lg:grid-cols-3 gap-4">
@@ -427,6 +436,24 @@ async function decideChange(decision) {
     toasts.error(apiErrorMessage(e))
   } finally {
     changeBusy.value = false
+  }
+}
+
+const relayBusy = ref(false)
+async function validateRelay() {
+  const reason = window.prompt('Motif (ex. téléphone du livreur déchargé) :')
+  if (!reason || reason.trim().length < 3) return
+  relayBusy.value = true
+  try {
+    await http.post('/relays/validate', {
+      from_courier_id: order.value.held_by.id, to_courier_id: order.value.delivery_courier.id, order_ids: [order.value.id], reason,
+    })
+    toasts.success('🤝 Relais validé : le colis est chez le livreur qui livre.')
+    await load()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    relayBusy.value = false
   }
 }
 

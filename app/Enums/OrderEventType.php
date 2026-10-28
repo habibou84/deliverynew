@@ -18,4 +18,5 @@ enum OrderEventType: string
     case ExpenseAdded = 'expense_added';
     case ExpenseCancelled = 'expense_cancelled';
     case ParcelReceived = 'parcel_received';
+    case Relay = 'relay';
 }

@@ -36,6 +36,8 @@ class OrderAssignmentResource extends JsonResource
             // Espace livreur : gain attendu (mission en cours) ou acquis (mission terminée)
             // Course modifiée depuis la mission : changements pour le livreur, vus ou non
             'last_edit' => $this->when($this->resource->hasAttribute('last_edit'), fn () => $this->resource->getAttribute('last_edit')),
+            // Colis encore chez un autre livreur : relais à faire avant de partir livrer
+            'relay_from' => $this->when($this->resource->hasAttribute('relay_from'), fn () => $this->resource->getAttribute('relay_from')),
             'gain' => $this->when($this->resource->hasAttribute('gain'), fn () => $this->resource->getAttribute('gain')),
             // Ramassage : même client, même adresse → regroupés en une seule mission dans l'application
             'pickup_group' => $this->when(

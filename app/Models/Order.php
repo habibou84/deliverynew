@@ -107,6 +107,8 @@ class Order extends Model
             'rating_requested_at' => 'datetime',
             'delivery_code_unverified_at' => 'datetime',
             'held_since' => 'datetime',
+            'legacy_synced_at' => 'datetime',
+            'legacy_conflict_at' => 'datetime',
             'lost_at' => 'datetime',
             'hold_escalated_at' => 'datetime',
             'hold_alerted_at' => 'datetime',

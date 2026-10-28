@@ -91,6 +91,8 @@ class OrderController extends Controller
                 $q->where(fn ($q) => $q
                     ->whereRaw('LOWER(tracking_code) LIKE ?', [$term])
                     ->orWhereRaw('LOWER(merchant_reference) LIKE ?', [$term])
+                    // Ancien numéro (courses reprises de l'ancienne application)
+                    ->orWhere('legacy_id', $raw)
                     ->orWhereRaw('LOWER(recipient_name) LIKE ?', [$term])
                     ->orWhere('recipient_phone', 'like', $phone ? "%{$phone}%" : $term));
             })

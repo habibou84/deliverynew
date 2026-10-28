@@ -34,6 +34,12 @@
       <span class="block text-sm text-white/80">Bon {{ s.reference }} · faites signer le marchand à la remise →</span>
     </RouterLink>
 
+    <!-- Relais : colis à remettre à un autre livreur ou à recevoir de lui -->
+    <RouterLink v-if="relays" to="/livreur/relais" class="tap block rounded-2xl bg-violet-600 text-white p-4 active:bg-violet-700">
+      <span class="block font-semibold">🤝 {{ relays }} colis en relais avec un autre livreur</span>
+      <span class="block text-sm text-white/80">À remettre ou à recevoir avec un code avant de partir livrer →</span>
+    </RouterLink>
+
     <!-- Consignes de l'agence non lues -->
     <RouterLink v-if="messages.unread" to="/livreur/messages" class="tap block rounded-2xl bg-sky-600 text-white p-4 font-semibold active:bg-sky-700">
       💬 {{ messages.unread }} consigne{{ messages.unread > 1 ? 's' : '' }} de l'agence à lire →
@@ -99,6 +105,7 @@
             <p class="font-semibold truncate">
               {{ c.first.type === 'pickup' ? c.first.order.merchant?.business_name : (c.first.order.recipient.name || c.first.order.recipient.phone) }}
               <span v-if="c.first.unread_messages" class="ml-1 rounded-full bg-sky-600 px-2 py-0.5 text-xs text-white">💬 {{ c.first.unread_messages }}</span>
+              <span v-if="c.missions.some((m) => m.relay_from)" class="ml-1 rounded-full bg-violet-600 px-2 py-0.5 text-xs text-white">🤝 Relais</span>
               <span v-if="c.missions.some((m) => m.last_edit && !m.last_edit.seen)" class="ml-1 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white">⚠️ Modifiée</span>
             </p>
             <p class="text-sm text-slate-500 truncate">
@@ -143,6 +150,7 @@ const toasts = useToastStore()
 const missions = ref([])
 const wallet = ref(null)
 const returnSlips = ref([])
+const relays = ref(0)
 const loading = ref(true)
 const stale = ref(false)
 const error = ref('')
@@ -183,6 +191,7 @@ async function load() {
     returnSlips.value = r?.data.data || []
     missions.value = withPending(m.data.data)
     messages.setUnread(m.data.meta?.unread_messages)
+    relays.value = m.data.meta?.relays || 0
     wallet.value = w.data.data
     stale.value = m.stale || w.stale
     error.value = ''

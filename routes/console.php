@@ -26,6 +26,9 @@ Schedule::command('domains:check')->everyTenMinutes()->withoutOverlapping();
 // Fiches de paie des livreurs à la fin de chaque période (prêtes à payer le matin)
 Schedule::command('payroll:close')->dailyAt('00:20')->withoutOverlapping();
 // Position des marchands d'après les ramassages des livreurs (rattrapage)
+// Ancienne application : commandes créées ou modifiées là-bas copiées chaque minute ; courses en cours relues la nuit
+Schedule::command('legacy:sync')->everyMinute()->withoutOverlapping(10);
+Schedule::command('legacy:sync --recheck')->dailyAt('02:40')->withoutOverlapping();
 Schedule::command('merchants:locate')->dailyAt('03:10')->withoutOverlapping();
 Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();
 // Abonnements des entreprises : factures du mois écoulé, puis rappels d'impayés chaque matin
