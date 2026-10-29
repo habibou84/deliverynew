@@ -10,7 +10,10 @@ use App\Models\Company;
 use App\Models\PlatformInvoice;
 use App\Models\SupportSession;
 use App\Models\User;
+use App\Models\WhatsAppAccount;
 use App\Notifications\SupportSessionOpened;
+use App\Services\Messaging\MessagingException;
+use App\Services\Messaging\WhatsAppBridge;
 use App\Services\Onboarding\SetupGuide;
 use App\Services\Platform\Billing;
 use App\Services\Platform\CompanySignup;
@@ -88,9 +91,33 @@ class ConsoleController extends Controller
         return $this->show($company->fresh(), $subscription);
     }
 
+    /**
+     * Connexion WhatsApp par QR code (non officielle) autorisée ou non pour l'entreprise. Éteinte : la carte disparaît
+     * de sa page WhatsApp et le numéro déjà relié par QR code est déconnecté.
+     */
+    public function whatsappQr(Request $request, Company $company, Subscription $subscription, WhatsAppBridge $bridge): JsonResponse
+    {
+        $data = $request->validate(['enabled' => ['required', 'boolean']]);
+        $company->forceFill(['whatsapp_qr_enabled' => $data['enabled']])->save();
+
+        $account = WhatsAppAccount::forCompanyId($company->id);
+        if (! $data['enabled'] && $account?->isQr() && $account->status !== 'disconnected') {
+            try {
+                $bridge->logout($account->bridgeSession());
+            } catch (MessagingException) {
+                // Service injoignable : le compte est tout de même marqué déconnecté
+            }
+            $account->forceFill(['status' => 'disconnected', 'last_error' => null])->save();
+        }
+
+        return $this->show($company->fresh(), $subscription);
+    }
+
     public function show(Company $company, Subscription $subscription): JsonResponse
     {
         $company = $this->withActivity(Company::query()->with('plan'))->findOrFail($company->id);
+        $qr = WhatsAppAccount::forCompanyId($company->id);
+        $qr = $qr?->isQr() ? $qr : null;
 
         return response()->json(['data' => [
             ...$this->companyData($company),
@@ -103,6 +130,12 @@ class ConsoleController extends Controller
             // Mise en route de l'entreprise : étapes et bilan de santé (accompagnement au démarrage)
             'setup' => app(SetupGuide::class)->for($company),
             'billing' => app(Billing::class)->state($company),
+            // Connexion WhatsApp par QR code : autorisée par la console, et numéro relié de cette façon
+            'whatsapp_qr' => [
+                'enabled' => (bool) $company->whatsapp_qr_enabled,
+                'status' => $qr?->status,
+                'phone' => $qr?->display_phone,
+            ],
             // Cartes Membre Premium Jibiat Marchand : nombre propre à l'entreprise (null : celui de la console)
             'premium' => [
                 'quota' => $company->premium_quota,
