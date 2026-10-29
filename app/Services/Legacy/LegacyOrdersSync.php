@@ -87,6 +87,12 @@ class LegacyOrdersSync
         }
 
         $cursor['order'] ??= 'id';
+        // Reprise passée par numéro (ancien module) : le module a-t-il été remplacé depuis ? Alors on repart du début,
+        // des plus récentes aux plus anciennes (les courses déjà reprises ne bougent pas)
+        if ($cursor['order'] === 'id' && ! empty($cursor['report']['old_module']) && $this->sortsRecent($company)) {
+            $cursor = [...$cursor, 'order' => 'recent', 'after' => null, 'after_id' => 0, 'done' => 0,
+                'report' => [...$this->emptyReport(), 'old' => $cursor['report']['old'] ?? [], 'products' => $cursor['report']['products'] ?? null]];
+        }
         $this->importer->for($company);
         $report = $cursor['report'];
         do {
@@ -127,6 +133,14 @@ class LegacyOrdersSync
         }
 
         return $cursor;
+    }
+
+    /** Le module de l'ancienne application sait-il envoyer les commandes des plus récentes aux plus anciennes ? */
+    public function sortsRecent(Company $company): bool
+    {
+        $page = $this->get($company, 'commands', ['from' => self::from(), 'order' => 'recent', 'limit' => 1]);
+
+        return ($page['order'] ?? null) === 'recent';
     }
 
     /**

@@ -376,6 +376,32 @@ class LegacyOrdersSyncTest extends TestCase
         $this->assertSame(10, $state['done']);
     }
 
+    public function test_replacing_the_old_module_during_the_import_switches_to_the_most_recent_first(): void
+    {
+        Queue::fake();
+        $this->pageSize = 4;
+        $this->oldModule = true;
+        RunLegacyOrdersImport::$stepSeconds = 0;
+        $handle = fn () => (new RunLegacyOrdersImport($this->company->id, false))->handle(app(LegacyOrdersSync::class));
+        $this->company->forceFill(['legacy_sync_key' => 'jbr_test'])->save();
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/v1/company/legacy-orders/test')->assertOk()->assertJsonPath('data.module_up_to_date', false);
+
+        RunLegacyOrdersImport::start($this->company->id, false);
+        $handle();
+        $this->assertTrue(RunLegacyOrdersImport::state($this->company->id)['old_module']);
+
+        // Module remplacé dans l'ancienne application : l'étape suivante repart des plus récentes, sans doublon
+        $this->oldModule = false;
+        $this->postJson('/api/v1/company/legacy-orders/test')->assertOk()->assertJsonPath('data.module_up_to_date', true);
+        for ($i = 0; $i < 10 && RunLegacyOrdersImport::state($this->company->id)['status'] === 'running'; $i++) {
+            $handle();
+        }
+        $state = RunLegacyOrdersImport::state($this->company->id);
+        $this->assertSame(['done', false, 10], [$state['status'], $state['old_module'], $state['done']]);
+        $this->assertSame(9, Order::withoutGlobalScopes()->count());
+    }
+
     protected function tearDown(): void
     {
         RunLegacyOrdersImport::$stepSeconds = 60;
