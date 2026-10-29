@@ -40,6 +40,9 @@ class OrderAssignment extends Model
             'unreachable_at' => 'datetime',
             'late_alerted_at' => 'datetime',
             'edit_seen_at' => 'datetime',
+            'ring_count' => 'integer',
+            'rang_at' => 'datetime',
+            'ring_answered_at' => 'datetime',
         ];
     }
 

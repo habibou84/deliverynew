@@ -47,6 +47,11 @@ return [
         'rate_limit' => env('PUBLIC_API_RATE_LIMIT', 120),
     ],
 
+    // Sonnerie des missions (application Android du livreur) : compte de service Firebase, fichier JSON hors du dépôt
+    'fcm' => [
+        'credentials' => env('FCM_CREDENTIALS'),
+    ],
+
     // Notifications push (Web Push, VAPID) : clés générées par « php artisan webpush:vapid »
     'webpush' => [
         'public_key' => env('VAPID_PUBLIC_KEY'),

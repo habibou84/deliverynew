@@ -235,6 +235,7 @@
 </template>
 
 <script setup>
+import { refusalOptions } from '../../utils/refusals'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
@@ -346,12 +347,6 @@ const paymentOptions = DELIVERY_PAYMENT_METHODS.map((m) => ({
   label: PAYMENT_METHODS[m],
   icon: { cash: '💵', wave: '🌊', orange_money: '🟠', mtn_momo: '🟡', moov_money: '🔵' }[m],
 }))
-const refusalOptions = [
-  { value: 'Moto en panne', label: '🔧 Moto en panne' },
-  { value: 'Trop loin de ma position', label: '📍 Trop loin de ma position' },
-  { value: 'Trop de missions en cours', label: '📦 Trop de missions en cours' },
-  { value: 'Pas disponible', label: '⏸️ Pas disponible' },
-]
 const dayOffset = (n) => {
   const d = new Date(Date.now() + n * 86400000)
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset())

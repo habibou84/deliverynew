@@ -6,9 +6,11 @@ use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Enums\Role;
 use App\Models\Order;
+use App\Models\OrderAssignment;
 use App\Models\OrderEvent;
 use App\Models\User;
 use App\Notifications\OrderAlert;
+use App\Services\Couriers\MissionRing;
 use App\Support\Money;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
@@ -43,6 +45,10 @@ class OrderNotifier
                     $this->send(collect([$courierUser]), $actor, $order, 'new_mission',
                         'Nouvelle mission : '.($event->meta['type_label'] ?? ''), "{$code} · {$merchantName}".(! empty($event->meta['accepted']) ? ' · confiée d\'office' : ''),
                         extra: ['assignment_id' => $event->assignment_id]);
+                    // Application Android : le téléphone sonne comme un appel
+                    if ($assignment = OrderAssignment::find($event->assignment_id)) {
+                        app(MissionRing::class)->queue($assignment);
+                    }
                 }
                 break;
 

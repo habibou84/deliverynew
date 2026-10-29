@@ -17,6 +17,7 @@ use App\Models\OrderAssignment;
 use App\Models\OrderEvent;
 use App\Services\Assignment\AutoAssigner;
 use App\Services\Couriers\CourierTracker;
+use App\Services\Couriers\MissionRing;
 use App\Services\Couriers\ParcelRelays;
 use App\Services\Finance\CourierPay;
 use App\Services\Orders\OrderChanges;
@@ -137,6 +138,8 @@ class CourierSpaceController extends Controller
     public function accept(Request $request, OrderAssignment $assignment, OrderDispatcher $dispatcher): OrderAssignmentResource
     {
         $assignment = $dispatcher->respond($request->user(), $assignment, true);
+        // Répondu : la sonnerie s'arrête, pas de rappel
+        app(MissionRing::class)->answer($request->user()->courier, [$assignment->id]);
 
         return OrderAssignmentResource::make($assignment->load(['order' => fn ($q) => $q->with(OrderController::LIST_RELATIONS)]));
     }
@@ -151,6 +154,7 @@ class CourierSpaceController extends Controller
         $impediment = $assignment->status === AssignmentStatus::Accepted;
 
         $assignment = $dispatcher->respond($request->user(), $assignment, false, $data['reason']);
+        app(MissionRing::class)->answer($request->user()->courier, [$assignment->id]);
 
         $after = ($impediment ? 'empêchement de ' : 'refus de ').$request->user()->name;
         match ($assignment->type) {
