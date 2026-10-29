@@ -70,7 +70,7 @@ class LegacyOrdersSync
      *
      * @param  array<string, mixed>|null  $cursor  point d'arrêt de l'étape précédente (null : début)
      * @param  callable|null  $beat  appelé après chaque paquet avec le nombre traité (signe de vie)
-     * @return array{after_id: int, done: int, total: int, server_time: string, report: array<string, mixed>, finished: bool}
+     * @return array{order: string, after: ?string, after_id: int, done: int, total: int, server_time: string, report: array<string, mixed>, finished: bool}
      */
     public function step(Company $company, bool $dryRun, ?array $cursor, float $seconds, ?callable $beat = null): array
     {
@@ -82,21 +82,34 @@ class LegacyOrdersSync
             if (! $dryRun) {
                 $report['products'] = $this->products->import($company, fn (array $query) => $this->get($company, 'products', $query));
             }
-            $cursor = ['after_id' => 0, 'done' => 0, 'total' => (int) ($summary['data']['commands'] ?? 0),
+            $cursor = ['order' => 'recent', 'after' => null, 'after_id' => 0, 'done' => 0, 'total' => (int) ($summary['data']['commands'] ?? 0),
                 'server_time' => (string) ($summary['server_time'] ?? ''), 'report' => $report, 'finished' => false];
         }
 
+        $cursor['order'] ??= 'id';
         $this->importer->for($company);
         $report = $cursor['report'];
         do {
-            $page = $this->get($company, 'commands', ['from' => self::from(), 'after_id' => $cursor['after_id'], 'limit' => self::PAGE]);
+            // Plus récentes d'abord (jour de livraison décroissant) ; un module d'avant cet ordre répond par numéro
+            $page = $this->get($company, 'commands', $cursor['order'] === 'recent'
+                ? ['from' => self::from(), 'order' => 'recent', 'after' => $cursor['after'], 'limit' => self::PAGE]
+                : ['from' => self::from(), 'after_id' => $cursor['after_id'], 'limit' => self::PAGE]);
+            if ($cursor['order'] === 'recent' && ($page['order'] ?? null) !== 'recent') {
+                $cursor['order'] = 'id';
+                $report['old_module'] = true;
+            }
             foreach ($page['data'] ?? [] as $command) {
                 $this->collect($report, $command, $this->importer->import($command, $dryRun));
             }
             $cursor['done'] += count($page['data'] ?? []);
-            $next = $page['next_after_id'] ?? null;
-            $cursor['finished'] = $next === null;
-            $cursor['after_id'] = (int) $next;
+            if ($cursor['order'] === 'recent') {
+                $cursor['after'] = $page['next_after'] ?? null;
+                $cursor['finished'] = $cursor['after'] === null;
+            } else {
+                $next = $page['next_after_id'] ?? null;
+                $cursor['finished'] = $next === null;
+                $cursor['after_id'] = (int) $next;
+            }
             if ($beat) {
                 $beat($cursor['done']);
             }

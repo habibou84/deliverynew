@@ -118,7 +118,7 @@ class RunLegacyOrdersImport implements ShouldQueue
             return;
         }
 
-        $state = [...$state, 'errors' => 0, 'error' => null, 'done' => $cursor['done'], 'total' => $cursor['total'], 'beat_at' => now()->toIso8601String()];
+        $state = [...$state, 'errors' => 0, 'error' => null, 'old_module' => $cursor['report']['old_module'] ?? false, 'done' => $cursor['done'], 'total' => $cursor['total'], 'beat_at' => now()->toIso8601String()];
         if ($cursor['finished']) {
             Cache::put($key, [...$state, 'status' => 'done', 'cursor' => null, 'finished_at' => now()->toIso8601String(), 'report' => $cursor['report']], now()->addDay());
 

@@ -46,11 +46,12 @@
       <div v-if="running" class="space-y-1">
         <p class="text-sm">{{ job.mode === 'simulate' ? '🔍 Simulation' : '📥 Reprise' }} en cours : {{ job.done }} / {{ job.total || '…' }}</p>
         <div class="h-2 rounded bg-slate-200"><div class="h-2 rounded bg-blue-600" :style="{ width: `${job.total ? Math.round(job.done * 100 / job.total) : 3}%` }" /></div>
-        <p class="text-xs text-gray-500">Vous pouvez quitter la page : la reprise continue sur le serveur.</p>
+        <p class="text-xs text-gray-500">Des plus récentes aux plus anciennes (jour de livraison). Vous pouvez quitter la page : la reprise continue sur le serveur.</p>
         <p v-if="job.status === 'stalled'" class="text-xs text-amber-700">⏸️ Interrompue (redémarrage du serveur) : elle repart toute seule d'ici une minute, là où elle s'était arrêtée.</p>
         <p v-else-if="job.error" class="text-xs text-amber-700">⚠️ L'ancienne application n'a pas répondu ({{ job.error }}) : nouvel essai dans quelques minutes.</p>
       </div>
       <p v-else-if="job?.status === 'failed'" class="field-error">{{ job.error }}</p>
+      <p v-if="job?.old_module" class="text-xs text-amber-700">⚠️ Le module de l'ancienne application est l'ancienne version : les commandes arrivent par numéro, pas des plus récentes aux plus anciennes. Téléchargez de nouveau le module (étape 1) et remplacez le fichier JibiatSyncController.php.</p>
 
       <template v-if="report">
         <p class="text-sm font-medium">{{ job.mode === 'simulate' ? 'Simulation (rien n\'a été enregistré)' : 'Résultat de la reprise' }}</p>
