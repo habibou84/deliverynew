@@ -118,7 +118,8 @@ class LegacyOrdersImporter
 
         $result = [...$base, 'status' => $plan['status']->value, 'warnings' => $warnings, 'owed' => $money['owed'], 'courier_cash' => $money['courier_cash']];
 
-        if ($existing && $existing->legacy_hash === $hash) {
+        // Inchangée, ou clôturée par le nettoyage des anciennes courses : plus recopiée
+        if ($existing && ($existing->legacy_hash === $hash || $existing->legacy_purged_at !== null)) {
             return [...$result, 'action' => 'unchanged'];
         }
 

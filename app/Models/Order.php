@@ -109,6 +109,7 @@ class Order extends Model
             'held_since' => 'datetime',
             'legacy_synced_at' => 'datetime',
             'legacy_conflict_at' => 'datetime',
+            'legacy_purged_at' => 'datetime',
             'lost_at' => 'datetime',
             'hold_escalated_at' => 'datetime',
             'hold_alerted_at' => 'datetime',

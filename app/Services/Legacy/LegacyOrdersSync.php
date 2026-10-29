@@ -194,7 +194,7 @@ class LegacyOrdersSync
     {
         $this->importer->for($company);
         $count = 0;
-        Order::withoutGlobalScopes()->where('company_id', $company->id)->whereNotNull('legacy_id')->whereNull('legacy_conflict_at')
+        Order::withoutGlobalScopes()->where('company_id', $company->id)->whereNotNull('legacy_id')->whereNull('legacy_conflict_at')->whereNull('legacy_purged_at')
             ->where(fn ($q) => $q->whereNotIn('status', OrderStatus::values([OrderStatus::Delivered, OrderStatus::Cancelled, OrderStatus::Returned]))
                 ->orWhereIn('id', MerchantLedgerEntry::withoutGlobalScopes()->where('company_id', $company->id)->whereNull('payout_id')->whereNotNull('order_id')->select('order_id'))
                 ->orWhereHas('cashCollection', fn ($c) => $c->inCourierHands()))
