@@ -497,6 +497,8 @@ class LegacyOrdersImporter
         // Encaissement : chez le livreur tant que la remise à la caisse n'est pas faite dans l'ancienne application
         if ($money['courier_cash'] > 0 || ($collection && $collection->remittance_id === null)) {
             $collection ??= new CashCollection;
+            // Réglé au point de départ de l'argent chez les livreurs : ne revient pas chez le livreur
+            $baseline = $collection->legacy_cash_baseline_id !== null && $collection->received_by_company;
             $collection->forceFill([
                 'company_id' => $this->company->id,
                 'order_id' => $order->id,
@@ -504,8 +506,8 @@ class LegacyOrdersImporter
                 'amount_expected' => $money['cod'],
                 'amount_collected' => $money['cod'],
                 'method' => PaymentMethod::Cash,
-                'received_by_company' => $money['courier_cash'] === 0,
-                'transaction_ref' => $money['courier_cash'] === 0 ? 'Remis dans l\'ancienne application' : null,
+                'received_by_company' => $baseline || $money['courier_cash'] === 0,
+                'transaction_ref' => $baseline ? LegacyCashBaselines::REF : ($money['courier_cash'] === 0 ? 'Remis dans l\'ancienne application' : null),
                 'collected_at' => $order->delivered_at ?? now(),
             ])->save();
         }
