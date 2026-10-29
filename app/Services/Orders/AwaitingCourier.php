@@ -44,6 +44,11 @@ class AwaitingCourier
 
     private function hasDeliveryCourier(Order $order): bool
     {
+        // Déjà lu avec la liste (waiting) : pas une requête par course
+        if (array_key_exists('has_delivery_courier', $order->getAttributes())) {
+            return (bool) $order->getAttribute('has_delivery_courier');
+        }
+
         return $order->assignments()->active()->where('type', AssignmentType::Delivery->value)->exists();
     }
 
@@ -136,13 +141,13 @@ class AwaitingCourier
      *
      * @return array{time: string, passed: bool, count: int, later: int}|null
      */
-    public function cutoff(Company $company): ?array
+    public function cutoff(Company $company, ?Collection $waiting = null): ?array
     {
         if (! $company->cutoffFor()) {
             return null;
         }
 
-        [$today, $later] = $this->splitByDeliveryDay($company, $this->waiting($company));
+        [$today, $later] = $this->splitByDeliveryDay($company, $waiting ?? $this->waiting($company));
 
         return [
             'time' => $company->cutoffFor(),
@@ -175,6 +180,7 @@ class AwaitingCourier
     public function waiting(Company $company): Collection
     {
         return self::scope(Order::withoutGlobalScopes()->where('company_id', $company->id))
+            ->withExists(['assignments as has_delivery_courier' => fn ($a) => $a->active()->where('type', AssignmentType::Delivery->value)])
             ->get()
             ->map(fn (Order $order) => ($state = $this->describe($order, $company)) ? ['order' => $order, ...$state] : null)
             ->filter()
@@ -186,9 +192,9 @@ class AwaitingCourier
      *
      * @return array{pickup: int, delivery: int, total: int}
      */
-    public function lateCounts(Company $company): array
+    public function lateCounts(Company $company, ?Collection $waiting = null): array
     {
-        $late = $this->waiting($company)->where('late', true);
+        $late = ($waiting ?? $this->waiting($company))->where('late', true);
         $pickup = $late->where('stage', self::PICKUP)->count();
         $delivery = $late->where('stage', self::DELIVERY)->count();
 
@@ -201,9 +207,9 @@ class AwaitingCourier
      *
      * @return array<string, array{count: int, late: int, oldest_minutes: ?int, threshold_minutes: int}>
      */
-    public function summary(Company $company): array
+    public function summary(Company $company, ?Collection $waiting = null): array
     {
-        $waiting = $this->waiting($company);
+        $waiting ??= $this->waiting($company);
 
         return collect([self::PICKUP, self::DELIVERY])->mapWithKeys(fn (string $stage) => [$stage => [
             'count' => $waiting->where('stage', $stage)->count(),
