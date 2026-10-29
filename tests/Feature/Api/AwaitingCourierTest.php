@@ -10,6 +10,7 @@ use App\Services\Orders\OrderDispatcher;
 use App\Services\Orders\OrderWorkflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
@@ -57,6 +58,33 @@ class AwaitingCourierTest extends TestCase
         app(OrderDispatcher::class)->assign($this->dispatcher, $order, AssignmentType::Pickup, $this->courierA);
         $this->assertNull($this->awaiting($order->fresh()));
         $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.late.total', 0);
+    }
+
+    public function test_the_counters_do_not_read_the_orders_one_by_one(): void
+    {
+        Sanctum::actingAs($this->dispatcher);
+        $queries = function () {
+            Sanctum::actingAs($this->dispatcher->fresh());
+            DB::flushQueryLog();
+            DB::enableQueryLog();
+            $this->getJson('/api/v1/orders/counts')->assertOk();
+            DB::disableQueryLog();
+
+            return count(DB::getQueryLog());
+        };
+        $picked = fn () => $this->createOrder()->forceFill(['status' => OrderStatus::PickedUp])->save();
+
+        $picked();
+        $this->confirmedOrder();
+        $few = $queries();
+        foreach (range(1, 15) as $i) {
+            $picked();
+            $this->confirmedOrder();
+        }
+
+        // Des milliers de courses en attente (reprise de l'ancienne application) : autant de requêtes que pour deux
+        $this->assertSame($few, $queries());
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.waiting.delivery.count', 16)->assertJsonPath('data.waiting.pickup.count', 16);
     }
 
     public function test_picked_up_parcel_waits_for_a_delivery_courier(): void

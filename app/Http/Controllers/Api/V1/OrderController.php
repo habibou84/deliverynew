@@ -144,6 +144,9 @@ class OrderController extends Controller
 
         $count = fn (string $queue) => $this->applyQueue(Order::query(), $queue)->count();
         $day = $request->validate(['day' => ['nullable', 'date']])['day'] ?? null;
+        // Courses en attente d'un livreur : lues une fois pour les trois compteurs
+        $company = $request->user()->company;
+        $waiting = $awaiting->waiting($company);
 
         return response()->json(['data' => [
             'to_confirm' => $count('to_confirm'),
@@ -151,11 +154,11 @@ class OrderController extends Controller
             'to_deliver' => $count('to_deliver'),
             'unassigned' => AwaitingCourier::scope(Order::query())->count(),
             'change_requests' => $count('change_requests'),
-            'late' => $awaiting->lateCounts($request->user()->company),
+            'late' => $awaiting->lateCounts($company, $waiting),
             // Tableau de bord : en attente d'un livreur, par étape
-            'waiting' => $awaiting->summary($request->user()->company),
+            'waiting' => $awaiting->summary($company, $waiting),
             // Heure limite du jour : passée ou non, et courses encore sans livreur
-            'cutoff' => $awaiting->cutoff($request->user()->company),
+            'cutoff' => $awaiting->cutoff($company, $waiting),
             // Liste de l'agence sur un jour : files limitées à ce qui est dû, courses prévues plus tard à part
             ...($day ? ['day' => $this->dayCounts(Carbon::parse($day)->toDateString())] : []),
         ]]);
