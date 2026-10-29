@@ -10,7 +10,7 @@ toujours à jour.
 |---|---|---|
 | Santé des services | Console › Santé | Files d'attente, tâches planifiées, WhatsApp, e-mail, SMS, espace disque, dernière sauvegarde : tout doit être vert. |
 | Paiements Wave à valider | Console › Paiements | Aucun paiement en attente depuis plus de 24 h. |
-| WhatsApp | Console › WhatsApp et chaque entreprise | Numéro de Jibiat relié ; une entreprise « déconnectée » doit rescanner son QR code. |
+| WhatsApp | Console › WhatsApp et chaque entreprise | Numéro de Jibiat relié ; une entreprise « déconnectée » doit rescanner son QR code. La connexion par QR code (non officielle) est éteinte par défaut : à allumer entreprise par entreprise dans Console › Entreprises › fiche. |
 | Erreurs | `storage/logs/laravel.log` (ou Console › Santé) | Une erreur qui revient plusieurs fois = un ticket. |
 | Sauvegarde de la nuit | `/var/backups/livraison/` | Le fichier du jour existe et n'est pas vide. |
 

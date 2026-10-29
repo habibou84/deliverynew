@@ -13,7 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * WhatsApp › Connexion par QR code, en attendant la validation de Meta : afficher le QR code à scanner depuis
- * « Appareils connectés » sur le téléphone, suivre l'état, déconnecter.
+ * « Appareils connectés » sur le téléphone, suivre l'état, déconnecter. Réservée aux entreprises à qui la console
+ * l'autorise (connexion non officielle).
  */
 class WhatsAppQrController extends Controller
 {
@@ -21,15 +22,19 @@ class WhatsAppQrController extends Controller
 
     public function show(Request $request): JsonResponse
     {
-        $account = $this->qrAccount($this->company($request));
+        $company = $this->company($request);
+        $account = $this->qrAccount($company);
 
-        return response()->json(['data' => $this->describe($account, $account ? $this->live($account) : null)]);
+        return response()->json(['data' => $this->describe($company, $account, $account ? $this->live($account) : null)]);
     }
 
     /** Démarre la session et renvoie le QR code (ou l'état s'il est déjà relié) */
     public function start(Request $request): JsonResponse
     {
         $company = $this->company($request);
+        if (! $company->whatsapp_qr_enabled) {
+            throw ValidationException::withMessages(['qr' => 'La connexion par QR code n\'est pas activée pour votre entreprise : utilisez le bouton « Connecter WhatsApp ».']);
+        }
         $account = WhatsAppAccount::forCompanyId($company->id);
         if ($account !== null && ! $account->isQr() && $account->status === 'connected') {
             throw ValidationException::withMessages(['qr' => 'Votre numéro est déjà connecté par Meta (connexion officielle) : la connexion par QR code n\'est pas nécessaire.']);
@@ -44,12 +49,13 @@ class WhatsAppQrController extends Controller
             throw ValidationException::withMessages(['qr' => $e->getMessage()]);
         }
 
-        return response()->json(['data' => $this->describe($account->fresh(), $live)]);
+        return response()->json(['data' => $this->describe($company, $account->fresh(), $live)]);
     }
 
     public function destroy(Request $request): JsonResponse
     {
-        $account = $this->qrAccount($this->company($request));
+        $company = $this->company($request);
+        $account = $this->qrAccount($company);
         if ($account !== null) {
             try {
                 $this->bridge->logout($account->bridgeSession());
@@ -59,7 +65,7 @@ class WhatsAppQrController extends Controller
             $account->forceFill(['status' => 'disconnected', 'last_error' => null])->save();
         }
 
-        return response()->json(['data' => $this->describe($account?->fresh(), null)]);
+        return response()->json(['data' => $this->describe($company, $account?->fresh(), null)]);
     }
 
     private function qrAccount(Company $company): ?WhatsAppAccount
@@ -87,12 +93,12 @@ class WhatsAppQrController extends Controller
      * @param  array{status: string, qr: ?string, phone: ?string, name: ?string}|null  $live
      * @return array<string, mixed>
      */
-    private function describe(?WhatsAppAccount $account, ?array $live): array
+    private function describe(Company $company, ?WhatsAppAccount $account, ?array $live): array
     {
         $connected = $account?->status === 'connected';
 
         return [
-            'available' => WhatsAppBridge::configured(),
+            'available' => WhatsAppBridge::configured() && $company->whatsapp_qr_enabled,
             'active' => $account !== null,
             // pending : QR code à scanner ; connected : numéro relié ; disconnected : à reconnecter
             'status' => $account === null ? 'none' : ($connected ? 'connected' : ($account->status === 'disconnected' ? 'disconnected' : 'pending')),

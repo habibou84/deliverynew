@@ -3,9 +3,12 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\MessageStatus;
+use App\Enums\Role;
 use App\Enums\WhatsAppTemplate;
 use App\Jobs\ProcessInboundWhatsApp;
+use App\Models\Company;
 use App\Models\OutboundMessage;
+use App\Models\User;
 use App\Models\WhatsAppAccount;
 use App\Services\Messaging\Messenger;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,7 +21,8 @@ use Tests\TestCase;
 
 /**
  * Connexion WhatsApp par QR code (service whatsapp-bridge), en attendant la validation de Meta : QR code à scanner,
- * numéro relié, envois réels par le service, messages reçus, boutons en liste numérotée, échecs.
+ * numéro relié, envois réels par le service, messages reçus, boutons en liste numérotée, échecs ; autorisée
+ * entreprise par entreprise depuis la console.
  */
 class WhatsAppQrTest extends TestCase
 {
@@ -30,6 +34,7 @@ class WhatsAppQrTest extends TestCase
     {
         parent::setUp();
         $this->buildWorld();
+        $this->company->update(['whatsapp_qr_enabled' => true]);
         config(['messaging.whatsapp.driver' => 'auto', 'messaging.whatsapp.bridge.url' => 'http://bridge.test', 'messaging.whatsapp.bridge.token' => 'secret-bridge']);
         Http::fake([
             'bridge.test/sessions/*/start' => Http::response(['status' => 'qr', 'qr' => self::QR]),
@@ -139,5 +144,38 @@ class WhatsAppQrTest extends TestCase
         $this->getJson('/api/v1/whatsapp/qr')->assertOk()->assertJsonPath('data.available', false);
         $this->postJson('/api/v1/whatsapp/qr')->assertUnprocessable()->assertJsonValidationErrors('qr');
         $this->assertSame(0, OutboundMessage::count());
+    }
+
+    public function test_the_qr_code_is_off_until_the_console_allows_it(): void
+    {
+        $this->assertFalse(Company::factory()->create()->fresh()->whatsapp_qr_enabled, 'Éteinte par défaut');
+        $this->company->update(['whatsapp_qr_enabled' => false]);
+
+        // Éteinte : carte cachée, connexion refusée
+        Sanctum::actingAs($this->admin);
+        $this->getJson('/api/v1/whatsapp/qr')->assertOk()->assertJsonPath('data.available', false)->assertJsonPath('data.active', false);
+        $this->postJson('/api/v1/whatsapp/qr')->assertUnprocessable()->assertJsonValidationErrors('qr');
+        $this->assertNull(WhatsAppAccount::forCompanyId($this->company->id));
+
+        // Allumée depuis la console
+        config(['platform.domain' => 'jibiat.test']);
+        $console = 'http://admin.jibiat.test/api/v1/console/companies/'.$this->company->id;
+        Sanctum::actingAs($this->admin);
+        $this->assertContains($this->putJson("{$console}/whatsapp-qr", ['enabled' => true])->status(), [401, 403], 'Réservé à la console');
+        Sanctum::actingAs(User::factory()->withRole(Role::SuperAdmin)->create(['company_id' => null]));
+        $this->putJson("{$console}/whatsapp-qr", ['enabled' => true])->assertOk()->assertJsonPath('data.whatsapp_qr.enabled', true);
+
+        config(['platform.domain' => null]);
+        $this->admin = $this->admin->fresh();
+        $account = $this->connect();
+        $this->assertTrue($account->fresh()->isLive());
+
+        // Éteinte de nouveau : le numéro relié par QR code est déconnecté
+        config(['platform.domain' => 'jibiat.test']);
+        Sanctum::actingAs(User::factory()->withRole(Role::SuperAdmin)->create(['company_id' => null]));
+        $this->putJson("{$console}/whatsapp-qr", ['enabled' => false])->assertOk()
+            ->assertJsonPath('data.whatsapp_qr', ['enabled' => false, 'status' => 'disconnected', 'phone' => '+2250700000001']);
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/logout'));
+        $this->assertFalse($account->fresh()->isLive());
     }
 }
