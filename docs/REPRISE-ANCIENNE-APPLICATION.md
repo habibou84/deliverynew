@@ -71,6 +71,21 @@ commande, son paiement, ses notes, frais, articles, relances), avec deux minutes
 l'ancienne application fait foi. Après, Jibiat fait foi : une course déjà là n'est plus écrasée (signalée
 « Modifiée dans l'ancienne application ») ; une nouvelle commande saisie là-bas arrive et l'équipe est prévenue.
 
+**Nettoyage des anciennes courses** (même page, une fois la reprise terminée) : courses venues de l'ancienne
+application, pas terminées, dont le jour de livraison est passé depuis plus de 30 jours (7 à 90 au choix). Simulation
+d'abord, puis « Clôturer » (taper CLÔTURER), en arrière-plan, sans message, webhook, gain livreur ni facture :
+
+| Cas | Action |
+|---|---|
+| Jamais ramassées | Annulées |
+| Ramassées, au dépôt, en échec, reportées | Retournées à l'e-commerçant ; colis encore chez un livreur : retour décidé, à rendre (point de caisse du livreur) |
+| En chemin | Rien : liste « à vérifier » livreur par livreur (Réglages › Reprise › À vérifier), « Livrées » (argent au point de caisse du livreur, dû à l'e-commerçant) ou « Retournées » |
+| Livrées, argent pas soldé | Pas touchées (caisse) |
+
+Chaque course garde une note « Clôturée lors du nettoyage de la reprise » et n'est plus recopiée depuis l'ancienne
+application. Un nettoyage s'annule pendant 7 jours (les courses traitées depuis restent comme elles sont) ; les
+vérifications « en chemin » ne s'annulent pas.
+
 **Produits** : un produit par variante, prix et stock actuel (inventaire « Reprise de l'ancienne application »).
 
 ## 3. Bascule le jour choisi

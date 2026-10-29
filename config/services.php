@@ -47,6 +47,11 @@ return [
         'rate_limit' => env('PUBLIC_API_RATE_LIMIT', 120),
     ],
 
+    // Dépôt de l'application Android des livreurs par le workflow GitHub (page jibiat.com/app/livreur)
+    'app_upload' => [
+        'token' => env('APP_UPLOAD_TOKEN'),
+    ],
+
     // Sonnerie des missions (application Android du livreur) : compte de service Firebase, fichier JSON hors du dépôt
     'fcm' => [
         'credentials' => env('FCM_CREDENTIALS'),
