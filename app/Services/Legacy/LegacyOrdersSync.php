@@ -46,48 +46,74 @@ class LegacyOrdersSync
     }
 
     /**
-     * Simulation (rien n'est enregistré) ou reprise. $progress reçoit (traitées, total) après chaque paquet.
+     * Simulation (rien n'est enregistré) ou reprise d'un seul tenant. $progress reçoit (traitées, total) après chaque paquet.
      *
      * @return array<string, mixed> rapport
      */
     public function run(Company $company, bool $dryRun, ?callable $progress = null): array
     {
-        $summary = $this->get($company, 'summary', ['from' => self::from()]);
-        $total = (int) ($summary['data']['commands'] ?? 0);
-        $serverTime = (string) ($summary['server_time'] ?? '');
-        $report = $this->emptyReport();
-        $report['old'] = $summary['data'] ?? [];
+        $cursor = null;
+        do {
+            $cursor = $this->step($company, $dryRun, $cursor, PHP_INT_MAX);
+            if ($progress) {
+                $progress($cursor['done'], $cursor['total']);
+            }
+        } while (! $cursor['finished']);
 
-        if (! $dryRun) {
-            $report['products'] = $this->products->import($company, fn (array $query) => $this->get($company, 'products', $query));
+        return $cursor['report'];
+    }
+
+    /**
+     * Une étape de la simulation ou de la reprise : des paquets de commandes pendant $seconds au plus, puis la main
+     * revient avec le point d'arrêt. Une étape interrompue (redémarrage du serveur) se relance depuis son point de
+     * départ : la reprise ne crée pas de doublon.
+     *
+     * @param  array<string, mixed>|null  $cursor  point d'arrêt de l'étape précédente (null : début)
+     * @param  callable|null  $beat  appelé après chaque paquet avec le nombre traité (signe de vie)
+     * @return array{after_id: int, done: int, total: int, server_time: string, report: array<string, mixed>, finished: bool}
+     */
+    public function step(Company $company, bool $dryRun, ?array $cursor, float $seconds, ?callable $beat = null): array
+    {
+        $started = microtime(true);
+        if ($cursor === null) {
+            $summary = $this->get($company, 'summary', ['from' => self::from()]);
+            $report = $this->emptyReport();
+            $report['old'] = $summary['data'] ?? [];
+            if (! $dryRun) {
+                $report['products'] = $this->products->import($company, fn (array $query) => $this->get($company, 'products', $query));
+            }
+            $cursor = ['after_id' => 0, 'done' => 0, 'total' => (int) ($summary['data']['commands'] ?? 0),
+                'server_time' => (string) ($summary['server_time'] ?? ''), 'report' => $report, 'finished' => false];
         }
 
         $this->importer->for($company);
-        $afterId = 0;
-        $done = 0;
+        $report = $cursor['report'];
         do {
-            $page = $this->get($company, 'commands', ['from' => self::from(), 'after_id' => $afterId, 'limit' => self::PAGE]);
+            $page = $this->get($company, 'commands', ['from' => self::from(), 'after_id' => $cursor['after_id'], 'limit' => self::PAGE]);
             foreach ($page['data'] ?? [] as $command) {
                 $this->collect($report, $command, $this->importer->import($command, $dryRun));
             }
-            $done += count($page['data'] ?? []);
-            $afterId = $page['next_after_id'] ?? null;
-            if ($progress) {
-                $progress($done, $total);
+            $cursor['done'] += count($page['data'] ?? []);
+            $next = $page['next_after_id'] ?? null;
+            $cursor['finished'] = $next === null;
+            $cursor['after_id'] = (int) $next;
+            if ($beat) {
+                $beat($cursor['done']);
             }
-        } while ($afterId !== null);
+        } while (! $cursor['finished'] && microtime(true) - $started < $seconds);
+        $cursor['report'] = $report;
 
-        if (! $dryRun) {
+        if ($cursor['finished'] && ! $dryRun) {
             $company->forceFill([
                 'legacy_orders_imported_at' => now(),
                 'legacy_sync_enabled' => true,
                 // Copie en continu : les changements depuis le début de la reprise
-                'legacy_sync_cursor' => $serverTime ?: now()->toDateTimeString(),
+                'legacy_sync_cursor' => $cursor['server_time'] ?: now()->toDateTimeString(),
                 'legacy_sync_last_error' => null,
             ])->save();
         }
 
-        return $report;
+        return $cursor;
     }
 
     /**

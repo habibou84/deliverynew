@@ -73,6 +73,17 @@ return [
             'after_commit' => false,
         ],
 
+        // Tâches longues (reprise des commandes de l'ancienne application) : délai bien plus long avant d'être
+        // reprises par un autre processus, file à part traitée par son propre superviseur Horizon
+        'redis-long' => [
+            'driver' => 'redis',
+            'connection' => env('REDIS_QUEUE_CONNECTION', 'default'),
+            'queue' => 'long',
+            'retry_after' => 900,
+            'block_for' => null,
+            'after_commit' => false,
+        ],
+
         'deferred' => [
             'driver' => 'deferred',
         ],

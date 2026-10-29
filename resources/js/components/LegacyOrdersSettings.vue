@@ -43,9 +43,12 @@
         <span v-if="state.imported_at" class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">✓ Reprise faite le {{ dateTime(state.imported_at) }} · {{ state.orders }} course(s)</span>
       </div>
 
-      <div v-if="job?.status === 'running'" class="space-y-1">
+      <div v-if="running" class="space-y-1">
         <p class="text-sm">{{ job.mode === 'simulate' ? '🔍 Simulation' : '📥 Reprise' }} en cours : {{ job.done }} / {{ job.total || '…' }}</p>
         <div class="h-2 rounded bg-slate-200"><div class="h-2 rounded bg-blue-600" :style="{ width: `${job.total ? Math.round(job.done * 100 / job.total) : 3}%` }" /></div>
+        <p class="text-xs text-gray-500">Vous pouvez quitter la page : la reprise continue sur le serveur.</p>
+        <p v-if="job.status === 'stalled'" class="text-xs text-amber-700">⏸️ Interrompue (redémarrage du serveur) : elle repart toute seule d'ici une minute, là où elle s'était arrêtée.</p>
+        <p v-else-if="job.error" class="text-xs text-amber-700">⚠️ L'ancienne application n'a pas répondu ({{ job.error }}) : nouvel essai dans quelques minutes.</p>
       </div>
       <p v-else-if="job?.status === 'failed'" class="field-error">{{ job.error }}</p>
 
@@ -172,7 +175,7 @@ const balances = ref(null)
 const busy = ref(false)
 
 const job = computed(() => state.value?.job ?? null)
-const running = computed(() => job.value?.status === 'running')
+const running = computed(() => ['running', 'stalled'].includes(job.value?.status))
 const report = computed(() => (job.value?.status === 'done' ? job.value.report : null))
 const total = computed(() => Object.values(report.value?.by_etat ?? {}).reduce((n, r) => n + r.count, 0))
 const ready = computed(() => state.value?.url && state.value?.has_key)

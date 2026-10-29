@@ -37,6 +37,12 @@ n'est pas soldé (paiement « encours » à l'e-commerçant, ou argent encore ch
 webhook ni gain de livreur. Ancien numéro sur la course (`orders.legacy_id`, cherchable) ; e-commerçant et livreur
 retrouvés par leur ancien numéro ou, la première fois, par leur téléphone.
 
+**Déroulement** : la reprise tourne sur le serveur par étapes d'une minute (file Horizon « long »), chacune gardant
+son point d'arrêt ; on peut quitter la page. Une étape coupée (redémarrage, mise à jour du serveur) est relancée toute
+seule au bout de 10 minutes, là où elle s'était arrêtée, sans doublon. Ancienne application injoignable : nouvel
+essai, abandon après 5 échecs de suite (« Reprendre à nouveau » repart du début, les courses déjà reprises ne
+bougent pas).
+
 | Ancien état | Dans Jibiat |
 |---|---|
 | en cours | Validée, ou Ramassage assigné si un livreur est choisi |

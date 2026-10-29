@@ -9,7 +9,6 @@ use App\Models\Order;
 use App\Services\Legacy\LegacyOrdersSync;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -74,12 +73,11 @@ class LegacyOrdersController extends Controller
         if (! $company->legacy_sync_url || ! $company->legacy_sync_key) {
             return response()->json(['message' => 'Indiquez d\'abord l\'adresse de l\'ancienne application et créez la clé de lecture.'], 422);
         }
-        if ((Cache::get(RunLegacyOrdersImport::key($company->id))['status'] ?? null) === 'running') {
+        if (in_array(RunLegacyOrdersImport::state($company->id)['status'] ?? null, ['running', 'stalled'], true)) {
             return response()->json(['message' => 'Une reprise est déjà en cours : attendez qu\'elle se termine.'], 422);
         }
 
-        Cache::put(RunLegacyOrdersImport::key($company->id), ['mode' => $mode, 'status' => 'running', 'done' => 0, 'total' => 0], now()->addDay());
-        RunLegacyOrdersImport::dispatch($company->id, $mode === 'simulate');
+        RunLegacyOrdersImport::start($company->id, $mode === 'simulate');
 
         return response()->json(['data' => $this->describe($company)], 202);
     }
@@ -155,7 +153,7 @@ class LegacyOrdersController extends Controller
             'orders' => (clone $orders)->count(),
             'conflicts' => (clone $orders)->whereNotNull('legacy_conflict_at')->count(),
             'months' => LegacyOrdersSync::MONTHS,
-            'job' => Cache::get(RunLegacyOrdersImport::key($company->id)),
+            'job' => RunLegacyOrdersImport::state($company->id),
         ];
     }
 }

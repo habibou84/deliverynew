@@ -14,7 +14,6 @@ use App\Notifications\OrderAlert;
 use App\Services\Legacy\LegacyOrdersSync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -38,6 +37,8 @@ class LegacyOrdersSyncTest extends TestCase
 
     /** @var list<int> numéros renvoyés par la prochaine demande de changements */
     private array $changed = [];
+
+    private ?int $pageSize = null;
 
     protected function setUp(): void
     {
@@ -104,10 +105,21 @@ class LegacyOrdersSyncTest extends TestCase
             'products' => Http::response([...$server, 'data' => ($query['after_id'] ?? 0) > 0 ? [] : [
                 ['id' => 50, 'client_id' => 7, 'client' => ['id' => 7, 'phone' => $this->merchant->phone], 'name' => 'Basket', 'price' => 5000, 'stock' => 12, 'description' => null, 'variants' => []],
             ], 'next_after_id' => null]),
-            default => Http::response([...$server, 'data' => array_values(array_filter($this->commands, fn ($c) => isset($query['ids'])
+            default => Http::response([...$server, ...$this->page(array_values(array_filter($this->commands, fn ($c) => isset($query['ids'])
                 ? in_array($c['id'], array_map('intval', explode(',', $query['ids'])), true)
-                : (isset($query['since']) ? in_array($c['id'], $this->changed, true) : $c['id'] > (int) ($query['after_id'] ?? 0)))), 'next_after_id' => null]),
+                : (isset($query['since']) ? in_array($c['id'], $this->changed, true) : $c['id'] > (int) ($query['after_id'] ?? 0)))))]),
         };
+    }
+
+    /** Paquets de $pageSize commandes (comme le module), ou tout d'un coup */
+    private function page(array $rows): array
+    {
+        if ($this->pageSize === null || count($rows) <= $this->pageSize) {
+            return ['data' => $rows, 'next_after_id' => null];
+        }
+        $rows = array_slice($rows, 0, $this->pageSize);
+
+        return ['data' => $rows, 'next_after_id' => end($rows)['id']];
     }
 
     private function import(): array
@@ -276,7 +288,6 @@ class LegacyOrdersSyncTest extends TestCase
         $this->postJson('/api/v1/company/legacy-orders/run/import')->assertStatus(422);
 
         // Tâche de fond : rapport gardé pour l'écran
-        Cache::forget(RunLegacyOrdersImport::key($this->company->id));
         (new RunLegacyOrdersImport($this->company->id, true))->handle(app(LegacyOrdersSync::class));
         $this->getJson('/api/v1/company/legacy-orders')->assertJsonPath('data.job.status', 'done')
             ->assertJsonPath('data.job.report.actions.created', 9);
@@ -285,5 +296,44 @@ class LegacyOrdersSyncTest extends TestCase
 
         Sanctum::actingAs($this->dispatcher);
         $this->getJson('/api/v1/company/legacy-orders')->assertForbidden();
+    }
+
+    public function test_an_interrupted_import_resumes_where_it_stopped(): void
+    {
+        Queue::fake();
+        $this->pageSize = 3;
+        RunLegacyOrdersImport::$stepSeconds = 0; // un paquet par étape
+        $handle = fn () => (new RunLegacyOrdersImport($this->company->id, false))->handle(app(LegacyOrdersSync::class));
+
+        RunLegacyOrdersImport::start($this->company->id, false);
+        $handle();
+        $state = RunLegacyOrdersImport::state($this->company->id);
+        $this->assertSame(['running', 3, 10], [$state['status'], $state['done'], $state['total']]);
+        Queue::assertPushed(RunLegacyOrdersImport::class, 2); // étape suivante lancée
+        $this->assertSame(3, Order::withoutGlobalScopes()->count());
+
+        // Serveur redémarré : l'étape suivante n'a jamais tourné
+        $this->travel(11)->minutes();
+        Sanctum::actingAs($this->admin);
+        $this->getJson('/api/v1/company/legacy-orders')->assertJsonPath('data.job.status', 'stalled')->assertJsonMissingPath('data.job.cursor');
+        $this->postJson('/api/v1/company/legacy-orders/run/import')->assertStatus(422);
+
+        // Relancée toute seule, depuis son point d'arrêt
+        $this->assertSame(1, RunLegacyOrdersImport::resumeStalled());
+        $this->assertSame(0, RunLegacyOrdersImport::resumeStalled(), 'Pas deux fois');
+        for ($i = 0; $i < 10 && RunLegacyOrdersImport::state($this->company->id)['status'] === 'running'; $i++) {
+            $handle();
+        }
+
+        $state = RunLegacyOrdersImport::state($this->company->id);
+        $this->assertSame(['done', 10, 9], [$state['status'], $state['done'], $state['report']['actions']['created']]);
+        $this->assertSame(9, Order::withoutGlobalScopes()->count(), 'Aucun doublon');
+        $this->assertNotNull($this->company->fresh()->legacy_orders_imported_at);
+    }
+
+    protected function tearDown(): void
+    {
+        RunLegacyOrdersImport::$stepSeconds = 60;
+        parent::tearDown();
     }
 }
