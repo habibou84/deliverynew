@@ -71,6 +71,21 @@ commande, son paiement, ses notes, frais, articles, relances), avec deux minutes
 l'ancienne application fait foi. Après, Jibiat fait foi : une course déjà là n'est plus écrasée (signalée
 « Modifiée dans l'ancienne application ») ; une nouvelle commande saisie là-bas arrive et l'équipe est prévenue.
 
+**Recomparaison complète** (même page, bouton « Lancer la recomparaison complète ») : relit toutes les courses
+reprises, par paquets, en arrière-plan (reprend seule après une coupure). Les modifiées sont mises à jour comme par la
+copie de chaque minute (y compris les courses terminées ici, modifiées là-bas sans date de mise à jour). Une commande
+**effacée** dans l'ancienne application (elle n'est plus renvoyée) :
+
+| Cas | Action |
+|---|---|
+| Pas livrée, pas chez un livreur, aucun argent en jeu (avant la bascule) | Annulée sans message, note « Supprimée dans l'ancienne application » ; annulable 7 jours (elle passe alors à vérifier) |
+| Déjà annulée ou retournée, aucun argent en jeu | Rien (note seulement) |
+| Livrée, argent chez un livreur ou dû à l'e-commerçant, colis chez un livreur, ou après la bascule | « Supprimées à vérifier » (Réglages › Reprise) : Garder, ou Annuler (l'argent pas encore réglé disparaît ; refusé si déjà passé à la caisse ou reversé) |
+
+Si l'ancienne application ne renvoie aucune commande d'un paquet (base vide, mauvaise adresse), la recomparaison
+s'arrête sans rien supprimer. La relecture de chaque nuit (`legacy:sync --recheck`) applique les mêmes règles aux
+courses encore en cours.
+
 **Nettoyage des anciennes courses** (même page, une fois la reprise terminée) : courses venues de l'ancienne
 application, pas terminées, dont le jour de livraison est passé depuis plus de 30 jours (7 à 90 au choix). Simulation
 d'abord, puis « Clôturer » (taper CLÔTURER), en arrière-plan, sans message, webhook, gain livreur ni facture :

@@ -4,14 +4,17 @@ namespace Tests\Feature\Api;
 
 use App\Enums\OrderStatus;
 use App\Jobs\RunLegacyOrdersImport;
+use App\Jobs\RunLegacyRecheck;
 use App\Jobs\SendOutboundMessage;
 use App\Jobs\SendWebhook;
 use App\Models\CashCollection;
+use App\Models\LegacyRecheck;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\Product;
 use App\Notifications\OrderAlert;
 use App\Services\Legacy\LegacyOrdersSync;
+use App\Services\Legacy\LegacyRechecks;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
@@ -406,5 +409,91 @@ class LegacyOrdersSyncTest extends TestCase
     {
         RunLegacyOrdersImport::$stepSeconds = 60;
         parent::tearDown();
+    }
+
+    private function recheckAll(): LegacyRecheck
+    {
+        Queue::fake();
+        $this->postJson('/api/v1/company/legacy-recheck')->assertAccepted();
+        $recheck = LegacyRecheck::query()->latest('id')->firstOrFail();
+        while ($recheck->fresh()->status === 'running') {
+            (new RunLegacyRecheck($recheck->id))->handle(app(LegacyRechecks::class));
+        }
+
+        return $recheck->fresh();
+    }
+
+    public function test_full_recheck_copies_changes_and_handles_orders_deleted_in_the_old_application(): void
+    {
+        $this->import();
+        Notification::fake();
+        Bus::fake([SendOutboundMessage::class, SendWebhook::class]);
+
+        // Terminée ici, modifiée là-bas sans date de mise à jour : relue quand même
+        $this->commands[107]['etat'] = 'annule';
+        // Effacées : jamais ramassée (annulée), livrée avec argent en jeu (à vérifier), déjà annulée (rien à faire)
+        unset($this->commands[101], $this->commands[104], $this->commands[106]);
+
+        Sanctum::actingAs($this->admin);
+        $recheck = $this->recheckAll();
+        $this->assertSame('done', $recheck->status);
+        $this->assertSame([1, 1, 1], [$recheck->counts['deleted_cancelled'], $recheck->counts['deleted_to_check'], $recheck->counts['deleted_closed']]);
+        $this->assertGreaterThanOrEqual(1, $recheck->counts['updated']);
+        $this->assertSame(OrderStatus::Cancelled, $this->order(107)->status);
+        $this->assertSame(OrderStatus::Cancelled, $this->order(101)->status);
+        $this->assertNotNull($this->order(101)->legacy_purged_at);
+        $this->assertSame(OrderStatus::Delivered, $this->order(104)->status, 'Argent en jeu : pas touchée');
+        Notification::assertNothingSent();
+        Bus::assertNotDispatched(SendOutboundMessage::class);
+        Bus::assertNotDispatched(SendWebhook::class);
+
+        $this->getJson('/api/v1/company/legacy-recheck')->assertOk()->assertJsonPath('data.to_check', 1)
+            ->assertJsonPath('data.last.can_undo', true)->assertJsonPath('data.last.counts.deleted_cancelled', 1);
+        $this->getJson('/api/v1/company/legacy-recheck/deleted')->assertOk()
+            ->assertJsonPath('data.0.legacy_id', '104')->assertJsonPath('data.0.money', true);
+
+        // Annulation : la course revient comme avant, dans les supprimées à vérifier
+        $this->postJson("/api/v1/company/legacy-recheck/{$recheck->id}/undo")->assertOk()->assertJsonPath('data.restored', 1);
+        $this->assertSame(OrderStatus::Confirmed, $this->order(101)->status);
+        $this->getJson('/api/v1/company/legacy-recheck')->assertJsonPath('data.to_check', 2);
+
+        // Décisions : gardée, puis annulée (l'argent pas réglé disparaît)
+        $kept = $this->order(101);
+        $this->postJson("/api/v1/company/legacy-recheck/deleted/{$kept->id}", ['action' => 'keep'])->assertOk()->assertJsonPath('data.to_check', 1);
+        $this->assertSame(OrderStatus::Confirmed, $kept->fresh()->status);
+        $gone = $this->order(104);
+        $this->postJson("/api/v1/company/legacy-recheck/deleted/{$gone->id}", ['action' => 'cancel'])->assertOk()->assertJsonPath('data.to_check', 0);
+        $this->assertSame(OrderStatus::Cancelled, $gone->fresh()->status);
+        $this->assertFalse(CashCollection::where('order_id', $gone->id)->exists());
+        $this->assertSame(0, MerchantLedgerEntry::where('order_id', $gone->id)->whereNull('payout_id')->count());
+
+        // Une nouvelle recomparaison ne revient pas sur les supprimées déjà traitées
+        $this->assertSame(0, $this->recheckAll()->counts['deleted_to_check']);
+    }
+
+    public function test_recheck_stops_without_deleting_when_the_old_application_returns_nothing(): void
+    {
+        $this->import();
+        $this->commands = [];
+        Sanctum::actingAs($this->admin);
+
+        $recheck = $this->recheckAll();
+        $this->assertSame('failed', $recheck->status);
+        $this->assertStringContainsString('ne renvoie aucune', $recheck->error);
+        $this->assertSame(0, Order::withoutGlobalScopes()->whereNotNull('legacy_deleted_at')->count());
+    }
+
+    public function test_nightly_recheck_spots_deleted_orders(): void
+    {
+        $this->import();
+        unset($this->commands[103]);
+
+        app(LegacyOrdersSync::class)->recheck($this->company->fresh());
+        $this->assertNotNull($this->order(103)->legacy_deleted_at);
+        $this->assertSame('nightly', LegacyRecheck::query()->sole()->source);
+
+        // Rien de supprimé la nuit suivante : pas de trace
+        app(LegacyOrdersSync::class)->recheck($this->company->fresh());
+        $this->assertSame(1, LegacyRecheck::query()->count());
     }
 }
