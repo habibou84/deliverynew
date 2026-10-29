@@ -43,6 +43,7 @@ use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
 use App\Http\Controllers\Api\V1\LegacyOrdersController;
+use App\Http\Controllers\Api\V1\LegacyPurgeController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\MerchantAppReferralController;
 use App\Http\Controllers\Api\V1\MerchantController;
@@ -93,6 +94,7 @@ use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\WhatsAppSignupController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use App\Http\Controllers\BrandingController;
+use App\Http\Controllers\CourierAppController;
 use App\Http\Controllers\Webhooks\WhatsAppBridgeWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -160,6 +162,10 @@ Route::get('public/apps/companies/{code}', [NativeAppController::class, 'company
     ->middleware('throttle:30,1')->where('code', '[A-Za-z0-9-]{1,60}')->name('public.apps.company');
 
 // Fabrication des applications au nom d'une entreprise (workflow GitHub branded-app.yml, jeton de la version)
+// Application Android des livreurs : version en ligne, et dépôt d'une nouvelle version par le workflow GitHub
+Route::get('public/apps/livreur', [CourierAppController::class, 'latest'])->middleware('throttle:60,1')->name('public.apps.livreur');
+Route::post('public/apps/livreur', [CourierAppController::class, 'upload'])->middleware('throttle:10,1')->name('public.apps.livreur.upload');
+
 Route::prefix('public/apps/builds/{build}')->name('public.apps.builds.')->whereNumber('build')->middleware('throttle:60,1')
     ->controller(BrandedAppBuildController::class)->group(function () {
         Route::get('manifest', 'manifest')->name('manifest');
@@ -369,6 +375,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('balances', 'balances')->name('balances');
             Route::post('balances/validate', 'validateBalances')->name('balances.validate');
             Route::get('module', 'module')->name('module');
+        });
+        // Nettoyage des anciennes courses reprises : simulation, clôture, annulation, en chemin à vérifier
+        Route::prefix('company/legacy-purge')->name('company.legacy-purge.')->middleware('can:settings.manage')->controller(LegacyPurgeController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+            Route::post('{purge}/undo', 'undo')->middleware('throttle:10,1')->name('undo');
+            Route::get('on-the-way', 'onTheWay')->name('on-the-way');
+            Route::post('on-the-way', 'resolve')->middleware('throttle:30,1')->name('resolve');
         });
         // Bascule depuis l'ancienne application : date, clé, module
         Route::prefix('company/legacy-switch')->name('company.legacy-switch.')->middleware('can:settings.manage')->controller(LegacySwitchController::class)->group(function () {
@@ -680,6 +694,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::delete('devices', [CourierRingController::class, 'unregister'])->name('devices.unregister');
             Route::get('ring', [CourierRingController::class, 'show'])->name('ring.show');
             Route::post('ring/answer', [CourierRingController::class, 'answer'])->name('ring.answer');
+            Route::get('app', [CourierAppController::class, 'latest'])->name('app');
             Route::patch('status', [CourierSpaceController::class, 'updateStatus'])->name('status');
             // Actions faites hors connexion, envoyées au retour du réseau
             Route::post('sync', OfflineSyncController::class)->middleware('throttle:120,1')->name('sync');

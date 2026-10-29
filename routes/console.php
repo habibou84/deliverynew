@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\RunLegacyOrdersImport;
+use App\Jobs\RunLegacyPurge;
 use App\Models\CourierLocation;
 use App\Models\IdempotencyKey;
 use App\Models\WebhookDelivery;
@@ -32,6 +33,7 @@ Schedule::command('legacy:sync')->everyMinute()->withoutOverlapping(10);
 Schedule::command('legacy:sync --recheck')->dailyAt('02:40')->withoutOverlapping();
 // Reprise des commandes coupée (redémarrage, mise à jour) : relancée depuis son point d'arrêt
 Schedule::call(fn () => RunLegacyOrdersImport::resumeStalled())->everyMinute()->name('legacy:resume-import')->withoutOverlapping();
+Schedule::call(fn () => RunLegacyPurge::resumeStalled())->everyMinute()->name('legacy:resume-purge')->withoutOverlapping();
 Schedule::command('merchants:locate')->dailyAt('03:10')->withoutOverlapping();
 Schedule::command('storage:bill')->monthlyOn(1, '01:10')->withoutOverlapping();
 // Abonnements des entreprises : factures du mois écoulé, puis rappels d'impayés chaque matin
