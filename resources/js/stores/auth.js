@@ -5,6 +5,7 @@ import { currentSpace, getCachedUser, getToken, SERVER_SPACES, setCachedUser, se
 import { homeFor } from '../roles'
 import { clearApiCache } from '../composables/useCachedApi'
 import { appLock } from '../native'
+import { forgetRingDevice } from '../native/ring'
 import { useNotificationStore } from './notifications'
 
 // Profil gardé sur l'appareil (par espace) pour ouvrir l'application sans réseau (PWA hors ligne)
@@ -131,6 +132,8 @@ export const useAuthStore = defineStore('auth', {
 
     async logout() {
       try {
+        // Application livreur : ce téléphone ne sonne plus pour ce compte
+        if (this.token && this.user?.role === 'courier') await forgetRingDevice()
         if (this.token) await http.post('/auth/logout')
       } finally {
         this.clear()

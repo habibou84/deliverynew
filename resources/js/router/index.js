@@ -115,6 +115,8 @@ const routes = [
       { path: 'messages', component: () => import('../views/admin/Messages.vue'), meta: { permission: 'orders.dispatch' } },
     ],
   },
+  // Application livreur : écran « appel entrant » d'une nouvelle mission (sonnerie Android), en plein écran
+  { path: '/livreur/appel', component: () => import('../views/courier/IncomingMission.vue'), meta: { roles: SPACES.livreur } },
   // Application livreur (PWA mobile)
   {
     path: '/livreur',
@@ -131,6 +133,7 @@ const routes = [
       { path: 'retours/:id(\\d+)', component: () => import('../views/courier/ReturnHandOver.vue'), meta: { title: 'Remise au marchand', back: true } },
       { path: 'notifications', component: mobile.notifications, meta: { title: 'Notifications', back: true } },
       { path: 'profil', component: mobile.profile, meta: { title: 'Mon profil' } },
+      { path: 'sonnerie', component: () => import('../views/courier/RingSettings.vue'), meta: { title: 'Sonnerie des missions', back: true } },
       // Les notifications pointent vers /livreur/courses/:id : on renvoie vers la liste des missions
       { path: 'courses/:id', redirect: '/livreur' },
     ],

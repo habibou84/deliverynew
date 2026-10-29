@@ -49,6 +49,16 @@ jobs:
       - run: npm ci
       - name: Écrans de l'application et projet Android
         run: npm run mobile:${{ matrix.app }}
+      # Sonnerie des missions : configuration Firebase de l'application livreur (secret du dépôt, facultatif).
+      # Sans elle, l'application se compile et fonctionne, mais le téléphone ne sonne pas.
+      - name: Configuration Firebase (sonnerie des missions)
+        if: matrix.app == 'livreur'
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > mobile/livreur/android/app/google-services.json
+          fi
       - name: APK de test
         working-directory: mobile/${{ matrix.app }}/android
         run: ./gradlew assembleDebug --no-daemon
