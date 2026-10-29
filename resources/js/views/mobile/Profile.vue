@@ -13,6 +13,15 @@
 
     <InstallBanner :app="app" />
 
+    <!-- Livreur : le téléphone sonne comme un appel pour une nouvelle mission (application Android) -->
+    <RouterLink v-if="auth.user?.role === 'courier'" to="/livreur/sonnerie" class="m-card tap p-4 flex items-center justify-between gap-3 active:bg-slate-50">
+      <span>
+        <span class="block font-semibold">🔔 Sonnerie des missions</span>
+        <span class="block text-sm text-slate-500">Le téléphone sonne comme un appel pour chaque nouvelle mission</span>
+      </span>
+      <span class="text-slate-400" aria-hidden="true">›</span>
+    </RouterLink>
+
     <!-- E-commerçant : sa boutique, ses notifications, puis les outils avancés (usage rare) -->
     <template v-if="auth.user?.merchant_id">
       <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-400 uppercase tracking-wider">Ma boutique</h2>
