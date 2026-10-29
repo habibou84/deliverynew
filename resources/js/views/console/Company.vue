@@ -121,6 +121,21 @@
         </label>
       </div>
 
+      <!-- Connexion WhatsApp par QR code (non officielle) : à autoriser entreprise par entreprise -->
+      <div v-if="company.whatsapp_qr" class="card p-4 space-y-2">
+        <h2 class="font-semibold">📱 WhatsApp par QR code</h2>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" class="mt-0.5 h-4 w-4" :checked="company.whatsapp_qr.enabled" :disabled="!can('support') || qrSaving" @change="toggleQr($event.target.checked)">
+          <span>
+            Autoriser la connexion par QR code
+            <span class="block text-xs text-gray-500">
+              Connexion non officielle, comme WhatsApp Web. Éteinte : l'entreprise ne voit que le bouton officiel « Connecter WhatsApp ».
+            </span>
+          </span>
+        </label>
+        <p v-if="company.whatsapp_qr.status === 'connected'" class="text-xs text-gray-600">Numéro relié par QR code : {{ company.whatsapp_qr.phone }}</p>
+      </div>
+
       <!-- Mise en route de l'entreprise : pour l'accompagner au démarrage -->
       <div v-if="company.setup" class="card p-4 space-y-3">
         <h2 class="font-semibold">🧭 Mise en route</h2>
@@ -215,6 +230,26 @@ async function savePremiumQuota() {
     toasts.success('Nombre de cartes enregistré.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
+  }
+}
+
+const qrSaving = ref(false)
+
+async function toggleQr(enabled) {
+  const linked = company.value.whatsapp_qr.status === 'connected'
+  if (!enabled && linked && !window.confirm(`Le numéro ${company.value.whatsapp_qr.phone} relié par QR code sera déconnecté. Continuer ?`)) {
+    await load()
+    return
+  }
+  qrSaving.value = true
+  try {
+    company.value = (await http.put(`/console/companies/${company.value.id}/whatsapp-qr`, { enabled })).data.data
+    toasts.success(enabled ? 'Connexion par QR code autorisée.' : 'Connexion par QR code éteinte.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+    await load()
+  } finally {
+    qrSaving.value = false
   }
 }
 
