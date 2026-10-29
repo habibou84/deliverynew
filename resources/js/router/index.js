@@ -105,6 +105,7 @@ const routes = [
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise/a-verifier', component: () => import('../views/admin/settings/LegacyPurgeCheck.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'reglages/reprise/argent-livreurs', component: () => import('../views/admin/settings/LegacyCashBaseline.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/assistance', component: () => import('../views/admin/settings/SettingsSupport.vue'), meta: { permission: 'settings.manage' } },
       { path: 'parametres', redirect: '/admin/reglages' },
       { path: 'mot-de-passe', component: () => import('../views/admin/Password.vue') },
