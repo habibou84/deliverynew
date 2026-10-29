@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
 use App\Services\Couriers\CourierRatings;
+use App\Services\Merchants\QuickMerchant;
 use App\Services\Orders\DeliveryDay;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
@@ -50,7 +51,8 @@ class OrderMessages
         switch ($event->to_status) {
             case OrderStatus::Confirmed:
                 if ($event->from_status === OrderStatus::Pending) {
-                    if ($actorIsMerchant) {
+                    // Marchand créé avec cette course : la bienvenue tient lieu de confirmation
+                    if ($actorIsMerchant || app(QuickMerchant::class)->confirmationHeld($order)) {
                         break;
                     }
                     // Livraison un autre jour (date choisie ou journée fermée) : la date est dans le message
