@@ -2,14 +2,7 @@
   <form ref="formEl" class="space-y-5" @submit.prevent="submit()" @keydown.ctrl.enter.prevent="submit()">
     <div v-if="error" class="rounded bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2">{{ error }}</div>
 
-    <section v-if="!isMerchant" class="card p-4">
-      <label class="label" for="merchant">E-commerçant *</label>
-      <select id="merchant" v-model="form.merchant_id" class="input" required>
-        <option :value="null" disabled>Choisir…</option>
-        <option v-for="m in merchants" :key="m.id" :value="m.id">{{ m.business_name }}</option>
-      </select>
-      <p v-if="errors.merchant_id" class="field-error">{{ errors.merchant_id[0] }}</p>
-    </section>
+    <MerchantPicker v-if="!isMerchant" ref="pickerEl" v-model="form.merchant_id" :zones="zones" :errors="errors" @new-merchant="newMerchant = $event" />
 
     <PasteMessage :merchant-id="merchantId" @parsed="applyParsed" />
 
@@ -199,6 +192,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'
 import { money } from '../utils/format'
+import MerchantPicker from './MerchantPicker.vue'
 import PasteMessage from './PasteMessage.vue'
 import ZoneSelect from './ZoneSelect.vue'
 import { useDeliveryDate } from '../composables/useDeliveryDate'
@@ -238,7 +232,9 @@ const hubs = ref([])
 const products = ref([])
 
 const zones = ref([])
-const merchants = ref([])
+// E-commerçant pas encore inscrit : créé avec la course
+const newMerchant = ref(null)
+const pickerEl = ref(null)
 const suggestions = ref([])
 const quote = ref(null)
 const quoteError = ref('')
@@ -330,12 +326,9 @@ const codAmount = computed(() => (form.items_amount || 0) + (form.fee_payer === 
 
 onMounted(async () => {
   loadDeliveryDay()
-  const requests = [http.get('/zones'), http.get('/hubs').catch(() => ({ data: { data: [] } }))]
-  if (!isMerchant.value) requests.push(http.get('/merchants', { params: { per_page: 200, status: 'active' } }))
-  const [z, h, m] = await Promise.all(requests)
+  const [z, h] = await Promise.all([http.get('/zones'), http.get('/hubs').catch(() => ({ data: { data: [] } }))])
   zones.value = z.data.data
   hubs.value = h.data.data
-  if (m) merchants.value = m.data.data
   loadProducts()
 })
 
@@ -348,7 +341,7 @@ watch(() => form.merchant_id, () => {
 // Devis en direct
 let quoteTimer
 watch(
-  () => [form.merchant_id, form.delivery_zone_id, form.pickup_zone_id, form.pickup_hub_id, form.is_express, form.is_fragile],
+  () => [form.merchant_id, newMerchant.value?.pickup_zone_id, form.delivery_zone_id, form.pickup_zone_id, form.pickup_hub_id, form.is_express, form.is_fragile],
   () => {
     clearTimeout(quoteTimer)
     quoteTimer = setTimeout(fetchQuote, 250)
@@ -358,12 +351,14 @@ watch(
 async function fetchQuote() {
   quote.value = null
   quoteError.value = ''
-  if (!form.delivery_zone_id || (!isMerchant.value && !form.merchant_id)) return
+  // Nouvel e-commerçant : tarifs par défaut depuis sa zone de ramassage
+  const newZone = !isMerchant.value && !form.merchant_id ? newMerchant.value?.pickup_zone_id : null
+  if (!form.delivery_zone_id || (!isMerchant.value && !form.merchant_id && !newZone)) return
   try {
     const { data } = await http.post('/quotes', {
-      merchant_id: isMerchant.value ? undefined : form.merchant_id,
+      merchant_id: isMerchant.value ? undefined : form.merchant_id || undefined,
       delivery_zone_id: form.delivery_zone_id,
-      pickup_zone_id: hubZoneId.value || form.pickup_zone_id || undefined,
+      pickup_zone_id: hubZoneId.value || form.pickup_zone_id || newZone || undefined,
       is_express: form.is_express,
       is_fragile: form.is_fragile,
     })
@@ -437,6 +432,7 @@ async function submit(again = false) {
   try {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null))
     if (isMerchant.value) delete payload.merchant_id
+    if (!isMerchant.value && !form.merchant_id && newMerchant.value) payload.new_merchant = newMerchant.value
     if (form.pickup_hub_id) {
       delete payload.pickup_zone_id
       delete payload.pickup_address
@@ -449,10 +445,12 @@ async function submit(again = false) {
     }
     const { data } = await http.post('/orders', payload)
     if (again) {
-      emit('saved-again', data.data)
+      emit('saved-again', data.data, data.meta)
       reset()
+      // La course suivante est pour le même e-commerçant, désormais inscrit
+      if (data.meta?.new_merchant) pickerEl.value?.select(data.data.merchant ?? { id: data.meta.new_merchant.id, business_name: data.meta.new_merchant.business_name })
     } else {
-      emit('saved', data.data)
+      emit('saved', data.data, data.meta)
     }
   } catch (e) {
     errors.value = e.response?.data?.errors || {}

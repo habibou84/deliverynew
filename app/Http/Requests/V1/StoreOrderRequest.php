@@ -3,6 +3,7 @@
 namespace App\Http\Requests\V1;
 
 use App\Enums\FeePayer;
+use App\Enums\Role;
 use App\Models\Order;
 use App\Rules\PhoneNumber;
 use App\Services\Orders\ZoneResolver;
@@ -37,6 +38,10 @@ class StoreOrderRequest extends FormRequest
             foreach ($this->zoneErrors as $field => $message) {
                 $validator->errors()->add($field, $message);
             }
+            // Nouvel e-commerçant créé avec la course : administrateurs et dispatcheurs
+            if ($this->filled('new_merchant') && ! $this->user()->hasAnyRole([Role::Admin->value, Role::Dispatcher->value])) {
+                $validator->errors()->add('new_merchant', 'Seuls les administrateurs et les dispatcheurs peuvent ajouter un e-commerçant.');
+            }
         }];
     }
 
@@ -51,11 +56,18 @@ class StoreOrderRequest extends FormRequest
         return [
             // Le personnel choisit le marchand ; un marchand crée pour lui-même
             'merchant_id' => [
-                Rule::requiredIf($this->user()->merchant_id === null),
-                Rule::prohibitedIf($this->user()->merchant_id !== null),
+                Rule::requiredIf($this->user()->merchant_id === null && ! $this->filled('new_merchant')),
+                Rule::prohibitedIf($this->user()->merchant_id !== null || $this->filled('new_merchant')),
                 'integer',
                 Rule::exists('merchants', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
             ],
+            // E-commerçant pas encore inscrit : créé avec la course, ses accès envoyés par WhatsApp
+            'new_merchant' => [Rule::prohibitedIf($this->user()->merchant_id !== null), 'nullable', 'array'],
+            'new_merchant.business_name' => ['required_with:new_merchant', 'string', 'max:255'],
+            'new_merchant.phone' => ['required_with:new_merchant', 'string', new PhoneNumber],
+            'new_merchant.contact_name' => ['nullable', 'string', 'max:255'],
+            'new_merchant.pickup_zone_id' => ['nullable', 'integer', $zone],
+            'new_merchant.send_access' => ['nullable', 'boolean'],
             'merchant_reference' => ['nullable', 'string', 'max:100'],
 
             // Commande préparée dans un entrepôt (produits en stock chez l'entreprise)
@@ -114,6 +126,10 @@ class StoreOrderRequest extends FormRequest
     {
         return [
             'merchant_id' => 'marchand',
+            'new_merchant.business_name' => 'nom de la boutique',
+            'new_merchant.phone' => 'téléphone WhatsApp',
+            'new_merchant.contact_name' => 'nom du responsable',
+            'new_merchant.pickup_zone_id' => 'zone de ramassage',
             'pickup_zone_id' => 'zone de ramassage',
             'recipient_phone' => 'téléphone du destinataire',
             'recipient_phone2' => 'second téléphone',
