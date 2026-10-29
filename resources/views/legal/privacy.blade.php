@@ -73,6 +73,13 @@
         <li><strong>WhatsApp (Meta Platforms)</strong> : les messages WhatsApp passent par la plateforme WhatsApp Business de Meta.
             Le numéro et le contenu des messages sont traités par Meta selon sa propre
             <a href="https://www.whatsapp.com/legal/privacy-policy" rel="noopener">politique de confidentialité</a>.</li>
+        <li><strong>Application Meta partagée avec Jibiat Marchand</strong> : {{ $operator }} édite aussi Jibiat Marchand
+            (<a href="https://jibiat-marchand.com" rel="noopener">jibiat-marchand.com</a>), l'application des e-commerçants. Quand une
+            boutique Jibiat Marchand connecte son WhatsApp, elle passe par cette même application Meta « Jibiat » : seules les
+            autorisations WhatsApp sont demandées, et les données de cette boutique (jeton d'accès, messages) sont traitées par
+            Jibiat Marchand selon sa
+            <a href="https://jibiat-marchand.com/confidentialite" rel="noopener">politique de confidentialité</a> ; elles ne
+            passent pas par les entreprises de livraison.</li>
         <li><strong>SMS</strong> : un opérateur d'envoi de SMS reçoit le numéro et le texte lorsqu'un SMS est envoyé.</li>
         <li><strong>Analyse des commandes</strong> : lorsque l'entreprise de livraison l'active, le texte des commandes reçues par
             WhatsApp peut être analysé par un service d'intelligence artificielle (Anthropic) pour en extraire le nom, le
