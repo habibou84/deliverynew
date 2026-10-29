@@ -210,6 +210,19 @@ return [
             'timeout' => 60,
             'nice' => 0,
         ],
+        // Reprise des commandes de l'ancienne application : étapes jusqu'à 10 minutes, une à la fois
+        'supervisor-long' => [
+            'connection' => 'redis-long',
+            'queue' => ['long'],
+            'balance' => 'simple',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 1,
+            'timeout' => 660,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
