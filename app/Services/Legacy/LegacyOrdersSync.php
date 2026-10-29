@@ -189,26 +189,21 @@ class LegacyOrdersSync
         return $counts;
     }
 
-    /** Relit les courses reprises encore en cours (une modification sans date de mise à jour n'échappe pas) */
+    /**
+     * Relit les courses reprises encore en cours (une modification sans date de mise à jour n'échappe pas) et repère
+     * celles effacées dans l'ancienne application (voir LegacyRechecks).
+     */
     public function recheck(Company $company): int
     {
-        $this->importer->for($company);
-        $count = 0;
-        Order::withoutGlobalScopes()->where('company_id', $company->id)->whereNotNull('legacy_id')->whereNull('legacy_conflict_at')->whereNull('legacy_purged_at')
+        $orders = app(LegacyRechecks::class)->scope($company)->whereNull('legacy_conflict_at')
             ->where(fn ($q) => $q->whereNotIn('status', OrderStatus::values([OrderStatus::Delivered, OrderStatus::Cancelled, OrderStatus::Returned]))
                 ->orWhereIn('id', MerchantLedgerEntry::withoutGlobalScopes()->where('company_id', $company->id)->whereNull('payout_id')->whereNotNull('order_id')->select('order_id'))
                 ->orWhereHas('cashCollection', fn ($c) => $c->inCourierHands()))
             ->orderBy('id')
-            ->pluck('legacy_id')
-            ->chunk(self::PAGE)
-            ->each(function ($ids) use ($company, &$count) {
-                foreach ($this->get($company, 'commands', ['ids' => $ids->implode(',')])['data'] ?? [] as $command) {
-                    $this->importer->import($command);
-                    $count++;
-                }
-            });
+            ->get(['id', 'legacy_id']);
+        app(LegacyRechecks::class)->nightly($company, $orders);
 
-        return $count;
+        return $orders->count();
     }
 
     /**
