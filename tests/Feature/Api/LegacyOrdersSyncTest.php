@@ -14,7 +14,6 @@ use App\Notifications\OrderAlert;
 use App\Services\Legacy\LegacyOrdersSync;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -38,6 +37,11 @@ class LegacyOrdersSyncTest extends TestCase
 
     /** @var list<int> numéros renvoyés par la prochaine demande de changements */
     private array $changed = [];
+
+    private ?int $pageSize = null;
+
+    /** Module d'avant l'ordre « plus récentes d'abord » */
+    private bool $oldModule = false;
 
     protected function setUp(): void
     {
@@ -104,10 +108,41 @@ class LegacyOrdersSyncTest extends TestCase
             'products' => Http::response([...$server, 'data' => ($query['after_id'] ?? 0) > 0 ? [] : [
                 ['id' => 50, 'client_id' => 7, 'client' => ['id' => 7, 'phone' => $this->merchant->phone], 'name' => 'Basket', 'price' => 5000, 'stock' => 12, 'description' => null, 'variants' => []],
             ], 'next_after_id' => null]),
-            default => Http::response([...$server, 'data' => array_values(array_filter($this->commands, fn ($c) => isset($query['ids'])
-                ? in_array($c['id'], array_map('intval', explode(',', $query['ids'])), true)
-                : (isset($query['since']) ? in_array($c['id'], $this->changed, true) : $c['id'] > (int) ($query['after_id'] ?? 0)))), 'next_after_id' => null]),
+            default => Http::response([...$server, ...(! $this->oldModule && ($query['order'] ?? null) === 'recent' && ! isset($query['ids']) && ! isset($query['since'])
+                ? $this->recentPage($query['after'] ?? null)
+                : $this->page(array_values(array_filter($this->commands, fn ($c) => isset($query['ids'])
+                    ? in_array($c['id'], array_map('intval', explode(',', $query['ids'])), true)
+                    : (isset($query['since']) ? in_array($c['id'], $this->changed, true) : $c['id'] > (int) ($query['after_id'] ?? 0))))))]),
         };
+    }
+
+    /** Comme le module : jour de livraison (sinon de création) décroissant, puis numéro décroissant */
+    private function recentPage(?string $after): array
+    {
+        $key = fn (array $c) => ($c['delivery_date'] ?? substr($c['created_at'], 0, 10)).'|'.str_pad((string) $c['id'], 10, '0', STR_PAD_LEFT);
+        $rows = array_values($this->commands);
+        usort($rows, fn ($a, $b) => strcmp($key($b), $key($a)));
+        if ($after !== null) {
+            [$day, $id] = explode('|', $after);
+            $limit = $day.'|'.str_pad($id, 10, '0', STR_PAD_LEFT);
+            $rows = array_values(array_filter($rows, fn ($c) => strcmp($key($c), $limit) < 0));
+        }
+        $more = $this->pageSize !== null && count($rows) > $this->pageSize;
+        $rows = $more ? array_slice($rows, 0, $this->pageSize) : $rows;
+        $last = end($rows);
+
+        return ['order' => 'recent', 'data' => $rows, 'next_after' => $more ? ($last['delivery_date'] ?? substr($last['created_at'], 0, 10)).'|'.$last['id'] : null];
+    }
+
+    /** Paquets de $pageSize commandes (comme le module), ou tout d'un coup */
+    private function page(array $rows): array
+    {
+        if ($this->pageSize === null || count($rows) <= $this->pageSize) {
+            return ['data' => $rows, 'next_after_id' => null];
+        }
+        $rows = array_slice($rows, 0, $this->pageSize);
+
+        return ['data' => $rows, 'next_after_id' => end($rows)['id']];
     }
 
     private function import(): array
@@ -276,7 +311,6 @@ class LegacyOrdersSyncTest extends TestCase
         $this->postJson('/api/v1/company/legacy-orders/run/import')->assertStatus(422);
 
         // Tâche de fond : rapport gardé pour l'écran
-        Cache::forget(RunLegacyOrdersImport::key($this->company->id));
         (new RunLegacyOrdersImport($this->company->id, true))->handle(app(LegacyOrdersSync::class));
         $this->getJson('/api/v1/company/legacy-orders')->assertJsonPath('data.job.status', 'done')
             ->assertJsonPath('data.job.report.actions.created', 9);
@@ -285,5 +319,66 @@ class LegacyOrdersSyncTest extends TestCase
 
         Sanctum::actingAs($this->dispatcher);
         $this->getJson('/api/v1/company/legacy-orders')->assertForbidden();
+    }
+
+    public function test_an_interrupted_import_resumes_where_it_stopped(): void
+    {
+        Queue::fake();
+        $this->pageSize = 3;
+        RunLegacyOrdersImport::$stepSeconds = 0; // un paquet par étape
+        $handle = fn () => (new RunLegacyOrdersImport($this->company->id, false))->handle(app(LegacyOrdersSync::class));
+
+        RunLegacyOrdersImport::start($this->company->id, false);
+        $handle();
+        $state = RunLegacyOrdersImport::state($this->company->id);
+        $this->assertSame(['running', 3, 10], [$state['status'], $state['done'], $state['total']]);
+        Queue::assertPushed(RunLegacyOrdersImport::class, 2); // étape suivante lancée
+        $this->assertSame(2, Order::withoutGlobalScopes()->count(), '110, 109 (e-commerçant inconnu, sautée), 108');
+
+        // Serveur redémarré : l'étape suivante n'a jamais tourné
+        $this->travel(11)->minutes();
+        Sanctum::actingAs($this->admin);
+        $this->getJson('/api/v1/company/legacy-orders')->assertJsonPath('data.job.status', 'stalled')->assertJsonMissingPath('data.job.cursor');
+        $this->postJson('/api/v1/company/legacy-orders/run/import')->assertStatus(422);
+
+        // Relancée toute seule, depuis son point d'arrêt
+        $this->assertSame(1, RunLegacyOrdersImport::resumeStalled());
+        $this->assertSame(0, RunLegacyOrdersImport::resumeStalled(), 'Pas deux fois');
+        for ($i = 0; $i < 10 && RunLegacyOrdersImport::state($this->company->id)['status'] === 'running'; $i++) {
+            $handle();
+        }
+
+        $state = RunLegacyOrdersImport::state($this->company->id);
+        $this->assertSame(['done', 10, 9], [$state['status'], $state['done'], $state['report']['actions']['created']]);
+        $this->assertSame(9, Order::withoutGlobalScopes()->count(), 'Aucun doublon');
+        $this->assertNotNull($this->company->fresh()->legacy_orders_imported_at);
+    }
+
+    public function test_the_most_recent_delivery_days_come_first(): void
+    {
+        $this->pageSize = 4;
+        $this->commands[105]['delivery_date'] = '2026-10-20';
+        $this->commands[102]['delivery_date'] = '2026-10-25';
+        $this->commands[110] = [...$this->commands[110], 'delivery_date' => null, 'created_at' => '2026-10-28 08:00:00'];
+
+        $this->import();
+
+        $order = Order::withoutGlobalScopes()->orderBy('id')->pluck('legacy_id')->all();
+        $this->assertSame(['110', '102', '105', '108', '107', '106', '104', '103', '101'], $order);
+
+        // Ancien module (sans cet ordre) : la reprise se fait quand même, par numéro, et l'écran le signale
+        $this->oldModule = true;
+        Queue::fake();
+        RunLegacyOrdersImport::start($this->company->id, true);
+        (new RunLegacyOrdersImport($this->company->id, true))->handle(app(LegacyOrdersSync::class));
+        $state = RunLegacyOrdersImport::state($this->company->id);
+        $this->assertTrue($state['old_module']);
+        $this->assertSame(10, $state['done']);
+    }
+
+    protected function tearDown(): void
+    {
+        RunLegacyOrdersImport::$stepSeconds = 60;
+        parent::tearDown();
     }
 }

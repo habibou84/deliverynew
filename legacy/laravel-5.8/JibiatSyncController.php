@@ -73,6 +73,11 @@ class JibiatSyncController extends Controller
             return response()->json(['server_time' => $serverTime, 'data' => $data, 'next_after_id' => count($rows) === $limit ? $rows->last()->id : null]);
         }
 
+        // Reprise initiale des plus récentes aux plus anciennes (jour de livraison, sinon jour de création)
+        if ($request->input('order') === 'recent' && ! $request->filled('ids') && ! $request->filled('since')) {
+            return $this->recent($request, $limit, $serverTime);
+        }
+
         // Commandes : par numéros (vérification), changements depuis une heure donnée, ou reprise initiale
         $afterId = (int) $request->input('after_id');
         if ($request->filled('ids')) {
@@ -88,6 +93,36 @@ class JibiatSyncController extends Controller
             'server_time' => $serverTime,
             'data' => $this->commands($ids),
             'next_after_id' => ! $request->filled('ids') && count($ids) === $limit ? max($ids) : null,
+        ]);
+    }
+
+    /**
+     * Reprise par jour de livraison décroissant, puis numéro décroissant. Point de reprise « after » = « jour|numéro »
+     * de la dernière commande reçue ; « next_after » vaut null à la fin.
+     */
+    private function recent(Request $request, $limit, $serverTime)
+    {
+        $day = 'COALESCE(delivery_date, DATE(created_at))';
+        $query = $this->scope((string) $request->input('from'));
+        $after = explode('|', (string) $request->input('after'), 2);
+        if (count($after) === 2 && $after[1] !== '') {
+            list($afterDay, $afterId) = [$after[0], (int) $after[1]];
+            $query->where(function ($q) use ($day, $afterDay, $afterId) {
+                $q->where(DB::raw($day), '<', $afterDay)
+                    ->orWhere(function ($q) use ($day, $afterDay, $afterId) {
+                        $q->where(DB::raw($day), '=', $afterDay)->where('id', '<', $afterId);
+                    });
+            });
+        }
+        $rows = $query->orderBy(DB::raw($day), 'desc')->orderBy('id', 'desc')->limit($limit)
+            ->get(['id', DB::raw($day.' AS jibiat_day')]);
+        $last = $rows->last();
+
+        return response()->json([
+            'server_time' => $serverTime,
+            'order' => 'recent',
+            'data' => $this->commands($rows->pluck('id')->all(), true),
+            'next_after' => count($rows) === $limit ? $last->jibiat_day.'|'.$last->id : null,
         ]);
     }
 
@@ -164,13 +199,20 @@ class JibiatSyncController extends Controller
     }
 
     /** Commandes complètes : e-commerçant, livreur, articles, notes, historique, frais, relances, paiement */
-    private function commands(array $ids)
+    private function commands(array $ids, $keepOrder = false)
     {
         if (! $ids) {
             return [];
         }
 
         $commands = $this->arrays(DB::table('commands')->whereIn('id', $ids)->orderBy('id')->get());
+        if ($keepOrder) {
+            // Dans l'ordre demandé (plus récentes d'abord)
+            $position = array_flip(array_map('intval', $ids));
+            usort($commands, function ($a, $b) use ($position) {
+                return $position[(int) $a['id']] - $position[(int) $b['id']];
+            });
+        }
         $clients = $this->keyed(DB::table('clients')->whereIn('id', array_column($commands, 'client_id') ?: [0])->get(['id', 'nom', 'phone']));
         $livreurs = $this->keyed(DB::table('livreurs')->whereIn('id', array_column($commands, 'livreur_id') ?: [0])->get(['id', 'nom', 'phone']));
         $items = $this->related('command_product', $ids, function ($q) {
