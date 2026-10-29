@@ -28,7 +28,7 @@ class LegacyPurgeController extends Controller
         return response()->json(['data' => [
             'days' => $days,
             'simulation' => $this->purges->simulate($company, $days, $filters),
-            'last' => $this->describe(LegacyPurge::query()->where('company_id', $company->id)->latest('id')->first()),
+            'last' => $this->describe(LegacyPurge::query()->where('company_id', $company->id)->where('min_days', '>', 0)->latest('id')->first()),
         ]]);
     }
 

@@ -45,6 +45,7 @@ use App\Http\Controllers\Api\V1\LegacyCashBaselineController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
 use App\Http\Controllers\Api\V1\LegacyOrdersController;
 use App\Http\Controllers\Api\V1\LegacyPurgeController;
+use App\Http\Controllers\Api\V1\LegacyRecheckController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\MerchantAppReferralController;
 use App\Http\Controllers\Api\V1\MerchantController;
@@ -384,6 +385,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('{purge}/undo', 'undo')->middleware('throttle:10,1')->name('undo');
             Route::get('on-the-way', 'onTheWay')->name('on-the-way');
             Route::post('on-the-way', 'resolve')->middleware('throttle:30,1')->name('resolve');
+        });
+        // Recomparaison complète avec l'ancienne application : modifiées, supprimées (annulées ou à vérifier)
+        Route::prefix('company/legacy-recheck')->name('company.legacy-recheck.')->middleware('can:settings.manage')->controller(LegacyRecheckController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+            Route::post('{recheck}/undo', 'undo')->middleware('throttle:10,1')->name('undo');
+            Route::get('deleted', 'deleted')->name('deleted');
+            Route::post('deleted/{order}', 'resolve')->whereNumber('order')->middleware('throttle:60,1')->name('resolve');
         });
         // Argent chez les livreurs venu de l'ancienne application : point de départ, annulation
         Route::prefix('company/legacy-cash')->name('company.legacy-cash.')->middleware('can:settings.manage')->controller(LegacyCashBaselineController::class)->group(function () {
