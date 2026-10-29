@@ -73,6 +73,8 @@ class Company extends Model
         'cutoff_by_day',
         // Cartes Membre Premium Jibiat Marchand : offertes toutes seules aux marchands qui remplissent les conditions
         'premium_auto',
+        // Connexion WhatsApp par QR code (non officielle) : autorisée depuis la console seulement
+        'whatsapp_qr_enabled',
         'status',
         'plan_id',
         'trial_ends_at',
@@ -115,6 +117,7 @@ class Company extends Model
             'courier_available_alert' => 'boolean',
             'directory_listed' => 'boolean',
             'premium_auto' => 'boolean',
+            'whatsapp_qr_enabled' => 'boolean',
             'premium_quota' => 'integer',
             'automation_paused_at' => 'datetime',
             'setup_skipped' => 'array',

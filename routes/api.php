@@ -255,6 +255,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('companies/{company}/support-session', 'supportSession')->middleware([$support, 'throttle:10,1'])->name('companies.support');
             Route::delete('companies/{company}/support-sessions/{session}', 'closeSupportSession')->middleware($support)->name('companies.support.close');
             Route::put('companies/{company}/billing-cycle', 'billingCycle')->middleware($accounting)->name('companies.billing-cycle');
+            Route::put('companies/{company}/whatsapp-qr', 'whatsappQr')->middleware($support)->name('companies.whatsapp-qr');
         });
         Route::get('console/dashboard', [ConsoleDashboardController::class, 'show'])->middleware($team)->name('console.dashboard');
         Route::get('console/search', [ConsoleSearchController::class, 'search'])->middleware([$team, 'throttle:60,1'])->name('console.search');
