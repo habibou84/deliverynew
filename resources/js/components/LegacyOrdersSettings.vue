@@ -34,6 +34,8 @@
         <button type="button" class="btn-primary" :disabled="busy || !state.url || !state.has_key" @click="test">Vérifier</button>
       </div>
       <p v-if="checked" class="text-sm text-emerald-700">✅ L'ancienne application répond : {{ checked.commands }} commande(s) à reprendre<template v-if="checked.products">, {{ checked.products }} produit(s)</template>.</p>
+      <p v-if="checked && checked.module_up_to_date === false" class="text-sm text-amber-700">⚠️ Le module de l'ancienne application n'est pas à jour : remplacez JibiatSyncController.php par celui téléchargé ci-dessus. S'il est déjà remplacé, videz le cache de PHP sur ce serveur (redémarrer PHP-FPM, ou « php artisan optimize:clear »).</p>
+      <p v-else-if="checked?.module_up_to_date" class="text-sm text-emerald-700">✅ Module à jour : reprise des plus récentes aux plus anciennes.</p>
     </div>
 
     <!-- 2. Simulation et reprise -->
@@ -51,7 +53,7 @@
         <p v-else-if="job.error" class="text-xs text-amber-700">⚠️ L'ancienne application n'a pas répondu ({{ job.error }}) : nouvel essai dans quelques minutes.</p>
       </div>
       <p v-else-if="job?.status === 'failed'" class="field-error">{{ job.error }}</p>
-      <p v-if="job?.old_module" class="text-xs text-amber-700">⚠️ Le module de l'ancienne application est l'ancienne version : les commandes arrivent par numéro, pas des plus récentes aux plus anciennes. Téléchargez de nouveau le module (étape 1) et remplacez le fichier JibiatSyncController.php.</p>
+      <p v-if="job?.old_module" class="text-xs text-amber-700">⚠️ Le module de l'ancienne application est l'ancienne version : les commandes arrivent par numéro, pas des plus récentes aux plus anciennes. Téléchargez de nouveau le module (étape 1) et remplacez le fichier JibiatSyncController.php ; dès qu'il est remplacé, la reprise repart toute seule dans le bon ordre (« Vérifier » dit si le module est à jour).</p>
 
       <template v-if="report">
         <p class="text-sm font-medium">{{ job.mode === 'simulate' ? 'Simulation (rien n\'a été enregistré)' : 'Résultat de la reprise' }}</p>
