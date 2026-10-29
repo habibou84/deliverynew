@@ -213,8 +213,14 @@ class LegacyOrdersPurge
         return $orders->count();
     }
 
+    /** Commande supprimée dans l'ancienne application, sans argent en jeu : annulée sans message (annulable avec $purge) */
+    public function cancelDeleted(?LegacyPurge $purge, Order $order): void
+    {
+        DB::transaction(fn () => $this->close($purge, $order, 'cancel', 'Supprimée dans l\'ancienne application : annulée.'));
+    }
+
     /** Clôture une course ; avec un nettoyage, l'état d'avant est gardé pour pouvoir l'annuler */
-    private function close(?LegacyPurge $purge, Order $order, string $how): void
+    private function close(?LegacyPurge $purge, Order $order, string $how, ?string $note = null): void
     {
         $previous = [
             'order' => $order->only(['status', 'return_requested', 'held_by_courier_id', 'held_since', 'cancelled_at', 'returned_at']),
@@ -246,9 +252,9 @@ class LegacyOrdersPurge
             'legacy_purge_id' => $purge?->id,
         ])->save();
 
-        $this->note($order, $purge, $status === OrderStatus::DeliveryFailed
+        $this->note($order, $purge, $note ?? ($status === OrderStatus::DeliveryFailed
             ? self::NOTE.' : retour à l\'e-commerçant, colis à rendre par le livreur.'
-            : self::NOTE.($status === OrderStatus::Cancelled ? ' : annulée (jamais ramassée).' : ' : retournée à l\'e-commerçant.'));
+            : self::NOTE.($status === OrderStatus::Cancelled ? ' : annulée (jamais ramassée).' : ' : retournée à l\'e-commerçant.')));
 
         if ($purge) {
             LegacyPurgeItem::create(['legacy_purge_id' => $purge->id, 'order_id' => $order->id, 'previous' => $previous]);
