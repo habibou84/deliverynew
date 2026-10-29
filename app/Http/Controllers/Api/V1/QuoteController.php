@@ -29,15 +29,17 @@ class QuoteController extends Controller
         $zone = Rule::exists('zones', 'id')->where('company_id', $user->company_id);
 
         $data = $request->validate([
-            'merchant_id' => [Rule::requiredIf($user->merchant_id === null), 'integer', Rule::exists('merchants', 'id')->where('company_id', $user->company_id)],
-            'pickup_zone_id' => ['nullable', 'integer', $zone],
+            // Sans marchand (e-commerçant créé avec la course) : tarifs par défaut, zone de ramassage obligatoire
+            'merchant_id' => ['nullable', 'integer', Rule::exists('merchants', 'id')->where('company_id', $user->company_id)],
+            'pickup_zone_id' => [Rule::requiredIf($user->merchant_id === null && ! $request->filled('merchant_id')), 'nullable', 'integer', $zone],
             'delivery_zone_id' => ['required_without:delivery_zone', 'nullable', 'integer', $zone],
             'is_express' => ['sometimes', 'boolean'],
             'is_fragile' => ['sometimes', 'boolean'],
             'weight_kg' => ['nullable', 'numeric', 'min:0'],
         ]);
 
-        $merchant = Merchant::findOrFail($user->merchant_id ?? $data['merchant_id']);
+        $merchantId = $user->merchant_id ?? $data['merchant_id'] ?? null;
+        $merchant = $merchantId ? Merchant::findOrFail($merchantId) : (new Merchant)->forceFill(['company_id' => $user->company_id]);
         $pickupZone = Zone::findOrFail($data['pickup_zone_id'] ?? $merchant->pickup_zone_id);
         $deliveryZone = Zone::findOrFail($data['delivery_zone_id']);
 

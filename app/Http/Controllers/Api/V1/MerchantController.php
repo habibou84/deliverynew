@@ -32,6 +32,8 @@ class MerchantController extends Controller
             'status' => ['nullable', 'string'],
             'source' => ['nullable', 'string', 'in:backoffice,signup'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
+            // Ceux des dernières courses d'abord (choix de l'e-commerçant à l'enregistrement d'une course)
+            'recent' => ['nullable', 'boolean'],
         ]);
 
         $merchants = Merchant::query()
@@ -46,6 +48,7 @@ class MerchantController extends Controller
                     ->orWhereRaw('LOWER(contact_name) LIKE ?', [$term])
                     ->orWhere('phone', 'like', $term));
             })
+            ->when($request->boolean('recent'), fn ($q) => $q->withMax('orders', 'created_at')->has('orders')->orderByDesc('orders_max_created_at'))
             ->orderBy('business_name')
             ->paginate(min(max($request->integer('per_page', 50), 1), 500));
 

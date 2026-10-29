@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Mail\GmailApiTransport;
 use App\Models\PlatformInvoice;
 use App\Models\User;
+use App\Services\Merchants\QuickMerchant;
 use App\Services\Messaging\Gateways\AutoWhatsAppGateway;
 use App\Services\Messaging\Gateways\LogSmsGateway;
 use App\Services\Messaging\Gateways\LogWhatsAppGateway;
@@ -37,6 +38,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Entreprise de l'adresse : une par requête
         $this->app->scoped(Tenancy::class);
+        // E-commerçant créé avec une course : confirmation remplacée par la bienvenue, le temps de la requête
+        $this->app->scoped(QuickMerchant::class);
 
         // WhatsApp : réel pour les numéros connectés (auto), forcé (meta) ou simulé partout (log)
         $this->app->bind(WhatsAppGateway::class, fn () => match (config('messaging.whatsapp.driver')) {
