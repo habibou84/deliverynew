@@ -39,6 +39,7 @@ class MerchantResource extends JsonResource
             'pricing_grid_id' => $this->when($isStaff, $this->pricing_grid_id),
             'notes' => $this->when($isStaff, $this->notes),
             'orders_count' => $this->whenCounted('orders'),
+            'last_order_at' => $this->whenHas('orders_max_created_at'),
             'users' => UserResource::collection($this->whenLoaded('users')),
             'created_at' => $this->created_at,
         ];

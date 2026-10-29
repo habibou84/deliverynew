@@ -10,6 +10,7 @@ use App\Http\Requests\V1\UpdateOrderRequest;
 use App\Http\Resources\V1\OrderResource;
 use App\Models\Merchant;
 use App\Models\Order;
+use App\Services\Merchants\QuickMerchant;
 use App\Services\Orders\AwaitingCourier;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\PickupGroups;
@@ -19,6 +20,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -211,9 +213,36 @@ class OrderController extends Controller
     {
         $user = $request->user();
         $data = $request->validated();
-        $merchant = Merchant::findOrFail($user->merchant_id ?? $data['merchant_id']);
-
         $source = $user->merchant_id !== null ? 'dashboard' : 'admin';
+
+        // E-commerçant pas encore inscrit : créé avec sa première course (rien de créé si la course est refusée)
+        $new = $data['new_merchant'] ?? null;
+        unset($data['new_merchant']);
+        if ($new !== null) {
+            $quick = app(QuickMerchant::class);
+            $sendAccess = (bool) ($new['send_access'] ?? true);
+            $data['pickup_zone_id'] ??= $new['pickup_zone_id'] ?? null;
+            [$merchant, $order] = DB::transaction(function () use ($quick, $user, $new, $data, $source, $sendAccess) {
+                $merchant = $quick->create($user, $new);
+                $order = $this->orders->create($user, $merchant, $data, $source);
+                // Un seul message : la bienvenue remplace « course validée »
+                if ($sendAccess) {
+                    $quick->holdConfirmation($order);
+                }
+
+                return [$merchant, $order];
+            });
+
+            return OrderResource::make($this->loadDetail($order))
+                ->additional(['meta' => ['new_merchant' => [
+                    'id' => $merchant->id,
+                    'business_name' => $merchant->business_name,
+                    'welcome' => $sendAccess ? $quick->welcome($merchant->fresh(), $order, $user) : null,
+                ]]])
+                ->response()->setStatusCode(201);
+        }
+
+        $merchant = Merchant::findOrFail($user->merchant_id ?? $data['merchant_id']);
         $order = $this->orders->create($user, $merchant, $data, $source);
 
         return OrderResource::make($this->loadDetail($order))->response()->setStatusCode(201);
