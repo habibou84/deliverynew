@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\Courier;
 use App\Services\Couriers\CourierTracker;
 use App\Services\Orders\AwaitingCourier;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -90,10 +91,14 @@ class CourierController extends Controller
     {
         $candidates = $couriers->filter(fn ($c) => $c['is_available'] && $c['lat'] !== null);
 
-        return $awaiting->waiting($company)->where('stage', AwaitingCourier::PICKUP)
+        $waiting = $awaiting->waiting($company)->where('stage', AwaitingCourier::PICKUP);
+        // E-commerçants et zones lus en une fois, pas une requête par course
+        (new EloquentCollection($waiting->pluck('order')->all()))->loadMissing(['merchant', 'pickupZone']);
+
+        return $waiting
             ->sortByDesc('minutes')
             ->map(function (array $w) use ($candidates) {
-                $order = $w['order']->loadMissing(['merchant', 'pickupZone']);
+                $order = $w['order'];
                 $lat = $order->pickup_lat ?? $order->merchant?->pickup_lat;
                 $lng = $order->pickup_lng ?? $order->merchant?->pickup_lng;
 
