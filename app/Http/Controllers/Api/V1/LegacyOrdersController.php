@@ -58,11 +58,12 @@ class LegacyOrdersController extends Controller
     {
         try {
             $summary = $this->sync->get($request->user()->company, 'summary', ['from' => LegacyOrdersSync::from()]);
+            $recent = $this->sync->sortsRecent($request->user()->company);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['data' => $summary['data'] ?? []]);
+        return response()->json(['data' => [...($summary['data'] ?? []), 'module_up_to_date' => $recent]]);
     }
 
     /** Simulation (rien n'est enregistré) ou reprise, en arrière-plan */
