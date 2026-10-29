@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\LegacyCashBaselineController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
 use App\Http\Controllers\Api\V1\LegacyOrdersController;
 use App\Http\Controllers\Api\V1\LegacyPurgeController;
@@ -386,6 +387,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('{purge}/undo', 'undo')->middleware('throttle:10,1')->name('undo');
             Route::get('on-the-way', 'onTheWay')->name('on-the-way');
             Route::post('on-the-way', 'resolve')->middleware('throttle:30,1')->name('resolve');
+        });
+        // Argent chez les livreurs venu de l'ancienne application : point de départ, annulation
+        Route::prefix('company/legacy-cash')->name('company.legacy-cash.')->middleware('can:settings.manage')->controller(LegacyCashBaselineController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+            Route::post('{baseline}/undo', 'undo')->middleware('throttle:10,1')->name('undo');
         });
         // Bascule depuis l'ancienne application : date, clé, module
         Route::prefix('company/legacy-switch')->name('company.legacy-switch.')->middleware('can:settings.manage')->controller(LegacySwitchController::class)->group(function () {
