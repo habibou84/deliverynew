@@ -86,6 +86,16 @@ Chaque course garde une note « Clôturée lors du nettoyage de la reprise » et
 application. Un nettoyage s'annule pendant 7 jours (les courses traitées depuis restent comme elles sont) ; les
 vérifications « en chemin » ne s'annulent pas.
 
+**Argent chez les livreurs : point de départ** (Réglages › Reprise › Argent chez les livreurs). Toutes les
+entreprises ne remplissaient pas « encaisser le livreur » dans l'ancienne application : des mois de livraisons
+paraissent encore chez les livreurs. On choisit une date (conseillé : la date de bascule) ; avant elle, l'argent est
+compté comme remis. Pour chaque livreur, après avoir compté avec lui : « Tout remis » (il garde seulement ce qui a été
+encaissé depuis la date) ou le montant qu'il a vraiment (Jibiat garde ses encaissements les plus récents qui tiennent
+dans ce montant). Taper VALIDER. Rien ne bouge dans la caisse (aucun versement, aucun message) et ce qui est dû aux
+e-commerçants ne change pas ; chaque course garde une note « Argent remis dans l'ancienne application (point de
+départ) ». Un encaissement réglé ainsi ne revient plus chez le livreur avec la copie en continu. Annulable 7 jours.
+Le contrôle des soldes livreurs montre ensuite un écart avec l'ancienne application : c'est attendu.
+
 **Produits** : un produit par variante, prix et stock actuel (inventaire « Reprise de l'ancienne application »).
 
 ## 3. Bascule le jour choisi
