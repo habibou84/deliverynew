@@ -16,8 +16,11 @@ import { RouteIcon, UserIcon, WalletIcon } from '../../components/mobile/icons'
 import { currentPosition } from '../../composables/useGeolocation'
 import { loadOfflineQueue, startOfflineSync } from '../../composables/useOfflineQueue'
 import { useAuthStore } from '../../stores/auth'
+import { setupRing } from '../../native/ring'
+import { useRouter } from 'vue-router'
 
 const auth = useAuthStore()
+const router = useRouter()
 
 // Actions faites hors connexion : relues sur le téléphone, envoyées dès que le réseau revient
 loadOfflineQueue(auth.user?.id)
@@ -33,6 +36,8 @@ async function sendLocation() {
 }
 
 onMounted(() => {
+  // Application Android : téléphone enregistré pour la sonnerie des missions
+  setupRing(router)
   sendLocation()
   locationTimer = setInterval(sendLocation, 30000)
 })

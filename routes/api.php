@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\V1\CourierAvailabilityController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierRatingController;
+use App\Http\Controllers\Api\V1\CourierRingController;
 use App\Http\Controllers\Api\V1\CourierSpaceController;
 use App\Http\Controllers\Api\V1\CustomDomainController;
 use App\Http\Controllers\Api\V1\DeliveryDayController;
@@ -674,6 +675,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('assignments/{assignment}/accept', [CourierSpaceController::class, 'accept'])->name('assignments.accept');
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
             Route::post('assignments/{assignment}/edit-seen', [CourierSpaceController::class, 'editSeen'])->name('assignments.edit-seen');
+            // Sonnerie des missions (application Android)
+            Route::post('devices', [CourierRingController::class, 'register'])->middleware('throttle:20,1')->name('devices.register');
+            Route::delete('devices', [CourierRingController::class, 'unregister'])->name('devices.unregister');
+            Route::get('ring', [CourierRingController::class, 'show'])->name('ring.show');
+            Route::post('ring/answer', [CourierRingController::class, 'answer'])->name('ring.answer');
             Route::patch('status', [CourierSpaceController::class, 'updateStatus'])->name('status');
             // Actions faites hors connexion, envoyées au retour du réseau
             Route::post('sync', OfflineSyncController::class)->middleware('throttle:120,1')->name('sync');

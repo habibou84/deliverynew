@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+
+# Configuration Firebase : donnée à la compilation (secret GOOGLE_SERVICES_JSON), jamais dans le dépôt
+google-services.json
