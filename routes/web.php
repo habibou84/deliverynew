@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\ProductPhotoController;
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\ConsoleNotMeController;
+use App\Http\Controllers\CourierAppController;
 use App\Http\Controllers\PwaManifestController;
 use App\Http\Controllers\WavePaymentValidationController;
 use App\Support\Tenancy;
@@ -45,6 +46,10 @@ Route::post('/console/securite/pas-moi/{user}', [ConsoleNotMeController::class, 
 
 // Retour de Google après « Connecter Gmail » (console : envoi des e-mails sans mot de passe)
 Route::get('/gmail/callback', [ConsoleGmailController::class, 'callback'])->middleware('throttle:20,1')->name('console.gmail.callback');
+
+// Application Android des livreurs : page de téléchargement et fichier APK (sonnerie des missions)
+Route::get('/app/livreur', [CourierAppController::class, 'page'])->name('courier-app.page');
+Route::get('/app/livreur.apk', [CourierAppController::class, 'download'])->middleware('throttle:30,1')->name('courier-app.download');
 
 Route::view('/confidentialite', 'legal.privacy')->name('privacy');
 Route::view('/conditions', 'legal.terms')->name('terms');

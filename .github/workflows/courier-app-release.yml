@@ -1,0 +1,104 @@
+name: Application livreur (téléchargement)
+
+# Fabrique l'APK « Jibiat Livreur » signée (même clé à chaque version, pour s'installer par-dessus) et la dépose
+# sur le serveur : préproduction pour la branche main, production pour la branche production.
+# Page de téléchargement : <adresse du serveur>/app/livreur
+#
+# Secrets du dépôt : LIVREUR_KEYSTORE (clé PKCS12 en base64), LIVREUR_KEYSTORE_PASSWORD, LIVREUR_KEY_ALIAS,
+# APP_UPLOAD_TOKEN (le même que dans le .env des serveurs), GOOGLE_SERVICES_JSON (sonnerie des missions).
+# Variables du dépôt : PRODUCTION_URL et PREPROD_URL (adresses des serveurs).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, production]
+    paths:
+      - 'mobile/livreur/**'
+      - 'resources/js/**'
+      - 'resources/css/app.css'
+      - 'vite.mobile.config.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/courier-app-release.yml'
+
+concurrency:
+  group: courier-app-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: APK livreur signée
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE: ${{ secrets.LIVREUR_KEYSTORE }}
+      UPLOAD_TOKEN: ${{ secrets.APP_UPLOAD_TOKEN }}
+      SERVER_URL: ${{ github.ref_name == 'production' && (vars.PRODUCTION_URL || 'https://jibiat.com') || vars.PREPROD_URL }}
+    steps:
+      - name: Réglages présents ?
+        id: ready
+        run: |
+          if [ -z "$KEYSTORE" ] || [ -z "$UPLOAD_TOKEN" ] || [ -z "$SERVER_URL" ]; then
+            echo "::notice::Clé de signature, jeton de dépôt ou adresse du serveur manquant : rien n'est publié."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.ready.outputs.ok == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        if: steps.ready.outputs.ok == 'true'
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - run: npm ci
+        if: steps.ready.outputs.ok == 'true'
+
+      - name: Écrans de l'application
+        if: steps.ready.outputs.ok == 'true'
+        run: VITE_PLATFORM_URL="$SERVER_URL" npm run mobile:livreur
+
+      - name: Configuration Firebase (sonnerie des missions)
+        if: steps.ready.outputs.ok == 'true'
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > mobile/livreur/android/app/google-services.json
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON absent : l'application ne sonnera pas."
+          fi
+
+      - name: APK signée
+        if: steps.ready.outputs.ok == 'true'
+        working-directory: mobile/livreur/android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.LIVREUR_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.LIVREUR_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/livreur.p12"
+          export ANDROID_KEYSTORE="$RUNNER_TEMP/livreur.p12"
+          # Numéro de version toujours croissant : celui de l'exécution du workflow
+          echo "VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=1.$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+          ./gradlew assembleRelease --no-daemon -PversionCode="$((1000 + GITHUB_RUN_NUMBER))" -PversionName="1.$GITHUB_RUN_NUMBER"
+
+      - name: Dépôt sur le serveur
+        if: steps.ready.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          curl -fsS -H "X-Upload-Token: $UPLOAD_TOKEN" -H 'Accept: application/json' \
+            -F "version_code=$VERSION_CODE" -F "version_name=$VERSION_NAME" \
+            -F "file=@mobile/livreur/android/app/build/outputs/apk/release/app-release.apk" \
+            "${SERVER_URL%/}/api/public/apps/livreur"
+          echo "::notice::Version $VERSION_NAME en ligne : ${SERVER_URL%/}/app/livreur"
+
+      - name: Nettoyage de la clé
+        if: always()
+        run: rm -f "$RUNNER_TEMP/livreur.p12" mobile/livreur/android/app/google-services.json
