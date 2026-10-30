@@ -1,6 +1,14 @@
 <template>
   <section v-if="state" class="card p-4 space-y-4">
-    <div>
+    <div v-if="part === 'connect'">
+      <h2 class="font-semibold">Lecture des commandes</h2>
+      <p class="text-sm text-gray-600">C'est Jibiat qui va lire les commandes dans l'ancienne application, sans rien y modifier.</p>
+    </div>
+    <div v-else-if="part === 'balances'">
+      <h2 class="font-semibold">Contrôle des soldes</h2>
+      <p class="text-sm text-gray-600">Ce que l'ancienne application doit aux e-commerçants et l'argent encore chez les livreurs, comparés avec Jibiat.</p>
+    </div>
+    <div v-else>
       <h2 class="font-semibold">Commandes de l'ancienne application</h2>
       <p class="text-sm text-gray-600">
         Jibiat va chercher les commandes dans l'ancienne application (lecture seule, rien n'y est modifié) : les
@@ -10,9 +18,8 @@
       </p>
     </div>
 
-    <!-- 1. Branchement -->
-    <div class="space-y-2 rounded-lg border p-3">
-      <p class="text-sm font-medium">1. Brancher l'ancienne application</p>
+    <!-- Branchement -->
+    <div v-if="part === 'connect'" class="space-y-2">
       <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
         <li>Copiez le module dans l'ancienne application (explications en tête du fichier) :
           <button type="button" class="text-blue-600" @click="downloadModule">télécharger JibiatSyncController.php</button>.</li>
@@ -38,10 +45,14 @@
       <p v-else-if="checked?.module_up_to_date" class="text-sm text-emerald-700">✅ Module à jour : reprise des plus récentes aux plus anciennes.</p>
     </div>
 
-    <!-- 2. Simulation et reprise -->
-    <div class="space-y-3 rounded-lg border p-3">
+    <p v-if="part !== 'connect' && !ready" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+      L'ancienne application n'est pas encore branchée : allez d'abord dans
+      <RouterLink to="/admin/reglages/reprise/brancher" class="font-semibold underline">Brancher l'ancienne application</RouterLink>.
+    </p>
+    <!-- Simulation et reprise -->
+    <div v-if="part === 'import'" class="space-y-3 rounded-lg border p-3">
       <div class="flex flex-wrap items-center gap-2">
-        <p class="text-sm font-medium flex-1">2. Reprendre les commandes</p>
+        <p class="text-sm font-medium flex-1">Reprendre les commandes</p>
         <span v-if="state.imported_at" class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">✓ Reprise faite le {{ dateTime(state.imported_at) }} · {{ state.orders }} course(s)</span>
       </div>
 
@@ -53,7 +64,7 @@
         <p v-else-if="job.error" class="text-xs text-amber-700">⚠️ L'ancienne application n'a pas répondu ({{ job.error }}) : nouvel essai dans quelques minutes.</p>
       </div>
       <p v-else-if="job?.status === 'failed'" class="field-error">{{ job.error }}</p>
-      <p v-if="job?.old_module" class="text-xs text-amber-700">⚠️ Le module de l'ancienne application est l'ancienne version : les commandes arrivent par numéro, pas des plus récentes aux plus anciennes. Téléchargez de nouveau le module (étape 1) et remplacez le fichier JibiatSyncController.php ; dès qu'il est remplacé, la reprise repart toute seule dans le bon ordre (« Vérifier » dit si le module est à jour).</p>
+      <p v-if="job?.old_module" class="text-xs text-amber-700">⚠️ Le module de l'ancienne application est l'ancienne version : les commandes arrivent par numéro, pas des plus récentes aux plus anciennes. Téléchargez de nouveau le module (page « Brancher l'ancienne application ») et remplacez le fichier JibiatSyncController.php ; dès qu'il est remplacé, la reprise repart toute seule dans le bon ordre (« Vérifier » dit si le module est à jour).</p>
 
       <template v-if="report">
         <p class="text-sm font-medium">{{ job.mode === 'simulate' ? 'Simulation (rien n\'a été enregistré)' : 'Résultat de la reprise' }}</p>
@@ -96,10 +107,11 @@
       </div>
     </div>
 
-    <!-- 3. Soldes -->
-    <div v-if="state.imported_at" class="space-y-3 rounded-lg border p-3">
+    <!-- Soldes -->
+    <p v-if="part === 'balances' && !state.imported_at" class="text-sm text-gray-600">À faire une fois les commandes reprises.</p>
+    <div v-if="part === 'balances' && state.imported_at" class="space-y-3">
       <div class="flex flex-wrap items-center gap-2">
-        <p class="text-sm font-medium flex-1">3. Contrôle des soldes</p>
+        <p class="flex-1 text-sm text-gray-600">{{ state.balances_validated_at ? '' : 'Pas encore validés.' }}</p>
         <span v-if="state.balances_validated_at" class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">✓ Validés le {{ dateTime(state.balances_validated_at) }}</span>
         <button type="button" class="btn-secondary" :disabled="busy" @click="loadBalances">{{ balances ? 'Recalculer' : 'Comparer les soldes' }}</button>
       </div>
@@ -115,10 +127,10 @@
       </template>
     </div>
 
-    <!-- 4. Copie en continu -->
-    <div v-if="state.imported_at" class="space-y-3 rounded-lg border p-3">
+    <!-- Copie en continu -->
+    <div v-if="part === 'import' && state.imported_at" class="space-y-3 rounded-lg border p-3">
       <div class="flex flex-wrap items-center gap-2">
-        <p class="text-sm font-medium flex-1">4. Copie en continu</p>
+        <p class="text-sm font-medium flex-1">Copie chaque minute</p>
         <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', state.enabled ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-600']">{{ state.enabled ? '● Active' : '⏸ En pause' }}</span>
       </div>
       <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -142,15 +154,17 @@
 
 <script setup>
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import StatCard from './StatCard.vue'
 import { useToastStore } from '../stores/toasts'
 import { dateTime, money, STATUS_LABELS } from '../utils/format'
 
 /**
- * Réglages › Reprise de l'ancienne application › Commandes : branchement (module, clé, adresse), simulation et reprise
- * en arrière-plan, contrôle des soldes, copie en continu.
+ * Réglages › Reprise › commandes de l'ancienne application. part « connect » : branchement (module, clé, adresse) ;
+ * « import » : simulation et reprise en arrière-plan, copie chaque minute ; « balances » : contrôle des soldes.
  */
+const props = defineProps({ part: { type: String, default: 'import' } })
 const BalanceTable = defineComponent({
   props: { title: String, oldLabel: String, rows: Array, old: Number, jibiat: Number },
   setup(props) {
@@ -257,7 +271,7 @@ let timer = null
 onMounted(async () => {
   await load()
   timer = setInterval(() => {
-    if (!document.hidden && !busy.value && (running.value || state.value?.enabled)) {
+    if (props.part === 'import' && !document.hidden && !busy.value && (running.value || state.value?.enabled)) {
       http.get('/company/legacy-orders').then(({ data }) => { state.value = data.data }).catch(() => {})
     }
   }, 4000)

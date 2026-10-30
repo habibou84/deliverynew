@@ -44,6 +44,7 @@ use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\LegacyCashBaselineController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
 use App\Http\Controllers\Api\V1\LegacyOrdersController;
+use App\Http\Controllers\Api\V1\LegacyOverviewController;
 use App\Http\Controllers\Api\V1\LegacyPurgeController;
 use App\Http\Controllers\Api\V1\LegacyRecheckController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
@@ -358,6 +359,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Domaine personnalisé de l'entreprise (module de la formule pour le choisir)
         // Ouvertures de l'espace par l'assistance Jibiat
         Route::get('company/support-sessions', [CompanySupportController::class, 'index'])->middleware('can:settings.manage')->name('company.support-sessions');
+        // Reprise de l'ancienne application : accueil (où en est chaque étape, ce qui reste à faire)
+        Route::get('company/legacy-overview', [LegacyOverviewController::class, 'show'])->middleware('can:settings.manage')->name('company.legacy-overview');
         // Reprise de l'ancienne application : clé à coller dans son bouton, module à y copier
         Route::prefix('company/legacy-import')->name('company.legacy-import.')->middleware('can:settings.manage')->controller(LegacyImportController::class)->group(function () {
             Route::get('/', 'show')->name('show');

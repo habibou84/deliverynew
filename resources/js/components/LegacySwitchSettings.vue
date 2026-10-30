@@ -1,21 +1,22 @@
 <template>
   <section v-if="state" class="card p-4 space-y-3">
     <div>
-      <h2 class="font-semibold">Bascule vers Jibiat</h2>
-      <p class="text-sm text-gray-600">
+      <h2 class="font-semibold">{{ part === 'connect' ? 'Module de bascule' : 'Date de la bascule' }}</h2>
+      <p v-if="part === 'connect'" class="text-sm text-gray-600">Le jour de la bascule, il envoie sur Jibiat, déjà connectés, les comptes qui ouvrent l'ancienne application.</p>
+      <p v-else class="text-sm text-gray-600">
         Le jour choisi, vos e-commerçants et vos livreurs qui ouvrent l'ancienne application arrivent directement sur Jibiat,
         déjà connectés à leur espace : pas de nouveau compte, pas de mot de passe à retaper. Avant cette date, rien ne change.
         Un compte créé dans l'ancienne application après la reprise est repris au moment de la bascule.
       </p>
     </div>
 
+    <template v-if="part === 'connect'">
     <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
       <li>
         Copiez le module dans l'ancienne application, en suivant les explications en tête du fichier :
         <button type="button" class="text-blue-600" @click="downloadModule">télécharger JibiatSwitch.php</button>.
       </li>
       <li>Créez une clé de bascule et mettez-la, avec l'adresse de votre espace, dans le fichier .env de l'ancienne application.</li>
-      <li>Choisissez le jour et l'heure de la bascule. Vous pouvez la déplacer ou l'annuler tant qu'elle n'a pas commencé.</li>
     </ol>
 
     <!-- Clé affichée une seule fois -->
@@ -31,6 +32,10 @@
       <button v-if="state.key_active" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="revoke">Désactiver</button>
     </div>
 
+    </template>
+
+    <template v-else>
+    <p class="text-sm text-gray-600">Choisissez le jour et l'heure de la bascule. Vous pouvez la déplacer ou l'annuler tant qu'elle n'a pas commencé.</p>
     <div class="space-y-2 rounded-lg border p-3">
       <p v-if="state.started" class="text-sm font-medium text-emerald-700">
         🚀 Bascule commencée le {{ dateTime(state.switch_at) }} : les comptes qui ouvrent l'ancienne application arrivent sur Jibiat.
@@ -50,18 +55,23 @@
         <button v-if="!state.started" type="button" class="btn-secondary" :disabled="busy" @click="now">Basculer maintenant</button>
         <button v-if="state.switch_at" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="save(null)">Annuler la bascule</button>
       </div>
-      <p v-if="!state.key_active" class="text-xs text-amber-700">Sans clé de bascule installée dans l'ancienne application, personne n'est envoyé sur Jibiat.</p>
+      <p v-if="!state.key_active" class="text-xs text-amber-700">
+        Sans clé de bascule installée dans l'ancienne application, personne n'est envoyé sur Jibiat : créez-la dans
+        <RouterLink to="/admin/reglages/reprise/brancher" class="font-semibold underline">Brancher l'ancienne application</RouterLink>.
+      </p>
     </div>
 
     <p class="text-sm">
       Déjà passés sur Jibiat par la bascule : <strong>{{ state.switched.merchants }}</strong> e-commerçant{{ state.switched.merchants > 1 ? 's' : '' }}
       et <strong>{{ state.switched.couriers }}</strong> livreur{{ state.switched.couriers > 1 ? 's' : '' }}.
     </p>
+    </template>
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { dateTime } from '../utils/format'
@@ -70,6 +80,7 @@ import { dateTime } from '../utils/format'
  * Réglages › Reprise de l'ancienne application › Bascule : date à partir de laquelle les comptes de l'ancienne
  * application arrivent sur Jibiat déjà connectés, clé à mettre dans l'ancienne application, module à y copier.
  */
+defineProps({ part: { type: String, default: 'schedule' } })
 const toasts = useToastStore()
 const state = ref(null)
 const key = ref('')
