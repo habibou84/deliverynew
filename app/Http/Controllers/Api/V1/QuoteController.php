@@ -32,7 +32,7 @@ class QuoteController extends Controller
             // Sans marchand (e-commerçant créé avec la course) : tarifs par défaut, zone de ramassage obligatoire
             'merchant_id' => ['nullable', 'integer', Rule::exists('merchants', 'id')->where('company_id', $user->company_id)],
             'pickup_zone_id' => [Rule::requiredIf($user->merchant_id === null && ! $request->filled('merchant_id')), 'nullable', 'integer', $zone],
-            'delivery_zone_id' => ['required_without:delivery_zone', 'nullable', 'integer', $zone],
+            'delivery_zone_id' => ['required_without_all:delivery_zone,delivery_place', 'nullable', 'integer', $zone],
             'is_express' => ['sometimes', 'boolean'],
             'is_fragile' => ['sometimes', 'boolean'],
             'weight_kg' => ['nullable', 'numeric', 'min:0'],

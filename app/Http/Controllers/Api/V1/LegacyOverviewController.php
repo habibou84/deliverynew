@@ -7,9 +7,11 @@ use App\Jobs\RunLegacyOrdersImport;
 use App\Models\LegacyCashBaseline;
 use App\Models\LegacyRecheck;
 use App\Models\Order;
+use App\Models\Zone;
 use App\Services\Legacy\LegacyCashBaselines;
 use App\Services\Legacy\LegacyOrdersPurge;
 use App\Services\Legacy\LegacyRechecks;
+use App\Services\Zones\ZoneLinks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,6 +27,7 @@ class LegacyOverviewController extends Controller
         private readonly LegacyRechecks $rechecks,
         private readonly LegacyOrdersPurge $purges,
         private readonly LegacyCashBaselines $baselines,
+        private readonly ZoneLinks $links,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -61,6 +64,10 @@ class LegacyOverviewController extends Controller
                 'balances' => $imported && $company->legacy_balances_validated_at === null,
                 'cash' => $imported && ! $baseline && $this->baselines->held($company)->exists(),
                 'recheck_running' => $recheck?->status === 'running',
+                // Zones reprises à rattacher, prix de l'ancienne application à valider
+                'zones' => $imported || $company->legacy_import_used_at !== null ? $this->links->pending($company)->count() : 0,
+                'prices' => Zone::withoutGlobalScopes()->where('company_id', $company->id)->whereNotNull('legacy_price')
+                    ->whereNull('legacy_price_done_at')->whereNull('merged_into_id')->count(),
             ],
         ]]);
     }

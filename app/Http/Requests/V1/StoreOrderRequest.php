@@ -22,7 +22,8 @@ class StoreOrderRequest extends FormRequest
     private array $zoneErrors = [];
 
     /**
-     * Zones données par leur nom (« delivery_zone »: « Cocody ») : remplacées par leur identifiant.
+     * Zones données par leur nom (« delivery_zone »: « Cocody ») ou le code de leur lieu (« delivery_place ») :
+     * remplacées par leur identifiant.
      */
     protected function prepareForValidation(): void
     {
@@ -74,6 +75,7 @@ class StoreOrderRequest extends FormRequest
             'pickup_hub_id' => ['nullable', 'integer', Rule::exists('hubs', 'id')->where('company_id', $companyId)->where('is_active', true)],
             'pickup_zone_id' => ['nullable', 'integer', $zone],
             'pickup_zone' => ['nullable', 'string', 'max:150'],
+            'pickup_place' => ['nullable', 'string', 'max:120'],
             'pickup_address' => ['nullable', 'string', 'max:500'],
             'pickup_landmark' => ['nullable', 'string', 'max:255'],
             'pickup_contact_name' => ['nullable', 'string', 'max:255'],
@@ -84,9 +86,10 @@ class StoreOrderRequest extends FormRequest
             'recipient_name' => ['nullable', 'string', 'max:255'],
             'recipient_phone' => ['required', 'string', new PhoneNumber],
             'recipient_phone2' => ['nullable', 'string', new PhoneNumber],
-            // Identifiant de zone, ou son nom (« Cocody », « Yopougon Siporex »)
-            'delivery_zone_id' => ['required_without:delivery_zone', 'nullable', 'integer', $zone],
+            // Identifiant de zone, son nom (« Cocody », « Yopougon Siporex ») ou le code du lieu (« abidjan-cocody-angre »)
+            'delivery_zone_id' => ['required_without_all:delivery_zone,delivery_place', 'nullable', 'integer', $zone],
             'delivery_zone' => ['nullable', 'string', 'max:150'],
+            'delivery_place' => ['nullable', 'string', 'max:120'],
             'delivery_address' => ['nullable', 'string', 'max:500'],
             'delivery_landmark' => ['nullable', 'string', 'max:255'],
             'delivery_lat' => ['nullable', 'numeric', 'between:-90,90'],
