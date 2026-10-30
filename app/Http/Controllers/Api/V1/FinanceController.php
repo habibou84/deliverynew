@@ -32,6 +32,7 @@ use App\Services\Finance\CourierPayroll;
 use App\Services\Finance\MerchantPayouts;
 use App\Services\Finance\PayBonuses;
 use App\Services\Messaging\Messenger;
+use App\Services\Messaging\TemplateAutoSubmit;
 use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -102,6 +103,8 @@ class FinanceController extends Controller
                 'watched' => $couriers->whereNotNull('watch')->count(),
             ],
             'alert' => ['hours' => $company->cash_alert_hours, 'amount' => $company->cash_alert_amount],
+            // Reçu et rappel WhatsApp : modèles soumis à Meta tout seuls s'ils ne l'ont pas encore été
+            'whatsapp_templates' => app(TemplateAutoSubmit::class)->ensure($company->id, [WhatsAppTemplate::CashReceipt, WhatsAppTemplate::CashReminder]),
         ]);
     }
 
