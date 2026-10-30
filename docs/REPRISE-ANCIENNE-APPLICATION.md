@@ -1,6 +1,16 @@
 # Reprise de l'ancienne application (Laravel 5.8) et bascule
 
-Deux temps, tous deux dans **Réglages › Intégrations › Reprise de l'ancienne application** (administrateur).
+Tout se fait dans **Réglages › Reprise de l'ancienne application** (administrateur). La page d'accueil montre
+l'état en une ligne (copie, bascule), un encadré « À faire » (supprimées à vérifier, courses en chemin depuis plus de
+30 jours, soldes à valider, point de départ de l'argent des livreurs) et cinq étapes, chacune sur sa page :
+
+| Étape | Adresse | Contenu |
+|---|---|---|
+| 1. Brancher l'ancienne application | `/admin/reglages/reprise/brancher` | les trois modules et leurs clés (lecture des commandes, envoi des comptes, bascule), l'adresse, « Vérifier » |
+| 2. Comptes et zones | `/admin/reglages/reprise/comptes` | ce qui est repris, dernier envoi reçu |
+| 3. Commandes | `/admin/reglages/reprise/commandes` | simulation, reprise, copie chaque minute |
+| 4. Contrôles et ménage | `/admin/reglages/reprise/controles` | recomparaison, contrôle des soldes, argent chez les livreurs, anciennes courses à clôturer |
+| 5. Bascule vers Jibiat | `/admin/reglages/reprise/bascule` | date et suivi de la bascule |
 
 ## 1. Reprise des comptes
 

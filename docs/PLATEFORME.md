@@ -387,11 +387,11 @@ Avant tout : créez l'entreprise sur la plateforme et ses **zones**.
 
 ### Avec le bouton de l'ancienne application (recommandé)
 
-1. Dans l'espace de l'entreprise : **Paramètres › Reprise de l'ancienne application** › télécharger
+1. Dans l'espace de l'entreprise : **Réglages › Reprise › Brancher l'ancienne application** › télécharger
    `JibiatMigrationController.php` (aussi dans `legacy/laravel-5.8/` du dépôt).
 2. Sur le serveur de l'ancienne application : copier le fichier dans `app/Http/Controllers/` et ajouter les deux routes
    indiquées en tête du fichier dans `routes/web.php` (PHP 7.1 ou plus, extension curl, connexions HTTPS sortantes).
-3. Dans **Paramètres › Reprise**, créer une **clé de reprise** (valable 7 jours, affichée une fois).
+3. Sur la même page, créer une **clé de reprise** (valable 7 jours, affichée une fois).
 4. Dans l'ancienne application, connecté en administrateur : ouvrir `/jibiat-migration`, coller l'adresse de l'espace
    (`https://entreprise.jibiat.com`) et la clé, **Simuler**, vérifier le compte rendu, puis **Envoyer**.
    L'envoi se fait par paquets de 200 (e-commerçants, puis livreurs) vers `POST /api/legacy-import` ; le mot de passe

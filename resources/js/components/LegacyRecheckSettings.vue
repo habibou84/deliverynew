@@ -29,7 +29,7 @@
           <button v-if="since !== state.default_since" type="button" class="underline" @click="since = state.default_since; load()">remettre</button>
         </span>
       </label>
-      <p class="flex-1 text-sm text-gray-600">D'abord les commandes créées ou modifiées là-bas{{ since ? ` depuis le ${date(since)}` : '' }}, puis {{ state.count }} course(s) déjà dans Jibiat relues.</p>
+      <p class="basis-full text-sm text-gray-600">D'abord les commandes créées ou modifiées là-bas{{ since ? ` depuis le ${date(since)}` : '' }}, puis {{ state.count }} course(s) déjà dans Jibiat relues.</p>
       <button type="button" class="btn-secondary" :disabled="busy" @click="start">Lancer la recomparaison</button>
     </div>
     <p v-if="!running" class="text-xs text-gray-500">Date de création de la commande dans l'ancienne application. Les commandes plus anciennes déjà terminées ne sont pas relues ; celles encore en cours le sont chaque nuit.</p>
