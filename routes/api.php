@@ -706,6 +706,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('couriers/{courier}/adjustments', 'adjustCourier')->name('couriers.adjustments');
             Route::get('remittances', 'remittances')->name('remittances.index');
             Route::post('remittances', 'storeRemittance')->name('remittances.store');
+            Route::get('remittances/{remittance}', 'showRemittance')->whereNumber('remittance')->name('remittances.show');
+            Route::post('remittances/{remittance}/receipt', 'resendReceipt')->whereNumber('remittance')->middleware('throttle:10,1')->name('remittances.receipt');
+            Route::post('remittances/{remittance}/cancel', 'cancelRemittance')->whereNumber('remittance')->name('remittances.cancel');
+            Route::post('advances/{advance}/cancel', 'cancelAdvance')->whereNumber('advance')->name('advances.cancel');
+            Route::get('journal', 'journal')->name('journal');
 
             Route::get('merchants', 'merchants')->name('merchants.index');
             Route::get('merchants/{merchant}/ledger', 'ledger')->name('merchants.ledger');
