@@ -63,7 +63,10 @@ class LegacyOrdersController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['data' => [...($summary['data'] ?? []), 'module_up_to_date' => $recent]]);
+        // Module à jour : commandes les plus récentes d'abord, et version 2 (commandes non livrées reprises)
+        $current = $recent && (int) ($summary['data']['module_version'] ?? 1) >= 2;
+
+        return response()->json(['data' => [...($summary['data'] ?? []), 'module_up_to_date' => $current]]);
     }
 
     /** Simulation (rien n'est enregistré) ou reprise, en arrière-plan */
