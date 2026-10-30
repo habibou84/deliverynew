@@ -17,6 +17,7 @@ class LegacyRecheck extends Model
     {
         return [
             'counts' => 'array',
+            'since' => 'date',
             'finished_at' => 'datetime',
             'undone_at' => 'datetime',
         ];
