@@ -18,7 +18,14 @@
       <button v-if="!grid.is_default" class="text-red-600" @click="deleteGrid">Supprimer la grille</button>
     </div>
 
+    <PricingGroups v-if="gridId" ref="groupsBox" :grid-id="gridId" :zones="zones" />
+
+    <div class="flex flex-wrap items-center gap-3">
+      <h2 class="flex-1 font-semibold">Trajets particuliers (facultatif)</h2>
+      <label class="flex items-center gap-2 text-sm"><input v-model="showNeighborhoods" type="checkbox"> Afficher les quartiers</label>
+    </div>
     <p class="text-sm text-gray-600">
+      Un prix précis d'un départ vers une arrivée : il passe avant le prix par destination.
       Prix en francs CFA. Ligne = départ, colonne = arrivée. Les cases grisées reprennent le tarif du sens inverse (tarif symétrique) ;
       saisissez une valeur pour définir un tarif différent dans ce sens. Case vide = trajet non desservi.
       Pour <strong>modifier</strong> un tarif, changez la valeur ; pour le <strong>supprimer</strong>, videz la case (un tarif symétrique
@@ -32,13 +39,13 @@
         <thead class="sticky top-0 bg-slate-100 z-10">
           <tr>
             <th class="p-2 sticky left-0 bg-slate-100">Départ \ Arrivée</th>
-            <th v-for="z in zones" :key="z.id" class="p-2 font-medium whitespace-nowrap">{{ z.name }}</th>
+            <th v-for="z in matrixZones" :key="z.id" class="p-2 font-medium whitespace-nowrap">{{ z.name }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="from in zones" :key="from.id">
+          <tr v-for="from in matrixZones" :key="from.id">
             <th class="p-2 text-left sticky left-0 bg-slate-50 whitespace-nowrap font-medium">{{ from.full_name }}</th>
-            <td v-for="to in zones" :key="to.id" class="p-0.5 border">
+            <td v-for="to in matrixZones" :key="to.id" class="p-0.5 border">
               <input
                 :value="cell(from.id, to.id) ?? ''"
                 :placeholder="mirror(from.id, to.id) ?? ''"
@@ -90,11 +97,12 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import ReturnFeeSettings from '../../components/settings/ReturnFeeSettings.vue'
+import PricingGroups from '../../components/PricingGroups.vue'
 
 const toasts = useToastStore()
 const grids = ref([])
@@ -106,7 +114,15 @@ const surcharges = ref([])
 const saving = ref(false)
 const loaded = ref(false)
 const dirty = ref(false)
+const showNeighborhoods = ref(false)
+const groupsBox = ref(null)
 let shownGridId = null
+
+// Communes actives (et lieux qui ont déjà un trajet) ; les quartiers à la demande
+const matrixZones = computed(() => {
+  const used = new Set(Object.keys(prices.value).flatMap((k) => k.split('-').map(Number)))
+  return zones.value.filter((z) => used.has(z.id) || (z.is_active && (showNeighborhoods.value || !z.parent_id)))
+})
 
 const leaveWarning = 'Des tarifs modifiés ne sont pas enregistrés. Quitter quand même ?'
 
@@ -199,6 +215,7 @@ async function save() {
     })
     toasts.success('Tarifs enregistrés.')
     await loadGrid()
+    groupsBox.value?.reload()
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {

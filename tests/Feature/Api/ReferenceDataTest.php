@@ -201,7 +201,11 @@ class ReferenceDataTest extends TestCase
 
         $id = $this->postJson('/api/v1/companies', ['name' => 'Nouvelle Express'])->assertCreated()->json('data.id');
 
-        $this->assertSame(13, Zone::forCompany($id)->count());
+        // Zones standard : 13 communes d'Abidjan avec leurs quartiers, villes de l'intérieur masquées
+        $this->assertSame(13, Zone::forCompany($id)->whereNull('parent_id')->where('city', 'Abidjan')->count());
+        $this->assertSame('abidjan-cocody', Zone::forCompany($id)->where('name', 'Cocody')->value('place_code'));
+        $this->assertTrue(Zone::forCompany($id)->where('place_code', 'abidjan-cocody-angre')->where('is_active', true)->exists());
+        $this->assertFalse(Zone::forCompany($id)->where('place_code', 'bouake')->value('is_active'));
         $this->assertTrue(PricingGrid::forCompany($id)->where('is_default', true)->exists());
     }
 

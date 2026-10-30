@@ -95,8 +95,8 @@ class CompanySignupTest extends TestCase
         $company = Company::where('slug', 'rapide')->firstOrFail();
         $this->assertSame(['Rapide Express', $this->plan->id, 'signup', '+2250701020304', 'awa@rapide.ci'], [$company->name, $company->plan_id, $company->source, $company->phone, $company->email]);
         $this->assertTrue($company->onTrial());
-        // Espace prêt : communes, grille tarifaire, plan de paie
-        $this->assertSame(13, Zone::withoutGlobalScopes()->where('company_id', $company->id)->count());
+        // Espace prêt : zones standard (communes et quartiers), grille tarifaire, plan de paie
+        $this->assertSame(13, Zone::withoutGlobalScopes()->where('company_id', $company->id)->whereNull('parent_id')->where('city', 'Abidjan')->count());
 
         $admin = User::where('company_id', $company->id)->firstOrFail();
         $this->assertTrue($admin->hasRole(Role::Admin->value));
