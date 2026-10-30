@@ -73,7 +73,9 @@ l'ancienne application fait foi. Après, Jibiat fait foi : une course déjà là
 
 **Recomparaison** (même page, « Comparer les commandes à partir du », puis « Lancer la recomparaison ») : relit les
 courses reprises créées dans l'ancienne application depuis la date choisie (par défaut le jour du premier lancement de
-la reprise ; le nombre de commandes est affiché avant de lancer), par paquets, en arrière-plan (reprend seule après une coupure). Les modifiées sont mises à jour comme par la
+la reprise), en deux temps : d'abord toutes les commandes créées ou modifiées dans l'ancienne application depuis
+cette date (les nouvelles, jamais arrivées, sont créées ; les modifiées mises à jour), puis les courses déjà dans
+Jibiat, des plus récentes aux plus anciennes, par paquets, en arrière-plan (reprend seule après une coupure). Les modifiées sont mises à jour comme par la
 copie de chaque minute (y compris les courses terminées ici, modifiées là-bas sans date de mise à jour). Une commande
 **effacée** dans l'ancienne application (elle n'est plus renvoyée) :
 

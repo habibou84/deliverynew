@@ -62,6 +62,7 @@ class LegacyRechecks
             'user_id' => $by->id,
             'source' => 'manual',
             'status' => 'running',
+            'phase' => 'pull',
             'since' => $since?->toDateString(),
             'total' => $this->scope($company, $since)->count(),
             'counts' => self::emptyCounts(),
@@ -72,9 +73,17 @@ class LegacyRechecks
     public function step(LegacyRecheck $recheck): bool
     {
         $company = Company::findOrFail($recheck->company_id);
-        $orders = $this->scope($company, $recheck->since)->where('id', '>', $recheck->cursor)->orderBy('id')->limit(self::BATCH)->get();
 
         try {
+            if ($recheck->phase === 'pull') {
+                $this->pull($company, $recheck);
+
+                return false;
+            }
+
+            // Courses déjà là, des plus récentes aux plus anciennes
+            $orders = $this->scope($company, $recheck->since)->when($recheck->cursor > 0, fn ($q) => $q->where('id', '<', $recheck->cursor))
+                ->orderByDesc('id')->limit(self::BATCH)->get();
             $counts = $this->compare($company, $orders, $recheck);
         } catch (RuntimeException $e) {
             $recheck->forceFill(['status' => 'failed', 'error' => mb_substr($e->getMessage(), 0, 500), 'finished_at' => now()])->save();
@@ -83,7 +92,7 @@ class LegacyRechecks
         }
 
         $recheck->forceFill([
-            'cursor' => $orders->max('id') ?? $recheck->cursor,
+            'cursor' => $orders->min('id') ?? $recheck->cursor,
             'done' => $recheck->done + $orders->count(),
             'counts' => self::add($recheck->counts ?? self::emptyCounts(), $counts),
         ])->save();
@@ -95,6 +104,40 @@ class LegacyRechecks
         }
 
         return false;
+    }
+
+    /**
+     * Premier temps : un paquet des commandes créées ou modifiées dans l'ancienne application depuis la date ; les
+     * nouvelles sont créées, les modifiées mises à jour. À la fin, on passe à la relecture des courses déjà là.
+     */
+    private function pull(Company $company, LegacyRecheck $recheck): void
+    {
+        $this->importer->for($company);
+        $since = ($recheck->since ?? now()->parse(LegacyOrdersSync::from()))->copy()->startOfDay()->toDateTimeString();
+        $page = $this->sync->get($company, 'commands', ['since' => $since, 'after_id' => $recheck->pull_after, 'limit' => self::BATCH]);
+        if (! is_array($page['data'] ?? null)) {
+            throw new RuntimeException('Réponse inattendue de l\'ancienne application.');
+        }
+
+        $counts = self::emptyCounts();
+        foreach ($page['data'] as $command) {
+            $result = $this->importer->import($command);
+            $key = match ($result['action']) {
+                'created' => 'created',
+                'updated' => 'updated',
+                default => $result['action'],
+            };
+            $counts[$key] = ($counts[$key] ?? 0) + 1;
+            $counts['pulled']++;
+        }
+
+        $next = $page['next_after_id'] ?? null;
+        $recheck->forceFill([
+            'pull_after' => (int) ($next ?? $recheck->pull_after),
+            'counts' => self::add($recheck->counts ?? self::emptyCounts(), $counts),
+            // Fin du premier temps : relecture de toutes les courses déjà là (nouvelles comprises)
+            ...($next === null ? ['phase' => 'compare', 'total' => $this->scope($company, $recheck->since)->count()] : []),
+        ])->save();
     }
 
     /**
@@ -243,6 +286,7 @@ class LegacyRechecks
         return [
             'id' => $recheck->id,
             'source' => $recheck->source,
+            'phase' => $recheck->phase,
             'since' => $recheck->since?->toDateString(),
             'status' => $recheck->status,
             'done' => $recheck->done,
@@ -261,7 +305,7 @@ class LegacyRechecks
     /** @return array<string, int> */
     public static function emptyCounts(): array
     {
-        return ['updated' => 0, 'unchanged' => 0, 'conflict' => 0, 'skipped' => 0, 'deleted_cancelled' => 0, 'deleted_to_check' => 0, 'deleted_closed' => 0];
+        return ['pulled' => 0, 'created' => 0, 'updated' => 0, 'unchanged' => 0, 'conflict' => 0, 'skipped' => 0, 'deleted_cancelled' => 0, 'deleted_to_check' => 0, 'deleted_closed' => 0];
     }
 
     /** @return array<string, int> */
