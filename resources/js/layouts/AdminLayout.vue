@@ -291,7 +291,7 @@ const menu = computed(() => {
       label: 'Finances',
       items: [
         { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
-        { to: '/admin/paie-livreurs', icon: '🧾', label: 'Paie des livreurs', permission: 'settings.manage' },
+        { to: '/admin/paie-livreurs', icon: '🧾', label: 'Règles de paie', permission: 'settings.manage' },
       ],
     },
     {

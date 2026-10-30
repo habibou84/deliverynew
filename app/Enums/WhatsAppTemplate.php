@@ -26,6 +26,8 @@ enum WhatsAppTemplate: string
     case PaymentMethodChanged = 'moyen_paiement_modifie';
     case PremiumCardOffered = 'carte_premium_offerte';
     case MerchantWelcome = 'bienvenue_marchand';
+    case CashReceipt = 'versement_recu';
+    case CashReminder = 'argent_a_remettre';
 
     public const LANGUAGE = 'fr';
 
@@ -48,6 +50,8 @@ enum WhatsAppTemplate: string
             self::PaymentMethodChanged => 'Bonjour {{1}}, un moyen de paiement a été {{2}} sur votre compte : {{3}}. Si ce n\'est pas vous, prévenez votre agence tout de suite. Merci.',
             self::PremiumCardOffered => 'Bonjour {{1}}, {{2}} vous offre la carte Membre Premium Jibiat Marchand : {{3}} mois offerts pour vendre en ligne avec votre propre boutique. Activez-la ici : {{4}} . Merci de votre confiance.',
             self::MerchantWelcome => 'Bonjour {{1}}, bienvenue chez {{2}} ! Votre course {{3}} est enregistrée : nous passons récupérer le colis. Suivez vos courses et votre argent ici (lien personnel, valable 7 jours) : {{4}} . À bientôt !',
+            self::CashReceipt => 'Bonjour {{1}}, {{2}} a bien reçu votre versement {{3}} du {{4}} : {{5}} (attendu {{6}}). {{7}} Colis rendus : {{8}}. Colis gardés : {{9}}. Merci.',
+            self::CashReminder => 'Bonjour {{1}}, vous avez {{2}} encaissés depuis le {{3}} à remettre à la caisse de {{4}}. Passez faire votre versement dès que possible. Merci.',
             self::ManagerReport => 'Bonjour {{1}}, voici le point de la semaine {{2}} pour {{3}} : {{4}} courses créées ({{5}}), {{6}} livrées, taux de livraison {{7}}. Chiffre d\'affaires : {{8}} ({{9}}). E-commerçants à relancer : {{10}}. Toutes les statistiques : {{11}} .',
         };
     }
@@ -74,6 +78,8 @@ enum WhatsAppTemplate: string
             self::PaymentMethodChanged => '🔒 Moyen de paiement modifié',
             self::PremiumCardOffered => '🎁 Votre carte Membre Premium',
             self::MerchantWelcome => '👋 Bienvenue',
+            self::CashReceipt => '🧾 Versement reçu',
+            self::CashReminder => '💵 Argent à remettre',
         };
     }
 
@@ -97,6 +103,8 @@ enum WhatsAppTemplate: string
             self::PaymentMethodChanged => 'Au marchand, quand un moyen de paiement est ajouté, modifié ou retiré sur son compte (sécurité)',
             self::PremiumCardOffered => 'Au marchand, quand l\'entreprise lui offre la carte Membre Premium Jibiat Marchand (avec le lien pour l\'activer)',
             self::MerchantWelcome => 'Au nouveau marchand dont le compte est créé avec sa première course (code de la course et lien pour ouvrir son espace)',
+            self::CashReceipt => 'Au livreur, quand la caisse reçoit son versement (reçu : montant, écart, colis rendus et gardés)',
+            self::CashReminder => 'Au livreur, quand il garde l\'argent encaissé trop longtemps ou au-delà du plafond de l\'entreprise',
         };
     }
 
@@ -124,6 +132,8 @@ enum WhatsAppTemplate: string
             self::PaymentMethodChanged => ['Boutique Chic', 'ajouté', 'Wave 07 09 98 08 85'],
             self::PremiumCardOffered => ['Boutique Chic', 'Rapide Express', '6', 'https://jibiat-marchand.com/cle/K7M4Q2XP'],
             self::MerchantWelcome => ['Boutique Chic', 'Rapide Express', 'LV-7K2M-9PQX', 'https://rapide.jibiat.com/invitation/K7M4Q2XP'],
+            self::CashReceipt => ['Koffi', 'Rapide Express', 'VR-261030-0042', '30/10 à 17:40', '118 000 F', '120 000 F', 'Écart de 2 000 F retenu sur votre paie.', '2', '1'],
+            self::CashReminder => ['Koffi', '342 000 F', '28/10 à 16:00', 'Rapide Express'],
             self::ManagerReport => ['Awa', 'du 05/10 au 11/10', 'Rapide Express', '312', '+12 %', '287', '94 %', '430 500 F', '+8 %', '3', 'https://exemple.ci/admin/statistiques'],
         };
     }
