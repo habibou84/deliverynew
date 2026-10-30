@@ -11,6 +11,7 @@ use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -33,13 +34,21 @@ class LegacyRechecks
     ) {}
 
     /** Courses reprises à relire (les nettoyées et les supprimées déjà traitées n'existent plus là-bas) */
-    public function scope(Company $company): Builder
+    public function scope(Company $company, ?CarbonInterface $since = null): Builder
     {
         return Order::withoutGlobalScopes()->where('company_id', $company->id)->whereNotNull('legacy_id')
-            ->whereNull('legacy_purged_at')->whereNull('legacy_deleted_at')->whereNull('deleted_at');
+            ->whereNull('legacy_purged_at')->whereNull('legacy_deleted_at')->whereNull('deleted_at')
+            // Date de création de la commande dans l'ancienne application
+            ->when($since, fn ($q) => $q->where('created_at', '>=', $since->copy()->startOfDay()));
     }
 
-    public function start(Company $company, User $by): LegacyRecheck
+    /** Date proposée : le jour du premier lancement de la reprise */
+    public function defaultSince(Company $company): ?CarbonInterface
+    {
+        return ($company->legacy_orders_started_at ?? $company->legacy_orders_imported_at)?->copy()->startOfDay();
+    }
+
+    public function start(Company $company, User $by, ?CarbonInterface $since = null): LegacyRecheck
     {
         if (LegacyRecheck::query()->where('company_id', $company->id)->where('status', 'running')->exists()) {
             throw new RuntimeException('Une recomparaison est déjà en cours : attendez qu\'elle se termine.');
@@ -53,7 +62,8 @@ class LegacyRechecks
             'user_id' => $by->id,
             'source' => 'manual',
             'status' => 'running',
-            'total' => $this->scope($company)->count(),
+            'since' => $since?->toDateString(),
+            'total' => $this->scope($company, $since)->count(),
             'counts' => self::emptyCounts(),
         ]);
     }
@@ -62,7 +72,7 @@ class LegacyRechecks
     public function step(LegacyRecheck $recheck): bool
     {
         $company = Company::findOrFail($recheck->company_id);
-        $orders = $this->scope($company)->where('id', '>', $recheck->cursor)->orderBy('id')->limit(self::BATCH)->get();
+        $orders = $this->scope($company, $recheck->since)->where('id', '>', $recheck->cursor)->orderBy('id')->limit(self::BATCH)->get();
 
         try {
             $counts = $this->compare($company, $orders, $recheck);
@@ -233,6 +243,7 @@ class LegacyRechecks
         return [
             'id' => $recheck->id,
             'source' => $recheck->source,
+            'since' => $recheck->since?->toDateString(),
             'status' => $recheck->status,
             'done' => $recheck->done,
             'total' => $recheck->total,

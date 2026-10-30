@@ -80,6 +80,8 @@ class LegacyOrdersSync
             $report = $this->emptyReport();
             $report['old'] = $summary['data'] ?? [];
             if (! $dryRun) {
+                // Premier lancement de la reprise : date par défaut de la recomparaison
+                $company->legacy_orders_started_at ?? $company->forceFill(['legacy_orders_started_at' => now()])->save();
                 $report['products'] = $this->products->import($company, fn (array $query) => $this->get($company, 'products', $query));
             }
             $cursor = ['order' => 'recent', 'after' => null, 'after_id' => 0, 'done' => 0, 'total' => (int) ($summary['data']['commands'] ?? 0),
