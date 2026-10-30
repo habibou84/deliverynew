@@ -134,6 +134,7 @@ class Company extends Model
             'legacy_sync_last_at' => 'datetime',
             'legacy_sync_stats' => 'array',
             'legacy_orders_imported_at' => 'datetime',
+            'legacy_orders_started_at' => 'datetime',
             'legacy_balances_validated_at' => 'datetime',
         ];
     }
