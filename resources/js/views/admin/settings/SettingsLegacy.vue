@@ -72,6 +72,8 @@ const todos = computed(() => {
   const list = []
   if (t.deleted) list.push({ to: '/admin/reglages/reprise/supprimees', label: `${t.deleted} commande(s) supprimée(s) dans l'ancienne application à vérifier` })
   if (t.on_the_way) list.push({ to: `/admin/reglages/reprise/a-verifier?days=${t.on_the_way_days}`, label: `${t.on_the_way} course(s) en chemin depuis plus de ${t.on_the_way_days} jours à vérifier` })
+  if (t.zones) list.push({ to: '/admin/reglages/reprise/zones', label: `${t.zones} zone(s) reprise(s) à rattacher aux lieux standard` })
+  if (t.prices) list.push({ to: '/admin/reglages/reprise/tarifs', label: `${t.prices} prix de l'ancienne application à valider` })
   if (t.balances) list.push({ to: '/admin/reglages/reprise/controles', label: 'Soldes à comparer et valider' })
   if (t.cash) list.push({ to: '/admin/reglages/reprise/argent-livreurs', label: 'Argent chez les livreurs : point de départ à faire' })
   return list

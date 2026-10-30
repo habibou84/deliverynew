@@ -1,7 +1,11 @@
 <template>
   <div class="space-y-4 max-w-3xl">
     <h1 class="text-xl font-bold">Zones de livraison</h1>
-    <p class="text-sm text-gray-600">Communes et, si besoin, quartiers. Un quartier sans tarif propre utilise le tarif de sa commune.</p>
+    <p class="text-sm text-gray-600">
+      Les communes et quartiers viennent de la liste commune de Jibiat, la même que dans Jibiat Marchand : masquez ceux où
+      vous ne livrez pas. Un quartier sans prix propre prend celui de sa commune (Tarifs). Ajoutez ici seulement vos zones
+      à vous : une zone d'expédition, ou un lieu absent de la liste.
+    </p>
 
     <form class="card p-4 space-y-3" @submit.prevent="create">
       <div class="flex flex-wrap gap-2 items-end">
@@ -69,15 +73,16 @@
           <span :class="z.is_active ? '' : 'line-through text-gray-400'">
             {{ z.parent_id ? '↳ ' : '' }}{{ z.name }}
             <span v-if="z.is_shipping" class="ml-2 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5">🚌 Expédition</span>
+            <span v-else-if="!z.place" class="ml-2 rounded-full bg-amber-100 text-amber-900 text-xs font-medium px-2 py-0.5">Zone de l'entreprise</span>
           </span>
           <span class="flex flex-wrap items-center justify-end gap-3">
             <label v-if="z.is_shipping" class="flex items-center gap-1 text-xs text-gray-500 font-normal">
               Frais habituels
               <input :value="z.shipping_fee_estimate" type="number" min="0" class="input w-24 py-1 text-xs" aria-label="Frais d'expédition habituels" @change="setEstimate(z, $event.target.value)">
             </label>
-            <button class="text-blue-600 text-xs" @click="startEdit(z)">Modifier</button>
-            <button class="text-blue-600 text-xs" @click="toggle(z)">{{ z.is_active ? 'Désactiver' : 'Réactiver' }}</button>
-            <button class="text-red-600 text-xs" @click="remove(z)">Supprimer</button>
+            <button v-if="!z.place" class="text-blue-600 text-xs" @click="startEdit(z)">Modifier</button>
+            <button class="text-blue-600 text-xs" @click="toggle(z)">{{ z.is_active ? (z.place ? 'Masquer' : 'Désactiver') : (z.place ? 'Afficher' : 'Réactiver') }}</button>
+            <button v-if="!z.place" class="text-red-600 text-xs" @click="remove(z)">Supprimer</button>
           </span>
         </div>
       </div>

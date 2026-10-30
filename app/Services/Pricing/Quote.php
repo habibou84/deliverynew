@@ -14,7 +14,8 @@ final readonly class Quote
         public int $basePrice,
         public array $surcharges,
         public int $pricingGridId,
-        public int $pricingRuleId,
+        public ?int $pricingRuleId,
+        public ?int $pricingGroupId = null,
     ) {}
 
     public function surchargesTotal(): int
@@ -39,6 +40,7 @@ final readonly class Quote
             'total' => $this->total(),
             'pricing_grid_id' => $this->pricingGridId,
             'pricing_rule_id' => $this->pricingRuleId,
+            'pricing_group_id' => $this->pricingGroupId,
         ];
     }
 }

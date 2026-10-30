@@ -25,6 +25,12 @@ class PricingGrid extends Model
         return $this->hasMany(PricingRule::class);
     }
 
+    /** Prix par destination « depuis partout », par groupes de lieux */
+    public function groups(): HasMany
+    {
+        return $this->hasMany(PricingGroup::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function surcharges(): HasMany
     {
         return $this->hasMany(PricingSurcharge::class);

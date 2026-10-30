@@ -6,15 +6,18 @@ use App\Enums\SurchargeType;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Merchant;
 use App\Models\PricingGrid;
+use App\Models\PricingGroup;
 use App\Models\PricingRule;
 use App\Models\Zone;
 
 /**
  * Calcule le tarif d'une course :
  * 1. grille négociée du marchand, sinon grille par défaut de l'entreprise ;
- * 2. règle exacte (quartier -> quartier), puis zones parentes (communes),
- *    dans les deux sens si la règle est symétrique ;
- * 3. suppléments (express, fragile, poids).
+ * 2. trajet particulier, du plus précis (quartier -> quartier) au plus large (commune -> commune), en remontant
+ *    tous les niveaux, dans les deux sens si le prix est symétrique ;
+ * 3. sinon prix « depuis partout » du groupe où se trouve le lieu de livraison, ou à défaut le lieu qui le
+ *    contient (quartier, puis commune) ;
+ * 4. suppléments (express, fragile, poids).
  */
 class PricingService
 {
@@ -32,6 +35,17 @@ class PricingService
                     surcharges: $this->surcharges($grid, $rule->price, $options),
                     pricingGridId: $grid->id,
                     pricingRuleId: $rule->id,
+                );
+            }
+
+            $group = $this->findGroup($grid, $deliveryZone);
+            if ($group !== null) {
+                return new Quote(
+                    basePrice: $group->price,
+                    surcharges: $this->surcharges($grid, $group->price, $options),
+                    pricingGridId: $grid->id,
+                    pricingRuleId: null,
+                    pricingGroupId: $group->id,
                 );
             }
         }
@@ -60,8 +74,8 @@ class PricingService
 
     private function findRule(PricingGrid $grid, Zone $origin, Zone $destination): ?PricingRule
     {
-        $origins = array_values(array_filter([$origin->id, $origin->parent_id]));
-        $destinations = array_values(array_filter([$destination->id, $destination->parent_id]));
+        $origins = $this->lineage($origin);
+        $destinations = $this->lineage($destination);
 
         $rules = PricingRule::where('pricing_grid_id', $grid->id)
             ->where(fn ($q) => $q
@@ -69,7 +83,7 @@ class PricingService
                 ->orWhere(fn ($q) => $q->whereIn('origin_zone_id', $destinations)->whereIn('destination_zone_id', $origins)->where('is_symmetric', true)))
             ->get();
 
-        // Couples du plus précis (quartier -> quartier) au plus général (commune -> commune)
+        // Couples du plus précis (quartier -> quartier) au plus large (commune -> commune)
         foreach ($origins as $o) {
             foreach ($destinations as $d) {
                 $rule = $rules->first(fn (PricingRule $r) => $r->origin_zone_id === $o && $r->destination_zone_id === $d)
@@ -82,6 +96,43 @@ class PricingService
         }
 
         return null;
+    }
+
+    /** Groupe « depuis partout » du lieu de livraison, ou du premier lieu qui le contient */
+    private function findGroup(PricingGrid $grid, Zone $destination): ?PricingGroup
+    {
+        $lineage = $this->lineage($destination);
+        $groups = PricingGroup::query()->where('pricing_groups.pricing_grid_id', $grid->id)
+            ->join('pricing_group_zone', 'pricing_group_zone.pricing_group_id', '=', 'pricing_groups.id')
+            ->whereIn('pricing_group_zone.zone_id', $lineage)
+            ->get(['pricing_groups.*', 'pricing_group_zone.zone_id as matched_zone_id']);
+
+        foreach ($lineage as $zoneId) {
+            $group = $groups->first(fn (PricingGroup $g) => (int) $g->matched_zone_id === $zoneId);
+            if ($group !== null) {
+                return $group;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * La zone et celles qui la contiennent, du plus précis au plus large.
+     *
+     * @return list<int>
+     */
+    private function lineage(Zone $zone): array
+    {
+        $ids = [$zone->id];
+        $parentId = $zone->parent_id;
+        // Quatre niveaux au plus : protège d'une boucle dans les zones
+        for ($depth = 0; $parentId !== null && $depth < 4 && ! in_array($parentId, $ids, true); $depth++) {
+            $ids[] = $parentId;
+            $parentId = Zone::withoutGlobalScopes()->whereKey($parentId)->value('parent_id');
+        }
+
+        return $ids;
     }
 
     /**

@@ -681,6 +681,12 @@ class LegacyOrdersImporter
         return $this->couriers[$legacyId] = $courier;
     }
 
+    /** Zone d'un nom de commune ou de quartier de l'ancienne application, s'il n'y en a qu'une */
+    public function zoneNamed(?string $name): ?Zone
+    {
+        return $this->zone($name);
+    }
+
     private function zone(?string $name): ?Zone
     {
         $name = $this->text($name);
