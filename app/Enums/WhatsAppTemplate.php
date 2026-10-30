@@ -28,6 +28,7 @@ enum WhatsAppTemplate: string
     case MerchantWelcome = 'bienvenue_marchand';
     case CashReceipt = 'versement_recu';
     case CashReminder = 'argent_a_remettre';
+    case CashClosing = 'cloture_caisse';
 
     public const LANGUAGE = 'fr';
 
@@ -52,6 +53,7 @@ enum WhatsAppTemplate: string
             self::MerchantWelcome => 'Bonjour {{1}}, bienvenue chez {{2}} ! Votre course {{3}} est enregistrée : nous passons récupérer le colis. Suivez vos courses et votre argent ici (lien personnel, valable 7 jours) : {{4}} . À bientôt !',
             self::CashReceipt => 'Bonjour {{1}}, {{2}} a bien reçu votre versement {{3}} du {{4}} : {{5}} (attendu {{6}}). {{7}} Colis rendus : {{8}}. Colis gardés : {{9}}. Merci.',
             self::CashReminder => 'Bonjour {{1}}, vous avez {{2}} encaissés depuis le {{3}} à remettre à la caisse de {{4}}. Passez faire votre versement dès que possible. Merci.',
+            self::CashClosing => 'Bonjour {{1}}, la caisse de {{2}} du {{3}} a été clôturée par {{4}}. Entré : {{5}}. Sorti : {{6}}. Espèces comptées : {{7}} (attendu {{8}}). {{9}} Encore chez les livreurs : {{10}}.',
             self::ManagerReport => 'Bonjour {{1}}, voici le point de la semaine {{2}} pour {{3}} : {{4}} courses créées ({{5}}), {{6}} livrées, taux de livraison {{7}}. Chiffre d\'affaires : {{8}} ({{9}}). E-commerçants à relancer : {{10}}. Toutes les statistiques : {{11}} .',
         };
     }
@@ -80,6 +82,7 @@ enum WhatsAppTemplate: string
             self::MerchantWelcome => '👋 Bienvenue',
             self::CashReceipt => '🧾 Versement reçu',
             self::CashReminder => '💵 Argent à remettre',
+            self::CashClosing => '🔒 Caisse clôturée',
         };
     }
 
@@ -105,6 +108,7 @@ enum WhatsAppTemplate: string
             self::MerchantWelcome => 'Au nouveau marchand dont le compte est créé avec sa première course (code de la course et lien pour ouvrir son espace)',
             self::CashReceipt => 'Au livreur, quand la caisse reçoit son versement (reçu : montant, écart, colis rendus et gardés)',
             self::CashReminder => 'Au livreur, quand il garde l\'argent encaissé trop longtemps ou au-delà du plafond de l\'entreprise',
+            self::CashClosing => 'Aux administrateurs de l\'entreprise, résumé de la clôture de la caisse du jour',
         };
     }
 
@@ -134,6 +138,7 @@ enum WhatsAppTemplate: string
             self::MerchantWelcome => ['Boutique Chic', 'Rapide Express', 'LV-7K2M-9PQX', 'https://rapide.jibiat.com/invitation/K7M4Q2XP'],
             self::CashReceipt => ['Koffi', 'Rapide Express', 'VR-261030-0042', '30/10 à 17:40', '118 000 F', '120 000 F', 'Écart de 2 000 F retenu sur votre paie.', '2', '1'],
             self::CashReminder => ['Koffi', '342 000 F', '28/10 à 16:00', 'Rapide Express'],
+            self::CashClosing => ['Awa', 'Rapide Express', '30/10', 'Mariam', '612 000 F', '438 500 F', '153 500 F', '155 500 F', 'Écart : −2 000 F (monnaie rendue à un livreur).', '128 000 F'],
             self::ManagerReport => ['Awa', 'du 05/10 au 11/10', 'Rapide Express', '312', '+12 %', '287', '94 %', '430 500 F', '+8 %', '3', 'https://exemple.ci/admin/statistiques'],
         };
     }

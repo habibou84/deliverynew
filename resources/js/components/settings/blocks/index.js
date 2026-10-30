@@ -49,7 +49,7 @@ export const BLOCKS = {
   weeklyReport: { component: WeeklyReportBlock, fields: ['weekly_report'], summary: (f) => [['Point de la semaine', f.weekly_report ? 'envoyé le lundi' : 'non envoyé']] },
   cashAlert: {
     component: CashAlertBlock,
-    fields: ['cash_alert_hours', 'cash_alert_amount', 'cash_alert_courier'],
+    fields: ['cash_alert_hours', 'cash_alert_amount', 'cash_alert_courier', 'cash_close_reminder_at', 'cash_close_summary'],
     summary: (f) => [['Argent gardé', f.cash_alert_hours ? `alerte après ${f.cash_alert_hours} h` : 'pas d\'alerte']],
   },
   merchantSignup: { component: MerchantSignupBlock, fields: ['merchant_signup'], summary: (f) => [['Inscriptions', f.merchant_signup ? 'ouvertes' : 'sur demande']] },
