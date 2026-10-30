@@ -71,6 +71,7 @@ use App\Http\Controllers\Api\V1\PayPlanController;
 use App\Http\Controllers\Api\V1\PlanningController;
 use App\Http\Controllers\Api\V1\PremiumProgramController;
 use App\Http\Controllers\Api\V1\PricingGridController;
+use App\Http\Controllers\Api\V1\PricingGroupController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductPhotoController;
 use App\Http\Controllers\Api\V1\PublicRatingController;
@@ -97,6 +98,7 @@ use App\Http\Controllers\Api\V1\WhatsAppQrController;
 use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\WhatsAppSignupController;
 use App\Http\Controllers\Api\V1\ZoneController;
+use App\Http\Controllers\Api\V1\ZoneLinkController;
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\CourierAppController;
 use App\Http\Controllers\Webhooks\WhatsAppBridgeWebhookController;
@@ -400,6 +402,19 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('deleted', 'deleted')->name('deleted');
             Route::post('deleted/{order}', 'resolve')->whereNumber('order')->middleware('throttle:60,1')->name('resolve');
         });
+        // Zones reprises rattachées aux lieux de la liste commune, courses « À préciser », tarifs proposés
+        Route::prefix('company/zone-links')->name('company.zone-links.')->middleware('can:settings.manage')->controller(ZoneLinkController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::get('places', 'places')->name('places');
+            Route::post('sure', 'linkSure')->middleware('throttle:10,1')->name('sure');
+            Route::post('reclass', 'reclass')->middleware('throttle:10,1')->name('reclass');
+            Route::post('zones/{zone}', 'link')->whereNumber('zone')->middleware('throttle:60,1')->name('link');
+            Route::post('zones/{zone}/keep', 'keep')->whereNumber('zone')->name('keep');
+            Route::post('{link}/undo', 'undo')->whereNumber('link')->middleware('throttle:30,1')->name('undo');
+            Route::get('prices', 'prices')->name('prices');
+            Route::post('prices', 'applyPrice')->middleware('throttle:60,1')->name('prices.apply');
+            Route::post('prices/ignore', 'ignorePrice')->name('prices.ignore');
+        });
         // Argent chez les livreurs venu de l'ancienne application : point de départ, annulation
         Route::prefix('company/legacy-cash')->name('company.legacy-cash.')->middleware('can:settings.manage')->controller(LegacyCashBaselineController::class)->group(function () {
             Route::get('/', 'show')->name('show');
@@ -458,6 +473,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::apiResource('pricing-grids', PricingGridController::class);
             Route::put('pricing-grids/{pricing_grid}/rules', [PricingGridController::class, 'syncRules'])->name('pricing-grids.rules');
             Route::put('pricing-grids/{pricing_grid}/surcharges', [PricingGridController::class, 'syncSurcharges'])->name('pricing-grids.surcharges');
+            // Prix par destination « depuis partout », par groupes de lieux
+            Route::get('pricing-grids/{pricing_grid}/groups', [PricingGroupController::class, 'index'])->name('pricing-grids.groups.index');
+            Route::post('pricing-grids/{pricing_grid}/groups', [PricingGroupController::class, 'store'])->name('pricing-grids.groups.store');
+            Route::put('pricing-grids/{pricing_grid}/groups/{group}', [PricingGroupController::class, 'update'])->whereNumber('group')->name('pricing-grids.groups.update');
+            Route::delete('pricing-grids/{pricing_grid}/groups/{group}', [PricingGroupController::class, 'destroy'])->whereNumber('group')->name('pricing-grids.groups.destroy');
+            Route::get('pricing-grids/{pricing_grid}/check', [PricingGroupController::class, 'check'])->name('pricing-grids.check');
 
             // Paie des livreurs : plans de rémunération
             Route::post('pay-plans/simulate', [PayPlanController::class, 'simulate'])->middleware('throttle:30,1')->name('pay-plans.simulate');

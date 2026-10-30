@@ -5,27 +5,18 @@ namespace App\Services;
 use App\Models\Company;
 use App\Models\PayPlan;
 use App\Models\PricingGrid;
-use App\Models\Zone;
+use App\Services\Zones\StandardZones;
 
 /**
- * Prépare une nouvelle entreprise : communes d'Abidjan, grille tarifaire et plan de
- * rémunération des livreurs par défaut (vides).
+ * Prépare une nouvelle entreprise : zones standard (communes et quartiers d'Abidjan, villes de l'intérieur), grille
+ * tarifaire et plan de rémunération des livreurs par défaut (vides).
  */
 class CompanyProvisioner
 {
-    public const ABIDJAN_COMMUNES = [
-        'Abobo', 'Adjamé', 'Anyama', 'Attécoubé', 'Bingerville', 'Cocody', 'Koumassi',
-        'Marcory', 'Plateau', 'Port-Bouët', 'Songon', 'Treichville', 'Yopougon',
-    ];
-
     public function provision(Company $company): void
     {
-        foreach (self::ABIDJAN_COMMUNES as $i => $name) {
-            Zone::withoutGlobalScopes()->firstOrCreate(
-                ['company_id' => $company->id, 'parent_id' => null, 'name' => $name],
-                ['city' => 'Abidjan', 'sort_order' => $i],
-            );
-        }
+        // Zones standard : communes et quartiers d'Abidjan, villes de l'intérieur (masquées), de la liste commune
+        app(StandardZones::class)->sync($company);
 
         // Plan de rémunération des livreurs par défaut (vide : à compléter dans Paie des livreurs)
         if (PayPlan::defaultFor($company->id) === null) {

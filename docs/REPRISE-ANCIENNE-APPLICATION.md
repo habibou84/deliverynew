@@ -9,7 +9,7 @@ l'état en une ligne (copie, bascule), un encadré « À faire » (supprimées �
 | 1. Brancher l'ancienne application | `/admin/reglages/reprise/brancher` | les trois modules et leurs clés (lecture des commandes, envoi des comptes, bascule), l'adresse, « Vérifier » |
 | 2. Comptes et zones | `/admin/reglages/reprise/comptes` | ce qui est repris, dernier envoi reçu |
 | 3. Commandes | `/admin/reglages/reprise/commandes` | simulation, reprise, copie chaque minute |
-| 4. Contrôles et ménage | `/admin/reglages/reprise/controles` | recomparaison, contrôle des soldes, argent chez les livreurs, anciennes courses à clôturer |
+| 4. Contrôles et ménage | `/admin/reglages/reprise/controles` | zones et tarifs (`/reprise/zones`, `/reprise/tarifs`), recomparaison, contrôle des soldes, argent chez les livreurs, anciennes courses à clôturer |
 | 5. Bascule vers Jibiat | `/admin/reglages/reprise/bascule` | date et suivi de la bascule |
 
 ## 1. Reprise des comptes
@@ -151,3 +151,32 @@ Le réglage affiche le nombre d'e-commerçants et de livreurs déjà passés par
 Code : `app/Http/Controllers/Api/V1/LegacyImportController.php`, `LegacyOrdersController.php`, `LegacySwitchController.php`,
 `app/Services/Legacy/` (`LegacyAccountsImporter`, `LegacyOrdersImporter`, `LegacyOrdersSync`, `LegacyProductsImporter`),
 `legacy/laravel-5.8/` ; tests `LegacyPushImportTest`, `LegacyOrdersSyncTest`, `LegacySwitchTest`.
+
+## Zones standard et tarifs
+
+Les communes et quartiers de chaque entreprise viennent de la liste commune du socle (`Jibiat\Socle\Places\Places`),
+la même que dans Jibiat Marchand : chaque zone porte le code de son lieu (`zones.place_code`), les villes de
+l'intérieur arrivent masquées. L'entreprise ne crée plus que ses zones à elle (expédition, lieu absent de la liste).
+
+**Reprise des zones** (table `fees`) : un nom qui est exactement un lieu de la liste (nom ou variante : « YOP »,
+« Riv 3 ») prend la zone standard de ce lieu (l'ancien nom est retenu comme variante) ; sinon une zone propre à
+l'entreprise est créée. Le prix de l'ancienne application est gardé sur la zone (`legacy_price`), sans rien
+appliquer. Relancer l'envoi des zones remplit ces prix pour une reprise déjà faite.
+
+**Rattacher les zones** (`/admin/reglages/reprise/zones`) : chaque zone propre à l'entreprise (hors expédition)
+reçoit un lieu proposé, « sûr » (nom ou variante exacte), « à confirmer » (lieu cité dans le nom) ou aucun.
+Valider rattache la zone au lieu et la range sous sa commune ; si le lieu a déjà sa zone, les deux sont fusionnées :
+courses, e-commerçants, destinataires, points relais, prix des trajets, groupes de prix, livreurs, planning et paie
+passent sur la zone du lieu, l'ancienne est masquée. Annulable 7 jours (`zone_links`). « Garder telle quelle » la
+retire des propositions. **Reclasser** relit dans l'ancienne application la commune des courses « À préciser » et la
+cherche de nouveau (noms, anciens noms retenus, liste commune) : seule la zone change.
+
+**Tarifs proposés** (`/admin/reglages/reprise/tarifs`) : les anciens prix, regroupés par montant, modifiables ;
+valider crée un groupe « depuis partout » dans la grille choisie ; ignorer retire la proposition. Les courses déjà
+créées gardent leur prix.
+
+**Calcul du prix** (Réglages › Tarifs) : grille de l'e-commerçant, sinon grille par défaut ; trajet particulier du
+plus précis au plus large en remontant tous les niveaux (quartier, commune…) ; sinon prix « depuis partout » du
+groupe du lieu de livraison, ou du lieu qui le contient ; puis suppléments. L'API publique accepte `delivery_place`
+et `pickup_place` (codes) et donne `place` sur chaque zone (contrat 1.7).
+

@@ -16,6 +16,8 @@ class ZoneResource extends JsonResource
         return [
             'id' => $this->id,
             'parent_id' => $this->parent_id,
+            // Code du lieu de la liste commune (null : zone propre à l'entreprise)
+            'place' => $this->place_code,
             'name' => $this->name,
             'full_name' => $this->relationLoaded('parent') ? $this->fullName() : $this->name,
             'city' => $this->city,
