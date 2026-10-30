@@ -156,7 +156,7 @@ class LegacyOrdersImporter
         return [...$result, 'action' => $existing ? 'updated' : 'created'];
     }
 
-    /** Ancien état, sans accents ni majuscules : en_cours, recupere, en_chemin, termine, annule, retour */
+    /** Ancien état, sans accents ni majuscules : en_cours, recupere, en_chemin, non_livre, termine, annule, retour */
     public static function state(?string $etat): ?string
     {
         $etat = (string) $etat;
@@ -170,6 +170,7 @@ class LegacyOrdersImporter
             'en cours', 'encours' => 'en_cours',
             'recupere', 'recuperee' => 'recupere',
             'en chemin' => 'en_chemin',
+            'undelivered', 'undelivred', 'undeliver', 'non livre', 'non livree', 'non-livre', 'non-livree' => 'non_livre',
             'termine', 'terminee' => 'termine',
             'annule', 'annulee' => 'annule',
             'retour', 'retourne', 'retournee' => 'retour',
@@ -217,6 +218,17 @@ class LegacyOrdersImporter
                 }
 
                 return [...$plan, 'status' => OrderStatus::OutForDelivery, 'pickup' => AssignmentStatus::Completed, 'delivery' => AssignmentStatus::InProgress, 'holder' => true];
+
+            case 'non_livre':
+                // Pas livré, pas encore rendu : reporté si une relance est prévue, sinon à décider par l'agence ;
+                // le colis est chez le livreur (au dépôt sans livreur)
+                $plan = [...$plan, 'pickup' => $courier ? AssignmentStatus::Completed : null, 'holder' => $courier !== null, 'attempts' => 1,
+                    'failed_note' => $undelivered ?? 'Non livré'];
+                if ($relance !== null && $relance >= today()->toDateString()) {
+                    return [...$plan, 'status' => OrderStatus::Rescheduled, 'scheduled' => $relance];
+                }
+
+                return [...$plan, 'status' => OrderStatus::DeliveryFailed];
 
             case 'termine':
                 return [...$plan, 'status' => OrderStatus::Delivered, 'pickup' => $courier ? AssignmentStatus::Completed : null, 'delivery' => $courier ? AssignmentStatus::Completed : null];
