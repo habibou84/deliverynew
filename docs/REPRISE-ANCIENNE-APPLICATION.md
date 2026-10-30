@@ -62,6 +62,7 @@ bougent pas).
 | en cours | Validée, ou Ramassage assigné si un livreur est choisi |
 | récupéré | Ramassée, colis chez le livreur ; Reportée si date de relance à venir ; Échec si motif de non-livraison |
 | en chemin | En livraison, chez le livreur |
+| undelivered (ou « non livré ») | Échec de livraison avec la raison (`why_undelivered`), file « À décider », colis chez le livreur (au dépôt sans livreur) ; Reportée si date de relance à venir |
 | termine | Livrée |
 | annule | Annulée |
 | retour | Retournée au marchand si `retour_at`, sinon Échec avec retour à faire |

@@ -38,9 +38,11 @@ use Illuminate\Support\Facades\Schema;
 class JibiatSyncController extends Controller
 {
     /** Commandes encore en cours : reprises quelle que soit leur date */
-    const ACTIVE = ['en cours', 'encours', 'récupéré', 'recupere', 'récupere', 'en chemin'];
+    const ACTIVE = ['en cours', 'encours', 'récupéré', 'recupere', 'récupere', 'en chemin', 'undelivered', 'undelivred', 'non livré', 'non livre', 'non livrée', 'non livree'];
 
     const MAX = 500;
+
+    const VERSION = 2;
 
     public function index(Request $request, $resource)
     {
@@ -133,8 +135,9 @@ class JibiatSyncController extends Controller
     private function scope($from)
     {
         return DB::table('commands')->where(function ($q) use ($from) {
-            // En cours, récupéré, en chemin, même avec des accents mal enregistrés
-            $q->whereIn(DB::raw('LOWER(TRIM(etat))'), self::ACTIVE)->orWhere('etat', 'like', 'en c%')->orWhere('etat', 'like', 'r%cup%');
+            // En cours, récupéré, en chemin, non livré, même avec des accents mal enregistrés
+            $q->whereIn(DB::raw('LOWER(TRIM(etat))'), self::ACTIVE)->orWhere('etat', 'like', 'en c%')->orWhere('etat', 'like', 'r%cup%')
+                ->orWhere('etat', 'like', 'undeliv%')->orWhere('etat', 'like', 'non liv%');
             if ($from !== '') {
                 $q->orWhere('created_at', '>=', $from);
             }
@@ -162,6 +165,8 @@ class JibiatSyncController extends Controller
             ->groupBy('livreur_id')->get();
 
         return [
+            // 2 : commandes non livrées (« undelivered ») reprises aussi
+            'module_version' => self::VERSION,
             'commands' => (clone $scope)->count(),
             'by_etat' => (clone $scope)->select(DB::raw('etat, COUNT(*) as n'))->groupBy('etat')->pluck('n', 'etat'),
             'payments' => Schema::hasTable('payments')

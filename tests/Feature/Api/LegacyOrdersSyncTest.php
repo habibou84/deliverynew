@@ -104,6 +104,7 @@ class LegacyOrdersSyncTest extends TestCase
 
         return match ($resource) {
             'summary' => Http::response([...$server, 'data' => [
+                'module_version' => $this->oldModule ? 1 : 2,
                 'commands' => count($this->commands),
                 'unpaid_by_client' => [['client_id' => 7, 'total' => 9000, 'n' => 1]],
                 'cash_by_livreur' => [['livreur_id' => 3, 'total' => 10500, 'n' => 1]],
@@ -213,6 +214,35 @@ class LegacyOrdersSyncTest extends TestCase
 
         // Produits et stock actuel ; article relié au produit repris
         $this->assertSame(12, Product::withoutGlobalScopes()->where('legacy_id', '50')->sole()->levels()->sum('on_hand'));
+    }
+
+    public function test_undelivered_orders_wait_for_a_decision_or_their_new_date(): void
+    {
+        $this->travelTo('2026-10-28 10:00:00');
+        $this->commands = [
+            111 => $this->command(111, 'undelivered', ['why_undelivered' => 'Client absent']),
+            112 => $this->command(112, 'Non livrée', ['relance_date' => '2026-10-30']),
+            113 => $this->command(113, 'undelivred', ['livreur_id' => null, 'livreur' => null]),
+        ];
+
+        $this->import();
+
+        // Échec avec la raison, colis chez le livreur, file « À décider »
+        $failed = $this->order(111);
+        $this->assertSame(OrderStatus::DeliveryFailed, $failed->status);
+        $this->assertSame($this->courierA->id, $failed->held_by_courier_id);
+        $this->assertFalse((bool) $failed->return_requested);
+        $this->assertSame(1, $failed->attempts_count);
+        $this->assertStringContainsString('Client absent', $failed->events()->where('type', 'incident')->value('note'));
+
+        // Relance prévue : reportée à cette date
+        $rescheduled = $this->order(112);
+        $this->assertSame(OrderStatus::Rescheduled, $rescheduled->status);
+        $this->assertSame('2026-10-30', $rescheduled->delivery_scheduled_date?->toDateString());
+
+        // Sans livreur : au dépôt
+        $this->assertSame(OrderStatus::DeliveryFailed, $this->order(113)->status);
+        $this->assertNull($this->order(113)->held_by_courier_id);
     }
 
     public function test_money_owed_to_merchants_and_cash_held_by_couriers_match_the_old_application(): void
