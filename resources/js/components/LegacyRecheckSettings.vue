@@ -3,15 +3,22 @@
     <div>
       <h2 class="font-semibold">Recomparaison avec l'ancienne application</h2>
       <p class="text-sm text-gray-600">
-        Relit les commandes reprises de l'ancienne application depuis la date choisie : les modifiées sont mises à jour, les commandes
+        Demande à l'ancienne application les commandes créées ou modifiées depuis la date choisie (les nouvelles arrivent
+        dans Jibiat), puis relit les courses déjà là, des plus récentes aux plus anciennes : les modifiées sont mises à jour, les commandes
         supprimées là-bas sont annulées sans message quand aucun argent n'est en jeu, sinon mises de côté pour que vous
         décidiez. Chaque nuit, Jibiat repère aussi les nouvelles suppressions.
       </p>
     </div>
 
     <div v-if="running" class="space-y-1">
-      <p class="text-sm">🔎 Recomparaison en cours : {{ last.done }} / {{ last.total }} courses relues</p>
-      <div class="h-2 rounded bg-slate-200"><div class="h-2 rounded bg-emerald-600" :style="{ width: `${last.total ? Math.round(last.done * 100 / last.total) : 3}%` }" /></div>
+      <template v-if="last.phase === 'pull'">
+        <p class="text-sm">🔎 1/2 · Commandes créées ou modifiées dans l'ancienne application : {{ last.counts.pulled }} lues ({{ last.counts.created }} nouvelles, {{ last.counts.updated }} mises à jour)</p>
+        <div class="h-2 rounded bg-slate-200"><div class="h-2 w-1/12 animate-pulse rounded bg-emerald-600" /></div>
+      </template>
+      <template v-else>
+        <p class="text-sm">🔎 2/2 · Courses déjà dans Jibiat, des plus récentes aux plus anciennes : {{ last.done }} / {{ last.total }} relues</p>
+        <div class="h-2 rounded bg-slate-200"><div class="h-2 rounded bg-emerald-600" :style="{ width: `${last.total ? Math.round(last.done * 100 / last.total) : 3}%` }" /></div>
+      </template>
       <p class="text-xs text-gray-500">Vous pouvez quitter la page : la recomparaison continue sur le serveur.</p>
     </div>
     <div v-else class="flex flex-wrap items-end gap-3">
@@ -22,8 +29,8 @@
           <button v-if="since !== state.default_since" type="button" class="underline" @click="since = state.default_since; load()">remettre</button>
         </span>
       </label>
-      <p class="flex-1 text-sm text-gray-600">{{ state.count }} commande(s) {{ since ? `créées depuis le ${date(since)}` : 'reprises' }} seront relues.</p>
-      <button type="button" class="btn-secondary" :disabled="busy || !state.count" @click="start">Lancer la recomparaison</button>
+      <p class="flex-1 text-sm text-gray-600">D'abord les commandes créées ou modifiées là-bas{{ since ? ` depuis le ${date(since)}` : '' }}, puis {{ state.count }} course(s) déjà dans Jibiat relues.</p>
+      <button type="button" class="btn-secondary" :disabled="busy" @click="start">Lancer la recomparaison</button>
     </div>
     <p v-if="!running" class="text-xs text-gray-500">Date de création de la commande dans l'ancienne application. Les commandes plus anciennes déjà terminées ne sont pas relues ; celles encore en cours le sont chaque nuit.</p>
 
@@ -35,6 +42,7 @@
           <template v-if="last.status === 'undone'"> (annulations défaites le {{ dateTime(last.undone_at) }})</template>
         </p>
         <ul class="list-disc pl-5 text-gray-700">
+          <li v-if="last.source !== 'nightly'">{{ last.counts.created }} nouvelle(s) commande(s) ajoutée(s) depuis l'ancienne application</li>
           <li>{{ last.counts.updated }} modifiée(s) mises à jour · {{ last.counts.unchanged }} sans changement<template v-if="last.counts.conflict"> · {{ last.counts.conflict }} modifiée(s) après la bascule (non recopiées)</template></li>
           <li>{{ last.counts.deleted_cancelled }} supprimée(s) annulée(s) · {{ last.counts.deleted_to_check }} à vérifier · {{ last.counts.deleted_closed }} déjà terminée(s)</li>
         </ul>
@@ -77,7 +85,7 @@ async function load() {
 }
 
 async function start() {
-  if (!window.confirm(`Relire ${state.value.count} commande(s) de l'ancienne application ? Cela peut prendre un moment.`)) return
+  if (!window.confirm('Lancer la recomparaison avec l\'ancienne application ? Cela peut prendre un moment.')) return
   busy.value = true
   try {
     const { data } = await http.post('/company/legacy-recheck', { since: since.value })
