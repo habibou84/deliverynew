@@ -96,6 +96,8 @@ const routes = [
       { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage', feature: 'stock' } },
       { path: 'caisse', component: () => import('../views/admin/Finance.vue'), meta: { permission: 'finance.view' } },
       { path: 'caisse/reversements/:id(\\d+)', component: shared.payoutDetail, meta: { permission: 'finance.view' } },
+      { path: 'caisse/versements/:id(\\d+)', component: () => import('../views/admin/RemittanceReceipt.vue'), meta: { permission: 'finance.view' } },
+      { path: 'caisse/journal', component: () => import('../views/admin/CashJournal.vue'), meta: { permission: 'finance.view' } },
       // Réglages par thèmes (l'ancienne page « Paramètres » y mène)
       { path: 'mise-en-route', component: () => import('../views/admin/SetupGuide.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages', component: () => import('../views/admin/settings/SettingsHub.vue'), meta: { permission: ['settings.manage', 'integrations.manage', 'users.view'] } },

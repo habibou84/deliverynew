@@ -36,7 +36,7 @@
     </template>
 
     <!-- Les versements -->
-    <h2 class="pt-1 text-[16px] font-bold text-slate-900">Mes versements</h2>
+    <h2 class="pt-1 text-[16px] font-bold text-slate-900">Mes paiements reçus</h2>
     <section v-if="payouts.length" class="rounded-[22px] bg-white shadow-soft divide-y divide-slate-100">
       <RouterLink v-for="p in payouts" :key="p.id" :to="`/marchand/paiements/${p.id}`" class="tap flex items-center gap-3 px-4 py-3 active:bg-slate-50">
         <span class="h-10 w-10 shrink-0 rounded-xl grid place-items-center text-[11.5px] font-extrabold text-white" :style="{ background: methodLook(p).color }">{{ methodLook(p).short }}</span>
@@ -47,7 +47,7 @@
         <b :class="['whitespace-nowrap', p.status === 'cancelled' ? 'text-slate-400 line-through' : p.net_amount < 0 ? 'text-red-600' : 'text-emerald-700']">{{ p.net_amount > 0 ? '+ ' : '' }}{{ money(p.net_amount) }}</b>
       </RouterLink>
     </section>
-    <EmptyState v-else-if="loaded" art="billets" title="Aucun versement pour le moment" text="Vos versements apparaîtront ici dès que l'agence vous reversera l'argent encaissé." />
+    <EmptyState v-else-if="loaded" art="billets" title="Aucun paiement pour le moment" text="Vos paiements apparaîtront ici dès que l'agence vous paiera l'argent encaissé." />
 
     <!-- Le détail, à la demande -->
     <button v-if="entries.length" type="button" class="m-btn-secondary !ring-0 shadow-soft" :aria-expanded="showEntries" @click="showEntries = !showEntries">
