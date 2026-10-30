@@ -128,12 +128,14 @@ const ALL = computed(() => {
     },
     {
       key: 'integrations', icon: '🔌', title: 'Intégrations',
-      description: 'Clés API et webhooks pour les boutiques en ligne, reprise de l\'ancienne application.',
-      links: [
-        { to: '/admin/integrations', label: 'API et webhooks', permission: 'integrations.manage', feature: 'api' },
-        { to: '/admin/reglages/reprise', label: 'Reprise de l\'ancienne application', permission: 'settings.manage' },
-      ],
-      keywords: 'api clé webhook boutique import reprise ancienne application bascule',
+      description: 'Clés API et webhooks pour les boutiques en ligne.',
+      links: [{ to: '/admin/integrations', label: 'API et webhooks', permission: 'integrations.manage', feature: 'api' }],
+      keywords: 'api clé webhook boutique',
+    },
+    {
+      key: 'legacy', icon: '📥', title: 'Reprise de l\'ancienne application', to: '/admin/reglages/reprise', permission: 'settings.manage',
+      description: 'Brancher l\'ancienne application, reprendre comptes et commandes, contrôler l\'argent, basculer.',
+      keywords: 'import reprise ancienne application bascule migration commandes soldes argent livreurs supprimées recomparaison',
     },
     ...(auth.user?.company?.plan ? [{
       key: 'billing', icon: '🧾', title: 'Abonnement', to: '/admin/abonnement', permission: 'settings.manage',

@@ -1,12 +1,9 @@
 <template>
-  <section v-if="state" class="card p-4 space-y-3">
+  <!-- Étape « Brancher » : module et clé d'envoi des comptes -->
+  <section v-if="state && part === 'connect'" class="card p-4 space-y-3">
     <div>
-      <h2 class="font-semibold">Reprise de l'ancienne application</h2>
-      <p class="text-sm text-gray-600">
-        Les noms de vos zones (table « fees »), puis vos e-commerçants et livreurs arrivent depuis l'ancienne application avec
-        un bouton ; chacun garde son numéro et son mot de passe. Les prix des zones ne sont pas repris : fixez vos tarifs dans
-        Tarifs. Les commandes ne sont pas reprises, ni les comptes de l'équipe : recréez-les dans Utilisateurs.
-      </p>
+      <h2 class="font-semibold">Envoi des comptes et des zones</h2>
+      <p class="text-sm text-gray-600">C'est l'ancienne application qui envoie ses zones, ses e-commerçants et ses livreurs, avec un bouton.</p>
     </div>
 
     <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
@@ -15,7 +12,6 @@
         <button type="button" class="text-blue-600" @click="downloadModule">télécharger JibiatMigrationController.php</button>.
       </li>
       <li>Créez une clé de reprise ci-dessous et collez-la, avec l'adresse de votre espace, dans sa page « Migration vers Jibiat ».</li>
-      <li>Cliquez sur « Simuler », vérifiez le résultat, puis sur « Envoyer ». Relancer ne crée pas de doublon.</li>
     </ol>
 
     <!-- Clé affichée une seule fois -->
@@ -34,29 +30,53 @@
     <p class="text-sm">
       <template v-if="state.active">✅ Clé active jusqu'au {{ dateTime(state.expires_at) }}.</template>
       <template v-else>Aucune clé active.</template>
-      <span v-if="state.used_at" class="text-gray-500"> Dernier envoi reçu le {{ dateTime(state.used_at) }}.</span>
     </p>
 
     <div class="flex flex-wrap gap-2">
       <button type="button" class="btn-primary" :disabled="busy" @click="createKey">{{ state.active ? 'Créer une nouvelle clé' : 'Créer une clé de reprise' }}</button>
       <button v-if="state.active" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="revoke">Désactiver la clé</button>
     </div>
-    <p class="text-xs text-gray-500">
-      La clé est valable 7 jours ; une nouvelle clé remplace la précédente. Désactivez-la une fois la reprise terminée.
-      Les zones sont envoyées en premier : la commune de chaque e-commerçant sert à choisir sa zone de ramassage.
+    <p class="text-xs text-gray-500">La clé est valable 7 jours ; une nouvelle clé remplace la précédente. Désactivez-la une fois les comptes repris.</p>
+  </section>
+
+  <!-- Étape « Comptes et zones » : ce qui est repris, et comment lancer l'envoi -->
+  <section v-else-if="state" class="card p-4 space-y-3">
+    <div>
+      <h2 class="font-semibold">Comptes et zones</h2>
+      <p class="text-sm text-gray-600">
+        Les noms de vos zones (table « fees »), puis vos e-commerçants et livreurs arrivent depuis l'ancienne application ;
+        chacun garde son numéro et son mot de passe. Les prix des zones ne sont pas repris : fixez vos tarifs dans Tarifs.
+        Les comptes de l'équipe ne sont pas repris : recréez-les dans Utilisateurs.
+      </p>
+    </div>
+    <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+      <li>Dans l'ancienne application, ouvrez la page « Migration vers Jibiat ».</li>
+      <li>Cliquez sur « Simuler », vérifiez le résultat, puis sur « Envoyer ». Relancer ne crée pas de doublon.</li>
+    </ol>
+    <p class="text-sm">
+      <template v-if="state.used_at">✅ Dernier envoi reçu le {{ dateTime(state.used_at) }}.</template>
+      <template v-else>Aucun envoi reçu pour l'instant.</template>
     </p>
+    <p v-if="!state.active" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+      Pas de clé de reprise active : créez-la d'abord dans
+      <RouterLink to="/admin/reglages/reprise/brancher" class="font-semibold underline">Brancher l'ancienne application</RouterLink>.
+    </p>
+    <p class="text-xs text-gray-500">Les zones sont envoyées en premier : la commune de chaque e-commerçant sert à choisir sa zone de ramassage.</p>
   </section>
 </template>
 
 <script setup>
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { dateTime } from '../utils/format'
 
 /**
- * Paramètres › Reprise de l'ancienne application (Laravel 5.8) : clé à coller dans son bouton d'envoi.
+ * Réglages › Reprise › comptes et zones envoyés par l'ancienne application (Laravel 5.8). part « connect » : module et
+ * clé à coller dans son bouton d'envoi (page Brancher) ; sinon : ce qui est repris et le dernier envoi.
  */
+defineProps({ part: { type: String, default: 'status' } })
 const toasts = useToastStore()
 const state = ref(null)
 const key = ref('')

@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <div>
-      <RouterLink to="/admin/reglages/reprise" class="text-sm font-medium text-emerald-700">‹ Reprise de l'ancienne application</RouterLink>
+      <RouterLink to="/admin/reglages/reprise/controles" class="text-sm font-medium text-emerald-700">‹ Contrôles et ménage</RouterLink>
       <h1 class="text-xl font-bold">Supprimées dans l'ancienne application : à vérifier</h1>
       <p class="text-sm text-gray-600">
         Ces commandes ont été effacées dans l'ancienne application, mais de l'argent est en jeu ou le colis est chez un
