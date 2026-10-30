@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Services\Legacy\LegacyRechecks;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use RuntimeException;
 
@@ -23,8 +24,14 @@ class LegacyRecheckController extends Controller
     public function show(Request $request): JsonResponse
     {
         $company = $request->user()->company;
+        $default = $this->rechecks->defaultSince($company);
+        $since = $this->since($request) ?? $default;
 
         return response()->json(['data' => [
+            'default_since' => $default?->toDateString(),
+            'since' => $since?->toDateString(),
+            // Commandes qui seront relues depuis cette date
+            'count' => $this->rechecks->scope($company, $since)->count(),
             'last' => $this->rechecks->describe(LegacyRecheck::query()->where('company_id', $company->id)->with('user:id,name')->latest('id')->first()),
             'to_check' => $this->rechecks->toCheck($company)->count(),
         ]]);
@@ -33,7 +40,9 @@ class LegacyRecheckController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            $recheck = $this->rechecks->start($request->user()->company, $request->user());
+            $request->validate(['since' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today']], [], ['since' => 'date']);
+            $company = $request->user()->company;
+            $recheck = $this->rechecks->start($company, $request->user(), $this->since($request) ?? $this->rechecks->defaultSince($company));
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
@@ -90,5 +99,12 @@ class LegacyRecheckController extends Controller
         }
 
         return response()->json(['data' => ['to_check' => $this->rechecks->toCheck($request->user()->company)->count()]]);
+    }
+
+    private function since(Request $request): ?Carbon
+    {
+        $value = $request->input('since');
+
+        return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? Carbon::parse($value) : null;
     }
 }

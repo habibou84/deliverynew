@@ -411,10 +411,10 @@ class LegacyOrdersSyncTest extends TestCase
         parent::tearDown();
     }
 
-    private function recheckAll(): LegacyRecheck
+    private function recheckAll(string $since = '2026-08-01'): LegacyRecheck
     {
         Queue::fake();
-        $this->postJson('/api/v1/company/legacy-recheck')->assertAccepted();
+        $this->postJson('/api/v1/company/legacy-recheck', ['since' => $since])->assertAccepted();
         $recheck = LegacyRecheck::query()->latest('id')->firstOrFail();
         while ($recheck->fresh()->status === 'running') {
             (new RunLegacyRecheck($recheck->id))->handle(app(LegacyRechecks::class));
@@ -495,5 +495,34 @@ class LegacyOrdersSyncTest extends TestCase
         // Rien de supprimé la nuit suivante : pas de trace
         app(LegacyOrdersSync::class)->recheck($this->company->fresh());
         $this->assertSame(1, LegacyRecheck::query()->count());
+    }
+
+    public function test_recheck_from_a_date_defaults_to_the_first_launch_of_the_import(): void
+    {
+        $this->travelTo(now()->parse('2026-10-20 08:00:00'));
+        $this->import();
+        $this->travelBack();
+        // Commande créée après le lancement, puis effacée là-bas
+        $this->commands[113] = $this->command(113, 'en cours', ['livreur_id' => null, 'created_at' => '2026-10-25 09:00:00']);
+        $this->changed = [113];
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+        unset($this->commands[113], $this->commands[101]);
+
+        Sanctum::actingAs($this->admin);
+        $this->getJson('/api/v1/company/legacy-recheck')->assertOk()
+            ->assertJsonPath('data.default_since', '2026-10-20')->assertJsonPath('data.since', '2026-10-20')->assertJsonPath('data.count', 1);
+        $this->getJson('/api/v1/company/legacy-recheck?since=2026-08-01')->assertJsonPath('data.count', $this->recheckScopeCount());
+
+        // Depuis le lancement : seule la commande récente est relue ; l'ancienne effacée n'est pas vue
+        $recheck = $this->recheckAll('2026-10-20');
+        $this->assertSame(['2026-10-20', 1, 1], [$recheck->since->toDateString(), $recheck->total, $recheck->counts['deleted_cancelled']]);
+        $this->assertSame(OrderStatus::Cancelled, $this->order(113)->status);
+        $this->assertNull($this->order(101)->legacy_deleted_at);
+        $this->postJson('/api/v1/company/legacy-recheck', ['since' => '2099-01-01'])->assertJsonValidationErrors('since');
+    }
+
+    private function recheckScopeCount(): int
+    {
+        return Order::withoutGlobalScopes()->whereNotNull('legacy_id')->count();
     }
 }
