@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <div>
-      <RouterLink to="/admin/reglages/reprise" class="text-sm font-medium text-emerald-700">‹ Reprise de l'ancienne application</RouterLink>
+      <RouterLink to="/admin/reglages/reprise/controles" class="text-sm font-medium text-emerald-700">‹ Contrôles et ménage</RouterLink>
       <h1 class="text-xl font-bold">En chemin depuis plus de {{ days }} jours : à vérifier</h1>
       <p class="text-sm text-gray-600">Pour chaque colis, demandez au livreur s'il l'a livré ou s'il l'a encore. Rien n'est envoyé aux clients.</p>
     </div>

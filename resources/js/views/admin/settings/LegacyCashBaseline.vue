@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <div>
-      <RouterLink to="/admin/reglages/reprise" class="text-sm font-medium text-emerald-700">‹ Reprise de l'ancienne application</RouterLink>
+      <RouterLink to="/admin/reglages/reprise/controles" class="text-sm font-medium text-emerald-700">‹ Contrôles et ménage</RouterLink>
       <h1 class="text-xl font-bold">Argent chez les livreurs : point de départ</h1>
       <p class="text-sm text-gray-600">
         Dans l'ancienne application, les encaissements des livreurs n'étaient pas toujours mis à jour. Choisissez une
