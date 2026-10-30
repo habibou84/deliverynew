@@ -102,6 +102,9 @@ class StandardZonesTest extends TestCase
         $this->place('abidjan-koumassi-remblais')->update(['is_active' => false]);
         $this->quote(['delivery_place' => 'abidjan-koumassi-remblais'])->assertUnprocessable()
             ->assertJsonPath('errors.delivery_place.0', 'Ce lieu n\'est pas desservi : « Remblais, Koumassi ».');
+        // Le nom donné aussi prend le relais
+        $this->quote(['delivery_place' => 'abidjan-koumassi-remblais', 'delivery_zone' => 'Plateau'])->assertUnprocessable()
+            ->assertJsonMissingPath('errors.delivery_place');
     }
 
     public function test_legacy_zones_link_to_places_and_keep_their_price(): void

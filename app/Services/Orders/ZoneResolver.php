@@ -43,6 +43,9 @@ class ZoneResolver
             $zone = $this->standard->zoneForPlace($companyId, $code);
             if ($zone !== null) {
                 $request->merge([$idField => $zone->id]);
+            } elseif (filled($request->input(array_search($idField, self::FIELDS, true)))) {
+                // Lieu non desservi mais nom de zone donné aussi : on essaie le nom
+                continue;
             } elseif (Places::find($code) === null) {
                 $errors[$placeField] = "Lieu inconnu : « {$code} ».";
             } else {
