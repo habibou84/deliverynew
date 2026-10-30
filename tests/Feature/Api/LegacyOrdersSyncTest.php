@@ -525,4 +525,24 @@ class LegacyOrdersSyncTest extends TestCase
     {
         return Order::withoutGlobalScopes()->whereNotNull('legacy_id')->count();
     }
+
+    public function test_recheck_first_brings_orders_created_in_the_old_application_that_never_arrived(): void
+    {
+        $this->import();
+        // Saisie là-bas, jamais copiée (copie de chaque minute en panne) ; une autre modifiée sans être recopiée
+        $this->commands[114] = $this->command(114, 'en cours', ['livreur_id' => null, 'created_at' => '2026-10-30 08:00:00']);
+        $this->commands[102] = [...$this->commands[102], 'etat' => 'annule', 'updated_at' => '2026-10-30 09:00:00'];
+        $this->changed = [102, 114];
+
+        Sanctum::actingAs($this->admin);
+        $recheck = $this->recheckAll('2026-08-01');
+        $this->assertSame('done', $recheck->status);
+        $this->assertSame([2, 1], [$recheck->counts['pulled'], $recheck->counts['created']]);
+        $this->assertGreaterThanOrEqual(1, $recheck->counts['updated']);
+        $this->assertSame(OrderStatus::Confirmed, $this->order(114)->status);
+        $this->assertSame(OrderStatus::Cancelled, $this->order(102)->status);
+        // Les nouvelles sont relues avec les autres, des plus récentes aux plus anciennes
+        $this->assertSame(Order::withoutGlobalScopes()->whereNotNull('legacy_id')->count(), $recheck->done);
+        $this->getJson('/api/v1/company/legacy-recheck')->assertJsonPath('data.last.counts.created', 1)->assertJsonPath('data.last.phase', 'compare');
+    }
 }
