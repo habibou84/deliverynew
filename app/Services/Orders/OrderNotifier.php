@@ -131,6 +131,26 @@ class OrderNotifier
     }
 
     /**
+     * Livraison : montant encaissé incomplet, ou paiement annoncé « reçu par l'entreprise » à retrouver sur le relevé.
+     *
+     * @return array{0: string, 1: string, 2: string}|null
+     */
+    private function moneyAlert(Order $order, string $note): ?array
+    {
+        $code = $order->tracking_code;
+        if ((int) $order->collected_amount < (int) $order->cod_amount) {
+            return ['collected_short', "Montant incomplet {$code}", 'Encaissé '.Money::format((int) $order->collected_amount).' sur '.Money::format((int) $order->cod_amount).'.'.$note];
+        }
+        $collection = $order->cashCollection()->first();
+        if ($collection?->awaitsConfirmation()) {
+            return ['payment_to_confirm', "Paiement à confirmer {$code}", $collection->method->label().' de '.Money::format((int) $collection->amount_collected)
+                .' annoncé reçu par l\'entreprise (réf. '.$collection->transaction_ref.'). Vérifiez le relevé puis confirmez-le à la caisse.'];
+        }
+
+        return null;
+    }
+
+    /**
      * @return array{0: ?array, 1: ?array}
      */
     private function forStatus(Order $order, OrderEvent $event, bool $actorIsMerchant, ?string $reason, string $note): array
@@ -143,8 +163,8 @@ class OrderNotifier
             OrderStatus::PickedUp => [['picked_up', "Colis {$code} récupéré", 'Votre colis a été récupéré par notre livreur.'], null],
             OrderStatus::OutForDelivery => [['out_for_delivery', "Colis {$code} en chemin", 'Votre colis est en cours de livraison.'], null],
             OrderStatus::Delivered => $order->is_shipping
-                ? [['delivered', "Colis {$code} expédié", "Déposé chez {$order->shipping_carrier}. Frais d'expédition : ".Money::format((int) $order->shipping_fee).'.'], null]
-                : [['delivered', "Colis {$code} livré", 'Votre colis a été livré.'], null],
+                ? [['delivered', "Colis {$code} expédié", "Déposé chez {$order->shipping_carrier}. Frais d'expédition : ".Money::format((int) $order->shipping_fee).'.'], $this->moneyAlert($order, $note)]
+                : [['delivered', "Colis {$code} livré", 'Votre colis a été livré.'], $this->moneyAlert($order, $note)],
             OrderStatus::DeliveryFailed => [
                 ['incident', "Échec de livraison {$code}", "La livraison n'a pas pu être effectuée.{$why}{$note}"],
                 ['incident', "Échec de livraison {$code}", trim("{$reason}{$note}")],

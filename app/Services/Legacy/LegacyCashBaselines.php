@@ -149,7 +149,7 @@ class LegacyCashBaselines
                 ->whereNull('remittance_id')->where('transaction_ref', self::REF)->pluck('id');
             foreach ($ids->chunk(500) as $chunk) {
                 CashCollection::withoutGlobalScopes()->whereIn('id', $chunk)
-                    ->update(['received_by_company' => false, 'transaction_ref' => null, 'legacy_cash_baseline_id' => null, 'updated_at' => now()]);
+                    ->update(['received_by_company' => false, 'company_confirmed_at' => null, 'transaction_ref' => null, 'legacy_cash_baseline_id' => null, 'updated_at' => now()]);
             }
             DB::table('order_events')->where('meta->legacy_cash_baseline', $baseline->id)->delete();
             $baseline->forceFill(['status' => 'undone', 'undone_at' => now()])->save();
@@ -187,6 +187,8 @@ class LegacyCashBaselines
         foreach (array_chunk($collections, 500) as $chunk) {
             CashCollection::withoutGlobalScopes()->whereIn('id', array_map(fn ($c) => $c->id, $chunk))->update([
                 'received_by_company' => true,
+                // Reprise : l'argent est déjà à l'entreprise, rien à confirmer
+                'company_confirmed_at' => now(),
                 'transaction_ref' => self::REF,
                 'legacy_cash_baseline_id' => $baseline->id,
                 'updated_at' => now(),
