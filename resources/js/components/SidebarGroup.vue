@@ -14,7 +14,7 @@
       <span aria-hidden="true" :class="['transition-transform', open ? 'rotate-90' : '']">›</span>
     </button>
     <div v-show="open" class="mt-1 space-y-1">
-      <SidebarItem v-for="item in items" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" />
+      <SidebarItem v-for="item in items" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" :prefix="!!item.prefix" />
     </div>
   </div>
 </template>
