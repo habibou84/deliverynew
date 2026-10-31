@@ -30,6 +30,7 @@ use App\Http\Controllers\Api\V1\ConsoleSearchController;
 use App\Http\Controllers\Api\V1\ConsoleTeamController;
 use App\Http\Controllers\Api\V1\ConsoleWaveController;
 use App\Http\Controllers\Api\V1\ConsoleWhatsAppController;
+use App\Http\Controllers\Api\V1\CourierActivityController;
 use App\Http\Controllers\Api\V1\CourierAvailabilityController;
 use App\Http\Controllers\Api\V1\CourierController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
@@ -608,6 +609,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Livreurs (gestion par le personnel)
         Route::get('couriers/map', [CourierController::class, 'map'])->middleware('can:orders.dispatch')->name('couriers.map');
+        Route::get('couriers/activity', [CourierActivityController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.activity');
+        Route::get('couriers/{courier}/activity', [CourierActivityController::class, 'show'])->middleware('can:orders.dispatch')->name('couriers.activity.show');
         Route::get('couriers/availability', [CourierAvailabilityController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.availability');
         Route::get('couriers/{courier}/availability', [CourierAvailabilityController::class, 'show'])->middleware('can:orders.dispatch')->name('couriers.availability.show');
         Route::post('couriers/{courier}/pickup-mission', [CourierAvailabilityController::class, 'pickupMission'])->middleware('can:orders.dispatch')->name('couriers.pickup-mission');

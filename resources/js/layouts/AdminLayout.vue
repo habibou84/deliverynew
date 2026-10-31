@@ -20,7 +20,7 @@
         >
           ➕ Nouvelle course
         </RouterLink>
-        <SidebarItem v-for="item in menu.top" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" />
+        <SidebarItem v-for="item in menu.top" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" :prefix="!!item.prefix" />
         <SidebarGroup
           v-for="group in menu.groups"
           :id="group.id"
@@ -278,11 +278,8 @@ const menu = computed(() => {
       label: 'Opérations',
       items: [
         { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
-        { to: '/admin/carte', icon: '📍', label: 'Carte des livreurs', permission: 'orders.dispatch' },
-        { to: '/admin/disponibilites', icon: '🟢', label: 'Livreurs disponibles', permission: 'orders.dispatch' },
-        { to: '/admin/planning', icon: '📅', label: 'Planning des livreurs', permission: 'orders.dispatch' },
-        { to: '/admin/terrain', icon: '📣', label: 'Remontées terrain', permission: 'orders.dispatch', badge: fieldReports.open.total },
-        { to: '/admin/colis-livreurs', icon: '🎒', label: 'Colis chez les livreurs', permission: 'orders.dispatch', badge: heldParcels.counts.overdue },
+        // Carte, disponibles, colis en main, remontées terrain et planning : onglets de cette page
+        { to: '/admin/activite', icon: '🛵', label: 'Activité des livreurs', permission: 'orders.dispatch', prefix: true, badge: fieldReports.open.total + heldParcels.counts.overdue },
         { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },
       ],
     },
@@ -340,8 +337,8 @@ const tabs = computed(() => {
   const candidates = isDispatch.value
     ? [
         { to: '/admin/courses', icon: '📦', label: 'Courses', badge: dispatchCounts.counts.late.total },
-        { to: '/admin/carte', icon: '📍', label: 'Carte' },
-        { to: '/admin/terrain', icon: '📣', label: 'Alertes', badge: fieldReports.open.total },
+        { to: '/admin/activite', icon: '🛵', label: 'Livreurs', badge: heldParcels.counts.overdue },
+        { to: '/admin/activite/remontees', icon: '📣', label: 'Alertes', badge: fieldReports.open.total },
       ]
     : [
         { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view' },
@@ -351,7 +348,9 @@ const tabs = computed(() => {
       ].filter(visible)
   return [home, ...candidates.slice(0, 3)]
 })
-const isActive = (t) => (t.exact ? route.path === t.to : route.path === t.to || route.path.startsWith(`${t.to}/`))
+const matches = (t) => (t.exact ? route.path === t.to : route.path === t.to || route.path.startsWith(`${t.to}/`))
+// Onglet le plus précis seulement (« Alertes » = /admin/activite/remontees, pas aussi « Livreurs »)
+const isActive = (t) => matches(t) && !tabs.value.some((o) => o !== t && o.to.length > t.to.length && matches(o))
 
 function quickSearch() {
   router.push({ path: '/admin/courses', query: { search: search.value } })
