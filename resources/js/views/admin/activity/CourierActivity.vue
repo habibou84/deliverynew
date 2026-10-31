@@ -16,7 +16,9 @@
       </RouterLink>
     </nav>
 
-    <RouterView />
+    <RouterView v-slot="{ Component }">
+      <component :is="Component" embedded />
+    </RouterView>
   </div>
 </template>
 
