@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4 max-w-6xl">
     <div>
-      <h1 class="text-xl font-bold">Colis chez les livreurs</h1>
+      <h1 v-if="!embedded" class="text-xl font-bold">Colis chez les livreurs</h1>
       <p class="text-sm text-gray-600">
         Colis ramassés, en livraison, en échec ou reportés que les livreurs n'ont pas encore rendus au dépôt.
         <template v-if="alertHours">Au-delà de {{ alertHours }} h, le colis est signalé en rouge et le dispatch est alerté.</template>
@@ -84,6 +84,8 @@
 </template>
 
 <script setup>
+// Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
+defineProps({ embedded: { type: Boolean, default: false } })
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

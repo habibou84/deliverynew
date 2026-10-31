@@ -91,6 +91,7 @@ const routes = [
           { path: 'colis', component: () => import('../views/admin/HeldParcels.vue'), meta: { permission: 'orders.dispatch' } },
           { path: 'remontees', component: () => import('../views/admin/FieldReports.vue'), meta: { permission: 'orders.dispatch' } },
           { path: 'planning', component: () => import('../views/admin/Planning.vue'), meta: { permission: 'orders.dispatch' } },
+          { path: 'mural', component: () => import('../views/admin/activity/WallScreen.vue'), meta: { permission: 'orders.dispatch' } },
         ],
       },
       // Anciennes adresses (liens des notifications, favoris) : vers l'onglet, en gardant les paramètres
