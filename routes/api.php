@@ -557,6 +557,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Colis chez les livreurs (droits vérifiés dans le contrôleur)
         Route::get('parcels/held', [ParcelController::class, 'index'])->name('parcels.held');
         Route::get('parcels/held/counts', [ParcelController::class, 'counts'])->name('parcels.held.counts');
+        Route::get('couriers/{courier}/parcels', [ParcelController::class, 'parcels'])->name('couriers.parcels');
         Route::post('couriers/{courier}/parcels/receive', [ParcelController::class, 'receive'])->name('couriers.parcels.receive');
 
         // Relais entre livreurs (dispatch)
