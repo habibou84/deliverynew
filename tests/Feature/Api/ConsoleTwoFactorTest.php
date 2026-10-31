@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\ConsoleLoginCode;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\AnonymousNotifiable;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\Concerns\BuildsDeliveryWorld;
@@ -89,11 +90,23 @@ class ConsoleTwoFactorTest extends TestCase
             ->assertJsonValidationErrors(['code' => 'Code expiré : reconnectez-vous pour en recevoir un nouveau.']);
     }
 
-    public function test_without_any_way_to_send_the_code_the_console_still_opens_and_health_says_so(): void
+    /** Audit n° 2, point 15 : sans moyen d'envoi, la console reste fermée ; secours par commande sur le serveur */
+    public function test_without_any_way_to_send_the_code_the_console_stays_closed_until_the_server_command(): void
     {
         config(['mail.default' => 'log']);
         $this->root->update(['email' => null]);
-        $token = $this->login()->assertOk()->assertJsonPath('user.id', $this->root->id)->json('token');
+        $this->artisan('console:code', ['login' => '0700000099'])->assertFailed();
+
+        $data = $this->login()->assertOk()->assertJsonMissingPath('token')->assertJsonPath('two_factor.channel', 'server')->json('two_factor');
+        $this->assertSame(0, PersonalAccessToken::count());
+
+        // Chaque appel donne un nouveau code ; on lit celui de la sortie
+        $this->assertSame(0, Artisan::call('console:code', ['login' => '0700000099']));
+        preg_match('/: (\d{6}) /', Artisan::output(), $m);
+        $code = $m[1];
+
+        $token = $this->postJson('http://admin.jibiat.test/api/v1/auth/two-factor', ['challenge' => $data['challenge'], 'code' => $code])
+            ->assertOk()->assertJsonPath('user.id', $this->root->id)->json('token');
 
         $this->withToken($token)->getJson('http://admin.jibiat.test/api/v1/console/health')->assertOk()
             ->assertJsonPath('data.checks', fn ($checks) => collect($checks)->firstWhere('key', 'two_factor')['status'] === 'error');

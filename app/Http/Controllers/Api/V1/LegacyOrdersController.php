@@ -7,6 +7,7 @@ use App\Jobs\RunLegacyOrdersImport;
 use App\Models\Company;
 use App\Models\Order;
 use App\Services\Legacy\LegacyOrdersSync;
+use App\Services\Webhooks\UrlGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -33,8 +34,8 @@ class LegacyOrdersController extends Controller
     {
         $data = $request->validate(['url' => ['required', 'url:https', 'max:255']], [], ['url' => 'adresse']);
         // Le serveur de Jibiat appelle cette adresse : jamais une adresse interne (réseau privé, machine elle-même)
-        $ip = gethostbyname((string) parse_url($data['url'], PHP_URL_HOST));
-        if (filter_var($ip, FILTER_VALIDATE_IP) && ! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        // (contrôlée aussi à chaque appel, adresse IP fixée et sans redirection)
+        if (UrlGuard::blockedReason($data['url']) !== null) {
             return response()->json(['message' => 'Cette adresse est interne : indiquez l\'adresse publique de l\'ancienne application.', 'errors' => ['url' => ['Adresse interne refusée.']]], 422);
         }
         $company = $request->user()->company;

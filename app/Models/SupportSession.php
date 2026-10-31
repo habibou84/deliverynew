@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * Session d'assistance ouverte par un super administrateur dans une entreprise.
@@ -20,6 +21,15 @@ class SupportSession extends Model
     protected function casts(): array
     {
         return ['expires_at' => 'datetime'];
+    }
+
+    /**
+     * Coupe toutes les sessions d'assistance ouvertes par ce membre de l'équipe (suspension, rôle changé).
+     */
+    public static function revokeOpenedBy(User $member): void
+    {
+        PersonalAccessToken::query()->where('name', self::TOKEN_PREFIX.$member->id)->delete();
+        self::query()->where('opened_by', $member->id)->where('expires_at', '>', now())->update(['expires_at' => now()]);
     }
 
     public function company(): BelongsTo
