@@ -65,15 +65,15 @@ class CourierActivityTest extends TestCase
         $this->assertSame(1, $b['remaining']);
         $this->assertArrayHasKey('habit', $b);
 
-        // Jour passé : seulement ce qui a été fait ce jour-là, rien en main
+        // Jour passé : ce qui a été fait ce jour-là et ce qui était prévu ce jour-là sans être fait, rien en main
         $this->travelTo(now()->addDay());
         $past = $this->getJson('/api/v1/couriers/activity?date='.now()->subDay()->toDateString())->assertOk();
         $this->assertFalse($past->json('is_today'));
         $pastB = collect($past->json('data'))->firstWhere('id', $this->courierB->id);
-        $this->assertSame(['done' => 1, 'total' => 1], $pastB['deliveries']);
+        $this->assertSame(['done' => 1, 'total' => 2], $pastB['deliveries']);
         $this->assertSame('done', $pastB['state']);
         $this->assertSame(0, $pastB['cash_in_hand']);
-        $this->getJson('/api/v1/couriers/activity?date='.now()->addDay()->toDateString())->assertJsonValidationErrors('date');
+        $this->getJson('/api/v1/couriers/activity?date='.now()->addDays(60)->toDateString())->assertJsonValidationErrors('date');
         $this->travelBack();
 
         // Réservé au dispatch
@@ -109,5 +109,39 @@ class CourierActivityTest extends TestCase
         $this->assertTrue($b['late_end']);
         $this->assertContains('Finira après la fermeture du dépôt', $b['flags']);
         $this->assertSame(1, $response->json('totals.late_end'));
+    }
+
+    public function test_daily_tracking_follows_the_delivery_day_of_the_parcels(): void
+    {
+        $today = $this->createOrder(['items_amount' => 5000]);
+        $tomorrow = $this->createOrder(['items_amount' => 5000]);
+        $tomorrow->forceFill(['delivery_scheduled_date' => now()->addDay()->toDateString()])->save();
+        $old = $this->createOrder(['items_amount' => 5000]);
+        $old->forceFill(['delivery_scheduled_date' => now()->subDays(3)->toDateString()])->save();
+        Sanctum::actingAs($this->dispatcher);
+        foreach ([$today, $tomorrow, $old] as $order) {
+            $this->postJson("/api/v1/orders/{$order->id}/assign", ['type' => 'delivery', 'courier_id' => $this->courierB->id])->assertOk();
+        }
+
+        // Aujourd'hui : seulement le colis du jour ; celui d'avant compté à part, celui de demain absent
+        $response = $this->getJson('/api/v1/couriers/activity')->assertOk();
+        $b = collect($response->json('data'))->firstWhere('id', $this->courierB->id);
+        $this->assertSame(['done' => 0, 'total' => 1], $b['deliveries']);
+        $this->assertSame(1, $b['remaining']);
+        $this->assertSame(1, $b['late_before']);
+        $this->assertContains("1 colis en retard d'avant", $b['flags']);
+        $this->assertSame(1, $response->json('totals.late_before'));
+
+        $missions = collect($this->getJson("/api/v1/couriers/{$this->courierB->id}/activity")->json('data'));
+        $this->assertSame([$today->id, $old->id], $missions->sortBy('order_id')->pluck('order_id')->values()->all());
+        $this->assertTrue($missions->firstWhere('order_id', $old->id)['from_before']);
+
+        // Demain : ce qui est prévu
+        $next = $this->getJson('/api/v1/couriers/activity?date='.now()->addDay()->toDateString())->assertOk();
+        $this->assertTrue($next->json('is_future'));
+        $nb = collect($next->json('data'))->firstWhere('id', $this->courierB->id);
+        $this->assertSame(['done' => 0, 'total' => 1], $nb['deliveries']);
+        $this->assertSame('planned', $nb['state']);
+        $this->assertSame(1, $next->json('totals.active'));
     }
 }
