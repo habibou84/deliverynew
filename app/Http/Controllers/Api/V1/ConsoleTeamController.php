@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\PhoneVerification;
+use App\Models\SupportSession;
 use App\Models\TrustedDevice;
 use App\Models\User;
 use App\Notifications\ConsoleInvitation;
@@ -108,6 +109,8 @@ class ConsoleTeamController extends Controller
             if (isset($data['role']) || ($data['status'] ?? null) === 'suspended') {
                 $member->tokens()->delete();
                 TrustedDevice::query()->where('user_id', $member->id)->delete();
+                // Ses sessions d'assistance dans les entreprises sont coupées aussi
+                SupportSession::revokeOpenedBy($member);
             }
         });
 

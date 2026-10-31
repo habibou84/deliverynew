@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureApiScope;
 use App\Http\Middleware\EnsureFeature;
 use App\Http\Middleware\EnsureIdempotency;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\LimitSupportSession;
 use App\Http\Middleware\PreprodGate;
 use App\Http\Middleware\PreventIndexing;
 use App\Http\Middleware\ResolveTenant;
@@ -45,6 +46,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(SecurityHeaders::class);
         // Journal des actions des super administrateurs (console, assistance dans une entreprise)
         $middleware->appendToGroup('api', AuditSuperAdmin::class);
+        // Session d'assistance : pas de clés, invitations, comptes ni mots de passe
+        $middleware->appendToGroup('api', LimitSupportSession::class);
         $middleware->encryptCookies(except: [PreprodGate::COOKIE]);
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
