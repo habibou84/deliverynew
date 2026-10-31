@@ -86,18 +86,25 @@ class ConsoleTwoFactor
         if (! is_array($pending)) {
             throw ValidationException::withMessages(['code' => 'Code expiré : reconnectez-vous pour en recevoir un nouveau.']);
         }
+        // Essai compté d'un seul coup dans le cache : des requêtes simultanées ne passent pas toutes la limite
+        Cache::add($key.':tries', 0, now()->addMinutes(self::CODE_MINUTES));
+        $tries = (int) Cache::increment($key.':tries');
+        if ($tries > self::MAX_ATTEMPTS) {
+            Cache::forget($key);
+
+            throw ValidationException::withMessages(['code' => 'Trop de codes faux : reconnectez-vous pour en recevoir un nouveau.']);
+        }
         if (! Hash::check(preg_replace('/\D/', '', $code), $pending['code_hash'])) {
-            $pending['attempts']++;
-            if ($pending['attempts'] >= self::MAX_ATTEMPTS) {
+            if ($tries >= self::MAX_ATTEMPTS) {
                 Cache::forget($key);
 
                 throw ValidationException::withMessages(['code' => 'Trop de codes faux : reconnectez-vous pour en recevoir un nouveau.']);
             }
-            Cache::put($key, $pending, now()->addMinutes(self::CODE_MINUTES));
 
-            throw ValidationException::withMessages(['code' => 'Code incorrect. Il reste '.(self::MAX_ATTEMPTS - $pending['attempts']).' essai(s).']);
+            throw ValidationException::withMessages(['code' => 'Code incorrect. Il reste '.(self::MAX_ATTEMPTS - $tries).' essai(s).']);
         }
         Cache::forget($key);
+        Cache::forget($key.':tries');
 
         $user = User::query()->findOrFail($pending['user_id']);
         if (! $user->isActive()) {

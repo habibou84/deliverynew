@@ -272,7 +272,8 @@ class DemoAutomation extends Command
 
     private function user(Company $company, Role $role, string $name, string $phone, ?Merchant $merchant = null): User
     {
-        $user = User::where('phone', '+225'.$phone)->first() ?? User::create([
+        // Seulement un compte de l'entreprise de démonstration : jamais celui d'une autre entreprise au même numéro
+        $user = User::forCompany($company->id)->where('phone', '+225'.$phone)->first() ?? User::create([
             'company_id' => $company->id,
             'merchant_id' => $merchant?->id,
             'name' => $name,

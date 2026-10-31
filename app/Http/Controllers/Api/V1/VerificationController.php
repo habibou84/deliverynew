@@ -63,7 +63,7 @@ class VerificationController extends Controller
     public static function describe(PhoneVerifier $verifier, PhoneVerification $verification): array
     {
         $whatsapp = $verifier->whatsappNumber($verification->company);
-        $text = PhoneVerifier::WHATSAPP_PREFIX.' : '.$verification->whatsapp_code;
+        $text = PhoneVerifier::whatsappText($verification);
 
         $status = match (true) {
             $verification->completed_at !== null => 'completed',
