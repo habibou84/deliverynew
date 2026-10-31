@@ -3,10 +3,11 @@
     <!-- Jour suivi, direct, export, écran mural -->
     <div class="flex flex-wrap items-center gap-3">
       <span v-if="isToday" class="flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><span class="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" aria-hidden="true" /> En direct</span>
-      <span v-else class="text-sm font-semibold text-slate-700">Journée du {{ dayLabel }}</span>
+      <span v-else class="text-sm font-semibold text-slate-700">{{ isFuture ? 'Prévu le' : 'Journée du' }} {{ dayLabel }}</span>
+      <span class="text-sm text-gray-600">Colis dont la livraison est prévue ce jour-là</span>
       <span class="flex-1" />
       <label class="flex items-center gap-2 text-sm font-medium">Jour
-        <input v-model="day" type="date" class="input w-auto" :max="todayIso" @change="changeDay">
+        <input v-model="day" type="date" class="input w-auto" :max="maxIso" @change="changeDay">
       </label>
       <button v-if="!isToday" type="button" class="btn-secondary" @click="day = todayIso; changeDay()">Aujourd'hui</button>
       <button type="button" class="btn-secondary" :disabled="!couriers.length" @click="exportCsv">Exporter</button>
@@ -16,19 +17,20 @@
     <!-- Chiffres de l'équipe -->
     <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
       <div class="card p-3">
-        <p class="text-sm text-gray-600">{{ isToday ? 'Livreurs actifs' : 'Livreurs au travail' }}</p>
+        <p class="text-sm text-gray-600">{{ isToday ? 'Livreurs actifs' : isFuture ? 'Livreurs prévus' : 'Livreurs au travail' }}</p>
         <p class="text-2xl font-bold">{{ totals.active ?? '—' }} <span class="text-sm font-normal text-gray-600">sur {{ totals.couriers ?? '—' }}</span></p>
       </div>
       <div class="card p-3">
-        <p class="text-sm text-gray-600">Livrés</p>
-        <p class="text-2xl font-bold text-emerald-700">{{ totals.delivered ?? '—' }} <span class="text-sm font-normal text-gray-600">sur {{ totals.deliveries ?? '—' }}</span></p>
+        <p class="text-sm text-gray-600">{{ isFuture ? 'Livraisons prévues' : 'Livrés' }}</p>
+        <p v-if="isFuture" class="text-2xl font-bold">{{ totals.deliveries ?? '—' }}</p>
+        <p v-else class="text-2xl font-bold text-emerald-700">{{ totals.delivered ?? '—' }} <span class="text-sm font-normal text-gray-600">sur {{ totals.deliveries ?? '—' }}</span></p>
       </div>
-      <div class="card p-3">
+      <div v-if="!isFuture" class="card p-3">
         <p class="text-sm text-gray-600">Taux de réussite</p>
         <p class="text-2xl font-bold">{{ pct(totals.success_rate) }}</p>
         <p v-if="totals.habit_success_rate !== null && totals.habit_success_rate !== undefined" class="text-xs text-gray-600">habituel {{ totals.habit_success_rate }} %</p>
       </div>
-      <div class="card p-3">
+      <div v-if="!isFuture" class="card p-3">
         <p class="text-sm text-gray-600">Échecs</p>
         <p :class="['text-2xl font-bold', totals.failed ? 'text-red-700' : '']">{{ totals.failed ?? '—' }}</p>
       </div>
@@ -43,6 +45,12 @@
           <div class="h-2 rounded-full bg-emerald-700" :style="{ width: `${totals.progress || 0}%` }" />
         </div>
       </div>
+    </div>
+
+    <!-- Colis des jours précédents encore à faire : à part, hors avancement du jour -->
+    <div v-if="isToday && totals.late_before" class="flex flex-wrap items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900" role="status">
+      <span class="flex-1"><b>{{ totals.late_before }} colis en retard d'avant</b> : prévus les jours précédents, encore chez les livreurs. Ils ne comptent pas dans l'avancement du jour.</span>
+      <button type="button" class="btn-secondary" @click="f.state = f.state === 'late' ? '' : 'late'">{{ f.state === 'late' ? 'Voir tous les livreurs' : 'Voir les livreurs concernés' }}</button>
     </div>
 
     <!-- Filtres -->
@@ -60,7 +68,9 @@
             <option value="available">Disponibles</option>
             <option value="offline">Hors service</option>
             <option value="watch">À surveiller ({{ totals.watched || 0 }})</option>
+            <option v-if="totals.late_before" value="late">Retards d'avant</option>
           </template>
+          <option v-else-if="isFuture" value="planned">Ont des missions prévues</option>
           <option v-else value="done">Ont travaillé</option>
         </select>
       </div>
@@ -109,7 +119,7 @@
               <template v-if="!c.deliveries.total && !c.pickups.total">Aucune mission {{ isToday ? 'aujourd\'hui' : 'ce jour-là' }}</template>
             </p>
             <p v-if="isToday" class="text-sm text-gray-700">{{ c.parcels_in_hand }} colis en main · {{ c.failed }} échec{{ c.failed > 1 ? 's' : '' }} · {{ money(c.cash_in_hand) }} en main</p>
-            <p v-else class="text-sm text-gray-700">{{ c.failed }} échec{{ c.failed > 1 ? 's' : '' }}</p>
+            <p v-else-if="!isFuture" class="text-sm text-gray-700">{{ c.failed }} échec{{ c.failed > 1 ? 's' : '' }}</p>
             <p v-if="c.flags.length" class="text-sm font-semibold text-orange-800">⚠ {{ c.flags.join(' · ') }}</p>
           </button>
           <p v-if="isToday && !c.remaining && (c.cash_in_hand > 0 || c.parcels_in_hand > 0) && auth.can('finance.manage')" class="text-sm">
@@ -171,7 +181,7 @@
           <div v-else class="overflow-x-auto">
             <table class="w-full text-sm stack-table">
               <thead class="bg-slate-50 text-left text-gray-600">
-                <tr><th class="p-2">Heure</th><th class="p-2">Course</th><th class="p-2">État</th><th class="p-2 text-right">Montant</th><th v-if="isToday" /></tr>
+                <tr><th class="p-2">Heure</th><th class="p-2">Course</th><th class="p-2">État</th><th class="p-2 text-right">Montant</th><th v-if="canAct" /></tr>
               </thead>
               <tbody class="divide-y">
                 <tr v-for="m in missions" :key="m.id" :class="m.status === 'in_progress' ? 'bg-blue-50' : ''">
@@ -181,15 +191,16 @@
                   </td>
                   <td data-label="Course" class="p-2">
                     <RouterLink :to="`/admin/courses/${m.order_id}`" class="font-mono text-xs text-blue-700 hover:underline">{{ m.tracking_code }}</RouterLink>
+                    <span v-if="m.from_before" class="mr-1 rounded-full bg-orange-100 px-1.5 text-xs font-semibold text-orange-900">prévu le {{ shortDay(m.delivery_day) }}</span>
                     {{ m.type_label }} · {{ m.merchant }}<template v-if="m.zone"> · {{ m.zone }}</template><template v-if="m.recipient"> · {{ m.recipient }}</template>
                   </td>
                   <td data-label="État" :class="['p-2 font-medium', MISSION[m.status]?.cls]">{{ MISSION[m.status]?.label || m.status }}</td>
                   <td data-label="Montant" class="p-2 text-right">{{ m.cod_amount ? money(m.cod_amount) : '—' }}</td>
-                  <td v-if="isToday" class="p-2 text-right">
+                  <td v-if="canAct" class="p-2 text-right">
                     <button v-if="!m.completed_at" type="button" class="text-blue-700 hover:underline whitespace-nowrap" :title="`Donner ${m.tracking_code} à un autre livreur`" @click="openReassign(m)">Réassigner</button>
                   </td>
                 </tr>
-                <tr v-if="!missions.length"><td :colspan="isToday ? 5 : 4" class="p-3 text-center text-gray-500">Aucune mission.</td></tr>
+                <tr v-if="!missions.length"><td :colspan="canAct ? 5 : 4" class="p-3 text-center text-gray-500">Aucune mission.</td></tr>
               </tbody>
             </table>
           </div>
@@ -253,6 +264,8 @@ const STATE = {
   available: { label: 'Disponible', dot: 'bg-emerald-600', chip: 'bg-emerald-100 text-emerald-900', color: '#059669' },
   offline: { label: 'Hors service', dot: 'bg-slate-400', chip: 'bg-slate-200 text-slate-700', color: '#94a3b8' },
   done: { label: 'A travaillé', dot: 'bg-emerald-700', chip: 'bg-emerald-100 text-emerald-900', color: '#047857' },
+  idle: { label: 'Rien de prévu', dot: 'bg-slate-400', chip: 'bg-slate-200 text-slate-700', color: '#94a3b8' },
+  planned: { label: 'Missions prévues', dot: 'bg-indigo-600', chip: 'bg-indigo-100 text-indigo-900', color: '#4f46e5' },
 }
 const MISSION = {
   completed: { label: 'Faite', cls: 'text-emerald-700' },
@@ -279,8 +292,13 @@ const Progress = defineComponent({
 })
 
 const todayIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+// Jours à venir consultables : ce qui est déjà prévu (30 jours, comme le serveur)
+const maxIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000 + 30 * 86400000).toISOString().slice(0, 10)
 const day = ref(route.query.jour || todayIso)
 const isToday = ref(true)
+const isFuture = ref(false)
+// Réassigner : aujourd'hui et les jours à venir
+const canAct = computed(() => isToday.value || isFuture.value)
 const closesAt = ref(null)
 const couriers = ref([])
 const totals = ref({})
@@ -302,10 +320,11 @@ const norm = (v) => (v || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, ''
 const pct = (v) => (v === null || v === undefined ? '—' : `${v} %`)
 const time = (at) => new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', ' h ')
 const dayLabel = computed(() => new Date(`${day.value}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }))
+const shortDay = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '')
 const zones = computed(() => [...new Set(couriers.value.flatMap((c) => c.zones))].sort())
 const visible = computed(() => {
   const list = couriers.value.filter((c) => (!f.search || norm(`${c.name} ${c.phone}`).includes(norm(f.search)))
-    && (!f.state || (f.state === 'watch' ? c.flags.length > 0 : c.state === f.state))
+    && (!f.state || (f.state === 'watch' ? c.flags.length > 0 : f.state === 'late' ? c.late_before > 0 : c.state === f.state))
     && (!f.zone || c.zones.includes(f.zone)))
   const by = {
     remaining: (a, b) => b.remaining - a.remaining,
@@ -354,6 +373,7 @@ async function load() {
   couriers.value = data.data
   totals.value = data.totals
   isToday.value = data.is_today
+  isFuture.value = !!data.is_future
   closesAt.value = data.depot_closes_at
   loaded.value = true
   if (selected.value) selected.value = couriers.value.find((c) => c.id === selected.value.id) || null
@@ -361,7 +381,7 @@ async function load() {
 }
 
 function changeDay() {
-  if (f.state && !['', 'done'].includes(f.state)) f.state = ''
+  f.state = ''
   unselect()
   router.replace({ query: day.value !== todayIso ? { jour: day.value } : {} })
   load()
@@ -480,8 +500,8 @@ async function saveReassign() {
 
 function exportCsv() {
   downloadCsv(`activite-livreurs-${day.value}.csv`, [
-    ['Livreur', 'État', 'Livraisons faites', 'Livraisons prévues', 'Ramassages faits', 'Ramassages prévus', 'Échecs', 'Réussite (%)', 'Réussite habituelle (%)', 'Minutes par mission', 'Habituel (min)', 'Fin estimée', 'Colis en main', 'Argent en main', 'À surveiller'],
-    ...couriers.value.map((c) => [c.name, STATE[c.state].label, c.deliveries.done, c.deliveries.total, c.pickups.done, c.pickups.total, c.failed,
+    ['Livreur', 'État', 'Livraisons faites', 'Livraisons prévues', 'Ramassages faits', 'Ramassages prévus', 'Retards d\'avant', 'Échecs', 'Réussite (%)', 'Réussite habituelle (%)', 'Minutes par mission', 'Habituel (min)', 'Fin estimée', 'Colis en main', 'Argent en main', 'À surveiller'],
+    ...couriers.value.map((c) => [c.name, STATE[c.state].label, c.deliveries.done, c.deliveries.total, c.pickups.done, c.pickups.total, c.late_before, c.failed,
       c.success_rate ?? '', c.habit.success_rate ?? '', c.pace ?? '', c.habit.pace ?? '', c.estimated_end ? time(c.estimated_end) : '',
       c.parcels_in_hand, c.cash_in_hand, c.flags.join(' ; ')]),
   ])
