@@ -75,7 +75,7 @@ class OrderWorkflow
                 throw new BusinessRuleException("Transition impossible : « {$from->label()} » → « {$to->label()} ».", 'status');
             }
 
-            $this->authorizeActor($actor, $order, $from, $to);
+            $this->authorizeActor($actor, $order, $from, $to, $context);
             $this->validate($order, $from, $to, $reason, $context);
 
             $assignment = $this->applyEffects($order, $from, $to, $reason, $context);
@@ -159,7 +159,7 @@ class OrderWorkflow
         return $reason;
     }
 
-    private function authorizeActor(User $actor, Order $order, OrderStatus $from, OrderStatus $to): void
+    private function authorizeActor(User $actor, Order $order, OrderStatus $from, OrderStatus $to, array $context = []): void
     {
         // Déclarer un colis perdu engage la caisse : administrateur (dispatch + finance) uniquement
         if ($to === OrderStatus::Lost) {
@@ -208,6 +208,10 @@ class OrderWorkflow
                 default => false,
             };
 
+            if ($allowed && in_array($to, [OrderStatus::OutForDelivery, OrderStatus::Delivered, OrderStatus::DeliveryFailed, OrderStatus::Rescheduled], true)) {
+                $this->ensureDeliveryDay($order, $context['occurred_at'] ?? null);
+            }
+
             if ($allowed) {
                 return;
             }
@@ -232,6 +236,22 @@ class OrderWorkflow
         }
 
         throw new AuthorizationException;
+    }
+
+    /**
+     * Le livreur ne livre que les colis prévus le jour même (le jour de l'action, pour une action faite hors
+     * connexion) : les retards et les jours à venir se règlent à l'agence (nouvelle date ou annulation).
+     */
+    private function ensureDeliveryDay(Order $order, mixed $occurredAt): void
+    {
+        $tz = $order->company?->timezone ?: config('app.timezone');
+        $day = ($occurredAt ? Carbon::parse($occurredAt) : now())->setTimezone($tz)->toDateString();
+        $planned = PickupGroups::deliveryDay($order);
+
+        if ($planned !== $day) {
+            throw new BusinessRuleException('Cette livraison est prévue le '.Carbon::parse($planned)->format('d/m/Y')
+                .' : vous ne pouvez faire que les livraisons du jour. Voyez avec l\'agence.', 'status');
+        }
     }
 
     private function validate(Order $order, OrderStatus $from, OrderStatus $to, ?IncidentReason $reason, array $context): void
