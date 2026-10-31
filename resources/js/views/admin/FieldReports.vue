@@ -2,7 +2,7 @@
   <div class="space-y-4 max-w-6xl">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
-        <h1 class="text-xl font-bold">Remontées terrain</h1>
+        <h1 v-if="!embedded" class="text-xl font-bold">Remontées terrain</h1>
         <p class="text-sm text-gray-600">Notes et problèmes enregistrés par les livreurs. Marquez-les comme traités pour que l'équipe sache qui s'en est occupé.</p>
       </div>
       <!-- Place réservée : la page ne bouge pas quand le son s'active au premier clic -->
@@ -127,6 +127,8 @@
 </template>
 
 <script setup>
+// Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
+defineProps({ embedded: { type: Boolean, default: false } })
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

@@ -2,7 +2,7 @@
   <div class="space-y-4 max-w-5xl">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
-        <h1 class="text-xl font-bold">📅 Planning des livreurs</h1>
+        <h1 v-if="!embedded" class="text-xl font-bold">📅 Planning des livreurs</h1>
         <p class="text-sm text-gray-600">Qui ramasse et qui livre où et quand. Livreur absent ou en pause : son remplaçant prend le relais.</p>
       </div>
       <button class="btn-primary" @click="openRule()">+ Nouvelle règle</button>
@@ -183,6 +183,8 @@
 </template>
 
 <script setup>
+// Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
+defineProps({ embedded: { type: Boolean, default: false } })
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

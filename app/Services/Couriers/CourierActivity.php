@@ -4,6 +4,7 @@ namespace App\Services\Couriers;
 
 use App\Enums\AssignmentStatus;
 use App\Enums\AssignmentType;
+use App\Enums\PayBonusMetric;
 use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Order;
@@ -11,28 +12,40 @@ use App\Models\OrderAssignment;
 use App\Models\OrderEvent;
 use App\Services\Finance\CashAlerts;
 use App\Services\Finance\CourierCash;
+use App\Services\Finance\CourierPay;
+use App\Services\Finance\PayBonuses;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
- * Activité des livreurs, suivi du jour : pour chaque livreur, ses livraisons et ramassages du jour (faits sur
- * prévus), ses échecs, ses colis et son argent en main, et ce qui demande l'attention (remontée ouverte, colis gardé
- * trop longtemps, argent à surveiller, pas de position alors qu'il a des missions).
+ * Activité des livreurs, suivi d'un jour : pour chaque livreur, ses livraisons et ramassages (faits sur prévus), ses
+ * échecs, son rythme et son taux de réussite comparés à ses 30 derniers jours, l'heure à laquelle il devrait finir,
+ * sa prime d'objectif, ses colis et son argent en main, et ce qui demande l'attention (remontée ouverte, colis gardé
+ * trop longtemps, argent à surveiller, mission en retard, pas de position, fin prévue après la fermeture du dépôt).
+ * Un jour passé ne montre que ce qui a été fait ce jour-là.
  */
 class CourierActivity
 {
     /** Sans position depuis plus longtemps, avec des missions en cours : signalé */
     public const SILENT_MINUTES = 20;
 
+    /** Habitude : jours précédents pris en compte */
+    public const HABIT_DAYS = 30;
+
     public function __construct(private CourierCash $cash, private CashAlerts $alerts) {}
 
     /**
-     * @return array{data: list<array<string, mixed>>, totals: array<string, int|null>}
+     * @return array{data: list<array<string, mixed>>, totals: array<string, mixed>, day: string, is_today: bool}
      */
-    public function today(Company $company): array
+    public function today(Company $company, ?string $date = null): array
     {
-        $since = CarbonImmutable::now($company->timezone ?: config('app.timezone'))->startOfDay()->setTimezone(config('app.timezone'));
+        $tz = $company->timezone ?: config('app.timezone');
+        $localToday = CarbonImmutable::now($tz)->startOfDay();
+        $localDay = $date ? CarbonImmutable::parse($date, $tz)->startOfDay() : $localToday;
+        $isToday = $localDay->equalTo($localToday);
+        $since = $localDay->setTimezone(config('app.timezone'));
+        $until = $localDay->addDay()->setTimezone(config('app.timezone'));
 
         $couriers = Courier::withoutGlobalScopes()->where('company_id', $company->id)
             ->whereHas('user', fn ($q) => $q->where('status', 'active'))
@@ -40,27 +53,35 @@ class CourierActivity
             ->get();
         $ids = $couriers->modelKeys();
 
-        // Missions du jour : en cours, ou terminées / en échec depuis ce matin
+        // Missions du jour : terminées ou en échec ce jour-là, et aujourd'hui celles en cours
         $assignments = OrderAssignment::query()->whereIn('courier_id', $ids)
-            ->where(fn ($q) => $q->whereIn('status', AssignmentStatus::activeValues())
-                ->orWhere(fn ($q) => $q->whereIn('status', [AssignmentStatus::Completed->value, AssignmentStatus::Failed->value])->where('completed_at', '>=', $since)))
+            ->where(fn ($q) => $q->where(fn ($q) => $q->whereIn('status', [AssignmentStatus::Completed->value, AssignmentStatus::Failed->value])
+                ->where('completed_at', '>=', $since)->where('completed_at', '<', $until))
+                ->when($isToday, fn ($q) => $q->orWhereIn('status', AssignmentStatus::activeValues())))
             ->get(['id', 'courier_id', 'order_id', 'type', 'status', 'completed_at', 'unreachable_at', 'late_alerted_at'])
             ->groupBy('courier_id');
 
-        $held = Order::withoutGlobalScopes()->where('company_id', $company->id)->whereIn('held_by_courier_id', $ids)
-            ->get(['id', 'held_by_courier_id', 'held_since'])->groupBy('held_by_courier_id');
+        $habits = $this->habits($ids, $since);
+
+        if ($isToday) {
+            $held = Order::withoutGlobalScopes()->where('company_id', $company->id)->whereIn('held_by_courier_id', $ids)
+                ->get(['id', 'held_by_courier_id', 'held_since'])->groupBy('held_by_courier_id');
+            $reports = OrderEvent::query()->fieldReports()->whereDoesntHave('review')
+                ->whereHas('order', fn ($q) => $q->withoutGlobalScopes()->where('company_id', $company->id))
+                ->where('created_at', '>=', now()->subDays(30))
+                ->whereIn('actor_id', $couriers->pluck('user_id')->values())
+                ->selectRaw('actor_id, COUNT(*) AS n')->groupBy('actor_id')->pluck('n', 'actor_id');
+            $balances = $this->cash->balances($company->id);
+        } else {
+            $held = collect();
+            $reports = collect();
+            $balances = [];
+        }
         $holdLimit = $company->parcel_hold_alert_hours > 0 ? now()->subHours($company->parcel_hold_alert_hours) : null;
+        // Fermeture du dépôt, à l'heure du serveur
+        $closesAt = $company->depot_closes_at ? $localDay->setTimeFromTimeString((string) $company->depot_closes_at)->setTimezone(config('app.timezone')) : null;
 
-        $userIds = $couriers->pluck('user_id', 'id');
-        $reports = OrderEvent::query()->fieldReports()->whereDoesntHave('review')
-            ->whereHas('order', fn ($q) => $q->withoutGlobalScopes()->where('company_id', $company->id))
-            ->where('created_at', '>=', now()->subDays(30))
-            ->whereIn('actor_id', $userIds->values())
-            ->selectRaw('actor_id, COUNT(*) AS n')->groupBy('actor_id')->pluck('n', 'actor_id');
-
-        $balances = $this->cash->balances($company->id);
-
-        $rows = $couriers->map(function (Courier $courier) use ($assignments, $held, $holdLimit, $reports, $balances, $company) {
+        $rows = $couriers->map(function (Courier $courier) use ($assignments, $held, $holdLimit, $reports, $balances, $company, $habits, $isToday, $closesAt) {
             /** @var Collection<int, OrderAssignment> $mine */
             $mine = $assignments->get($courier->id, collect());
             $count = fn (AssignmentType $type, ?array $statuses = null) => $mine
@@ -69,7 +90,24 @@ class CourierActivity
             $active = $mine->filter(fn (OrderAssignment $a) => in_array($a->status, AssignmentStatus::active(), true));
             $deliveries = ['done' => $count(AssignmentType::Delivery, [AssignmentStatus::Completed]), 'total' => $count(AssignmentType::Delivery)];
             $pickups = ['done' => $count(AssignmentType::Pickup, [AssignmentStatus::Completed]), 'total' => $count(AssignmentType::Pickup)];
+            $failedDeliveries = $count(AssignmentType::Delivery, [AssignmentStatus::Failed]);
             $failed = $mine->where('status', AssignmentStatus::Failed)->count();
+            $attempted = $deliveries['done'] + $failedDeliveries;
+
+            // Rythme du jour : minutes entre deux missions faites (de la première à la dernière)
+            $finished = $mine->whereIn('status', [AssignmentStatus::Completed, AssignmentStatus::Failed])->pluck('completed_at')->filter()->sort()->values();
+            $pace = $finished->count() >= 2 ? (int) round($finished->first()->diffInMinutes($finished->last()) / ($finished->count() - 1)) : null;
+            $habit = $habits[$courier->id] ?? ['pace' => null, 'success_rate' => null];
+
+            // Heure de fin estimée : ce qui reste, au rythme du jour (sinon habituel)
+            $estimatedEnd = null;
+            $usePace = $pace ?? $habit['pace'];
+            if ($isToday && $active->isNotEmpty() && $usePace) {
+                $estimatedEnd = now()->addMinutes($active->count() * $usePace);
+            } elseif ($active->isEmpty() && $finished->isNotEmpty()) {
+                $estimatedEnd = $finished->last();
+            }
+            $lateEnd = $isToday && $active->isNotEmpty() && $estimatedEnd && $closesAt && $estimatedEnd->gt($closesAt);
 
             $parcels = $held->get($courier->id, collect());
             $overdue = $holdLimit ? $parcels->filter(fn ($o) => $o->held_since !== null && Carbon::parse($o->held_since)->lte($holdLimit))->count() : 0;
@@ -77,17 +115,19 @@ class CourierActivity
             $silentFor = $courier->last_location_at ? (int) $courier->last_location_at->diffInMinutes(now()) : null;
 
             $state = match (true) {
+                ! $isToday => $finished->isNotEmpty() ? 'done' : 'offline',
                 $active->isNotEmpty() => 'mission',
                 $courier->is_available => 'available',
                 default => 'offline',
             };
 
-            $flags = array_values(array_filter([
+            $flags = ! $isToday ? [] : array_values(array_filter([
                 ($n = (int) ($reports[$courier->user_id] ?? 0)) > 0 ? ($n > 1 ? "{$n} remontées ouvertes" : '1 remontée ouverte') : null,
                 $overdue > 0 ? ($overdue > 1 ? "{$overdue} colis gardés trop longtemps" : '1 colis gardé trop longtemps') : null,
                 $balance ? $this->alerts->reason($company, $balance) : null,
                 $active->contains(fn (OrderAssignment $a) => $a->unreachable_at !== null || $a->late_alerted_at !== null) ? 'Mission en retard' : null,
                 $state === 'mission' && ($silentFor === null || $silentFor > self::SILENT_MINUTES) ? 'Pas de position'.($silentFor !== null ? ' depuis '.self::duration($silentFor) : '') : null,
+                $lateEnd ? 'Finira après la fermeture du dépôt' : null,
             ]));
 
             $planned = $deliveries['total'] + $pickups['total'];
@@ -100,14 +140,21 @@ class CourierActivity
                 'zones' => $courier->zones->pluck('name')->values(),
                 'state' => $state,
                 'is_available' => $courier->is_available,
-                'last_location_at' => $courier->last_location_at,
-                'lat' => $courier->current_lat,
-                'lng' => $courier->current_lng,
+                'last_location_at' => $isToday ? $courier->last_location_at : null,
+                'lat' => $isToday ? $courier->current_lat : null,
+                'lng' => $isToday ? $courier->current_lng : null,
                 'deliveries' => $deliveries,
                 'pickups' => $pickups,
                 'failed' => $failed,
+                'failed_deliveries' => $failedDeliveries,
                 'remaining' => $active->count(),
                 'progress' => $planned > 0 ? (int) round(100 * ($deliveries['done'] + $pickups['done']) / $planned) : null,
+                'success_rate' => $attempted > 0 ? (int) round(100 * $deliveries['done'] / $attempted) : null,
+                'pace' => $pace,
+                'habit' => $habit,
+                'estimated_end' => $estimatedEnd?->toIso8601String(),
+                'late_end' => (bool) $lateEnd,
+                'objective' => $isToday ? $this->objective($courier) : null,
                 'parcels_in_hand' => $parcels->count(),
                 'cash_in_hand' => (int) ($balance['due'] ?? 0),
                 'flags' => $flags,
@@ -121,50 +168,126 @@ class CourierActivity
         $done = $rows->sum(fn ($r) => $r['deliveries']['done']);
         $planned = $deliveries + $rows->sum(fn ($r) => $r['pickups']['total']);
         $achieved = $done + $rows->sum(fn ($r) => $r['pickups']['done']);
+        $attempted = $done + $rows->sum('failed_deliveries');
+        $habitual = collect($habits)->pluck('success_rate')->filter(fn ($v) => $v !== null);
+        $ends = $rows->where('remaining', '>', 0)->pluck('estimated_end')->filter();
 
         return [
+            'day' => $localDay->toDateString(),
+            'is_today' => $isToday,
+            'depot_closes_at' => $company->depot_closes_at ? substr((string) $company->depot_closes_at, 0, 5) : null,
             'data' => $rows->all(),
             'totals' => [
                 'couriers' => $rows->count(),
-                'active' => $rows->where('state', '!=', 'offline')->count(),
+                'active' => $rows->filter(fn ($r) => $isToday ? $r['state'] !== 'offline' : $r['state'] === 'done')->count(),
                 'in_hand' => (int) $rows->sum('parcels_in_hand'),
                 'delivered' => $done,
                 'deliveries' => $deliveries,
                 'failed' => (int) $rows->sum('failed'),
                 'watched' => $rows->filter(fn ($r) => $r['flags'] !== [])->count(),
                 'progress' => $planned > 0 ? (int) round(100 * $achieved / $planned) : null,
+                'success_rate' => $attempted > 0 ? (int) round(100 * $done / $attempted) : null,
+                'habit_success_rate' => $habitual->isNotEmpty() ? (int) round($habitual->avg()) : null,
+                'late_end' => $rows->where('late_end', true)->count(),
+                'estimated_end' => $ends->max(),
             ],
         ];
     }
 
     /**
-     * Détail d'un livreur pour le panneau : ses missions du jour.
+     * Habitudes de chaque livreur sur les 30 jours avant le jour suivi : minutes entre deux livraisons et taux de
+     * réussite des livraisons.
+     *
+     * @param  list<int>  $ids
+     * @return array<int, array{pace: ?int, success_rate: ?int}>
+     */
+    private function habits(array $ids, CarbonImmutable $before): array
+    {
+        $rows = OrderAssignment::query()->whereIn('courier_id', $ids)->where('type', AssignmentType::Delivery->value)
+            ->whereIn('status', [AssignmentStatus::Completed->value, AssignmentStatus::Failed->value])
+            ->where('completed_at', '>=', $before->subDays(self::HABIT_DAYS))->where('completed_at', '<', $before)
+            ->get(['courier_id', 'status', 'completed_at']);
+
+        return $rows->groupBy('courier_id')->map(function (Collection $list) {
+            $paces = $list->groupBy(fn ($a) => $a->completed_at->toDateString())
+                ->filter(fn (Collection $day) => $day->count() >= 2)
+                ->map(fn (Collection $day) => $day->min('completed_at')->diffInMinutes($day->max('completed_at')) / ($day->count() - 1));
+            $completed = $list->where('status', AssignmentStatus::Completed)->count();
+
+            return [
+                'pace' => $paces->isNotEmpty() ? (int) round($paces->avg()) : null,
+                'success_rate' => (int) round(100 * $completed / $list->count()),
+            ];
+        })->all();
+    }
+
+    /**
+     * Prochain palier de prime sur les livraisons (période de paie en cours), s'il y en a un.
+     *
+     * @return array{value: int, threshold: int, amount: int, label: string}|null
+     */
+    private function objective(Courier $courier): ?array
+    {
+        $plan = app(CourierPay::class)->planFor($courier);
+        $period = $plan?->periodContaining(today());
+        if ($plan === null || $period === null) {
+            return null;
+        }
+        $plan->loadMissing('bonuses');
+        $tiers = $plan->bonuses->filter(fn ($b) => $b->metric === PayBonusMetric::Deliveries)->sortBy('threshold')->values();
+        if ($tiers->isEmpty()) {
+            return null;
+        }
+
+        $bonuses = app(PayBonuses::class);
+        $value = (int) ($bonuses->measure($courier, $period[0], $period[1])['deliveries'] ?? 0);
+        $next = $tiers->first(fn ($t) => $t->threshold > $value) ?? $tiers->last();
+
+        return ['value' => $value, 'threshold' => $next->threshold, 'amount' => $next->amount, 'label' => $plan->periodLabel() ?? 'période'];
+    }
+
+    /**
+     * Détail d'un livreur pour le panneau : ses missions du jour, avec l'adresse de livraison des missions à faire.
      *
      * @return list<array<string, mixed>>
      */
-    public function missions(Courier $courier): array
+    public function missions(Courier $courier, ?string $date = null): array
     {
         $company = Company::findOrFail($courier->company_id);
-        $since = CarbonImmutable::now($company->timezone ?: config('app.timezone'))->startOfDay()->setTimezone(config('app.timezone'));
+        $tz = $company->timezone ?: config('app.timezone');
+        $localDay = $date ? CarbonImmutable::parse($date, $tz)->startOfDay() : CarbonImmutable::now($tz)->startOfDay();
+        $isToday = $localDay->equalTo(CarbonImmutable::now($tz)->startOfDay());
+        $since = $localDay->setTimezone(config('app.timezone'));
+        $until = $localDay->addDay()->setTimezone(config('app.timezone'));
 
         return OrderAssignment::query()->where('courier_id', $courier->id)
-            ->where(fn ($q) => $q->whereIn('status', AssignmentStatus::activeValues())
-                ->orWhere(fn ($q) => $q->whereIn('status', [AssignmentStatus::Completed->value, AssignmentStatus::Failed->value])->where('completed_at', '>=', $since)))
-            ->with(['order' => fn ($q) => $q->withoutGlobalScopes()->with(['merchant:id,business_name', 'deliveryZone:id,name', 'pickupZone:id,name'])])
+            ->where(fn ($q) => $q->where(fn ($q) => $q->whereIn('status', [AssignmentStatus::Completed->value, AssignmentStatus::Failed->value])
+                ->where('completed_at', '>=', $since)->where('completed_at', '<', $until))
+                ->when($isToday, fn ($q) => $q->orWhereIn('status', AssignmentStatus::activeValues())))
+            ->with(['order' => fn ($q) => $q->withoutGlobalScopes()->with(['merchant:id,business_name,pickup_lat,pickup_lng', 'deliveryZone:id,name', 'pickupZone:id,name'])])
             ->orderByRaw('completed_at IS NULL')->orderBy('completed_at')->orderBy('id')
             ->get()
-            ->map(fn (OrderAssignment $a) => [
-                'id' => $a->id,
-                'order_id' => $a->order_id,
-                'tracking_code' => $a->order?->tracking_code,
-                'merchant' => $a->order?->merchant?->business_name,
-                'zone' => $a->type === AssignmentType::Delivery ? $a->order?->deliveryZone?->name : $a->order?->pickupZone?->name,
-                'type' => $a->type->value,
-                'type_label' => $a->type->label(),
-                'status' => $a->status->value,
-                'completed_at' => $a->completed_at,
-                'cod_amount' => $a->type === AssignmentType::Delivery ? (int) $a->order?->cod_amount : null,
-            ])->all();
+            ->map(function (OrderAssignment $a) {
+                $delivery = $a->type !== AssignmentType::Pickup;
+                $order = $a->order;
+
+                return [
+                    'id' => $a->id,
+                    'order_id' => $a->order_id,
+                    'tracking_code' => $order?->tracking_code,
+                    'merchant' => $order?->merchant?->business_name,
+                    'recipient' => $delivery ? $order?->recipient_name : null,
+                    'zone' => $delivery ? $order?->deliveryZone?->name : $order?->pickupZone?->name,
+                    'type' => $a->type->value,
+                    'type_label' => $a->type->label(),
+                    'status' => $a->status->value,
+                    'completed_at' => $a->completed_at,
+                    'cod_amount' => $a->type === AssignmentType::Delivery ? (int) $order?->cod_amount : null,
+                    // Où aller : chez le client (livraison, retour) ou chez le marchand (ramassage)
+                    'lat' => $delivery ? $order?->delivery_lat : ($order?->pickup_lat ?? $order?->merchant?->pickup_lat),
+                    'lng' => $delivery ? $order?->delivery_lng : ($order?->pickup_lng ?? $order?->merchant?->pickup_lng),
+                ];
+            })->all();
     }
 
     /** « 25 min », « 3 h », « 2 jours » */

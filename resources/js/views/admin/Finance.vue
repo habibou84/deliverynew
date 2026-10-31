@@ -820,5 +820,11 @@ async function cancelCourierPayout() {
   load()
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  // Lien « Faire le point » depuis l'activité des livreurs : versement du livreur ouvert
+  const id = Number(route.query.verser)
+  const courier = id && (cash.value?.data || []).find((c) => c.courier_id === id)
+  if (courier && canManage.value) openRemit(courier)
+})
 </script>
