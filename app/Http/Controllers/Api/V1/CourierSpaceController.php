@@ -23,6 +23,7 @@ use App\Services\Finance\CourierPay;
 use App\Services\Orders\OrderChanges;
 use App\Services\Orders\OrderDispatcher;
 use App\Services\Orders\OrderJournal;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -37,13 +38,16 @@ class CourierSpaceController extends Controller
         $courier = $request->user()->courier;
         abort_if($courier === null, 403, 'Profil livreur introuvable.');
         $courier->touchSeen();
+        $today = CarbonImmutable::now($request->user()->company?->timezone ?: config('app.timezone'))->toDateString();
 
         $assignments = OrderAssignment::query()
             ->where('courier_id', $courier->id)
             ->when(
                 $request->boolean('history'),
                 fn ($q) => $q->whereNotIn('status', ['assigned', 'accepted', 'in_progress'])->whereDate('updated_at', today()),
-                fn ($q) => $q->active(),
+                // Livraisons : seulement celles prévues aujourd'hui (les retards et les jours à venir restent à l'agence)
+                fn ($q) => $q->active()->where(fn ($q) => $q->where('type', '!=', AssignmentType::Delivery->value)
+                    ->orWhereHas('order', fn ($o) => $o->ofDay($today))),
             )
             // Frais déjà déclarés par ce livreur sur la course
             ->with(['order' => fn ($q) => $q->with([
