@@ -63,6 +63,8 @@ class PublicMerchantActionsTest extends TestCase
 
     public function test_the_merchant_edits_everything_before_pickup_then_only_the_delivery(): void
     {
+        // Modifications appliquées directement (réglage « jamais de validation ») : la validation est testée dans SecurityLot2Test
+        $this->company->forceFill(['merchant_edit_approval' => 'never'])->save();
         $order = $this->createOrder(['items_amount' => 10000]);
 
         $this->api('PATCH', "orders/{$order->tracking_code}", [

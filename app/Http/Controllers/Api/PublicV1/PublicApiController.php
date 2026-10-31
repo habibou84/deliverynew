@@ -147,7 +147,8 @@ class PublicApiController extends Controller
         Gate::authorize('update', $order);
         $this->channel($request);
 
-        return PublicOrderResource::make($service->update($request->user(), $order, $request->validated())->fresh()->load(self::RELATIONS));
+        // Même règle que dans l'application : un changement qui touche le prix peut attendre la validation de l'agence
+        return PublicOrderResource::make($service->update($request->user(), $order, $request->validated(), ['approval' => true])->fresh()->load(self::RELATIONS));
     }
 
     /**

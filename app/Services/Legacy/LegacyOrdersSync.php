@@ -13,6 +13,7 @@ use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\User;
 use App\Notifications\OrderAlert;
+use App\Services\Webhooks\UrlGuard;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
@@ -279,9 +280,17 @@ class LegacyOrdersSync
             throw new RuntimeException('Indiquez d\'abord l\'adresse de l\'ancienne application et créez la clé de lecture.');
         }
 
+        // Adresse contrôlée à chaque appel, IP fixée, sans redirection : jamais le réseau interne du serveur
+        $url = rtrim($company->legacy_sync_url, '/').'/api/jibiat-sync/'.$resource;
+        $target = UrlGuard::target($url);
+        if ($target['reason'] !== null) {
+            throw new RuntimeException('Adresse de l\'ancienne application refusée : '.$target['reason']);
+        }
+
         try {
             $response = Http::withToken($company->legacy_sync_key)->acceptJson()->timeout(60)->connectTimeout(10)->retry(2, 1000, throw: false)
-                ->get(rtrim($company->legacy_sync_url, '/').'/api/jibiat-sync/'.$resource, $query);
+                ->withOptions(UrlGuard::pin($url, $target['ip']))->withoutRedirecting()
+                ->get($url, $query);
         } catch (ConnectionException) {
             throw new RuntimeException('L\'ancienne application ne répond pas : vérifiez son adresse et qu\'elle est en ligne.');
         }

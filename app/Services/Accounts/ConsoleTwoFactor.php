@@ -19,8 +19,8 @@ use Throwable;
 /**
  * Code de connexion à la console : après le bon mot de passe, un super administrateur reçoit un code à 6 chiffres
  * par e-mail (WhatsApp si l'e-mail ne part pas), valable 10 minutes, 5 essais. L'appareil peut être retenu 30 jours.
- * Sans aucun moyen d'envoi, la connexion n'est pas bloquée (le seul compte de la plateforme resterait dehors) : la
- * page Santé le signale.
+ * Sans aucun moyen d'envoi, la connexion reste bloquée : la demande est gardée et la personne qui a accès au serveur
+ * obtient le code par la commande `php artisan console:code {identifiant}` (procédure de secours).
  */
 class ConsoleTwoFactor
 {
@@ -52,24 +52,25 @@ class ConsoleTwoFactor
     }
 
     /**
-     * Envoie le code. Renvoie la demande à présenter (jeton et destination masquée), ou null si aucun moyen
-     * d'envoi ne marche.
+     * Envoie le code et renvoie la demande à présenter (jeton et destination masquée). Si aucun moyen d'envoi ne
+     * marche, la demande est quand même créée (canal « server ») : le code s'obtient alors par la commande de secours.
      *
-     * @return array{challenge: string, channel: string, to: string, expires_in: int}|null
+     * @return array{challenge: string, channel: string, to: string, expires_in: int}
      */
-    public function start(User $user, string $device, string $ip): ?array
+    public function start(User $user, string $device, string $ip): array
     {
         $code = (string) random_int(100000, 999999);
         [$channel, $to] = $this->send($user, $code, $ip);
         if ($channel === null) {
-            Log::warning('Code de connexion console non envoyé : aucun e-mail ni WhatsApp disponible', ['user' => $user->id]);
-
-            return null;
+            Log::warning('Code de connexion console non envoyé : aucun e-mail ni WhatsApp disponible, procédure de secours', ['user' => $user->id]);
+            [$channel, $to] = ['server', 'php artisan console:code'];
         }
 
         $challenge = Str::random(48);
         Cache::put(self::key($challenge), ['user_id' => $user->id, 'code_hash' => Hash::make($code), 'attempts' => 0, 'device' => $device],
             now()->addMinutes(self::CODE_MINUTES));
+        // Dernière demande du compte : la commande de secours sait laquelle renouveler
+        Cache::put(self::pendingKey($user), $challenge, now()->addMinutes(self::CODE_MINUTES));
 
         return ['challenge' => $challenge, 'channel' => $channel, 'to' => $to, 'expires_in' => self::CODE_MINUTES * 60];
     }
@@ -123,6 +124,26 @@ class ConsoleTwoFactor
         return ['user' => $user, 'device' => $pending['device'], 'trusted_device' => $token];
     }
 
+    /**
+     * Procédure de secours (commande sur le serveur) : nouveau code pour la dernière demande en attente du compte.
+     * Renvoie null s'il n'y a pas de demande en cours.
+     */
+    public function rescueCode(User $user): ?string
+    {
+        $challenge = Cache::get(self::pendingKey($user));
+        $pending = is_string($challenge) ? Cache::get(self::key($challenge)) : null;
+        if (! is_array($pending) || $pending['user_id'] !== $user->id) {
+            return null;
+        }
+        $code = (string) random_int(100000, 999999);
+        $pending['code_hash'] = Hash::make($code);
+        Cache::put(self::key($challenge), $pending, now()->addMinutes(self::CODE_MINUTES));
+        Cache::forget(self::key($challenge).':tries');
+        Log::notice('Code de connexion console donné par la commande de secours', ['user' => $user->id]);
+
+        return $code;
+    }
+
     /** Oublie tous les appareils retenus (nouveau mot de passe, déconnexion de partout) */
     public function forgetDevices(User $user): void
     {
@@ -162,6 +183,11 @@ class ConsoleTwoFactor
         [$name, $domain] = explode('@', $email, 2) + [1 => ''];
 
         return mb_substr($name, 0, 2).str_repeat('•', max(1, mb_strlen($name) - 2)).'@'.$domain;
+    }
+
+    private static function pendingKey(User $user): string
+    {
+        return 'console-2fa-user:'.$user->id;
     }
 
     private static function key(string $challenge): string
