@@ -74,10 +74,8 @@ class AuthController extends Controller
 
         // Console : code envoyé par e-mail avant d'ouvrir la session (sauf appareil retenu)
         if ($twoFactor->applies($user) && ! $twoFactor->trusted($user, $request->input('trusted_device'))) {
-            $challenge = $twoFactor->start($user, $device, (string) $request->ip());
-            if ($challenge !== null) {
-                return response()->json(['two_factor' => $challenge]);
-            }
+            // Jamais de session sans le code, même si l'envoi échoue (procédure de secours sur le serveur)
+            return response()->json(['two_factor' => $twoFactor->start($user, $device, (string) $request->ip())]);
         }
 
         $session = self::session($user, $device);

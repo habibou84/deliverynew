@@ -49,6 +49,8 @@ class LegacyOrdersSyncTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Adresse de test (non résolue) : le contrôle de l'adresse est testé dans SecurityLot2Test
+        config(['services.webhooks.allow_private_targets' => true]);
         $this->buildWorld();
         $this->merchant->forceFill(['legacy_id' => '7'])->save();
         $this->courierA->forceFill(['legacy_id' => '3'])->save();
@@ -326,7 +328,9 @@ class LegacyOrdersSyncTest extends TestCase
     {
         Sanctum::actingAs($this->admin);
         $this->putJson('/api/v1/company/legacy-orders', ['url' => 'http://pas-https.example'])->assertStatus(422);
+        config(['services.webhooks.allow_private_targets' => false]);
         $this->putJson('/api/v1/company/legacy-orders', ['url' => 'https://127.0.0.1'])->assertStatus(422)->assertJsonValidationErrors('url');
+        config(['services.webhooks.allow_private_targets' => true]);
         $this->putJson('/api/v1/company/legacy-orders', ['url' => self::URL.'/'])->assertOk()->assertJsonPath('data.url', self::URL);
         $key = $this->postJson('/api/v1/company/legacy-orders/key')->assertCreated()->json('data.key');
         $this->assertStringStartsWith('jbr_', $key);

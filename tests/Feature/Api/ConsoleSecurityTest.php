@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Enums\Role;
 use App\Models\PlatformAuditLog;
+use App\Models\SupportSession;
 use App\Models\TrustedDevice;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -84,6 +85,32 @@ class ConsoleSecurityTest extends TestCase
         $this->deleteJson($this->console("/console/companies/{$this->company->id}/support-sessions/{$session}"))->assertOk();
         $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('http://rapide.jibiat.test/api/v1/auth/me')->assertUnauthorized();
+    }
+
+    /** Audit n° 2, point 17 : rien qui garde un accès après l'heure ; suspendre le membre coupe ses sessions */
+    public function test_support_session_cannot_create_lasting_access_and_ends_with_the_member(): void
+    {
+        $helper = User::factory()->withRole(Role::SuperAdmin)->create(['company_id' => null, 'phone' => '+2250700000098']);
+        Sanctum::actingAs($helper);
+        $url = $this->postJson($this->console("/console/companies/{$this->company->id}/support-session"), ['reason' => 'Aide'])->assertCreated()->json('data.url');
+        $token = substr($url, strlen('https://rapide.jibiat.test/admin#support='));
+
+        $this->app['auth']->forgetGuards();
+        $company = 'http://rapide.jibiat.test/api/v1';
+        $this->withToken($token)->postJson("{$company}/api-keys", ['name' => 'Clé'])->assertForbidden();
+        $this->withToken($token)->postJson("{$company}/users", ['name' => 'Moi', 'phone' => '0700000077', 'role' => 'admin'])->assertForbidden();
+        $this->withToken($token)->postJson("{$company}/company/legacy-switch/key")->assertForbidden();
+        $this->withToken($token)->putJson("{$company}/auth/password", ['current_password' => 'x', 'password' => 'y'])->assertForbidden();
+        // Le reste de l'aide marche
+        $this->withToken($token)->getJson("{$company}/auth/me")->assertOk();
+
+        // Membre suspendu depuis la console : sa session d'assistance s'arrête
+        $this->app['auth']->forgetGuards();
+        Sanctum::actingAs($this->root);
+        $this->patchJson($this->console("/console/team/{$helper->id}"), ['status' => 'suspended'])->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->withToken($token)->getJson("{$company}/auth/me")->assertUnauthorized();
+        $this->assertFalse(SupportSession::query()->where('opened_by', $helper->id)->where('expires_at', '>', now())->exists());
     }
 
     public function test_super_admin_session_lasts_twelve_hours(): void
