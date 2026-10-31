@@ -17,11 +17,15 @@ class CourierActivityController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        return response()->json($this->activity->today($request->user()->company));
+        $request->validate(['date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today']]);
+
+        return response()->json($this->activity->today($request->user()->company, $request->input('date')));
     }
 
-    public function show(Courier $courier): JsonResponse
+    public function show(Request $request, Courier $courier): JsonResponse
     {
-        return response()->json(['data' => $this->activity->missions($courier)]);
+        $request->validate(['date' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today']]);
+
+        return response()->json(['data' => $this->activity->missions($courier, $request->input('date'))]);
     }
 }
