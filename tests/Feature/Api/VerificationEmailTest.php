@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\PhoneVerification;
 use App\Models\PlatformSetting;
 use App\Notifications\VerificationCodeMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -73,14 +72,13 @@ class VerificationEmailTest extends TestCase
         $this->postJson("/api/v1/verifications/{$token}/email")->assertUnprocessable();
         Notification::assertNothingSent();
 
-        // Inscription avec une adresse e-mail : le code peut aussi partir par e-mail
+        // Inscription : l'e-mail est choisi par celui qui s'inscrit, il ne prouve pas le numéro
         $signup = $this->postJson('/api/v1/signup', [
             'business_name' => 'Boutique Awa', 'contact_name' => 'Awa Koné', 'phone' => '07 12 34 56 78', 'email' => 'boutique@example.ci',
             'pickup_zone_id' => $this->cocody->id, 'pickup_address' => 'Riviera 2',
-        ])->assertCreated()->assertJsonPath('data.email.available', true)->assertJsonPath('data.email.hint', 'b•••@example.ci');
-        $this->postJson('/api/v1/verifications/'.$signup->json('token').'/email')->assertOk();
-        Notification::assertSentOnDemandTimes(VerificationCodeMail::class, 1);
-        $this->assertSame('email', PhoneVerification::latest('id')->first()->payload['code_channel']);
+        ])->assertCreated()->assertJsonPath('data.email.available', false);
+        $this->postJson('/api/v1/verifications/'.$signup->json('token').'/email')->assertUnprocessable();
+        Notification::assertNothingSent();
         // Le réglage de secours SMS ne change rien quand les SMS sont coupés
         PlatformSetting::put('sms.fallback', 'on');
         $this->getJson('/api/v1/verifications/'.$signup->json('token'))->assertJsonPath('data.sms.available', false);

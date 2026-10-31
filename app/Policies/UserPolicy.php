@@ -50,13 +50,16 @@ class UserPolicy
     }
 
     /**
-     * Un utilisateur ne peut pas modifier son propre rôle ni son propre statut
-     * (évite qu'un admin se bloque lui-même ou s'attribue un rôle).
+     * Un utilisateur ne peut pas modifier son propre rôle ni son propre statut (évite qu'un admin se bloque
+     * lui-même ou s'attribue un rôle), ni ceux d'un autre administrateur.
      */
     public function changeRoleOrStatus(User $actor, User $user): bool
     {
         return ! $actor->is($user)
             && $this->update($actor, $user)
-            && in_array($user->primaryRole(), [...Role::assignableBy($actor), null], true);
+            && in_array($user->primaryRole(), [...Role::assignableBy($actor), null], true)
+            // Pas le rôle ni le statut d'un autre administrateur : le rétrograder puis changer ses identifiants
+            // reviendrait à prendre son compte (seul le super administrateur le peut)
+            && ($actor->isSuperAdmin() || ! $user->hasRole(Role::Admin->value));
     }
 }
