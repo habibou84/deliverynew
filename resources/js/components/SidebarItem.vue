@@ -2,7 +2,8 @@
   <RouterLink
     :to="to"
     class="flex items-center gap-2 p-2 rounded hover:bg-white/15"
-    exact-active-class="bg-white/20"
+    :active-class="prefix ? 'bg-white/20' : ''"
+    :exact-active-class="prefix ? '' : 'bg-white/20'"
   >
     <span>{{ icon }}</span>
     <span class="flex-1">{{ label }}</span>
@@ -16,5 +17,7 @@ defineProps({
   label: { type: String, required: true },
   to: { type: String, required: true },
   badge: { type: Number, default: 0 },
+  // Reste allumé sur les pages en dessous (onglets)
+  prefix: { type: Boolean, default: false },
 })
 </script>
