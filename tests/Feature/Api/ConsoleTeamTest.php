@@ -197,11 +197,13 @@ class ConsoleTeamTest extends TestCase
 
         // Lien modifié : refusé
         $this->get('http://admin.jibiat.test'.str_replace('signature=', 'signature=0', $path))->assertForbidden();
-        $this->get('http://admin.jibiat.test'.$path)->assertOk()->assertSee('nouveau mot de passe', false);
-        $this->post('http://admin.jibiat.test'.$path, ['password' => 'trop court', 'password_confirmation' => 'trop court'])->assertOk()->assertSee('12');
-        $this->post('http://admin.jibiat.test'.$path, ['password' => 'mon nouveau mot de passe', 'password_confirmation' => 'mon nouveau mot de passe'])->assertOk();
+        $this->get('http://admin.jibiat.test'.$path)->assertOk()->assertSee('Verrouiller mon compte', false);
+        // Le lien verrouille seulement : un mot de passe envoyé est ignoré (la boîte mail seule ne prend pas le compte)
+        $this->post('http://admin.jibiat.test'.$path, ['password' => 'mon nouveau mot de passe', 'password_confirmation' => 'mon nouveau mot de passe'])
+            ->assertOk()->assertSee('verrouillé', false);
 
-        $this->assertTrue(Hash::check('mon nouveau mot de passe', $this->root->fresh()->password));
+        $this->assertFalse(Hash::check('mon nouveau mot de passe', $this->root->fresh()->password));
+        $this->assertFalse(Hash::check('password', $this->root->fresh()->password));
         $this->assertSame(0, $this->root->tokens()->count());
         $this->assertSame(0, TrustedDevice::query()->where('user_id', $this->root->id)->count());
         $this->assertDatabaseHas('platform_audit_logs', ['user_id' => $this->root->id, 'action' => 'console.not-me']);

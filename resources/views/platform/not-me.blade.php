@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
-    <title>Sécuriser mon compte · Jibiat</title>
+    <title>Verrouiller mon compte · Jibiat</title>
     <style>
         body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #f8fafc; color: #0f172a; line-height: 1.5; }
         main { max-width: 28rem; margin: 0 auto; padding: 2.5rem 1rem; }
@@ -19,21 +19,15 @@
 </head>
 <body>
 <main>
-    <h1>Sécuriser mon compte</h1>
+    <h1>Verrouiller mon compte</h1>
     @if ($done)
-        <p class="note ok">✓ C'est fait, {{ $user->name }} : toutes les sessions sont fermées, les appareils retenus oubliés et votre nouveau mot de passe est enregistré. Reconnectez-vous à la console avec lui.</p>
+        <p class="note ok">✓ C'est fait, {{ $user->name }} : votre compte est verrouillé. Toutes les sessions sont fermées, les appareils retenus oubliés et l'ancien mot de passe ne marche plus.</p>
+        <p class="help">Pour le rouvrir, demandez à un autre propriétaire de la console de vous renvoyer une invitation (Console › Équipe). Si vous êtes le seul propriétaire, la personne qui gère le serveur peut vous donner un nouveau mot de passe.</p>
     @else
-        <p class="help">Bonjour {{ $user->name }}. Choisissez un nouveau mot de passe : toutes les sessions ouvertes avec votre compte seront fermées, et le code de connexion sera redemandé partout.</p>
-        @isset($error)<p class="note err">{{ $error }}</p>@endisset
+        <p class="help">Bonjour {{ $user->name }}. Si cette connexion n'était pas vous, verrouillez votre compte : toutes les sessions seront fermées et votre mot de passe effacé. Personne ne pourra plus entrer, vous non plus, jusqu'à la réouverture par un autre propriétaire.</p>
         <form method="post">
             <input type="hidden" name="_token" value="{{ csrf_token() }}">
-            <label>Nouveau mot de passe (12 caractères au moins)
-                <input type="password" name="password" autocomplete="new-password" minlength="12" required>
-            </label>
-            <label>Confirmez le mot de passe
-                <input type="password" name="password_confirmation" autocomplete="new-password" minlength="12" required>
-            </label>
-            <button>Tout déconnecter et changer le mot de passe</button>
+            <button>Verrouiller mon compte</button>
         </form>
     @endif
 </main>

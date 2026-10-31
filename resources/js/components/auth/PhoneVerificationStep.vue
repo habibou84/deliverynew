@@ -21,6 +21,7 @@
         <ol class="text-sm text-slate-700 space-y-1 list-decimal list-inside">
           <li>Appuyez sur le bouton (sur Android, choisissez WhatsApp ou WhatsApp Business) : le message est déjà écrit.</li>
           <li>Envoyez-le <strong>depuis le WhatsApp du {{ state.phone }}</strong>, sans le modifier.</li>
+          <li v-if="state.purpose !== 'signup'">Le robot vous demande de confirmer : répondez <strong>OUI</strong>.</li>
           <li>Revenez ici : la page continue toute seule.</li>
         </ol>
         <WhatsAppSendButton :link="state.whatsapp.link" :text="state.whatsapp.text" />
