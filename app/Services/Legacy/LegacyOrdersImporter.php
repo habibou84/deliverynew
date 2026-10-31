@@ -519,6 +519,8 @@ class LegacyOrdersImporter
                 'amount_collected' => $money['cod'],
                 'method' => PaymentMethod::Cash,
                 'received_by_company' => $baseline || $money['courier_cash'] === 0,
+                // Reprise : l'argent est déjà à l'entreprise, rien à confirmer
+                'company_confirmed_at' => ($baseline || $money['courier_cash'] === 0) ? now() : null,
                 'transaction_ref' => $baseline ? LegacyCashBaselines::REF : ($money['courier_cash'] === 0 ? 'Remis dans l\'ancienne application' : null),
                 'collected_at' => $order->delivered_at ?? now(),
             ])->save();

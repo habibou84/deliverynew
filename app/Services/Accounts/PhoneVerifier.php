@@ -14,6 +14,7 @@ use App\Services\Messaging\MessagingException;
 use App\Services\Platform\PlatformWhatsApp;
 use App\Services\Platform\WaveSettings;
 use App\Support\PhoneNumber;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -47,6 +48,12 @@ class PhoneVerifier
     public const MAX_STARTS_PER_HOUR = 5;
 
     public const MAX_SMS_PER_HOUR = 3;
+
+    // Par numéro et par heure, toutes demandes confondues : codes faux saisis
+    public const MAX_WRONG_PER_HOUR = 10;
+
+    // Connexion ou mot de passe oublié par WhatsApp : délai pour répondre « OUI » après le message du code
+    public const CONFIRM_MINUTES = 10;
 
     // Début du message WhatsApp prérempli, reconnu à la réception
     public const WHATSAPP_PREFIX = 'Code de vérification';
@@ -170,7 +177,6 @@ class PhoneVerifier
             'sms_code_hash' => Hash::make($code),
             'sms_count' => $verification->sms_count + 1,
             'sms_sent_at' => now(),
-            'attempts' => 0,
         ])->save();
 
         // Mot de passe oublié pour un numéro inconnu : rien n'est envoyé, sans le révéler
@@ -212,11 +218,14 @@ class PhoneVerifier
     }
 
     /**
-     * E-mail proposé : adresse connue et envoi d'e-mails réglé (serveur SMTP de la console ou du serveur).
+     * E-mail proposé : adresse du compte connue et envoi d'e-mails réglé (serveur SMTP de la console ou du serveur) ;
+     * jamais pour une inscription.
      */
     public function emailOffered(PhoneVerification $verification): bool
     {
-        return $this->emailAddress($verification) !== null && app(WaveSettings::class)->mailReady();
+        // Inscription : l'e-mail est choisi par celui qui s'inscrit, il ne prouve pas le numéro
+        return $verification->purpose !== PhoneVerification::SIGNUP
+            && $this->emailAddress($verification) !== null && app(WaveSettings::class)->mailReady();
     }
 
     /** « a•••@exemple.ci » */
@@ -249,7 +258,6 @@ class PhoneVerifier
         $code = (string) random_int(100000, 999999);
         $verification->forceFill([
             'sms_code_hash' => Hash::make($code),
-            'attempts' => 0,
             'payload' => [...$payload, 'code_channel' => 'email', 'email_count' => ($payload['email_count'] ?? 0) + 1, 'email_sent_at' => now()->toIso8601String()],
         ])->save();
 
@@ -291,15 +299,23 @@ class PhoneVerifier
             throw new BusinessRuleException("Demandez d'abord un code (SMS ou e-mail).", 'code');
         }
 
-        if ($verification->attempts >= self::MAX_ATTEMPTS) {
-            throw new BusinessRuleException('Trop d\'essais. Demandez un nouveau code.', 'code');
+        // Codes faux pour ce numéro dans l'heure, toutes demandes confondues : on ne devine pas un code en
+        // multipliant les demandes
+        $wrong = (int) PhoneVerification::where('phone', $verification->phone)->where('created_at', '>', now()->subHour())->whereNull('verified_at')->sum('attempts');
+        if ($wrong >= self::MAX_WRONG_PER_HOUR) {
+            throw new BusinessRuleException('Trop de codes faux pour ce numéro. Réessayez dans une heure.', 'code');
         }
 
-        $verification->increment('attempts');
+        // Essai compté d'un seul coup en base : des requêtes simultanées ne passent pas toutes la limite
+        $counted = PhoneVerification::whereKey($verification->id)->where('attempts', '<', self::MAX_ATTEMPTS)->increment('attempts');
+        if ($counted === 0) {
+            throw new BusinessRuleException('Trop d\'essais. Recommencez la demande depuis le début.', 'code');
+        }
+        $verification->refresh();
 
         if (! Hash::check(preg_replace('/\D+/', '', $code), $verification->sms_code_hash)) {
             $left = self::MAX_ATTEMPTS - $verification->attempts;
-            throw new BusinessRuleException($left > 0 ? "Code incorrect. Encore {$left} essai(s)." : 'Code incorrect. Demandez un nouveau code.', 'code');
+            throw new BusinessRuleException($left > 0 ? "Code incorrect. Encore {$left} essai(s)." : 'Code incorrect. Recommencez la demande depuis le début.', 'code');
         }
 
         $this->markVerified($verification, ($verification->payload['code_channel'] ?? 'sms') === 'email' ? 'email' : 'sms');
@@ -311,6 +327,10 @@ class PhoneVerifier
      */
     public function handleWhatsApp(Company $company, string $from, ?string $text): ?string
     {
+        if (self::isYes($text)) {
+            return $this->confirm(PhoneVerification::where('company_id', $company->id), $from);
+        }
+
         if (! preg_match('/code\s+de\s+v[ée]rification\D{0,10}(\d{6})/iu', (string) $text, $m)) {
             return null;
         }
@@ -327,6 +347,10 @@ class PhoneVerifier
      */
     public function handlePlatformWhatsApp(string $from, ?string $text): ?string
     {
+        if (self::isYes($text)) {
+            return $this->confirm(PhoneVerification::query(), $from);
+        }
+
         if (! preg_match('/code\s+de\s+v[ée]rification\D{0,10}(\d{6})/iu', (string) $text, $m)) {
             return null;
         }
@@ -353,6 +377,40 @@ class PhoneVerifier
                 .'. Envoyez-le depuis le WhatsApp du '.PhoneNumber::display($verification->phone).'.';
         }
 
+        // Connexion ou mot de passe oublié : le message a pu être envoyé à la demande d'un escroc (« envoyez ce
+        // message pour confirmer votre livraison »). On demande une confirmation explicite avant d'ouvrir la session.
+        if ($verification->purpose !== PhoneVerification::SIGNUP && $verification->user_id !== null) {
+            $verification->forceFill(['payload' => [...($verification->payload ?? []), 'confirm_asked_at' => now()->toIso8601String()]])->save();
+            $what = $verification->purpose === PhoneVerification::LOGIN ? 'se connecter à votre compte' : 'changer le mot de passe de votre compte';
+
+            return "⚠️ Quelqu'un demande à {$what} {$company->name} depuis le site."
+                ."\n\nSi c'est bien vous, sur votre téléphone ou votre ordinateur, répondez *OUI* dans les ".self::CONFIRM_MINUTES.' minutes.'
+                ."\n\nSi ce n'est pas vous, ne répondez pas : personne n'entrera dans votre compte. {$company->name} ne vous demandera jamais d'envoyer ce message pour une livraison ou un paiement.";
+        }
+
+        return $this->verifiedAnswer($verification, $viaPlatform);
+    }
+
+    /**
+     * « OUI » après le message d'un code de connexion ou de mot de passe oublié : la demande en attente de ce numéro
+     * est validée. Null si rien n'attend de confirmation (le message suit son cours normal).
+     *
+     * @param  Builder<PhoneVerification>  $scope
+     */
+    private function confirm(Builder $scope, string $from): ?string
+    {
+        $verification = $scope->pending()->whereIn('purpose', [PhoneVerification::LOGIN, PhoneVerification::PASSWORD_RESET])
+            ->where('created_at', '>', now()->subMinutes(self::TTL_MINUTES))->latest('id')->limit(20)->get()
+            ->first(fn (PhoneVerification $v) => PhoneNumber::sameNumber($v->phone, $from)
+                && isset($v->payload['confirm_asked_at'])
+                && Carbon::parse($v->payload['confirm_asked_at'])->gt(now()->subMinutes(self::CONFIRM_MINUTES)));
+
+        return $verification ? $this->verifiedAnswer($verification, false) : null;
+    }
+
+    private function verifiedAnswer(PhoneVerification $verification, bool $viaPlatform): string
+    {
+        $company = $verification->company;
         try {
             $this->markVerified($verification, 'whatsapp');
         } catch (BusinessRuleException $e) {
@@ -368,6 +426,26 @@ class PhoneVerifier
                 ? '✅ Numéro vérifié. Retournez sur la page du site pour choisir votre nouveau mot de passe.'
                 : "Aucun compte n'est associé à ce numéro chez {$company->name}.",
         };
+    }
+
+    private static function isYes(?string $text): bool
+    {
+        return (bool) preg_match('/^\s*oui\s*[.!]*\s*$/iu', (string) $text);
+    }
+
+    /**
+     * Message WhatsApp prérempli : il dit ce qu'on autorise, pour qu'on ne l'envoie pas sans savoir.
+     */
+    public static function whatsappText(PhoneVerification $verification): string
+    {
+        $name = $verification->company?->name ?? 'Jibiat';
+        $what = match ($verification->purpose) {
+            PhoneVerification::SIGNUP => "Je crée mon compte chez {$name}",
+            PhoneVerification::LOGIN => "Je me connecte à mon compte {$name}",
+            default => "Je change mon mot de passe {$name}",
+        };
+
+        return "{$what}. ".self::WHATSAPP_PREFIX.' : '.$verification->whatsapp_code;
     }
 
     private function markVerified(PhoneVerification $verification, string $via): void

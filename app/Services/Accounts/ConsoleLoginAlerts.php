@@ -14,11 +14,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
  * Alerte après chaque connexion à la console (e-mail, WhatsApp en secours), avec un lien signé « Ce n'était pas
- * moi » : toutes les sessions fermées, appareils retenus oubliés, nouveau mot de passe.
+ * moi » : toutes les sessions fermées, appareils retenus oubliés, compte verrouillé.
  */
 class ConsoleLoginAlerts
 {
@@ -52,15 +53,20 @@ class ConsoleLoginAlerts
     /**
      * « Ce n'était pas moi » : nouveau mot de passe, toutes les sessions fermées, appareils oubliés.
      */
-    public function secure(User $user, string $password, ?string $ip): void
+    /**
+     * « Ce n'était pas moi » : le compte est verrouillé (sessions fermées, appareils retenus oubliés, mot de passe
+     * effacé). Le lien ne permet pas de choisir un mot de passe : quelqu'un qui lit seulement la boîte mail ne peut
+     * pas prendre le compte. Réouverture par un autre propriétaire (nouvelle invitation) ou sur le serveur.
+     */
+    public function secure(User $user, ?string $ip): void
     {
-        DB::transaction(function () use ($user, $password, $ip) {
-            $user->forceFill(['password' => $password])->save();
+        DB::transaction(function () use ($user, $ip) {
+            $user->forceFill(['password' => Str::random(64)])->save();
             $user->tokens()->delete();
             TrustedDevice::query()->where('user_id', $user->id)->delete();
             PlatformAuditLog::create([
                 'user_id' => $user->id, 'action' => 'console.not-me', 'method' => 'POST', 'path' => '/console/securite/pas-moi', 'status' => 200,
-                'data' => ['input' => ['password' => '••••']], 'ip' => $ip,
+                'data' => ['locked' => true], 'ip' => $ip,
             ]);
         });
     }

@@ -96,7 +96,15 @@ class WhatsAppLoginTest extends TestCase
         $this->platformMessage('+2250511111111', $text, 'p-0')->assertOk();
         $this->getJson("/api/v1/verifications/{$token}")->assertJsonMissingPath('session');
 
+        // Le message du code demande une confirmation « OUI » : seul, il n'ouvre pas la session
         $this->platformMessage($courier->phone, $text)->assertOk();
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/sessions/platform/send') && str_contains($r['text'], 'répondez *OUI*'));
+        $this->getJson("/api/v1/verifications/{$token}")->assertJsonPath('data.status', 'pending')->assertJsonMissingPath('session');
+        // « OUI » d'un autre numéro : rien
+        $this->platformMessage('+2250511111111', 'OUI', 'p-2')->assertOk();
+        $this->getJson("/api/v1/verifications/{$token}")->assertJsonPath('data.status', 'pending');
+
+        $this->platformMessage($courier->phone, 'OUI', 'p-3')->assertOk();
         Http::assertSent(fn (Request $r) => str_ends_with($r->url(), '/sessions/platform/send') && str_contains($r['text'], 'vous y êtes connecté'));
 
         $session = $this->getJson("/api/v1/verifications/{$token}")->assertOk()

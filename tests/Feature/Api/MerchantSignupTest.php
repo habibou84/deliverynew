@@ -131,7 +131,8 @@ class MerchantSignupTest extends TestCase
             ->assertJsonPath('data.whatsapp.number', '07 00 00 00 99');
         $token = $response->json('token');
         $text = $response->json('data.whatsapp.text');
-        $this->assertStringStartsWith('https://wa.me/2250700000099?text=Code%20de%20v', $response->json('data.whatsapp.link'));
+        $this->assertStringStartsWith('https://wa.me/2250700000099?text=Je%20cr%C3%A9e%20mon%20compte', $response->json('data.whatsapp.link'));
+        $this->assertStringContainsString('Code%20de%20v%C3%A9rification', $response->json('data.whatsapp.link'));
 
         // Rien n'est créé avant la vérification
         $this->assertFalse(Merchant::where('phone', self::PHONE)->exists());
@@ -212,7 +213,11 @@ class MerchantSignupTest extends TestCase
         }
 
         $this->postJson("/api/v1/verifications/{$token}/code", ['code' => $this->smsCode()])->assertUnprocessable()
-            ->assertJsonPath('message', "Trop d'essais. Demandez un nouveau code.");
+            ->assertJsonPath('message', "Trop d'essais. Recommencez la demande depuis le début.");
+        // Un nouveau code ne remet pas le compteur à zéro
+        $this->travel(2)->minutes();
+        $this->postJson("/api/v1/verifications/{$token}/sms")->assertOk();
+        $this->postJson("/api/v1/verifications/{$token}/code", ['code' => $this->smsCode()])->assertUnprocessable();
         $this->assertFalse(User::where('phone', self::PHONE)->exists());
     }
 
@@ -270,8 +275,11 @@ class MerchantSignupTest extends TestCase
         $this->postJson('/api/v1/password/reset', ['token' => $token, 'password' => 'nouveaupass', 'password_confirmation' => 'nouveaupass'])
             ->assertUnprocessable();
 
+        // Le message du code demande une confirmation : envoyé à la demande d'un escroc, il n'ouvre rien
         $reply = $this->whatsapp($this->merchantUser->phone, $response->json('data.whatsapp.text'));
-        $this->assertStringContainsString('nouveau mot de passe', $reply);
+        $this->assertStringContainsString('répondez *OUI*', $reply);
+        $this->getJson("/api/v1/verifications/{$token}")->assertJsonPath('data.status', 'pending');
+        $this->assertStringContainsString('nouveau mot de passe', $this->whatsapp($this->merchantUser->phone, 'Oui'));
         $this->getJson("/api/v1/verifications/{$token}")->assertJsonPath('data.status', 'verified');
 
         $this->postJson('/api/v1/password/reset', ['token' => $token, 'password' => 'nouveaupass', 'password_confirmation' => 'nouveaupass'])
