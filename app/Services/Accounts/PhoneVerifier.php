@@ -16,6 +16,7 @@ use App\Services\Platform\WaveSettings;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -44,8 +45,11 @@ class PhoneVerifier
 
     public const SMS_COOLDOWN_SECONDS = 60;
 
-    // Par numéro et par heure : demandes de vérification, SMS envoyés
+    // Par numéro et par heure : demandes de vérification (par adresse IP, pour qu'un inconnu ne bloque pas le titulaire,
+    // et toutes adresses confondues, plus large), SMS envoyés
     public const MAX_STARTS_PER_HOUR = 5;
+
+    public const MAX_STARTS_PER_HOUR_ALL_IPS = 20;
 
     public const MAX_SMS_PER_HOUR = 3;
 
@@ -70,8 +74,9 @@ class PhoneVerifier
     {
         $phone = PhoneNumber::normalize($phone) ?? $phone;
 
-        $recent = PhoneVerification::where('phone', $phone)->where('created_at', '>', now()->subHour())->count();
-        if ($recent >= self::MAX_STARTS_PER_HOUR) {
+        $recent = PhoneVerification::where('phone', $phone)->where('created_at', '>', now()->subHour());
+        $fromIp = (clone $recent)->when($ip !== null, fn ($q) => $q->where('ip', $ip), fn ($q) => $q->whereNull('ip'))->count();
+        if ($fromIp >= self::MAX_STARTS_PER_HOUR || $recent->count() >= self::MAX_STARTS_PER_HOUR_ALL_IPS) {
             throw new BusinessRuleException('Trop de demandes pour ce numéro. Réessayez dans une heure.', 'phone');
         }
 
@@ -363,6 +368,16 @@ class PhoneVerifier
 
     private function answer(?PhoneVerification $verification, string $from, bool $viaPlatform): string
     {
+        // Codes essayés au hasard depuis un même numéro : 10 par heure au plus (code inconnu ou d'un autre numéro)
+        $misses = 'wa-code-miss:'.hash('sha256', (string) PhoneNumber::normalize($from));
+        $miss = $verification === null || ! PhoneNumber::sameNumber($verification->phone, $from);
+        if ($miss) {
+            Cache::add($misses, 0, now()->addHour());
+            if ((int) Cache::increment($misses) > self::MAX_WRONG_PER_HOUR) {
+                return 'Trop de codes non reconnus depuis ce numéro. Réessayez dans une heure.';
+            }
+        }
+
         if ($verification === null) {
             return "Ce code n'est plus valable (il expire au bout de ".self::TTL_MINUTES.' minutes). Recommencez depuis la page du site.';
         }
@@ -372,9 +387,9 @@ class PhoneVerifier
         if (! PhoneNumber::sameNumber($verification->phone, $from)) {
             Log::info('Code de vérification envoyé depuis un autre numéro', ['expected' => $verification->phone, 'from' => $from]);
 
-            return 'Ce code a été demandé pour le numéro '.PhoneNumber::display($verification->phone)
-                .', mais votre message arrive du numéro '.PhoneNumber::display($from)
-                .'. Envoyez-le depuis le WhatsApp du '.PhoneNumber::display($verification->phone).'.';
+            // Jamais le numéro lié au code : il ne se devine pas en envoyant des codes au hasard
+            return 'Ce code a été demandé pour un autre numéro que celui de ce WhatsApp. '
+                .'Envoyez le message depuis le WhatsApp du numéro saisi sur le site.';
         }
 
         // Connexion ou mot de passe oublié : le message a pu être envoyé à la demande d'un escroc (« envoyez ce
@@ -400,7 +415,7 @@ class PhoneVerifier
     private function confirm(Builder $scope, string $from): ?string
     {
         $verification = $scope->pending()->whereIn('purpose', [PhoneVerification::LOGIN, PhoneVerification::PASSWORD_RESET])
-            ->where('created_at', '>', now()->subMinutes(self::TTL_MINUTES))->latest('id')->limit(20)->get()
+            ->where('created_at', '>', now()->subMinutes(self::TTL_MINUTES))->with('company')->latest('id')->limit(20)->get()
             ->first(fn (PhoneVerification $v) => PhoneNumber::sameNumber($v->phone, $from)
                 && isset($v->payload['confirm_asked_at'])
                 && Carbon::parse($v->payload['confirm_asked_at'])->gt(now()->subMinutes(self::CONFIRM_MINUTES)));
@@ -421,7 +436,9 @@ class PhoneVerifier
             PhoneVerification::SIGNUP => "✅ Numéro vérifié ! Bienvenue chez {$company->name}. Votre compte « ".($verification->payload['business_name'] ?? '')
                 .' » est ouvert : retournez sur la page du site, vous y êtes connecté.'
                 .($viaPlatform ? '' : ' Vous pouvez aussi créer vos courses ici en tapant « menu ».'),
-            PhoneVerification::LOGIN => '✅ Numéro vérifié. Retournez sur la page du site : vous y êtes connecté.',
+            PhoneVerification::LOGIN => $verification->user_id
+                ? '✅ Numéro vérifié. Retournez sur la page du site : vous y êtes connecté.'
+                : '✅ Numéro vérifié. Retournez sur la page du site : elle vous dit comment vous connecter.',
             default => $verification->user_id
                 ? '✅ Numéro vérifié. Retournez sur la page du site pour choisir votre nouveau mot de passe.'
                 : "Aucun compte n'est associé à ce numéro chez {$company->name}.",

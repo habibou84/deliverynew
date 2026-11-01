@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Models\PhoneVerification;
 use App\Models\User;
@@ -33,41 +32,33 @@ class WhatsAppLoginController extends Controller
         $phone = Phone::normalize($data['phone']);
 
         $matches = User::loginableHere()->where('phone', $phone)->with('company')->get();
-        if ($matches->isEmpty()) {
-            throw new BusinessRuleException('Aucun compte avec ce numéro. Vérifiez-le, ou créez votre compte.', 'phone');
-        }
 
+        // Même réponse que le numéro ait un compte ou non (ni son type, ni s'il est suspendu) : seul le titulaire du
+        // numéro l'apprend, sur WhatsApp, après avoir envoyé le message
         $space = $data['space'] ?? null;
-        if ($space !== null) {
-            $here = $matches->filter(fn (User $u) => $u->space() === $space);
-            if ($here->isEmpty()) {
-                $other = $matches->first()->space();
-
-                return response()->json(['message' => AuthController::WRONG_SPACE[$other], 'space' => $other], 422);
-            }
-            $matches = $here;
-        }
+        $here = $space !== null ? $matches->filter(fn (User $u) => $u->space() === $space) : $matches;
+        $wrongSpace = $here->isEmpty() && $matches->isNotEmpty() ? $matches->first()->space() : null;
 
         // Un même numéro dans plusieurs entreprises : celle de la page d'accueil, sinon on demande l'adresse de l'entreprise
         $company = Branding::company();
-        $user = $matches->count() > 1 ? $matches->firstWhere('company_id', $company?->id) : $matches->first();
-        if ($user === null) {
+        $user = $here->count() > 1 ? $here->firstWhere('company_id', $company?->id) : $here->first();
+        if ($user === null && $here->count() > 1) {
             throw ValidationException::withMessages([
                 'phone' => 'Ce numéro a un compte dans plusieurs entreprises : connectez-vous depuis l\'adresse de votre entreprise.',
             ]);
         }
-        $user = $user->fresh();
-        if (! $user->isActive()) {
-            return response()->json(['message' => 'Compte suspendu. Contactez votre administrateur.'], 403);
-        }
-
+        $user = $user?->fresh();
         // Comptes de la plateforme (console) : connexion par mot de passe seulement
-        if ($user->company === null) {
-            throw ValidationException::withMessages(['phone' => 'Ce compte se connecte avec son mot de passe.']);
+        if ($user !== null && $user->company === null) {
+            $user = null;
         }
 
-        [$verification, $token] = $this->verifier->start($user->company, PhoneVerification::LOGIN, $phone, $user, [
+        $company = $user?->company ?? $company ?? $matches->first()?->company;
+        abort_if($company === null, 404, 'Connectez-vous depuis l\'adresse de votre entreprise.');
+
+        [$verification, $token] = $this->verifier->start($company, PhoneVerification::LOGIN, $phone, $user, [
             'device' => $data['device_name'] ?? 'whatsapp',
+            ...($wrongSpace !== null ? ['wrong_space' => $wrongSpace] : []),
         ], $request->ip());
 
         return response()->json(['token' => $token, 'data' => VerificationController::describe($this->verifier, $verification)], 201);

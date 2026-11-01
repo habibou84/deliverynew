@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Http\Controllers\Api\V1\AuthController;
 use App\Models\PlatformSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -115,18 +116,31 @@ class WhatsAppLoginTest extends TestCase
         $this->assertSame('Téléphone de Koffi', $courier->tokens()->latest('id')->value('name'));
     }
 
+    /**
+     * Audit n° 2, point 23 : même réponse que le numéro ait un compte ou non ; la raison du refus (aucun compte,
+     * autre espace, compte suspendu) n'est donnée qu'au titulaire, après l'envoi du message depuis son numéro.
+     */
     public function test_whatsapp_login_follows_the_rules_of_the_login_page(): void
     {
-        // Numéro inconnu
-        $this->postJson('/api/v1/auth/whatsapp', ['phone' => '07 99 99 99 99', 'space' => 'merchant'])
-            ->assertUnprocessable()->assertJsonPath('errors.phone.0', 'Aucun compte avec ce numéro. Vérifiez-le, ou créez votre compte.');
-
-        // Compte d'un autre espace
-        $this->postJson('/api/v1/auth/whatsapp', ['phone' => $this->courierA->user->phone, 'space' => 'merchant'])
-            ->assertUnprocessable()->assertJsonPath('space', 'courier');
-
-        // Compte suspendu
+        $cases = [
+            ['+2250799999999', 'Aucun compte avec ce numéro. Vérifiez-le, ou créez votre compte.', null],
+            [$this->courierA->user->phone, AuthController::WRONG_SPACE['courier'], 'courier'],
+        ];
         $this->merchantUser->forceFill(['status' => 'suspended'])->save();
-        $this->postJson('/api/v1/auth/whatsapp', ['phone' => $this->merchantUser->phone, 'space' => 'merchant'])->assertForbidden();
+        $cases[] = [$this->merchantUser->phone, 'Compte suspendu. Contactez votre administrateur.', null];
+
+        foreach ($cases as $i => [$phone, $message, $space]) {
+            $response = $this->postJson('/api/v1/auth/whatsapp', ['phone' => $phone, 'space' => 'merchant'])
+                ->assertCreated()->assertJsonPath('data.status', 'pending')->assertJsonPath('data.message', null)->assertJsonMissingPath('data.space');
+            $token = $response->json('token');
+
+            $this->platformMessage($phone, $response->json('data.whatsapp.text'), "c-{$i}")->assertOk();
+            if ($space === null && $phone === $this->merchantUser->phone) {
+                $this->platformMessage($phone, 'OUI', "c-{$i}-oui")->assertOk();
+            }
+            $state = $this->getJson("/api/v1/verifications/{$token}")->assertJsonPath('data.status', 'failed')
+                ->assertJsonPath('data.message', $message)->assertJsonMissingPath('session');
+            $this->assertSame($space, $state->json('data.space'));
+        }
     }
 }
