@@ -4,11 +4,14 @@ namespace App\Services\WhatsApp;
 
 use Anthropic\Client;
 use Anthropic\Core\Exceptions\APIException;
+use App\Models\Company;
 use App\Models\Zone;
+use App\Services\Ai\JibiatAi;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use JsonException;
+use Throwable;
 
 /**
  * Analyse par Claude des messages libres (commande transférée d'un client, texte
@@ -104,6 +107,8 @@ class ClaudeOrderParser implements OrderMessageParser
             fallbacks: 'default',
         );
 
+        $this->recordUsage($zones, (string) config('messaging.ai.model'), $message->usage->inputTokens ?? 0, $message->usage->outputTokens ?? 0);
+
         if ($message->stopReason === 'refusal') {
             return null;
         }
@@ -115,6 +120,24 @@ class ClaudeOrderParser implements OrderMessageParser
         }
 
         return null;
+    }
+
+    /**
+     * Consommation de l'IA comptée pour l'entreprise (Jibiat IA : coût réel, plafond du mois). Les zones sont celles
+     * de l'entreprise du marchand.
+     *
+     * @param  Collection<int, Zone>  $zones
+     */
+    private function recordUsage(Collection $zones, string $model, int $input, int $output): void
+    {
+        try {
+            $company = Company::query()->find($zones->first()?->company_id);
+            if ($company) {
+                app(JibiatAi::class)->record($company, 'messages', $model, $input, $output);
+            }
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /**

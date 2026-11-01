@@ -93,6 +93,12 @@ class Company extends Model
     {
         return [
             'billing_cycle_from' => 'date',
+            'ai_trial_started_at' => 'datetime',
+            'ai_trial_ends_at' => 'datetime',
+            'ai_started_at' => 'datetime',
+            'ai_stop_at' => 'datetime',
+            'ai_paid_until' => 'date',
+            'ai_alerts' => 'array',
             'auto_confirm_orders' => 'boolean',
             'default_max_attempts' => 'integer',
             'require_delivery_code' => 'boolean',

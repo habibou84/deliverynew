@@ -75,5 +75,7 @@ Schedule::command('vehicles:documents')->dailyAt('07:40')->withoutOverlapping();
 Schedule::command('premium:award')->dailyAt('10:20')->withoutOverlapping();
 // Bilan des niveaux Premium le 1er du mois
 Schedule::command('premium:levels')->monthlyOn(1, '07:40')->withoutOverlapping();
+// Jibiat IA : fins d'essai, arrêts en fin de mois, alertes de volume
+Schedule::command('ai:review')->dailyAt('08:10')->withoutOverlapping();
 // Comptes supprimés depuis le profil : données personnelles effacées 30 jours après la demande
 Schedule::command('accounts:erase-deleted')->dailyAt('03:40')->withoutOverlapping();
