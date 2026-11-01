@@ -66,6 +66,16 @@
             <td class="py-2 text-right">—</td>
             <td class="py-2 text-right">{{ money(invoice.extra_couriers_amount) }}</td>
           </tr>
+          <tr v-for="(line, i) in (invoice.ai_lines || [])" :key="`ai-${i}`">
+            <td class="py-2">
+              {{ line.label }}
+              <span v-if="line.days" class="block text-xs text-gray-500">{{ money(line.price) }} par mois, au prorata des jours ({{ line.days }} jour(s))</span>
+              <span v-else-if="line.orders" class="block text-xs text-gray-500">{{ money(line.price) }} par course</span>
+            </td>
+            <td class="py-2 text-right">{{ line.days ? `${line.days} j` : (line.orders || '—') }}</td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right">{{ money(line.amount) }}</td>
+          </tr>
           <tr v-for="(line, i) in (invoice.app_options || [])" :key="`app-${i}`">
             <td class="py-2">
               {{ line.label }}
