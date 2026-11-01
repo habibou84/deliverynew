@@ -125,3 +125,14 @@ node tools/motion/render.cjs bascule w v --audio=tools/motion/voix/bascule/voix.
 
 Scène : `tools/motion/scenes/bascule.js` (un plan par groupe de phrases, durée = temps de la voix). Plans
 « screen » : capture 1280 × 800 dans une fenêtre de navigateur (moteur `tools/motion/motion.js`).
+
+**Musique de fond** : composée par `tools/motion/musique/fond-doux.py` (accords doux en ré majeur, basse, petites
+notes de cloche ; aucun droit à payer), environ 13 dB sous la voix et baissée quand la voix parle :
+
+```bash
+python3 tools/motion/musique/fond-doux.py 247 /tmp/fond.wav
+ffmpeg -i tools/motion/voix/bascule/voix.m4a -i /tmp/fond.wav -filter_complex \
+  "[0]aformat=channel_layouts=stereo,asplit[v1][v2];[1]volume=0.20[m];[m][v1]sidechaincompress=threshold=0.04:ratio=3:attack=150:release=1200[d];[v2][d]amix=inputs=2:duration=first:normalize=0,loudnorm=I=-16:TP=-1.5" \
+  -c:a aac -b:a 192k tools/motion/voix/bascule/voix-musique.m4a
+node tools/motion/render.cjs bascule w v --audio=tools/motion/voix/bascule/voix-musique.m4a
+```
