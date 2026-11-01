@@ -15,8 +15,10 @@ use App\Models\User;
 use App\Notifications\OrderAlert;
 use App\Services\Webhooks\UrlGuard;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -38,8 +40,22 @@ class LegacyOrdersSync
 
     private const PAGE = 200;
 
+    public const RATE_LIMITED = 'L\'ancienne application limite le nombre de demandes (code 429) : Jibiat reprend tout seul à la copie suivante. Pour lever cette limite, déplacez la ligne « jibiat-sync » de routes/api.php vers routes/web.php (voir l\'en-tête du module).';
+
     /** Courses en cours relues par leur numéro à chaque copie (toutes, à tour de rôle, en quelques minutes) */
-    public const REREAD = 400;
+    public const REREAD = 500;
+
+    /** « Copier maintenant » : au plus ce nombre de courses en cours relues d'un coup (les suivantes à tour de rôle) */
+    public const REREAD_NOW = 2000;
+
+    /** Numéros demandés par appel (le module en accepte 500) */
+    private const IDS_PER_CALL = 500;
+
+    /**
+     * L'ancienne application limite les demandes (Laravel : 60 par minute sur routes/api.php) : en tâche de fond,
+     * Jibiat attend le temps indiqué puis réessaie, au plus ce nombre de fois.
+     */
+    private const RATE_LIMIT_RETRIES = 3;
 
     public function __construct(
         private readonly LegacyOrdersImporter $importer,
@@ -235,7 +251,7 @@ class LegacyOrdersSync
     {
         $key = "legacy-reread:{$company->id}";
         if ($all) {
-            $orders = $this->active($company)->orderBy('id')->get(['id', 'legacy_id']);
+            $orders = $this->active($company)->orderBy('id')->limit(self::REREAD_NOW)->get(['id', 'legacy_id']);
         } else {
             $after = (int) cache()->get($key, 0);
             $orders = $this->active($company)->where('id', '>', $after)->orderBy('id')->limit(self::REREAD)->get(['id', 'legacy_id']);
@@ -243,7 +259,7 @@ class LegacyOrdersSync
         }
 
         $read = 0;
-        foreach ($orders->reject(fn (Order $o) => isset($seen[(string) $o->legacy_id]))->chunk(self::PAGE) as $chunk) {
+        foreach ($orders->reject(fn (Order $o) => isset($seen[(string) $o->legacy_id]))->chunk(self::IDS_PER_CALL) as $chunk) {
             $page = $this->get($company, 'commands', ['ids' => $chunk->pluck('legacy_id')->implode(',')]);
             foreach ($page['data'] ?? [] as $command) {
                 $read++;
@@ -335,12 +351,24 @@ class LegacyOrdersSync
             throw new RuntimeException('Adresse de l\'ancienne application refusée : '.$target['reason']);
         }
 
-        try {
-            $response = Http::withToken($company->legacy_sync_key)->acceptJson()->timeout(60)->connectTimeout(10)->retry(2, 1000, throw: false)
-                ->withOptions(UrlGuard::pin($url, $target['ip']))->withoutRedirecting()
-                ->get($url, $query);
-        } catch (ConnectionException) {
-            throw new RuntimeException('L\'ancienne application ne répond pas : vérifiez son adresse et qu\'elle est en ligne.');
+        for ($attempt = 0; ; $attempt++) {
+            try {
+                $response = Http::withToken($company->legacy_sync_key)->acceptJson()->timeout(60)->connectTimeout(10)
+                    ->retry(2, 1000, fn ($e) => ! ($e instanceof RequestException && $e->response->status() === 429), throw: false)
+                    ->withOptions(UrlGuard::pin($url, $target['ip']))->withoutRedirecting()
+                    ->get($url, $query);
+            } catch (ConnectionException) {
+                throw new RuntimeException('L\'ancienne application ne répond pas : vérifiez son adresse et qu\'elle est en ligne.');
+            }
+            // Trop de demandes : en tâche de fond, attendre le temps demandé puis réessayer
+            if ($response->status() !== 429 || ! app()->runningInConsole() || $attempt >= self::RATE_LIMIT_RETRIES) {
+                break;
+            }
+            Sleep::for(max(1, min(60, (int) ($response->header('Retry-After') ?: 60))))->seconds();
+        }
+
+        if ($response->status() === 429) {
+            throw new RuntimeException(self::RATE_LIMITED);
         }
 
         if ($response->status() === 404) {

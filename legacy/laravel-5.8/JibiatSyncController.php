@@ -27,6 +27,16 @@
  *        ALTER TABLE commands ADD INDEX commands_updated_at (updated_at);
  *
  * Sans clé dans le .env, ces adresses répondent « 404 » : rien n'est lisible.
+ *
+ * Si Jibiat affiche « code 429 » : Laravel limite routes/api.php à 60 demandes par minute (middleware throttle du
+ * groupe « api »), et la copie de Jibiat en fait davantage. Déplacer la ligne de l'étape 2 de routes/api.php vers la fin
+ * de routes/web.php, en gardant la même adresse :
+ *
+ *        Route::get('api/jibiat-sync/{resource}', 'JibiatSyncController@index')
+ *            ->where('resource', 'summary|commands|products');
+ *
+ * (l'enlever de routes/api.php, puis « php artisan route:clear »). Autre solution : dans app/Http/Kernel.php, passer
+ * 'throttle:60,1' du groupe 'api' à 'throttle:300,1'.
  */
 
 namespace App\Http\Controllers;

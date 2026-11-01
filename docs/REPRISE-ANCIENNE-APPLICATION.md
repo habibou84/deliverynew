@@ -83,7 +83,14 @@ commande changée là-bas sans mise à jour de sa date de modification (requête
 base et application réglées sur deux fuseaux différents) arrive quand même en quelques minutes. « Copier
 maintenant » relit toutes les courses en cours d'un coup. Le module version 3 part de l'heure la plus ancienne
 entre la base et l'application pour la copie suivante : le retélécharger et le remplacer (l'écran « Vérifier »
-signale un module pas à jour). Chaque nuit
+signale un module pas à jour).
+
+**Code 429** : Laravel limite les adresses de `routes/api.php` à 60 demandes par minute. Jibiat demande les numéros par
+paquets de 500 et « Copier maintenant » relit au plus 2 000 courses en cours d'un coup ; en tâche de fond (copie de
+chaque minute, reprise, relecture de la nuit), il attend le temps demandé par l'ancienne application puis réessaie.
+Pour lever la limite : déplacer la ligne `jibiat-sync` de `routes/api.php` vers `routes/web.php` avec l'adresse
+`api/jibiat-sync/{resource}` (voir l'en-tête du module), ou passer `throttle:60,1` à `throttle:300,1` dans
+`app/Http/Kernel.php` de l'ancienne application. Chaque nuit
 (`legacy:sync --recheck`), les courses reprises encore en cours ou non soldées sont relues. Avant la bascule,
 l'ancienne application fait foi. Après, Jibiat fait foi : une course déjà là n'est plus écrasée (signalée
 « Modifiée dans l'ancienne application ») ; une nouvelle commande saisie là-bas arrive et l'équipe est prévenue.

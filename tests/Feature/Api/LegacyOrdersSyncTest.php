@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Sleep;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -45,6 +46,9 @@ class LegacyOrdersSyncTest extends TestCase
 
     /** Module d'avant l'ordre « plus récentes d'abord » */
     private bool $oldModule = false;
+
+    /** Prochaines réponses « 429 » (trop de demandes) de l'ancienne application */
+    private int $limited = 0;
 
     protected function setUp(): void
     {
@@ -96,6 +100,11 @@ class LegacyOrdersSyncTest extends TestCase
     {
         if (! str_starts_with($request->url(), self::URL.'/api/jibiat-sync/')) {
             return Http::response([], 404);
+        }
+        if ($this->limited > 0) {
+            $this->limited--;
+
+            return Http::response(['message' => 'Too Many Attempts.'], 429, ['Retry-After' => '7']);
         }
         if ($request->header('Authorization')[0] !== 'Bearer jbr_test') {
             return Http::response(['message' => 'Clé de lecture invalide.'], 401);
@@ -328,6 +337,25 @@ class LegacyOrdersSyncTest extends TestCase
         Sanctum::actingAs($this->admin);
         $this->postJson('/api/v1/company/legacy-orders/sync')->assertOk()->assertJsonPath('data.counts.updated', 1);
         $this->assertSame(OrderStatus::Cancelled, $this->order(110)->status);
+    }
+
+    /** L'ancienne application limite les demandes (429) : Jibiat attend le temps demandé et réessaie, sinon il le dit */
+    public function test_a_rate_limit_of_the_old_application_is_waited_out_then_explained(): void
+    {
+        $this->import();
+        Sleep::fake();
+        $this->commands[101] = [...$this->commands[101], 'etat' => 'annule'];
+        $this->changed = [101];
+
+        $this->limited = 2;
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+        Sleep::assertSleptTimes(2);
+        $this->assertSame(OrderStatus::Cancelled, $this->order(101)->status);
+
+        $this->limited = 50;
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/v1/company/legacy-orders/sync')->assertUnprocessable()->assertJsonPath('message', LegacyOrdersSync::RATE_LIMITED);
+        $this->assertSame(LegacyOrdersSync::RATE_LIMITED, $this->company->fresh()->legacy_sync_last_error);
     }
 
     public function test_after_the_switch_jibiat_is_the_master_and_new_orders_reach_the_team(): void
