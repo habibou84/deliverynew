@@ -149,6 +149,30 @@
             el('span', null, node, p.text)
             return { ...p, node }
           })
+        } else if (shot.type === 'screen') {
+          // Page vue sur ordinateur : capture 1280 × 800 dans une fenêtre de navigateur
+          if (shot.title) s.words = words(el('div', 'screen-title', s.root), shot.title, scene.brand)
+          const w = 1100
+          s.sw = 1280
+          s.sh = 800
+          s.unit = w / s.sw
+          s.bar = 32
+          s.rect = { w, left: (W - w) / 2, top: 168 }
+          s.phone = el('div', 'browser', s.root)
+          Object.assign(s.phone.style, { left: `${s.rect.left}px`, top: `${s.rect.top}px`, width: `${w}px`, height: `${s.sh * s.unit + s.bar}px` })
+          el('div', 'bar', s.phone, `<i></i><i></i><i></i><b>${shot.url ?? 'express-ci.jibiat.com/admin/reglages/reprise'}</b>`)
+          const view = el('div', 'view', s.phone)
+          view.style.height = `${s.sh * s.unit}px`
+          s.img = el('img', null, view)
+          s.img.src = shot.src
+          if (shot.ring) s.ringEl = el('div', 'focus-ring', s.root)
+          if (shot.tap) s.tapEl = el('div', 'tap', s.root)
+          s.pills = (shot.pills ?? (shot.pill ? [shot.pill] : [])).map((p) => {
+            const node = el('div', 'pill', s.root)
+            el('span', 'dot', node)
+            el('span', null, node, p.text)
+            return { ...p, node }
+          })
         } else if (shot.type === 'end') {
           const end = el('div', 'end', s.root)
           const logos = el('div', 'logos', end)
@@ -251,6 +275,54 @@
         })
       }
 
+      // Page sur ordinateur : entrée, approche de la zone à montrer, cadre, toucher, pastilles
+      function renderScreen(s, lt) {
+        const kIn = ease.out(prog(lt, 0, IN))
+        const kOut = ease.inOut(prog(lt, s.dur - OUT, s.dur))
+        const zoom = s.zoom ?? [1, 1]
+        const zoomAt = s.zoomAt ?? [Math.min(0.9, s.dur * 0.3), Math.min(s.dur - 0.4, s.dur * 0.3 + 1.6)]
+        const kz = ease.inOut(prog(lt, zoomAt[0], zoomAt[1]))
+        const z = lerp(zoom[0], zoom[1], kz)
+        const focus = s.focus ?? [s.sw / 2, s.sh / 2]
+        const ox = focus[0] * s.unit
+        const oy = s.bar + focus[1] * s.unit
+        const target = [W / 2, s.rect.top + (s.bar + s.sh * s.unit) / 2]
+        const tx = zoom[1] > 1 ? (target[0] - (s.rect.left + ox)) * kz : 0
+        const ty = zoom[1] > 1 ? (target[1] - (s.rect.top + oy)) * kz : 0
+        const enter = (1 - kIn) * 120
+        s.phone.style.transformOrigin = `${ox}px ${oy}px`
+        s.phone.style.transform = `translate(${tx}px, ${ty + enter}px) scale(${z * (0.96 + 0.04 * kIn)})`
+        s.phone.style.opacity = kIn * (1 - kOut)
+        if (s.words) {
+          revealWords(s.words, lt - 0.05)
+          s.root.querySelector('.screen-title').style.opacity = 1 - kOut
+        }
+        const at = (x, y) => [s.rect.left + ox + (x * s.unit - ox) * z + tx, s.rect.top + oy + (s.bar + y * s.unit - oy) * z + ty + enter]
+        const scale = z * s.unit
+        if (s.ringEl) {
+          const r = s.ring
+          const k = ease.out(prog(lt, r.at, r.at + 0.4)) * (1 - kOut)
+          const [x, y] = at(r.x, r.y)
+          Object.assign(s.ringEl.style, { left: `${x - 10}px`, top: `${y - 10}px`, width: `${r.w * scale + 20}px`, height: `${r.h * scale + 20}px`, opacity: k })
+        }
+        if (s.tapEl) {
+          const tp = s.tap
+          const k = prog(lt, tp.at, tp.at + 0.7)
+          const [x, y] = at(tp.x, tp.y)
+          const size = 40 + 150 * ease.out(k)
+          Object.assign(s.tapEl.style, { left: `${x - size / 2}px`, top: `${y - size / 2}px`, width: `${size}px`, height: `${size}px`, opacity: k > 0 && k < 1 ? 1 - k * 0.8 : 0 })
+        }
+        s.pills.forEach((p) => {
+          const k = ease.back(prog(lt, p.at, p.at + 0.5))
+          const [x, y] = p.pos ? (p.pos[fmt] ?? p.pos.w) : at(p.x, p.y)
+          const half = p.node.offsetWidth / 2 + 30
+          p.node.style.left = `${clamp(x, half, W - half)}px`
+          p.node.style.top = `${clamp(y, 80, H - 80)}px`
+          p.node.style.opacity = clamp(k) * (1 - kOut)
+          p.node.style.transform = `translate(-50%, -50%) scale(${0.6 + 0.4 * k})`
+        })
+      }
+
       function render(t) {
         // Fond : halos qui dérivent
         halos.forEach((h, i) => {
@@ -274,6 +346,8 @@
             s.root.style.transform = `scale(${1 + 0.05 * prog(lt, 0, s.dur)})`
           } else if (s.type === 'phone') {
             renderPhone(s, lt)
+          } else if (s.type === 'screen') {
+            renderScreen(s, lt)
           } else if (s.type === 'end') {
             const k = ease.out(prog(lt, 0, 0.6))
             s.root.style.background = `radial-gradient(circle at 50% 35%, ${brand.color}, ${brand.deep} 75%)`

@@ -104,3 +104,24 @@ de mot de passe à retaper. Le livreur retrouve ses missions, l'e-commerçant re
 
 **Voix off :** « À partir de la bascule, c'est Jibiat qui fait foi. Si une commande arrive encore par l'ancienne
 application, elle est copiée dans Jibiat et votre équipe est prévenue. Bienvenue dans Jibiat. »
+
+## Refaire la vidéo
+
+Format 16:9 (1920 × 1080), 4 min 06, voix « Virginie » d'ElevenLabs (`tools/motion/voix/bascule/b01.mp3` à
+`b10.mp3`, une par scène, assemblées dans `voix.m4a`), sous-titres. Pages de la reprise sur ordinateur, téléphone
+pour le livreur et l'e-commerçant.
+
+```bash
+# Base locale de démonstration (jamais la production), application servie sur le port 8001
+php artisan migrate:fresh --seed && php tools/videos/demo-data.php
+APP_URL=http://127.0.0.1:8001 php artisan serve --port=8001
+
+# Captures des pages de la reprise (réponses de l'ancienne application simulées dans le navigateur)
+node tools/motion/capture-bascule.cjs
+
+# Rendu avec la voix
+node tools/motion/render.cjs bascule w --audio=tools/motion/voix/bascule/voix.m4a
+```
+
+Scène : `tools/motion/scenes/bascule.js` (un plan par groupe de phrases, durée = temps de la voix). Plans
+« screen » : capture 1280 × 800 dans une fenêtre de navigateur (moteur `tools/motion/motion.js`).

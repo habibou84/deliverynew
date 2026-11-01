@@ -172,3 +172,19 @@ html, body {
 /* Ordinateur : à côté du téléphone, le sous-titre se place sous le titre, sans bande */
 .fmt-w .caption-phone { left: 140px; right: auto; width: 900px; top: 560px; bottom: auto; justify-content: flex-start; }
 .fmt-w .caption-phone span { background: none; box-shadow: none; padding: 0; text-align: left; color: #e2e8f0; font-size: 44px; }
+
+/* Ordinateur : capture d'une page (1280 × 800) dans une fenêtre de navigateur, titre au-dessus (format w) */
+.browser {
+  position: absolute; border-radius: 16px; overflow: hidden; background: #e2e8f0;
+  box-shadow: 0 60px 120px rgba(0, 0, 0, .55), 0 0 0 1px rgba(255, 255, 255, .1);
+  will-change: transform, opacity;
+}
+.browser .bar { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: #e2e8f0; }
+.browser .bar i { width: 12px; height: 12px; border-radius: 50%; background: #f87171; }
+.browser .bar i:nth-child(2) { background: #fbbf24; }
+.browser .bar i:nth-child(3) { background: #34d399; }
+.browser .bar b { margin-left: 18px; flex: 1; max-width: 560px; height: 20px; border-radius: 10px; background: #fff; color: #64748b; font: 600 12px/20px Inter, sans-serif; padding: 0 12px; }
+.browser .view { position: relative; overflow: hidden; background: #fff; }
+.browser .view img { position: absolute; left: 0; top: 0; width: 100%; will-change: transform; }
+.screen-title { position: absolute; z-index: 7; left: 50%; top: 40px; transform: translateX(-50%); width: max-content; max-width: 1680px; text-align: center; font-weight: 800; letter-spacing: -0.03em; font-size: 54px; line-height: 1.1; padding: 16px 36px; border-radius: 24px; background: rgba(11, 18, 32, .92); box-shadow: 0 16px 40px rgba(0, 0, 0, .35); }
+.screen-title .w { display: inline-block; white-space: pre; will-change: transform, opacity; }
