@@ -53,6 +53,26 @@
     </RouterLink>
 
     <!-- Carte Membre Premium Jibiat Marchand : gagnée (ou offerte), ou ce qu'il reste pour la gagner -->
+    <!-- Niveau Premium chez l'agence : avantages et niveau suivant -->
+    <section v-if="premium?.levels && (premium.levels.level || premium.levels.next)" class="rounded-[22px] bg-white p-4 shadow-soft">
+      <div v-if="premium.levels.level" class="rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#B45309] p-4 text-white">
+        <p class="text-[11px] font-bold uppercase tracking-widest opacity-90">⭐ Niveau {{ premium.levels.level.name }}</p>
+        <p class="text-[13px] opacity-90">offert par {{ premium.company }} · prochain bilan le {{ date(premium.levels.next_review) }}</p>
+      </div>
+      <ul v-if="premium.levels.level" class="mt-3 space-y-1 text-[13.5px]">
+        <li v-for="a in premium.levels.level.advantages" :key="a" class="flex gap-2"><span class="font-bold text-violet-600">✓</span>{{ a }}</li>
+      </ul>
+      <p v-if="premium.levels.saved_month" class="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-[13px] font-semibold text-emerald-700">{{ money(premium.levels.saved_month) }} gagnés ce mois grâce à votre niveau</p>
+      <div v-if="premium.levels.next" class="mt-3">
+        <p class="text-[14px] font-bold">{{ premium.levels.level ? 'Prochain niveau' : 'Premier niveau' }} : {{ premium.levels.next.name }}</p>
+        <div class="mt-1.5 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" :aria-valuenow="premium.levels.next.needs.delivered.have" aria-valuemin="0" :aria-valuemax="premium.levels.next.needs.delivered.need">
+          <span class="block h-full rounded-full bg-violet-600" :style="{ width: `${Math.min(100, Math.round(premium.levels.next.needs.delivered.have / Math.max(1, premium.levels.next.needs.delivered.need) * 100))}%` }" />
+        </div>
+        <p class="mt-1 text-[12.5px] text-slate-500">{{ premium.levels.next.needs.delivered.have }} / {{ premium.levels.next.needs.delivered.need }} courses livrées en {{ premium.levels.window_days }} jours<template v-if="premium.levels.next.needs.success_rate.have !== null"> · réussite {{ Math.round(premium.levels.next.needs.success_rate.have * 100) }} % (il faut {{ Math.round(premium.levels.next.needs.success_rate.need * 100) }} %)</template></p>
+        <p class="mt-1 text-[12.5px] text-slate-600">Vous gagnerez : {{ premium.levels.next.advantages.join(' · ') }}</p>
+      </div>
+    </section>
+
     <section v-if="premium?.card" class="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-[#14161F] to-[#2B2F3D] p-4 text-white">
       <p class="text-[12px] font-bold uppercase tracking-[.14em] text-[#F2C45A]">Membre Premium</p>
       <p class="mt-1 text-[17px] font-extrabold leading-snug">Vous êtes Membre Premium Jibiat Marchand</p>

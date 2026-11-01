@@ -293,7 +293,7 @@ class OrderService
 
         $order->cod_amount = Order::computeCodAmount($order->items_amount, $order->totalFees(), $order->fee_payer);
 
-        return collect($order->getDirty())->except(['updated_at', 'pricing_details'])
+        return collect($order->getDirty())->except(['updated_at', 'pricing_details', 'premium_discount'])
             ->map(fn ($new, $field) => ['from' => $order->getRawOriginal($field), 'to' => $order->getAttributes()[$field]])
             ->all();
     }
@@ -456,7 +456,7 @@ class OrderService
     }
 
     /**
-     * @return array{delivery_fee: int, surcharges_total: int, pricing_details: array}
+     * @return array{delivery_fee: int, premium_discount: int, surcharges_total: int, pricing_details: array}
      */
     private function price(Merchant $merchant, array $data): array
     {
@@ -475,6 +475,7 @@ class OrderService
 
         return [
             'delivery_fee' => $quote->basePrice,
+            'premium_discount' => $quote->premiumDiscount,
             'surcharges_total' => $quote->surchargesTotal(),
             'pricing_details' => $quote->toArray(),
             'is_shipping' => $deliveryZone->is_shipping,

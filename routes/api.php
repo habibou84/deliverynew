@@ -506,6 +506,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('cards', 'offer')->middleware(['can:merchants.manage', 'throttle:30,1'])->name('cards.offer');
             Route::post('cards/{card}/revoke', 'revoke')->middleware('can:merchants.manage')->name('cards.revoke');
             Route::put('auto', 'auto')->middleware('can:settings.manage')->name('auto');
+            // Niveaux (Argent, Or, Platine) : avantages livraison et Jibiat Marchand offert
+            Route::get('levels', 'levels')->middleware('can:merchants.view')->name('levels');
+            Route::put('levels', 'saveLevels')->middleware('can:settings.manage')->name('levels.save');
+            Route::post('levels/review', 'review')->middleware(['can:settings.manage', 'throttle:10,1'])->name('levels.review');
         });
 
         // Notes des livreurs : classement, fiche, évaluation du mois, avis à traiter

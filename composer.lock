@@ -1307,12 +1307,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/habibou84/socle.git",
-                "reference": "7bb2d193a13f1aad24ed0f68f3b38dac99c1b206"
+                "reference": "887718da0c49d8bc92cd6ab8904b9e8db3cf845b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/habibou84/socle/zipball/7bb2d193a13f1aad24ed0f68f3b38dac99c1b206",
-                "reference": "7bb2d193a13f1aad24ed0f68f3b38dac99c1b206",
+                "url": "https://api.github.com/repos/habibou84/socle/zipball/887718da0c49d8bc92cd6ab8904b9e8db3cf845b",
+                "reference": "887718da0c49d8bc92cd6ab8904b9e8db3cf845b",
                 "shasum": ""
             },
             "require": {
@@ -1358,7 +1358,7 @@
                 "source": "https://github.com/habibou84/socle/tree/main",
                 "issues": "https://github.com/habibou84/socle/issues"
             },
-            "time": "2026-10-30T18:02:07+00:00"
+            "time": "2026-11-01T11:39:12+00:00"
         },
         {
             "name": "laravel/framework",

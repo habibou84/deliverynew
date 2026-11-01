@@ -49,6 +49,7 @@ class Merchant extends Model
     protected function casts(): array
     {
         return [
+            'premium_level_since' => 'datetime',
             'default_fee_payer' => FeePayer::class,
             'status' => MerchantStatus::class,
             'pickup_lat' => 'float',
@@ -166,5 +167,11 @@ class Merchant extends Model
     public function isActive(): bool
     {
         return $this->status === MerchantStatus::Active;
+    }
+
+    /** Niveau Premium du marchand chez son entreprise (revu chaque mois) */
+    public function premiumLevel(): BelongsTo
+    {
+        return $this->belongsTo(PremiumLevel::class);
     }
 }
