@@ -188,3 +188,6 @@ html, body {
 .browser .view img { position: absolute; left: 0; top: 0; width: 100%; will-change: transform; }
 .screen-title { position: absolute; z-index: 7; left: 50%; top: 40px; transform: translateX(-50%); width: max-content; max-width: 1680px; text-align: center; font-weight: 800; letter-spacing: -0.03em; font-size: 54px; line-height: 1.1; padding: 16px 36px; border-radius: 24px; background: rgba(11, 18, 32, .92); box-shadow: 0 16px 40px rgba(0, 0, 0, .35); }
 .screen-title .w { display: inline-block; white-space: pre; will-change: transform, opacity; }
+
+.fmt-v .screen-title { top: 150px; max-width: 980px; font-size: 62px; text-wrap: balance; }
+.fmt-f .screen-title { top: 50px; max-width: 980px; font-size: 50px; text-wrap: balance; }

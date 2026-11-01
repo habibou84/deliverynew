@@ -17,7 +17,7 @@ Jibiat · Facebook et TikTok ».
 | `entreprise-livreur` | Entreprises de livraison : l'application des livreurs | 19 s |
 | `entreprise-chiffres` | Entreprises de livraison : statistiques et rapport de la semaine | 15 s |
 | `entreprise-presentation` | Entreprises de livraison : présentation générale, voix off et sous-titres | 2 min 11 |
-| `bascule` | Entreprises de livraison : le ménage après la reprise de l'ancienne application, puis le jour de la bascule (voix off, 16:9 seulement, voir docs/VIDEO-BASCULE.md) | 4 min 06 |
+| `bascule` | Entreprises de livraison : le ménage après la reprise de l'ancienne application, puis le jour de la bascule (voix off, formats w et v, voir docs/VIDEO-BASCULE.md) | 4 min 06 |
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
 | `marchand-suivi-argent` | E-commerçants clients d'une entreprise Jibiat : colis et argent | 20 s |
 | `marchand-boutique` | E-commerçants : la boutique en ligne, de l'achat du client à la commande chez le marchand | 38 s |

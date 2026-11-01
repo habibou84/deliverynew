@@ -152,12 +152,15 @@
         } else if (shot.type === 'screen') {
           // Page vue sur ordinateur : capture 1280 × 800 dans une fenêtre de navigateur
           if (shot.title) s.words = words(el('div', 'screen-title', s.root), shot.title, scene.brand)
-          const w = 1100
+          // Vertical (TikTok, WhatsApp) : page plus étroite et filmée de plus près pour rester lisible
+          const w = fmt === 'w' ? 1100 : 1020
           s.sw = 1280
           s.sh = 800
           s.unit = w / s.sw
           s.bar = 32
-          s.rect = { w, left: (W - w) / 2, top: 168 }
+          s.rect = { w, left: (W - w) / 2, top: fmt === 'w' ? 168 : fmt === 'v' ? 440 : 330 }
+          if (fmt !== 'w' && shot.zoom) s.zoom = [shot.zoom[0], Math.max(1.5, shot.zoom[1] * 1.3)]
+          else if (fmt !== 'w') s.zoom = [1, 1.5]
           s.phone = el('div', 'browser', s.root)
           Object.assign(s.phone.style, { left: `${s.rect.left}px`, top: `${s.rect.top}px`, width: `${w}px`, height: `${s.sh * s.unit + s.bar}px` })
           el('div', 'bar', s.phone, `<i></i><i></i><i></i><b>${shot.url ?? 'express-ci.jibiat.com/admin/reglages/reprise'}</b>`)
@@ -314,7 +317,8 @@
         }
         s.pills.forEach((p) => {
           const k = ease.back(prog(lt, p.at, p.at + 0.5))
-          const [x, y] = p.pos ? (p.pos[fmt] ?? p.pos.w) : at(p.x, p.y)
+          const i = s.pills.indexOf(p)
+          const [x, y] = p.pos?.[fmt] ?? (fmt === 'w' && p.pos ? p.pos.w : p.pos ? [W / 2, s.rect.top + s.bar + s.sh * s.unit - 70 - i * 110] : at(p.x, p.y))
           const half = p.node.offsetWidth / 2 + 30
           p.node.style.left = `${clamp(x, half, W - half)}px`
           p.node.style.top = `${clamp(y, 80, H - 80)}px`
