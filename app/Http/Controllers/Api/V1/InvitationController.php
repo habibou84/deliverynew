@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\TrustedDevice;
 use App\Models\User;
 use App\Services\Accounts\Invitations;
 use App\Support\PhoneNumber;
@@ -57,6 +58,9 @@ class InvitationController extends Controller
         ], [], ['password' => 'mot de passe']);
 
         $user = $this->invitations->accept($invitation, $data['password'] ?? null);
+        // Le lien remplace l'accès au compte : les sessions ouvertes ailleurs avant lui sont fermées
+        $user->tokens()->delete();
+        TrustedDevice::query()->where('user_id', $user->id)->delete();
 
         // Console : pas de session ouverte par le lien, la connexion passe par le mot de passe et le code
         if ($console) {
