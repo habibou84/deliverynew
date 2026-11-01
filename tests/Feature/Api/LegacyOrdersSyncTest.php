@@ -339,6 +339,21 @@ class LegacyOrdersSyncTest extends TestCase
         $this->assertSame(OrderStatus::Cancelled, $this->order(110)->status);
     }
 
+    /** Commande créée après la reprise mais datée avant l'heure de départ de la copie (horloges décalées) */
+    public function test_new_orders_arrive_by_their_number_even_with_a_wrong_clock(): void
+    {
+        $this->import();
+        $this->commands[111] = $this->command(111, 'en cours', ['livreur_id' => null, 'created_at' => '2026-10-28 08:00:00', 'updated_at' => '2026-10-28 08:00:00']);
+        $this->changed = [];
+
+        $counts = app(LegacyOrdersSync::class)->sync($this->company->fresh());
+
+        $this->assertSame(1, $counts['created']);
+        $this->assertSame(OrderStatus::Confirmed, $this->order(111)->status);
+        // La copie suivante ne la recrée pas
+        $this->assertSame(0, app(LegacyOrdersSync::class)->sync($this->company->fresh())['created']);
+    }
+
     /** L'ancienne application limite les demandes (429) : Jibiat attend le temps demandé et réessaie, sinon il le dit */
     public function test_a_rate_limit_of_the_old_application_is_waited_out_then_explained(): void
     {

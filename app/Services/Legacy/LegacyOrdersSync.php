@@ -16,6 +16,7 @@ use App\Notifications\OrderAlert;
 use App\Services\Webhooks\UrlGuard;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Sleep;
@@ -182,14 +183,15 @@ class LegacyOrdersSync
 
         try {
             $this->importer->for($company);
-            $afterId = 0;
             $serverTime = null;
             $created = [];
             $seen = [];
-            do {
-                $page = $this->get($company, 'commands', ['since' => $since, 'after_id' => $afterId, 'limit' => self::PAGE]);
+            $take = function (array $page) use (&$serverTime, &$created, &$seen, &$counts) {
                 $serverTime ??= $page['server_time'] ?? null;
                 foreach ($page['data'] ?? [] as $command) {
+                    if (isset($seen[(string) $command['id']])) {
+                        continue;
+                    }
                     $seen[(string) $command['id']] = true;
                     $result = $this->importer->import($command, live: true);
                     $counts[$result['action']]++;
@@ -197,17 +199,40 @@ class LegacyOrdersSync
                         $created[] = (string) $command['id'];
                     }
                 }
+            };
+
+            // Nouvelles commandes : numéro plus grand que le dernier repris, quelles que soient leurs dates (une horloge
+            // décalée de l'ancienne application ne les fait plus passer à travers)
+            $afterId = $this->lastLegacyId($company);
+            do {
+                $page = $this->get($company, 'commands', ['from' => self::from(), 'after_id' => $afterId, 'limit' => self::PAGE]);
+                $take($page);
                 $afterId = $page['next_after_id'] ?? null;
             } while ($afterId !== null);
 
-            $counts['reread'] = $this->reread($company, $counts, $seen, $all);
+            // Commandes créées ou modifiées depuis la dernière copie
+            $afterId = 0;
+            do {
+                $page = $this->get($company, 'commands', ['since' => $since, 'after_id' => $afterId, 'limit' => self::PAGE]);
+                $take($page);
+                $afterId = $page['next_after_id'] ?? null;
+            } while ($afterId !== null);
+
             $this->announce($company, $created);
             $company->forceFill([
                 'legacy_sync_cursor' => $serverTime ?? $company->legacy_sync_cursor,
                 'legacy_sync_last_at' => now(),
                 'legacy_sync_last_error' => null,
-                'legacy_sync_stats' => $this->stats($company, $counts),
             ])->save();
+
+            // Relecture des courses en cours : un refus de l'ancienne application (trop de demandes) n'annule pas ce
+            // qui vient d'être copié ; la suite est relue à la copie suivante
+            try {
+                $counts['reread'] = $this->reread($company, $counts, $seen, $all);
+            } catch (RuntimeException $e) {
+                $company->forceFill(['legacy_sync_last_error' => Str::limit($e->getMessage(), 500)])->save();
+            }
+            $company->forceFill(['legacy_sync_stats' => $this->stats($company, $counts)])->save();
         } catch (RuntimeException $e) {
             $company->forceFill(['legacy_sync_last_error' => Str::limit($e->getMessage(), 500), 'legacy_sync_last_at' => now()])->save();
 
@@ -227,6 +252,13 @@ class LegacyOrdersSync
         app(LegacyRechecks::class)->nightly($company, $orders);
 
         return $orders->count();
+    }
+
+    /** Plus grand numéro de commande de l'ancienne application déjà dans Jibiat */
+    private function lastLegacyId(Company $company): int
+    {
+        return (int) Order::withoutGlobalScopes()->withTrashed()->where('company_id', $company->id)->whereNotNull('legacy_id')
+            ->max(DB::raw('CAST(legacy_id AS BIGINT)'));
     }
 
     /** Courses reprises encore en cours, ou dont l'argent n'est pas soldé (encore chez le livreur ou dû à l'e-commerçant) */

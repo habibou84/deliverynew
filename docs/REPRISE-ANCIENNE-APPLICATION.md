@@ -76,7 +76,8 @@ client, à encaisser = articles + livraison. Prix gardés tels quels (pas recalc
 corrigé par un ajustement). Argent chez le livreur tant que `cashedback_at` est vide. Un reversement fait ensuite dans
 l'ancienne application solde les écritures par un reversement « ANC-… » (sans message à l'e-commerçant).
 
-**Copie en continu** (`legacy:sync` chaque minute) : commandes créées ou modifiées depuis la dernière copie (la
+**Copie en continu** (`legacy:sync` chaque minute) : d'abord les nouvelles commandes, par numéro (plus grand que le
+dernier repris), quelles que soient leurs dates ; puis les commandes créées ou modifiées depuis la dernière copie (la
 commande, son paiement, ses notes, frais, articles, relances), avec deux minutes de recouvrement. Puis un paquet de
 400 courses encore en cours (ou dont l'argent n'est pas soldé) est relu par leur numéro, à tour de rôle : une
 commande changée là-bas sans mise à jour de sa date de modification (requête directe de l'ancienne application, ou
