@@ -123,9 +123,16 @@ class AuthController extends Controller
         // l'utilisateur de la requête dès maintenant
         request()->setUserResolver(fn () => $user);
 
+        // Super administrateur : 12 heures (la console donne accès à toute la plateforme) ; équipe d'une entreprise
+        // (caisse, dispatch, administrateurs) : 7 jours ; livreurs et e-commerçants : la durée par défaut (30 jours)
+        $expires = match (true) {
+            $user->isPlatformStaff() => now()->addHours(12),
+            $user->merchant_id === null && ! $user->isCourier() => now()->addDays(7),
+            default => null,
+        };
+
         return [
-            // Super administrateur : session de 12 heures (la console donne accès à toute la plateforme)
-            'token' => $user->createToken($device, ['*'], $user->isPlatformStaff() ? now()->addHours(12) : null)->plainTextToken,
+            'token' => $user->createToken($device, ['*'], $expires)->plainTextToken,
             'token_type' => 'Bearer',
             'user' => UserResource::make($user->load(['company.plan', 'merchant', 'courier']))->withPermissions(),
         ];
