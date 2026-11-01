@@ -247,7 +247,7 @@ const toggle = () => call(() => http.put('/company/legacy-orders/enabled', { ena
 
 async function syncNow() {
   const data = await call(() => http.post('/company/legacy-orders/sync'))
-  if (data?.counts) toasts.success(`${data.counts.created} nouvelle(s), ${data.counts.updated} mise(s) à jour.`)
+  if (data?.counts) toasts.success(`${data.counts.created} nouvelle(s), ${data.counts.updated} mise(s) à jour · ${data.counts.reread} course(s) en cours relue(s).`)
 }
 
 async function downloadModule() {

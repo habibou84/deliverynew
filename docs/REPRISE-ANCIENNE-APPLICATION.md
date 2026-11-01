@@ -77,7 +77,13 @@ corrigé par un ajustement). Argent chez le livreur tant que `cashedback_at` est
 l'ancienne application solde les écritures par un reversement « ANC-… » (sans message à l'e-commerçant).
 
 **Copie en continu** (`legacy:sync` chaque minute) : commandes créées ou modifiées depuis la dernière copie (la
-commande, son paiement, ses notes, frais, articles, relances), avec deux minutes de recouvrement. Chaque nuit
+commande, son paiement, ses notes, frais, articles, relances), avec deux minutes de recouvrement. Puis un paquet de
+400 courses encore en cours (ou dont l'argent n'est pas soldé) est relu par leur numéro, à tour de rôle : une
+commande changée là-bas sans mise à jour de sa date de modification (requête directe de l'ancienne application, ou
+base et application réglées sur deux fuseaux différents) arrive quand même en quelques minutes. « Copier
+maintenant » relit toutes les courses en cours d'un coup. Le module version 3 part de l'heure la plus ancienne
+entre la base et l'application pour la copie suivante : le retélécharger et le remplacer (l'écran « Vérifier »
+signale un module pas à jour). Chaque nuit
 (`legacy:sync --recheck`), les courses reprises encore en cours ou non soldées sont relues. Avant la bascule,
 l'ancienne application fait foi. Après, Jibiat fait foi : une course déjà là n'est plus écrasée (signalée
 « Modifiée dans l'ancienne application ») ; une nouvelle commande saisie là-bas arrive et l'équipe est prévenue.
