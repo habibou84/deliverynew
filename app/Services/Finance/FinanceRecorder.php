@@ -16,6 +16,7 @@ use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\User;
+use App\Services\Premium\PremiumLevels;
 
 /**
  * Traduit les étapes d'une course en écritures financières (appelé par
@@ -102,8 +103,18 @@ class FinanceRecorder
     {
         $percent = $order->company->return_fee_percent;
         $fee = (int) round($order->totalFees() * $percent / 100);
+        // Niveau Premium du marchand : frais de retour réduits ou offerts
+        $level = app(PremiumLevels::class)->levelFor($order->merchant);
+        $discount = min(100, $level->return_discount_percent ?? 0);
+        $label = "Frais de retour ({$percent} % des frais de livraison)";
+        if ($discount > 0) {
+            $fee = (int) round($fee * (100 - $discount) / 100);
+            $label .= $discount >= 100 ? ', offerts (niveau '.$level->name.')' : ", −{$discount} % niveau {$level->name}";
+        }
 
-        $this->ledger($order, LedgerEntryType::ReturnFee, -$fee, $actor, "Frais de retour ({$percent} % des frais de livraison)");
+        if ($fee > 0 || $discount < 100) {
+            $this->ledger($order, LedgerEntryType::ReturnFee, -$fee, $actor, $label);
+        }
 
         $this->pay->record($courier, PayEvent::Return, $order);
     }

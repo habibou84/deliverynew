@@ -25,7 +25,7 @@ class PremiumCard extends Model
 
     protected $fillable = [
         'company_id', 'merchant_id', 'code', 'number', 'label', 'url', 'state', 'reason', 'offered_by', 'offered_at',
-        'revoked_at', 'free_until', 'activated_at', 'store_name', 'store_url', 'synced_at', 'price', 'platform_invoice_id',
+        'revoked_at', 'free_until', 'activated_at', 'store_name', 'store_url', 'synced_at', 'price', 'platform_invoice_id', 'plan', 'free_months', 'discount_rate',
     ];
 
     protected function casts(): array
@@ -38,6 +38,8 @@ class PremiumCard extends Model
             'activated_at' => 'datetime',
             'synced_at' => 'datetime',
             'price' => 'integer',
+            'free_months' => 'integer',
+            'discount_rate' => 'float',
         ];
     }
 

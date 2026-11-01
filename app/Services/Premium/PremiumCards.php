@@ -47,6 +47,26 @@ class PremiumCards
         'min_success_rate' => 0.85,
         'min_client_days' => 90,
         'max_debt_days' => 30,
+        // Niveaux : plafonds de sécurité pour les entreprises
+        'max_levels' => 3,
+        'max_delivery_discount' => 30,
+    ];
+
+    /**
+     * Formules Jibiat Marchand qu'une entreprise peut offrir avec un niveau : permise, mois offerts et réduction au
+     * plus, prix d'une carte pour l'entreprise (quand c'est elle qui paie).
+     */
+    public const PLAN_DEFAULTS = [
+        'starter' => ['allowed' => true, 'max_months' => 12, 'max_discount' => 50, 'price' => 2000],
+        'pro' => ['allowed' => true, 'max_months' => 6, 'max_discount' => 30, 'price' => 6000],
+        'business' => ['allowed' => false, 'max_months' => 3, 'max_discount' => 20, 'price' => 15000],
+    ];
+
+    /** Ce que contient chaque formule (affiché à l'entreprise et au marchand ; réglé chez Jibiat Marchand) */
+    public const PLAN_FEATURES = [
+        'starter' => ['name' => 'Starter', 'monthly_price' => 3500, 'features' => ['Commandes et produits sans limite', '3 membres d\'équipe, 5 livreurs', 'Paiement en ligne', '50 actions IA par mois']],
+        'pro' => ['name' => 'Pro', 'monthly_price' => 12500, 'features' => ['Tout Starter', '10 membres d\'équipe', 'Domaine personnalisé', 'WhatsApp de la boutique', 'Statistiques avancées', '300 actions IA par mois']],
+        'business' => ['name' => 'Business', 'monthly_price' => 35000, 'features' => ['Tout Pro', '3 boutiques', 'API marchand', '1 000 actions IA par mois']],
     ];
 
     public const FUNDERS = ['jibiat' => 'Jibiat', 'company' => 'L\'entreprise'];
@@ -77,7 +97,45 @@ class PremiumCards
             'min_success_rate' => (float) ($get('min_success_rate') ?? $d['min_success_rate']),
             'min_client_days' => (int) ($get('min_client_days') ?? $d['min_client_days']),
             'max_debt_days' => (int) ($get('max_debt_days') ?? $d['max_debt_days']),
+            'max_levels' => max(1, min(3, (int) ($get('max_levels') ?? $d['max_levels']))),
+            'max_delivery_discount' => max(0, min(90, (int) ($get('max_delivery_discount') ?? $d['max_delivery_discount']))),
         ];
+    }
+
+    /**
+     * Formules permises aux entreprises (console).
+     *
+     * @return array<string, array{allowed: bool, max_months: int, max_discount: int, price: int}>
+     */
+    public function plans(): array
+    {
+        $stored = json_decode((string) PlatformSetting::query()->where('key', 'premium.plans')->value('value'), true);
+        $plans = [];
+        foreach (self::PLAN_DEFAULTS as $code => $default) {
+            $row = is_array($stored[$code] ?? null) ? $stored[$code] : [];
+            $plans[$code] = [
+                'allowed' => (bool) ($row['allowed'] ?? $default['allowed']),
+                'max_months' => max(0, min(36, (int) ($row['max_months'] ?? $default['max_months']))),
+                'max_discount' => max(0, min(90, (int) ($row['max_discount'] ?? $default['max_discount']))),
+                'price' => max(0, (int) ($row['price'] ?? $default['price'])),
+            ];
+        }
+
+        return $plans;
+    }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $plans
+     */
+    public function updatePlans(array $plans): void
+    {
+        $current = $this->plans();
+        foreach ($plans as $code => $row) {
+            if (isset($current[$code])) {
+                $current[$code] = array_merge($current[$code], array_intersect_key($row, $current[$code]));
+            }
+        }
+        PlatformSetting::put('premium.plans', json_encode($current));
     }
 
     /**
@@ -113,12 +171,15 @@ class PremiumCards
         return PremiumCard::forCompany($company->id)->counted()->count();
     }
 
-    /** Prix d'une carte pour l'entreprise : 0 quand Jibiat paie */
-    public function price(): int
+    /** Prix d'une carte pour l'entreprise : 0 quand Jibiat paie ; selon la formule offerte par un niveau */
+    public function price(?string $plan = null): int
     {
         $s = $this->settings();
+        if ($s['funded_by'] !== 'company') {
+            return 0;
+        }
 
-        return $s['funded_by'] === 'company' ? max(0, $s['price']) : 0;
+        return $plan !== null && isset($this->plans()[$plan]) ? $this->plans()[$plan]['price'] : max(0, $s['price']);
     }
 
     /**
@@ -128,7 +189,7 @@ class PremiumCards
      * @param  list<int>|null  $merchantIds
      * @return array<int, array{delivered: int, failed: int, first_order_at: ?string}>
      */
-    private function activity(Company $company, ?array $merchantIds = null): array
+    public function activity(Company $company, ?array $merchantIds = null): array
     {
         $since = now()->subDays($this->settings()['window_days']);
         $failed = array_map(fn (OrderStatus $s) => $s->value, self::FAILED);
@@ -158,7 +219,7 @@ class PremiumCards
      *
      * @return list<int>
      */
-    private function lateDebtors(Company $company): array
+    public function lateDebtors(Company $company): array
     {
         $cutoff = now()->subDays($this->settings()['max_debt_days']);
         $unpaid = fn () => MerchantLedgerEntry::forCompany($company->id)->whereNull('payout_id')
@@ -256,7 +317,11 @@ class PremiumCards
      * Offre la carte au marchand : vérifie le programme, la carte déjà offerte et le nombre de cartes, demande la
      * carte à Jibiat Marchand, la garde, et prévient le marchand avec le lien.
      */
-    public function offer(Company $company, Merchant $merchant, string $reason, ?User $by = null): PremiumCard
+    /**
+     * @param  array{plan: string, free_months: int, discount_rate: float}|null  $formula  formule choisie par le
+     *                                                                                     niveau (socle 1.8)
+     */
+    public function offer(Company $company, Merchant $merchant, string $reason, ?User $by = null, ?array $formula = null): PremiumCard
     {
         abort_unless(in_array($reason, Contract::PREMIUM_CARD_REASONS, true), 422);
         if (! $this->settings()['enabled']) {
@@ -290,6 +355,7 @@ class PremiumCards
                 'success_rate' => $progress['success_rate'],
                 'client_since' => $progress['client_since'],
             ],
+            ...($formula !== null ? ['offer' => $formula] : []),
         ];
 
         $response = $this->send('POST', self::PATH, json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -307,7 +373,7 @@ class PremiumCards
             'reason' => $reason,
             'offered_by' => $by?->id,
             'offered_at' => now(),
-            'price' => $this->price(),
+            'price' => $this->price($formula['plan'] ?? null),
         ]));
 
         $this->announce($company, $merchant, $card, (int) $data['free_months']);
@@ -459,6 +525,9 @@ class PremiumCards
             'activated_at' => isset($data['activated_at']) ? CarbonImmutable::parse($data['activated_at']) : null,
             'store_name' => $data['store']['name'] ?? null,
             'store_url' => $data['store']['url'] ?? null,
+            'plan' => isset($data['plan']) ? mb_substr((string) $data['plan'], 0, 20) : null,
+            'free_months' => isset($data['free_months']) ? (int) $data['free_months'] : null,
+            'discount_rate' => isset($data['discount_rate']) ? (float) $data['discount_rate'] : null,
         ];
     }
 

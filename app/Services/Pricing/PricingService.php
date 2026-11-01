@@ -9,6 +9,7 @@ use App\Models\PricingGrid;
 use App\Models\PricingGroup;
 use App\Models\PricingRule;
 use App\Models\Zone;
+use App\Services\Premium\PremiumLevels;
 
 /**
  * Calcule le tarif d'une course :
@@ -17,7 +18,8 @@ use App\Models\Zone;
  *    tous les niveaux, dans les deux sens si le prix est symétrique ;
  * 3. sinon prix « depuis partout » du groupe où se trouve le lieu de livraison, ou à défaut le lieu qui le
  *    contient (quartier, puis commune) ;
- * 4. suppléments (express, fragile, poids).
+ * 4. suppléments (express, fragile, poids) ;
+ * 5. réduction du niveau Premium du marchand sur le prix de base.
  */
 class PricingService
 {
@@ -30,22 +32,28 @@ class PricingService
             $rule = $this->findRule($grid, $pickupZone, $deliveryZone);
 
             if ($rule !== null) {
+                $discount = app(PremiumLevels::class)->deliveryDiscount($merchant, $rule->price);
+
                 return new Quote(
-                    basePrice: $rule->price,
+                    basePrice: $rule->price - $discount,
                     surcharges: $this->surcharges($grid, $rule->price, $options),
                     pricingGridId: $grid->id,
                     pricingRuleId: $rule->id,
+                    premiumDiscount: $discount,
                 );
             }
 
             $group = $this->findGroup($grid, $deliveryZone);
             if ($group !== null) {
+                $discount = app(PremiumLevels::class)->deliveryDiscount($merchant, $group->price);
+
                 return new Quote(
-                    basePrice: $group->price,
+                    basePrice: $group->price - $discount,
                     surcharges: $this->surcharges($grid, $group->price, $options),
                     pricingGridId: $grid->id,
                     pricingRuleId: null,
                     pricingGroupId: $group->id,
+                    premiumDiscount: $discount,
                 );
             }
         }

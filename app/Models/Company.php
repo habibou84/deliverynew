@@ -128,6 +128,7 @@ class Company extends Model
             'courier_available_alert' => 'boolean',
             'directory_listed' => 'boolean',
             'premium_auto' => 'boolean',
+            'premium_reviewed_at' => 'datetime',
             'whatsapp_qr_enabled' => 'boolean',
             'premium_quota' => 'integer',
             'automation_paused_at' => 'datetime',
