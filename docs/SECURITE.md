@@ -57,6 +57,22 @@ correction a son test. À rejouer chaque trimestre (voir `docs/MAINTENANCE.md`).
 | Moyenne | WhatsApp : identifiant du numéro d'une autre entreprise réservable. | Un numéro vérifié ne peut pas être repris ; un compte non vérifié auprès de Meta ne reçoit aucun message, et son identifiant est libéré pour le vrai titulaire. |
 | Moyenne | `symfony/mime` avec une faille connue. | Mise à jour (`composer audit` : 0 faille). |
 
+## Audit n° 2, lot 3 corrigé
+
+| Gravité | Problème | Correction |
+|---|---|---|
+| Basse | Connexion WhatsApp et mot de passe oublié d'un numéro bloqués par 5 demandes. | 5 demandes par heure par numéro et par adresse IP ; 20 toutes adresses confondues. |
+| Basse | On pouvait savoir si un numéro avait un compte, et de quel type. | Connexion par WhatsApp : même réponse dans tous les cas ; la raison (aucun compte, autre espace, compte suspendu) n'est donnée qu'après l'envoi du message depuis le numéro. |
+| Basse | Accepter une invitation laissait ouvertes les autres sessions du compte. | Les autres sessions et appareils retenus sont fermés. |
+| Basse | Bascule de l'ancienne application repoussable sans fin. | Une bascule commencée ne se repousse plus (annulation seule, pour revenir en arrière) ; une date passée commence tout de suite. |
+| Basse | Le robot WhatsApp donnait le numéro lié à un code en attente. | Jamais de numéro dans la réponse ; 10 codes non reconnus par heure et par numéro. |
+| Basse | Fichier Excel piégé pouvant bloquer l'import. | Taille décompressée (50 Mo), nombre de fichiers, lignes (2 000) et colonnes (100) limités avant et pendant la lecture. |
+| Basse | Page boutique noyable sous de fausses commandes en changeant d'adresse IP. | Limite par boutique, toutes adresses IP confondues (20 par minute, 200 par heure). |
+| Basse | Paiement à l'unité d'un e-commerçant sans contrôle du moyen de paiement. | Refusé si le moyen de paiement attend d'être vérifié, comme le paiement groupé. |
+| Basse | Deux contrôles d'argent hors verrou (annulation de versement, paie gardée sur l'encaissé). | Contrôles faits sous verrou en base. |
+| Basse | Pièces jointes internes lisibles par l'e-commerçant ; historique interne visible du livreur ; photos de produits par numéro. | Pièce jointe d'une étape interne refusée ; le livreur voit l'historique partagé et ses propres notes ; photo d'un produit non publié seulement avec le lien de l'application. |
+| Basse | Configuration : cookie sécurisé non forcé, jetons de 30 jours pour tous, journal « debug » par défaut, temps réel ouvert à toutes les origines. | Cookie sécurisé par défaut en production ; session de 7 jours pour l'équipe d'une entreprise (30 jours pour livreurs et e-commerçants, 12 h pour la console) ; journal « info » par défaut en production ; origines du temps réel réglables (`REVERB_ALLOWED_ORIGINS`), laissées ouvertes par défaut car les canaux privés exigent le jeton et les applications et domaines personnalisés s'y connectent. |
+
 ## Vérifié et sain
 
 Isolement entre entreprises (scope global, jeton lié à l'adresse de l'entreprise), isolement entre marchands d'une

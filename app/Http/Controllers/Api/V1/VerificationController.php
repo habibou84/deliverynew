@@ -79,8 +79,10 @@ class VerificationController extends Controller
             'phone' => PhoneNumber::display($verification->phone),
             'status' => $status,
             'message' => $status !== 'failed' ? null : ($verification->purpose === PhoneVerification::LOGIN
-                ? 'Compte suspendu. Contactez votre administrateur.'
+                ? self::loginFailure($verification)
                 : 'Ce numéro a déjà un compte. Connectez-vous, ou utilisez « Mot de passe oublié ».'),
+            // Connexion depuis la mauvaise page : dit seulement après la vérification du numéro (titulaire)
+            ...($status === 'failed' && isset($verification->payload['wrong_space']) ? ['space' => $verification->payload['wrong_space']] : []),
             'verified_via' => $verification->verified_via,
             'expires_at' => $verification->expires_at,
             'whatsapp' => $whatsapp ? [
@@ -125,6 +127,19 @@ class VerificationController extends Controller
         }
 
         return $state;
+    }
+
+    /** Raison d'une connexion par WhatsApp refusée, donnée seulement au titulaire du numéro (vérifié) */
+    private static function loginFailure(PhoneVerification $verification): string
+    {
+        $space = $verification->payload['wrong_space'] ?? null;
+        if (is_string($space) && isset(AuthController::WRONG_SPACE[$space])) {
+            return AuthController::WRONG_SPACE[$space];
+        }
+
+        return $verification->user_id === null
+            ? 'Aucun compte avec ce numéro. Vérifiez-le, ou créez votre compte.'
+            : 'Compte suspendu. Contactez votre administrateur.';
     }
 
     private static function canLogIn(PhoneVerification $verification): bool

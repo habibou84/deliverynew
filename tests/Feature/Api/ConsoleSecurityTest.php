@@ -123,7 +123,8 @@ class ConsoleSecurityTest extends TestCase
         $this->assertTrue($expires->between(now()->addHours(11), now()->addHours(13)));
 
         // Pas de connexion par WhatsApp pour un compte de la plateforme (mot de passe seulement)
-        $this->postJson($this->console('/auth/whatsapp'), ['phone' => '0700000099'])->assertJsonValidationErrors('phone');
+        // (réponse sans dire qu'un compte de la console existe : audit n° 2, point 23)
+        $this->postJson($this->console('/auth/whatsapp'), ['phone' => '0700000099'])->assertNotFound()->assertJsonMissingPath('token');
     }
 
     public function test_wave_settings_need_the_password_and_a_six_digit_code(): void

@@ -57,6 +57,11 @@ class ProductPhotoController extends Controller
         // Photo publique (boutique) : seulement à l'adresse de l'entreprise du produit
         abort_if(app(Tenancy::class)->zone() === Tenancy::COMPANY && $product->company_id !== app(Tenancy::class)->company()?->id, 404);
         abort_if($product->photo_path === null || ! Storage::disk('local')->exists($product->photo_path), 404);
+        // Produit pas publié dans la boutique : seulement avec le lien donné par l'application (empreinte de la
+        // photo), pas en essayant les numéros de produit
+        if (! ($product->shop_visible && $product->is_active)) {
+            abort_unless(hash_equals(substr(md5($product->photo_path), 0, 10), (string) request()->query('v')), 404);
+        }
 
         return Storage::disk('local')->response($product->photo_path, null, [
             'Cache-Control' => 'public, max-age=31536000, immutable',

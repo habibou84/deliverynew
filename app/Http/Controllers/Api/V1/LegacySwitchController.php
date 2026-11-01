@@ -12,8 +12,10 @@ use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
@@ -45,7 +47,13 @@ class LegacySwitchController extends Controller
     {
         $data = $request->validate(['switch_at' => ['present', 'nullable', 'date']], [], ['switch_at' => 'date de bascule']);
         $company = $request->user()->company;
-        $company->forceFill(['legacy_switch_at' => $data['switch_at'] ?? null])->save();
+        // Bascule commencée : elle ne se repousse plus (seule l'annulation reste possible, pour revenir en arrière)
+        if (isset($data['switch_at']) && $company->legacy_switch_at !== null && Carbon::parse($company->legacy_switch_at)->lte(now())) {
+            throw ValidationException::withMessages(['switch_at' => 'La bascule a déjà commencé : sa date ne peut plus changer (vous pouvez seulement l\'annuler).']);
+        }
+        // Date passée : la bascule commence tout de suite (jamais antidatée)
+        $at = isset($data['switch_at']) ? Carbon::parse($data['switch_at'])->max(now()) : null;
+        $company->forceFill(['legacy_switch_at' => $at])->save();
 
         return response()->json(['data' => $this->describe($company)]);
     }
