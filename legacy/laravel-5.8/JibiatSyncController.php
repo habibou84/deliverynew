@@ -42,7 +42,7 @@ class JibiatSyncController extends Controller
 
     const MAX = 500;
 
-    const VERSION = 2;
+    const VERSION = 3;
 
     public function index(Request $request, $resource)
     {
@@ -276,12 +276,17 @@ class JibiatSyncController extends Controller
         return $keyed;
     }
 
-    /** Heure de la base : Jibiat la reprend telle quelle pour la copie suivante */
+    /**
+     * Heure de départ de la copie suivante : la plus ancienne entre l'horloge de la base et celle de l'application
+     * (fuseau de config/app.php, celui des dates created_at et updated_at). Si les deux ne sont pas réglées sur le même
+     * fuseau, aucune modification n'est oubliée.
+     */
     private function now()
     {
         $row = DB::selectOne('SELECT NOW() AS now');
+        $app = \Carbon\Carbon::now()->toDateTimeString();
 
-        return $row ? $row->now : date('Y-m-d H:i:s');
+        return $row && strcmp((string) $row->now, $app) < 0 ? (string) $row->now : $app;
     }
 
     /** Lignes en tableaux, textes en UTF-8 (certaines tables anciennes sont en latin1) */
