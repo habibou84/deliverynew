@@ -38,6 +38,28 @@
           <label class="block text-sm">Argent dû depuis (jours) au plus<input v-model.number="form.max_debt_days" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"></label>
         </div>
       </fieldset>
+      <fieldset class="space-y-2">
+        <legend class="text-sm font-semibold">Niveaux des entreprises : ce qu'elles ont le droit d'offrir</legend>
+        <div class="grid gap-3 sm:grid-cols-4">
+          <label class="block text-sm">Niveaux au plus<input v-model.number="form.max_levels" type="number" min="1" max="3" class="input mt-1 w-full" :disabled="!owner"></label>
+          <label class="block text-sm">Réduction livraison au plus (%)<input v-model.number="form.max_delivery_discount" type="number" min="0" max="90" class="input mt-1 w-full" :disabled="!owner"></label>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead><tr class="text-left text-gray-500"><th class="py-1.5 pr-2 font-medium">Formule Jibiat Marchand</th><th class="px-2 font-medium">Permise</th><th class="px-2 font-medium">Mois offerts au plus</th><th class="px-2 font-medium">Réduction ensuite au plus (%)</th><th class="px-2 font-medium">Prix d'une carte (F)</th></tr></thead>
+            <tbody>
+              <tr v-for="(p, code) in plans" :key="code" class="border-t">
+                <td class="py-2 pr-2"><b>{{ features[code]?.name || code }}</b><span class="block text-xs text-gray-500">{{ (features[code]?.features || []).join(' · ') }}</span></td>
+                <td class="px-2"><input v-model="p.allowed" type="checkbox" class="h-4 w-4" :disabled="!owner" :aria-label="`${code} permise`"></td>
+                <td class="px-2"><input v-model.number="p.max_months" type="number" min="0" max="36" class="input w-20" :disabled="!owner || !p.allowed"></td>
+                <td class="px-2"><input v-model.number="p.max_discount" type="number" min="0" max="90" class="input w-20" :disabled="!owner || !p.allowed"></td>
+                <td class="px-2"><input v-model.number="p.price" type="number" min="0" class="input w-28" :disabled="!owner || !p.allowed || form.funded_by !== 'company'"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-xs text-gray-500">Le prix d'une carte s'applique quand l'entreprise paie ses cartes ; il va sur sa facture du mois.</p>
+      </fieldset>
       <div v-if="owner" class="flex justify-end">
         <button type="submit" class="btn-primary" :disabled="saving">Enregistrer</button>
       </div>
@@ -50,6 +72,7 @@
           <RouterLink :to="`/console/entreprises/${c.id}`" class="min-w-0 flex-1 truncate font-semibold hover:underline">{{ c.name }}</RouterLink>
           <span class="text-gray-500">{{ c.used }} / {{ c.effective_quota }} offertes · {{ c.active }} active{{ c.active > 1 ? 's' : '' }}</span>
           <span :class="['rounded-full px-2 py-0.5 text-xs', c.auto ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600']">{{ c.auto ? 'Carte automatique' : 'À la main' }}</span>
+          <span v-if="c.levels.length" class="w-full text-xs text-gray-500 sm:w-auto">⭐ {{ c.levels.map((l) => `${l.name} (${l.merchants}${l.delivery_discount_percent ? `, −${l.delivery_discount_percent} %` : ''}${l.jm_plan ? `, ${features[l.jm_plan]?.name} ${l.jm_free_months} mois` : ''})`).join(' · ') }}</span>
           <label v-if="owner" class="flex items-center gap-1 text-xs text-gray-500">Cartes
             <input v-model.number="c.quota" type="number" min="0" class="input w-20 !py-1" :placeholder="String(form.quota)" @change="saveCompany(c)">
           </label>
@@ -76,6 +99,8 @@ const configured = ref(true)
 const funders = ref({})
 const companies = ref([])
 const form = reactive({})
+const plans = ref({})
+const features = ref({})
 
 // Taux de réussite saisi en pourcentage, gardé de 0 à 1
 const successPct = computed({
@@ -85,6 +110,8 @@ const successPct = computed({
 
 function apply(data) {
   Object.assign(form, data.settings)
+  plans.value = JSON.parse(JSON.stringify(data.plans || {}))
+  features.value = data.plan_features || {}
   configured.value = data.configured
   funders.value = data.funders
   companies.value = data.companies
@@ -102,7 +129,7 @@ async function load() {
 async function save() {
   saving.value = true
   try {
-    apply((await http.put('/console/premium', { ...form })).data.data)
+    apply((await http.put('/console/premium', { ...form, plans: plans.value })).data.data)
     toasts.success('Réglages enregistrés.')
     error.value = ''
   } catch (e) {

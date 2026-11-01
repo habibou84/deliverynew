@@ -5,9 +5,17 @@
         <h1 class="text-xl font-bold">Programme Premium Jibiat Marchand</h1>
         <p class="text-sm text-gray-500">Offrez à vos meilleurs e-commerçants leur carte Membre Premium : ils vendent plus, vous livrez plus.</p>
       </div>
-      <button v-if="canOffer && data" type="button" class="btn-primary" :disabled="!canOfferMore" @click="pickerOpen = true">Offrir une carte</button>
+      <button v-if="canOffer && data && tab === 'cards'" type="button" class="btn-primary" :disabled="!canOfferMore" @click="pickerOpen = true">Offrir une carte</button>
     </div>
 
+    <div class="flex flex-wrap gap-2" role="tablist">
+      <button type="button" role="tab" :aria-selected="tab === 'cards'" class="rounded-full px-4 py-1.5 text-sm font-semibold" :class="tab === 'cards' ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-700'" @click="tab = 'cards'">Cartes et meilleurs clients</button>
+      <button type="button" role="tab" :aria-selected="tab === 'levels'" class="rounded-full px-4 py-1.5 text-sm font-semibold" :class="tab === 'levels' ? 'bg-violet-600 text-white' : 'bg-slate-200 text-slate-700'" @click="tab = 'levels'">⭐ Avantages et niveaux</button>
+    </div>
+
+    <PremiumLevelsPanel v-if="tab === 'levels'" />
+
+    <template v-if="tab === 'cards'">
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
     <p v-if="data && !data.program.enabled" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Le programme n'est pas ouvert pour le moment : Jibiat vous préviendra dès son ouverture.</p>
     <p v-else-if="data && !data.program.configured" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Le programme n'est pas encore relié à Jibiat Marchand : les cartes ne peuvent pas encore être offertes.</p>
@@ -118,6 +126,7 @@
       </section>
     </template>
     <p v-else-if="!error" class="text-sm text-gray-500">Chargement…</p>
+    </template>
 
     <!-- Choisir un e-commerçant -->
     <Modal :open="pickerOpen" title="Offrir une carte Membre Premium" @close="pickerOpen = false">
@@ -154,11 +163,13 @@
 import { computed, onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
+import PremiumLevelsPanel from '../../components/premium/PremiumLevelsPanel.vue'
 import { useAuthStore } from '../../stores/auth'
 import { date, money } from '../../utils/format'
 
 const auth = useAuthStore()
 const data = ref(null)
+const tab = ref(new URLSearchParams(location.search).get('onglet') === 'niveaux' ? 'levels' : 'cards')
 const error = ref('')
 const busy = ref(false)
 const auto = ref(false)

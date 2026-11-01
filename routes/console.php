@@ -73,5 +73,7 @@ Schedule::command('orders:due-today')->dailyAt('06:50')->withoutOverlapping();
 Schedule::command('vehicles:documents')->dailyAt('07:40')->withoutOverlapping();
 // Cartes Membre Premium Jibiat Marchand : état relu chez Jibiat Marchand, carte automatique aux marchands qui y ont droit
 Schedule::command('premium:award')->dailyAt('10:20')->withoutOverlapping();
+// Bilan des niveaux Premium le 1er du mois
+Schedule::command('premium:levels')->monthlyOn(1, '07:40')->withoutOverlapping();
 // Comptes supprimés depuis le profil : données personnelles effacées 30 jours après la demande
 Schedule::command('accounts:erase-deleted')->dailyAt('03:40')->withoutOverlapping();

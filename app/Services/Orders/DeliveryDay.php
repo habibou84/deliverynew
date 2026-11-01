@@ -5,9 +5,11 @@ namespace App\Services\Orders;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Models\Company;
+use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Messaging\OrderMessages;
+use App\Services\Premium\PremiumLevels;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -52,7 +54,7 @@ class DeliveryDay
      * Raison de la fermeture du jour (null si les livraisons du jour sont ouvertes) :
      * « manual » (fermée par le dispatch) ou « cutoff » (heure limite passée).
      */
-    public function closedReason(Company $company): ?string
+    public function closedReason(Company $company, ?Merchant $merchant = null): ?string
     {
         if (! $this->rulesApply($company)) {
             return null;
@@ -61,7 +63,18 @@ class DeliveryDay
             return 'manual';
         }
 
-        return $this->awaiting->cutoffPassed($company) ? 'cutoff' : null;
+        return $this->cutoffPassed($company, $merchant) ? 'cutoff' : null;
+    }
+
+    /** Heure limite passée ; un marchand Premium peut avoir un délai en plus */
+    private function cutoffPassed(Company $company, ?Merchant $merchant): bool
+    {
+        $cutoff = $merchant !== null ? app(PremiumLevels::class)->cutoffFor($company, $merchant) : null;
+        if ($cutoff === null || $cutoff === $company->cutoffFor()) {
+            return $this->awaiting->cutoffPassed($company);
+        }
+
+        return now($company->timezone ?: config('app.timezone'))->format('H:i') >= $cutoff;
     }
 
     /**
@@ -69,9 +82,9 @@ class DeliveryDay
      *
      * @return array<string, mixed>
      */
-    public function status(Company $company, bool $withCount = false): array
+    public function status(Company $company, bool $withCount = false, ?Merchant $merchant = null): array
     {
-        $reason = $this->closedReason($company);
+        $reason = $this->closedReason($company, $merchant);
 
         return [
             'mode' => $company->validation_mode ?? Company::VALIDATION_MANUAL,
@@ -79,7 +92,7 @@ class DeliveryDay
             'closed' => $reason !== null,
             'reason' => $reason,
             'message' => $reason ? $this->reasonText($company, $reason) : null,
-            'cutoff_time' => $company->cutoffFor(),
+            'cutoff_time' => $merchant !== null ? app(PremiumLevels::class)->cutoffFor($company, $merchant) : $company->cutoffFor(),
             'closed_at' => $reason === 'manual' ? $company->deliveries_closed_at?->toIso8601String() : null,
             'today' => $this->today($company)->toDateString(),
             'next_day' => $this->nextDay($company)->toDateString(),
@@ -102,7 +115,7 @@ class DeliveryDay
      */
     public function postponeIfClosed(Order $order, Company $company): ?string
     {
-        $reason = $this->closedReason($company);
+        $reason = $this->closedReason($company, $order->merchant_id ? Merchant::withoutGlobalScopes()->find($order->merchant_id) : null);
         if ($reason === null || ! $this->isForToday($order, $company)) {
             return null;
         }

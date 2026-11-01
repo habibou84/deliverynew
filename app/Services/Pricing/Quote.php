@@ -16,6 +16,8 @@ final readonly class Quote
         public int $pricingGridId,
         public ?int $pricingRuleId,
         public ?int $pricingGroupId = null,
+        // Réduction Premium du marchand, déjà retirée du prix de base
+        public int $premiumDiscount = 0,
     ) {}
 
     public function surchargesTotal(): int
@@ -41,6 +43,7 @@ final readonly class Quote
             'pricing_grid_id' => $this->pricingGridId,
             'pricing_rule_id' => $this->pricingRuleId,
             'pricing_group_id' => $this->pricingGroupId,
+            'premium_discount' => $this->premiumDiscount,
         ];
     }
 }
