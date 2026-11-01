@@ -105,7 +105,7 @@ class PremiumLevelsTest extends TestCase
         $this->history($silver, 6, 1);
 
         Sanctum::actingAs($this->admin);
-        $data = $this->postJson('/api/v1/premium/levels/review')->assertOk()->json('data');
+        $data = $this->postJson('/api/v1/premium/levels/review')->assertOk()->json('data.result');
         $this->assertSame(2, $data['up']);
         $this->assertSame(1, $data['cards']);
 

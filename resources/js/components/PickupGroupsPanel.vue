@@ -16,6 +16,7 @@
           <button type="button" class="text-left flex-1 min-w-0" :aria-expanded="!!open[g.key]" @click="open[g.key] = !open[g.key]">
             <span class="block font-semibold">
               {{ open[g.key] ? '▾' : '▸' }} {{ g.merchant?.business_name || g.pickup.contact_name || 'Client' }}
+              <span v-if="g.premium" class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800" :title="g.premium.priority ? 'Ramassage prioritaire' : ''">⭐ {{ g.premium.name }}<template v-if="g.premium.priority"> · prioritaire</template></span>
               <span class="ml-1 rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">{{ visible(g).length }} colis</span>
             </span>
             <span class="block text-sm text-gray-600 truncate">{{ g.pickup.address || '—' }}<span v-if="g.pickup.phone"> · {{ g.pickup.phone }}</span></span>

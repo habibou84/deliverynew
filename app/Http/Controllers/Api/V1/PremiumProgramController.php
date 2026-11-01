@@ -79,8 +79,9 @@ class PremiumProgramController extends Controller
     public function review(Request $request): JsonResponse
     {
         $result = $this->levels->review($this->company($request));
+        $data = $this->levels($request)->getData(true)['data'];
 
-        return response()->json(['data' => $result] + $this->levels($request)->getData(true));
+        return response()->json(['data' => [...$data, 'result' => $result]]);
     }
 
     public function show(Request $request): JsonResponse
@@ -178,7 +179,7 @@ class PremiumProgramController extends Controller
                     'store_name' => $card->store_name,
                     'store_url' => $card->store_url,
                     'plan' => $card->plan,
-                    'plan_name' => PremiumCards::PLAN_FEATURES[$card->plan]['name'] ?? null,
+                    'plan_name' => $card->plan ? (PremiumCards::PLAN_FEATURES[mb_strtolower($card->plan)]['name'] ?? $card->plan) : null,
                     'free_months' => $card->free_months,
                     'discount_rate' => $card->discount_rate,
                 ],
