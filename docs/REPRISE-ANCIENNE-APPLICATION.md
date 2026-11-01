@@ -76,14 +76,22 @@ client, à encaisser = articles + livraison. Prix gardés tels quels (pas recalc
 corrigé par un ajustement). Argent chez le livreur tant que `cashedback_at` est vide. Un reversement fait ensuite dans
 l'ancienne application solde les écritures par un reversement « ANC-… » (sans message à l'e-commerçant).
 
-**Copie en continu** (`legacy:sync` chaque minute) : commandes créées ou modifiées depuis la dernière copie (la
+**Copie en continu** (`legacy:sync` chaque minute) : d'abord les nouvelles commandes, par numéro (plus grand que le
+dernier repris), quelles que soient leurs dates ; puis les commandes créées ou modifiées depuis la dernière copie (la
 commande, son paiement, ses notes, frais, articles, relances), avec deux minutes de recouvrement. Puis un paquet de
 400 courses encore en cours (ou dont l'argent n'est pas soldé) est relu par leur numéro, à tour de rôle : une
 commande changée là-bas sans mise à jour de sa date de modification (requête directe de l'ancienne application, ou
 base et application réglées sur deux fuseaux différents) arrive quand même en quelques minutes. « Copier
 maintenant » relit toutes les courses en cours d'un coup. Le module version 3 part de l'heure la plus ancienne
 entre la base et l'application pour la copie suivante : le retélécharger et le remplacer (l'écran « Vérifier »
-signale un module pas à jour). Chaque nuit
+signale un module pas à jour).
+
+**Code 429** : Laravel limite les adresses de `routes/api.php` à 60 demandes par minute. Jibiat demande les numéros par
+paquets de 500 et « Copier maintenant » relit au plus 2 000 courses en cours d'un coup ; en tâche de fond (copie de
+chaque minute, reprise, relecture de la nuit), il attend le temps demandé par l'ancienne application puis réessaie.
+Pour lever la limite : déplacer la ligne `jibiat-sync` de `routes/api.php` vers `routes/web.php` avec l'adresse
+`api/jibiat-sync/{resource}` (voir l'en-tête du module), ou passer `throttle:60,1` à `throttle:300,1` dans
+`app/Http/Kernel.php` de l'ancienne application. Chaque nuit
 (`legacy:sync --recheck`), les courses reprises encore en cours ou non soldées sont relues. Avant la bascule,
 l'ancienne application fait foi. Après, Jibiat fait foi : une course déjà là n'est plus écrasée (signalée
 « Modifiée dans l'ancienne application ») ; une nouvelle commande saisie là-bas arrive et l'équipe est prévenue.

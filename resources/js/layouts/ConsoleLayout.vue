@@ -44,6 +44,7 @@ const ITEMS = [
   { to: '/console/entreprises', label: 'Entreprises', roles: CONSOLE_ROLES.team },
   { to: '/console/formules', label: 'Formules', roles: CONSOLE_ROLES.team },
   { to: '/console/premium', label: 'Cartes Premium', roles: CONSOLE_ROLES.team },
+  { to: '/console/jibiat-ia', label: 'Jibiat IA', roles: CONSOLE_ROLES.team },
   { to: '/console/applications', label: 'Applications à leur nom', roles: CONSOLE_ROLES.team },
   { to: '/console/facturation', label: 'Facturation', roles: CONSOLE_ROLES.accounting },
   { to: '/console/paiements', label: 'Paiements Wave', roles: CONSOLE_ROLES.accounting },
