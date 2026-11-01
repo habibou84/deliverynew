@@ -1,6 +1,10 @@
 <template>
   <div class="max-w-3xl space-y-4">
     <h1 class="text-xl font-bold">Mon abonnement</h1>
+    <RouterLink to="/admin/jibiat-ia" class="card flex items-center justify-between gap-3 border-violet-200 bg-violet-50 p-3 text-sm text-violet-900 hover:bg-violet-100">
+      <span>✨ <b>Jibiat IA</b> : l'IA lit vos messages, répond à vos e-commerçants et conseille votre dispatch. En plus de votre formule.</span>
+      <span aria-hidden="true">›</span>
+    </RouterLink>
 
     <template v-if="summary">
       <!-- À payer -->
@@ -159,6 +163,7 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import InvoiceStatus from '../../components/InvoiceStatus.vue'
 import Modal from '../../components/Modal.vue'

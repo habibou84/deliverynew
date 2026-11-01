@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\ConsoleController;
 use App\Http\Controllers\Api\V1\ConsoleDashboardController;
 use App\Http\Controllers\Api\V1\ConsoleGmailController;
 use App\Http\Controllers\Api\V1\ConsoleHealthController;
+use App\Http\Controllers\Api\V1\ConsoleJibiatAiController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
 use App\Http\Controllers\Api\V1\ConsolePremiumController;
 use App\Http\Controllers\Api\V1\ConsoleSearchController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
 use App\Http\Controllers\Api\V1\InvitationController;
+use App\Http\Controllers\Api\V1\JibiatAiController;
 use App\Http\Controllers\Api\V1\LegacyCashBaselineController;
 use App\Http\Controllers\Api\V1\LegacyImportController;
 use App\Http\Controllers\Api\V1\LegacyOrdersController;
@@ -313,6 +315,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('/', 'update')->middleware($owner)->name('update');
             Route::put('companies/{company}', 'company')->middleware($owner)->name('company');
         });
+        // Jibiat IA : niveaux et réglages au Propriétaire, coût réel par entreprise
+        Route::prefix('console/ai')->name('console.ai.')->middleware($team)->controller(ConsoleJibiatAiController::class)->group(function () use ($owner) {
+            Route::get('/', 'show')->name('show');
+            Route::put('/', 'update')->middleware($owner)->name('update');
+        });
         // Applications Android au nom des entreprises : réglages et fabrication au Propriétaire
         Route::prefix('console/branded-apps')->name('console.branded-apps.')->middleware($team)->controller(ConsoleBrandedAppController::class)->group(function () use ($owner) {
             Route::get('/', 'index')->name('index');
@@ -433,6 +440,16 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('/', 'update')->middleware(['feature:custom_domain', 'throttle:10,1'])->name('update');
             Route::post('check', 'check')->middleware(['feature:custom_domain', 'throttle:10,1'])->name('check');
             Route::delete('/', 'destroy')->name('destroy');
+        });
+
+        // Jibiat IA : abonnement à part, en plus de la formule
+        Route::prefix('company/ai')->name('company.ai.')->middleware('can:settings.manage')->controller(JibiatAiController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('trial', 'trial')->middleware('throttle:10,1')->name('trial');
+            Route::post('subscribe', 'subscribe')->middleware('throttle:10,1')->name('subscribe');
+            Route::post('stop', 'stop')->middleware('throttle:10,1')->name('stop');
+            Route::post('resume', 'resume')->middleware('throttle:10,1')->name('resume');
+            Route::post('recharge', 'recharge')->middleware('throttle:10,1')->name('recharge');
         });
 
         // Formule, essai et consommation du mois de l'entreprise
