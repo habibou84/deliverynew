@@ -23,8 +23,10 @@ use RuntimeException;
 /**
  * Jibiat va chercher les commandes dans l'ancienne application (module JibiatSyncController, lecture seule) :
  * simulation puis reprise (12 derniers mois, toutes les commandes en cours et celles dont l'argent n'est pas soldé),
- * puis toutes les minutes les commandes créées ou modifiées là-bas ; chaque nuit, les courses encore en cours sont
- * relues.
+ * puis toutes les minutes les commandes créées ou modifiées là-bas, et un paquet de courses encore en cours relues par
+ * leur numéro (une modification faite là-bas sans changer sa date de mise à jour, ou avec une horloge décalée,
+ * arrive quand même en quelques minutes) ; chaque nuit, les courses encore en cours sont relues et les commandes
+ * effacées repérées.
  */
 class LegacyOrdersSync
 {
@@ -35,6 +37,9 @@ class LegacyOrdersSync
     private const OVERLAP_SECONDS = 120;
 
     private const PAGE = 200;
+
+    /** Courses en cours relues par leur numéro à chaque copie (toutes, à tour de rôle, en quelques minutes) */
+    public const REREAD = 400;
 
     public function __construct(
         private readonly LegacyOrdersImporter $importer,
@@ -147,13 +152,14 @@ class LegacyOrdersSync
     }
 
     /**
-     * Copie des commandes créées ou modifiées dans l'ancienne application depuis la dernière fois.
+     * Copie des commandes créées ou modifiées dans l'ancienne application depuis la dernière fois, puis relecture d'un
+     * paquet de courses encore en cours (toutes avec $all).
      *
-     * @return array{created: int, updated: int, unchanged: int, skipped: int, conflict: int}
+     * @return array{created: int, updated: int, unchanged: int, skipped: int, conflict: int, reread: int}
      */
-    public function sync(Company $company): array
+    public function sync(Company $company, bool $all = false): array
     {
-        $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'skipped' => 0, 'conflict' => 0];
+        $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'skipped' => 0, 'conflict' => 0, 'reread' => 0];
         $since = $company->legacy_sync_cursor
             ? now()->parse($company->legacy_sync_cursor)->subSeconds(self::OVERLAP_SECONDS)->toDateTimeString()
             : self::from();
@@ -163,10 +169,12 @@ class LegacyOrdersSync
             $afterId = 0;
             $serverTime = null;
             $created = [];
+            $seen = [];
             do {
                 $page = $this->get($company, 'commands', ['since' => $since, 'after_id' => $afterId, 'limit' => self::PAGE]);
                 $serverTime ??= $page['server_time'] ?? null;
                 foreach ($page['data'] ?? [] as $command) {
+                    $seen[(string) $command['id']] = true;
                     $result = $this->importer->import($command, live: true);
                     $counts[$result['action']]++;
                     if ($result['action'] === 'created') {
@@ -176,6 +184,7 @@ class LegacyOrdersSync
                 $afterId = $page['next_after_id'] ?? null;
             } while ($afterId !== null);
 
+            $counts['reread'] = $this->reread($company, $counts, $seen, $all);
             $this->announce($company, $created);
             $company->forceFill([
                 'legacy_sync_cursor' => $serverTime ?? $company->legacy_sync_cursor,
@@ -198,15 +207,54 @@ class LegacyOrdersSync
      */
     public function recheck(Company $company): int
     {
-        $orders = app(LegacyRechecks::class)->scope($company)->whereNull('legacy_conflict_at')
-            ->where(fn ($q) => $q->whereNotIn('status', OrderStatus::values([OrderStatus::Delivered, OrderStatus::Cancelled, OrderStatus::Returned]))
-                ->orWhereIn('id', MerchantLedgerEntry::withoutGlobalScopes()->where('company_id', $company->id)->whereNull('payout_id')->whereNotNull('order_id')->select('order_id'))
-                ->orWhereHas('cashCollection', fn ($c) => $c->inCourierHands()))
-            ->orderBy('id')
-            ->get(['id', 'legacy_id']);
+        $orders = $this->active($company)->orderBy('id')->get(['id', 'legacy_id']);
         app(LegacyRechecks::class)->nightly($company, $orders);
 
         return $orders->count();
+    }
+
+    /** Courses reprises encore en cours, ou dont l'argent n'est pas soldé (encore chez le livreur ou dû à l'e-commerçant) */
+    private function active(Company $company)
+    {
+        return app(LegacyRechecks::class)->scope($company)->whereNull('legacy_conflict_at')->whereNull('legacy_purged_at')
+            ->where(fn ($q) => $q->whereNotIn('status', OrderStatus::values([OrderStatus::Delivered, OrderStatus::Cancelled, OrderStatus::Returned]))
+                ->orWhereIn('id', MerchantLedgerEntry::withoutGlobalScopes()->where('company_id', $company->id)->whereNull('payout_id')->whereNotNull('order_id')->select('order_id'))
+                ->orWhereHas('cashCollection', fn ($c) => $c->inCourierHands()));
+    }
+
+    /**
+     * Relit par leur numéro un paquet de courses encore en cours, à tour de rôle (le point d'arrêt est gardé d'une copie
+     * à l'autre) : l'ancienne application ne met pas toujours à jour la date de modification d'une commande. Une
+     * commande absente de la réponse n'est pas touchée (les suppressions sont traitées la nuit).
+     *
+     * @param  array<string, int>  $counts
+     * @param  array<string, true>  $seen  commandes déjà copiées par cette copie
+     * @param  bool  $all  toutes d'un coup (bouton « Copier maintenant »)
+     */
+    private function reread(Company $company, array &$counts, array $seen, bool $all = false): int
+    {
+        $key = "legacy-reread:{$company->id}";
+        if ($all) {
+            $orders = $this->active($company)->orderBy('id')->get(['id', 'legacy_id']);
+        } else {
+            $after = (int) cache()->get($key, 0);
+            $orders = $this->active($company)->where('id', '>', $after)->orderBy('id')->limit(self::REREAD)->get(['id', 'legacy_id']);
+            cache()->put($key, $orders->count() < self::REREAD ? 0 : (int) $orders->last()->id, now()->addDay());
+        }
+
+        $read = 0;
+        foreach ($orders->reject(fn (Order $o) => isset($seen[(string) $o->legacy_id]))->chunk(self::PAGE) as $chunk) {
+            $page = $this->get($company, 'commands', ['ids' => $chunk->pluck('legacy_id')->implode(',')]);
+            foreach ($page['data'] ?? [] as $command) {
+                $read++;
+                $result = $this->importer->import($command, live: true);
+                if ($result['action'] !== 'unchanged') {
+                    $counts[$result['action'] === 'created' ? 'updated' : $result['action']]++;
+                }
+            }
+        }
+
+        return $read;
     }
 
     /**

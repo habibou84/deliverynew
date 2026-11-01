@@ -106,7 +106,7 @@ class LegacyOrdersSyncTest extends TestCase
 
         return match ($resource) {
             'summary' => Http::response([...$server, 'data' => [
-                'module_version' => $this->oldModule ? 1 : 2,
+                'module_version' => $this->oldModule ? 1 : 3,
                 'commands' => count($this->commands),
                 'unpaid_by_client' => [['client_id' => 7, 'total' => 9000, 'n' => 1]],
                 'cash_by_livreur' => [['livreur_id' => 3, 'total' => 10500, 'n' => 1]],
@@ -280,6 +280,8 @@ class LegacyOrdersSyncTest extends TestCase
         $this->changed = [103, 111];
         $counts = app(LegacyOrdersSync::class)->sync($this->company->fresh());
 
+        $this->assertGreaterThan(0, $counts['reread']);
+        unset($counts['reread']);
         $this->assertSame(['created' => 1, 'updated' => 1, 'unchanged' => 0, 'skipped' => 0, 'conflict' => 0], $counts);
         $order = $this->order(103);
         $this->assertSame(OrderStatus::Delivered, $order->status);
@@ -294,6 +296,38 @@ class LegacyOrdersSyncTest extends TestCase
         $this->assertFalse(CashCollection::where('order_id', $order->id)->inCourierHands()->exists());
         $this->assertStringStartsWith('ANC-', MerchantLedgerEntry::where('order_id', $order->id)->where('type', 'payout')->sole()->payout->reference);
         $this->assertSame(1, $this->company->fresh()->legacy_sync_stats['created']);
+    }
+
+    /** L'ancienne application change l'état sans toucher à la date de modification (ou son horloge est décalée) */
+    public function test_a_change_without_a_new_modification_date_is_still_copied_within_minutes(): void
+    {
+        $this->import();
+        $this->commands[102] = [...$this->commands[102], 'etat' => 'termine'];
+        $this->commands[101] = [...$this->commands[101], 'etat' => 'annule'];
+        $this->changed = [];
+
+        $counts = app(LegacyOrdersSync::class)->sync($this->company->fresh());
+
+        $this->assertSame(2, $counts['updated']);
+        $this->assertSame(OrderStatus::Delivered, $this->order(102)->status);
+        $this->assertSame(OrderStatus::Cancelled, $this->order(101)->status);
+        // Rien à relire de nouveau : rien ne bouge
+        $this->assertSame(0, app(LegacyOrdersSync::class)->sync($this->company->fresh())['updated']);
+    }
+
+    /** « Copier maintenant » relit toutes les courses en cours, même celles dont la date de modification n'a pas bougé */
+    public function test_copy_now_rereads_every_course_in_progress(): void
+    {
+        $this->import();
+        $active = Order::where('company_id', $this->company->id)->whereNotNull('legacy_id')
+            ->whereNotIn('status', OrderStatus::values([OrderStatus::Delivered, OrderStatus::Cancelled, OrderStatus::Returned]))->count();
+        $this->assertGreaterThan(1, $active);
+
+        $this->commands[110] = [...$this->commands[110], 'etat' => 'annule'];
+        $this->changed = [];
+        Sanctum::actingAs($this->admin);
+        $this->postJson('/api/v1/company/legacy-orders/sync')->assertOk()->assertJsonPath('data.counts.updated', 1);
+        $this->assertSame(OrderStatus::Cancelled, $this->order(110)->status);
     }
 
     public function test_after_the_switch_jibiat_is_the_master_and_new_orders_reach_the_team(): void
