@@ -64,8 +64,9 @@ class LegacyOrdersController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        // Module à jour : commandes les plus récentes d'abord, et version 2 (commandes non livrées reprises)
-        $current = $recent && (int) ($summary['data']['module_version'] ?? 1) >= 2;
+        // Module à jour : commandes les plus récentes d'abord, et version 3 (heure de la copie suivante sûre même si la
+        // base et l'application n'ont pas le même fuseau)
+        $current = $recent && (int) ($summary['data']['module_version'] ?? 1) >= 3;
 
         return response()->json(['data' => [...($summary['data'] ?? []), 'module_up_to_date' => $current]]);
     }
@@ -109,7 +110,7 @@ class LegacyOrdersController extends Controller
         }
 
         try {
-            $counts = $this->sync->sync($company);
+            $counts = $this->sync->sync($company, all: true);
         } catch (RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
