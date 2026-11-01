@@ -63,6 +63,7 @@ class Order extends Model
         'merchant_note',
         'delivery_fee',
         'surcharges_total',
+        'premium_discount',
         'pricing_details',
         'fee_payer',
         'items_amount',
@@ -76,6 +77,7 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'premium_discount' => 'integer',
             'merchant_alerts_muted' => 'boolean',
             'status' => OrderStatus::class,
             'fee_payer' => FeePayer::class,

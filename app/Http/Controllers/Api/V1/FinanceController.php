@@ -23,6 +23,7 @@ use App\Models\MerchantPaymentMethod;
 use App\Models\MerchantPayout;
 use App\Models\OrderExpense;
 use App\Models\OutboundMessage;
+use App\Models\PremiumLevel;
 use App\Models\User;
 use App\Services\Couriers\ParcelCustody;
 use App\Services\Finance\CashAlerts;
@@ -382,10 +383,17 @@ class FinanceController extends Controller
         $summaries = $this->payouts->summaries();
         $empty = ['available' => 0, 'pending_cash' => 0, 'unpaid_total' => 0];
 
+        // Niveau Premium avec paiement plus rapide : ces e-commerçants passent en tête
+        $levels = PremiumLevel::query()->get(['id', 'name', 'payout_frequency'])->keyBy('id');
         $merchants = Merchant::orderBy('business_name')->with('paymentMethods')->get()
             ->map(fn (Merchant $m) => [
                 'merchant_id' => $m->id,
                 'business_name' => $m->business_name,
+                'premium' => ($level = $levels[$m->premium_level_id] ?? null) ? [
+                    'name' => $level->name,
+                    'payout_frequency' => $level->payout_frequency,
+                    'payout_label' => PremiumLevel::PAYOUT_FREQUENCIES[$level->payout_frequency] ?? null,
+                ] : null,
                 ...($summaries[$m->id] ?? $empty),
                 // Payer avec : le moyen préféré, et combien restent à vérifier
                 'payment_method' => ($preferred = $m->paymentMethods->firstWhere('is_preferred', true) ?? $m->paymentMethods->first())
@@ -393,6 +401,9 @@ class FinanceController extends Controller
                 'payment_methods_pending' => $m->paymentMethods->where('status', MerchantPaymentMethod::PENDING)->count(),
             ])
             ->filter(fn ($row) => $row['unpaid_total'] !== 0 || $request->boolean('all'))
+            ->sortBy(fn ($row) => match ($row['premium']['payout_frequency'] ?? null) {
+                'daily' => 0, 'twice_weekly' => 1, default => 2
+            })
             ->values();
 
         return response()->json(['data' => $merchants]);

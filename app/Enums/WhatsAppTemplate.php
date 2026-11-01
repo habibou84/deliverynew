@@ -25,6 +25,7 @@ enum WhatsAppTemplate: string
     case RatingRequest = 'avis_livraison';
     case PaymentMethodChanged = 'moyen_paiement_modifie';
     case PremiumCardOffered = 'carte_premium_offerte';
+    case PremiumLevelReached = 'niveau_premium_atteint';
     case MerchantWelcome = 'bienvenue_marchand';
     case CashReceipt = 'versement_recu';
     case CashReminder = 'argent_a_remettre';
@@ -49,6 +50,7 @@ enum WhatsAppTemplate: string
             self::ReturnHanded => 'Bonjour {{1}}, {{2}} colis vous ont été rendus (bon de retour {{3}}), reçus par {{4}}. Détail du bon : {{5}} . Merci.',
             self::RatingRequest => 'Bonjour {{1}}, votre colis de {{2}} a été livré par {{3}}. Comment s\'est passée la livraison ? Répondez par un chiffre de 1 (mauvais) à 5 (excellent), ou donnez votre avis ici : {{4}} . Merci !',
             self::PaymentMethodChanged => 'Bonjour {{1}}, un moyen de paiement a été {{2}} sur votre compte : {{3}}. Si ce n\'est pas vous, prévenez votre agence tout de suite. Merci.',
+            self::PremiumLevelReached => 'Bonjour {{1}}, bravo ! Vous passez au niveau {{2}} chez {{3}}. Vos avantages : {{4}}. Merci de votre confiance.',
             self::PremiumCardOffered => 'Bonjour {{1}}, {{2}} vous offre la carte Membre Premium Jibiat Marchand : {{3}} mois offerts pour vendre en ligne avec votre propre boutique. Activez-la ici : {{4}} . Merci de votre confiance.',
             self::MerchantWelcome => 'Bonjour {{1}}, bienvenue chez {{2}} ! Votre course {{3}} est enregistrée : nous passons récupérer le colis. Suivez vos courses et votre argent ici (lien personnel, valable 7 jours) : {{4}} . À bientôt !',
             self::CashReceipt => 'Bonjour {{1}}, {{2}} a bien reçu votre versement {{3}} du {{4}} : {{5}} (attendu {{6}}). {{7}} Colis rendus : {{8}}. Colis gardés : {{9}}. Merci.',
@@ -78,6 +80,7 @@ enum WhatsAppTemplate: string
             self::ManagerReport => '📊 Point de la semaine',
             self::RatingRequest => '⭐ Votre avis',
             self::PaymentMethodChanged => '🔒 Moyen de paiement modifié',
+            self::PremiumLevelReached => '⭐ Nouveau niveau Premium',
             self::PremiumCardOffered => '🎁 Votre carte Membre Premium',
             self::MerchantWelcome => '👋 Bienvenue',
             self::CashReceipt => '🧾 Versement reçu',
@@ -104,6 +107,7 @@ enum WhatsAppTemplate: string
             self::ManagerReport => 'Aux administrateurs de l\'entreprise, point de la semaine (lundi matin)',
             self::RatingRequest => 'Au destinataire, après la livraison : noter le livreur (réponse de 1 à 5 ou lien)',
             self::PaymentMethodChanged => 'Au marchand, quand un moyen de paiement est ajouté, modifié ou retiré sur son compte (sécurité)',
+            self::PremiumLevelReached => 'Au marchand, quand il passe à un niveau Premium plus haut au bilan du mois (avec ses avantages)',
             self::PremiumCardOffered => 'Au marchand, quand l\'entreprise lui offre la carte Membre Premium Jibiat Marchand (avec le lien pour l\'activer)',
             self::MerchantWelcome => 'Au nouveau marchand dont le compte est créé avec sa première course (code de la course et lien pour ouvrir son espace)',
             self::CashReceipt => 'Au livreur, quand la caisse reçoit son versement (reçu : montant, écart, colis rendus et gardés)',
@@ -134,6 +138,7 @@ enum WhatsAppTemplate: string
             self::ReturnHanded => ['Boutique Chic', '4', 'BR-261009-00012', 'Mariam Koné', 'https://exemple.ci/bon-de-retour/12'],
             self::RatingRequest => ['Awa', 'Boutique Chic', 'Koffi', 'https://exemple.ci/avis/Xk29aLm4'],
             self::PaymentMethodChanged => ['Boutique Chic', 'ajouté', 'Wave 07 09 98 08 85'],
+            self::PremiumLevelReached => ['Boutique Chic', 'Or', 'Rapide Express', '−10 % sur chaque livraison, ramassage en priorité'],
             self::PremiumCardOffered => ['Boutique Chic', 'Rapide Express', '6', 'https://jibiat-marchand.com/cle/K7M4Q2XP'],
             self::MerchantWelcome => ['Boutique Chic', 'Rapide Express', 'LV-7K2M-9PQX', 'https://rapide.jibiat.com/invitation/K7M4Q2XP'],
             self::CashReceipt => ['Koffi', 'Rapide Express', 'VR-261030-0042', '30/10 à 17:40', '118 000 F', '120 000 F', 'Écart de 2 000 F retenu sur votre paie.', '2', '1'],

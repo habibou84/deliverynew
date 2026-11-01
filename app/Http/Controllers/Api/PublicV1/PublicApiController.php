@@ -59,7 +59,7 @@ class PublicApiController extends Controller
      */
     public function deliveryDay(Request $request, DeliveryDay $day): JsonResponse
     {
-        $status = $day->status($request->user()->company);
+        $status = $day->status($request->user()->company, merchant: $request->user()->merchant);
 
         return response()->json(['data' => [
             'closed' => $status['closed'],

@@ -132,7 +132,9 @@
           <tbody class="divide-y">
             <tr v-for="m in visibleMerchants" :key="m.merchant_id" :class="canManage && m.available > 0 && !merchantPayable(m) ? 'bg-slate-50 text-gray-600' : ''">
               <td v-if="canManage" class="p-2"><input v-model="batch.merchants" type="checkbox" :value="m.merchant_id" :disabled="!merchantPayable(m)" :aria-label="`Choisir ${m.business_name}`"></td>
-              <td class="p-2 font-medium">{{ m.business_name }}</td>
+              <td class="p-2 font-medium">{{ m.business_name }}
+                <span v-if="m.premium" class="ml-1 whitespace-nowrap rounded-full bg-amber-100 px-2 text-xs font-bold text-amber-800">⭐ {{ m.premium.name }}<template v-if="m.premium.payout_label"> · payer {{ m.premium.payout_label.toLowerCase() }}</template></span>
+              </td>
               <td data-label="Disponible" :class="['p-2 text-right font-semibold', signedClass(m.available)]">{{ money(m.available) }}</td>
               <td data-label="En attente" class="p-2 text-right text-gray-600">{{ money(m.pending_cash) }}</td>
               <td data-label="Total à payer" class="p-2 text-right">{{ money(m.unpaid_total) }}</td>

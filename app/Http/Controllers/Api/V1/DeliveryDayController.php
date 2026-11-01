@@ -22,7 +22,7 @@ class DeliveryDayController extends Controller
     {
         $user = $request->user();
 
-        return response()->json(['data' => $this->day->status($user->company, withCount: $user->merchant_id === null && $user->can('orders.dispatch'))]);
+        return response()->json(['data' => $this->day->status($user->company, withCount: $user->merchant_id === null && $user->can('orders.dispatch'), merchant: $user->merchant)]);
     }
 
     public function close(Request $request): JsonResponse

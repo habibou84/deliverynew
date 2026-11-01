@@ -10,6 +10,7 @@ use App\Enums\Role;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Order;
 use App\Models\OrderAssignment;
+use App\Models\PremiumLevel;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -40,18 +41,24 @@ class PickupGroups
             ->where('status', OrderStatus::Confirmed)
             ->whereNull('pickup_hub_id')
             ->whereDoesntHave('assignments', fn ($q) => $q->active()->where('type', AssignmentType::Pickup->value))
-            ->with(['merchant:id,business_name,phone', 'pickupZone:id,name', 'deliveryZone:id,name'])
+            ->with(['merchant:id,business_name,phone,premium_level_id', 'pickupZone:id,name', 'deliveryZone:id,name'])
             ->orderBy('confirmed_at')
             ->get();
+        // Niveau Premium des clients : ceux qui ont le ramassage prioritaire passent en tête
+        $levels = PremiumLevel::withoutGlobalScopes()->whereIn('id', $orders->pluck('merchant.premium_level_id')->filter()->unique())
+            ->get(['id', 'name', 'priority_pickup'])->keyBy('id');
 
         return $orders
             ->groupBy(fn (Order $o) => self::key($o))
-            ->map(function (Collection $group, string $key) use ($day) {
+            ->map(function (Collection $group, string $key) use ($day, $levels) {
                 /** @var Order $first */
                 $first = $group->first();
+                $level = $levels[$first->merchant?->premium_level_id] ?? null;
 
                 return [
                     'key' => $key,
+                    'premium' => $level ? ['name' => $level->name, 'priority' => $level->priority_pickup] : null,
+                    'priority' => (bool) $level?->priority_pickup,
                     'merchant' => $first->merchant ? [
                         'id' => $first->merchant->id,
                         'business_name' => $first->merchant->business_name,
@@ -84,7 +91,7 @@ class PickupGroups
                     ])->values(),
                 ];
             })
-            ->sortBy([['pickup.zone_name', 'asc'], ['count', 'desc']])
+            ->sortBy([['priority', 'desc'], ['pickup.zone_name', 'asc'], ['count', 'desc']])
             ->values();
     }
 
