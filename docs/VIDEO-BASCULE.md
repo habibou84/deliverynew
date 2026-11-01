@@ -60,7 +60,7 @@ les mêmes. Si c'est bon, cliquez sur Valider ces soldes. Vos e-commerçants ret
 « Retournées ».
 
 **Voix off :** « Dans l'ancienne application, des courses sont restées ouvertes depuis longtemps. Jibiat vous montre
-celles qui ne sont pas terminées depuis plus de trente jours. Cliquez sur d'abord Simuler, pour voir ce qui va se passer,
+celles qui ne sont pas terminées depuis plus de trente jours. Cliquez d'abord sur Simuler, pour voir ce qui va se passer,
 sans rien changer.
 
 Les courses jamais ramassées seront annulées. Celles qui ont été ramassées repartent chez l'e-commerçant. Et celles
