@@ -31,11 +31,21 @@
         aria-label="Autre jour" title="Autre jour"
         @change="$event.target.value && setDay($event.target.value)"
       >
-      <span v-if="filters.day" class="hidden sm:inline text-gray-500">· seulement les courses prévues ce jour (retards dans « En retard »)</span>
+      <span v-if="filters.day" class="hidden sm:inline text-gray-500">· seulement les courses prévues ce jour (jours passés dans « Courses non traitées »)</span>
     </div>
 
     <!-- Point du jour : livrées, recette, encaissé, à reverser -->
     <DayPoint v-if="isStaff && isDispatch" :day="filters.day" @delivered="showDelivered" />
+
+    <!-- Courses non traitées (jour de livraison dépassé) : page à part, toutes dates -->
+    <RouterLink
+      v-if="isStaff && untreatedCount" to="/admin/courses/non-traitees"
+      class="card flex items-center gap-3 border-red-300 bg-red-50 px-3 py-2 text-red-900 hover:bg-red-100"
+    >
+      <span class="text-2xl" aria-hidden="true">⏳</span>
+      <span class="min-w-0 flex-1 text-sm"><b>{{ untreatedCount }} course{{ untreatedCount > 1 ? 's' : '' }} non traitée{{ untreatedCount > 1 ? 's' : '' }}</b> : date de livraison dépassée, pas encore livrée{{ untreatedCount > 1 ? 's' : '' }}, retournée{{ untreatedCount > 1 ? 's' : '' }} ni annulée{{ untreatedCount > 1 ? 's' : '' }}</span>
+      <span class="text-sm font-semibold underline">Voir</span>
+    </RouterLink>
 
     <!-- Cas à régler : cartes visibles seulement s'il y en a, jusqu'à ce qu'ils soient réglés -->
     <div v-if="isStaff && exceptionCards.length" class="grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -50,7 +60,7 @@
       </button>
     </div>
 
-    <!-- Onglets : le parcours d'une course ; les autres files dans « Plus » -->
+    <!-- Onglets : les courses du jour choisi (toutes les dates si « Toutes les dates ») -->
     <div v-if="isStaff" class="flex gap-2 overflow-x-auto no-scrollbar pb-1 md:flex-wrap md:overflow-visible">
       <button
         v-for="q in mainQueues"
@@ -66,31 +76,6 @@
           :title="`${tabLate(q.value)} course(s) sans livreur depuis trop longtemps`"
         >⏰ {{ tabLate(q.value) }}</span>
       </button>
-      <div class="relative">
-        <button
-          type="button"
-          :class="['btn whitespace-nowrap', moreActive ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300 text-gray-600']"
-          :aria-expanded="moreOpen" @click="moreOpen = !moreOpen"
-        >
-          {{ moreActive ? moreActive.label : 'Plus' }} ▾
-        </button>
-        <div v-if="moreOpen" class="absolute right-0 z-30 mt-1 w-60 rounded-xl bg-white p-1 shadow-lg ring-1 ring-slate-200 md:left-0 md:right-auto">
-          <button
-            v-for="q in moreQueues" :key="q.value" type="button"
-            :class="['flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100', filters.queue === q.value ? 'font-semibold' : '']"
-            @click="moreOpen = false; setQueue(q.value)"
-          >
-            {{ q.label }}<span v-if="exceptionCount(q.value)" class="rounded-full bg-slate-100 px-1.5 text-xs">{{ exceptionCount(q.value) }}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- À ramasser : en liste ou regroupé par client -->
-    <div v-if="isDispatch && ['to_pickup', 'by_client'].includes(filters.queue)" class="flex items-center gap-2 text-sm" role="group" aria-label="Affichage">
-      <span class="text-gray-600">Vue :</span>
-      <button type="button" :class="['rounded-full px-3 py-1 ring-1', !byClient ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" @click="setQueue('to_pickup')">Liste</button>
-      <button type="button" :class="['rounded-full px-3 py-1 ring-1', byClient ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" @click="setQueue('by_client')">🏪 Par client</button>
     </div>
 
     <!-- Sans livreur : ramassage, livraison ou les deux ; de la plus ancienne attente à la plus récente -->
@@ -117,7 +102,7 @@
         · <button type="button" class="font-medium underline" @click="toggleLater">Masquer</button>
       </template>
     </p>
-    <p v-else-if="filters.day && filters.queue && !isWorkQueue && !['scheduled', 'late'].includes(filters.queue)" class="text-xs text-gray-500">
+    <p v-else-if="filters.day && ['change_requests', 'code_to_verify'].includes(filters.queue)" class="text-xs text-gray-500">
       Cette file montre toutes les dates : chaque cas reste visible jusqu'à ce qu'il soit réglé.
     </p>
 
@@ -383,48 +368,42 @@ const LATER_QUEUES = { to_pickup: 'à ramasser', by_client: 'à ramasser', to_pr
 
 const queues = [
   { value: '', label: 'Toutes' },
-  // Jour de livraison passé, course toujours en cours (hors retours demandés)
-  { value: 'late', label: '⏳ En retard' },
-  { value: 'to_return', label: '↩️ Retours demandés' },
+  // Retours demandés par les e-commerçants
+  { value: 'to_return', label: '↩️ À retourner' },
   { value: 'to_confirm', label: 'À valider' },
   { value: 'to_pickup', label: 'À ramasser' },
   { value: 'by_client', label: '🏪 Ramassages par client' },
-  { value: 'to_prepare', label: 'À préparer' },
-  { value: 'to_deliver', label: 'À livrer' },
+  // Commandes à préparer au dépôt de l'entreprise
+  { value: 'to_prepare', label: '📦 À préparer' },
   { value: 'unassigned', label: '🛵 Sans livreur' },
+  { value: 'failed', label: '❌ Échec' },
+  // Files hors onglets : cartes « à régler » et liens directs
+  { value: 'late', label: '⏳ En retard' },
+  { value: 'to_deliver', label: 'À livrer' },
   { value: 'to_decide', label: 'À décider' },
   { value: 'scheduled', label: 'Prévues plus tard' },
   { value: 'incidents', label: 'Incidents' },
-  // Livrées hors connexion avec un code client incorrect
   { value: 'code_to_verify', label: '⚠️ Codes à vérifier' },
-  // Modifications des e-commerçants qui changent le prix, à valider
   { value: 'change_requests', label: '✏️ Modifications à valider' },
 ]
 
-// Écran à part, réservé au dispatch (pas une file de la liste)
-// Onglets du parcours ; les autres files sont dans « Plus » ou en cartes « à régler »
-const MAIN_QUEUES = ['', 'to_confirm', 'to_pickup', 'to_deliver', 'unassigned']
-const MORE_QUEUES = ['incidents', 'to_prepare', 'scheduled']
-const mainQueues = computed(() => queues.filter((q) => MAIN_QUEUES.includes(q.value)))
-const moreQueues = computed(() => queues.filter((q) => MORE_QUEUES.includes(q.value)))
-const moreOpen = ref(false)
-const moreActive = computed(() => moreQueues.value.find((q) => q.value === filters.queue))
-const isActiveTab = (value) => filters.queue === value || (value === 'to_pickup' && filters.queue === 'by_client')
-// Cas à régler : en cartes de couleur au-dessus des onglets, seulement quand il y en a
+// Onglets : les courses du jour choisi ; les jours passés sont dans « Courses non traitées » (page à part)
+const MAIN_QUEUES = ['', 'to_return', 'to_confirm', 'to_pickup', 'by_client', 'to_prepare', 'unassigned', 'failed']
+const mainQueues = computed(() => queues.filter((q) => MAIN_QUEUES.includes(q.value) && (q.value !== 'by_client' || isDispatch.value)))
+const isActiveTab = (value) => filters.queue === value
+// Cas à régler, toutes dates : en cartes de couleur au-dessus des onglets, seulement quand il y en a
 const EXCEPTIONS = [
-  { value: 'late', icon: '⏳', label: 'en retard', plural: 'en retard', hint: 'des jours précédents, toujours en cours', class: 'border-amber-300 bg-amber-50 text-amber-900' },
-  { value: 'to_return', icon: '↩️', label: 'retour demandé', plural: 'retours demandés', hint: 'colis à rendre aux e-commerçants', class: 'border-rose-300 bg-rose-50 text-rose-900' },
-  { value: 'to_decide', icon: '❓', label: 'à décider', plural: 'à décider', hint: 'échecs : reporter, relivrer ou retourner', class: 'border-red-300 bg-red-50 text-red-900' },
-  { value: 'change_requests', icon: '✏️', label: 'modification à valider', plural: 'modifications à valider', hint: 'prix changé par l\'e-commerçant', class: 'border-amber-300 bg-amber-50 text-amber-900', dispatch: true },
+  { value: 'change_requests', icon: '✏️', label: 'modification à valider', plural: 'modifications à valider', hint: 'prix changé par l\'e-commerçant', class: 'border-amber-300 bg-amber-50 text-amber-900' },
   { value: 'code_to_verify', icon: '⚠️', label: 'code à vérifier', plural: 'codes à vérifier', hint: 'livrées hors connexion avec un code faux', class: 'border-red-300 bg-red-50 text-red-900' },
 ]
 const exceptionCount = (queue) => {
   if (!isDispatch.value) return 0
   if (queue === 'change_requests') return dispatchCounts.counts.change_requests || 0
-  if (dayCounts.value && ['late', 'to_return'].includes(queue)) return dayCounts.value[queue] || 0
   return dispatchCounts.counts.exceptions?.[queue] || 0
 }
 const exceptionCards = computed(() => EXCEPTIONS.map((e) => ({ ...e, count: exceptionCount(e.value) })).filter((e) => e.count > 0 || filters.queue === e.value))
+// Courses non traitées (jour de livraison dépassé), toutes dates : page à part
+const untreatedCount = computed(() => (isDispatch.value ? dispatchCounts.counts.exceptions?.untreated || 0 : 0))
 
 const filters = reactive({
   queue: route.query.queue || '',
@@ -486,15 +465,16 @@ const allSelected = computed(() => orders.value.length > 0 && selected.value.len
 // Compteurs des files et courses en attente d'un livreur depuis trop longtemps
 const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
-const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_deliver: 'to_deliver', unassigned: 'unassigned' }
+const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', by_client: 'to_pickup', to_deliver: 'to_deliver', unassigned: 'unassigned' }
 // Jour choisi : compteurs de ce jour ; sinon compteurs généraux
-const DAY_COUNTED = { '': 'all', late: 'late', to_return: 'to_return', to_confirm: 'to_confirm', to_pickup: 'to_pickup', by_client: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned' }
+const DAY_COUNTED = { '': 'all', late: 'late', to_return: 'to_return', failed: 'failed', to_confirm: 'to_confirm', to_pickup: 'to_pickup', by_client: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned' }
 const dayCounts = computed(() => (filters.day && dispatchCounts.dayCounts?.date === filters.day ? dispatchCounts.dayCounts : null))
 const tabCount = (queue) => {
   if (!isDispatch.value) return 0
   if (queue === 'change_requests') return dispatchCounts.counts.change_requests || 0
   if (dayCounts.value) return dayCounts.value[DAY_COUNTED[queue]] || 0
-  return COUNTED[queue] ? dispatchCounts.counts[COUNTED[queue]] : 0
+  if (COUNTED[queue]) return dispatchCounts.counts[COUNTED[queue]]
+  return dispatchCounts.counts.exceptions?.[queue] || 0
 }
 // Courses prévues après le jour choisi, hors de la file tant qu'on ne les demande pas
 const laterCount = computed(() => {
@@ -561,7 +541,7 @@ function setQueue(value) {
   filters.queue = value
   filters.awaiting = ''
   filters.include_later = false
-  bulk.type = { to_deliver: 'delivery', incidents: 'delivery', to_return: 'return', unassigned: 'auto' }[value] || 'pickup'
+  bulk.type = { to_deliver: 'delivery', incidents: 'delivery', failed: 'delivery', to_return: 'return', unassigned: 'auto' }[value] || 'pickup'
   syncQuery()
   load(1)
 }

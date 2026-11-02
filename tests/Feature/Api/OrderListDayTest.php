@@ -72,7 +72,10 @@ class OrderListDayTest extends TestCase
         $this->assertEqualsCanonicalizing(['late', 'pending'], $this->names(['day' => self::TODAY, 'queue' => 'late']));
         // Pour demain, la course d'aujourd'hui n'est pas encore en retard
         $this->assertEqualsCanonicalizing(['late', 'pending'], $this->names(['day' => self::TOMORROW, 'queue' => 'late']));
-        $this->assertSame(['back'], $this->names(['day' => self::TODAY, 'queue' => 'to_return']));
+        // À retourner : seulement le jour choisi ; le retour demandé d'un jour passé est dans les non traitées
+        $this->assertSame([], $this->names(['day' => self::TODAY, 'queue' => 'to_return']));
+        $this->assertSame(['back'], $this->names(['day' => '2026-11-29', 'queue' => 'to_return']));
+        $this->assertContains('back', $this->names(['queue' => 'untreated']));
 
         // Sans jour ou avec une période : comme avant
         $this->assertCount(7, $this->names([]));
@@ -89,8 +92,10 @@ class OrderListDayTest extends TestCase
         $this->assertEqualsCanonicalizing(['today', 'tomorrow'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned', 'include_later' => 1]));
         $this->assertSame(['tomorrow'], $this->names(['day' => self::TOMORROW, 'queue' => 'to_pickup']));
 
-        // Files d'exception : complètes, quel que soit le jour
-        $this->assertSame(['pending'], $this->names(['day' => self::TOMORROW, 'queue' => 'to_confirm']));
+        // À valider : le jour choisi seulement (toutes les dates sans jour)
+        $this->assertSame([], $this->names(['day' => self::TOMORROW, 'queue' => 'to_confirm']));
+        $this->assertSame(['pending'], $this->names(['queue' => 'to_confirm']));
+        // Files hors onglets : complètes, quel que soit le jour
         $this->assertSame(['later'], $this->names(['day' => self::TODAY, 'queue' => 'incidents']));
     }
 
@@ -99,8 +104,8 @@ class OrderListDayTest extends TestCase
         $counts = $this->getJson('/api/v1/orders/counts?day='.self::TODAY)->assertOk();
         $counts->assertJsonPath('data.day.all', 1)
             ->assertJsonPath('data.day.late', 2)
-            ->assertJsonPath('data.day.to_return', 1)
-            ->assertJsonPath('data.day.to_confirm', 1)
+            ->assertJsonPath('data.day.to_return', 0)
+            ->assertJsonPath('data.day.to_confirm', 0)
             ->assertJsonPath('data.day.to_pickup', 1)
             ->assertJsonPath('data.day.to_deliver', 0)
             ->assertJsonPath('data.day.unassigned', 1)
