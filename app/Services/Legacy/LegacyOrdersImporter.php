@@ -6,6 +6,7 @@ use App\Enums\AssignmentStatus;
 use App\Enums\AssignmentType;
 use App\Enums\FeePayer;
 use App\Enums\LedgerEntryType;
+use App\Enums\MerchantStatus;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentMethod;
@@ -22,6 +23,7 @@ use App\Models\OrderEvent;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Recipient;
+use App\Models\User;
 use App\Models\Zone;
 use App\Services\Orders\ZoneResolver;
 use App\Support\Money;
@@ -65,7 +67,7 @@ class LegacyOrdersImporter
     /** @var array<int, MerchantPayout> reversements « ancienne application » du jour, par e-commerçant */
     private array $payouts = [];
 
-    public function __construct(private readonly ZoneResolver $zoneResolver) {}
+    public function __construct(private readonly ZoneResolver $zoneResolver, private readonly LegacyAccountsImporter $accounts) {}
 
     public function for(Company $company): self
     {
@@ -98,11 +100,26 @@ class LegacyOrdersImporter
         }
 
         $merchant = $this->merchant($c['client'] ?? null, $c['client_id'] ?? null);
+        // E-commerçant inconnu : son compte complet (module version 4), sinon une fiche faite depuis la commande
+        if ($merchant === null && ! $dryRun && isset($c['client_users']) && is_array($c['client'] ?? null)) {
+            $this->accounts->importRows($this->company, $c['client_users'], [$c['client']], []);
+            $merchant = $this->merchant($c['client'], $c['client_id'] ?? null, fresh: true);
+        }
         if ($merchant === null) {
-            return [...$base, 'action' => 'skipped', 'reason' => 'e-commerçant non repris (client n° '.($c['client_id'] ?? '?').')'];
+            $merchant = $this->merchantFromOrder($c['client'] ?? null, $c['client_id'] ?? null, $dryRun);
+            if ($merchant !== null) {
+                $warnings[] = 'e-commerçant « '.$merchant->business_name.' » créé depuis la commande (compte à compléter)';
+            }
+        }
+        if ($merchant === null) {
+            return [...$base, 'action' => 'skipped', 'reason' => 'e-commerçant non repris (client n° '.($c['client_id'] ?? '?').', numéro absent ou déjà pris)'];
         }
 
         $courier = $this->courier($c['livreur'] ?? null, $c['livreur_id'] ?? null);
+        if ($courier === null && ! $dryRun && ! empty($c['livreur_id']) && isset($c['livreur_users']) && is_array($c['livreur'] ?? null)) {
+            $this->accounts->importRows($this->company, $c['livreur_users'], [], [$c['livreur']]);
+            $courier = $this->courier($c['livreur'], $c['livreur_id'], fresh: true);
+        }
         if (! empty($c['livreur_id']) && $courier === null) {
             $warnings[] = 'livreur non repris (n° '.$c['livreur_id'].')';
         }
@@ -652,13 +669,44 @@ class LegacyOrdersImporter
      * E-commerçant de l'ancienne fiche « client » : par son ancien numéro, sinon par son téléphone (reprise des
      * comptes faite avant), puis l'ancien numéro est retenu.
      */
-    private function merchant(?array $client, mixed $legacyId): ?Merchant
+    /**
+     * E-commerçant introuvable et pas de compte complet : fiche faite depuis la commande (nom, téléphone, commune),
+     * sans compte de connexion ; le compte de l'ancienne application la complétera (envoi ou copie des comptes).
+     * Simulation : fiche non enregistrée.
+     */
+    private function merchantFromOrder(?array $client, mixed $legacyId, bool $dryRun): ?Merchant
+    {
+        $legacyId = (string) $legacyId;
+        $phone = PhoneNumber::normalize((string) ($client['phone'] ?? ''));
+        if ($legacyId === '' || $phone === null || User::takenIn($this->company->id, 'phone', $phone)
+            || Merchant::forCompany($this->company->id)->where('phone', $phone)->exists()) {
+            return null;
+        }
+        $zone = $this->zone($client['city'] ?? null) ?? $this->zone($client['adresse'] ?? null);
+        $merchant = new Merchant([
+            'company_id' => $this->company->id,
+            'business_name' => Str::limit($this->text($client['nom'] ?? null) ?? 'Boutique '.PhoneNumber::display($phone), 250, ''),
+            'phone' => $phone,
+            'pickup_zone_id' => $zone?->id,
+            'pickup_address' => $this->text($client['adresse'] ?? null),
+            'status' => MerchantStatus::Active,
+        ]);
+        $merchant->forceFill(['legacy_id' => $legacyId, 'source' => 'legacy_order']);
+        $merchant->setRelation('pickupZone', $zone);
+        if (! $dryRun) {
+            $merchant->save();
+        }
+
+        return $this->merchants[$legacyId] = $merchant;
+    }
+
+    private function merchant(?array $client, mixed $legacyId, bool $fresh = false): ?Merchant
     {
         $legacyId = (string) $legacyId;
         if ($legacyId === '') {
             return null;
         }
-        if (array_key_exists($legacyId, $this->merchants)) {
+        if (! $fresh && array_key_exists($legacyId, $this->merchants)) {
             return $this->merchants[$legacyId];
         }
 
@@ -674,13 +722,13 @@ class LegacyOrdersImporter
         return $this->merchants[$legacyId] = $merchant;
     }
 
-    private function courier(?array $livreur, mixed $legacyId): ?Courier
+    private function courier(?array $livreur, mixed $legacyId, bool $fresh = false): ?Courier
     {
         $legacyId = (string) $legacyId;
         if ($legacyId === '' || $legacyId === '0') {
             return null;
         }
-        if (array_key_exists($legacyId, $this->couriers)) {
+        if (! $fresh && array_key_exists($legacyId, $this->couriers)) {
             return $this->couriers[$legacyId];
         }
 

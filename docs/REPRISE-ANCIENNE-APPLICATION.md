@@ -30,6 +30,27 @@ e-commerçants (table `clients`) et les livreurs (`livreurs`) arrivent avec leur
 
 Sans accès à l'ancienne application : `php artisan legacy:import` lit un export SQL.
 
+### Comptes tenus à jour chaque minute (module de lecture version 4)
+
+Avec le module de lecture des commandes (`JibiatSyncController.php`) en version 4 ou plus, la copie de chaque minute
+commence par les comptes (`commands?accounts_since=…` : clients, livreurs et leurs `users` créés ou modifiés depuis la
+dernière copie). Les nouveaux comptes sont repris comme à l'envoi par bouton ; **jusqu'à la bascule**, une fiche venue
+de la reprise (source `import` ou `legacy_order`) et modifiée dans l'ancienne application est mise à jour (nom,
+adresse, commune, numéro s'il est libre). Après la bascule, Jibiat fait foi et ne la touche plus. La version du module
+est relue au plus une fois par heure ; avant la version 4, rien ne change.
+
+À la commande aussi, le module v4 envoie le compte complet de l'e-commerçant (`client_users`) et du livreur
+(`livreur_users`) : un compte inconnu est repris aussitôt, avec son mot de passe.
+
+**Secours** (module plus ancien) : un e-commerçant inconnu est créé depuis la commande (nom, numéro, commune ; source
+`legacy_order`, sans compte de connexion, avec un avertissement dans le rapport). Au prochain envoi de ses comptes, la
+fiche reçoit son compte et son mot de passe, sans doublon.
+
+**Commandes en attente d'un compte** (`legacy_pending_commands`) : une commande dont l'e-commerçant ne peut pas être
+repris (numéro absent ou déjà pris) est gardée de côté, relancée à chaque copie, puis retirée de la liste une fois
+reprise. Elle apparaît dans « Comptes et zones » et dans les « À faire » de la reprise ; le bouton « Copier les comptes
+maintenant » lance la copie et la relance tout de suite (`POST company/legacy-orders/accounts/sync`).
+
 ## 2. Reprise des commandes et copie en continu
 
 Cette fois, c'est **Jibiat qui va chercher** les données dans l'ancienne application, en lecture seule. Le module

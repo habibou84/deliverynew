@@ -391,6 +391,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('balances', 'balances')->name('balances');
             Route::post('balances/validate', 'validateBalances')->name('balances.validate');
             Route::get('module', 'module')->name('module');
+            Route::get('accounts', 'accounts')->name('accounts');
+            Route::post('accounts/sync', 'syncAccounts')->middleware('throttle:10,1')->name('accounts.sync');
         });
         // Nettoyage des anciennes courses reprises : simulation, clôture, annulation, en chemin à vérifier
         Route::prefix('company/legacy-purge')->name('company.legacy-purge.')->middleware('can:settings.manage')->controller(LegacyPurgeController::class)->group(function () {
@@ -654,6 +656,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/bulk-confirm', [OrderActionController::class, 'bulkConfirm'])->name('orders.bulk-confirm');
         // Avant la ressource : « counts » n'est pas un identifiant de course
         Route::get('orders/counts', [OrderController::class, 'counts'])->name('orders.counts');
+        // Courses non traitées (jour de livraison dépassé) regroupées par date, livreur ou e-commerçant
+        Route::get('orders/untreated-groups', [OrderController::class, 'untreatedGroups'])->name('orders.untreated-groups');
         Route::get('orders/labels', [OrderController::class, 'labels'])->middleware('throttle:30,1')->name('orders.labels');
         Route::get('orders/pickup-groups', [OrderController::class, 'pickupGroups'])->name('orders.pickup-groups');
         // Aide à la saisie : analyse d'un message collé, doublons du jour
@@ -712,6 +716,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
         });
 
         Route::get('reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
+        // Point du jour de la page Courses (équipe) : montants pour qui voit la caisse
+        Route::get('reports/day', [ReportController::class, 'day'])->middleware('can:orders.dispatch')->name('reports.day');
+        // Réglages qui manquent pour l'assignation automatique (bandeau de la page Courses)
+        Route::get('reports/auto-assign-checks', [ReportController::class, 'autoAssignChecks'])->middleware('can:settings.manage')->name('reports.auto-assign-checks');
 
         // Statistiques de l'entreprise (back-office)
         Route::prefix('stats')->name('stats.')->middleware('can:orders.view')->controller(StatisticsController::class)->group(function () {
