@@ -397,6 +397,32 @@ class LegacyOrdersSyncTest extends TestCase
         $this->assertSame('8', $order->holder?->legacy_id, 'Le livreur, repris aussitôt, a le colis');
     }
 
+    /** Course reprise avant son livreur : le livreur repris plus tard y est rattaché, sans que la commande ait bougé */
+    public function test_a_courier_taken_over_later_is_attached_to_the_course(): void
+    {
+        $this->import();
+        $this->commands[114] = $this->command(114, 'en cours', ['livreur_id' => 9, 'livreur' => ['id' => 9, 'nom' => 'Moussa', 'phone' => '0748484848']]);
+        $this->changed = [];
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+        $this->assertNull($this->order(114)->pickup_courier_id);
+
+        // Le compte du livreur arrive ensuite (envoi des comptes) ; la commande, elle, n'a pas changé
+        app(LegacyAccountsImporter::class)->importRows($this->company, [
+            ['id' => 904, 'name' => 'Moussa', 'phone' => '0748484848', 'usertype' => 'livreur', 'password' => password_hash('x', PASSWORD_BCRYPT), 'livreur_id' => 9],
+        ], [], [['id' => 9, 'nom' => 'Moussa', 'phone' => '0748484848', 'status' => 'active', 'user_id' => 904]]);
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+
+        $order = $this->order(114);
+        $this->assertSame('9', $order->pickupCourier?->legacy_id);
+        $this->assertSame(OrderStatus::PickupAssigned, $order->status);
+
+        // Après la bascule, une course gardée avec l'ancienne empreinte (commande seule) n'est pas un faux conflit
+        $order->forceFill(['legacy_hash' => hash('sha256', json_encode($this->commands[114]))])->save();
+        $this->company->forceFill(['legacy_switch_at' => now()->subMinute()])->save();
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+        $this->assertNull($order->fresh()->legacy_conflict_at);
+    }
+
     /** Commande mise de côté (client sans numéro) : gardée, relancée à chaque copie, retirée une fois reprise */
     public function test_set_aside_orders_are_kept_and_retried_until_their_merchant_exists(): void
     {
