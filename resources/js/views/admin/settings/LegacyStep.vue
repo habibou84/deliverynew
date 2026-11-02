@@ -9,7 +9,10 @@
       <LegacySwitchSettings part="connect" />
     </template>
 
-    <LegacyImportSettings v-else-if="name === 'accounts'" />
+    <template v-else-if="name === 'accounts'">
+      <LegacyAccountsCopy />
+      <LegacyImportSettings />
+    </template>
 
     <LegacyOrdersSettings v-else-if="name === 'orders'" part="import" />
 
@@ -42,6 +45,7 @@
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import SettingsPage from '../../../components/settings/SettingsPage.vue'
+import LegacyAccountsCopy from '../../../components/LegacyAccountsCopy.vue'
 import LegacyImportSettings from '../../../components/LegacyImportSettings.vue'
 import LegacyOrdersSettings from '../../../components/LegacyOrdersSettings.vue'
 import LegacyPurgeSettings from '../../../components/LegacyPurgeSettings.vue'

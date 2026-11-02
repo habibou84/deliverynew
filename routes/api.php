@@ -394,6 +394,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('balances', 'balances')->name('balances');
             Route::post('balances/validate', 'validateBalances')->name('balances.validate');
             Route::get('module', 'module')->name('module');
+            Route::get('accounts', 'accounts')->name('accounts');
+            Route::post('accounts/sync', 'syncAccounts')->middleware('throttle:10,1')->name('accounts.sync');
         });
         // Nettoyage des anciennes courses reprises : simulation, clôture, annulation, en chemin à vérifier
         Route::prefix('company/legacy-purge')->name('company.legacy-purge.')->middleware('can:settings.manage')->controller(LegacyPurgeController::class)->group(function () {

@@ -6,6 +6,7 @@ use App\Enums\MerchantStatus;
 use App\Enums\Role;
 use App\Enums\UserStatus;
 use App\Models\Company;
+use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\User;
 use App\Models\Zone;
@@ -90,9 +91,9 @@ class LegacyAccountsImporter
      * @param  list<array<string, string|null>>  $livreurs
      * @return array{counts: array<string, int>, skipped: list<array<string, string>>, warnings: list<array<string, string>>}
      */
-    public function importRows(Company $company, array $users, array $clients, array $livreurs, bool $dryRun = false): array
+    public function importRows(Company $company, array $users, array $clients, array $livreurs, bool $dryRun = false, bool $update = false): array
     {
-        $this->counts = ['merchants' => 0, 'merchant_users' => 0, 'couriers' => 0, 'couriers_suspended' => 0];
+        $this->counts = ['merchants' => 0, 'merchant_users' => 0, 'couriers' => 0, 'couriers_suspended' => 0, 'updated' => 0];
         $this->skipped = [];
         $this->warnings = [];
         $this->zones = Zone::forCompany($company->id)->active()->with('parent')->get();
@@ -110,6 +111,12 @@ class LegacyAccountsImporter
 
                     continue;
                 }
+                // Copie des comptes : fiche déjà reprise, mise à jour (nom, adresse, commune, numéro libre)
+                if ($update && ($existing = $this->existingMerchant($company, $client, $user))) {
+                    $this->safely('e-commerçant', $client['id'], $client['nom'], fn () => $this->updateMerchant($company, $existing, $client, $user));
+
+                    continue;
+                }
                 // Autres comptes « client » rattachés à la boutique (users.client_id) : ses employés
                 $others = $users->filter(fn (array $u) => $u['client_id'] === $client['id'] && $u['id'] !== ($user['id'] ?? null) && $this->isType($u, self::CLIENT_TYPE));
                 $this->safely('e-commerçant', $client['id'], $client['nom'], fn () => $this->importMerchant($company, $client, $user, $others->values()->all()));
@@ -119,6 +126,11 @@ class LegacyAccountsImporter
                 $user = $this->accountOf($users, $courier['user_id'], 'livreur_id', $courier['id']);
                 if ($user !== null && ! $this->isType($user, self::COURIER_TYPE)) {
                     $this->skip('livreur', $courier['id'], $this->clean($courier['nom']), 'rattaché à un compte de l\'équipe (type « '.($this->clean($user['usertype']) ?? 'aucun').' ») : non repris');
+
+                    continue;
+                }
+                if ($update && ($existing = $this->existingCourier($company, $courier, $user))) {
+                    $this->safely('livreur', $courier['id'], $courier['nom'], fn () => $this->updateCourier($company, $existing, $courier, $user));
 
                     continue;
                 }
@@ -151,6 +163,14 @@ class LegacyAccountsImporter
             return;
         }
 
+        // Fiche créée depuis une de ses commandes, sans compte : le compte de l'ancienne application la complète
+        $fromOrder = Merchant::forCompany($company->id)->where('phone', $phone)->where('source', 'legacy_order')->whereDoesntHave('users')->first();
+        if ($fromOrder !== null && ! User::takenIn($company->id, 'phone', $phone)) {
+            $this->completeMerchant($company, $fromOrder, $client, $user, $phone, $others);
+
+            return;
+        }
+
         if (User::takenIn($company->id, 'phone', $phone) || Merchant::forCompany($company->id)->where('phone', $phone)->exists()) {
             $this->skip('e-commerçant', $client['id'], $name, 'numéro '.PhoneNumber::display($phone).' déjà présent (déjà importé ou déjà inscrit)');
 
@@ -179,6 +199,7 @@ class LegacyAccountsImporter
             'notes' => $this->clean($client['goods_type']) ? 'Marchandises : '.$this->clean($client['goods_type']) : null,
         ]);
         $merchant->forceFill([
+            'legacy_id' => $client['id'] !== null && ! Merchant::forCompany($company->id)->where('legacy_id', (string) $client['id'])->exists() ? (string) $client['id'] : null,
             'source' => 'import',
             'pickup_location_source' => $lat !== null ? Merchant::LOCATION_STAFF : null,
             'pickup_located_at' => $lat !== null ? $this->date($client['updated_at']) : null,
@@ -197,6 +218,121 @@ class LegacyAccountsImporter
 
         foreach ($others as $other) {
             $this->importMerchantUser($company, $merchant, $other);
+        }
+    }
+
+    /**
+     * Fiche créée depuis une commande (source « legacy_order ») : nom, adresse et commune de l'ancienne application,
+     * compte de connexion avec son mot de passe.
+     *
+     * @param  array<string, string|null>  $client
+     * @param  array<string, string|null>|null  $user
+     * @param  list<array<string, string|null>>  $others
+     */
+    private function completeMerchant(Company $company, Merchant $merchant, array $client, ?array $user, string $phone, array $others): void
+    {
+        $this->applyMerchant($merchant, $client, $user);
+        $merchant->forceFill(['source' => 'import'])->save();
+        $email = $this->email($company, $user['email'] ?? null);
+        $this->account($company, $user, [
+            'merchant_id' => $merchant->id,
+            'name' => Str::limit($this->clean($user['name'] ?? null) ?: $merchant->business_name, 250, ''),
+            'phone' => $phone,
+            'email' => $email,
+            'status' => UserStatus::Active,
+        ], Role::MerchantOwner, 'e-commerçant', $client['id'], $merchant->business_name);
+        $this->counts['merchants']++;
+        foreach ($others as $other) {
+            $this->importMerchantUser($company, $merchant, $other);
+        }
+    }
+
+    /** Nom, adresse et commune de la fiche de l'ancienne application */
+    private function applyMerchant(Merchant $merchant, array $client, ?array $user): void
+    {
+        $name = $this->clean($client['nom']) ?: $this->clean($user['name'] ?? null);
+        $zone = $this->zone($client['city']) ?? $this->zone($client['adresse']);
+        $address = collect([$this->clean($client['adresse']), $zone ? null : $this->clean($client['city'])])->filter()->implode(', ') ?: null;
+        $merchant->fill(array_filter([
+            'business_name' => $name ? Str::limit($name, 250, '') : null,
+            'pickup_address' => $address,
+            'pickup_zone_id' => $zone?->id,
+        ], fn ($v) => $v !== null));
+    }
+
+    /** Fiche déjà dans Jibiat : par l'ancien numéro de la boutique, sinon par son numéro de téléphone */
+    private function existingMerchant(Company $company, array $client, ?array $user): ?Merchant
+    {
+        $merchant = $client['id'] !== null ? Merchant::forCompany($company->id)->where('legacy_id', (string) $client['id'])->first() : null;
+        $phone = PhoneNumber::normalize($user['phone'] ?? null) ?? PhoneNumber::normalize($client['phone']);
+
+        return $merchant ?? ($phone ? Merchant::forCompany($company->id)->where('phone', $phone)->whereHas('users')->first() : null);
+    }
+
+    /**
+     * Copie des comptes : fiche reprise modifiée dans l'ancienne application (nom, adresse, commune ; numéro de
+     * téléphone s'il n'est pris par aucun autre compte). Une fiche créée dans Jibiat n'est jamais touchée.
+     */
+    private function updateMerchant(Company $company, Merchant $merchant, array $client, ?array $user): void
+    {
+        if (! in_array($merchant->source, ['import', 'legacy_order'], true)) {
+            return;
+        }
+        if ($merchant->legacy_id === null && $client['id'] !== null && ! Merchant::forCompany($company->id)->where('legacy_id', (string) $client['id'])->exists()) {
+            $merchant->forceFill(['legacy_id' => (string) $client['id']]);
+        }
+        if ($merchant->source === 'legacy_order' && ! $merchant->users()->exists()) {
+            $phone = PhoneNumber::normalize($user['phone'] ?? null) ?? PhoneNumber::normalize($client['phone']);
+            if ($phone && ! User::takenIn($company->id, 'phone', $phone)) {
+                $this->completeMerchant($company, $merchant, $client, $user, $phone, []);
+
+                return;
+            }
+        }
+        $this->applyMerchant($merchant, $client, $user);
+        $phone = PhoneNumber::normalize($user['phone'] ?? null) ?? PhoneNumber::normalize($client['phone']);
+        $owner = $merchant->users()->role(Role::MerchantOwner->value)->first();
+        if ($phone && $phone !== $merchant->phone && ! User::takenIn($company->id, 'phone', $phone)
+            && ! Merchant::forCompany($company->id)->where('phone', $phone)->whereKeyNot($merchant->id)->exists()) {
+            $merchant->phone = $phone;
+            $owner?->forceFill(['phone' => $phone])->save();
+        }
+        if ($merchant->isDirty()) {
+            $merchant->save();
+            $this->counts['updated']++;
+        }
+    }
+
+    private function existingCourier(Company $company, array $courier, ?array $user): ?Courier
+    {
+        $found = $courier['id'] !== null ? Courier::forCompany($company->id)->where('legacy_id', (string) $courier['id'])->first() : null;
+        $phone = PhoneNumber::normalize($user['phone'] ?? null) ?? PhoneNumber::normalize($courier['phone']);
+
+        return $found ?? ($phone ? Courier::forCompany($company->id)->whereHas('user', fn ($u) => $u->withoutGlobalScopes()->where('phone', $phone))->first() : null);
+    }
+
+    /** Copie des comptes : nom du livreur, et son numéro s'il n'est pris par aucun autre compte */
+    private function updateCourier(Company $company, Courier $courier, array $row, ?array $user): void
+    {
+        $account = $courier->user()->withoutGlobalScopes()->first();
+        if ($courier->legacy_id === null && $row['id'] !== null && ! Courier::forCompany($company->id)->where('legacy_id', (string) $row['id'])->exists()) {
+            $courier->forceFill(['legacy_id' => (string) $row['id']])->save();
+        }
+        if ($account === null) {
+            return;
+        }
+        $name = $this->clean($row['nom']) ?: $this->clean($user['name'] ?? null);
+        if ($name) {
+            $account->name = Str::limit($name, 250, '');
+        }
+        $phone = PhoneNumber::normalize($user['phone'] ?? null) ?? PhoneNumber::normalize($row['phone']);
+        if ($phone && $phone !== $account->phone && ! User::takenIn($company->id, 'phone', $phone)) {
+            $account->phone = $phone;
+        }
+        if ($account->isDirty()) {
+            $account->save();
+            $account->syncCourierProfile();
+            $this->counts['updated']++;
         }
     }
 
@@ -273,7 +409,11 @@ class LegacyAccountsImporter
             $this->clean($courier['city']) ? 'Commune : '.$this->clean($courier['city']) : null,
             $this->clean($courier['adresse']) && $this->clean($courier['adresse']) !== $this->clean($courier['phone']) ? 'Adresse : '.$this->clean($courier['adresse']) : null,
         ])->filter()->implode(' · ');
-        $account->courier()->withoutGlobalScopes()->first()?->update(['is_available' => false, 'notes' => $notes ?: null]);
+        $profile = $account->courier()->withoutGlobalScopes()->first();
+        $profile?->update(['is_available' => false, 'notes' => $notes ?: null]);
+        if ($profile && $courier['id'] !== null && ! Courier::forCompany($company->id)->where('legacy_id', (string) $courier['id'])->exists()) {
+            $profile->forceFill(['legacy_id' => (string) $courier['id']])->save();
+        }
 
         $this->counts['couriers']++;
         if (! $active) {

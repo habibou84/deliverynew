@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunLegacyOrdersImport;
 use App\Models\LegacyCashBaseline;
+use App\Models\LegacyPendingCommand;
 use App\Models\LegacyRecheck;
 use App\Models\Order;
 use App\Models\Zone;
@@ -59,6 +60,8 @@ class LegacyOverviewController extends Controller
             ],
             'todo' => [
                 'deleted' => $imported ? $this->rechecks->toCheck($company)->count() : 0,
+                // Commandes mises de côté (e-commerçant introuvable), relancées à chaque copie
+                'pending' => LegacyPendingCommand::query()->where('company_id', $company->id)->count(),
                 'on_the_way_days' => self::ON_THE_WAY_DAYS,
                 'on_the_way' => $imported ? (int) collect($this->purges->onTheWayByCourier($company, self::ON_THE_WAY_DAYS))->sum('count') : 0,
                 'balances' => $imported && $company->legacy_balances_validated_at === null,

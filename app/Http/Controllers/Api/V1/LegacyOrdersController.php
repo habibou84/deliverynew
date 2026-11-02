@@ -64,9 +64,9 @@ class LegacyOrdersController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        // Module à jour : commandes les plus récentes d'abord, et version 3 (heure de la copie suivante sûre même si la
-        // base et l'application n'ont pas le même fuseau)
-        $current = $recent && (int) ($summary['data']['module_version'] ?? 1) >= 3;
+        // Module à jour : commandes les plus récentes d'abord, et version 4 (comptes repris avec les commandes, copie des comptes ;
+        // heure de la copie suivante sûre même si la base et l'application n'ont pas le même fuseau)
+        $current = $recent && (int) ($summary['data']['module_version'] ?? 1) >= 4;
 
         return response()->json(['data' => [...($summary['data'] ?? []), 'module_up_to_date' => $current]]);
     }
@@ -142,6 +142,41 @@ class LegacyOrdersController extends Controller
     }
 
     /** @return array<string, mixed> */
+    /**
+     * Comptes de l'ancienne application : copie des comptes (module version 4), commandes mises de côté (e-commerçant
+     * introuvable) relancées à chaque copie.
+     */
+    public function accounts(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->accountsState($request->user()->company)]);
+    }
+
+    /** « Copier les comptes maintenant » : comptes, puis relance des commandes mises de côté */
+    public function syncAccounts(Request $request): JsonResponse
+    {
+        $company = $request->user()->company;
+        try {
+            $company->forceFill(['legacy_module_checked_at' => null])->save();
+            $report = $this->sync->syncAccounts($company);
+            $retried = $this->sync->retryPending($company);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['data' => [...$this->accountsState($company->fresh()), 'report' => $report ? $report['counts'] : null, 'retried' => $retried]]);
+    }
+
+    private function accountsState(Company $company): array
+    {
+        return [
+            'module_version' => $company->legacy_module_version,
+            'copy' => $company->legacy_module_version >= 4,
+            'last_at' => $company->legacy_accounts_last_at?->toIso8601String(),
+            'today' => ($company->legacy_accounts_stats['day'] ?? null) === today()->toDateString() ? $company->legacy_accounts_stats : null,
+            'pending' => $this->sync->pendingList($company),
+        ];
+    }
+
     private function describe(Company $company): array
     {
         $orders = Order::withoutGlobalScopes()->where('company_id', $company->id)->whereNotNull('legacy_id');

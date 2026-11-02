@@ -52,7 +52,7 @@ class JibiatSyncController extends Controller
 
     const MAX = 500;
 
-    const VERSION = 3;
+    const VERSION = 4;
 
     public function index(Request $request, $resource)
     {
@@ -83,6 +83,11 @@ class JibiatSyncController extends Controller
             }
 
             return response()->json(['server_time' => $serverTime, 'data' => $data, 'next_after_id' => count($rows) === $limit ? $rows->last()->id : null]);
+        }
+
+        // Comptes (e-commerçants, livreurs et leur compte de connexion) créés ou modifiés depuis une heure donnée
+        if ($request->filled('accounts_since')) {
+            return response()->json(['server_time' => $serverTime, 'data' => [], 'accounts' => $this->accounts((string) $request->input('accounts_since'))]);
         }
 
         // Reprise initiale des plus récentes aux plus anciennes (jour de livraison, sinon jour de création)
@@ -228,8 +233,12 @@ class JibiatSyncController extends Controller
                 return $position[(int) $a['id']] - $position[(int) $b['id']];
             });
         }
-        $clients = $this->keyed(DB::table('clients')->whereIn('id', array_column($commands, 'client_id') ?: [0])->get(['id', 'nom', 'phone']));
-        $livreurs = $this->keyed(DB::table('livreurs')->whereIn('id', array_column($commands, 'livreur_id') ?: [0])->get(['id', 'nom', 'phone']));
+        // Fiches complètes et comptes de connexion : Jibiat reprend tout seul un e-commerçant ou un livreur qu'il ne connaît pas
+        $clientRows = DB::table('clients')->whereIn('id', array_column($commands, 'client_id') ?: [0])->get();
+        $livreurRows = DB::table('livreurs')->whereIn('id', array_column($commands, 'livreur_id') ?: [0])->get();
+        $clients = $this->keyed($clientRows);
+        $livreurs = $this->keyed($livreurRows);
+        $users = $this->usersOf($clientRows, $livreurRows);
         $items = $this->related('command_product', $ids, function ($q) {
             $q->leftJoin('products', 'products.id', '=', 'command_product.product_id')
                 ->select('command_product.*', 'products.name as product_name', 'products.code as product_code');
@@ -245,6 +254,8 @@ class JibiatSyncController extends Controller
             $id = $c['id'];
             $commands[$i]['client'] = isset($clients[$c['client_id']]) ? $clients[$c['client_id']] : null;
             $commands[$i]['livreur'] = isset($livreurs[$c['livreur_id']]) ? $livreurs[$c['livreur_id']] : null;
+            $commands[$i]['client_users'] = $this->usersFor($users, 'client_id', $commands[$i]['client']);
+            $commands[$i]['livreur_users'] = $this->usersFor($users, 'livreur_id', $commands[$i]['livreur']);
             $commands[$i]['items'] = isset($items[$id]) ? $items[$id] : [];
             $commands[$i]['notes'] = isset($notes[$id]) ? $notes[$id] : [];
             $commands[$i]['events'] = isset($events[$id]) ? $events[$id] : [];
@@ -284,6 +295,77 @@ class JibiatSyncController extends Controller
         }
 
         return $keyed;
+    }
+
+    /** Colonnes des comptes de connexion envoyées à Jibiat (celles qui existent dans cette base) */
+    private function userColumns()
+    {
+        $wanted = ['id', 'name', 'email', 'phone', 'usertype', 'password', 'created_at', 'livreur_id', 'client_id'];
+
+        return array_values(array_intersect($wanted, Schema::getColumnListing('users')));
+    }
+
+    /** Comptes de connexion rattachés à ces fiches (users.client_id, users.livreur_id, ou fiche.user_id) */
+    private function usersOf($clientRows, $livreurRows)
+    {
+        $columns = $this->userColumns();
+        $ids = array_filter(array_merge($clientRows->pluck('user_id')->all(), $livreurRows->pluck('user_id')->all()));
+        $query = DB::table('users')->whereIn('id', $ids ?: [0]);
+        if (in_array('client_id', $columns)) {
+            $query->orWhereIn('client_id', $clientRows->pluck('id')->all() ?: [0]);
+        }
+        if (in_array('livreur_id', $columns)) {
+            $query->orWhereIn('livreur_id', $livreurRows->pluck('id')->all() ?: [0]);
+        }
+
+        return $this->arrays($query->get($columns));
+    }
+
+    private function usersFor(array $users, $backColumn, $row)
+    {
+        if (! $row) {
+            return [];
+        }
+
+        return array_values(array_filter($users, function ($u) use ($backColumn, $row) {
+            return (isset($row['user_id']) && (string) $u['id'] === (string) $row['user_id'])
+                || (isset($u[$backColumn]) && (string) $u[$backColumn] === (string) $row['id']);
+        }));
+    }
+
+    /** Fiches et comptes créés ou modifiés depuis $since (au plus 500 de chaque) */
+    private function accounts($since)
+    {
+        $changed = function ($table) use ($since) {
+            $query = DB::table($table);
+            $columns = Schema::getColumnListing($table);
+            $has = false;
+            foreach (['updated_at', 'created_at'] as $column) {
+                if (in_array($column, $columns)) {
+                    $query->{$has ? 'orWhere' : 'where'}($column, '>=', $since);
+                    $has = true;
+                }
+            }
+
+            return $has ? $query->orderBy('id')->limit(500)->get() : collect();
+        };
+        $clients = $changed('clients');
+        $livreurs = $changed('livreurs');
+        // Compte de connexion modifié (numéro, mot de passe) : sa fiche aussi
+        $userColumns = $this->userColumns();
+        $users = DB::table('users')->where(function ($q) use ($since) {
+            $q->where('updated_at', '>=', $since)->orWhere('created_at', '>=', $since);
+        })->limit(500)->get($userColumns);
+        if (in_array('client_id', $userColumns)) {
+            $clients = $clients->merge(DB::table('clients')->whereIn('id', $users->pluck('client_id')->filter()->all() ?: [0])->get());
+        }
+        $clients = $clients->merge(DB::table('clients')->whereIn('user_id', $users->pluck('id')->all() ?: [0])->get())->unique('id')->values();
+        if (in_array('livreur_id', $userColumns)) {
+            $livreurs = $livreurs->merge(DB::table('livreurs')->whereIn('id', $users->pluck('livreur_id')->filter()->all() ?: [0])->get());
+        }
+        $livreurs = $livreurs->merge(DB::table('livreurs')->whereIn('user_id', $users->pluck('id')->all() ?: [0])->get())->unique('id')->values();
+
+        return ['clients' => $this->arrays($clients), 'livreurs' => $this->arrays($livreurs), 'users' => $this->usersOf($clients, $livreurs)];
     }
 
     /**
