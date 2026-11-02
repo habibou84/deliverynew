@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\Orders\AutoAssignChecks;
+use App\Services\Reports\DayReport;
 use App\Services\Reports\OrderSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,5 +39,26 @@ class ReportController extends Controller
             $request->date('to') ?? today(),
             $data['date_basis'] ?? 'created',
         )]);
+    }
+
+    /** Point du jour de la page Courses : prévues, livrées, recette, encaissé, à reverser (montants si droit caisse) */
+    public function day(Request $request, DayReport $report): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user->merchant_id !== null || $user->company === null, 403);
+        $data = $request->validate(['day' => ['nullable', 'date_format:Y-m-d']]);
+        $company = $user->company;
+        $day = $data['day'] ?? now($company->timezone ?: config('app.timezone'))->toDateString();
+
+        return response()->json(['data' => $report->build($company, $day, $user->can('finance.view'))]);
+    }
+
+    /** Réglages qui manquent pour que les courses soient assignées automatiquement */
+    public function autoAssignChecks(Request $request, AutoAssignChecks $checks): JsonResponse
+    {
+        $company = $request->user()->company?->fresh();
+        abort_if($company === null || $request->user()->merchant_id !== null, 403);
+
+        return response()->json(['data' => $checks->missing($company)]);
     }
 }

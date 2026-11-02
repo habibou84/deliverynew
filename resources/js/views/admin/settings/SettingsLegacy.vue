@@ -70,6 +70,7 @@ const switchLine = computed(() => {
 const todos = computed(() => {
   const t = data.value.todo
   const list = []
+  if (t.pending) list.push({ to: '/admin/reglages/reprise/comptes', label: `${t.pending} commande(s) en attente du compte de leur e-commerçant` })
   if (t.deleted) list.push({ to: '/admin/reglages/reprise/supprimees', label: `${t.deleted} commande(s) supprimée(s) dans l'ancienne application à vérifier` })
   if (t.on_the_way) list.push({ to: `/admin/reglages/reprise/a-verifier?days=${t.on_the_way_days}`, label: `${t.on_the_way} course(s) en chemin depuis plus de ${t.on_the_way_days} jours à vérifier` })
   if (t.zones) list.push({ to: '/admin/reglages/reprise/zones', label: `${t.zones} zone(s) reprise(s) à rattacher aux lieux standard` })

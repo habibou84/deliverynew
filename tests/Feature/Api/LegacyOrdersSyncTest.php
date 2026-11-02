@@ -9,14 +9,17 @@ use App\Jobs\SendOutboundMessage;
 use App\Jobs\SendWebhook;
 use App\Models\CashCollection;
 use App\Models\LegacyRecheck;
+use App\Models\Merchant;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\Product;
 use App\Notifications\OrderAlert;
+use App\Services\Legacy\LegacyAccountsImporter;
 use App\Services\Legacy\LegacyOrdersSync;
 use App\Services\Legacy\LegacyRechecks;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -50,13 +53,16 @@ class LegacyOrdersSyncTest extends TestCase
     /** Prochaines réponses « 429 » (trop de demandes) de l'ancienne application */
     private int $limited = 0;
 
+    /** Comptes renvoyés par la copie des comptes (module version 4) */
+    private array $accounts = ['users' => [], 'clients' => [], 'livreurs' => []];
+
     protected function setUp(): void
     {
         parent::setUp();
         // Adresse de test (non résolue) : le contrôle de l'adresse est testé dans SecurityLot2Test
         config(['services.webhooks.allow_private_targets' => true]);
         $this->buildWorld();
-        $this->merchant->forceFill(['legacy_id' => '7'])->save();
+        $this->merchant->forceFill(['legacy_id' => '7', 'source' => 'import'])->save();
         $this->courierA->forceFill(['legacy_id' => '3'])->save();
         $this->company->forceFill(['legacy_sync_url' => self::URL, 'legacy_sync_key' => 'jbr_test'])->save();
 
@@ -71,7 +77,7 @@ class LegacyOrdersSyncTest extends TestCase
             106 => $this->command(106, 'annule'),
             107 => $this->command(107, 'retour', ['retour_at' => '2026-09-03 10:00:00']),
             108 => $this->command(108, 'retour', ['why_undelivered' => 'Client injoignable']),
-            109 => $this->command(109, 'en cours', ['client_id' => 99, 'client' => ['id' => 99, 'nom' => 'Inconnu', 'phone' => '0102030405']]),
+            109 => $this->command(109, 'en cours', ['client_id' => 99, 'client' => ['id' => 99, 'nom' => 'Inconnu', 'phone' => '']]),
             110 => $this->command(110, 'en cours', ['commune' => 'Quartier inconnu', 'livreur_id' => null]),
         ];
 
@@ -115,7 +121,7 @@ class LegacyOrdersSyncTest extends TestCase
 
         return match ($resource) {
             'summary' => Http::response([...$server, 'data' => [
-                'module_version' => $this->oldModule ? 1 : 3,
+                'module_version' => $this->oldModule ? 1 : 4,
                 'commands' => count($this->commands),
                 'unpaid_by_client' => [['client_id' => 7, 'total' => 9000, 'n' => 1]],
                 'cash_by_livreur' => [['livreur_id' => 3, 'total' => 10500, 'n' => 1]],
@@ -123,6 +129,16 @@ class LegacyOrdersSyncTest extends TestCase
             'products' => Http::response([...$server, 'data' => ($query['after_id'] ?? 0) > 0 ? [] : [
                 ['id' => 50, 'client_id' => 7, 'client' => ['id' => 7, 'phone' => $this->merchant->phone], 'name' => 'Basket', 'price' => 5000, 'stock' => 12, 'description' => null, 'variants' => []],
             ], 'next_after_id' => null]),
+            'commands' => isset($query['accounts_since'])
+                ? Http::response([...$server, 'data' => [], 'accounts' => $this->accounts])
+                : $this->commandsResponse($server, $query),
+            default => Http::response([], 404),
+        };
+    }
+
+    private function commandsResponse(array $server, array $query)
+    {
+        return match (true) {
             default => Http::response([...$server, ...(! $this->oldModule && ($query['order'] ?? null) === 'recent' && ! isset($query['ids']) && ! isset($query['since'])
                 ? $this->recentPage($query['after'] ?? null)
                 : $this->page(array_values(array_filter($this->commands, fn ($c) => isset($query['ids'])
@@ -290,7 +306,7 @@ class LegacyOrdersSyncTest extends TestCase
         $counts = app(LegacyOrdersSync::class)->sync($this->company->fresh());
 
         $this->assertGreaterThan(0, $counts['reread']);
-        unset($counts['reread']);
+        unset($counts['reread'], $counts['pending']);
         $this->assertSame(['created' => 1, 'updated' => 1, 'unchanged' => 0, 'skipped' => 0, 'conflict' => 0], $counts);
         $order = $this->order(103);
         $this->assertSame(OrderStatus::Delivered, $order->status);
@@ -337,6 +353,93 @@ class LegacyOrdersSyncTest extends TestCase
         Sanctum::actingAs($this->admin);
         $this->postJson('/api/v1/company/legacy-orders/sync')->assertOk()->assertJsonPath('data.counts.updated', 1);
         $this->assertSame(OrderStatus::Cancelled, $this->order(110)->status);
+    }
+
+    /** Client inconnu : sa fiche est faite depuis la commande, et son compte la complète plus tard (même mot de passe) */
+    public function test_an_unknown_merchant_is_created_from_the_order_then_completed_by_its_account(): void
+    {
+        $this->import();
+        $this->commands[112] = $this->command(112, 'en cours', ['livreur_id' => null, 'client_id' => 40,
+            'client' => ['id' => 40, 'nom' => 'Chez Awa', 'phone' => '0545454545', 'city' => 'Cocody']]);
+        $this->changed = [];
+
+        $this->assertSame(1, app(LegacyOrdersSync::class)->sync($this->company->fresh())['created']);
+        $merchant = $this->order(112)->merchant;
+        $this->assertSame(['Chez Awa', '40', 'legacy_order', 0], [$merchant->business_name, $merchant->legacy_id, $merchant->source, $merchant->users()->count()]);
+
+        // Plus tard, l'envoi des comptes de l'ancienne application : la fiche reçoit son compte, sans doublon
+        app(LegacyAccountsImporter::class)->importRows($this->company, [
+            ['id' => 900, 'name' => 'Awa', 'phone' => '0545454545', 'usertype' => 'client', 'password' => password_hash('secret', PASSWORD_BCRYPT), 'client_id' => 40],
+        ], [['id' => 40, 'nom' => 'Chez Awa Boutique', 'phone' => '0545454545', 'city' => 'Cocody', 'user_id' => 900]], []);
+        $merchant->refresh();
+        $this->assertSame(1, Merchant::withoutGlobalScopes()->where('phone', $merchant->phone)->count());
+        $this->assertSame(['Chez Awa Boutique', 'import'], [$merchant->business_name, $merchant->source]);
+        $this->assertTrue(Hash::check('secret', $merchant->users()->sole()->password));
+    }
+
+    /** Module version 4 : la commande apporte le compte complet de son e-commerçant et de son livreur */
+    public function test_the_full_account_comes_with_the_order_with_the_new_module(): void
+    {
+        $this->import();
+        $hash = password_hash('motdepasse', PASSWORD_BCRYPT);
+        $this->commands[113] = $this->command(113, 'récupéré', [
+            'client_id' => 41, 'client' => ['id' => 41, 'nom' => 'Tech Store', 'phone' => '0546464646', 'city' => 'Cocody', 'user_id' => 901],
+            'client_users' => [['id' => 901, 'name' => 'Tech', 'phone' => '0546464646', 'usertype' => 'client', 'password' => $hash, 'client_id' => 41]],
+            'livreur_id' => 8, 'livreur' => ['id' => 8, 'nom' => 'Yacouba', 'phone' => '0747474747', 'status' => 'active', 'user_id' => 902],
+            'livreur_users' => [['id' => 902, 'name' => 'Yacouba', 'phone' => '0747474747', 'usertype' => 'livreur', 'password' => $hash, 'livreur_id' => 8]],
+        ]);
+        $this->changed = [];
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+
+        $order = $this->order(113);
+        $this->assertSame('import', $order->merchant->source);
+        $this->assertTrue(Hash::check('motdepasse', $order->merchant->users()->sole()->password));
+        $this->assertSame('8', $order->holder?->legacy_id, 'Le livreur, repris aussitôt, a le colis');
+    }
+
+    /** Commande mise de côté (client sans numéro) : gardée, relancée à chaque copie, retirée une fois reprise */
+    public function test_set_aside_orders_are_kept_and_retried_until_their_merchant_exists(): void
+    {
+        $this->import();
+        Sanctum::actingAs($this->admin);
+        $pending = $this->getJson('/api/v1/company/legacy-orders/accounts')->assertOk()->json('data.pending');
+        $this->assertSame(1, $pending['total']);
+        $this->assertSame(['109', '99', 'Inconnu'], [$pending['items'][0]['legacy_id'], $pending['items'][0]['client_legacy_id'], $pending['items'][0]['client_name']]);
+        $this->assertSame(1, $this->getJson('/api/v1/company/legacy-overview')->json('data.todo.pending'));
+
+        // Le client est repris (numéro corrigé dans l'ancienne application) : la commande arrive à la copie suivante
+        $this->commands[109]['client']['phone'] = '0548484848';
+        $this->changed = [];
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+        $this->assertNotNull(Order::withoutGlobalScopes()->where('legacy_id', '109')->first());
+        $this->assertSame(0, $this->getJson('/api/v1/company/legacy-orders/accounts')->json('data.pending.total'));
+    }
+
+    /** Copie des comptes (module version 4) : nouveaux comptes repris, fiches modifiées mises à jour avant la bascule */
+    public function test_accounts_are_copied_and_updated_until_the_switch(): void
+    {
+        $this->import();
+        $this->accounts = [
+            'users' => [['id' => 903, 'name' => 'Mode Abobo', 'phone' => '0549494949', 'usertype' => 'client', 'password' => password_hash('x', PASSWORD_BCRYPT), 'client_id' => 42]],
+            'clients' => [
+                ['id' => 42, 'nom' => 'Mode Abobo', 'phone' => '0549494949', 'city' => 'Cocody', 'user_id' => 903],
+                ['id' => 7, 'nom' => 'Boutique Test Renommée', 'phone' => $this->merchant->phone, 'city' => 'Cocody'],
+            ],
+            'livreurs' => [],
+        ];
+        Sanctum::actingAs($this->admin);
+        $data = $this->postJson('/api/v1/company/legacy-orders/accounts/sync')->assertOk()->json('data');
+        $this->assertTrue($data['copy']);
+        $this->assertSame([1, 1], [$data['report']['merchants'], $data['report']['updated']]);
+        $this->assertSame('Boutique Test Renommée', $this->merchant->fresh()->business_name);
+        $this->assertNotNull(Merchant::withoutGlobalScopes()->where('legacy_id', '42')->first());
+
+        // Après la bascule, Jibiat fait foi : une fiche n'est plus modifiée par l'ancienne application
+        $this->company->forceFill(['legacy_switch_at' => now()->subMinute(), 'legacy_accounts_cursor' => null])->save();
+        $this->accounts['clients'] = [['id' => 7, 'nom' => 'Encore un nom', 'phone' => $this->merchant->phone, 'city' => 'Cocody']];
+        $this->accounts['users'] = [];
+        app(LegacyOrdersSync::class)->syncAccounts($this->company->fresh());
+        $this->assertSame('Boutique Test Renommée', $this->merchant->fresh()->business_name);
     }
 
     /** Commande créée après la reprise mais datée avant l'heure de départ de la copie (horloges décalées) */
