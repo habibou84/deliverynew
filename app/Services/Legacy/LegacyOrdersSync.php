@@ -469,12 +469,16 @@ class LegacyOrdersSync
             ->selectRaw('courier_id, SUM(amount_collected) as total')->groupBy('courier_id')->pluck('total', 'courier_id');
         $couriers = Courier::forCompany($company->id)->whereNotNull('legacy_id')->with('user:id,name')->get()->keyBy('legacy_id');
         $courierRows = [];
+        // Paiement « terminé » à l'e-commerçant vaut remise du livreur (réglage) : même règle des deux côtés
+        $paid = ($company->legacy_paid_settles_courier ?? true)
+            ? collect($old['cash_paid_by_livreur'] ?? [])->mapWithKeys(fn ($l) => [(string) $l['livreur_id'] => (int) $l['total']])
+            : collect();
         foreach ($old['cash_by_livreur'] ?? [] as $line) {
             $courier = $couriers->get((string) $line['livreur_id']);
             $courierRows[] = [
                 'legacy_id' => (string) $line['livreur_id'],
                 'name' => $courier?->user?->name ?? 'Livreur n° '.$line['livreur_id'].' (non repris)',
-                'old' => (int) $line['total'],
+                'old' => (int) $line['total'] - ($paid[(string) $line['livreur_id']] ?? 0),
                 'jibiat' => $courier ? (int) ($cash[$courier->id] ?? 0) : 0,
             ];
         }

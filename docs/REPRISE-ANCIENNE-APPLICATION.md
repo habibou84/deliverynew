@@ -94,8 +94,16 @@ client, à encaisser = articles + livraison. Prix gardés tels quels (pas recalc
 
 **Argent** : la table `payments` a une ligne par commande livrée. Paiement « termine » = déjà reversé : aucune
 écriture. Paiement « encours » = dû à l'e-commerçant, son montant fait foi (écart avec montant − remise signalé et
-corrigé par un ajustement). Argent chez le livreur tant que `cashedback_at` est vide. Un reversement fait ensuite dans
-l'ancienne application solde les écritures par un reversement « ANC-… » (sans message à l'e-commerçant).
+corrigé par un ajustement). Argent chez le livreur tant que `cashedback_at` est vide **et** que le paiement n'est pas
+« termine » : un paiement terminé à l'e-commerçant vaut remise du livreur (réglage « Un paiement terminé vaut remise de
+l'argent par le livreur », activé par défaut, dans Contrôles ; à couper si l'entreprise paie parfois avant que le
+livreur ait rendu l'argent ; s'applique aux copies suivantes). Un reversement fait ensuite dans l'ancienne application
+solde les écritures par un reversement « ANC-… » (sans message à l'e-commerçant).
+
+Ce qui est soldé dans l'ancienne application (reversements `ANC-…`, encaissements « Remis dans l'ancienne application »
+ou « Payé à l'e-commerçant dans l'ancienne application ») n'entre pas dans la clôture de caisse du jour. L'étape
+Contrôles affiche ce qui a été soldé aujourd'hui et en tout. Le contrôle des soldes applique la même règle (le module
+envoie `cash_paid_by_livreur` ; un module plus ancien ne l'envoie pas et laisse un écart sur ces courses).
 
 **Copie en continu** (`legacy:sync` chaque minute) : d'abord les nouvelles commandes, par numéro (plus grand que le
 dernier repris), quelles que soient leurs dates ; puis les commandes créées ou modifiées depuis la dernière copie (la
