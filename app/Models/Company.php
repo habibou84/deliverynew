@@ -149,6 +149,7 @@ class Company extends Model
             'legacy_switch_at' => 'datetime',
             'legacy_sync_key' => 'encrypted',
             'legacy_sync_enabled' => 'boolean',
+            'legacy_paid_settles_courier' => 'boolean',
             'legacy_sync_last_at' => 'datetime',
             'legacy_sync_stats' => 'array',
             'legacy_accounts_last_at' => 'datetime',

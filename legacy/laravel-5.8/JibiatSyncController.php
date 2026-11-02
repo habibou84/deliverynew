@@ -178,6 +178,13 @@ class JibiatSyncController extends Controller
         $cash = DB::table('commands')->whereIn(DB::raw('LOWER(TRIM(etat))'), ['termine', 'terminé'])->whereNull('cashedback_at')->where('livreur_id', '>', 0)
             ->select(DB::raw('livreur_id, SUM(GREATEST(COALESCE(montant, 0) - COALESCE(remise, 0), 0) + COALESCE(livraison, 0)) as total, COUNT(*) as n'))
             ->groupBy('livreur_id')->get();
+        // Dont l'argent des commandes déjà payées à l'e-commerçant (paiement « terminé ») : Jibiat peut le compter remis
+        $cashPaid = Schema::hasTable('payments')
+            ? DB::table('commands')->whereIn(DB::raw('LOWER(TRIM(etat))'), ['termine', 'terminé'])->whereNull('cashedback_at')->where('livreur_id', '>', 0)
+                ->whereIn('id', DB::table('payments')->where(DB::raw('LOWER(TRIM(etat))'), 'termine')->select('command_id'))
+                ->select(DB::raw('livreur_id, SUM(GREATEST(COALESCE(montant, 0) - COALESCE(remise, 0), 0) + COALESCE(livraison, 0)) as total, COUNT(*) as n'))
+                ->groupBy('livreur_id')->get()
+            : [];
 
         return [
             // 2 : commandes non livrées (« undelivered ») reprises aussi
@@ -188,6 +195,7 @@ class JibiatSyncController extends Controller
                 ? DB::table('payments')->select(DB::raw('etat, COUNT(*) as n, SUM(montant) as total'))->groupBy('etat')->get() : [],
             'unpaid_by_client' => $unpaid,
             'cash_by_livreur' => $cash,
+            'cash_paid_by_livreur' => $cashPaid,
             'products' => Schema::hasTable('products') ? DB::table('products')->count() : 0,
         ];
     }

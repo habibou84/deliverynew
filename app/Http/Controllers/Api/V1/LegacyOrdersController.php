@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\LedgerEntryType;
 use App\Http\Controllers\Controller;
 use App\Jobs\RunLegacyOrdersImport;
+use App\Models\CashCollection;
 use App\Models\Company;
+use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
+use App\Services\Legacy\LegacyOrdersImporter;
 use App\Services\Legacy\LegacyOrdersSync;
 use App\Services\Webhooks\UrlGuard;
 use Illuminate\Http\JsonResponse;
@@ -136,6 +140,41 @@ class LegacyOrdersController extends Controller
         return response()->json(['data' => $this->describe($company)]);
     }
 
+    /** Réglage : un paiement « terminé » à l'e-commerçant dans l'ancienne application vaut remise du livreur */
+    public function paymentRule(Request $request): JsonResponse
+    {
+        $data = $request->validate(['paid_settles_courier' => ['required', 'boolean']]);
+        $company = $request->user()->company;
+        $company->forceFill(['legacy_paid_settles_courier' => $data['paid_settles_courier']])->save();
+
+        return response()->json(['data' => $this->describe($company)]);
+    }
+
+    /**
+     * Argent soldé dans l'ancienne application et recopié ici, aujourd'hui et en tout : reversements aux e-commerçants
+     * (références ANC-…) et argent qui n'est plus chez les livreurs (remis, ou payé à l'e-commerçant).
+     *
+     * @return array{today: array<string, int>, total: array<string, int>}
+     */
+    private function settled(Company $company): array
+    {
+        $start = now($company->timezone ?: config('app.timezone'))->startOfDay()->utc();
+        $payouts = fn () => MerchantLedgerEntry::withoutGlobalScopes()->where('merchant_ledger_entries.company_id', $company->id)
+            ->where('type', LedgerEntryType::Payout->value)
+            ->whereHas('payout', fn ($q) => $q->withoutGlobalScopes()->where('reference', 'like', LegacyOrdersImporter::PAYOUT_PREFIX.'%'));
+        $cash = fn () => CashCollection::withoutGlobalScopes()->where('company_id', $company->id)
+            ->whereIn('transaction_ref', [LegacyOrdersImporter::REF_REMITTED, LegacyOrdersImporter::REF_PAID]);
+        $figures = fn ($since) => [
+            'merchant_orders' => (clone $payouts())->when($since, fn ($q) => $q->where('merchant_ledger_entries.created_at', '>=', $since))->count(),
+            'merchant_amount' => -(int) (clone $payouts())->when($since, fn ($q) => $q->where('merchant_ledger_entries.created_at', '>=', $since))->sum('amount'),
+            'courier_orders' => (clone $cash())->when($since, fn ($q) => $q->where('updated_at', '>=', $since))->count(),
+            'courier_amount' => (int) (clone $cash())->when($since, fn ($q) => $q->where('updated_at', '>=', $since))->sum('amount_collected'),
+            'courier_paid_orders' => (clone $cash())->where('transaction_ref', LegacyOrdersImporter::REF_PAID)->when($since, fn ($q) => $q->where('updated_at', '>=', $since))->count(),
+        ];
+
+        return ['today' => $figures($start), 'total' => $figures(null)];
+    }
+
     public function module(): BinaryFileResponse
     {
         return response()->download(base_path(self::MODULE), 'JibiatSyncController.php', ['Content-Type' => 'text/plain; charset=utf-8']);
@@ -191,6 +230,8 @@ class LegacyOrdersController extends Controller
             'today' => ($company->legacy_sync_stats['day'] ?? null) === today()->toDateString() ? $company->legacy_sync_stats : null,
             'switch_at' => $company->legacy_switch_at?->toIso8601String(),
             'balances_validated_at' => $company->legacy_balances_validated_at?->toIso8601String(),
+            'paid_settles_courier' => (bool) ($company->legacy_paid_settles_courier ?? true),
+            'settled' => $this->settled($company),
             'orders' => (clone $orders)->count(),
             'conflicts' => (clone $orders)->whereNotNull('legacy_conflict_at')->count(),
             'months' => LegacyOrdersSync::MONTHS,
