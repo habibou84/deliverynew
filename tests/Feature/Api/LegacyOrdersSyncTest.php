@@ -14,7 +14,9 @@ use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\Product;
 use App\Notifications\OrderAlert;
+use App\Services\Finance\CashClosings;
 use App\Services\Legacy\LegacyAccountsImporter;
+use App\Services\Legacy\LegacyOrdersImporter;
 use App\Services\Legacy\LegacyOrdersSync;
 use App\Services\Legacy\LegacyRechecks;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -321,6 +323,37 @@ class LegacyOrdersSyncTest extends TestCase
         $this->assertFalse(CashCollection::where('order_id', $order->id)->inCourierHands()->exists());
         $this->assertStringStartsWith('ANC-', MerchantLedgerEntry::where('order_id', $order->id)->where('type', 'payout')->sole()->payout->reference);
         $this->assertSame(1, $this->company->fresh()->legacy_sync_stats['created']);
+    }
+
+    /** Paiement « terminé » à l'e-commerçant sans remise notée : l'argent n'est plus chez le livreur, ni dans la caisse du jour */
+    public function test_a_finished_payment_settles_the_courier_without_entering_today_cash(): void
+    {
+        $this->import();
+        $this->commands[104]['payment']['etat'] = 'termine';
+        $this->changed = [104];
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+
+        $order = $this->order(104);
+        $this->assertSame(0, (int) MerchantLedgerEntry::where('order_id', $order->id)->whereNull('payout_id')->sum('amount'));
+        $this->assertFalse(CashCollection::where('order_id', $order->id)->inCourierHands()->exists());
+        $this->assertSame(LegacyOrdersImporter::REF_PAID, CashCollection::where('order_id', $order->id)->value('transaction_ref'));
+
+        // La clôture de caisse du jour ne compte ni cet argent ni le reversement de l'ancienne application
+        $figures = app(CashClosings::class)->figures($this->company->id);
+        $this->assertSame([0, 0], [$figures['total_in'], $figures['total_out']]);
+
+        // Contrôles : ce qui a été soldé dans l'ancienne application
+        Sanctum::actingAs($this->admin);
+        $settled = $this->getJson('/api/v1/company/legacy-orders')->assertOk()->json('data.settled.total');
+        $this->assertGreaterThanOrEqual(1, $settled['courier_paid_orders']);
+        $this->assertGreaterThanOrEqual(1, $settled['merchant_orders']);
+
+        // Réglage coupé : seule la remise notée retire l'argent du livreur
+        $this->putJson('/api/v1/company/legacy-orders/payment-rule', ['paid_settles_courier' => false])->assertOk()->assertJsonPath('data.paid_settles_courier', false);
+        $this->commands[106] = $this->command(106, 'termine', ['payment' => ['id' => 6, 'command_id' => 106, 'montant' => 10000, 'etat' => 'termine']]);
+        $this->changed = [106];
+        app(LegacyOrdersSync::class)->sync($this->company->fresh());
+        $this->assertTrue(CashCollection::where('order_id', $this->order(106)->id)->inCourierHands()->exists());
     }
 
     /** L'ancienne application change l'état sans toucher à la date de modification (ou son horloge est décalée) */

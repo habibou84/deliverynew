@@ -110,6 +110,30 @@
     <!-- Soldes -->
     <p v-if="part === 'balances' && !state.imported_at" class="text-sm text-gray-600">À faire une fois les commandes reprises.</p>
     <div v-if="part === 'balances' && state.imported_at" class="space-y-3">
+      <!-- Soldé dans l'ancienne application : recopié ici tout seul, sans compter dans la caisse du jour -->
+      <div v-if="state.settled" class="rounded-lg bg-slate-50 p-3 text-sm space-y-2">
+        <p class="font-medium">💸 Soldé dans l'ancienne application, recopié ici</p>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <p>
+            <span class="text-gray-600">Aujourd'hui :</span>
+            {{ state.settled.today.merchant_orders }} course(s) payée(s) aux e-commerçants ({{ money(state.settled.today.merchant_amount) }}) ·
+            {{ state.settled.today.courier_orders }} course(s) plus chez les livreurs ({{ money(state.settled.today.courier_amount) }})
+          </p>
+          <p>
+            <span class="text-gray-600">En tout :</span>
+            {{ state.settled.total.merchant_orders }} course(s) ({{ money(state.settled.total.merchant_amount) }}) ·
+            {{ state.settled.total.courier_orders }} course(s) ({{ money(state.settled.total.courier_amount) }})<template v-if="state.settled.total.courier_paid_orders">, dont {{ state.settled.total.courier_paid_orders }} par un paiement terminé</template>
+          </p>
+        </div>
+        <p class="text-xs text-gray-500">Ces sommes ne comptent pas dans la clôture de caisse du jour : elles ont été réglées dans l'ancienne application.</p>
+        <label class="flex items-start gap-2">
+          <input type="checkbox" class="mt-1" :checked="state.paid_settles_courier" :disabled="busy" @change="savePaymentRule($event.target.checked)">
+          <span>
+            Un paiement « terminé » à l'e-commerçant vaut remise de l'argent par le livreur
+            <span class="block text-xs text-gray-500">À décocher si l'entreprise paie parfois l'e-commerçant avant que le livreur ait rendu l'argent. S'applique aux copies suivantes.</span>
+          </span>
+        </label>
+      </div>
       <div class="flex flex-wrap items-center gap-2">
         <p class="flex-1 text-sm text-gray-600">{{ state.balances_validated_at ? '' : 'Pas encore validés.' }}</p>
         <span v-if="state.balances_validated_at" class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">✓ Validés le {{ dateTime(state.balances_validated_at) }}</span>
@@ -242,6 +266,7 @@ async function loadBalances() {
   balances.value = await call(() => http.get('/company/legacy-orders/balances'))
 }
 
+const savePaymentRule = (value) => call(() => http.put('/company/legacy-orders/payment-rule', { paid_settles_courier: value }), value ? 'Un paiement terminé vaut remise du livreur.' : 'Seule la remise notée retire l\'argent du livreur.')
 const validateBalances = () => call(() => http.post('/company/legacy-orders/balances/validate'), 'Soldes validés.')
 const toggle = () => call(() => http.put('/company/legacy-orders/enabled', { enabled: !state.value.enabled }), state.value.enabled ? 'Copie en pause.' : 'Copie reprise.')
 

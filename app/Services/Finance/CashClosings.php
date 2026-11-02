@@ -16,6 +16,7 @@ use App\Models\CourierRemittance;
 use App\Models\MerchantPayout;
 use App\Models\User;
 use App\Notifications\CashClosed;
+use App\Services\Legacy\LegacyOrdersImporter;
 use App\Services\Messaging\Messenger;
 use App\Support\Money;
 use Illuminate\Support\Carbon;
@@ -68,13 +69,17 @@ class CashClosings
         }
 
         // Reçu directement sur le compte de l'entreprise : compté le jour où la caisse l'a confirmé
+        // Hors argent soldé dans l'ancienne application (reprise) : il n'est pas entré dans la caisse ce jour-là
         $direct = $scoped(CashCollection::class)->where('received_by_company', true)->whereNull('legacy_cash_baseline_id')
+            ->where(fn ($q) => $q->whereNull('transaction_ref')->orWhereNotIn('transaction_ref', [LegacyOrdersImporter::REF_REMITTED, LegacyOrdersImporter::REF_PAID]))
             ->whereNotNull('company_confirmed_at')->where('company_confirmed_at', '>=', $from)->groupBy('method')->selectRaw('method, SUM(amount_collected) AS total')->pluck('total', 'method');
         foreach ($direct as $method => $total) {
             $add($in, $method instanceof PaymentMethod ? $method->value : (string) $method, (int) $total);
         }
 
-        $merchantPaid = $scoped(MerchantPayout::class)->where('status', PayoutStatus::Paid->value)->where('paid_at', '>=', $from)->get(['method', 'net_amount']);
+        // Hors reversements faits dans l'ancienne application (reprise, références ANC-…) : rien n'est sorti de la caisse
+        $merchantPaid = $scoped(MerchantPayout::class)->where('status', PayoutStatus::Paid->value)->where('paid_at', '>=', $from)
+            ->where('reference', 'not like', LegacyOrdersImporter::PAYOUT_PREFIX.'%')->get(['method', 'net_amount']);
         foreach ($merchantPaid as $payout) {
             $method = $payout->method?->value ?? PaymentMethod::Cash->value;
             // Paiement négatif : l'e-commerçant a réglé ce qu'il devait

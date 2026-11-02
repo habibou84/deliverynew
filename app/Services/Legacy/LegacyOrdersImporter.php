@@ -49,6 +49,14 @@ class LegacyOrdersImporter
 {
     public const SOURCE = 'legacy';
 
+    /** Argent soldé dans l'ancienne application : remis par le livreur, ou payé à l'e-commerçant (pas une entrée de caisse du jour) */
+    public const REF_REMITTED = 'Remis dans l\'ancienne application';
+
+    /** Références des reversements faits dans l'ancienne application */
+    public const PAYOUT_PREFIX = 'ANC-';
+
+    public const REF_PAID = 'Payé à l\'e-commerçant dans l\'ancienne application';
+
     /** Zone des courses dont la commune n'a pas été reconnue */
     public const UNKNOWN_ZONE = 'À préciser';
 
@@ -274,7 +282,7 @@ class LegacyOrdersImporter
      * « encours » (s'il existe) ; argent encore chez le livreur tant que la remise à la caisse n'est pas faite.
      *
      * @param  list<string>  $warnings
-     * @return array{items: int, fee: int, cod: int, owed: int, paid: bool, courier_cash: int, payment: ?array}
+     * @return array{items: int, fee: int, cod: int, owed: int, paid: bool, courier_cash: int, cash_ref: string, payment: ?array}
      */
     private function money(array $c, array $plan, array &$warnings): array
     {
@@ -298,6 +306,9 @@ class LegacyOrdersImporter
         }
 
         $cashBack = $this->date($c['cashedback_at'] ?? null) !== null;
+        // Paiement « terminé » à l'e-commerçant : l'argent a quitté le livreur (réglage de l'entreprise, activé par défaut)
+        $paidSettles = $paid && ($this->company->legacy_paid_settles_courier ?? true);
+        $courierCash = $delivered && ! $cashBack && ! $paidSettles && ! empty($c['livreur_id']) ? $items + $fee : 0;
 
         return [
             'items' => $items,
@@ -305,7 +316,9 @@ class LegacyOrdersImporter
             'cod' => $items + $fee,
             'owed' => $owed,
             'paid' => $paid,
-            'courier_cash' => $delivered && ! $cashBack && ! empty($c['livreur_id']) ? $items + $fee : 0,
+            'courier_cash' => $courierCash,
+            // Pourquoi l'argent n'est plus chez le livreur : remise notée, ou paiement terminé à l'e-commerçant
+            'cash_ref' => $cashBack ? self::REF_REMITTED : ($paidSettles ? self::REF_PAID : self::REF_REMITTED),
             'payment' => $payment,
         ];
     }
@@ -543,7 +556,7 @@ class LegacyOrdersImporter
                 'received_by_company' => $baseline || $money['courier_cash'] === 0,
                 // Reprise : l'argent est déjà à l'entreprise, rien à confirmer
                 'company_confirmed_at' => ($baseline || $money['courier_cash'] === 0) ? now() : null,
-                'transaction_ref' => $baseline ? LegacyCashBaselines::REF : ($money['courier_cash'] === 0 ? 'Remis dans l\'ancienne application' : null),
+                'transaction_ref' => $baseline ? LegacyCashBaselines::REF : ($money['courier_cash'] === 0 ? $money['cash_ref'] : null),
                 'collected_at' => $order->delivered_at ?? now(),
             ])->save();
         }
@@ -594,7 +607,7 @@ class LegacyOrdersImporter
             return $this->payouts[$merchantId];
         }
 
-        $reference = sprintf('ANC-%s-%d', now()->format('ymd'), $merchantId);
+        $reference = sprintf(self::PAYOUT_PREFIX.'%s-%d', now()->format('ymd'), $merchantId);
         $payout = MerchantPayout::withoutGlobalScopes()->firstOrCreate(
             ['company_id' => $this->company->id, 'reference' => $reference],
             [
