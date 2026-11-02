@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\StoreOrderRequest;
 use App\Http\Requests\V1\UpdateOrderRequest;
 use App\Http\Resources\V1\OrderResource;
+use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Services\Merchants\QuickMerchant;
@@ -42,7 +43,11 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'code_to_verify', 'change_requests'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'failed', 'code_to_verify', 'change_requests', 'untreated'])],
+            // Courses non traitées : celles qui n'ont pas de livreur
+            'without_courier' => ['nullable', 'boolean'],
+            // Courses non traitées : livreur de la livraison, à défaut du ramassage
+            'lead_courier_id' => ['nullable', 'integer'],
             // File « Sans livreur » : ramassage, livraison ou les deux
             'awaiting' => ['nullable', Rule::in([AwaitingCourier::PICKUP, AwaitingCourier::DELIVERY])],
             'merchant_id' => ['nullable', 'integer'],
@@ -72,8 +77,10 @@ class OrderController extends Controller
             ->when($queue !== '' && $queue !== 'unassigned', fn ($q) => $this->applyQueue($q, $queue, $day))
             ->when($queue === 'unassigned', fn ($q) => AwaitingCourier::scope($q, $request->input('awaiting'), $day))
             ->when($day !== null, fn ($q) => $this->applyDay($q, $queue, $day, $request->boolean('include_later')))
-            // En retard : du plus ancien au plus récent
-            ->when($queue === 'late', fn ($q) => $q->orderByRaw(Order::DELIVERY_DAY_SQL))
+            // En retard et non traitées : du plus ancien au plus récent
+            ->when(in_array($queue, ['late', 'untreated'], true), fn ($q) => $q->orderByRaw(Order::DELIVERY_DAY_SQL))
+            ->when($request->boolean('without_courier'), fn ($q) => $q->whereNull('pickup_courier_id')->whereNull('delivery_courier_id'))
+            ->when($request->filled('lead_courier_id'), fn ($q) => $q->whereRaw('COALESCE(delivery_courier_id, pickup_courier_id) = ?', [$request->integer('lead_courier_id')]))
             // Sans livreur : de la plus ancienne attente à la plus récente
             ->when($queue === 'unassigned', fn ($q) => $q->orderBy('status_changed_at'))
             ->when($request->filled('merchant_id'), fn ($q) => $q->where('merchant_id', $request->integer('merchant_id')))
@@ -108,6 +115,31 @@ class OrderController extends Controller
      * Compteurs du dispatch : courses à valider, à ramasser, à livrer, et celles qui
      * attendent un livreur au-delà du délai de l'entreprise.
      */
+    /**
+     * Courses non traitées (jour de livraison dépassé, pas terminées), regroupées par jour prévu, par livreur
+     * (celui de la livraison, à défaut du ramassage) ou par e-commerçant, avec le nombre et le montant à encaisser.
+     */
+    public function untreatedGroups(Request $request): JsonResponse
+    {
+        Gate::authorize('dispatch', Order::class);
+        $by = $request->validate(['by' => ['nullable', Rule::in(['date', 'courier', 'merchant'])]])['by'] ?? 'date';
+
+        $base = Order::query()->untreated();
+        $groups = match ($by) {
+            'date' => $base->selectRaw(Order::DELIVERY_DAY_SQL.' AS day, COUNT(*) AS n, SUM(cod_amount) AS amount')
+                ->groupByRaw(Order::DELIVERY_DAY_SQL)->orderByRaw(Order::DELIVERY_DAY_SQL)->get()
+                ->map(fn ($r) => ['key' => (string) $r->day, 'label' => Carbon::parse($r->day)->locale('fr')->isoFormat('dddd D MMMM YYYY'), 'count' => (int) $r->n, 'amount' => (int) $r->amount]),
+            'courier' => $base->selectRaw('COALESCE(delivery_courier_id, pickup_courier_id) AS courier, COUNT(*) AS n, SUM(cod_amount) AS amount, MIN('.Order::DELIVERY_DAY_SQL.') AS oldest')
+                ->groupByRaw('COALESCE(delivery_courier_id, pickup_courier_id)')->orderByDesc('n')->get()
+                ->map(fn ($r) => ['key' => $r->courier ? (string) $r->courier : 'none', 'label' => $r->courier ? (Courier::query()->with('user')->find($r->courier)?->user?->name ?? 'Livreur') : 'Sans livreur', 'count' => (int) $r->n, 'amount' => (int) $r->amount, 'oldest' => (string) $r->oldest]),
+            'merchant' => $base->selectRaw('merchant_id, COUNT(*) AS n, SUM(cod_amount) AS amount, MIN('.Order::DELIVERY_DAY_SQL.') AS oldest')
+                ->groupBy('merchant_id')->orderByDesc('n')->get()
+                ->map(fn ($r) => ['key' => (string) $r->merchant_id, 'label' => Merchant::query()->find($r->merchant_id)?->business_name ?? 'E-commerçant', 'count' => (int) $r->n, 'amount' => (int) $r->amount, 'oldest' => (string) $r->oldest]),
+        };
+
+        return response()->json(['data' => ['by' => $by, 'total' => $groups->sum('count'), 'groups' => $groups->values()]]);
+    }
+
     /**
      * Ramassages à assigner, regroupés par client et adresse : un lot s'assigne d'un coup.
      */
@@ -154,6 +186,9 @@ class OrderController extends Controller
             'to_deliver' => $count('to_deliver'),
             'unassigned' => AwaitingCourier::scope(Order::query())->count(),
             'change_requests' => $count('change_requests'),
+            // Cas à régler (cartes au-dessus des onglets) : toutes dates, tant qu'ils ne sont pas réglés
+            'exceptions' => collect(['late', 'untreated', 'to_return', 'to_decide', 'incidents', 'failed', 'code_to_verify', 'scheduled', 'to_prepare'])
+                ->mapWithKeys(fn (string $queue) => [$queue => $count($queue)])->all(),
             'late' => $awaiting->lateCounts($company, $waiting),
             // Tableau de bord : en attente d'un livreur, par étape
             'waiting' => $awaiting->summary($company, $waiting),
@@ -178,9 +213,10 @@ class OrderController extends Controller
         return [
             'date' => $day,
             'all' => Order::query()->ofDay($day)->count(),
-            'to_confirm' => $queue('to_confirm')->count(),
+            'to_confirm' => $queue('to_confirm')->ofDay($day)->count(),
             'late' => $queue('late')->count(),
-            'to_return' => $queue('to_return')->count(),
+            'to_return' => $queue('to_return')->ofDay($day)->count(),
+            'failed' => $queue('failed')->ofDay($day)->count(),
             ...collect(self::WORK_QUEUES)->mapWithKeys(fn (string $name) => [$name => $queue($name)->ofDay($day)->count()])->all(),
             'later' => collect(self::LATER_QUEUES)->mapWithKeys(fn (string $name) => [$name => $later($name)])->all(),
             'days' => [
@@ -189,6 +225,9 @@ class OrderController extends Controller
             ],
         ];
     }
+
+    /** Onglets limités aux courses du jour choisi (les jours passés sont dans « Courses non traitées ») */
+    private const DAY_QUEUES = ['to_confirm', 'to_return', 'failed'];
 
     /** Files de travail : limitées au jour choisi (les retards sont dans « En retard ») */
     private const WORK_QUEUES = ['to_pickup', 'to_prepare', 'to_deliver', 'unassigned'];
@@ -205,6 +244,7 @@ class OrderController extends Controller
     {
         return match (true) {
             $queue === '' => $query->ofDay($day),
+            in_array($queue, self::DAY_QUEUES, true) => $query->ofDay($day),
             in_array($queue, self::WORK_QUEUES, true) => $includeLater && in_array($queue, self::LATER_QUEUES, true)
                 ? $query->whereRaw(Order::DELIVERY_DAY_SQL.' >= ?', [$day])
                 : $query->ofDay($day),
@@ -313,7 +353,9 @@ class OrderController extends Controller
             'to_confirm' => $query->where('status', OrderStatus::Pending),
             // En retard : jour de livraison passé, course toujours en cours (hors retours demandés)
             'late' => $query->overdue($day),
-            'to_pickup' => $query->where('status', OrderStatus::Confirmed)->whereNull('pickup_hub_id'),
+            // Ramassages en cours : un livreur est assigné, le colis n'est pas encore récupéré
+            // (les ramassages sans livreur sont dans « Sans livreur »)
+            'to_pickup' => $query->whereIn('status', OrderStatus::values([OrderStatus::PickupAssigned, OrderStatus::PickupInProgress]))->whereNull('pickup_hub_id'),
             // Commandes d'entrepôt validées, à préparer avant la livraison
             'to_prepare' => $query->where('status', OrderStatus::Confirmed)->whereNotNull('pickup_hub_id'),
             // À livrer aujourd'hui : colis disponibles et reports arrivés à échéance
@@ -332,6 +374,10 @@ class OrderController extends Controller
             'to_return' => $query->where('return_requested', true)
                 ->whereNotIn('status', OrderStatus::values([OrderStatus::ReturnAssigned, OrderStatus::Returning, OrderStatus::Returned])),
             'incidents' => $query->whereIn('status', OrderStatus::values([OrderStatus::DeliveryFailed, OrderStatus::Rescheduled])),
+            // Échec de livraison
+            'failed' => $query->where('status', OrderStatus::DeliveryFailed),
+            // Non traitées : jour de livraison dépassé et course pas terminée (retours demandés compris), toutes dates
+            'untreated' => $query->untreated(),
             // Livrées hors connexion avec un code client incorrect : à vérifier auprès du destinataire
             'code_to_verify' => $query->whereNotNull('delivery_code_unverified_at'),
             // Modifications des e-commerçants à valider (prix qui change)

@@ -376,6 +376,16 @@ class Order extends Model
             ->where('return_requested', false);
     }
 
+    /**
+     * Non traitées : jour de livraison dépassé (avant aujourd'hui) et course pas terminée, retours demandés compris.
+     */
+    public function scopeUntreated(Builder $query): Builder
+    {
+        $final = OrderStatus::values(array_filter(OrderStatus::cases(), fn (OrderStatus $s) => $s->isFinal()));
+
+        return $query->whereRaw(self::DELIVERY_DAY_SQL.' < ?', [today()->toDateString()])->whereNotIn('status', $final);
+    }
+
     public function activeAssignment(AssignmentType $type): ?OrderAssignment
     {
         return $this->assignments()->active()->where('type', $type->value)->latest('id')->first();

@@ -8,6 +8,7 @@ use App\Enums\Role;
 use App\Models\CashCollection;
 use App\Models\Company;
 use App\Models\Courier;
+use App\Models\LegacyPendingCommand;
 use App\Models\Merchant;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
@@ -130,7 +131,11 @@ class LegacyOrdersSync
                 $report['old_module'] = true;
             }
             foreach ($page['data'] ?? [] as $command) {
-                $this->collect($report, $command, $this->importer->import($command, $dryRun));
+                $result = $this->importer->import($command, $dryRun);
+                $this->collect($report, $command, $result);
+                if (! $dryRun) {
+                    $this->pending($company, $command, $result);
+                }
             }
             $cursor['done'] += count($page['data'] ?? []);
             if ($cursor['order'] === 'recent') {
@@ -176,7 +181,7 @@ class LegacyOrdersSync
      */
     public function sync(Company $company, bool $all = false): array
     {
-        $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'skipped' => 0, 'conflict' => 0, 'reread' => 0];
+        $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'skipped' => 0, 'conflict' => 0, 'reread' => 0, 'pending' => 0];
         $since = $company->legacy_sync_cursor
             ? now()->parse($company->legacy_sync_cursor)->subSeconds(self::OVERLAP_SECONDS)->toDateTimeString()
             : self::from();
@@ -186,7 +191,7 @@ class LegacyOrdersSync
             $serverTime = null;
             $created = [];
             $seen = [];
-            $take = function (array $page) use (&$serverTime, &$created, &$seen, &$counts) {
+            $take = function (array $page) use ($company, &$serverTime, &$created, &$seen, &$counts) {
                 $serverTime ??= $page['server_time'] ?? null;
                 foreach ($page['data'] ?? [] as $command) {
                     if (isset($seen[(string) $command['id']])) {
@@ -194,12 +199,16 @@ class LegacyOrdersSync
                     }
                     $seen[(string) $command['id']] = true;
                     $result = $this->importer->import($command, live: true);
+                    $this->pending($company, $command, $result);
                     $counts[$result['action']]++;
                     if ($result['action'] === 'created') {
                         $created[] = (string) $command['id'];
                     }
                 }
             };
+
+            // Comptes créés ou modifiés dans l'ancienne application (module version 4) : avant les commandes
+            $this->syncAccounts($company);
 
             // Nouvelles commandes : numéro plus grand que le dernier repris, quelles que soient leurs dates (une horloge
             // décalée de l'ancienne application ne les fait plus passer à travers)
@@ -228,6 +237,7 @@ class LegacyOrdersSync
             // Relecture des courses en cours : un refus de l'ancienne application (trop de demandes) n'annule pas ce
             // qui vient d'être copié ; la suite est relue à la copie suivante
             try {
+                $counts['pending'] = $this->retryPending($company, $counts, $seen);
                 $counts['reread'] = $this->reread($company, $counts, $seen, $all);
             } catch (RuntimeException $e) {
                 $company->forceFill(['legacy_sync_last_error' => Str::limit($e->getMessage(), 500)])->save();
@@ -252,6 +262,124 @@ class LegacyOrdersSync
         app(LegacyRechecks::class)->nightly($company, $orders);
 
         return $orders->count();
+    }
+
+    /** Commande mise de côté (e-commerçant introuvable, erreur) gardée pour être relancée ; reprise : retirée */
+    private function pending(Company $company, array $command, array $result): void
+    {
+        $id = (string) ($command['id'] ?? '');
+        if ($id === '') {
+            return;
+        }
+        if ($result['action'] !== 'skipped') {
+            LegacyPendingCommand::query()->where('company_id', $company->id)->where('legacy_id', $id)->delete();
+
+            return;
+        }
+        $pending = LegacyPendingCommand::query()->firstOrNew(['company_id' => $company->id, 'legacy_id' => $id]);
+        $pending->fill([
+            'client_legacy_id' => isset($command['client_id']) ? (string) $command['client_id'] : null,
+            'client_name' => Str::limit((string) ($command['client']['nom'] ?? ''), 250, '') ?: null,
+            'reason' => Str::limit((string) ($result['reason'] ?? 'mise de côté'), 250, ''),
+            'attempts' => $pending->exists ? $pending->attempts + 1 : 1,
+            'last_tried_at' => now(),
+        ])->save();
+    }
+
+    /**
+     * Relance des commandes mises de côté (le compte a pu être repris depuis), par leur numéro.
+     *
+     * @param  array<string, int>  $counts
+     * @param  array<string, true>  $seen
+     */
+    public function retryPending(Company $company, array &$counts = [], array $seen = []): int
+    {
+        $pendings = LegacyPendingCommand::query()->where('company_id', $company->id)->orderBy('id')->limit(self::IDS_PER_CALL)->get()
+            ->reject(fn (LegacyPendingCommand $p) => isset($seen[$p->legacy_id]));
+        if ($pendings->isEmpty()) {
+            return 0;
+        }
+        $this->importer->for($company);
+        $page = $this->get($company, 'commands', ['ids' => $pendings->pluck('legacy_id')->implode(',')]);
+        $returned = [];
+        foreach ($page['data'] ?? [] as $command) {
+            $returned[(string) $command['id']] = true;
+            $result = $this->importer->import($command, live: true);
+            $this->pending($company, $command, $result);
+            if (in_array($result['action'], ['created', 'updated'], true)) {
+                $counts['created'] = ($counts['created'] ?? 0) + 1;
+            }
+        }
+        // Plus renvoyées par l'ancienne application (effacées, ou hors des 12 mois) : retirées de la liste
+        $gone = $pendings->reject(fn (LegacyPendingCommand $p) => isset($returned[$p->legacy_id]));
+        LegacyPendingCommand::query()->whereKey($gone->modelKeys())->delete();
+
+        return count($returned);
+    }
+
+    /** Commandes mises de côté, pour l'écran Comptes et zones */
+    public function pendingList(Company $company): array
+    {
+        $query = LegacyPendingCommand::query()->where('company_id', $company->id);
+
+        return [
+            'total' => (clone $query)->count(),
+            'items' => $query->orderByDesc('id')->limit(50)->get()->map(fn (LegacyPendingCommand $p) => [
+                'legacy_id' => $p->legacy_id, 'client_legacy_id' => $p->client_legacy_id, 'client_name' => $p->client_name,
+                'reason' => $p->reason, 'attempts' => $p->attempts, 'last_tried_at' => $p->last_tried_at?->toIso8601String(),
+            ])->values()->all(),
+        ];
+    }
+
+    /** Version du module de l'ancienne application, relue au plus une fois par heure */
+    public function moduleVersion(Company $company): int
+    {
+        if ($company->legacy_module_checked_at === null || $company->legacy_module_checked_at->lt(now()->subHour())) {
+            $summary = $this->get($company, 'summary', ['from' => self::from()]);
+            $company->forceFill(['legacy_module_version' => (int) ($summary['data']['module_version'] ?? 1), 'legacy_module_checked_at' => now()])->save();
+        }
+
+        return (int) $company->legacy_module_version;
+    }
+
+    /**
+     * Copie des comptes (module version 4) : e-commerçants et livreurs créés ou modifiés dans l'ancienne
+     * application depuis la dernière copie. Nouveaux comptes repris (même numéro, même mot de passe) ; fiches
+     * reprises mises à jour, seulement avant la bascule (ensuite Jibiat fait foi). Un échec n'arrête pas la copie des
+     * commandes.
+     */
+    public function syncAccounts(Company $company): ?array
+    {
+        try {
+            if ($this->moduleVersion($company) < 4) {
+                return null;
+            }
+            $cursor = $company->legacy_accounts_cursor ?? $company->legacy_sync_cursor ?? now()->subDay()->toDateTimeString();
+            $since = now()->parse($cursor)->subSeconds(self::OVERLAP_SECONDS)->toDateTimeString();
+            $page = $this->get($company, 'commands', ['accounts_since' => $since]);
+            $accounts = $page['accounts'] ?? [];
+            $switched = $company->legacy_switch_at !== null && ! $company->legacy_switch_at->isFuture();
+            $report = app(LegacyAccountsImporter::class)->importRows($company, $accounts['users'] ?? [], $accounts['clients'] ?? [], $accounts['livreurs'] ?? [], update: ! $switched);
+
+            $stats = $company->legacy_accounts_stats ?? [];
+            if (($stats['day'] ?? null) !== today()->toDateString()) {
+                $stats = ['day' => today()->toDateString(), 'merchants' => 0, 'couriers' => 0, 'updated' => 0];
+            }
+            $stats['merchants'] += $report['counts']['merchants'];
+            $stats['couriers'] += $report['counts']['couriers'];
+            $stats['updated'] += $report['counts']['updated'];
+            $company->forceFill([
+                'legacy_accounts_cursor' => $page['server_time'] ?? $cursor,
+                'legacy_accounts_last_at' => now(),
+                'legacy_accounts_stats' => $stats,
+            ])->save();
+
+            return $report;
+        } catch (RuntimeException $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     /** Plus grand numéro de commande de l'ancienne application déjà dans Jibiat */
