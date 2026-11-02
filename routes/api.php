@@ -390,6 +390,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('sync', 'syncNow')->middleware('throttle:10,1')->name('sync');
             Route::get('balances', 'balances')->name('balances');
             Route::post('balances/validate', 'validateBalances')->name('balances.validate');
+            Route::put('payment-rule', 'paymentRule')->name('payment-rule');
             Route::get('module', 'module')->name('module');
             Route::get('accounts', 'accounts')->name('accounts');
             Route::post('accounts/sync', 'syncAccounts')->middleware('throttle:10,1')->name('accounts.sync');
