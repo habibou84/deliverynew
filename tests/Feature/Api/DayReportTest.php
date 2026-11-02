@@ -102,4 +102,30 @@ class DayReportTest extends TestCase
         Sanctum::actingAs($this->dispatcher);
         $this->getJson('/api/v1/reports/auto-assign-checks')->assertForbidden();
     }
+
+    /** Tableau de bord : période, nouvelles courses et livreurs du jour */
+    public function test_a_period_counts_new_courses_and_lists_the_couriers(): void
+    {
+        $first = $this->deliver(10000);
+        $this->deliver(20000);
+        $this->createOrder(['items_amount' => 5000, 'delivery_scheduled_date' => today()->addDays(3)->toDateString()]);
+
+        Sanctum::actingAs($this->admin);
+        $from = today()->subDays(6)->toDateString();
+        $data = $this->getJson('/api/v1/reports/day?from='.$from.'&to='.today()->toDateString())->assertOk()->json('data');
+        $this->assertSame([$from, today()->toDateString()], [$data['from'], $data['to']]);
+        $this->assertSame([3, 1, 2], [$data['counts']['created'], $data['counts']['created_later'], $data['counts']['delivered']]);
+
+        $courier = collect($data['couriers'])->firstWhere('id', $this->courierB->id);
+        $this->assertSame(2, $courier['delivered']);
+        $this->assertSame($data['money']['collected'], $courier['collected']);
+
+        // Sans droit caisse : pas de montant par livreur ; période trop longue refusée
+        Sanctum::actingAs($this->dispatcher);
+        if (! $this->dispatcher->can('finance.view')) {
+            $this->assertNull(collect($this->getJson('/api/v1/reports/day')->json('data.couriers'))->firstWhere('id', $this->courierB->id)['collected']);
+        }
+        $this->getJson('/api/v1/reports/day?from=2020-01-01&to=2020-12-31')->assertStatus(422);
+        $this->assertNotNull($first);
+    }
 }
