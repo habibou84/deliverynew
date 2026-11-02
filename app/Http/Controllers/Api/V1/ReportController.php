@@ -9,6 +9,7 @@ use App\Services\Reports\DayReport;
 use App\Services\Reports\OrderSummary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
@@ -46,11 +47,19 @@ class ReportController extends Controller
     {
         $user = $request->user();
         abort_if($user->merchant_id !== null || $user->company === null, 403);
-        $data = $request->validate(['day' => ['nullable', 'date_format:Y-m-d']]);
+        // Un jour (day) ou une période (from, to) : 92 jours au plus
+        $data = $request->validate([
+            'day' => ['nullable', 'date_format:Y-m-d'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
         $company = $user->company;
-        $day = $data['day'] ?? now($company->timezone ?: config('app.timezone'))->toDateString();
+        $today = now($company->timezone ?: config('app.timezone'))->toDateString();
+        $from = $data['from'] ?? $data['day'] ?? $today;
+        $to = isset($data['from']) ? ($data['to'] ?? $from) : $from;
+        abort_if(Carbon::parse($from)->diffInDays(Carbon::parse($to)) > 92, 422, 'Période trop longue (92 jours au plus).');
 
-        return response()->json(['data' => $report->build($company, $day, $user->can('finance.view'))]);
+        return response()->json(['data' => $report->build($company, $from, $user->can('finance.view'), $to)]);
     }
 
     /** Réglages qui manquent pour que les courses soient assignées automatiquement */

@@ -2,8 +2,9 @@
   <!-- Point du jour de la page Courses : livrées, recette de livraison, encaissé chez les clients, à reverser -->
   <section v-if="report" class="card space-y-3 p-3 sm:p-4" aria-label="Point du jour">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h2 class="font-semibold">📊 Point du {{ dayLabel }}</h2>
-      <div class="flex items-center gap-3 text-xs text-gray-500">
+      <h2 class="font-semibold">📊 Point {{ dayLabel }}</h2>
+      <div class="flex flex-wrap items-center gap-3 text-xs text-gray-500">
+        <span v-if="detailed && c.created">🆕 {{ c.created }} nouvelle{{ c.created > 1 ? 's' : '' }} course{{ c.created > 1 ? 's' : '' }}<template v-if="c.created_later">, dont {{ c.created_later }} pour plus tard</template></span>
         <span>mis à jour à {{ updatedAt }}</span>
         <button type="button" class="font-medium text-blue-600 hover:underline" @click="share">Envoyer sur WhatsApp</button>
         <button type="button" class="hidden font-medium text-blue-600 hover:underline sm:inline" @click="open = !open">{{ open ? 'Réduire' : 'Afficher' }}</button>
@@ -53,8 +54,16 @@ import { money } from '../utils/format'
  * Point du jour (page Courses, équipe) : courses prévues et livrées, recette de livraison, argent encaissé (caisse ou
  * livreurs) et montant à reverser. Les montants ne sont envoyés qu'à qui voit la caisse.
  */
-const props = defineProps({ day: { type: String, default: '' }, refresh: { type: Number, default: 0 } })
-const emit = defineEmits(['delivered'])
+const props = defineProps({
+  day: { type: String, default: '' },
+  // Période (tableau de bord) : remplace le jour
+  from: { type: String, default: '' },
+  to: { type: String, default: '' },
+  // Détail complet : retournées, annulées, nouvelles courses
+  detailed: { type: Boolean, default: false },
+  refresh: { type: Number, default: 0 },
+})
+const emit = defineEmits(['delivered', 'loaded'])
 
 const report = ref(null)
 const updatedAt = ref('')
@@ -63,10 +72,12 @@ const c = computed(() => report.value.counts)
 const m = computed(() => report.value.money)
 const rate = computed(() => (c.value.planned ? Math.round((c.value.delivered_planned / c.value.planned) * 100) : 0))
 const todayIso = new Date().toLocaleDateString('sv-SE')
+const longDay = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+const shortDay = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 const dayLabel = computed(() => {
-  const d = report.value.day
-  if (d === todayIso) return 'jour'
-  return new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+  const { from, to } = report.value
+  if (from !== to) return `du ${shortDay(from)} au ${shortDay(to)}`
+  return from === todayIso ? 'du jour' : `du ${longDay(from)}`
 })
 const detail = computed(() => {
   const parts = []
@@ -74,13 +85,16 @@ const detail = computed(() => {
   if (c.value.in_progress) parts.push(`${c.value.in_progress} en cours`)
   if (c.value.failed) parts.push(`${c.value.failed} échec(s)`)
   if (c.value.rescheduled) parts.push(`${c.value.rescheduled} reportée(s)`)
+  if (props.detailed && c.value.returned) parts.push(`${c.value.returned} retournée(s)`)
+  if (props.detailed && c.value.cancelled) parts.push(`${c.value.cancelled} annulée(s)`)
   return parts.join(' · ') || 'Aucune course prévue ce jour'
 })
 
 async function load() {
   try {
-    const day = props.day || todayIso
-    report.value = (await http.get('/reports/day', { params: { day } })).data.data
+    const params = props.from ? { from: props.from, to: props.to || props.from } : { day: props.day || todayIso }
+    report.value = (await http.get('/reports/day', { params })).data.data
+    emit('loaded', report.value)
     updatedAt.value = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
   } catch {
     report.value = null
@@ -88,13 +102,13 @@ async function load() {
 }
 
 function share() {
-  const lines = [`Point du ${dayLabel.value === 'jour' ? new Date().toLocaleDateString('fr-FR') : dayLabel.value}`, `Livrées : ${c.value.delivered}${c.value.planned ? ` / ${c.value.planned} prévues` : ''}`]
+  const lines = [`Point ${dayLabel.value === 'du jour' ? `du ${new Date().toLocaleDateString('fr-FR')}` : dayLabel.value}`, `Livrées : ${c.value.delivered}${c.value.planned ? ` / ${c.value.planned} prévues` : ''}`]
   if (m.value) {
     lines.push(`Recette livraison : ${money(m.value.fees)}`, `Encaissé chez les clients : ${money(m.value.collected)} (caisse ${money(m.value.at_desk)}, livreurs ${money(m.value.with_couriers)})`, `À reverser : ${money(m.value.net_to_merchants)}`)
   }
   window.open(`https://wa.me/?text=${encodeURIComponent(lines.join('\n'))}`, '_blank', 'noopener')
 }
 
-watch(() => [props.day, props.refresh], load)
+watch(() => [props.day, props.from, props.to, props.refresh], load)
 onMounted(load)
 </script>
