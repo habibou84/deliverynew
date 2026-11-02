@@ -324,7 +324,7 @@ class SetupGuide
         $auto = ($c->auto_pickup ?? 'off') !== 'off' || ($c->auto_delivery ?? 'off') !== 'off';
 
         return $this->step('automation', 'L\'assignation automatique', false,
-            'Le planning dit qui ramasse et qui livre où ; les courses peuvent ensuite partir seules. Commencez par le mode « à l\'essai ».',
+            'Le planning dit qui ramasse et qui livre où ; les courses peuvent ensuite être assignées automatiquement aux livreurs. Commencez par le mode « à l\'essai ».',
             $rules > 0 && $auto ? self::DONE : ($rules > 0 || $auto ? self::PARTIAL : self::TODO),
             [($rules ? "{$rules} règle(s) au planning" : 'Aucune règle au planning').' · automatismes '.($auto ? 'en marche' : 'désactivés').'.'],
             '/admin/planning', 'Ouvrir le planning');

@@ -2,13 +2,15 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Courses</h1>
-      <div class="flex gap-2">
+      <div class="flex items-center gap-2">
+        <SettingsShortcut v-if="isStaff" compact :blocks="['validation', 'editApproval', 'day', 'autoPickup', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/reglages/courses" />
         <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/import`" class="btn-secondary">📥 Importer</RouterLink>
         <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/nouvelle`" :class="['btn-primary', isStaff ? 'hidden md:inline-flex' : '']">+ Nouvelle course</RouterLink>
       </div>
     </div>
 
-    <SettingsShortcut v-if="isStaff" :blocks="['validation', 'editApproval', 'day', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/reglages/courses" />
+    <!-- Réglages manquants pour l'assignation automatique : bandeau d'action -->
+    <AutoAssignBanner v-if="isStaff" />
 
     <DeliveryDayBar v-if="isStaff && auth.can('orders.dispatch')" @changed="load(1); dispatchCounts.fetchCounts().catch(() => {})" />
 
@@ -32,36 +34,63 @@
       <span v-if="filters.day" class="hidden sm:inline text-gray-500">· seulement les courses prévues ce jour (retards dans « En retard »)</span>
     </div>
 
-    <!-- Files d'attente du dispatch -->
-    <div v-if="isStaff" class="flex gap-2 overflow-x-auto no-scrollbar pb-1 [mask-image:linear-gradient(to_right,black_88%,transparent)] md:[mask-image:none]">
+    <!-- Point du jour : livrées, recette, encaissé, à reverser -->
+    <DayPoint v-if="isStaff && isDispatch" :day="filters.day" @delivered="showDelivered" />
+
+    <!-- Cas à régler : cartes visibles seulement s'il y en a, jusqu'à ce qu'ils soient réglés -->
+    <div v-if="isStaff && exceptionCards.length" class="grid grid-cols-2 gap-2 lg:grid-cols-4">
       <button
-        v-for="q in visibleQueues"
+        v-for="e in exceptionCards" :key="e.value" type="button"
+        :class="['card px-3 py-2 text-left text-sm', e.class, filters.queue === e.value ? 'ring-2 ring-slate-900' : '']"
+        :aria-pressed="filters.queue === e.value"
+        @click="setQueue(filters.queue === e.value ? '' : e.value)"
+      >
+        <b>{{ e.icon }} {{ e.count }} {{ e.count > 1 ? e.plural : e.label }}</b>
+        <span class="block text-xs opacity-90">{{ e.hint }}</span>
+      </button>
+    </div>
+
+    <!-- Onglets : le parcours d'une course ; les autres files dans « Plus » -->
+    <div v-if="isStaff" class="flex gap-2 overflow-x-auto no-scrollbar pb-1 md:flex-wrap md:overflow-visible">
+      <button
+        v-for="q in mainQueues"
         :key="q.value"
-        :class="['btn whitespace-nowrap', filters.queue === q.value ? 'bg-slate-900 text-white' : ALERT_TABS[q.value] && tabCount(q.value) ? ALERT_TABS[q.value].tab : 'bg-white border border-slate-300']"
+        :class="['btn whitespace-nowrap', isActiveTab(q.value) ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300']"
         @click="setQueue(q.value)"
       >
         {{ q.label }}
-        <span v-if="tabCount(q.value)" :class="['ml-1 rounded-full px-1.5 text-xs font-semibold', filters.queue === q.value ? 'bg-white/20' : ALERT_TABS[q.value] ? ALERT_TABS[q.value].count : 'bg-slate-100 text-slate-700']">{{ tabCount(q.value) }}</span>
+        <span v-if="tabCount(q.value)" :class="['ml-1 rounded-full px-1.5 text-xs font-semibold', isActiveTab(q.value) ? 'bg-white/20' : 'bg-slate-100 text-slate-700']">{{ tabCount(q.value) }}</span>
         <span
           v-if="tabLate(q.value)"
           class="ml-1 rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white"
           :title="`${tabLate(q.value)} course(s) sans livreur depuis trop longtemps`"
         >⏰ {{ tabLate(q.value) }}</span>
       </button>
+      <div class="relative">
+        <button
+          type="button"
+          :class="['btn whitespace-nowrap', moreActive ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300 text-gray-600']"
+          :aria-expanded="moreOpen" @click="moreOpen = !moreOpen"
+        >
+          {{ moreActive ? moreActive.label : 'Plus' }} ▾
+        </button>
+        <div v-if="moreOpen" class="absolute right-0 z-30 mt-1 w-60 rounded-xl bg-white p-1 shadow-lg ring-1 ring-slate-200 md:left-0 md:right-auto">
+          <button
+            v-for="q in moreQueues" :key="q.value" type="button"
+            :class="['flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm hover:bg-slate-100', filters.queue === q.value ? 'font-semibold' : '']"
+            @click="moreOpen = false; setQueue(q.value)"
+          >
+            {{ q.label }}<span v-if="exceptionCount(q.value)" class="rounded-full bg-slate-100 px-1.5 text-xs">{{ exceptionCount(q.value) }}</span>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- Jour choisi : retards et retours demandés à part, bien visibles -->
-    <div v-if="isDispatch && filters.day && (filters.queue === '' || isWorkQueue) && (tabCount('late') || tabCount('to_return'))" class="grid gap-2 sm:grid-cols-2">
-      <button v-if="tabCount('to_return')" type="button" class="card flex items-center gap-3 border-rose-300 bg-rose-50 px-3 py-2 text-left text-rose-900" @click="setQueue('to_return')">
-        <span class="text-2xl">↩️</span>
-        <span class="min-w-0 flex-1 text-sm"><b>{{ tabCount('to_return') }} retour{{ tabCount('to_return') > 1 ? 's' : '' }} demandé{{ tabCount('to_return') > 1 ? 's' : '' }}</b> par les e-commerçants : colis à leur rendre</span>
-        <span class="text-sm font-semibold underline">Voir</span>
-      </button>
-      <button v-if="tabCount('late')" type="button" class="card flex items-center gap-3 border-amber-300 bg-amber-50 px-3 py-2 text-left text-amber-900" @click="setQueue('late')">
-        <span class="text-2xl">⏳</span>
-        <span class="min-w-0 flex-1 text-sm"><b>{{ tabCount('late') }} course{{ tabCount('late') > 1 ? 's' : '' }} en retard</b> des jours précédents, toujours en cours</span>
-        <span class="text-sm font-semibold underline">Voir</span>
-      </button>
+    <!-- À ramasser : en liste ou regroupé par client -->
+    <div v-if="isDispatch && ['to_pickup', 'by_client'].includes(filters.queue)" class="flex items-center gap-2 text-sm" role="group" aria-label="Affichage">
+      <span class="text-gray-600">Vue :</span>
+      <button type="button" :class="['rounded-full px-3 py-1 ring-1', !byClient ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" @click="setQueue('to_pickup')">Liste</button>
+      <button type="button" :class="['rounded-full px-3 py-1 ring-1', byClient ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" @click="setQueue('by_client')">🏪 Par client</button>
     </div>
 
     <!-- Sans livreur : ramassage, livraison ou les deux ; de la plus ancienne attente à la plus récente -->
@@ -320,6 +349,8 @@ import OrderDecision from '../../components/OrderDecision.vue'
 import OrderEditModal from '../../components/OrderEditModal.vue'
 import PickupGroupsPanel from '../../components/PickupGroupsPanel.vue'
 import DeliveryDayBar from '../../components/DeliveryDayBar.vue'
+import DayPoint from '../../components/DayPoint.vue'
+import AutoAssignBanner from '../../components/AutoAssignBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { useDispatchCountStore } from '../../stores/dispatchCounts'
@@ -371,7 +402,29 @@ const queues = [
 ]
 
 // Écran à part, réservé au dispatch (pas une file de la liste)
-const visibleQueues = computed(() => queues.filter((q) => !['by_client', 'change_requests'].includes(q.value) || auth.can('orders.dispatch')))
+// Onglets du parcours ; les autres files sont dans « Plus » ou en cartes « à régler »
+const MAIN_QUEUES = ['', 'to_confirm', 'to_pickup', 'to_deliver', 'unassigned']
+const MORE_QUEUES = ['incidents', 'to_prepare', 'scheduled']
+const mainQueues = computed(() => queues.filter((q) => MAIN_QUEUES.includes(q.value)))
+const moreQueues = computed(() => queues.filter((q) => MORE_QUEUES.includes(q.value)))
+const moreOpen = ref(false)
+const moreActive = computed(() => moreQueues.value.find((q) => q.value === filters.queue))
+const isActiveTab = (value) => filters.queue === value || (value === 'to_pickup' && filters.queue === 'by_client')
+// Cas à régler : en cartes de couleur au-dessus des onglets, seulement quand il y en a
+const EXCEPTIONS = [
+  { value: 'late', icon: '⏳', label: 'en retard', plural: 'en retard', hint: 'des jours précédents, toujours en cours', class: 'border-amber-300 bg-amber-50 text-amber-900' },
+  { value: 'to_return', icon: '↩️', label: 'retour demandé', plural: 'retours demandés', hint: 'colis à rendre aux e-commerçants', class: 'border-rose-300 bg-rose-50 text-rose-900' },
+  { value: 'to_decide', icon: '❓', label: 'à décider', plural: 'à décider', hint: 'échecs : reporter, relivrer ou retourner', class: 'border-red-300 bg-red-50 text-red-900' },
+  { value: 'change_requests', icon: '✏️', label: 'modification à valider', plural: 'modifications à valider', hint: 'prix changé par l\'e-commerçant', class: 'border-amber-300 bg-amber-50 text-amber-900', dispatch: true },
+  { value: 'code_to_verify', icon: '⚠️', label: 'code à vérifier', plural: 'codes à vérifier', hint: 'livrées hors connexion avec un code faux', class: 'border-red-300 bg-red-50 text-red-900' },
+]
+const exceptionCount = (queue) => {
+  if (!isDispatch.value) return 0
+  if (queue === 'change_requests') return dispatchCounts.counts.change_requests || 0
+  if (dayCounts.value && ['late', 'to_return'].includes(queue)) return dayCounts.value[queue] || 0
+  return dispatchCounts.counts.exceptions?.[queue] || 0
+}
+const exceptionCards = computed(() => EXCEPTIONS.map((e) => ({ ...e, count: exceptionCount(e.value) })).filter((e) => e.count > 0 || filters.queue === e.value))
 
 const filters = reactive({
   queue: route.query.queue || '',
@@ -448,12 +501,6 @@ const laterCount = computed(() => {
   if (!filters.day || !LATER_QUEUES[filters.queue]) return 0
   return dayCounts.value?.later?.[filters.queue === 'by_client' ? 'to_pickup' : filters.queue] || 0
 })
-// Onglets mis en évidence tant qu'ils ne sont pas vides
-const ALERT_TABS = {
-  late: { tab: 'bg-amber-50 border border-amber-300 text-amber-900', count: 'bg-amber-500 text-white' },
-  to_return: { tab: 'bg-rose-50 border border-rose-300 text-rose-900', count: 'bg-rose-600 text-white' },
-  change_requests: { tab: 'bg-amber-50 border border-amber-300 text-amber-900', count: 'bg-amber-500 text-white' },
-}
 // Retour demandé par l'e-commerçant, pas encore parti
 const returnPending = (o) => o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)
 const isWorkQueue = computed(() => WORK_QUEUES.includes(filters.queue))
@@ -517,6 +564,12 @@ function setQueue(value) {
   bulk.type = { to_deliver: 'delivery', incidents: 'delivery', to_return: 'return', unassigned: 'auto' }[value] || 'pickup'
   syncQuery()
   load(1)
+}
+
+// Point du jour → les courses livrées du jour choisi
+function showDelivered() {
+  filters.status = 'delivered'
+  setQueue('')
 }
 
 function setAwaiting(value) {

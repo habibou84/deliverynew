@@ -2,13 +2,13 @@
   <!-- Réglages de la page : résumé en étiquettes et bouton ⚙️ qui ouvre le panneau (à droite sur ordinateur, en bas sur téléphone) -->
   <div v-if="allowed" class="flex flex-wrap items-center gap-2 text-xs">
     <button
-      v-for="[label, value] in summary" :key="label" type="button"
+      v-for="[label, value] in compact ? [] : summary" :key="label" type="button"
       class="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 ring-1 ring-slate-200 hover:ring-slate-400"
       :title="`Régler : ${label}`" @click="open = true"
     >
       <span class="text-gray-500">{{ label }}</span> <strong>{{ value }}</strong>
     </button>
-    <button type="button" class="btn-secondary ml-auto !py-1.5" :aria-expanded="open" @click="open = true">⚙️ Réglages</button>
+    <button type="button" :class="['btn-secondary !py-1.5', compact ? '' : 'ml-auto']" :aria-expanded="open" @click="open = true">⚙️ Réglages</button>
 
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-50" role="dialog" aria-modal="true" :aria-label="`Réglages : ${title}`" @keydown.esc="close">
@@ -42,6 +42,8 @@ const props = defineProps({
   title: { type: String, required: true },
   intro: { type: String, default: '' },
   more: { type: String, default: '/admin/reglages' },
+  // Seulement le bouton ⚙️, sans les étiquettes de résumé
+  compact: { type: Boolean, default: false },
 })
 
 const auth = useAuthStore()

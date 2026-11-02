@@ -717,6 +717,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
         });
 
         Route::get('reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
+        // Point du jour de la page Courses (équipe) : montants pour qui voit la caisse
+        Route::get('reports/day', [ReportController::class, 'day'])->middleware('can:orders.dispatch')->name('reports.day');
+        // Réglages qui manquent pour l'assignation automatique (bandeau de la page Courses)
+        Route::get('reports/auto-assign-checks', [ReportController::class, 'autoAssignChecks'])->middleware('can:settings.manage')->name('reports.auto-assign-checks');
 
         // Statistiques de l'entreprise (back-office)
         Route::prefix('stats')->name('stats.')->middleware('can:orders.view')->controller(StatisticsController::class)->group(function () {

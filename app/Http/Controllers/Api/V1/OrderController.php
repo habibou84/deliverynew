@@ -154,6 +154,9 @@ class OrderController extends Controller
             'to_deliver' => $count('to_deliver'),
             'unassigned' => AwaitingCourier::scope(Order::query())->count(),
             'change_requests' => $count('change_requests'),
+            // Cas à régler (cartes au-dessus des onglets) : toutes dates, tant qu'ils ne sont pas réglés
+            'exceptions' => collect(['late', 'to_return', 'to_decide', 'incidents', 'code_to_verify', 'scheduled', 'to_prepare'])
+                ->mapWithKeys(fn (string $queue) => [$queue => $count($queue)])->all(),
             'late' => $awaiting->lateCounts($company, $waiting),
             // Tableau de bord : en attente d'un livreur, par étape
             'waiting' => $awaiting->summary($company, $waiting),
