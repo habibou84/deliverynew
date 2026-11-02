@@ -49,7 +49,12 @@ class UntreatedOrdersTest extends TestCase
         $returnToday = $this->orderOn($today, OrderStatus::PickedUp, ['return_requested' => true]);
         $this->orderOn($yesterday, OrderStatus::PickedUp, ['return_requested' => true]);
 
+        // À ramasser : livreur de ramassage assigné, colis pas encore récupéré (sans livreur : « Sans livreur »)
+        $assigned = $this->orderOn($today, OrderStatus::PickupAssigned);
+        $this->orderOn($today, OrderStatus::Confirmed);
+
         Sanctum::actingAs($this->dispatcher);
+        $this->assertSame([$assigned->id], $this->codes("/api/v1/orders?queue=to_pickup&day={$today}"));
         $this->assertSame([$pendingToday->id], $this->codes("/api/v1/orders?queue=to_confirm&day={$today}"));
         $this->assertSame([$failedToday->id], $this->codes("/api/v1/orders?queue=failed&day={$today}"));
         $this->assertSame([$returnToday->id], $this->codes("/api/v1/orders?queue=to_return&day={$today}"));

@@ -353,7 +353,9 @@ class OrderController extends Controller
             'to_confirm' => $query->where('status', OrderStatus::Pending),
             // En retard : jour de livraison passé, course toujours en cours (hors retours demandés)
             'late' => $query->overdue($day),
-            'to_pickup' => $query->where('status', OrderStatus::Confirmed)->whereNull('pickup_hub_id'),
+            // Ramassages en cours : un livreur est assigné, le colis n'est pas encore récupéré
+            // (les ramassages sans livreur sont dans « Sans livreur »)
+            'to_pickup' => $query->whereIn('status', OrderStatus::values([OrderStatus::PickupAssigned, OrderStatus::PickupInProgress]))->whereNull('pickup_hub_id'),
             // Commandes d'entrepôt validées, à préparer avant la livraison
             'to_prepare' => $query->where('status', OrderStatus::Confirmed)->whereNotNull('pickup_hub_id'),
             // À livrer aujourd'hui : colis disponibles et reports arrivés à échéance

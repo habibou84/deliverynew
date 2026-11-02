@@ -465,9 +465,9 @@ const allSelected = computed(() => orders.value.length > 0 && selected.value.len
 // Compteurs des files et courses en attente d'un livreur depuis trop longtemps
 const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
-const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', by_client: 'to_pickup', to_deliver: 'to_deliver', unassigned: 'unassigned' }
+const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_deliver: 'to_deliver', unassigned: 'unassigned' }
 // Jour choisi : compteurs de ce jour ; sinon compteurs généraux
-const DAY_COUNTED = { '': 'all', late: 'late', to_return: 'to_return', failed: 'failed', to_confirm: 'to_confirm', to_pickup: 'to_pickup', by_client: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned' }
+const DAY_COUNTED = { '': 'all', late: 'late', to_return: 'to_return', failed: 'failed', to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned' }
 const dayCounts = computed(() => (filters.day && dispatchCounts.dayCounts?.date === filters.day ? dispatchCounts.dayCounts : null))
 const tabCount = (queue) => {
   if (!isDispatch.value) return 0
@@ -479,7 +479,7 @@ const tabCount = (queue) => {
 // Courses prévues après le jour choisi, hors de la file tant qu'on ne les demande pas
 const laterCount = computed(() => {
   if (!filters.day || !LATER_QUEUES[filters.queue]) return 0
-  return dayCounts.value?.later?.[filters.queue === 'by_client' ? 'to_pickup' : filters.queue] || 0
+  return dayCounts.value?.later?.[filters.queue === 'by_client' ? 'unassigned' : filters.queue] || 0
 })
 // Retour demandé par l'e-commerçant, pas encore parti
 const returnPending = (o) => o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)
@@ -493,7 +493,7 @@ const DAY_CHOICES = computed(() => [
 ])
 const tabLate = (queue) => {
   if (!isDispatch.value) return 0
-  const late = { to_pickup: dispatchCounts.counts.late.pickup, to_deliver: dispatchCounts.counts.late.delivery, unassigned: dispatchCounts.counts.late.total }[queue] || 0
+  const late = { unassigned: dispatchCounts.counts.late.total }[queue] || 0
   // Jour choisi : pas plus que la file n'en montre (les autres sont dans « prévues plus tard »)
   return dayCounts.value ? Math.min(late, tabCount(queue)) : late
 }

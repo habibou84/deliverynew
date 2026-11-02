@@ -84,13 +84,15 @@ class OrderListDayTest extends TestCase
 
     public function test_work_queues_hold_the_day_and_later_courses_on_request(): void
     {
-        $this->assertSame(['today'], $this->names(['day' => self::TODAY, 'queue' => 'to_pickup']));
-        $this->assertEqualsCanonicalizing(['today', 'tomorrow'], $this->names(['day' => self::TODAY, 'queue' => 'to_pickup', 'include_later' => 1]));
+        // Ramassages sans livreur : dans « Sans livreur » ; « À ramasser » = ramassages assignés pas encore faits
+        $this->assertSame([], $this->names(['day' => self::TODAY, 'queue' => 'to_pickup']));
+        $this->assertSame(['today'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned', 'awaiting' => 'pickup']));
+        $this->assertEqualsCanonicalizing(['today', 'tomorrow'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned', 'awaiting' => 'pickup', 'include_later' => 1]));
         // Le retard n'est plus mêlé aux files du jour : il est dans « En retard »
         $this->assertSame([], $this->names(['day' => self::TODAY, 'queue' => 'to_deliver']));
         $this->assertSame(['today'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned']));
         $this->assertEqualsCanonicalizing(['today', 'tomorrow'], $this->names(['day' => self::TODAY, 'queue' => 'unassigned', 'include_later' => 1]));
-        $this->assertSame(['tomorrow'], $this->names(['day' => self::TOMORROW, 'queue' => 'to_pickup']));
+        $this->assertSame(['tomorrow'], $this->names(['day' => self::TOMORROW, 'queue' => 'unassigned', 'awaiting' => 'pickup']));
 
         // À valider : le jour choisi seulement (toutes les dates sans jour)
         $this->assertSame([], $this->names(['day' => self::TOMORROW, 'queue' => 'to_confirm']));
@@ -106,15 +108,15 @@ class OrderListDayTest extends TestCase
             ->assertJsonPath('data.day.late', 2)
             ->assertJsonPath('data.day.to_return', 0)
             ->assertJsonPath('data.day.to_confirm', 0)
-            ->assertJsonPath('data.day.to_pickup', 1)
+            ->assertJsonPath('data.day.to_pickup', 0)
             ->assertJsonPath('data.day.to_deliver', 0)
             ->assertJsonPath('data.day.unassigned', 1)
-            ->assertJsonPath('data.day.later.to_pickup', 1)
+            ->assertJsonPath('data.day.later.to_pickup', 0)
             ->assertJsonPath('data.day.later.unassigned', 1)
             ->assertJsonPath('data.day.days.today', 1)
             ->assertJsonPath('data.day.days.tomorrow', 1)
             // Compteurs généraux (menu, tableau de bord) inchangés
-            ->assertJsonPath('data.to_pickup', 2);
+            ->assertJsonPath('data.to_pickup', 0);
         $this->getJson('/api/v1/orders/counts')->assertJsonMissingPath('data.day');
 
         // Ramassages par client : les colis prévus plus tard sont signalés, pas cachés
