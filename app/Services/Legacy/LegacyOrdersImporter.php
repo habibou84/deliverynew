@@ -130,13 +130,18 @@ class LegacyOrdersImporter
 
         $plan = $this->plan($c, $state, $courier, $warnings);
         $money = $this->money($c, $plan, $warnings);
-        $hash = hash('sha256', json_encode($c));
+        // Empreinte de la commande et des fiches trouvées ici : un livreur ou un e-commerçant repris plus tard
+        // (après la commande) est rattaché à la copie suivante, même si la commande n'a pas bougé là-bas
+        $hash = hash('sha256', json_encode($c).'|'.$merchant->id.'|'.($courier?->id ?? ''));
         $existing = Order::withoutGlobalScopes()->withTrashed()->where('company_id', $this->company->id)->where('legacy_id', $id)->first();
 
         $result = [...$base, 'status' => $plan['status']->value, 'warnings' => $warnings, 'owed' => $money['owed'], 'courier_cash' => $money['courier_cash']];
 
         // Inchangée, ou clôturée par le nettoyage des anciennes courses : plus recopiée
-        if ($existing && ($existing->legacy_hash === $hash || $existing->legacy_purged_at !== null)) {
+        // Après la bascule, une empreinte d'avant ce changement (commande seule) vaut « inchangée » : pas de faux conflit
+        $unchanged = $existing && ($existing->legacy_hash === $hash
+            || ($this->switched() && $existing->legacy_hash === hash('sha256', json_encode($c))));
+        if ($existing && ($unchanged || $existing->legacy_purged_at !== null)) {
             return [...$result, 'action' => 'unchanged'];
         }
 

@@ -473,6 +473,8 @@ const tabCount = (queue) => {
   if (!isDispatch.value) return 0
   if (queue === 'change_requests') return dispatchCounts.counts.change_requests || 0
   if (dayCounts.value) return dayCounts.value[DAY_COUNTED[queue]] || 0
+  // Jour choisi, compteurs du jour pas encore arrivés : rien plutôt que le total de toutes les dates
+  if (filters.day) return 0
   if (COUNTED[queue]) return dispatchCounts.counts[COUNTED[queue]]
   return dispatchCounts.counts.exceptions?.[queue] || 0
 }
@@ -495,6 +497,7 @@ const tabLate = (queue) => {
   if (!isDispatch.value) return 0
   const late = { unassigned: dispatchCounts.counts.late.total }[queue] || 0
   // Jour choisi : pas plus que la file n'en montre (les autres sont dans « prévues plus tard »)
+  if (filters.day && !dayCounts.value) return 0
   return dayCounts.value ? Math.min(late, tabCount(queue)) : late
 }
 
