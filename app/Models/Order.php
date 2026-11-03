@@ -102,6 +102,7 @@ class Order extends Model
             'attempts_count' => 'integer',
             'max_attempts' => 'integer',
             'delivery_scheduled_date' => 'date:Y-m-d',
+            'first_delivery_date' => 'date:Y-m-d',
             'confirmed_at' => 'datetime',
             'prepared_at' => 'datetime',
             'picked_up_at' => 'datetime',
@@ -136,6 +137,8 @@ class Order extends Model
         // Heure d'entrée dans le statut : base du délai « sans livreur » ; un nouveau statut
         // relance le décompte et les alertes
         static::saving(function (Order $order) {
+            // Première date de livraison prévue : fixée une fois, jamais changée par les reports ni la livraison
+            $order->first_delivery_date ??= ($order->delivery_scheduled_date ?? $order->created_at ?? now())->toDateString();
             if (! $order->exists || $order->isDirty('status')) {
                 $order->status_changed_at = now();
                 $order->unassigned_alerted_at = null;

@@ -186,6 +186,47 @@ class LegacyOrdersImporter
         return [...$result, 'action' => $existing ? 'updated' : 'created'];
     }
 
+    /**
+     * Recalcul des dates d'une course déjà reprise (date de livraison avec les reports, première date prévue, heure
+     * de livraison), même après la bascule : seulement les dates, et seulement si Jibiat n'a pas fait avancer la
+     * course depuis (même statut que dans l'ancienne application).
+     *
+     * @param  array<string, mixed>  $c
+     * @return array{changed: bool, before: ?string, after: ?string}|null null : course absente ou déjà avancée dans Jibiat
+     */
+    public function redate(array $c): ?array
+    {
+        $order = Order::withoutGlobalScopes()->where('company_id', $this->company->id)->where('legacy_id', (string) ($c['id'] ?? ''))
+            ->whereNull('legacy_purged_at')->first();
+        $state = self::state($c['etat'] ?? null);
+        if ($order === null || $state === null) {
+            return null;
+        }
+        $warnings = [];
+        $plan = $this->plan($c, $state, $this->courier($c['livreur'] ?? null, $c['livreur_id'] ?? null), $warnings);
+        if ($plan['status'] !== $order->status) {
+            return null;
+        }
+
+        $updated = $this->date($c['updated_at'] ?? null) ?? $order->updated_at ?? now();
+        $scheduled = $plan['scheduled'];
+        $values = [
+            'delivery_scheduled_date' => $scheduled,
+            'first_delivery_date' => self::firstDeliveryDay($c) ?? $scheduled ?? $order->first_delivery_date?->toDateString(),
+        ];
+        if ($order->status === OrderStatus::Delivered) {
+            $values['delivered_at'] = $this->deliveredAt($c, $scheduled, $updated);
+        }
+        $before = $order->delivery_scheduled_date?->toDateString();
+        $order->forceFill($values);
+        $changed = $order->isDirty();
+        if ($changed) {
+            $order->saveQuietly();
+        }
+
+        return ['changed' => $changed, 'before' => $before, 'after' => $scheduled];
+    }
+
     /** Ancien état, sans accents ni majuscules : en_cours, recupere, en_chemin, non_livre, termine, annule, retour */
     public static function state(?string $etat): ?string
     {
@@ -218,7 +259,7 @@ class LegacyOrdersImporter
     {
         $relance = $this->day($c['relance_date'] ?? null);
         $undelivered = $this->text($c['why_undelivered'] ?? null);
-        $plan = ['pickup' => null, 'delivery' => null, 'holder' => false, 'attempts' => 0, 'scheduled' => $this->day($c['delivery_date'] ?? null) ?? $relance, 'failed_note' => null, 'return_requested' => false];
+        $plan = ['pickup' => null, 'delivery' => null, 'holder' => false, 'attempts' => 0, 'scheduled' => self::deliveryDay($c), 'failed_note' => null, 'return_requested' => false];
 
         switch ($state) {
             case 'en_cours':
@@ -275,6 +316,50 @@ class LegacyOrdersImporter
                 return [...$plan, 'status' => OrderStatus::DeliveryFailed, 'pickup' => $courier ? AssignmentStatus::Completed : null,
                     'holder' => $courier !== null, 'attempts' => 1, 'failed_note' => $undelivered ?? 'Retour demandé', 'return_requested' => true];
         }
+    }
+
+    /**
+     * Date de livraison dans l'ancienne application : celle du dernier report quand la course a été reportée plus
+     * tard, sinon sa date de livraison.
+     */
+    public static function deliveryDay(array $c): ?string
+    {
+        $day = fn ($v) => is_string($v) && trim($v) !== '' && ! str_starts_with(trim($v), '0000') ? substr(trim($v), 0, 10) : null;
+        $delivery = $day($c['delivery_date'] ?? null);
+        $relance = $day($c['relance_date'] ?? null);
+
+        return $delivery !== null && $relance !== null ? max($delivery, $relance) : ($relance ?? $delivery);
+    }
+
+    /**
+     * Première date de livraison prévue : la date d'avant le premier report, sinon la date de livraison, sinon le jour
+     * de création.
+     */
+    public static function firstDeliveryDay(array $c): ?string
+    {
+        $day = fn ($v) => is_string($v) && trim($v) !== '' && ! str_starts_with(trim($v), '0000') ? substr(trim($v), 0, 10) : null;
+        $previous = collect($c['relances'] ?? [])->map(fn ($r) => $day($r['previous_date'] ?? null))->filter();
+        $candidates = $previous->push($day($c['delivery_date'] ?? null))->filter();
+
+        return $candidates->isNotEmpty() ? $candidates->min() : ($day($c['created_at'] ?? null) ?? $day($c['relance_date'] ?? null));
+    }
+
+    /**
+     * Heure de livraison d'une commande terminée : la création du paiement de l'e-commerçant (fait à la livraison),
+     * sinon midi le jour de la livraison, sinon la dernière modification (ni date ni paiement). Une remise d'argent ou
+     * une correction plus tard ne la déplace donc plus.
+     */
+    private function deliveredAt(array $c, ?string $scheduled, Carbon $updated): Carbon
+    {
+        $paid = $this->date($c['payment']['created_at'] ?? null);
+        if ($paid !== null && ($scheduled === null || $paid->toDateString() >= $scheduled)) {
+            return $paid;
+        }
+        if ($scheduled !== null && $scheduled <= $updated->toDateString()) {
+            return Carbon::parse($scheduled.' 12:00:00');
+        }
+
+        return $updated;
     }
 
     /**
@@ -356,6 +441,8 @@ class LegacyOrdersImporter
             'delivery_lat' => $lat,
             'delivery_lng' => $lng,
             'delivery_scheduled_date' => $plan['scheduled'],
+            // Figée dès la première copie
+            'first_delivery_date' => $order->first_delivery_date?->toDateString() ?? self::firstDeliveryDay($c) ?? $plan['scheduled'],
             'description' => $this->limit($c['description'] ?? null, 2000),
             'is_express' => (bool) ($c['is_express'] ?? false),
             'merchant_note' => $this->limit($c['observation'] ?? null, 1000),
@@ -372,7 +459,7 @@ class LegacyOrdersImporter
             'held_by_courier_id' => null,
             'confirmed_at' => $created,
             'picked_up_at' => in_array($status, [OrderStatus::Pending, OrderStatus::Confirmed, OrderStatus::PickupAssigned, OrderStatus::Cancelled], true) ? null : $updated,
-            'delivered_at' => $status === OrderStatus::Delivered ? $updated : null,
+            'delivered_at' => $status === OrderStatus::Delivered ? $this->deliveredAt($c, $plan['scheduled'], $updated) : null,
             'collected_amount' => $status === OrderStatus::Delivered ? $money['cod'] : null,
             'returned_at' => $status === OrderStatus::Returned ? ($this->date($c['retour_at'] ?? null) ?? $updated) : null,
             'cancelled_at' => $status === OrderStatus::Cancelled ? $updated : null,

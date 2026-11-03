@@ -94,7 +94,7 @@ class Statistics
         [$prevFrom, $prevTo] = self::previous($from, $to);
 
         $created = $this->ordersBetween('created_at', $from, $to, ['id', 'created_at']);
-        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id', 'delivered_at', 'delivery_fee', 'surcharges_total', 'collected_amount']);
+        $delivered = $this->deliveredBetween($from, $to, ['id', 'delivered_at', 'delivery_fee', 'surcharges_total', 'collected_amount']);
 
         $days = $this->days($from, $to);
         $series = $days->mapWithKeys(fn (string $d) => [$d => ['date' => $d, 'created' => 0, 'delivered' => 0, 'revenue' => 0]])->all();
@@ -102,7 +102,10 @@ class Statistics
             $series[$this->localDate($o->created_at)]['created']++;
         }
         foreach ($delivered as $o) {
-            $day = $this->localDate($o->delivered_at);
+            $day = $this->deliveryDay($o);
+            if (! isset($series[$day])) {
+                continue;
+            }
             $series[$day]['delivered']++;
             $series[$day]['revenue'] += $o->delivery_fee + $o->surcharges_total;
         }
@@ -135,7 +138,7 @@ class Statistics
      */
     public function deliveries(CarbonInterface $from, CarbonInterface $to): array
     {
-        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id', 'created_at', 'picked_up_at', 'delivered_at', 'attempts_count', 'delivery_scheduled_date']);
+        $delivered = $this->deliveredBetween($from, $to, ['id', 'created_at', 'picked_up_at', 'delivered_at', 'attempts_count', 'first_delivery_date']);
         $count = $delivered->count();
 
         $failures = $this->failureEvents($from, $to)->with('incidentReason:id,label')->get(['id', 'order_id', 'incident_reason_id', 'to_status', 'from_status']);
@@ -146,15 +149,15 @@ class Statistics
 
         $minutes = fn (?CarbonInterface $a, ?CarbonInterface $b) => $a && $b && $b->greaterThanOrEqualTo($a) ? (int) round($a->diffInMinutes($b)) : null;
 
-        // Le jour même : livrée le jour de sa création (hors courses programmées pour plus tard)
-        $sameDayBase = $delivered->filter(fn (Order $o) => $o->delivery_scheduled_date === null || $o->delivery_scheduled_date->toDateString() <= $this->localDate($o->created_at));
+        // Le jour même : livrée le jour de sa création (hors courses prévues dès le départ pour plus tard)
+        $sameDayBase = $delivered->filter(fn (Order $o) => $o->first_delivery_date === null || $o->first_delivery_date->toDateString() <= $this->localDate($o->created_at));
 
         return [
             'period' => $this->period($from, $to),
             'delivered' => $count,
             'first_attempt_rate' => $this->rate($delivered->where('attempts_count', 0)->count(), $count),
             'average_attempts' => $count ? round($delivered->avg(fn (Order $o) => $o->attempts_count + 1), 2) : null,
-            'same_day_rate' => $this->rate($sameDayBase->filter(fn (Order $o) => $this->localDate($o->delivered_at) === $this->localDate($o->created_at))->count(), $sameDayBase->count()),
+            'same_day_rate' => $this->rate($sameDayBase->filter(fn (Order $o) => $o->delivered_at && $this->localDate($o->delivered_at) === $this->localDate($o->created_at))->count(), $sameDayBase->count()),
             // Délais habituels (médianes, en minutes)
             'delays' => [
                 'to_pickup' => $this->median($delivered->map(fn (Order $o) => $minutes($o->created_at, $o->picked_up_at))),
@@ -180,7 +183,7 @@ class Statistics
      */
     public function couriers(CarbonInterface $from, CarbonInterface $to, bool $withAmounts): array
     {
-        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id', 'delivery_courier_id', 'picked_up_at', 'delivered_at', 'collected_amount'])->groupBy('delivery_courier_id');
+        $delivered = $this->deliveredBetween($from, $to, ['id', 'delivery_courier_id', 'picked_up_at', 'delivered_at', 'collected_amount'])->groupBy('delivery_courier_id');
         $pickups = $this->ordersBetween('picked_up_at', $from, $to, ['id', 'pickup_courier_id', 'picked_up_at'])->groupBy('pickup_courier_id');
         $returned = $this->ordersBetween('returned_at', $from, $to, ['id', 'return_courier_id'])->groupBy('return_courier_id');
         $failures = $this->failureEvents($from, $to)
@@ -200,7 +203,7 @@ class Statistics
                 $picked = $pickups->get($courier->id, collect());
                 $failed = $failures->get($courier->id, collect())->count();
 
-                $days = $own->map(fn (Order $o) => $this->localDate($o->delivered_at))
+                $days = $own->map(fn (Order $o) => $this->deliveryDay($o))
                     ->merge($picked->map(fn (Order $o) => $this->localDate($o->picked_up_at)))
                     ->unique()->count();
 
@@ -214,7 +217,7 @@ class Statistics
                     'returned' => $returned->get($courier->id, collect())->count(),
                     'success_rate' => $this->rate($own->count(), $own->count() + $failed),
                     // Délai habituel entre le ramassage et la livraison (minutes)
-                    'delivery_minutes' => $this->median($own->map(fn (Order $o) => $o->picked_up_at && $o->delivered_at->greaterThanOrEqualTo($o->picked_up_at) ? (int) round($o->picked_up_at->diffInMinutes($o->delivered_at)) : null)),
+                    'delivery_minutes' => $this->median($own->map(fn (Order $o) => $o->picked_up_at && $o->delivered_at && $o->delivered_at->greaterThanOrEqualTo($o->picked_up_at) ? (int) round($o->picked_up_at->diffInMinutes($o->delivered_at)) : null)),
                     'days_worked' => $days,
                     'per_day' => $days ? round($own->count() / $days, 1) : null,
                     'collected' => $withAmounts ? (int) $own->sum('collected_amount') : null,
@@ -248,7 +251,7 @@ class Statistics
     public function merchants(CarbonInterface $from, CarbonInterface $to, bool $withAmounts): array
     {
         $created = $this->ordersBetween('created_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
-        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id', 'merchant_id', 'delivery_fee', 'surcharges_total', 'collected_amount'])->groupBy('merchant_id');
+        $delivered = $this->deliveredBetween($from, $to, ['id', 'merchant_id', 'delivery_fee', 'surcharges_total', 'collected_amount'])->groupBy('merchant_id');
         $returned = $this->ordersBetween('returned_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
         $lost = $this->ordersBetween('lost_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
         $cancelled = $this->ordersBetween('cancelled_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
@@ -326,7 +329,7 @@ class Statistics
         $commune = fn (?int $zoneId) => $zoneId === null ? null : ($communeOf[$zoneId] ?? $zoneId);
 
         $created = $this->ordersBetween('created_at', $from, $to, ['id', 'delivery_zone_id'])->countBy(fn (Order $o) => $commune($o->delivery_zone_id));
-        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id', 'delivery_zone_id', 'picked_up_at', 'delivered_at', 'delivery_fee', 'surcharges_total'])
+        $delivered = $this->deliveredBetween($from, $to, ['id', 'delivery_zone_id', 'picked_up_at', 'delivered_at', 'delivery_fee', 'surcharges_total'])
             ->groupBy(fn (Order $o) => $commune($o->delivery_zone_id));
         $returned = $this->ordersBetween('returned_at', $from, $to, ['id', 'delivery_zone_id'])->countBy(fn (Order $o) => $commune($o->delivery_zone_id));
         $lost = $this->ordersBetween('lost_at', $from, $to, ['id', 'delivery_zone_id'])->countBy(fn (Order $o) => $commune($o->delivery_zone_id));
@@ -350,7 +353,7 @@ class Statistics
                 // Réussite des passages chez les destinataires de la commune
                 'success_rate' => $this->rate($own->count(), $own->count() + ($failed[$z->id] ?? 0)),
                 'lost' => $lost[$z->id] ?? 0,
-                'delivery_minutes' => $this->median($own->map(fn (Order $o) => $o->picked_up_at && $o->delivered_at->greaterThanOrEqualTo($o->picked_up_at) ? (int) round($o->picked_up_at->diffInMinutes($o->delivered_at)) : null)),
+                'delivery_minutes' => $this->median($own->map(fn (Order $o) => $o->picked_up_at && $o->delivered_at && $o->delivered_at->greaterThanOrEqualTo($o->picked_up_at) ? (int) round($o->picked_up_at->diffInMinutes($o->delivered_at)) : null)),
                 'revenue' => $withAmounts ? $revenue : null,
                 'average_fee' => $withAmounts && $own->count() ? (int) round($revenue / $own->count()) : null,
             ];
@@ -401,7 +404,7 @@ class Statistics
         ];
         $revenueTotal = array_sum($revenue);
         $costTotal = array_sum($costs);
-        $delivered = $this->ordersBetween('delivered_at', $from, $to, ['id'])->count();
+        $delivered = $this->deliveredBetween($from, $to, ['id'])->count();
 
         // Argent en circulation, à cet instant
         $courierCash = collect(app(CourierCash::class)->balances());
@@ -468,7 +471,7 @@ class Statistics
     private function kpis(CarbonInterface $from, CarbonInterface $to, bool $withAmounts, ?int $created = null, ?Collection $delivered = null): array
     {
         $created ??= $this->ordersBetween('created_at', $from, $to, ['id'])->count();
-        $delivered ??= $this->ordersBetween('delivered_at', $from, $to, ['id', 'delivery_fee', 'surcharges_total', 'collected_amount']);
+        $delivered ??= $this->deliveredBetween($from, $to, ['id', 'delivery_fee', 'surcharges_total', 'collected_amount']);
         $returned = $this->ordersBetween('returned_at', $from, $to, ['id'])->count();
         $lost = $this->ordersBetween('lost_at', $from, $to, ['id'])->count();
         $revenue = (int) $delivered->sum(fn (Order $o) => $o->delivery_fee + $o->surcharges_total);
@@ -496,6 +499,24 @@ class Statistics
         return $this->orders()
             ->whereBetween($column, $this->utcRange($from, $to))
             ->get($columns);
+    }
+
+    /**
+     * Courses livrées dont la date de livraison tombe dans la période : la date qui compte partout (liste, point du
+     * jour, statistiques). Le jour est dans « delivery_day ».
+     */
+    private function deliveredBetween(CarbonInterface $from, CarbonInterface $to, array $columns): Collection
+    {
+        return $this->orders()
+            ->where('status', OrderStatus::Delivered)
+            ->forPeriod($from->toDateString(), $to->toDateString(), 'delivery')
+            ->select($columns)->selectRaw(Order::DELIVERY_DAY_SQL.' AS delivery_day')
+            ->get();
+    }
+
+    private function deliveryDay(Order $order): string
+    {
+        return substr((string) $order->getAttribute('delivery_day'), 0, 10);
     }
 
     /**
