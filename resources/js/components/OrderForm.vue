@@ -125,21 +125,19 @@
         <div v-if="products.length || hubs.length" class="space-y-3 border-t pt-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h4 class="font-semibold">Articles du stock</h4>
-            <select v-model="form.pickup_hub_id" class="input w-auto" aria-label="Provenance des articles">
-              <option :value="null">Chez le marchand (ramassage)</option>
-              <option v-for="h in hubs" :key="h.id" :value="h.id">🏬 {{ h.name }} (préparée à l'entrepôt)</option>
-            </select>
+            <SearchSelect
+              v-model="form.pickup_hub_id" input-class="input w-auto min-w-[14rem]" placeholder="Chez le marchand (ramassage)" :empty-value="null" aria-label="Provenance des articles" search-placeholder="Entrepôt…"
+              :options="hubs.map((h) => ({ value: h.id, label: `🏬 ${h.name}`, hint: 'préparée à l\'entrepôt' }))"
+            />
           </div>
           <p v-if="form.pickup_hub_id" class="text-sm rounded bg-sky-50 text-sky-900 p-2">
             La commande sera préparée à l'entrepôt puis livrée : pas de ramassage chez le marchand.
           </p>
           <div v-for="(item, i) in items" :key="i" class="grid grid-cols-[1fr_6rem_7rem_auto] gap-2 items-center">
-            <select v-if="item.product_id !== undefined" v-model="item.product_id" class="input" :aria-label="`Produit ${i + 1}`" @change="pickProduct(item)">
-              <option :value="null" disabled>Choisir un produit…</option>
-              <option v-for="p in products" :key="p.id" :value="p.id" :disabled="availableAt(p) <= 0">
-                {{ p.name }}{{ p.sku ? ` (${p.sku})` : '' }} · {{ availableAt(p) }} dispo
-              </option>
-            </select>
+            <SearchSelect
+              v-if="item.product_id !== undefined" v-model="item.product_id" placeholder="Choisir un produit…" :allow-empty="false" :empty-value="null" :aria-label="`Produit ${i + 1}`" search-placeholder="Nom ou référence…" @change="pickProduct(item)"
+              :options="products.map((p) => ({ value: p.id, label: `${p.name}${p.sku ? ` (${p.sku})` : ''}`, hint: `${availableAt(p)} dispo`, search: p.sku, disabled: availableAt(p) <= 0 }))"
+            />
             <input v-else v-model="item.label" class="input" placeholder="Article libre (hors stock)" :aria-label="`Article ${i + 1}`">
             <input v-model.number="item.quantity" type="number" min="1" class="input" :aria-label="`Quantité ${i + 1}`">
             <input v-model.number="item.unit_price" type="number" min="0" step="50" class="input" placeholder="Prix" :aria-label="`Prix unitaire ${i + 1}`">
@@ -157,10 +155,10 @@
           <p class="sm:col-span-2 text-sm text-gray-600">Lieu de ramassage, s'il diffère de l'adresse habituelle du marchand :</p>
           <div>
             <label class="label" for="pzone">Zone de ramassage</label>
-            <select id="pzone" v-model="form.pickup_zone_id" class="input">
-              <option :value="null">Adresse habituelle</option>
-              <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-            </select>
+            <SearchSelect
+              id="pzone" v-model="form.pickup_zone_id" placeholder="Adresse habituelle" :empty-value="null" search-placeholder="Commune, quartier…"
+              :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+            />
           </div>
           <div>
             <label class="label" for="paddress">Adresse de ramassage</label>
@@ -188,6 +186,7 @@
 </template>
 
 <script setup>
+import SearchSelect from './SearchSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'

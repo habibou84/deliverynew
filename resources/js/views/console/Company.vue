@@ -164,10 +164,10 @@
         </p>
         <div>
           <label class="label" for="s-user">Compte utilisé</label>
-          <select id="s-user" v-model="support.user_id" class="input">
-            <option :value="null">Le premier administrateur</option>
-            <option v-for="u in company.staff" :key="u.id" :value="u.id" :disabled="u.status !== 'active'">{{ u.name }} · {{ ROLES[u.role] || u.role }}{{ u.status !== 'active' ? ' (suspendu)' : '' }}</option>
-          </select>
+          <SearchSelect
+            id="s-user" v-model="support.user_id" placeholder="Le premier administrateur" :empty-value="null"
+            :options="company.staff.map((u) => ({ value: u.id, label: u.name, hint: `${ROLES[u.role] || u.role}${u.status !== 'active' ? ' (suspendu)' : ''}`, search: u.phone, disabled: u.status !== 'active' }))"
+          />
         </div>
         <div><label class="label" for="s-reason">Motif (obligatoire)</label><input id="s-reason" v-model.trim="support.reason" class="input" maxlength="255" placeholder="Ex. : réglage des tarifs à la demande du gérant"></div>
         <p v-if="supportError" class="field-error">{{ supportError }}</p>
@@ -189,6 +189,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
