@@ -41,10 +41,10 @@
             <legend class="sr-only">Où récupérer vos colis ?</legend>
             <p class="text-sm font-semibold text-slate-700" aria-hidden="true">Où récupérer vos colis ?</p>
             <Field id="su-zone" label="Commune ou quartier" :error="errors.pickup_zone_id">
-              <select id="su-zone" v-model="form.pickup_zone_id" :class="inputClass" required>
-                <option :value="null" disabled>Choisissez…</option>
-                <option v-for="z in options.zones" :key="z.id" :value="z.id">{{ z.name }}</option>
-              </select>
+              <SearchSelect
+                id="su-zone" v-model="form.pickup_zone_id" :input-class="inputClass" placeholder="Choisissez…" :allow-empty="false" :empty-value="null" required search-placeholder="Commune, quartier…"
+                :options="options.zones.map((z) => ({ value: z.id, label: z.name }))"
+              />
             </Field>
             <Field id="su-address" label="Adresse" :error="errors.pickup_address">
               <input id="su-address" v-model.trim="form.pickup_address" :class="inputClass" autocomplete="street-address" required maxlength="500" placeholder="Rue, immeuble, boutique…">
@@ -88,6 +88,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

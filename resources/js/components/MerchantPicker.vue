@@ -35,10 +35,10 @@
           </div>
           <div>
             <label class="label" for="nm-zone">Zone de ramassage *</label>
-            <select id="nm-zone" v-model="draft.pickup_zone_id" class="input" required @change="emitDraft">
-              <option :value="null" disabled>Choisir…</option>
-              <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-            </select>
+            <SearchSelect
+              id="nm-zone" v-model="draft.pickup_zone_id" placeholder="Choisir…" :allow-empty="false" :empty-value="null" required search-placeholder="Commune, quartier…" @change="emitDraft"
+              :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+            />
           </div>
         </div>
         <label class="flex items-start gap-2 text-sm">
@@ -93,6 +93,7 @@
 </template>
 
 <script setup>
+import SearchSelect from './SearchSelect.vue'
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import http from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'

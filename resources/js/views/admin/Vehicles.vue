@@ -100,10 +100,10 @@
         <section class="space-y-2">
           <h3 class="font-semibold">Confié à</h3>
           <div v-if="canManage && detail.status !== 'retired'" class="flex gap-2">
-            <select v-model="assignTo" class="input" aria-label="Livreur">
-              <option :value="null">Personne</option>
-              <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }}{{ c.vehicle_id && c.vehicle_id !== detail.id ? ' (a déjà un véhicule)' : '' }}</option>
-            </select>
+            <SearchSelect
+              v-model="assignTo" class="flex-1" placeholder="Personne" :empty-value="null" aria-label="Livreur"
+              :options="couriers.map((c) => ({ value: c.id, label: c.name, hint: c.vehicle_id && c.vehicle_id !== detail.id ? 'a déjà un véhicule' : '', search: c.phone }))"
+            />
             <button class="btn-primary" :disabled="busy || assignTo === (detail.courier?.id ?? null)" @click="assign">OK</button>
           </div>
           <p v-else class="text-sm">{{ detail.courier?.name || 'Personne' }}</p>
@@ -173,10 +173,10 @@
         </div>
         <div v-else>
           <label class="label" for="v-courier">Confié à</label>
-          <select id="v-courier" v-model="form.data.courier_id" class="input">
-            <option :value="null">Personne pour l'instant</option>
-            <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }}{{ c.vehicle_id ? ' (a déjà un véhicule)' : '' }}</option>
-          </select>
+          <SearchSelect
+            id="v-courier" v-model="form.data.courier_id" placeholder="Personne pour l'instant" :empty-value="null"
+            :options="couriers.map((c) => ({ value: c.id, label: c.name, hint: c.vehicle_id ? 'a déjà un véhicule' : '', search: c.phone }))"
+          />
         </div>
         <div><label class="label" for="v-notes">Notes</label><textarea id="v-notes" v-model="form.data.notes" rows="2" class="input" /></div>
         <p v-if="form.error" class="field-error">{{ form.error }}</p>
@@ -212,6 +212,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

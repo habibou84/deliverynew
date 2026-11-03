@@ -58,10 +58,10 @@
           <span :class="['shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold', STATE[a.state] || STATE.todo]">{{ a.state_label }}</span>
         </button>
         <form v-if="owner && companies.length" class="flex gap-2 pt-2" @submit.prevent="add">
-          <select v-model="adding" class="input min-w-0 flex-1" required>
-            <option value="" disabled>Ajouter une entreprise…</option>
-            <option v-for="c in companies" :key="c.id" :value="c.id">{{ c.name }}</option>
-          </select>
+          <SearchSelect
+            v-model="adding" class="min-w-0 flex-1" placeholder="Ajouter une entreprise…" :allow-empty="false" required search-placeholder="Entreprise…"
+            :options="companies.map((c) => ({ value: c.id, label: c.name }))"
+          />
           <button class="btn-secondary" :disabled="busy || !adding">Ajouter</button>
         </form>
       </section>
@@ -177,6 +177,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
