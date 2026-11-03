@@ -45,6 +45,7 @@
           <li v-if="last.source !== 'nightly'">{{ last.counts.created }} nouvelle(s) commande(s) ajoutée(s) depuis l'ancienne application</li>
           <li>{{ last.counts.updated }} modifiée(s) mises à jour · {{ last.counts.unchanged }} sans changement<template v-if="last.counts.conflict"> · {{ last.counts.conflict }} modifiée(s) après la bascule (non recopiées)</template></li>
           <li>{{ last.counts.deleted_cancelled }} supprimée(s) annulée(s) · {{ last.counts.deleted_to_check }} à vérifier · {{ last.counts.deleted_closed }} déjà terminée(s)</li>
+          <li v-if="last.counts.redated">📅 {{ last.counts.redated }} date(s) de livraison remise(s) d'accord avec l'ancienne application</li>
         </ul>
       </template>
       <button v-if="last.can_undo" type="button" class="btn-secondary mt-1" :disabled="busy" @click="undo">Défaire les annulations (jusqu'au {{ date(last.undo_until) }})</button>
