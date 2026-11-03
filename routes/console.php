@@ -49,6 +49,10 @@ Schedule::command('whatsapp:tokens')->dailyAt('08:15')->withoutOverlapping();
 // Modèles WhatsApp ajoutés depuis la connexion du numéro : soumis à Meta chaque nuit, état relu
 Schedule::command('whatsapp:templates')->dailyAt('04:20')->withoutOverlapping();
 Schedule::command('model:prune', ['--model' => [IdempotencyKey::class, WebhookDelivery::class, CourierLocation::class]])->daily();
+// Certificats HTTPS (plateforme et domaines personnalisés) : alerte avant expiration (console › Santé)
+Schedule::command('platform:certificates')->dailyAt('04:30')->withoutOverlapping();
+// Tâches en échec gardées 30 jours
+Schedule::command('queue:prune-failed --hours=720')->dailyAt('04:40');
 // Cloche : anciennes notifications supprimées chaque nuit
 Schedule::command('notifications:prune')->dailyAt('03:40')->withoutOverlapping();
 Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();

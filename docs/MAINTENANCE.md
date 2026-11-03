@@ -8,11 +8,10 @@ toujours à jour.
 
 | Quoi | Où | Ce qu'on regarde |
 |---|---|---|
-| Santé des services | Console › Santé | Files d'attente, tâches planifiées, WhatsApp, e-mail, SMS, espace disque, dernière sauvegarde : tout doit être vert. |
+| Santé des services | Console › Santé | Files d'attente, tâches planifiées, WhatsApp, e-mail, SMS, espace disque, sauvegarde de la nuit, copie hors du serveur, test de restauration, certificats : tout doit être vert. |
 | Paiements Wave à valider | Console › Paiements | Aucun paiement en attente depuis plus de 24 h. |
 | WhatsApp | Console › WhatsApp et chaque entreprise | Numéro de Jibiat relié ; une entreprise « déconnectée » doit rescanner son QR code. La connexion par QR code (non officielle) est éteinte par défaut : à allumer entreprise par entreprise dans Console › Entreprises › fiche. |
 | Erreurs | `storage/logs/laravel.log` (ou Console › Santé) | Une erreur qui revient plusieurs fois = un ticket. |
-| Sauvegarde de la nuit | `/var/backups/livraison/` | Le fichier du jour existe et n'est pas vide. |
 
 ## Chaque semaine (30 minutes, le lundi)
 
@@ -20,8 +19,9 @@ toujours à jour.
   formule, réglages Wave, interrupteur SMS). Une action inconnue = changer le mot de passe et enquêter.
 - **Comptes** : retirer les comptes de l'équipe qui ont quitté l'entreprise, vérifier qu'aucun compte super
   administrateur inutile n'existe.
-- **Mises à jour de sécurité du système** : `apt update && apt list --upgradable` puis `apt upgrade` (PHP, Nginx,
-  PostgreSQL, Redis, OpenSSL). Redémarrer PHP-FPM et `supervisorctl restart all` ensuite.
+- **Mises à jour du système** : les correctifs de sécurité s'installent seuls chaque nuit (docs/SAUVEGARDES.md).
+  Le reste : `apt update && apt list --upgradable` puis `apt upgrade` (PHP, Apache, PostgreSQL, Redis). Redémarrer
+  PHP-FPM et `supervisorctl restart all` ensuite ; redémarrer le serveur si `/var/run/reboot-required` existe.
 - **Dépendances** : la CI lance les tests à chaque PR ; lancer en plus `composer audit` et `npm audit --omit=dev`
   (dans le projet et dans `whatsapp-bridge/`). Une faille « high » ou « critical » se corrige dans la semaine.
 - **Performance** : temps de réponse des pages lentes (Horizon › Metrics, journal des requêtes lentes de PostgreSQL),
@@ -30,13 +30,10 @@ toujours à jour.
 
 ## Chaque mois (1 heure, le premier lundi)
 
-- **Test de restauration** : restaurer la sauvegarde de la veille dans une base de test
-  (`gunzip -c sauvegarde.sql.gz | psql livraison_restore`) et ouvrir quelques courses. Une sauvegarde jamais
-  restaurée n'est pas une sauvegarde.
-- **Copie hors serveur** : garder au moins une sauvegarde par semaine ailleurs que sur le serveur (stockage externe,
-  chiffrée). Si le serveur disparaît, les données restent.
-- **Certificats HTTPS** : vérifier les dates d'expiration (renouvellement automatique Let's Encrypt, domaines
-  personnalisés des entreprises compris).
+- **Sauvegardes** (docs/SAUVEGARDES.md) : le test de restauration du dimanche et la copie chiffrée hors du serveur
+  sont automatiques ; vérifier dans Console › Santé qu'ils sont verts, et une fois par trimestre récupérer à la main
+  une copie distante et la déchiffrer (procédure « Le serveur a disparu »), pour être sûr de savoir le faire.
+  Une sauvegarde jamais restaurée n'est pas une sauvegarde.
 - **Jetons et clés** : jetons WhatsApp (Meta) des entreprises, clés API publiques inutilisées, clés de reprise et de
   bascule de l'ancienne application à désactiver une fois la bascule finie.
 - **Nettoyage** : comptes de test, entreprises d'essai expirées, courses d'essai.
