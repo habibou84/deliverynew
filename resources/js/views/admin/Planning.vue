@@ -118,10 +118,10 @@
         <form class="flex flex-wrap items-end gap-2" @submit.prevent="addAbsence">
           <div>
             <label class="label" for="abs-courier">Livreur</label>
-            <select id="abs-courier" v-model="absence.courier_id" class="input w-auto" required>
-              <option :value="null" disabled>Choisir…</option>
-              <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <SearchSelect
+              id="abs-courier" v-model="absence.courier_id" input-class="input w-auto min-w-[12rem]" placeholder="Choisir…" :allow-empty="false" :empty-value="null" required
+              :options="couriers.map((c) => ({ value: c.id, label: c.name, search: c.phone }))"
+            />
           </div>
           <div><label class="label" for="abs-from">Du</label><input id="abs-from" v-model="absence.starts_on" type="date" class="input w-auto" required></div>
           <div><label class="label" for="abs-to">Au</label><input id="abs-to" v-model="absence.ends_on" type="date" class="input w-auto" required></div>
@@ -150,17 +150,17 @@
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
             <label class="label" for="r-courier">Livreur</label>
-            <select id="r-courier" v-model="form.courier_id" class="input" required>
-              <option :value="null" disabled>Choisir…</option>
-              <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <SearchSelect
+              id="r-courier" v-model="form.courier_id" placeholder="Choisir…" :allow-empty="false" :empty-value="null" required
+              :options="couriers.map((c) => ({ value: c.id, label: c.name, search: c.phone }))"
+            />
           </div>
           <div>
             <label class="label" for="r-backup">Remplaçant <span class="font-normal text-gray-500">(facultatif)</span></label>
-            <select id="r-backup" v-model="form.backup_courier_id" class="input">
-              <option :value="null">Aucun</option>
-              <option v-for="c in couriers.filter((c) => c.id !== form.courier_id)" :key="c.id" :value="c.id">{{ c.name }}</option>
-            </select>
+            <SearchSelect
+              id="r-backup" v-model="form.backup_courier_id" placeholder="Aucun" :empty-value="null"
+              :options="couriers.filter((c) => c.id !== form.courier_id).map((c) => ({ value: c.id, label: c.name, search: c.phone }))"
+            />
           </div>
         </div>
 
@@ -211,6 +211,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 // Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
 defineProps({ embedded: { type: Boolean, default: false } })
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'

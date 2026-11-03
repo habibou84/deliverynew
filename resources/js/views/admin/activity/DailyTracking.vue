@@ -76,10 +76,10 @@
       </div>
       <div v-if="zones.length">
         <label class="label" for="act-zone">Zone</label>
-        <select id="act-zone" v-model="f.zone" class="input w-auto">
-          <option value="">Toutes</option>
-          <option v-for="z in zones" :key="z" :value="z">{{ z }}</option>
-        </select>
+        <SearchSelect
+          id="act-zone" v-model="f.zone" input-class="input w-auto min-w-[12rem]" placeholder="Toutes" search-placeholder="Commune, quartier…"
+          :options="zones.map((z) => ({ value: z, label: z }))"
+        />
       </div>
       <div>
         <label class="label" for="act-sort">Trier</label>
@@ -238,6 +238,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../../components/SearchSelect.vue'
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import L from 'leaflet'

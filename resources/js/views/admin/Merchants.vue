@@ -61,10 +61,10 @@
         </div>
         <div>
           <label class="label">Zone de ramassage</label>
-          <select v-model="form.data.pickup_zone_id" class="input">
-            <option :value="null">—</option>
-            <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-          </select>
+          <SearchSelect
+            v-model="form.data.pickup_zone_id" placeholder="—" :empty-value="null" aria-label="Zone de ramassage" search-placeholder="Commune, quartier…"
+            :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+          />
         </div>
         <div><label class="label">Adresse de ramassage</label><input v-model="form.data.pickup_address" class="input"></div>
         <div><label class="label">Repère</label><input v-model="form.data.pickup_landmark" class="input"></div>
@@ -80,10 +80,10 @@
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="label">Grille tarifaire</label>
-            <select v-model="form.data.pricing_grid_id" class="input">
-              <option :value="null">Grille par défaut</option>
-              <option v-for="g in grids" :key="g.id" :value="g.id">{{ g.name }}</option>
-            </select>
+            <SearchSelect
+              v-model="form.data.pricing_grid_id" placeholder="Grille par défaut" :empty-value="null" aria-label="Grille tarifaire" search-placeholder="Grille…"
+              :options="grids.map((g) => ({ value: g.id, label: g.name }))"
+            />
           </div>
           <div>
             <label class="label">Frais payés par</label>
@@ -120,6 +120,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'

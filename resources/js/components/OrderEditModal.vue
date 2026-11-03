@@ -12,9 +12,10 @@
           <EditField v-model="form.recipient_phone2" label="Autre numéro" :before="initial.recipient_phone2" />
           <div>
             <label class="label" for="edit-zone">Commune / quartier</label>
-            <select id="edit-zone" v-model="form.delivery_zone_id" :class="['input', changed('delivery_zone_id') && 'ring-2 ring-amber-400 bg-amber-50']">
-              <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-            </select>
+            <SearchSelect
+              id="edit-zone" v-model="form.delivery_zone_id" :input-class="['input', changed('delivery_zone_id') && 'ring-2 ring-amber-400 bg-amber-50']" search-placeholder="Commune, quartier…"
+              :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+            />
             <p v-if="changed('delivery_zone_id')" class="text-xs text-gray-400 line-through">{{ zoneName(initial.delivery_zone_id) }}</p>
           </div>
           <EditField v-model="form.delivery_address" label="Adresse" :before="initial.delivery_address" />
@@ -55,9 +56,10 @@
         <div v-if="beforePickup" class="grid gap-2 sm:grid-cols-2">
           <div>
             <label class="label" for="edit-pzone">Zone</label>
-            <select id="edit-pzone" v-model="form.pickup_zone_id" :class="['input', changed('pickup_zone_id') && 'ring-2 ring-amber-400 bg-amber-50']">
-              <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-            </select>
+            <SearchSelect
+              id="edit-pzone" v-model="form.pickup_zone_id" :input-class="['input', changed('pickup_zone_id') && 'ring-2 ring-amber-400 bg-amber-50']" search-placeholder="Commune, quartier…"
+              :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+            />
           </div>
           <EditField v-model="form.pickup_address" label="Adresse" :before="initial.pickup_address" />
           <EditField v-model="form.pickup_contact_name" label="Contact" :before="initial.pickup_contact_name" />
@@ -86,6 +88,7 @@
 </template>
 
 <script setup>
+import SearchSelect from './SearchSelect.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import Modal from './Modal.vue'
