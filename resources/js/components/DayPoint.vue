@@ -1,5 +1,6 @@
 <template>
-  <!-- Point du jour de la page Courses : livrées, recette de livraison, encaissé chez les clients, à reverser -->
+  <!-- Point du jour de la page Courses : livrées, recette de livraison, encaissé chez les clients, à reverser.
+       Courses dont la date de livraison est le jour (ou la période) choisi : les mêmes que la liste. -->
   <section v-if="report" class="card space-y-3 p-3 sm:p-4" aria-label="Point du jour">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="font-semibold">📊 Point {{ dayLabel }}</h2>
@@ -14,7 +15,7 @@
     <div v-if="open" :class="['grid gap-2 sm:gap-3', m ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2']">
       <button type="button" class="rounded-xl bg-emerald-50 p-3 text-left hover:ring-2 hover:ring-emerald-300" @click="emit('delivered')">
         <p class="text-xs text-emerald-800">✅ Livrées</p>
-        <p class="text-2xl font-bold text-emerald-900">{{ c.delivered }} <span v-if="c.planned" class="text-base font-normal">/ {{ c.planned }} prévues</span></p>
+        <p class="text-2xl font-bold text-emerald-900">{{ c.delivered }} <span v-if="c.planned" class="text-base font-normal">/ {{ c.planned }} course{{ c.planned > 1 ? 's' : '' }}</span></p>
         <div v-if="c.planned" class="mt-1 h-2 rounded-full bg-emerald-100" role="progressbar" :aria-valuenow="rate" aria-valuemin="0" aria-valuemax="100">
           <div class="h-2 rounded-full bg-emerald-500" :style="{ width: `${Math.min(rate, 100)}%` }" />
         </div>
@@ -81,13 +82,13 @@ const dayLabel = computed(() => {
 })
 const detail = computed(() => {
   const parts = []
-  if (c.value.planned) parts.push(`${rate.value} % des prévues`)
+  if (c.value.planned) parts.push(`${rate.value} % livrées`)
   if (c.value.in_progress) parts.push(`${c.value.in_progress} en cours`)
   if (c.value.failed) parts.push(`${c.value.failed} échec(s)`)
   if (c.value.rescheduled) parts.push(`${c.value.rescheduled} reportée(s)`)
   if (props.detailed && c.value.returned) parts.push(`${c.value.returned} retournée(s)`)
   if (props.detailed && c.value.cancelled) parts.push(`${c.value.cancelled} annulée(s)`)
-  return parts.join(' · ') || 'Aucune course prévue ce jour'
+  return parts.join(' · ') || 'Aucune course ce jour'
 })
 
 async function load() {
@@ -102,7 +103,7 @@ async function load() {
 }
 
 function share() {
-  const lines = [`Point ${dayLabel.value === 'du jour' ? `du ${new Date().toLocaleDateString('fr-FR')}` : dayLabel.value}`, `Livrées : ${c.value.delivered}${c.value.planned ? ` / ${c.value.planned} prévues` : ''}`]
+  const lines = [`Point ${dayLabel.value === 'du jour' ? `du ${new Date().toLocaleDateString('fr-FR')}` : dayLabel.value}`, `Livrées : ${c.value.delivered}${c.value.planned ? ` / ${c.value.planned} courses` : ''}`]
   if (m.value) {
     lines.push(`Recette livraison : ${money(m.value.fees)}`, `Encaissé chez les clients : ${money(m.value.collected)} (caisse ${money(m.value.at_desk)}, livreurs ${money(m.value.with_couriers)})`, `À reverser : ${money(m.value.net_to_merchants)}`)
   }

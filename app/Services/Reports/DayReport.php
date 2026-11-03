@@ -17,8 +17,9 @@ use Illuminate\Support\Collection;
  * livraison, argent encaissé chez les clients (déjà à la caisse ou encore chez les livreurs), montant à reverser aux
  * e-commerçants, nouvelles courses et chiffres par livreur.
  *
- * Les courses prévues sont celles dont le jour de livraison tombe dans la période ; les livrées sont celles livrées
- * pendant la période (quel que soit leur jour prévu). Les montants portent sur les livrées.
+ * Une seule date compte : la date de livraison de la course (elle suit les reports et devient le jour de la
+ * livraison). Courses de la période = date de livraison dans la période ; livrées = celles-ci, livrées. Les montants
+ * portent sur les livrées. Mêmes courses que la liste du jour.
  */
 class DayReport
 {
@@ -34,11 +35,9 @@ class DayReport
         $end = CarbonImmutable::parse($to, $tz)->endOfDay();
         $orders = fn () => Order::withoutGlobalScopes()->where('company_id', $company->id);
 
-        $planned = $orders()->forPeriod($from, $to, 'delivery')->get(['id', 'status']);
+        $planned = $orders()->forPeriod($from, $to, 'delivery')->get(['id', 'status', 'merchant_id', 'is_shipping', 'delivery_courier_id']);
         $count = fn (array $statuses) => $planned->whereIn('status', $statuses)->count();
-        $delivered = $orders()->where('status', OrderStatus::Delivered)
-            ->whereBetween('delivered_at', [$start->utc(), $end->utc()])
-            ->get(['id', 'merchant_id', 'is_shipping', 'delivery_courier_id']);
+        $delivered = $planned->where('status', OrderStatus::Delivered)->values();
         // Nouvelles courses : créées pendant la période, dont celles à livrer après
         $created = $orders()->whereBetween('created_at', [$start->utc(), $end->utc()]);
 
@@ -49,7 +48,7 @@ class DayReport
             'counts' => [
                 'planned' => $planned->count(),
                 'delivered' => $delivered->count(),
-                'delivered_planned' => $planned->where('status', OrderStatus::Delivered)->count(),
+                'delivered_planned' => $delivered->count(),
                 'in_progress' => $count([
                     OrderStatus::Pending, OrderStatus::Confirmed, OrderStatus::PickupAssigned, OrderStatus::PickupInProgress,
                     OrderStatus::PickedUp, OrderStatus::AtHub, OrderStatus::DeliveryAssigned, OrderStatus::OutForDelivery,

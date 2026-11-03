@@ -169,6 +169,11 @@ class LegacyRechecks
             $result = $this->importer->import($command);
             $key = in_array($result['action'], ['created', 'updated'], true) ? 'updated' : $result['action'];
             $counts[$key] = ($counts[$key] ?? 0) + 1;
+            // Inchangée ou déjà gérée dans Jibiat : les dates sont quand même remises d'accord (date de livraison avec
+            // les reports, première date prévue, heure de livraison)
+            if (in_array($result['action'], ['unchanged', 'conflict'], true) && ($this->importer->redate($command)['changed'] ?? false)) {
+                $counts['redated'] = ($counts['redated'] ?? 0) + 1;
+            }
         }
 
         $purge = null;
@@ -305,7 +310,7 @@ class LegacyRechecks
     /** @return array<string, int> */
     public static function emptyCounts(): array
     {
-        return ['pulled' => 0, 'created' => 0, 'updated' => 0, 'unchanged' => 0, 'conflict' => 0, 'skipped' => 0, 'deleted_cancelled' => 0, 'deleted_to_check' => 0, 'deleted_closed' => 0];
+        return ['pulled' => 0, 'created' => 0, 'updated' => 0, 'unchanged' => 0, 'conflict' => 0, 'skipped' => 0, 'deleted_cancelled' => 0, 'deleted_to_check' => 0, 'deleted_closed' => 0, 'redated' => 0];
     }
 
     /** @return array<string, int> */
