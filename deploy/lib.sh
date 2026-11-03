@@ -223,6 +223,102 @@ install_cron() {
     chmod 644 "/etc/cron.d/$INSTANCE"
 }
 
+# Dossier des sauvegardes de l'installation (lu aussi par la console : PLATFORM_BACKUP_PATH)
+backup_dir() {
+    local dir
+    dir="$(env_get PLATFORM_BACKUP_PATH)"
+    echo "${dir:-/var/backups/$INSTANCE}"
+}
+
+prepare_backup_dir() {
+    local dir
+    dir="$(backup_dir)"
+    mkdir -p "$dir/quotidien" "$dir/hebdo" "$dir/mensuel"
+    # Le dossier est traversable (la console lit etat-*.json) ; les sauvegardes ne sont lisibles que par root
+    chmod 711 "$dir"
+    chmod 700 "$dir/quotidien" "$dir/hebdo" "$dir/mensuel"
+}
+
+# Copie de la base avant les migrations d'une mise à jour ; en cas d'échec, la mise à jour s'arrête avant
+# tout changement. La copie précédente est gardée à côté.
+db_snapshot() {
+    local db dir file
+    db="$(env_get DB_DATABASE)"
+    db="${db:-$DB_NAME}"
+    prepare_backup_dir
+    dir="$(backup_dir)"
+    file="$dir/avant-mise-a-jour.dump"
+    sudo -u postgres pg_dump -Fc "$db" > "$file.tmp" && pg_restore --list "$file.tmp" > /dev/null \
+        || { rm -f "$file.tmp"; fail "copie de la base « $db » impossible avant la mise à jour : rien n'a été changé."; }
+    [[ ! -f "$file" ]] || mv -f "$file" "$dir/avant-mise-a-jour-precedente.dump"
+    mv "$file.tmp" "$file"
+    chmod 600 "$file"
+    info "Copie de la base avant mise à jour : $file ($(du -h "$file" | cut -f1))."
+}
+
+# Sauvegardes de la nuit, test de restauration du dimanche, entretien (deploy/backup.sh), rotation des journaux
+# et mises à jour de sécurité du système. Relancé à chaque mise à jour : rien à installer à la main.
+install_backup() {
+    step "Sauvegardes et entretien"
+    [[ -n "$(env_get PLATFORM_BACKUP_PATH)" ]] || env_set PLATFORM_BACKUP_PATH "/var/backups/$INSTANCE"
+    prepare_backup_dir
+    # Production à 2 h 30, autres installations (préproduction) à 3 h 15 : jamais deux en même temps
+    local at="30 2" upkeep="50 3" verify="10 5" log="/var/log/$INSTANCE-backup.log" group
+    [[ "$(env_get APP_ENV)" == "production" ]] || { at="15 3"; upkeep="20 4"; verify="40 5"; }
+    cat > "/etc/cron.d/$INSTANCE-backup" <<EOF
+# Sauvegardes et entretien de « $INSTANCE » (deploy/backup.sh, docs/SAUVEGARDES.md)
+$at * * * root bash $APP_DIR/deploy/backup.sh >> $log 2>&1
+$upkeep * * * root bash $APP_DIR/deploy/backup.sh --maintenance >> $log 2>&1
+$verify * * 0 root bash $APP_DIR/deploy/backup.sh --verify >> $log 2>&1
+EOF
+    chmod 644 "/etc/cron.d/$INSTANCE-backup"
+
+    group="$(id -gn "$APP_USER")"
+    cat > "/etc/logrotate.d/$INSTANCE" <<EOF
+# Journaux de « $INSTANCE » (les journaux datés laravel-AAAA-MM-JJ.log sont effacés par Laravel après 14 jours)
+$APP_DIR/storage/logs/laravel.log {
+    su $APP_USER $group
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}
+$log {
+    weekly
+    rotate 8
+    compress
+    missingok
+    notifempty
+}
+EOF
+    chmod 644 "/etc/logrotate.d/$INSTANCE"
+    install_security_updates
+    info "Sauvegarde chaque nuit dans $(backup_dir), test de restauration le dimanche, journal : $log"
+}
+
+# Correctifs de sécurité du système installés chaque nuit (Debian : dépôt « security » seulement, sans
+# redémarrage du serveur). AUTO_SECURITY_UPDATES=0 dans le .env pour ne pas les installer.
+install_security_updates() {
+    [[ "$(env_get AUTO_SECURITY_UPDATES)" != "0" ]] || return 0
+    if ! dpkg -s unattended-upgrades >/dev/null 2>&1; then
+        apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq unattended-upgrades >/dev/null \
+            || { warn "mises à jour de sécurité automatiques non installées (apt)."; return 0; }
+    fi
+    cat > /etc/apt/apt.conf.d/20auto-upgrades <<EOF
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+APT::Periodic::AutocleanInterval "7";
+EOF
+    cat > /etc/apt/apt.conf.d/52jibiat-upgrades <<EOF
+// Jibiat : correctifs de sécurité seulement, jamais de redémarrage automatique du serveur
+Unattended-Upgrade::Automatic-Reboot "false";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+EOF
+}
+
 # Réglages de l'installation qui contient ce dossier (update.sh lancé depuis APP_DIR/deploy) : chaque
 # installation du serveur se met à jour depuis son propre dossier. Anciennes installations : « livraison ».
 load_deploy_conf() {

@@ -163,6 +163,7 @@ systemctl reload apache2
 
 install_supervisor
 install_cron
+install_backup
 save_deploy_conf
 
 # ─────────────────────────── Vérification ───────────────────────────

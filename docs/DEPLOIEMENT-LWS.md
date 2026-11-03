@@ -151,11 +151,8 @@ Les scripts peuvent être **relancés sans risque** : base, `.env` et clés sont
   page (mode démonstration) : fermez les inscriptions dans **Paramètres > E-commerçants** si le site est public.
 - **Commandes WhatsApp comprises par Claude** : `ANTHROPIC_API_KEY=…` dans le `.env`.
 - Après une modification du `.env` : relancez `deploy/update.sh` (il recompile l'interface et vide les caches).
-- **Sauvegarde quotidienne de la base** :
-  ```bash
-  mkdir -p /var/backups/livraison
-  echo '30 2 * * * postgres pg_dump livraison | gzip > /var/backups/livraison/$(date +\%F).sql.gz && find /var/backups/livraison -mtime +14 -delete' > /etc/cron.d/livraison-backup
-  ```
+- **Sauvegardes** : installées automatiquement (base et fichiers chaque nuit, copie avant chaque mise à jour,
+  test de restauration le dimanche). Reste à régler la copie hors du serveur : voir docs/SAUVEGARDES.md.
 
 ## En cas de problème
 
