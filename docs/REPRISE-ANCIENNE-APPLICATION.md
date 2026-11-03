@@ -170,6 +170,17 @@ Le contrôle des soldes livreurs montre ensuite un écart avec l'ancienne applic
 
 **Produits** : un produit par variante, prix et stock actuel (inventaire « Reprise de l'ancienne application »).
 
+### Dates des courses reprises
+
+Une seule date compte dans Jibiat : la **date de livraison** (liste du jour, point du jour, tableau de bord,
+statistiques). Pour une commande de l'ancienne application, c'est sa date de livraison, ou celle du dernier report
+quand elle a été reportée plus tard (`relance_date`). La **première date prévue** (avant le premier report) est gardée
+à part, figée, et affichée sur la fiche (« Prévue d'abord le … »). L'heure de livraison d'une commande terminée est
+celle de la création du paiement de l'e-commerçant, sinon midi le jour de la livraison : une remise d'argent ou une
+correction faite plus tard dans l'ancienne application ne la déplace plus. La recomparaison (complète ou de nuit) remet
+ces dates d'accord sur les courses déjà reprises, même après la bascule, sans toucher à leur état ni à leur argent ;
+son bilan indique combien de dates ont été corrigées.
+
 ## 3. Bascule le jour choisi
 
 À partir de la date choisie par l'administrateur, un e-commerçant ou un livreur connecté à l'ancienne application est

@@ -563,6 +563,33 @@ class LegacyOrdersSyncTest extends TestCase
         $this->assertSame(OrderStatus::Cancelled, $this->order(101)->status);
     }
 
+    public function test_delivered_orders_take_the_old_delivery_date_and_the_payment_time(): void
+    {
+        $this->commands[120] = $this->command(120, 'termine', [
+            'delivery_date' => '2026-09-02', 'relance_date' => '2026-09-04', 'updated_at' => '2026-09-20 18:00:00',
+            'relances' => [['id' => 9, 'command_id' => 120, 'previous_date' => '2026-09-02', 'relance_date' => '2026-09-04', 'created_at' => '2026-09-02 17:00:00']],
+            'payment' => ['id' => 9, 'command_id' => 120, 'montant' => 10000, 'etat' => 'encours', 'created_at' => '2026-09-04 16:30:00'],
+        ]);
+        $this->import();
+
+        // Livrée le jour du dernier report (comme dans l'ancienne application), à l'heure du paiement, pas le 20
+        $order = $this->order(120);
+        $this->assertSame(['2026-09-04', '2026-09-02', '2026-09-04 16:30'], [
+            $order->delivery_scheduled_date->toDateString(), $order->first_delivery_date->toDateString(), $order->delivered_at->format('Y-m-d H:i'),
+        ]);
+
+        // Dates fausses d'une ancienne copie : la relecture les remet d'accord sans rien changer d'autre
+        $order->forceFill(['delivery_scheduled_date' => '2026-09-20', 'first_delivery_date' => '2026-09-20', 'delivered_at' => '2026-09-20 18:00:00'])->saveQuietly();
+        Sanctum::actingAs($this->admin);
+        $recheck = $this->recheckAll();
+        $this->assertSame(1, $recheck->counts['redated']);
+        $order->refresh();
+        $this->assertSame(['2026-09-04', '2026-09-02', '2026-09-04 16:30'], [
+            $order->delivery_scheduled_date->toDateString(), $order->first_delivery_date->toDateString(), $order->delivered_at->format('Y-m-d H:i'),
+        ]);
+        $this->assertSame(OrderStatus::Delivered, $order->status);
+    }
+
     public function test_settings_key_simulation_and_errors(): void
     {
         Sanctum::actingAs($this->admin);
