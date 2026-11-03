@@ -102,6 +102,7 @@ build_app
 chown -R "$APP_USER:$APP_GROUP" "$APP_DIR/storage" "$APP_DIR/bootstrap/cache"
 install_supervisor
 install_cron
+install_backup
 save_deploy_conf
 
 # ─────────────────────────── Directives ISPConfig ───────────────────────────

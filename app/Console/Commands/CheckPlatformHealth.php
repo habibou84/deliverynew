@@ -24,6 +24,9 @@ class CheckPlatformHealth extends Command
 
     private const REPEAT_HOURS = 6;
 
+    /** Points « à surveiller » qui préviennent aussi (une fois par jour) : disque presque plein, certificat proche de l'expiration */
+    private const ALERT_WARNINGS = ['disk', 'certificates', 'backup_restore'];
+
     public function handle(PlatformHealth $health, PlatformWhatsApp $whatsapp): int
     {
         $checks = $health->checks();
@@ -33,9 +36,12 @@ class CheckPlatformHealth extends Command
             return self::SUCCESS;
         }
 
-        // Erreurs seulement, et une même panne pas plus d'une fois toutes les 6 heures
-        $new = array_values(array_filter($checks, fn (array $c) => $c['status'] === 'error'
-            && Cache::add('platform-health-alert:'.$c['key'], true, now()->addHours(self::REPEAT_HOURS))));
+        // Erreurs (une même panne pas plus d'une fois toutes les 6 heures) et quelques points à surveiller (une fois par jour)
+        $new = array_values(array_filter($checks, fn (array $c) => match (true) {
+            $c['status'] === 'error' => Cache::add('platform-health-alert:'.$c['key'], true, now()->addHours(self::REPEAT_HOURS)),
+            $c['status'] === 'warning' && in_array($c['key'], self::ALERT_WARNINGS, true) => Cache::add('platform-health-warning:'.$c['key'], true, now()->addDay()),
+            default => false,
+        }));
         if ($new === []) {
             return self::SUCCESS;
         }

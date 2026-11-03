@@ -22,7 +22,12 @@ class PlatformHealth
     /** Battement des tâches planifiées (écrit chaque minute par le planificateur) */
     public const HEARTBEAT = 'platform:scheduler-heartbeat';
 
-    public function __construct(private readonly WaveSettings $wave, private readonly PlatformWhatsApp $whatsapp) {}
+    public function __construct(
+        private readonly WaveSettings $wave,
+        private readonly PlatformWhatsApp $whatsapp,
+        private readonly BackupStatus $backups,
+        private readonly Certificates $certificates,
+    ) {}
 
     /**
      * @return list<array{key: string, label: string, status: string, detail: string}>
@@ -38,7 +43,10 @@ class PlatformHealth
             $this->guard('mail', 'E-mail', fn () => $this->mail()),
             $this->guard('sms', 'SMS', fn () => $this->sms()),
             $this->guard('disk', 'Espace disque', fn () => $this->disk()),
-            $this->guard('backup', 'Sauvegarde de la base', fn () => $this->backup()),
+            $this->guard('backup', 'Sauvegarde de la nuit', fn () => $this->backups->nightly()),
+            $this->guard('backup_offsite', 'Copie hors du serveur', fn () => $this->backups->offsite()),
+            $this->guard('backup_restore', 'Test de restauration', fn () => $this->backups->restore()),
+            $this->guard('certificates', 'Certificats HTTPS', fn () => $this->certificates->check()),
             $this->guard('wave', 'Paiements Wave en attente', fn () => $this->wavePending()),
             $this->guard('security', 'Réglages de sécurité du serveur', fn () => $this->security()),
             $this->guard('two_factor', 'Code de connexion à la console', fn () => $this->twoFactor()),
@@ -189,22 +197,6 @@ class PlatformHealth
             $used >= 80 => ['warning', $detail],
             default => ['ok', $detail],
         };
-    }
-
-    /** @return array{0: string, 1: string} */
-    private function backup(): array
-    {
-        $dir = (string) config('platform.backup_path');
-        $files = $dir !== '' && is_dir($dir) ? (glob(rtrim($dir, '/').'/*') ?: []) : [];
-        if ($files === []) {
-            return ['error', 'Aucune sauvegarde trouvée dans '.($dir ?: '(dossier non réglé)').' : voir docs/MAINTENANCE.md.'];
-        }
-        $latest = max(array_map('filemtime', $files));
-        $hours = (int) floor((time() - $latest) / 3600);
-
-        return $hours <= 26
-            ? ['ok', 'Dernière sauvegarde il y a '.$hours.' h.']
-            : ['error', 'Dernière sauvegarde il y a '.$hours.' h : la sauvegarde de la nuit ne tourne plus.'];
     }
 
     /** @return array{0: string, 1: string} */
