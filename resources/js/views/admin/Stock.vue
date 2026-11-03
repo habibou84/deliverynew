@@ -27,10 +27,10 @@
       <div class="card p-3 flex flex-wrap gap-2 items-end">
         <div>
           <label class="label" for="f-merchant">E-commerçant</label>
-          <select id="f-merchant" v-model="filters.merchant_id" class="input" @change="loadProducts(1)">
-            <option :value="null">Tous</option>
-            <option v-for="m in merchants" :key="m.id" :value="m.id">{{ m.business_name }}</option>
-          </select>
+          <SearchSelect
+            id="f-merchant" v-model="filters.merchant_id" placeholder="Tous" :empty-value="null" @change="loadProducts(1)"
+            :options="merchants.map((m) => ({ value: m.id, label: m.business_name, search: m.phone }))"
+          />
         </div>
         <div class="flex-1 min-w-48">
           <label class="label" for="f-search">Recherche</label>
@@ -83,10 +83,10 @@
       <div class="card p-3 flex flex-wrap gap-2 items-end">
         <div>
           <label class="label" for="m-merchant">E-commerçant</label>
-          <select id="m-merchant" v-model="moveFilters.merchant_id" class="input" @change="loadMovements(1)">
-            <option :value="null">Tous</option>
-            <option v-for="m in merchants" :key="m.id" :value="m.id">{{ m.business_name }}</option>
-          </select>
+          <SearchSelect
+            id="m-merchant" v-model="moveFilters.merchant_id" placeholder="Tous" :empty-value="null" @change="loadMovements(1)"
+            :options="merchants.map((m) => ({ value: m.id, label: m.business_name, search: m.phone }))"
+          />
         </div>
         <div>
           <label class="label" for="m-hub">Entrepôt</label>
@@ -229,9 +229,10 @@
       <form class="space-y-3" @submit.prevent="saveProduct">
         <div v-if="!product.id">
           <label class="label" for="p-merchant">E-commerçant *</label>
-          <select id="p-merchant" v-model="product.form.merchant_id" class="input" required>
-            <option v-for="m in merchants" :key="m.id" :value="m.id">{{ m.business_name }}</option>
-          </select>
+          <SearchSelect
+            id="p-merchant" v-model="product.form.merchant_id" placeholder="Choisir…" :allow-empty="false" :empty-value="null" required
+            :options="merchants.map((m) => ({ value: m.id, label: m.business_name, search: m.phone }))"
+          />
         </div>
         <div><label class="label" for="p-name">Nom *</label><input id="p-name" v-model="product.form.name" class="input" required></div>
         <div class="grid grid-cols-2 gap-2">
@@ -254,9 +255,10 @@
         <div><label class="label" for="h-name">Nom *</label><input id="h-name" v-model="hub.form.name" class="input" required placeholder="Ex. : Entrepôt Cocody"></div>
         <div>
           <label class="label" for="h-zone">Zone *</label>
-          <select id="h-zone" v-model="hub.form.zone_id" class="input" required>
-            <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-          </select>
+          <SearchSelect
+            id="h-zone" v-model="hub.form.zone_id" placeholder="Choisir…" :allow-empty="false" :empty-value="null" required search-placeholder="Commune, quartier…"
+            :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+          />
           <p class="text-xs text-gray-500 mt-1">Point de départ des livraisons : sert au calcul du tarif.</p>
         </div>
         <div><label class="label" for="h-address">Adresse</label><input id="h-address" v-model="hub.form.address" class="input"></div>
@@ -275,9 +277,10 @@
         <template v-if="!contract.charged">
           <div>
             <label class="label" for="c-merchant">E-commerçant *</label>
-            <select id="c-merchant" v-model="contract.form.merchant_id" class="input" required>
-              <option v-for="m in merchants" :key="m.id" :value="m.id">{{ m.business_name }}</option>
-            </select>
+            <SearchSelect
+              id="c-merchant" v-model="contract.form.merchant_id" placeholder="Choisir…" :allow-empty="false" :empty-value="null" required
+              :options="merchants.map((m) => ({ value: m.id, label: m.business_name, search: m.phone }))"
+            />
           </div>
           <div>
             <label class="label" for="c-hub">Entrepôt</label>
@@ -313,6 +316,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

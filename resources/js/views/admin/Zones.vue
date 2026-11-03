@@ -15,10 +15,10 @@
         </div>
         <div v-if="!draft.is_shipping" class="flex-1 min-w-40">
           <label class="label" for="zone-parent">Dans la commune</label>
-          <select id="zone-parent" v-model="draft.parent_id" class="input">
-            <option :value="null">— (c'est une commune)</option>
-            <option v-for="z in communes" :key="z.id" :value="z.id">{{ z.name }}</option>
-          </select>
+          <SearchSelect
+            id="zone-parent" v-model="draft.parent_id" placeholder="— (c'est une commune)" :empty-value="null" search-placeholder="Commune…"
+            :options="communes.map((c) => ({ value: c.id, label: c.name }))"
+          />
         </div>
         <div v-else class="w-44">
           <label class="label" for="zone-estimate">Frais habituels (indicatif)</label>
@@ -49,10 +49,10 @@
             </div>
             <div v-if="!edit.is_shipping" class="flex-1 min-w-40">
               <label class="label" :for="`zone-edit-parent-${z.id}`">Dans la commune</label>
-              <select :id="`zone-edit-parent-${z.id}`" v-model="edit.parent_id" class="input" :disabled="hasChildren(z)">
-                <option :value="null">— (c'est une commune)</option>
-                <option v-for="c in communes.filter((c) => c.id !== z.id)" :key="c.id" :value="c.id">{{ c.name }}</option>
-              </select>
+              <SearchSelect
+                :id="`zone-edit-parent-${z.id}`" v-model="edit.parent_id" placeholder="— (c'est une commune)" :empty-value="null" :disabled="hasChildren(z)" search-placeholder="Commune…"
+                :options="communes.filter((c) => c.id !== z.id).map((c) => ({ value: c.id, label: c.name }))"
+              />
             </div>
             <div v-else class="w-44">
               <label class="label" :for="`zone-edit-estimate-${z.id}`">Frais habituels (indicatif)</label>
@@ -96,6 +96,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'

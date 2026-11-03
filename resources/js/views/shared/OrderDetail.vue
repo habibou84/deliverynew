@@ -151,12 +151,10 @@
           <div v-for="type in assignableTypes" :key="type" class="space-y-1">
             <label class="label">{{ ASSIGNMENT_LABELS[type] }}</label>
             <div class="flex gap-2">
-              <select v-model="assignment[type]" class="input">
-                <option :value="null">Choisir un livreur…</option>
-                <option v-for="c in sortedCouriers(type)" :key="c.id" :value="c.id">
-                  {{ c.name }} · {{ c.active_assignments_count }} en cours{{ c.is_available ? '' : ' · indisponible' }}{{ servesZone(c, type) ? ' · ★ zone' : '' }}{{ vehicleAlert(c) ? ` · 🚨 ${vehicleAlert(c)}` : '' }}
-                </option>
-              </select>
+              <SearchSelect
+                v-model="assignment[type]" class="flex-1" placeholder="Choisir un livreur…" :empty-value="null"
+                :options="sortedCouriers(type).map((c) => ({ value: c.id, label: c.name, hint: `${c.active_assignments_count} en cours${c.is_available ? '' : ' · indisponible'}${servesZone(c, type) ? ' · ★ zone' : ''}${vehicleAlert(c) ? ` · 🚨 ${vehicleAlert(c)}` : ''}`, search: c.phone }))"
+              />
               <button class="btn-primary" :disabled="!assignment[type]" @click="assign(type)">OK</button>
             </div>
             <p v-if="vehicleAlert(couriers.find((c) => c.id === assignment[type]))" class="text-xs font-semibold text-red-700">
@@ -221,6 +219,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

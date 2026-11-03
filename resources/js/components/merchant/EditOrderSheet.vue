@@ -11,9 +11,10 @@
       </div>
       <div>
         <label class="m-label" for="me-zone">Commune / quartier</label>
-        <select id="me-zone" v-model="form.delivery_zone_id" :class="['m-input', changed('delivery_zone_id') && hl]">
-          <option v-for="z in zones" :key="z.id" :value="z.id">{{ z.full_name }}</option>
-        </select>
+        <SearchSelect
+          id="me-zone" v-model="form.delivery_zone_id" :input-class="['m-input', changed('delivery_zone_id') && hl]" search-placeholder="Commune, quartier…"
+          :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+        />
       </div>
       <div>
         <label class="m-label" for="me-address">Adresse</label>
@@ -46,6 +47,7 @@
 </template>
 
 <script setup>
+import SearchSelect from '../SearchSelect.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import BottomSheet from '../mobile/BottomSheet.vue'
