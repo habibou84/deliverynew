@@ -11,6 +11,8 @@
 #   2. bascule : code, dépendances PHP, nouvelle interface (remplacée d'un coup), caches ;
 #      le mode maintenance n'est activé que s'il y a des migrations, le temps de les appliquer ;
 #   3. redémarrage en douceur des processus.
+# Avant des migrations, la base est copiée (/var/backups/<installation>/avant-mise-a-jour.dump) ; les sauvegardes
+# de la nuit et l'entretien (deploy/backup.sh) sont installés ou mis à jour à chaque passage.
 #
 # Forcer le mode maintenance pendant toute la bascule (migration délicate) :
 #   MAINTENANCE=1 bash /chemin/de/l/application/deploy/update.sh
@@ -66,7 +68,12 @@ main() {
         maintenance=1
     fi
 
+    # Sauvegardes de la nuit, entretien et journaux : installés ou mis à jour à chaque fois
+    install_backup
+
     if [[ "$maintenance" == "1" ]]; then
+        step "Copie de la base avant les migrations"
+        db_snapshot
         step "Bascule vers la nouvelle version (maintenance le temps des migrations)"
         as_app "php artisan down --retry=15 || true"
         trap 'as_app "php artisan up"' EXIT
