@@ -15,13 +15,26 @@
     <div v-if="orders.length" class="card overflow-x-auto">
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-left text-xs text-gray-500">
-          <tr><th class="px-3 py-2">Ancien n°</th><th class="px-3">État ici</th><th class="px-3">Destinataire</th><th class="px-3">E-commerçant</th><th class="px-3">Livreur</th><th class="px-3 text-right">À encaisser</th><th class="px-3"></th></tr>
+          <tr><th class="px-3 py-2">Ancien n°</th><th class="px-3">Livraison</th><th class="px-3">État ici</th><th class="px-3">Destinataire</th><th class="px-3">E-commerçant</th><th class="px-3">Livreur</th><th class="px-3 text-right">À encaisser</th><th class="px-3"></th></tr>
         </thead>
         <tbody>
           <tr v-for="o in orders" :key="o.id" class="border-t">
             <td class="px-3 py-2"><RouterLink :to="`/admin/courses/${o.id}`" class="text-emerald-700">{{ o.legacy_id }}</RouterLink></td>
+            <td class="px-3 whitespace-nowrap">
+              {{ o.delivery_date ? date(o.delivery_date) : '—' }}
+              <span v-if="o.first_delivery_date && o.first_delivery_date !== o.delivery_date" class="block text-xs text-gray-500">prévue d'abord le {{ date(o.first_delivery_date) }}</span>
+            </td>
             <td class="px-3">{{ o.status_label }}<span v-if="o.money" class="block text-xs text-amber-700">{{ o.cash_with_courier ? 'Argent chez le livreur' : 'Argent dû à l\'e-commerçant' }}</span></td>
-            <td class="px-3">{{ o.recipient }}</td>
+            <td class="px-3 py-2 min-w-[11rem]">
+              <span class="block font-medium">{{ o.recipient || 'Nom non renseigné' }}</span>
+              <span v-if="o.delivery_zone || o.delivery_address" class="block text-xs text-gray-500">{{ [o.delivery_zone, o.delivery_address].filter(Boolean).join(' · ') }}</span>
+              <span v-for="phone in [o.recipient_phone, o.recipient_phone2].filter(Boolean)" :key="phone" class="mt-1 flex items-center gap-2 whitespace-nowrap">
+                <span class="tabular-nums">{{ localPhone(phone) }}</span>
+                <a :href="telLink(phone)" class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-700" title="Appeler">📞 Appeler</a>
+                <a :href="whatsappLink(phone)" target="_blank" rel="noopener" class="rounded bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700" title="WhatsApp">WhatsApp</a>
+              </span>
+              <span v-if="!o.recipient_phone && !o.recipient_phone2" class="block text-xs text-gray-500">Pas de numéro</span>
+            </td>
             <td class="px-3">{{ o.merchant }}</td>
             <td class="px-3">{{ o.courier || '—' }}</td>
             <td class="px-3 text-right tabular-nums whitespace-nowrap">{{ money(o.cod_amount) }}</td>
@@ -44,7 +57,7 @@ import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
-import { money } from '../../../utils/format'
+import { date, localPhone, money, telLink, whatsappLink } from '../../../utils/format'
 
 /** Reprise : commandes effacées dans l'ancienne application avec de l'argent en jeu, à garder ou annuler */
 const toasts = useToastStore()

@@ -80,6 +80,7 @@ class LegacyPurgeController extends Controller
                 'legacy_id' => $o->legacy_id,
                 'tracking_code' => $o->tracking_code,
                 'recipient' => trim(($o->recipient_name ?? '').' · '.($o->delivery_address ?? ''), ' ·'),
+                'recipient_phone' => $o->recipient_phone,
                 'merchant' => $o->merchant?->business_name,
                 'day' => ($o->delivery_scheduled_date ?? $o->created_at)?->toDateString(),
                 'cod_amount' => (int) $o->cod_amount,
