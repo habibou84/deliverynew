@@ -27,6 +27,18 @@
 
     <div class="px-4 pt-3 space-y-3">
       <!-- Échec de livraison : la décision d'abord -->
+      <!-- Annulée ou refusée : par qui et pourquoi -->
+      <section v-if="order.cancellation" class="rounded-[22px] bg-white p-4 shadow-sm ring-1 ring-slate-100">
+        <p class="text-[13px] font-extrabold text-[#E54A6E]">{{ order.cancellation.rejected ? 'Course refusée' : 'Course annulée' }}</p>
+        <p class="mt-1 font-semibold">
+          {{ order.cancellation.by === 'merchant' ? 'Annulée par vous' : `Par ${order.cancellation.name || 'l\'entreprise de livraison'}${order.cancellation.role ? ` (${order.cancellation.role})` : ''}` }}
+        </p>
+        <div v-if="order.cancellation.reason_label || order.cancellation.note" class="mt-2 rounded-xl bg-slate-50 p-3 text-sm">
+          <p v-if="order.cancellation.reason_label" class="font-medium">{{ order.cancellation.reason_label }}</p>
+          <p v-if="order.cancellation.note" class="text-gray-600">« {{ order.cancellation.note }} »</p>
+        </div>
+      </section>
+
       <section v-if="order.needs_decision" class="rounded-[22px] bg-[#FFF7EB] p-4 ring-1 ring-[#FFD89A]">
         <div class="flex items-center gap-3">
           <ColorIcon name="aregler" :size="44" />
@@ -227,8 +239,9 @@
 
     <BottomSheet :open="sheet === 'cancel'" title="Annuler la course ?" @close="sheet = null">
       <div class="space-y-3">
-        <textarea v-model="noteText" rows="2" class="m-input" placeholder="Raison (facultatif)" />
-        <button class="m-btn-danger" :disabled="busy" @click="doCancel">Oui, annuler la course</button>
+        <CancelReasonPicker v-if="sheet === 'cancel'" v-model="cancelCode" v-model:note="noteText" mobile />
+        <p class="text-xs text-gray-500">Possible tant que le colis n'est pas ramassé.</p>
+        <button class="m-btn-danger" :disabled="busy || !cancelCode || (cancelCode === 'other' && !noteText.trim())" @click="doCancel">Oui, annuler la course</button>
         <button class="m-btn-secondary" @click="sheet = null">Non, garder</button>
       </div>
     </BottomSheet>
@@ -255,6 +268,7 @@ import MerchantHistory from '../../components/mobile/MerchantHistory.vue'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
+import CancelReasonPicker from '../../components/CancelReasonPicker.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import StarRating from '../../components/ratings/StarRating.vue'
 import { MERCHANT_TAGS, SCORE_WORDS } from '../../components/ratings/ratingWords'
@@ -457,7 +471,8 @@ async function run(action, success) {
 }
 
 const doReturn = () => run(() => http.post(`/orders/${order.value.id}/return-request`, { note: noteText.value || undefined }), 'Retour demandé.')
-const doCancel = () => run(() => http.post(`/orders/${order.value.id}/status`, { status: 'cancelled', cancel_reason: noteText.value || undefined }), 'Course annulée.')
+const cancelCode = ref(null)
+const doCancel = () => run(() => http.post(`/orders/${order.value.id}/status`, { status: 'cancelled', cancel_reason_code: cancelCode.value, cancel_reason: noteText.value || undefined }), 'Course annulée.')
 const doNote = () => run(() => http.post(`/orders/${order.value.id}/notes`, { note: noteText.value }), 'Message envoyé.')
 
 // Noter le livreur : une étoile touchée ouvre le panneau

@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderAttachment;
 use App\Models\OrderEvent;
 use App\Services\Couriers\CourierRatings;
+use App\Services\Orders\Cancellations;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\URL;
@@ -92,6 +93,8 @@ class PublicOrderResource extends JsonResource
             'updated_at' => $this->updated_at,
             'delivered_at' => $this->delivered_at,
             'cancelled_at' => $this->cancelled_at,
+            // Contrat 1.9 : qui a annulé (e-commerçant ou entreprise, personne, rôle) et pourquoi
+            'cancellation' => Cancellations::describe($this->resource),
             'returned_at' => $this->returned_at,
         ];
     }

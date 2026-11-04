@@ -19,6 +19,7 @@ use App\Models\OrderAttachment;
 use App\Models\Product;
 use App\Models\Zone;
 use App\Services\Couriers\CourierRatings;
+use App\Services\Orders\Cancellations;
 use App\Services\Orders\DeliveryDay;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\OrderWorkflow;
@@ -126,11 +127,13 @@ class PublicApiController extends Controller
         ]));
     }
 
-    public function cancel(Request $request, string $trackingCode, OrderWorkflow $workflow): PublicOrderResource
+    public function cancel(Request $request, string $trackingCode, Cancellations $cancellations): PublicOrderResource
     {
-        $data = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
+        // Contrat 1.9 : motif de la liste (reason_code) et précision ; un texte seul vaut « Autre »
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:500'], 'reason_code' => ['nullable', 'string', 'max:40']]);
 
-        $order = $workflow->transition($request->user(), $this->find($request, $trackingCode), OrderStatus::Cancelled, [
+        $order = $cancellations->cancel($request->user(), $this->find($request, $trackingCode), OrderStatus::Cancelled, [
+            'cancel_reason_code' => $data['reason_code'] ?? null,
             'cancel_reason' => $data['reason'] ?? null,
         ]);
 
