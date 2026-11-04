@@ -3,9 +3,11 @@
 use App\Jobs\RunLegacyOrdersImport;
 use App\Jobs\RunLegacyPurge;
 use App\Jobs\RunLegacyRecheck;
+use App\Models\Company;
 use App\Models\CourierLocation;
 use App\Models\IdempotencyKey;
 use App\Models\WebhookDelivery;
+use App\Services\Orders\Cancellations;
 use App\Services\Platform\PlatformHealth;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -83,3 +85,8 @@ Schedule::command('premium:levels')->monthlyOn(1, '07:40')->withoutOverlapping()
 Schedule::command('ai:review')->dailyAt('08:10')->withoutOverlapping();
 // Comptes supprimés depuis le profil : données personnelles effacées 30 jours après la demande
 Schedule::command('accounts:erase-deleted')->dailyAt('03:40')->withoutOverlapping();
+
+// E-commerçants qui annulent beaucoup (taux sur 7 jours au-dessus du seuil de l'entreprise) : alerte une fois par jour
+Schedule::call(fn () => Company::query()->get()->filter->isActive()
+    ->each(fn (Company $company) => app(Cancellations::class)->alertMerchantRates($company)))
+    ->dailyAt('09:05')->name('cancellations:merchant-rates')->withoutOverlapping();

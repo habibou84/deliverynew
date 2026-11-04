@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\AccountDeletionController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AppearanceController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CancellationController;
 use App\Http\Controllers\Api\V1\CashClosingController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CompanySignupController;
@@ -670,6 +671,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('orders/duplicates', [OrderDraftController::class, 'duplicates'])->name('orders.duplicates');
         Route::apiResource('orders', OrderController::class)->except('destroy');
         Route::post('orders/{order}/status', [OrderActionController::class, 'transition'])->name('orders.transition');
+        // Annulations : motifs et quota du jour, point, demandes à valider, règles
+        Route::get('cancellations/quota', [CancellationController::class, 'quota'])->name('cancellations.quota');
+        Route::get('cancellations', [CancellationController::class, 'report'])->name('cancellations.report');
+        Route::post('cancellation-requests/{cancellationRequest}/decision', [CancellationController::class, 'decide'])->middleware('throttle:60,1')->name('cancellation-requests.decide');
+        Route::put('cancellations/rules', [CancellationController::class, 'updateRules'])->name('cancellations.rules');
         Route::post('orders/{order}/assign', [OrderActionController::class, 'assign'])->name('orders.assign');
         Route::post('orders/{order}/unassign', [OrderActionController::class, 'unassign'])->name('orders.unassign');
         Route::post('orders/{order}/decision', [OrderActionController::class, 'decide'])->name('orders.decision');

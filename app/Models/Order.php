@@ -180,6 +180,12 @@ class Order extends Model
         return $this->belongsTo(Merchant::class);
     }
 
+    /** Personne qui a annulé ou refusé la course */
+    public function cancelledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by_id');
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

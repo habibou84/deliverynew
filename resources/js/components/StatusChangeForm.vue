@@ -66,12 +66,16 @@
       </div>
     </template>
 
-    <div>
-      <label class="label" for="note">{{ form.status === 'cancelled' ? 'Raison' : 'Note' }}</label>
+    <!-- Annuler ou refuser : motif de la liste obligatoire, précision -->
+    <CancelReasonPicker v-if="cancelling" ref="picker" v-model="form.cancel_reason_code" v-model:note="form.note" />
+    <div v-else>
+      <label class="label" for="note">Note</label>
       <textarea id="note" v-model="form.note" rows="2" class="input" />
     </div>
 
-    <button type="submit" class="btn-primary w-full" :disabled="saving">{{ saving ? 'Envoi…' : 'Valider' }}</button>
+    <button type="submit" :class="['w-full', cancelling ? (needsApproval ? 'btn-primary !bg-amber-600' : 'btn-danger') : 'btn-primary']" :disabled="saving || (cancelling && !form.cancel_reason_code)">
+      {{ saving ? 'Envoi…' : cancelling ? (needsApproval ? 'Demander la validation' : form.status === 'rejected' ? 'Refuser la course' : 'Annuler la course') : 'Valider' }}
+    </button>
   </form>
 </template>
 
@@ -80,6 +84,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { DELIVERY_PAYMENT_METHODS, PAYMENT_METHODS, STATUS_LABELS, today } from '../utils/format'
 import { needsDate, needsReason } from '../utils/workflow'
+import CancelReasonPicker from './CancelReasonPicker.vue'
 
 const props = defineProps({
   order: { type: Object, required: true },
@@ -87,7 +92,7 @@ const props = defineProps({
   askCode: { type: Boolean, default: false },
   position: { type: Object, default: null },
 })
-const emit = defineEmits(['done'])
+const emit = defineEmits(['done', 'requested'])
 
 const form = reactive({
   status: props.choices[0],
@@ -103,7 +108,11 @@ const form = reactive({
   shipping_reference: '',
   shipping_paid_by: 'courier',
   note: '',
+  cancel_reason_code: null,
 })
+const picker = ref(null)
+const cancelling = computed(() => ['cancelled', 'rejected'].includes(form.status))
+const needsApproval = computed(() => !!picker.value?.quota?.needs_approval)
 const allReasons = ref([])
 const error = ref('')
 const saving = ref(false)
@@ -111,7 +120,7 @@ const saving = ref(false)
 const stage = computed(() => (['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress'].includes(props.order.status) ? 'pickup' : 'delivery'))
 const reasons = computed(() => allReasons.value.filter((r) => r.applies_to === 'both' || r.applies_to === stage.value))
 const reasonRequired = computed(() => needsReason(props.order.status, form.status))
-const showReason = computed(() => reasonRequired.value || ['rescheduled', 'cancelled'].includes(form.status))
+const showReason = computed(() => reasonRequired.value || form.status === 'rescheduled')
 const selectedReason = computed(() => allReasons.value.find((r) => r.id === form.incident_reason_id))
 const showDate = computed(() => needsDate(form.status) || selectedReason.value?.requires_date)
 
@@ -148,10 +157,16 @@ async function submit() {
         })
       }
     }
-    if (form.status === 'cancelled') payload.cancel_reason = form.note || undefined
+    if (cancelling.value) {
+      payload.cancel_reason_code = form.cancel_reason_code
+      payload.cancel_reason = form.note || undefined
+      delete payload.note
+    }
     if (props.position) Object.assign(payload, props.position)
-    const { data } = await http.post(`/orders/${props.order.id}/status`, payload)
-    emit('done', data.data)
+    const response = await http.post(`/orders/${props.order.id}/status`, payload)
+    // Au-delà de la limite du jour : demande envoyée à un administrateur, la course ne change pas
+    if (response.status === 202) emit('requested', response.data.message)
+    else emit('done', response.data.data)
   } catch (e) {
     error.value = apiErrorMessage(e)
   } finally {
