@@ -67,7 +67,7 @@ class LegacyRecheckController extends Controller
     public function deleted(Request $request): JsonResponse
     {
         $page = $this->rechecks->toCheck($request->user()->company)
-            ->with(['merchant:id,business_name', 'cashCollection', 'deliveryCourier.user:id,name'])
+            ->with(['merchant:id,business_name', 'cashCollection', 'deliveryCourier.user:id,name', 'recipient:id,name', 'deliveryZone:id,name'])
             ->orderByDesc('legacy_deleted_at')->orderByDesc('id')->paginate(50);
 
         return response()->json([
@@ -76,7 +76,15 @@ class LegacyRecheckController extends Controller
                 'legacy_id' => $o->legacy_id,
                 'status' => $o->status->value,
                 'status_label' => $o->status->label(),
-                'recipient' => $o->recipient_name,
+                // Le nom manque souvent dans l'ancienne application : celui du carnet d'adresses, sinon le numéro seul
+                'recipient' => $o->recipient_name ?: $o->recipient?->name,
+                'recipient_phone' => $o->recipient_phone,
+                'recipient_phone2' => $o->recipient_phone2,
+                'delivery_zone' => $o->deliveryZone?->name,
+                'delivery_address' => $o->delivery_address,
+                // Date de livraison (suit les reports) et première date prévue, si elle diffère
+                'delivery_date' => ($o->delivery_scheduled_date ?? $o->created_at)?->toDateString(),
+                'first_delivery_date' => $o->first_delivery_date?->toDateString(),
                 'merchant' => $o->merchant?->business_name,
                 'courier' => $o->deliveryCourier?->user?->name,
                 'cod_amount' => (int) $o->cod_amount,

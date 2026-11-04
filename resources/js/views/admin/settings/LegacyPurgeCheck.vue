@@ -32,7 +32,14 @@
             <tr v-for="o in orders" :key="o.id" class="border-t">
               <td class="px-3 py-2"><input v-model="checked" type="checkbox" :value="o.id" :aria-label="`Choisir la course ${o.legacy_id}`"></td>
               <td class="px-3"><RouterLink :to="`/admin/courses/${o.id}`" class="text-emerald-700">{{ o.legacy_id }}</RouterLink></td>
-              <td class="px-3">{{ o.recipient }}</td>
+              <td class="px-3 py-1">
+                <span class="block">{{ o.recipient || 'Nom non renseigné' }}</span>
+                <span v-if="o.recipient_phone" class="flex items-center gap-2 whitespace-nowrap text-xs">
+                  <span class="tabular-nums">{{ localPhone(o.recipient_phone) }}</span>
+                  <a :href="telLink(o.recipient_phone)" class="font-medium text-slate-700">📞 Appeler</a>
+                  <a :href="whatsappLink(o.recipient_phone)" target="_blank" rel="noopener" class="font-medium text-emerald-700">WhatsApp</a>
+                </span>
+              </td>
               <td class="px-3">{{ o.merchant }}</td>
               <td class="px-3 whitespace-nowrap">{{ date(o.day) }}</td>
               <td class="px-3 text-right tabular-nums whitespace-nowrap">{{ money(o.cod_amount) }}</td>
@@ -52,7 +59,7 @@ import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
-import { date, money } from '../../../utils/format'
+import { date, localPhone, money, telLink, whatsappLink } from '../../../utils/format'
 
 /** Nettoyage de la reprise : anciennes courses « en chemin », à vérifier livreur par livreur */
 const route = useRoute()
