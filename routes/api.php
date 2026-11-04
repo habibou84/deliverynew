@@ -437,6 +437,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::prefix('company/legacy-switch')->name('company.legacy-switch.')->middleware('can:settings.manage')->controller(LegacySwitchController::class)->group(function () {
             Route::get('/', 'show')->name('show');
             Route::put('/', 'schedule')->name('schedule');
+            Route::put('preview', 'preview')->name('preview');
             Route::post('key', 'createKey')->middleware('throttle:10,1')->name('key.store');
             Route::delete('key', 'destroyKey')->name('key.destroy');
             Route::get('module', 'module')->name('module');

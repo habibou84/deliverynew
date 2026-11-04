@@ -26,6 +26,10 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * lien de connexion pour le compte ouvert ; avant la date, elle reçoit la date et laisse faire. Le lien porte un
  * ticket à usage unique valable deux minutes, échangé ici contre une session. Un compte absent de Jibiat (créé dans
  * l'ancienne application après la reprise) est repris à ce moment-là, avec sa fiche.
+ *
+ * Avant la date (module version 2) : bandeau dans l'ancienne application, réglé ici par public. L'équipe y trouve
+ * « Ouvrir Jibiat » ; les e-commerçants et les livreurs « Ouvrir la nouvelle application », qui les connecte déjà
+ * sans les sortir de l'ancienne (mode « open »). Le module lit ce réglage avec le mode « config ».
  */
 class LegacySwitchController extends Controller
 {
@@ -36,6 +40,12 @@ class LegacySwitchController extends Controller
 
     /** La bascule ouvre des sessions pendant 60 jours après sa date, puis la clé ne sert plus à rien */
     public const OPEN_DAYS = 60;
+
+    /** Version du module distribué (legacy/laravel-5.8/JibiatSwitch.php) */
+    public const MODULE_VERSION = 2;
+
+    /** Bandeau de l'ancienne application : coupé par défaut */
+    public const PREVIEW = ['team' => false, 'merchants' => false, 'couriers' => false, 'message' => null];
 
     public function show(Request $request): JsonResponse
     {
@@ -54,6 +64,26 @@ class LegacySwitchController extends Controller
         // Date passée : la bascule commence tout de suite (jamais antidatée)
         $at = isset($data['switch_at']) ? Carbon::parse($data['switch_at'])->max(now()) : null;
         $company->forceFill(['legacy_switch_at' => $at])->save();
+
+        return response()->json(['data' => $this->describe($company)]);
+    }
+
+    /** Bandeau dans l'ancienne application, par public, et message affiché aux e-commerçants et aux livreurs */
+    public function preview(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'team' => ['required', 'boolean'],
+            'merchants' => ['required', 'boolean'],
+            'couriers' => ['required', 'boolean'],
+            'message' => ['nullable', 'string', 'max:200'],
+        ], [], ['message' => 'message']);
+        $company = $request->user()->company;
+        $company->forceFill(['legacy_switch_preview' => [
+            'team' => (bool) $data['team'],
+            'merchants' => (bool) $data['merchants'],
+            'couriers' => (bool) $data['couriers'],
+            'message' => filled($data['message'] ?? null) ? trim($data['message']) : null,
+        ]])->save();
 
         return response()->json(['data' => $this->describe($company)]);
     }
@@ -103,8 +133,11 @@ class LegacySwitchController extends Controller
         }
 
         $data = $request->validate([
-            'phone' => ['required', 'string', 'max:30'],
-            'usertype' => ['required', 'string', 'max:30'],
+            // visit (par défaut) : page ouverte ; open : bouton du bandeau ; config : réglages du bandeau
+            'mode' => ['nullable', 'in:visit,open,config'],
+            'module_version' => ['nullable', 'integer'],
+            'phone' => ['required_unless:mode,config', 'nullable', 'string', 'max:30'],
+            'usertype' => ['required_unless:mode,config', 'nullable', 'string', 'max:30'],
             'users' => ['sometimes', 'array', 'max:1'],
             'users.*' => ['array'],
             'clients' => ['sometimes', 'array', 'max:1'],
@@ -113,14 +146,23 @@ class LegacySwitchController extends Controller
             'livreurs.*' => ['array'],
         ]);
 
-        if ($company->legacy_switch_at === null || $company->legacy_switch_at->isFuture()) {
+        $mode = $data['mode'] ?? 'visit';
+        Cache::put(self::seenKey($company), ['version' => (int) ($data['module_version'] ?? 1), 'at' => now()->toIso8601String()], now()->addDays(30));
+        if ($mode === 'config') {
+            return response()->json(['status' => 'config', ...$this->bannerConfig($company)]);
+        }
+
+        $courier = str_contains(mb_strtolower((string) $data['usertype']), 'livreur');
+        $started = $company->legacy_switch_at !== null && ! $company->legacy_switch_at->isFuture();
+        // Avant la date : seul le bouton du bandeau ouvre une session, et seulement si le bandeau est montré à ce public
+        $preview = $mode === 'open' && ($this->previewSettings($company)[$courier ? 'couriers' : 'merchants'] ?? false);
+        if (! $started && ! $preview) {
             return response()->json(['status' => 'scheduled', 'switch_at' => $company->legacy_switch_at?->toIso8601String()]);
         }
-        if ($company->legacy_switch_at->copy()->addDays(self::OPEN_DAYS)->isPast()) {
+        if ($started && $company->legacy_switch_at->copy()->addDays(self::OPEN_DAYS)->isPast()) {
             return response()->json(['status' => 'closed', 'message' => 'La période de bascule est terminée : les comptes se connectent directement sur Jibiat.'], 410);
         }
 
-        $courier = str_contains(mb_strtolower($data['usertype']), 'livreur');
         $user = $this->account($company, $data['phone'], $courier);
         // Compte créé dans l'ancienne application après la reprise : repris maintenant, avec sa fiche
         if ($user === null && ! empty($data['users'])) {
@@ -177,6 +219,42 @@ class LegacySwitchController extends Controller
             : $query->whereNotNull('merchant_id')->first();
     }
 
+    /** @return array{team: bool, merchants: bool, couriers: bool, message: ?string} */
+    private function previewSettings(Company $company): array
+    {
+        return [...self::PREVIEW, ...($company->legacy_switch_preview ?? [])];
+    }
+
+    /**
+     * Ce que le module affiche dans l'ancienne application : à qui, quoi, et l'adresse de l'espace Jibiat.
+     * Après la date, les e-commerçants et livreurs sont envoyés sur Jibiat : seul le bandeau de l'équipe reste.
+     *
+     * @return array<string, mixed>
+     */
+    private function bannerConfig(Company $company): array
+    {
+        $preview = $this->previewSettings($company);
+        $started = $company->legacy_switch_at !== null && ! $company->legacy_switch_at->isFuture();
+
+        return [
+            'switch_at' => $company->legacy_switch_at?->toIso8601String(),
+            'started' => $started,
+            'banner' => [
+                'team' => $preview['team'],
+                'merchants' => $preview['merchants'] && ! $started,
+                'couriers' => $preview['couriers'] && ! $started,
+                'message' => $preview['message'],
+            ],
+            'name' => $company->name,
+            'url' => $company->url('/admin'),
+        ];
+    }
+
+    private static function seenKey(Company $company): string
+    {
+        return 'legacy-switch-module:'.$company->id;
+    }
+
     private static function cacheKey(string $ticket): string
     {
         return 'legacy-switch:'.hash('sha256', $ticket);
@@ -196,6 +274,9 @@ class LegacySwitchController extends Controller
             'ends_at' => $company->legacy_switch_at?->copy()->addDays(self::OPEN_DAYS)->toIso8601String(),
             'key_active' => $company->legacy_switch_key_hash !== null,
             'switched' => ['merchants' => $switched(false), 'couriers' => $switched(true)],
+            'preview' => $this->previewSettings($company),
+            // Dernier appel du module installé : sa version dit s'il sait afficher le bandeau
+            'module' => [...(Cache::get(self::seenKey($company)) ?? ['version' => null, 'at' => null]), 'latest' => self::MODULE_VERSION],
         ];
     }
 }

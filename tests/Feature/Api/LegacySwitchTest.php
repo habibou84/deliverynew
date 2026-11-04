@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Api;
 
+use App\Http\Middleware\JibiatSwitch;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
@@ -118,5 +121,62 @@ class LegacySwitchTest extends TestCase
         // Réservé aux administrateurs
         Sanctum::actingAs($this->dispatcher);
         $this->getJson('/api/v1/company/legacy-switch')->assertForbidden();
+    }
+
+    public function test_the_banner_lets_accounts_try_jibiat_before_the_date(): void
+    {
+        $key = $this->key();
+        $this->putJson('/api/v1/company/legacy-switch', ['switch_at' => now()->addWeek()->toIso8601String()])->assertOk();
+        $merchant = ['phone' => $this->merchantUser->phone, 'usertype' => 'client', 'module_version' => 2];
+
+        // Bandeau coupé : le bouton n'ouvre rien, le module lit des réglages vides
+        $this->ask($key, ['mode' => 'config', 'module_version' => 2])->assertOk()->assertJsonPath('status', 'config')
+            ->assertJsonPath('banner.team', false)->assertJsonPath('banner.merchants', false);
+        $this->ask($key, [...$merchant, 'mode' => 'open'])->assertOk()->assertJsonPath('status', 'scheduled');
+
+        Sanctum::actingAs($this->admin);
+        $this->putJson('/api/v1/company/legacy-switch/preview', ['team' => true, 'merchants' => true, 'couriers' => false, 'message' => '  Essayez la nouvelle application  '])
+            ->assertOk()->assertJsonPath('data.preview.merchants', true)->assertJsonPath('data.preview.message', 'Essayez la nouvelle application')
+            ->assertJsonPath('data.module.version', 2)->assertJsonPath('data.module.latest', 2);
+
+        $this->ask($key, ['mode' => 'config'])->assertOk()
+            ->assertJsonPath('banner.team', true)->assertJsonPath('banner.merchants', true)->assertJsonPath('banner.couriers', false)
+            ->assertJsonPath('banner.message', 'Essayez la nouvelle application');
+
+        // Bouton du bandeau : connecté avant la date ; une simple visite ne bascule toujours pas
+        $url = $this->ask($key, [...$merchant, 'mode' => 'open'])->assertOk()->assertJsonPath('status', 'switch')->json('url');
+        $this->assertStringContainsString('/marchand#session=', $this->get('/bascule/'.$this->ticket($url))->headers->get('Location'));
+        $this->ask($key, $merchant)->assertOk()->assertJsonPath('status', 'scheduled');
+        // Livreurs pas encore invités
+        $this->ask($key, ['phone' => $this->courierA->user->phone, 'usertype' => 'livreur', 'mode' => 'open'])->assertJsonPath('status', 'scheduled');
+
+        // Bascule commencée : seul le bandeau de l'équipe reste
+        $this->putJson('/api/v1/company/legacy-switch', ['switch_at' => now()->subMinute()->toIso8601String()])->assertOk();
+        $this->ask($key, ['mode' => 'config'])->assertJsonPath('banner.team', true)->assertJsonPath('banner.merchants', false)->assertJsonPath('started', true);
+    }
+
+    public function test_the_module_adds_the_banner_to_html_pages_only(): void
+    {
+        require_once base_path('legacy/laravel-5.8/JibiatSwitch.php');
+        $module = new JibiatSwitch;
+        $banner = new \ReflectionMethod($module, 'withBanner');
+        $banner->setAccessible(true);
+        $config = ['banner' => ['team' => true, 'merchants' => true, 'couriers' => false, 'message' => null], 'switch_at' => null, 'started' => false, 'url' => 'https://jibiat.test/admin'];
+        $request = Request::create('https://ancienne.test/commandes?page=2');
+        $page = fn () => new Response('<html><body><h1>Commandes</h1></body></html>', 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+
+        $team = $banner->invoke($module, $request, $page(), 'admin', $config, 'https://jibiat.test')->getContent();
+        $this->assertStringContainsString('Ouvrir Jibiat', $team);
+        $this->assertStringContainsString('href="https://jibiat.test/admin"', $team);
+        $this->assertStringEndsWith('</script></body></html>', $team);
+
+        $client = $banner->invoke($module, $request, $page(), 'client', $config, 'https://jibiat.test')->getContent();
+        $this->assertStringContainsString('Ouvrir la nouvelle application', $client);
+        $this->assertStringContainsString('page=2&amp;jibiat_ouvrir=1', $client);
+
+        // Livreurs pas invités, page JSON : rien n'est ajouté
+        $this->assertStringNotContainsString('jibiat-banner', $banner->invoke($module, $request, $page(), 'livreur', $config, 'https://jibiat.test')->getContent());
+        $json = new Response('{"a":1}', 200, ['Content-Type' => 'application/json']);
+        $this->assertSame('{"a":1}', $banner->invoke($module, $request, $json, 'admin', $config, 'https://jibiat.test')->getContent());
     }
 }
