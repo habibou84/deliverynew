@@ -5,7 +5,8 @@
       <p v-if="part === 'connect'" class="text-sm text-gray-600">Le jour de la bascule, il envoie sur Jibiat, déjà connectés, les comptes qui ouvrent l'ancienne application.</p>
       <p v-else class="text-sm text-gray-600">
         Le jour choisi, vos e-commerçants et vos livreurs qui ouvrent l'ancienne application arrivent directement sur Jibiat,
-        déjà connectés à leur espace : pas de nouveau compte, pas de mot de passe à retaper. Avant cette date, rien ne change.
+        déjà connectés à leur espace : pas de nouveau compte, pas de mot de passe à retaper. Avant cette date, rien ne change,
+        sauf le bandeau ci-dessous si vous l'activez.
         Un compte créé dans l'ancienne application après la reprise est repris au moment de la bascule.
       </p>
     </div>
@@ -31,6 +32,12 @@
       <button type="button" class="btn-secondary" :disabled="busy" @click="createKey">{{ state.key_active ? 'Nouvelle clé' : 'Créer la clé' }}</button>
       <button v-if="state.key_active" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="revoke">Désactiver</button>
     </div>
+
+    <p v-if="state.module?.at" :class="['text-sm', state.module.version >= state.module.latest ? 'text-emerald-700' : 'text-amber-700']">
+      <template v-if="state.module.version >= state.module.latest">✅ Module à jour (version {{ state.module.version }}), vu le {{ dateTime(state.module.at) }}.</template>
+      <template v-else>⚠️ Le module installé est ancien (version {{ state.module.version }}, vu le {{ dateTime(state.module.at) }}) : il ne sait pas afficher le bandeau. Téléchargez la nouvelle version et remplacez le fichier.</template>
+    </p>
+    <p v-else-if="state.key_active" class="text-xs text-gray-500">Le module ne s'est pas encore manifesté : il le fait à la première page ouverte dans l'ancienne application.</p>
 
     </template>
 
@@ -61,6 +68,26 @@
       </p>
     </div>
 
+    <!-- Avant la bascule : bandeau dans l'ancienne application -->
+    <div class="space-y-2 rounded-lg border p-3">
+      <h3 class="text-sm font-semibold">Montrer Jibiat dans l'ancienne application</h3>
+      <p class="text-xs text-gray-600">
+        Un bandeau s'affiche en bas des pages de l'ancienne application. L'équipe peut ouvrir Jibiat et travailler sur
+        les deux en même temps. Les e-commerçants et les livreurs ouvrent leur espace Jibiat déjà connectés, dans un
+        nouvel onglet, sans quitter l'ancienne application. Le module doit être en version {{ state.module?.latest || 2 }}.
+      </p>
+      <label class="flex items-center gap-2 text-sm"><input v-model="preview.team" type="checkbox"> Équipe : bouton « Ouvrir Jibiat »</label>
+      <label class="flex items-center gap-2 text-sm"><input v-model="preview.merchants" type="checkbox"> E-commerçants : bouton « Ouvrir la nouvelle application »</label>
+      <label class="flex items-center gap-2 text-sm"><input v-model="preview.couriers" type="checkbox"> Livreurs : bouton « Ouvrir la nouvelle application »</label>
+      <div>
+        <label class="label" for="preview-message">Message pour les e-commerçants et les livreurs (facultatif)</label>
+        <input id="preview-message" v-model="preview.message" type="text" maxlength="200" class="input w-full" placeholder="Découvrez notre nouvelle application : vos courses, votre argent et vos notifications au même endroit.">
+      </div>
+      <p v-if="state.started" class="text-xs text-gray-500">La bascule a commencé : les e-commerçants et les livreurs sont envoyés sur Jibiat, seul le bandeau de l'équipe reste.</p>
+      <button type="button" class="btn-primary" :disabled="busy" @click="savePreview">Enregistrer le bandeau</button>
+      <p class="text-xs text-gray-500">Le changement apparaît dans l'ancienne application en 5 minutes au plus.</p>
+    </div>
+
     <p class="text-sm">
       Déjà passés sur Jibiat par la bascule : <strong>{{ state.switched.merchants }}</strong> e-commerçant{{ state.switched.merchants > 1 ? 's' : '' }}
       et <strong>{{ state.switched.couriers }}</strong> livreur{{ state.switched.couriers > 1 ? 's' : '' }}.
@@ -86,6 +113,7 @@ const state = ref(null)
 const key = ref('')
 const when = ref('')
 const busy = ref(false)
+const preview = ref({ team: false, merchants: false, couriers: false, message: '' })
 const envLines = computed(() => `JIBIAT_URL=${window.location.origin}\nJIBIAT_SWITCH_KEY=${key.value}`)
 
 // Valeur du champ date et heure (heure locale du navigateur)
@@ -99,6 +127,11 @@ function local(iso) {
 function apply(data) {
   state.value = data
   when.value = local(data.switch_at)
+  if (data.preview) preview.value = { ...data.preview, message: data.preview.message || '' }
+}
+
+function savePreview() {
+  return run(() => http.put('/company/legacy-switch/preview', { ...preview.value, message: preview.value.message || null }), 'Bandeau enregistré.')
 }
 
 async function run(request, success) {

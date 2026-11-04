@@ -203,6 +203,27 @@ normalement. Les appels JSON (application mobile) ne sont pas redirigés.
 
 Le réglage affiche le nombre d'e-commerçants et de livreurs déjà passés par la bascule (`users.legacy_switched_at`).
 
+### Avant la bascule : bandeau dans l'ancienne application (module version 2)
+
+Réglages › Reprise › Bascule › « Montrer Jibiat dans l'ancienne application » : un bandeau s'affiche en bas des pages
+HTML de l'ancienne application, activé **public par public** (coupé par défaut) :
+
+| Public | Bandeau | Bouton |
+|---|---|---|
+| Équipe (tout compte autre que `client` et `livreur`) | « La nouvelle application Jibiat est ouverte… » | « Ouvrir Jibiat » : l'espace Jibiat de l'entreprise (`/admin`), nouvel onglet ; connexion habituelle |
+| E-commerçants (`client`) | message réglable (sinon un message par défaut) | « Ouvrir la nouvelle application » : espace Jibiat **déjà connecté**, nouvel onglet, sans quitter l'ancienne application |
+| Livreurs (`livreur`) | idem | idem |
+
+La date de bascule, si elle est fixée, est rappelée dans le bandeau. Il se ferme d'un clic pour la visite (onglet).
+Après la date, les e-commerçants et les livreurs sont envoyés sur Jibiat : seul le bandeau de l'équipe reste.
+
+Fonctionnement : le module lit les réglages avec `POST /api/legacy-switch` en `mode=config` (gardés 5 minutes) ; le
+bouton ajoute `?jibiat_ouvrir=1` à la page, et le module demande alors un lien en `mode=open`, accordé avant la date
+seulement si le bandeau est montré à ce public. Le module envoie sa version (`module_version`) : le réglage
+« Brancher l'ancienne application » dit si le module installé est à jour. Mise à jour : remplacer le fichier
+`app/Http/Middleware/JibiatSwitch.php`, rien d'autre à changer. Un module version 1 continue de faire la bascule à la
+date, sans bandeau.
+
 Code : `app/Http/Controllers/Api/V1/LegacyImportController.php`, `LegacyOrdersController.php`, `LegacySwitchController.php`,
 `app/Services/Legacy/` (`LegacyAccountsImporter`, `LegacyOrdersImporter`, `LegacyOrdersSync`, `LegacyProductsImporter`),
 `legacy/laravel-5.8/` ; tests `LegacyPushImportTest`, `LegacyOrdersSyncTest`, `LegacySwitchTest`.
