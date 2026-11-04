@@ -750,7 +750,9 @@ class LegacyOrdersSyncTest extends TestCase
         $this->getJson('/api/v1/company/legacy-recheck')->assertOk()->assertJsonPath('data.to_check', 1)
             ->assertJsonPath('data.last.can_undo', true)->assertJsonPath('data.last.counts.deleted_cancelled', 1);
         $this->getJson('/api/v1/company/legacy-recheck/deleted')->assertOk()
-            ->assertJsonPath('data.0.legacy_id', '104')->assertJsonPath('data.0.money', true);
+            ->assertJsonPath('data.0.legacy_id', '104')->assertJsonPath('data.0.money', true)
+            ->assertJsonPath('data.0.recipient_phone', $this->order(104)->recipient_phone)
+            ->assertJsonPath('data.0.delivery_date', $this->order(104)->delivery_scheduled_date->toDateString());
 
         // Annulation : la course revient comme avant, dans les supprimées à vérifier
         $this->postJson("/api/v1/company/legacy-recheck/{$recheck->id}/undo")->assertOk()->assertJsonPath('data.restored', 1);
