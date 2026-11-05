@@ -114,6 +114,12 @@ const ALL = computed(() => {
       keywords: 'whatsapp sms messages modèles envois test notifications push téléphone',
     },
     {
+      key: 'cancellations', icon: '🚫', title: 'Annulations', to: '/admin/reglages/annulations', permission: 'settings.manage',
+      also: [{ to: '/admin/statistiques?onglet=cancellations', label: 'Point des annulations' }],
+      description: 'Limite d\'annulations par jour pour l\'équipe, validation d\'un administrateur et alertes.',
+      keywords: 'annulation annuler limite validation alerte refus motif',
+    },
+    {
       key: 'merchantMessages', icon: '📣', title: 'Messages aux e-commerçants', to: '/admin/reglages/messages-e-commercants', permission: 'settings.manage',
       description: 'Pour chaque étape d\'une course : notification dans l\'application, et WhatsApp ou non. Choix laissés ou non aux e-commerçants.',
       keywords: 'messages e-commerçant marchand whatsapp notification course validée reçue récupéré livré reversement',

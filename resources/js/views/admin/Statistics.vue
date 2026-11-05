@@ -40,7 +40,7 @@
     </section>
 
     <p v-if="error" class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
-    <p v-if="loading && !data[tab]" class="text-slate-500">Chargement…</p>
+    <p v-if="loading && ENDPOINTS[tab] && !data[tab]" class="text-slate-500">Chargement…</p>
 
     <!-- Vue d'ensemble -->
     <template v-if="tab === 'overview' && data.overview">
@@ -182,6 +182,8 @@
     <MerchantsTab v-if="tab === 'merchants' && data.merchants" :data="data.merchants" :with-amounts="withAmounts" :exportable="advanced" />
     <ZonesTab v-if="tab === 'zones' && data.zones" :data="data.zones" :with-amounts="withAmounts" :exportable="advanced" />
     <FinancesTab v-if="tab === 'finances' && data.finances" :data="data.finances" />
+    <!-- Annulations : point par e-commerçant, par personne et par motif (même période que les autres onglets) -->
+    <Cancellations v-if="tab === 'cancellations'" section="report" embedded :from="from" :to="to" />
   </div>
 </template>
 
@@ -198,6 +200,7 @@ import KpiTile from '../../components/stats/KpiTile.vue'
 import LineChart from '../../components/stats/LineChart.vue'
 import MerchantsTab from '../../components/stats/MerchantsTab.vue'
 import ZonesTab from '../../components/stats/ZonesTab.vue'
+import Cancellations from './Cancellations.vue'
 import { SERIES, compact, downloadCsv, shortDate } from '../../components/stats/chart'
 import { useAuthStore } from '../../stores/auth'
 import { date, money, today, waitDuration } from '../../utils/format'
@@ -245,6 +248,7 @@ const tabs = computed(() => [
   { key: 'deliveries', label: 'Livraisons' },
   ...(auth.can('orders.dispatch') ? [{ key: 'couriers', label: 'Livreurs' }] : []),
   ...(auth.can('merchants.view') ? [{ key: 'merchants', label: 'E-commerçants' }] : []),
+  ...(auth.can('orders.dispatch') ? [{ key: 'cancellations', label: 'Annulations' }] : []),
   // Statistiques avancées (selon la formule) : onglets visibles mais verrouillés sans le module
   { key: 'zones', label: 'Zones', locked: !advanced.value },
   ...(auth.can('finance.view') ? [{ key: 'finances', label: 'Finances', locked: !advanced.value }] : []),
@@ -268,7 +272,7 @@ const cr = computed(() => data.couriers)
 const withAmounts = computed(() => auth.can('finance.view'))
 
 async function load() {
-  if (current.value?.locked) return
+  if (current.value?.locked || !ENDPOINTS[tab.value]) return
   loading.value = true
   error.value = ''
   const wanted = tab.value

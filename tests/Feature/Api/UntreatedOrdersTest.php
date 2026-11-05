@@ -93,6 +93,13 @@ class UntreatedOrdersTest extends TestCase
         $byMerchant = $this->getJson('/api/v1/orders/untreated-groups?by=merchant')->json('data.groups');
         $this->assertSame([(string) $this->merchant->id, 3], [$byMerchant[0]['key'], $byMerchant[0]['count']]);
 
+        // Onglet « Ramassées, pas livrées » : sans les colis jamais ramassés (onglet « Pas ramassées »)
+        $picked = collect([$withCourier->id, $returning->id])->sort()->values()->all();
+        $this->assertSame($picked, $this->codes('/api/v1/orders?queue=untreated_picked'));
+        $this->assertSame(2, $this->getJson('/api/v1/orders/untreated-groups?by=date&stage=picked')->json('data.total'));
+        $counts = $this->getJson('/api/v1/orders/counts')->json('data');
+        $this->assertSame([3, 2, 1], [$counts['exceptions']['untreated'], $counts['exceptions']['untreated_picked'], $counts['to_reschedule']]);
+
         // Réservé au dispatch
         Sanctum::actingAs($this->merchantUser);
         $this->getJson('/api/v1/orders/untreated-groups')->assertForbidden();

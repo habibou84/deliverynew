@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-4">
-    <div class="flex flex-wrap items-center justify-between gap-2">
+    <div v-if="!embedded" class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <RouterLink to="/admin/courses" class="text-sm text-blue-600">‹ Courses</RouterLink>
         <h1 class="text-xl font-bold">⏳ Courses non traitées</h1>
@@ -101,7 +101,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Pagination from '../../components/Pagination.vue'
@@ -121,6 +121,7 @@ const GROUPINGS = [
   { value: 'courier', label: '🛵 Par livreur' },
   { value: 'merchant', label: '🏪 Par e-commerçant' },
 ]
+const props = defineProps({ embedded: Boolean, stage: { type: String, default: 'all' } })
 const route = useRoute()
 const router = useRouter()
 const by = ref(GROUPINGS.some((g) => g.value === route.query.by) ? route.query.by : 'date')
@@ -137,7 +138,7 @@ const courierOf = (o) => o.delivery_courier?.name || o.pickup_courier?.name
 
 async function loadGroups() {
   try {
-    data.value = (await http.get('/orders/untreated-groups', { params: { by: by.value } })).data.data
+    data.value = (await http.get('/orders/untreated-groups', { params: { by: by.value, stage: props.stage } })).data.data
   } catch (e) {
     error.value = apiErrorMessage(e)
   }
@@ -153,7 +154,7 @@ function filtersFor(key) {
 async function load(page = 1) {
   loading.value = true
   try {
-    const params = { queue: 'untreated', page, per_page: 50, search: search.value || undefined, ...filtersFor(selected.value) }
+    const params = { queue: props.stage === 'picked' ? 'untreated_picked' : 'untreated', page, per_page: 50, search: search.value || undefined, ...filtersFor(selected.value) }
     const res = (await http.get('/orders', { params })).data
     orders.value = res.data
     meta.value = res.meta
@@ -178,7 +179,7 @@ function select(key) {
 function setBy(value) {
   by.value = value
   selected.value = null
-  router.replace({ query: { by: value } })
+  router.replace({ query: { ...route.query, by: value } })
   loadGroups()
   load(1)
 }
@@ -255,6 +256,12 @@ function returnMany(list = returnable.value) {
     for (const o of list) await http.post(`/orders/${o.id}/return-request`, { note: 'Course non traitée : retour décidé par l\'agence' })
   }, `Retour demandé pour ${list.length} colis.`)
 }
+
+watch(() => props.stage, () => {
+  selected.value = null
+  loadGroups()
+  load(1)
+})
 
 onMounted(async () => {
   loadGroups()

@@ -90,6 +90,8 @@ class CancellationGuardsTest extends TestCase
 
         Sanctum::actingAs($this->admin);
         $this->getJson('/api/v1/cancellations')->assertOk()->assertJsonCount(2, 'data.requests')->assertJsonPath('data.is_admin', true);
+        // Tableau de bord « À faire maintenant » : demandes à valider
+        $this->getJson('/api/v1/orders/counts')->assertOk()->assertJsonPath('data.cancellation_requests', 2);
         $this->postJson("/api/v1/cancellation-requests/{$request->id}/decision", ['approve' => true])->assertOk()->assertJsonPath('data.status', 'approved');
         $second->refresh();
         $this->assertSame(OrderStatus::Cancelled, $second->status);
