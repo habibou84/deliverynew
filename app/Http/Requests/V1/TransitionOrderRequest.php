@@ -39,6 +39,7 @@ class TransitionOrderRequest extends FormRequest
             // Frais de gare payés par le livreur (défaut) ou directement par l'agence
             'shipping_paid_by' => ['nullable', Rule::in(['courier', 'company'])],
             'cancel_reason' => ['nullable', 'string', 'max:1000'],
+            'cancel_reason_code' => ['nullable', 'string', 'max:40'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
             'lng' => ['nullable', 'numeric', 'between:-180,180'],
         ];

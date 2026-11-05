@@ -72,6 +72,16 @@
           🚨 Colis déclaré perdu le {{ dateTime(order.lost_at) }}<span v-if="order.lost_reason"> : {{ order.lost_reason }}</span>
         </p>
 
+        <!-- Annulée ou refusée : par qui et pourquoi -->
+        <div v-if="order.cancellation" class="rounded-lg bg-slate-50 ring-1 ring-slate-200 px-4 py-3 text-sm space-y-0.5">
+          <p class="font-semibold">
+            {{ order.cancellation.rejected ? '⛔ Refusée' : '❌ Annulée' }} le {{ dateTime(order.cancellation.cancelled_at) }}
+            par {{ order.cancellation.by === 'merchant' ? `l'e-commerçant${order.cancellation.name ? ` (${order.cancellation.name})` : ''}` : (order.cancellation.name || 'l\'entreprise') + (order.cancellation.role ? ` (${order.cancellation.role})` : '') }}
+          </p>
+          <p v-if="order.cancellation.reason_label">Motif : {{ order.cancellation.reason_label }}</p>
+          <p v-if="order.cancellation.note" class="text-gray-600">« {{ order.cancellation.note }} »</p>
+        </div>
+
         <!-- Livrée hors connexion avec un code client incorrect -->
         <div v-if="order.delivery_code_unverified_at" class="rounded-lg bg-orange-50 ring-1 ring-orange-200 px-4 py-3 text-sm text-orange-900 space-y-2">
           <p>⚠️ Livrée hors connexion avec un <strong>code client incorrect</strong> : vérifiez la livraison auprès du destinataire.</p>
@@ -209,7 +219,7 @@
     </div>
 
     <Modal :open="statusModal.open" title="Changer le statut" @close="statusModal.open = false">
-      <StatusChangeForm v-if="statusModal.open" :order="order" :choices="statusModal.choices" @done="statusDone" />
+      <StatusChangeForm v-if="statusModal.open" :order="order" :choices="statusModal.choices" @done="statusDone" @requested="statusRequested" />
     </Modal>
 
     <OrderEditModal :open="editModal" :order="order" @close="editModal = false" @saved="order = $event" />
@@ -392,6 +402,11 @@ function statusDone(updated) {
   order.value = updated
   statusModal.open = false
   toasts.success('Statut mis à jour.')
+}
+
+function statusRequested(message) {
+  statusModal.open = false
+  toasts.success(message, { timeout: 8000 })
 }
 
 async function addNote() {

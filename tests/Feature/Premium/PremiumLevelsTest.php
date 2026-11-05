@@ -127,6 +127,8 @@ class PremiumLevelsTest extends TestCase
 
     public function test_delivery_and_return_advantages_apply_by_themselves(): void
     {
+        // En pleine journée : l'heure limite « il y a 30 minutes » ne doit pas tomber la veille
+        $this->travelTo(today()->setTime(12, 0));
         app(PremiumLevels::class)->save($this->company, $this->levels());
         $this->history($this->merchant, 12);
         app(PremiumLevels::class)->review($this->company);

@@ -83,6 +83,8 @@ class CourierActivityTest extends TestCase
 
     public function test_end_of_day_is_estimated_from_the_pace_and_flagged_after_the_depot_closes(): void
     {
+        // En pleine journée : les 40 minutes du test ne doivent pas passer minuit (livraisons « du jour » seulement)
+        $this->travelTo(today()->setTime(10, 0));
         $this->company->update(['depot_closes_at' => now()->addMinutes(30)->format('H:i')]);
         $orders = collect(range(1, 3))->map(fn () => $this->createOrder(['items_amount' => 5000]));
         Sanctum::actingAs($this->dispatcher);

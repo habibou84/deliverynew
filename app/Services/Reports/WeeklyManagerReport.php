@@ -12,9 +12,11 @@ use App\Models\Order;
 use App\Models\User;
 use App\Notifications\WeeklyReportReady;
 use App\Services\Messaging\Messenger;
+use App\Services\Orders\Cancellations;
 use App\Support\Money;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -96,7 +98,8 @@ class WeeklyManagerReport
         }
 
         if ($admins->isNotEmpty()) {
-            Notification::send($admins, new WeeklyReportReady($period, $kpis, $previous, $toRelaunch));
+            Notification::send($admins, new WeeklyReportReady($period, $kpis, $previous, $toRelaunch,
+                app(Cancellations::class)->weeklyLine($company, Carbon::parse($from), Carbon::parse($to))));
         }
 
         return true;
