@@ -35,16 +35,16 @@
 
       <div v-if="isLive" class="guide">
         <p class="guide-title">Étape 3 sur 3 · Pendant le live</p>
-        <template v-if="b.whatsapp?.connected">
+        <template v-if="b.whatsapp?.auto">
           <p>💬 Les commandes WhatsApp arrivent toutes seules.</p>
-          <p>Vous présentez, Jibiat répond aux clientes.</p>
+          <p>Vous présentez, les réponses partent toutes seules.</p>
         </template>
         <template v-else>
           <p>Gardez cet écran sur un 2e téléphone.</p>
           <p>Une commande ? Dites merci à la cliente.</p>
         </template>
       </div>
-      <LiveWhatsAppConnect v-if="isLive && b.whatsapp && !b.whatsapp.connected" :initial="b.whatsapp" compact @connected="load" />
+      <LiveWhatsAppConnect v-if="isLive && b.whatsapp && !b.whatsapp.auto" :initial="b.whatsapp" compact @connected="load" />
 
       <!-- Conseils (calculs) -->
       <section v-if="b.advices.length" class="m-card space-y-1.5 border-2 border-slate-900 p-4">
@@ -55,7 +55,7 @@
 
       <!-- Saisie d'une commande -->
       <form v-if="isLive" class="m-card space-y-3 p-4" @submit.prevent="addOrder">
-        <p class="text-[16px] font-extrabold">{{ b.whatsapp?.connected ? 'Ajouter une commande à la main' : 'Nouvelle commande' }}</p>
+        <p class="text-[16px] font-extrabold">{{ b.whatsapp?.auto ? 'Ajouter une commande à la main' : 'Nouvelle commande' }}</p>
         <!-- Un seul article : déjà choisi. Sinon, un bouton par code -->
         <p v-if="b.items.length === 1" class="rounded-xl bg-slate-100 px-3 py-2 text-[15px]"><b>{{ b.items[0].code }}</b> · {{ b.items[0].label || b.items[0].name }} · {{ money(b.items[0].price) }}</p>
         <div v-else role="radiogroup" aria-label="Code du produit" class="grid grid-cols-3 gap-2">

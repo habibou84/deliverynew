@@ -15,11 +15,28 @@
         <p class="font-semibold text-slate-900">WhatsApp est connecté</p>
         <p class="text-sm text-slate-600">{{ result.verified_name }} · {{ result.display_phone }}</p>
         <p v-if="result.warning" class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ result.warning }}</p>
-        <p class="text-sm text-slate-500">Les modèles de messages sont envoyés à Meta pour approbation. Retour à votre espace…</p>
+        <p class="text-sm text-slate-500">{{ session.merchant ? 'Les commandes de vos lives arriveront sur ce numéro.' : 'Les modèles de messages sont envoyés à Meta pour approbation.' }} Retour à votre espace…</p>
         <button type="button" class="btn-success w-full py-3" @click="goBack({ whatsapp: 'connecte' })">Revenir à mon espace</button>
       </div>
 
       <!-- Avant la fenêtre de Meta -->
+      <!-- E-commerçant : son numéro WhatsApp Business, qu'il garde sur son téléphone -->
+      <div v-else-if="session?.merchant" class="space-y-4">
+        <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
+          <li>Une fenêtre Facebook s'ouvre : connectez-vous avec votre compte.</li>
+          <li>Choisissez de relier votre application <b>WhatsApp Business</b> et le numéro de la boutique.</li>
+          <li>Confirmez sur votre téléphone, dans WhatsApp Business.</li>
+        </ol>
+        <p class="text-xs text-slate-500">
+          Connexion officielle de WhatsApp : vous gardez votre application WhatsApp Business comme d'habitude.
+          Pendant vos lives, les clientes qui envoient un code reçoivent une réponse automatique.
+        </p>
+        <button type="button" class="btn-success w-full py-3" :disabled="working" @click="start">
+          {{ working ? 'Fenêtre Facebook ouverte…' : (error ? 'Recommencer avec Facebook' : 'Continuer avec Facebook') }}
+        </button>
+        <button type="button" class="btn-secondary w-full" :disabled="working" @click="cancel">Revenir à mon espace</button>
+      </div>
+
       <div v-else-if="session" class="space-y-4">
         <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
           <li>Une fenêtre Facebook s'ouvre : connectez-vous avec votre compte.</li>
@@ -59,9 +76,9 @@ const result = ref(null)
 const error = ref('')
 const working = ref(false)
 
-// Page WhatsApp de l'espace de l'entreprise (adresse lue dans le ticket chiffré)
+// Page de retour dans l'espace (adresse lue dans le ticket chiffré) : WhatsApp de l'entreprise, ou live de l'e-commerçant
 function goBack(params) {
-  window.location.assign(`${session.value.origin}/admin/whatsapp#${new URLSearchParams(params)}`)
+  window.location.assign(`${session.value.origin}${session.value.return || '/admin/whatsapp'}#${new URLSearchParams(params)}`)
 }
 
 function historyBack() {
@@ -77,7 +94,7 @@ async function start() {
   error.value = ''
   working.value = true
   try {
-    const signup = await connectWhatsApp(session.value.embedded_signup)
+    const signup = await connectWhatsApp(session.value.embedded_signup, { coexistence: session.value.merchant })
     const { data } = await http.post('/whatsapp-signup/complete', { ticket, ...signup })
     result.value = data.data
     setTimeout(() => goBack({ whatsapp: 'connecte' }), 3000)

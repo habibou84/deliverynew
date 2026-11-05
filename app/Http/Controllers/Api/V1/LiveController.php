@@ -11,7 +11,6 @@ use App\Rules\PhoneNumber;
 use App\Services\Live\LiveStudio;
 use App\Services\Live\LiveWhatsApp;
 use App\Services\Messaging\MessagingException;
-use App\Services\Messaging\WhatsAppBridge;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -55,6 +54,15 @@ class LiveController extends Controller
         }
 
         return response()->json(['data' => $this->whatsapp->status($merchant->refresh())]);
+    }
+
+    /** Délier le numéro relié officiellement */
+    public function whatsappOfficialLogout(Request $request): JsonResponse
+    {
+        $merchant = $this->merchant($request);
+        $this->whatsapp->disconnectOfficial($merchant);
+
+        return response()->json(['data' => $this->whatsapp->state($merchant)]);
     }
 
     /** Offre, live en cours ou en préparation, derniers lives */
@@ -230,14 +238,10 @@ class LiveController extends Controller
         ];
     }
 
-    /** État du WhatsApp relié, sans appeler le service (lecture rapide) */
+    /** Commandes automatiques (numéro officiel ou WhatsApp relié), sans appeler le service (lecture rapide) */
     private function whatsappState(Merchant $merchant): array
     {
-        return [
-            'available' => WhatsAppBridge::configured(),
-            'connected' => $merchant->live_wa_status === 'connected',
-            'phone' => $merchant->live_wa_phone,
-        ];
+        return $this->whatsapp->state($merchant);
     }
 
     private function merchant(Request $request): Merchant

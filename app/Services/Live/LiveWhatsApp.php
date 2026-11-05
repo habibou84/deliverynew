@@ -11,9 +11,11 @@ use App\Models\LiveOrder;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\User;
+use App\Models\WhatsAppAccount;
 use App\Models\Zone;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\WhatsAppBridge;
+use App\Services\Messaging\WhatsAppConnection;
 use App\Services\WhatsApp\ZoneMatcher;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Collection;
@@ -22,8 +24,10 @@ use Illuminate\Support\Str;
 /**
  * Commandes du live par WhatsApp, sans intervention de l'e-commerçante.
  *
- * Son WhatsApp est relié à Jibiat (session « merchant-34 » du service whatsapp-bridge, par code d'association ou QR
- * code). Pendant un live en cours, une cliente envoie le code d'un produit (« A2 », « A2 x2 », « JE PRENDS » quand
+ * Son numéro WhatsApp Business est relié à Jibiat par la connexion officielle de Meta (fenêtre « Connecter
+ * WhatsApp », elle garde son application WhatsApp Business). Option de la console, désactivée par défaut : le
+ * relier par code d'association ou QR code (session « merchant-34 » du service whatsapp-bridge, connexion non
+ * officielle, risque de suspension du numéro). Pendant un live en cours, une cliente envoie le code d'un produit (« A2 », « A2 x2 », « JE PRENDS » quand
  * il n'y a qu'un article) ; Jibiat lui demande son nom et son quartier (ou propose ceux de sa dernière commande),
  * puis enregistre la commande : la course part à l'agence, ou la cliente passe en liste d'attente si c'est épuisé.
  * Les autres messages (conversations personnelles) sont ignorés.
@@ -35,11 +39,50 @@ class LiveWhatsApp
 
     private const YES = ['oui', 'ok', 'okay', 'd accord', 'dac', 'yes', 'ouais', 'oui oui', 'oui merci', 'c est ca', 'exact', 'c est bon'];
 
+    /** Numéro officiel de la conversation en cours (null : session du code d'association / QR code) */
+    private ?int $accountId = null;
+
     public function __construct(
         private readonly WhatsAppBridge $bridge,
         private readonly LiveStudio $studio,
         private readonly ZoneMatcher $zones,
     ) {}
+
+    /** Option de la console : proposer aussi le code d'association / QR code (non officiel) */
+    public function qrOption(): bool
+    {
+        return (bool) $this->studio->settings()['qr_whatsapp'];
+    }
+
+    /** Numéro WhatsApp Business de l'e-commerçante relié officiellement (Meta) */
+    public function official(Merchant $merchant): ?WhatsAppAccount
+    {
+        $account = WhatsAppAccount::forMerchant($merchant->id);
+
+        return $account !== null && $account->isLive() ? $account : null;
+    }
+
+    /** Relié par code d'association / QR code (option active, pas de connexion officielle) */
+    public function usesQr(Merchant $merchant): bool
+    {
+        return $merchant->live_wa_status === 'connected' && $this->qrOption() && $this->official($merchant) === null;
+    }
+
+    /** Numéro de la carte du live : celui qui reçoit les commandes automatiques, sinon celui de la boutique */
+    public function cardPhone(Merchant $merchant): ?string
+    {
+        if ($official = $this->official($merchant)) {
+            return PhoneNumber::normalize($official->display_phone) ?? $official->display_phone;
+        }
+
+        return $this->usesQr($merchant) && $merchant->live_wa_phone ? $merchant->live_wa_phone : $merchant->messagingPhone();
+    }
+
+    /** Délier le numéro relié officiellement */
+    public function disconnectOfficial(Merchant $merchant): void
+    {
+        WhatsAppAccount::forMerchant($merchant->id)?->delete();
+    }
 
     public static function session(Merchant|int $merchant): string
     {
@@ -62,6 +105,9 @@ class LiveWhatsApp
      */
     public function connect(Merchant $merchant, ?string $phone): array
     {
+        if (! $this->qrOption()) {
+            throw new MessagingException('Reliez votre WhatsApp par la connexion officielle.');
+        }
         // Numéro complet avec l'indicatif (07… → 22507…), exigé par WhatsApp pour le code d'association
         $state = $this->bridge->start(self::session($merchant), $phone ? (PhoneNumber::normalize($phone) ?? $phone) : null);
         $this->remember($merchant, $state);
@@ -73,7 +119,7 @@ class LiveWhatsApp
     public function status(Merchant $merchant): array
     {
         $state = null;
-        if (WhatsAppBridge::configured() && $merchant->live_wa_status !== null) {
+        if ($this->qrOption() && WhatsAppBridge::configured() && $merchant->live_wa_status !== null) {
             try {
                 $state = $this->bridge->status(self::session($merchant));
                 $this->remember($merchant, $state);
@@ -124,12 +170,28 @@ class LiveWhatsApp
         ])->save();
     }
 
-    /** @return array<string, mixed> */
-    private function state(Merchant $merchant, ?array $bridge): array
+    /**
+     * Commandes automatiques : connexion officielle (par défaut) ou code d'association / QR code (option).
+     *
+     * @return array<string, mixed>
+     */
+    public function state(Merchant $merchant, ?array $bridge = null): array
     {
+        $official = $this->official($merchant);
+        $qr = $this->usesQr($merchant);
+
         return [
-            'available' => WhatsAppBridge::configured(),
-            'connected' => $merchant->live_wa_status === 'connected',
+            'mode' => $official ? 'official' : ($qr ? 'qr' : 'none'),
+            'auto' => $official !== null || $qr,
+            'official' => [
+                'available' => WhatsAppConnection::signupAvailable(),
+                'connected' => $official !== null,
+                'phone' => $official ? (PhoneNumber::normalize($official->display_phone) ?? $official->display_phone) : null,
+                'name' => $official?->verified_name,
+            ],
+            'qr_option' => $this->qrOption(),
+            'available' => $this->qrOption() && WhatsAppBridge::configured(),
+            'connected' => $qr,
             'phone' => $merchant->live_wa_phone,
             'connected_at' => $merchant->live_wa_connected_at,
             'qr' => $bridge['qr'] ?? null,
@@ -140,13 +202,36 @@ class LiveWhatsApp
     // ── Conversation avec les clientes ────────────────────────────────────────────────────────────────
 
     /**
-     * Message reçu sur le WhatsApp de l'e-commerçante.
+     * Message reçu par code d'association / QR code (option de la console). Ignoré si le numéro est relié
+     * officiellement : la connexion officielle répond seule.
      */
     public function onMessage(int $merchantId, string $from, ?string $pushName, ?string $text): void
     {
         $merchant = Merchant::withoutGlobalScopes()->with('company')->find($merchantId);
+        if ($merchant === null || ! $this->usesQr($merchant)) {
+            return;
+        }
+        $this->accountId = null;
+        $this->receive($merchant, $from, $pushName, $text);
+    }
+
+    /**
+     * Message reçu sur le numéro WhatsApp Business relié officiellement (webhook de Meta).
+     */
+    public function onOfficial(WhatsAppAccount $account, string $from, ?string $pushName, ?string $text): void
+    {
+        $merchant = $account->isMerchant() ? Merchant::withoutGlobalScopes()->with('company')->find($account->owner_id) : null;
+        if ($merchant === null) {
+            return;
+        }
+        $this->accountId = $account->id;
+        $this->receive($merchant, $from, $pushName, $text);
+    }
+
+    private function receive(Merchant $merchant, string $from, ?string $pushName, ?string $text): void
+    {
         $text = trim((string) $text);
-        if ($merchant === null || $text === '') {
+        if ($text === '') {
             return;
         }
         $live = Live::withoutGlobalScopes()->where('merchant_id', $merchant->id)->where('status', Live::LIVE)->latest('id')->first();
@@ -169,7 +254,7 @@ class LiveWhatsApp
             return;
         }
         if ($chat === null) {
-            // Message ordinaire (pas un code) : conversation personnelle, Jibiat ne répond pas
+            // Message ordinaire (pas un code) : conversation personnelle, pas de réponse automatique
             return;
         }
 
@@ -319,7 +404,7 @@ class LiveWhatsApp
 
     private function reply(Merchant $merchant, string $to, string $text): void
     {
-        SendLiveWhatsApp::dispatch(self::session($merchant), $to, $text);
+        SendLiveWhatsApp::dispatch(self::session($merchant), $to, $text, $this->accountId);
     }
 
     private function money(int $amount): string

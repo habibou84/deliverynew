@@ -34,6 +34,12 @@
           <label class="flex items-center gap-2 text-sm"><input v-model="form.enabled" type="checkbox" :disabled="!isOwner"> Outil live ouvert aux e-commerçants</label>
         </section>
 
+        <section class="card space-y-2 p-4">
+          <h2 class="font-semibold">Commandes WhatsApp automatiques</h2>
+          <p class="text-sm text-gray-600">Par défaut, l'e-commerçant relie son numéro WhatsApp Business par la <b>connexion officielle de WhatsApp</b> (fenêtre Facebook) : il garde son application, sans risque de blocage.</p>
+          <label class="flex items-start gap-2 text-sm"><input v-model="form.qr_whatsapp" type="checkbox" class="mt-0.5" :disabled="!isOwner"> <span>Proposer aussi la connexion par <b>code d'association ou QR code</b>, à côté de la connexion officielle<br><span class="text-amber-700">Connexion non officielle : WhatsApp peut suspendre un numéro qui répond automatiquement.</span></span></label>
+        </section>
+
         <section v-for="g in GROUPS" :key="g.title" class="card space-y-3 p-4">
           <h2 class="font-semibold">{{ g.title }}</h2>
           <p v-if="g.help" class="text-sm text-gray-500">{{ g.help }}</p>
