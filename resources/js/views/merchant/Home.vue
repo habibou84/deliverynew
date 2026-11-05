@@ -26,6 +26,16 @@
       </RouterLink>
     </section>
 
+    <!-- Outil live : préparer la carte des produits, prendre les commandes du direct -->
+    <RouterLink v-if="auth.can('orders.create')" to="/marchand/live/preparer" class="tap flex items-center gap-3 rounded-[22px] bg-slate-900 p-4 text-white shadow-soft">
+      <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-rose-600 text-[13px] font-extrabold" aria-hidden="true">LIVE</span>
+      <span class="min-w-0 flex-1">
+        <span class="block text-[16px] font-bold">Préparer mon live</span>
+        <span class="block text-[14px] text-slate-300">Carte des produits, commandes en direct</span>
+      </span>
+      <span class="text-xl" aria-hidden="true">›</span>
+    </RouterLink>
+
     <!-- Colis qui attendent une décision (toutes dates) : le choix le plus courant en un toucher -->
     <section v-if="alerts.length" class="rounded-[22px] bg-[#FFF7EB] p-4 ring-1 ring-[#FFD89A]">
       <div class="flex items-center gap-3">

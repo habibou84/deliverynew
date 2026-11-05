@@ -18,6 +18,8 @@ enum LedgerEntryType: string
     case StorageFee = 'storage_fee';
     // Indemnité versée au marchand pour un colis perdu
     case LostCompensation = 'lost_compensation';
+    // Outil live : un live, le forfait du mois ou des fiches produit en plus
+    case LiveFee = 'live_fee';
     case Adjustment = 'adjustment';
     // Reversement effectué : solde les écritures du relevé
     case Payout = 'payout';
@@ -32,6 +34,7 @@ enum LedgerEntryType: string
             self::OtherFee => 'Autres frais',
             self::StorageFee => 'Frais de stockage',
             self::LostCompensation => 'Indemnité colis perdu',
+            self::LiveFee => 'Outil live',
             self::Adjustment => 'Ajustement',
             self::Payout => 'Reversement',
         };

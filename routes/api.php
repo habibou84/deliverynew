@@ -26,6 +26,7 @@ use App\Http\Controllers\Api\V1\ConsoleDashboardController;
 use App\Http\Controllers\Api\V1\ConsoleGmailController;
 use App\Http\Controllers\Api\V1\ConsoleHealthController;
 use App\Http\Controllers\Api\V1\ConsoleJibiatAiController;
+use App\Http\Controllers\Api\V1\ConsoleLiveController;
 use App\Http\Controllers\Api\V1\ConsolePlanController;
 use App\Http\Controllers\Api\V1\ConsolePremiumController;
 use App\Http\Controllers\Api\V1\ConsoleSearchController;
@@ -54,6 +55,7 @@ use App\Http\Controllers\Api\V1\LegacyOverviewController;
 use App\Http\Controllers\Api\V1\LegacyPurgeController;
 use App\Http\Controllers\Api\V1\LegacyRecheckController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
+use App\Http\Controllers\Api\V1\LiveController;
 use App\Http\Controllers\Api\V1\MerchantAppReferralController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\MerchantLocationController;
@@ -324,6 +326,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', 'show')->name('show');
             Route::put('/', 'update')->middleware($owner)->name('update');
             Route::put('companies/{company}', 'company')->middleware($owner)->name('company');
+        });
+        // Outil live des e-commerçants : prix, fiches IA, règles, suivi
+        Route::prefix('console/live')->name('console.live.')->middleware($team)->controller(ConsoleLiveController::class)->group(function () use ($owner) {
+            Route::get('/', 'show')->name('show');
+            Route::put('/', 'update')->middleware($owner)->name('update');
         });
         // Jibiat IA : niveaux et réglages au Propriétaire, coût réel par entreprise
         Route::prefix('console/ai')->name('console.ai.')->middleware($team)->controller(ConsoleJibiatAiController::class)->group(function () use ($owner) {
@@ -737,6 +744,23 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('products/{product}/photo', [ProductPhotoController::class, 'store'])->middleware('throttle:30,1')->name('products.photo.store');
             Route::delete('products/{product}/photo', [ProductPhotoController::class, 'destroy'])->name('products.photo.destroy');
         });
+        // Outil live de l'e-commerçant : préparation, fiche produit par l'IA, carte, direct, bilan
+        Route::prefix('live')->name('live.')->controller(LiveController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('prepare', 'prepare')->name('prepare');
+            Route::post('subscribe', 'subscribe')->middleware('throttle:10,1')->name('subscribe');
+            Route::post('pack', 'pack')->middleware('throttle:10,1')->name('pack');
+            Route::get('{live}', 'board')->name('board');
+            Route::put('{live}/items', 'items')->name('items');
+            Route::post('{live}/recognize', 'recognize')->middleware('throttle:20,1')->name('recognize');
+            Route::post('{live}/products', 'addProduct')->middleware('throttle:60,1')->name('products');
+            Route::post('{live}/start', 'start')->middleware('throttle:10,1')->name('start');
+            Route::post('{live}/orders', 'order')->middleware('throttle:120,1')->name('orders');
+            Route::post('{live}/end', 'end')->name('end');
+            Route::get('{live}/summary', 'summary')->name('summary');
+        });
+        Route::get('company/live-offer', [ConsoleLiveController::class, 'companyOfferShow'])->middleware('can:settings.manage')->name('company.live-offer.show');
+        Route::put('company/live-offer', [ConsoleLiveController::class, 'companyOffer'])->middleware('can:settings.manage')->name('company.live-offer');
         // Réglages de la page de commande du marchand
         Route::middleware('feature:shop')->group(function () {
             Route::get('shop', [MerchantShopController::class, 'show'])->name('shop.show');

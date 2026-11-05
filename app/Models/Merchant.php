@@ -50,6 +50,8 @@ class Merchant extends Model
     {
         return [
             'premium_level_since' => 'datetime',
+            'live_plan_until' => 'datetime',
+            'live_extra_cards' => 'integer',
             'default_fee_payer' => FeePayer::class,
             'status' => MerchantStatus::class,
             'pickup_lat' => 'float',

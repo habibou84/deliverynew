@@ -197,6 +197,8 @@ class AwaitingCourierTest extends TestCase
 
     public function test_alerts_can_be_turned_off_and_counts_are_reserved_to_dispatch(): void
     {
+        // 8 h du matin : 5 heures plus tard, la course est toujours du jour (pas encore « à reporter »)
+        $this->travelTo(now($this->company->timezone ?: config('app.timezone'))->startOfDay()->addHours(8));
         $this->company->update(['pickup_assign_alert_minutes' => 0]);
         $this->confirmedOrder();
         Notification::fake();
