@@ -9,6 +9,7 @@ use App\Enums\UserStatus;
 use App\Models\AiRecharge;
 use App\Models\Company;
 use App\Models\CourierCount;
+use App\Models\LiveCharge;
 use App\Models\Order;
 use App\Models\Plan;
 use App\Models\PlatformInvoice;
@@ -17,6 +18,7 @@ use App\Models\PremiumCard;
 use App\Models\User;
 use App\Notifications\PlatformBillingNotice;
 use App\Services\Ai\JibiatAi;
+use App\Services\Live\LiveStudio;
 use App\Services\Premium\PremiumCards;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -100,11 +102,13 @@ class Billing
         $apps = app(AppOptions::class)->billable($company, $plan, $start, $end, $cycle);
         // Jibiat IA : abonnement, courses au-delà du volume, recharges
         $ai = app(JibiatAi::class)->billable($company, $start, $end, $cycle);
+        // Outil live : part de Jibiat sur les lives, forfaits et fiches des e-commerçants
+        $live = app(LiveStudio::class)->billable($company, $end);
 
         // Petites factures précédentes reportées sur celle-ci
         $carried = PlatformInvoice::query()->where('company_id', $company->id)->where('status', PlatformInvoice::CARRIED)->whereNull('carried_into_id')->get();
         $carriedAmount = (int) $carried->sum('total');
-        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $extra['amount'] + $premium['amount'] + $apps['amount'] + $ai['amount'] + $carriedAmount;
+        $total = $amounts['base'] + $amounts['overage_amount'] + $amounts['deliveries_amount'] + $extra['amount'] + $premium['amount'] + $apps['amount'] + $ai['amount'] + $live['amount'] + $carriedAmount;
 
         if ($total <= 0) {
             return null;
@@ -112,7 +116,7 @@ class Billing
         // Trop petite pour une facture à part : reportée sur la suivante
         $isCarried = $plan->min_invoice !== null && $total < $plan->min_invoice;
 
-        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $apps, $ai, $carried, $carriedAmount, $total, $isCarried, $tz) {
+        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $apps, $ai, $live, $carried, $carriedAmount, $total, $isCarried, $tz) {
             $today = CarbonImmutable::now($tz);
             $dueDays = (int) config($cycle === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_due_days' : 'platform.billing.due_days');
 
@@ -142,6 +146,8 @@ class Billing
                 'app_options' => $apps['lines'] ?: null,
                 'ai_amount' => $ai['amount'],
                 'ai_lines' => $ai['lines'] ?: null,
+                'live_amount' => $live['amount'],
+                'live_lines' => $live['lines'] ?: null,
                 'carried_amount' => $carriedAmount,
                 'total' => $total,
                 'status' => $isCarried ? PlatformInvoice::CARRIED : PlatformInvoice::OPEN,
@@ -154,6 +160,9 @@ class Billing
             }
             if ($ai['recharge_ids'] !== []) {
                 AiRecharge::query()->whereKey($ai['recharge_ids'])->update(['platform_invoice_id' => $invoice->id]);
+            }
+            if ($live['ids'] !== []) {
+                LiveCharge::forCompany($company->id)->whereKey($live['ids'])->update(['platform_invoice_id' => $invoice->id]);
             }
             if ($carried->isNotEmpty()) {
                 PlatformInvoice::query()->whereKey($carried->modelKeys())->update(['carried_into_id' => $invoice->id]);
