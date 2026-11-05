@@ -137,6 +137,14 @@ class LiveTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_comment_ca_marche_deux_visites_puis_replie(): void
+    {
+        $this->assertTrue($this->postJson('/api/v1/live/prepare')->json('data.intro.full'));
+        $this->postJson('/api/v1/live/intro-seen')->assertOk()->assertJsonPath('data.full', true);
+        $this->postJson('/api/v1/live/intro-seen')->assertOk()->assertJsonPath('data.full', false);
+        $this->assertFalse($this->postJson('/api/v1/live/prepare')->json('data.intro.full'));
+    }
+
     public function test_cliente_qui_refuse_souvent(): void
     {
         $live = $this->prepare();
