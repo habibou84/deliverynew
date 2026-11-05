@@ -18,21 +18,8 @@
       </button>
     </div>
 
-    <p class="px-1 text-sm text-slate-500">
-      Les notifications de l'application arrivent toujours. Choisissez les étapes que vous voulez aussi recevoir en message.
-      <template v-if="settings.locked"><br>🔒 Réglé par {{ settings.company_name || 'votre agence' }}.</template>
-    </p>
-    <div class="m-card divide-y">
-      <ToggleRow
-        v-for="e in settings.events"
-        :key="e.event"
-        :model-value="e.enabled"
-        :label="e.label"
-        :description="HINTS[e.event]"
-        :disabled="settings.locked"
-        @update:model-value="setEvent(e, $event)"
-      />
-    </div>
+    <!-- Messages automatiques : réglés par l'agence pour tous ses e-commerçants (pas de choix ici) -->
+    <p class="px-1 text-sm text-slate-500">Les messages sur vos courses sont réglés par {{ settings.company_name || 'votre agence' }}.</p>
 
     <h2 class="px-1 pt-2 text-sm font-semibold text-slate-500 uppercase tracking-wide">Point d'activité</h2>
     <div class="m-card divide-y">

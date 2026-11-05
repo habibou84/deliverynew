@@ -216,7 +216,8 @@ const routes = [
       { path: 'courses/plusieurs', component: () => import('../views/merchant/MultiOrder.vue'), meta: { title: 'Plusieurs courses', back: true, hideTabs: true, permission: 'orders.create' } },
       { path: 'courses/import', component: () => import('../views/merchant/OrderImport.vue'), meta: { title: 'Importer des courses', back: true, permission: 'orders.create' } },
       { path: 'boutique', component: () => import('../views/merchant/Shop.vue'), meta: { title: 'Ma boutique en ligne', back: true, permission: 'integrations.manage', feature: 'shop' } },
-      { path: 'integrations', component: () => import('../views/merchant/Integrations.vue'), meta: { title: 'Intégrations', back: true, permission: 'integrations.manage', feature: 'api' } },
+      // API et webhooks : plus proposés aux e-commerçants (l'adresse ramène au profil)
+      { path: 'integrations', redirect: '/marchand/profil' },
       { path: 'courses/:id(\\d+)', component: () => import('../views/merchant/OrderView.vue'), meta: { title: 'Course', back: true, hideTabs: true } },
       { path: 'stock', component: () => import('../views/merchant/Stock.vue'), meta: { title: 'Mon stock', feature: 'stock' } },
       // Outil live : préparer (produits, carte), écran du direct, bilan

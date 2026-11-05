@@ -121,7 +121,7 @@
           </div>
           <p v-if="np.price && np.cost" :class="['text-[15px]', np.price > np.cost ? 'text-slate-700' : 'text-red-700']">
             <b>Il vous reste {{ money(np.price - np.cost) }} par pièce.</b>
-            <template v-if="ai?.price_range"> Vendu entre {{ money(ai.price_range.min) }} et {{ money(ai.price_range.max) }} dans les boutiques Jibiat.</template>
+            <template v-if="ai?.price_range"> Vendu entre {{ money(ai.price_range.min) }} et {{ money(ai.price_range.max) }} dans d'autres boutiques.</template>
           </p>
           <label class="flex items-center gap-2 text-[15px]"><input v-model="np.keep_in_catalog" type="checkbox" class="h-5 w-5"> Garder aussi dans mon catalogue</label>
         </div>
@@ -138,7 +138,7 @@
           <p>2. Téléchargez la carte.</p>
           <p>3. Montrez-la pendant le live.</p>
         </div>
-        <!-- Commandes automatiques : le WhatsApp de la boutique relié à Jibiat -->
+        <!-- Commandes automatiques : numéro WhatsApp officiel, ou WhatsApp de la boutique relié (option de la console) -->
         <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
 
         <label class="block text-[14px] font-semibold text-slate-600">Nom du live
@@ -168,6 +168,7 @@
     <!-- Bouton du bas -->
     <div v-if="d && introOpen" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
       <button type="button" class="m-btn-primary w-full" @click="closeIntro">Préparer mon live</button>
+      <p class="mt-1.5 text-center text-[12px] text-slate-400">Propulsé par <b>Jibiat</b></p>
     </div>
     <div v-if="d && !introOpen && step !== 'nouveau'" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
       <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Webhooks;
 use App\Enums\MessageStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessInboundWhatsApp;
+use App\Jobs\ProcessLiveWhatsApp;
 use App\Models\InboundMessage;
 use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
@@ -13,6 +14,7 @@ use App\Services\Platform\PlatformWhatsApp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Webhook de l'application Meta : accusés de remise des messages envoyés et
@@ -59,6 +61,12 @@ class WhatsAppWebhookController extends Controller
                     ->first();
 
                 foreach ($change['value']['messages'] ?? [] as $message) {
+                    // Numéro WhatsApp Business d'un e-commerçant : seulement les commandes de son live
+                    if ($account?->isMerchant()) {
+                        $this->liveMessage($account, $message, $change['value']['contacts'][0]['profile']['name'] ?? null);
+
+                        continue;
+                    }
                     // Numéro officiel de Jibiat : messagerie de la console
                     if ($account?->isPlatform()) {
                         $this->platform->receiveFromMeta($message, $change['value']['contacts'][0]['profile']['name'] ?? null);
@@ -71,6 +79,20 @@ class WhatsAppWebhookController extends Controller
         }
 
         return response()->json(['received' => true]);
+    }
+
+    /**
+     * Message reçu sur le numéro d'un e-commerçant : traité une seule fois (Meta peut renvoyer le même webhook).
+     *
+     * @param  array<string, mixed>  $message
+     */
+    private function liveMessage(WhatsAppAccount $account, array $message, ?string $name): void
+    {
+        $id = (string) ($message['id'] ?? '');
+        if ($id === '' || ($message['type'] ?? '') !== 'text' || ! Cache::add("live-wa-msg:{$id}", 1, now()->addDay())) {
+            return;
+        }
+        ProcessLiveWhatsApp::dispatch($account->id, '+'.ltrim((string) ($message['from'] ?? ''), '+'), $name, (string) ($message['text']['body'] ?? ''), official: true);
     }
 
     /**
