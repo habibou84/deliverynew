@@ -49,35 +49,67 @@
       <!-- Courses du groupe choisi -->
       <section class="space-y-2">
         <input v-model="search" class="input" placeholder="Code, téléphone, nom…" aria-label="Rechercher" @input="debounced">
+        <!-- Actions sur les courses cochées -->
+        <div v-if="checked.length" class="card sticky top-2 z-10 flex flex-wrap items-center gap-2 border-blue-200 bg-blue-50 p-2 text-sm">
+          <span class="font-medium">{{ checked.length }} cochée{{ checked.length > 1 ? 's' : '' }}</span>
+          <input v-model="bulkDate" type="date" class="input w-auto !py-1" :min="todayIso" aria-label="Nouvelle date">
+          <button type="button" class="btn-primary !py-1" :disabled="busy || !bulkDate" @click="rescheduleMany(checkedOrders, bulkDate)">📅 Reporter</button>
+          <select v-model="bulkCourier" class="input w-auto !py-1" aria-label="Livreur">
+            <option :value="null">Livreur…</option>
+            <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }}</option>
+          </select>
+          <button type="button" class="btn-secondary !py-1" :disabled="busy || !bulkCourier" @click="assignMany">🛵 Confier</button>
+          <button type="button" class="btn-secondary !py-1" :disabled="busy || !returnable.length" @click="returnMany">↩️ Retour ({{ returnable.length }})</button>
+          <button type="button" class="ml-auto text-gray-600" @click="checked = []">Annuler</button>
+        </div>
+
         <p v-if="loading" class="card p-6 text-center text-gray-500">Chargement…</p>
         <p v-else-if="!orders.length" class="card p-6 text-center text-gray-500">Aucune course.</p>
         <div v-else class="card divide-y">
-          <RouterLink
-            v-for="o in orders" :key="o.id" :to="`/admin/courses/${o.id}`"
-            class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm hover:bg-slate-50"
-          >
-            <span class="w-28 font-mono text-xs font-semibold">{{ o.tracking_code }}</span>
-            <span class="min-w-[10rem] flex-1">
-              {{ o.merchant?.business_name }} → {{ o.recipient.name }}
-              <span class="block text-xs text-gray-500">{{ o.delivery.zone_name || o.delivery.address }} · {{ courierOf(o) || 'sans livreur' }}</span>
-            </span>
-            <StatusBadge :status="o.status" :label="o.status_label" />
-            <span class="w-24 text-right text-xs text-red-700">prévue le {{ date(dayOf(o)) }}</span>
-            <span class="w-24 text-right tabular-nums">{{ money(o.amounts.cod_amount) }}</span>
-          </RouterLink>
+          <div v-for="o in orders" :key="o.id" class="flex flex-wrap items-start gap-x-3 gap-y-2 px-3 py-2 text-sm hover:bg-slate-50">
+            <input v-model="checked" type="checkbox" :value="o.id" class="mt-1" :aria-label="`Choisir ${o.tracking_code}`">
+            <RouterLink :to="`/admin/courses/${o.id}`" class="min-w-[12rem] flex-1">
+              <span class="font-mono text-xs font-semibold text-blue-700">{{ o.tracking_code }}</span>
+              <span class="ml-1">{{ o.merchant?.business_name }} → {{ o.recipient.name }}</span>
+              <span class="block text-xs text-gray-500">{{ o.delivery.zone_name || o.delivery.address }} · {{ money(o.amounts.cod_amount) }}</span>
+            </RouterLink>
+            <div class="w-36">
+              <StatusBadge :status="o.status" :label="o.status_label" />
+              <span class="block text-xs text-red-700">prévue le {{ date(dayOf(o)) }}</span>
+            </div>
+            <CourierCell :order="o" :couriers="couriers" can-dispatch class="w-48" @updated="replace" />
+            <!-- Actions à portée de main, selon l'état de la course -->
+            <div class="flex flex-wrap items-center gap-1">
+              <button v-if="o.needs_decision || o.status === 'delivery_failed'" type="button" class="btn-primary !px-2 !py-1 text-xs" @click="deciding = o">Décider</button>
+              <template v-if="canReschedule(o)">
+                <button type="button" class="btn-secondary !px-2 !py-1 text-xs" :disabled="busy" title="Livrer aujourd'hui" @click="rescheduleMany([o], todayIso)">Aujourd'hui</button>
+                <button type="button" class="btn-secondary !px-2 !py-1 text-xs" :disabled="busy" title="Livrer demain" @click="rescheduleMany([o], tomorrowIso)">Demain</button>
+              </template>
+              <button v-if="canReturn(o)" type="button" class="btn-secondary !px-2 !py-1 text-xs" :disabled="busy" @click="returnMany([o])">↩️ Retour</button>
+              <a v-if="o.recipient.phone" :href="`tel:${o.recipient.phone}`" class="btn-secondary !px-2 !py-1 text-xs" :title="`Appeler ${o.recipient.name || 'le client'}`">📞</a>
+              <button v-if="o.edit_scope" type="button" class="btn-secondary !px-2 !py-1 text-xs" title="Modifier la course" @click="editing = o">✏️</button>
+            </div>
+          </div>
         </div>
         <Pagination :meta="meta" @change="load" />
       </section>
     </div>
+
+    <OrderDecision :open="!!deciding" :order="deciding" :couriers="couriers" @close="deciding = null" @decided="afterAction" />
+    <OrderEditModal :open="!!editing" :order="editing" focus="date" @close="editing = null" @saved="afterAction" />
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Pagination from '../../components/Pagination.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
+import CourierCell from '../../components/CourierCell.vue'
+import OrderDecision from '../../components/OrderDecision.vue'
+import OrderEditModal from '../../components/OrderEditModal.vue'
+import { useToastStore } from '../../stores/toasts'
 import { date, money } from '../../utils/format'
 
 /**
@@ -151,8 +183,82 @@ function setBy(value) {
   load(1)
 }
 
-onMounted(() => {
+// ── Actions à portée de main ──
+const toasts = useToastStore()
+const couriers = ref([])
+const checked = ref([])
+const busy = ref(false)
+const deciding = ref(null)
+const editing = ref(null)
+const bulkCourier = ref(null)
+const isoDay = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+const todayIso = isoDay(new Date())
+const tomorrowIso = isoDay(new Date(Date.now() + 86400000))
+const bulkDate = ref(todayIso)
+const NOT_PICKED = ['pending', 'confirmed', 'pickup_assigned']
+const PICKED = ['picked_up', 'at_hub', 'rescheduled', 'delivery_assigned', 'delivery_failed']
+
+const checkedOrders = computed(() => orders.value.filter((o) => checked.value.includes(o.id)))
+const canReschedule = (o) => !!o.edit_scope && !o.return_requested && o.status !== 'delivery_failed'
+const canReturn = (o) => PICKED.includes(o.status) && !o.return_requested
+const returnable = computed(() => checkedOrders.value.filter(canReturn))
+
+function replace(updated) {
+  const i = orders.value.findIndex((o) => o.id === updated.id)
+  if (i !== -1) orders.value[i] = updated
+}
+
+async function afterAction() {
+  deciding.value = null
+  editing.value = null
+  await Promise.all([loadGroups(), load(meta.value?.current_page || 1)])
+}
+
+async function run(action, success) {
+  busy.value = true
+  try {
+    await action()
+    toasts.success(success)
+    checked.value = []
+    await afterAction()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy.value = false
+  }
+}
+
+// Nouvelle date : colis pas encore ramassés par « À reporter » (e-commerçant prévenu), les autres par une modification
+function rescheduleMany(list, day) {
+  const late = list.filter((o) => o.to_reschedule).map((o) => o.id)
+  const others = list.filter((o) => !o.to_reschedule && canReschedule(o))
+  const label = day === todayIso ? 'aujourd\'hui' : `le ${date(day)}`
+  return run(async () => {
+    if (late.length) await http.post('/orders/reschedule', { order_ids: late, date: day })
+    for (const o of others) await http.patch(`/orders/${o.id}`, { delivery_scheduled_date: day, notify_courier: true })
+  }, `${late.length + others.length} course${late.length + others.length > 1 ? 's' : ''} : livraison ${label}.`)
+}
+
+function assignMany() {
+  const list = checkedOrders.value
+  return run(async () => {
+    for (const o of list) {
+      const type = o.awaiting_courier?.stage || (NOT_PICKED.includes(o.status) ? 'pickup' : 'delivery')
+      await http.post(`/orders/${o.id}/assign`, { type, courier_id: bulkCourier.value })
+    }
+  }, `${list.length} course${list.length > 1 ? 's' : ''} confiée${list.length > 1 ? 's' : ''} à ${couriers.value.find((c) => c.id === bulkCourier.value)?.name}.`)
+}
+
+function returnMany(list = returnable.value) {
+  if (!window.confirm(`Faire revenir ${list.length > 1 ? `ces ${list.length} colis` : 'ce colis'} chez l'e-commerçant ?`)) return
+  return run(async () => {
+    for (const o of list) await http.post(`/orders/${o.id}/return-request`, { note: 'Course non traitée : retour décidé par l\'agence' })
+  }, `Retour demandé pour ${list.length} colis.`)
+}
+
+onMounted(async () => {
   loadGroups()
   load(1)
+  couriers.value = (await http.get('/couriers').catch(() => ({ data: { data: [] } }))).data.data
 })
 </script>

@@ -1,13 +1,13 @@
 <template>
   <Modal :open="open" :title="`Modifier la course ${order?.tracking_code ?? ''}`" @close="$emit('close')">
-    <form v-if="order" class="space-y-3" @submit.prevent="save">
+    <form v-if="order" ref="formEl" class="space-y-3" @submit.prevent="save">
       <p class="text-xs text-gray-500">{{ order.status_label }}<template v-if="courierName"> · {{ courierName }}</template></p>
 
       <!-- Livraison : modifiable tant que le livreur n'est pas en route vers le client -->
       <fieldset class="rounded-lg border p-3 space-y-2">
         <legend class="px-1 text-sm font-semibold">📍 Livraison</legend>
         <div class="grid gap-2 sm:grid-cols-2">
-          <EditField v-model="form.recipient_name" label="Nom du client" :before="initial.recipient_name" />
+          <EditField v-model="form.recipient_name" data-field="recipient" label="Nom du client" :before="initial.recipient_name" />
           <EditField v-model="form.recipient_phone" label="Téléphone du client" :before="initial.recipient_phone" required />
           <EditField v-model="form.recipient_phone2" label="Autre numéro" :before="initial.recipient_phone2" />
           <div>
@@ -18,9 +18,9 @@
             />
             <p v-if="changed('delivery_zone_id')" class="text-xs text-gray-400 line-through">{{ zoneName(initial.delivery_zone_id) }}</p>
           </div>
-          <EditField v-model="form.delivery_address" label="Adresse" :before="initial.delivery_address" />
+          <EditField v-model="form.delivery_address" data-field="address" label="Adresse" :before="initial.delivery_address" />
           <EditField v-model="form.delivery_landmark" label="Repère" :before="initial.delivery_landmark" />
-          <EditField v-model="form.delivery_scheduled_date" type="date" :min="today" label="Jour de livraison" :before="initial.delivery_scheduled_date" />
+          <EditField v-model="form.delivery_scheduled_date" data-field="date" type="date" :min="today" label="Jour de livraison" :before="initial.delivery_scheduled_date" />
           <EditField v-model="form.delivery_time_slot" label="Créneau (ex. 14-18)" :before="initial.delivery_time_slot" maxlength="20" />
         </div>
       </fieldset>
@@ -29,7 +29,7 @@
       <fieldset :class="['rounded-lg border p-3 space-y-2', !beforePickup && 'bg-slate-50 text-gray-400']" :disabled="!beforePickup">
         <legend class="px-1 text-sm font-semibold">📦 Colis et argent <span v-if="!beforePickup" class="ml-1 text-xs font-medium">🔒 colis déjà récupéré</span></legend>
         <div v-if="beforePickup" class="grid gap-2 sm:grid-cols-2">
-          <EditField v-model.number="form.items_amount" type="number" min="0" label="Montant des articles (F)" :before="initial.items_amount" />
+          <EditField v-model.number="form.items_amount" data-field="amount" type="number" min="0" label="Montant des articles (F)" :before="initial.items_amount" />
           <div>
             <label class="label" for="edit-payer">Frais de livraison payés par</label>
             <select id="edit-payer" v-model="form.fee_payer" :class="['input', changed('fee_payer') && 'ring-2 ring-amber-400 bg-amber-50']">
@@ -89,7 +89,7 @@
 
 <script setup>
 import SearchSelect from './SearchSelect.vue'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import Modal from './Modal.vue'
 import EditField from './EditField.vue'
@@ -101,7 +101,9 @@ import { money } from '../utils/format'
  * « Modifier la course » : livraison, colis et argent, ramassage (selon l'avancement), champs changés surlignés,
  * nouveau prix avant d'enregistrer, validation par l'agence pour l'e-commerçant si le réglage le demande.
  */
-const props = defineProps({ open: Boolean, order: { type: Object, default: null } })
+// focus : champ à mettre en avant à l'ouverture (clic sur une cellule de la liste) : recipient, zone, address, date, amount
+const props = defineProps({ open: Boolean, order: { type: Object, default: null }, focus: { type: String, default: null } })
+const formEl = ref(null)
 const emit = defineEmits(['close', 'saved'])
 
 const auth = useAuthStore()
@@ -164,6 +166,12 @@ watch(() => props.open, async (open) => {
   Object.keys(form).forEach((k) => delete form[k])
   Object.assign(form, initial.value)
   if (!zones.value.length) zones.value = (await http.get('/zones')).data.data
+  if (props.focus) {
+    await nextTick()
+    const el = formEl.value?.querySelector(props.focus === 'zone' ? '#edit-zone' : `[data-field="${props.focus}"]`)
+    el?.scrollIntoView({ block: 'center' })
+    el?.focus()
+  }
 })
 
 // Aperçu du prix et de la validation, un instant après la dernière frappe
