@@ -2,11 +2,16 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Models\Live;
 use App\Models\Merchant;
 use App\Models\Product;
+use App\Rules\PhoneNumber;
 use App\Services\Live\LiveStudio;
+use App\Services\Live\LiveWhatsApp;
+use App\Services\Messaging\MessagingException;
+use App\Services\Messaging\WhatsAppBridge;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,7 +22,37 @@ use Illuminate\Validation\Rule;
  */
 class LiveController extends Controller
 {
-    public function __construct(private readonly LiveStudio $studio) {}
+    public function __construct(private readonly LiveStudio $studio, private readonly LiveWhatsApp $whatsapp) {}
+
+    /** WhatsApp relié pour les commandes automatiques du live : état (et QR code / code pendant la liaison) */
+    public function whatsapp(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->whatsapp->status($this->merchant($request))]);
+    }
+
+    /** Relier son WhatsApp : code d'association à saisir dans WhatsApp (numéro donné) et QR code */
+    public function whatsappConnect(Request $request): JsonResponse
+    {
+        $merchant = $this->merchant($request);
+        $data = $request->validate(['phone' => ['nullable', 'string', 'max:32', new PhoneNumber]], [], ['phone' => 'numéro']);
+        try {
+            return response()->json(['data' => $this->whatsapp->connect($merchant, $data['phone'] ?? null)]);
+        } catch (MessagingException $e) {
+            throw new BusinessRuleException($e->getMessage());
+        }
+    }
+
+    public function whatsappLogout(Request $request): JsonResponse
+    {
+        $merchant = $this->merchant($request);
+        try {
+            $this->whatsapp->disconnect($merchant);
+        } catch (MessagingException $e) {
+            throw new BusinessRuleException($e->getMessage());
+        }
+
+        return response()->json(['data' => $this->whatsapp->status($merchant->refresh())]);
+    }
 
     /** Offre, live en cours ou en préparation, derniers lives */
     public function index(Request $request): JsonResponse
@@ -104,9 +139,9 @@ class LiveController extends Controller
 
     public function board(Request $request, Live $live): JsonResponse
     {
-        $this->own($request, $live);
+        $merchant = $this->own($request, $live);
 
-        return response()->json(['data' => $this->studio->board($live)]);
+        return response()->json(['data' => [...$this->studio->board($live), 'whatsapp' => $this->whatsappState($merchant)]]);
     }
 
     public function order(Request $request, Live $live): JsonResponse
@@ -175,6 +210,17 @@ class LiveController extends Controller
             'cards' => $this->studio->cardsLeft($live, $merchant),
             'offer' => $this->studio->offer($merchant),
             'shop_name' => $merchant->business_name,
+            'whatsapp' => $this->whatsappState($merchant),
+        ];
+    }
+
+    /** État du WhatsApp relié, sans appeler le service (lecture rapide) */
+    private function whatsappState(Merchant $merchant): array
+    {
+        return [
+            'available' => WhatsAppBridge::configured(),
+            'connected' => $merchant->live_wa_status === 'connected',
+            'phone' => $merchant->live_wa_phone,
         ];
     }
 

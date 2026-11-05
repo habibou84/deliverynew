@@ -133,6 +133,9 @@
           <p>2. Téléchargez la carte.</p>
           <p>3. Montrez-la pendant le live.</p>
         </div>
+        <!-- Commandes automatiques : le WhatsApp de la boutique relié à Jibiat -->
+        <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
+
         <label class="block text-[14px] font-semibold text-slate-600">Nom du live
           <input v-model="liveName" class="m-input mt-1 w-full !text-[17px] !font-semibold" @change="saveItems">
         </label>
@@ -175,6 +178,7 @@ import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 import { money } from '../../../utils/format'
 import { drawCard, saveCard } from './liveCard'
+import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
 
 /** Préparer mon live : produits (catalogue ou photo + IA), carte à télécharger, démarrage */
 const STEPS = [{ key: 'produits', label: 'Produits' }, { key: 'carte', label: 'Carte' }, { key: 'live', label: 'Live' }]
@@ -277,6 +281,12 @@ async function renderCards() {
   }
 }
 watch(square, () => { if (step.value === 'carte') renderCards() })
+
+// WhatsApp relié : la carte affiche ce numéro
+async function onWhatsApp() {
+  await load()
+  await renderCards()
+}
 
 async function downloadAndStart() {
   saving.value = true
