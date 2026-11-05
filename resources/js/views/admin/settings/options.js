@@ -51,3 +51,13 @@ export const EDIT_APPROVAL_MODES = [
   { value: 'price', label: 'À valider par l\'équipe si le prix change', short: 'à valider si le prix change', help: 'Téléphone, adresse dans la même zone, repère, date : tout de suite. Nouvelle zone, montant ou option qui changent le prix : file « Modifications à valider ».' },
   { value: 'always', label: 'Toujours à valider par l\'équipe', short: 'toujours à valider', help: 'Chaque modification de l\'e-commerçant attend l\'équipe dans la file « Modifications à valider ».' },
 ]
+
+// Colis non ramassés : canal du message du soir, et ce qui se passe sans réponse
+export const RESCHEDULE_CHANNELS = [
+  { value: 'app_first', label: 'Jibiat Marchand d\'abord, WhatsApp s\'il n\'a pas répondu en 30 min', short: 'Jibiat Marchand d\'abord' },
+  { value: 'whatsapp', label: 'WhatsApp pour tous', short: 'WhatsApp' },
+]
+export const RESCHEDULE_NO_ANSWER = [
+  { value: 'remind', label: 'Rappel le lendemain à 08:00, puis file « À reporter » pour le dispatch', short: 'rappel' },
+  { value: 'auto_next_day', label: 'Reporter tout seul au lendemain et le prévenir', short: 'report auto' },
+]

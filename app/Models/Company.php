@@ -66,6 +66,10 @@ class Company extends Model
         'mission_acceptance',
         'unreachable_minutes',
         'late_pickup_alert_minutes',
+        'reschedule_evening',
+        'reschedule_evening_time',
+        'reschedule_channel',
+        'reschedule_no_answer',
         // Alerte « livreur libre avec des ramassages près de lui »
         'courier_available_alert',
         // Annuaire des entreprises de livraison (jibiat.com/annuaire, Jibiat Marchand)
@@ -131,6 +135,8 @@ class Company extends Model
             'planning_digest_sent_on' => 'date:Y-m-d',
             'unreachable_minutes' => 'integer',
             'late_pickup_alert_minutes' => 'integer',
+            'reschedule_evening' => 'boolean',
+            'reschedule_evening_sent_on' => 'date',
             'courier_available_alert' => 'boolean',
             'directory_listed' => 'boolean',
             'premium_auto' => 'boolean',

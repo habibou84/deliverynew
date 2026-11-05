@@ -361,6 +361,32 @@ paths:
                 properties:
                   data: { $ref: '#/components/schemas/Order' }
         '422': { description: 'Annulation impossible à ce stade' }
+  /orders/{tracking_code}/reschedule:
+    post:
+      tags: [Courses]
+      summary: Nouvelle date pour un colis pas ramassé à sa date (contrat 1.10, champ « reschedule »)
+      description: Date entre aujourd'hui et « reschedule.max_date » (14 jours). Pour annuler, utilisez …/cancel.
+      parameters:
+        - { name: tracking_code, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date]
+              properties:
+                date: { type: string, format: date }
+      responses:
+        '200':
+          description: Nouvelle date enregistrée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Order' }
+        '422': { description: 'Date hors limites, ou colis déjà ramassé' }
   /reports/summary:
     get:
       tags: [Courses]
