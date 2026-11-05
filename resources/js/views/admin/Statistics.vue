@@ -13,7 +13,34 @@
         </div>
         <div><label class="label" for="st-from">Du</label><input id="st-from" v-model="from" type="date" class="input w-auto" :max="to" @change="custom"></div>
         <div><label class="label" for="st-to">Au</label><input id="st-to" v-model="to" type="date" class="input w-auto" :min="from" :max="today()" @change="custom"></div>
+        <button type="button" class="btn-secondary print:hidden" @click="printPage">🖨️ Imprimer</button>
       </div>
+    </div>
+
+    <!-- Filtres : un e-commerçant, une commune, un livreur -->
+    <div class="flex flex-wrap items-end gap-2 print:hidden">
+      <div v-if="auth.can('merchants.view')">
+        <label class="label" for="st-merchant">E-commerçant</label>
+        <select id="st-merchant" v-model="filters.merchant_id" class="input w-auto max-w-[14rem]" @change="reloadAll">
+          <option :value="null">Tous</option>
+          <option v-for="m in options.merchants" :key="m.id" :value="m.id">{{ m.business_name }}</option>
+        </select>
+      </div>
+      <div>
+        <label class="label" for="st-zone">Commune</label>
+        <select id="st-zone" v-model="filters.zone_id" class="input w-auto max-w-[14rem]" @change="reloadAll">
+          <option :value="null">Toutes</option>
+          <option v-for="z in options.zones" :key="z.id" :value="z.id">{{ z.name }}</option>
+        </select>
+      </div>
+      <div v-if="auth.can('orders.dispatch')">
+        <label class="label" for="st-courier">Livreur</label>
+        <select id="st-courier" v-model="filters.courier_id" class="input w-auto max-w-[14rem]" @change="reloadAll">
+          <option :value="null">Tous</option>
+          <option v-for="c in options.couriers" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </div>
+      <button v-if="filtered" type="button" class="pb-2 text-sm text-blue-600" @click="clearFilters">Effacer les filtres</button>
     </div>
 
     <SettingsShortcut :blocks="['weeklyReport']" title="Statistiques" more="/admin/reglages/alertes" />
@@ -40,7 +67,8 @@
     </section>
 
     <p v-if="error" class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
-    <p v-if="loading && !data[tab]" class="text-slate-500">Chargement…</p>
+    <Highlights v-if="!current?.locked" :items="data[tab]?.highlights" />
+    <p v-if="loading && ENDPOINTS[tab] && !data[tab]" class="text-slate-500">Chargement…</p>
 
     <!-- Vue d'ensemble -->
     <template v-if="tab === 'overview' && data.overview">
@@ -100,10 +128,10 @@
     <!-- Livraisons -->
     <template v-if="tab === 'deliveries' && data.deliveries">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiTile title="Réussies au 1er passage" kind="percent" :value="dl.first_attempt_rate" hint="Parmi les courses livrées" />
+        <KpiTile title="Réussies au 1er passage" kind="percent" :value="dl.first_attempt_rate" :previous="dl.previous?.first_attempt_rate ?? null" hint="Parmi les courses livrées" />
         <KpiTile title="Passages par course livrée" :value="dl.average_attempts" hint="1 = toujours du premier coup" />
-        <KpiTile title="Livrées le jour même" kind="percent" :value="dl.same_day_rate" hint="Hors courses programmées plus tard" />
-        <KpiTile title="Échecs de livraison" :value="dl.failed_attempts" hint="Passages ratés chez le destinataire" />
+        <KpiTile title="Livrées le jour même" kind="percent" :value="dl.same_day_rate" :previous="dl.previous?.same_day_rate ?? null" hint="Hors courses programmées plus tard" />
+        <KpiTile title="Échecs de livraison" :value="dl.failed_attempts" :previous="dl.previous?.failed_attempts ?? null" :higher-is-better="false" hint="Passages ratés chez le destinataire" />
       </div>
 
       <div class="grid gap-4 lg:grid-cols-2">
@@ -134,10 +162,10 @@
     <!-- Livreurs -->
     <template v-if="tab === 'couriers' && data.couriers">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiTile title="Livreurs actifs sur la période" :value="cr.totals.active_couriers" />
-        <KpiTile title="Courses livrées" :value="cr.totals.delivered" />
-        <KpiTile title="Échecs" :value="cr.totals.failed" />
-        <KpiTile title="Taux de réussite" kind="percent" :value="cr.totals.success_rate" hint="Livrées / (livrées + échecs)" />
+        <KpiTile title="Livreurs actifs sur la période" :value="cr.totals.active_couriers" :previous="cr.previous_totals?.active_couriers ?? null" />
+        <KpiTile title="Courses livrées" :value="cr.totals.delivered" :previous="cr.previous_totals?.delivered ?? null" />
+        <KpiTile title="Échecs" :value="cr.totals.failed" :previous="cr.previous_totals?.failed ?? null" :higher-is-better="false" />
+        <KpiTile title="Taux de réussite" kind="percent" :value="cr.totals.success_rate" :previous="cr.previous_totals?.success_rate ?? null" hint="Livrées / (livrées + échecs)" />
       </div>
 
       <section class="card overflow-x-auto">
@@ -162,6 +190,8 @@
               <td class="p-2 text-right">
                 <span v-if="r.success_rate !== null" :class="r.success_rate >= 90 ? 'text-emerald-700' : r.success_rate < 75 ? 'text-red-600' : ''">{{ r.success_rate }} %</span>
                 <span v-else>—</span>
+                <span v-if="trendOf(r)" :class="['ml-1 text-xs', trendOf(r).cls]" :title="trendOf(r).title">{{ trendOf(r).icon }}</span>
+                <span v-if="needsHelp(r)" class="ml-1 whitespace-nowrap rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-800">à accompagner</span>
               </td>
               <td class="p-2 text-right">{{ duration(r.delivery_minutes) }}</td>
               <td class="p-2 text-right">{{ r.days_worked }}</td>
@@ -176,12 +206,20 @@
           </tbody>
         </table>
       </section>
-      <p class="text-xs text-slate-500">Délai : médiane entre le ramassage et la livraison. Écart de caisse : manques constatés aux versements de la période. Gains : paie enregistrée sur la période.</p>
+      <p class="text-xs text-slate-500">Délai : médiane entre le ramassage et la livraison. ▲ ▼ : réussite face à la période précédente. Écart de caisse : manques constatés aux versements de la période. Gains : paie enregistrée sur la période.</p>
+
+      <section class="card space-y-2 p-4">
+        <h2 class="font-semibold">Charge de travail <span class="text-sm font-normal text-slate-500">· livraisons par jour et par heure</span></h2>
+        <Heatmap :data="cr.workload" aria-label="Livraisons par jour de la semaine et par heure" />
+        <p class="text-xs text-slate-500">Les cases les plus foncées sont les moments où l'équipe est la plus chargée : prévoir des livreurs en renfort.</p>
+      </section>
     </template>
 
     <MerchantsTab v-if="tab === 'merchants' && data.merchants" :data="data.merchants" :with-amounts="withAmounts" :exportable="advanced" />
     <ZonesTab v-if="tab === 'zones' && data.zones" :data="data.zones" :with-amounts="withAmounts" :exportable="advanced" />
     <FinancesTab v-if="tab === 'finances' && data.finances" :data="data.finances" />
+    <FailuresTab v-if="tab === 'failures' && data.failures" :data="data.failures" :exportable="advanced" />
+    <LiveTab v-if="tab === 'live' && data.live" :data="data.live" :exportable="advanced" />
   </div>
 </template>
 
@@ -193,7 +231,10 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import BarList from '../../components/stats/BarList.vue'
 import ColumnChart from '../../components/stats/ColumnChart.vue'
 import Heatmap from '../../components/stats/Heatmap.vue'
+import FailuresTab from '../../components/stats/FailuresTab.vue'
 import FinancesTab from '../../components/stats/FinancesTab.vue'
+import Highlights from '../../components/stats/Highlights.vue'
+import LiveTab from '../../components/stats/LiveTab.vue'
 import KpiTile from '../../components/stats/KpiTile.vue'
 import LineChart from '../../components/stats/LineChart.vue'
 import MerchantsTab from '../../components/stats/MerchantsTab.vue'
@@ -243,20 +284,62 @@ const advanced = computed(() => auth.hasFeature('advanced_stats'))
 const tabs = computed(() => [
   { key: 'overview', label: 'Vue d\'ensemble' },
   { key: 'deliveries', label: 'Livraisons' },
+  ...(auth.can('orders.dispatch') ? [{ key: 'failures', label: 'Échecs et annulations' }] : []),
   ...(auth.can('orders.dispatch') ? [{ key: 'couriers', label: 'Livreurs' }] : []),
   ...(auth.can('merchants.view') ? [{ key: 'merchants', label: 'E-commerçants' }] : []),
   // Statistiques avancées (selon la formule) : onglets visibles mais verrouillés sans le module
   { key: 'zones', label: 'Zones', locked: !advanced.value },
-  ...(auth.can('finance.view') ? [{ key: 'finances', label: 'Finances', locked: !advanced.value }] : []),
+  ...(auth.can('finance.view') ? [{ key: 'finances', label: 'Argent', locked: !advanced.value }] : []),
+  { key: 'live', label: 'Live' },
 ])
 const current = computed(() => tabs.value.find((t) => t.key === tab.value))
-const ENDPOINTS = Object.fromEntries(['overview', 'deliveries', 'couriers', 'merchants', 'zones', 'finances'].map((k) => [k, `/stats/${k}`]))
+const ENDPOINTS = Object.fromEntries(['overview', 'deliveries', 'failures', 'couriers', 'merchants', 'zones', 'finances', 'live'].map((k) => [k, `/stats/${k}`]))
 
 const preset = ref(PRESETS[route.query.periode] ? route.query.periode : 'month')
 const [initialFrom, initialTo] = PRESETS[preset.value].range()
 const from = ref(initialFrom)
 const to = ref(initialTo)
-const tab = ref(tabs.value.some((t) => t.key === route.query.onglet) ? route.query.onglet : 'overview')
+// L'ancien onglet « Annulations » est rangé dans « Échecs et annulations »
+const wantedTab = route.query.onglet === 'cancellations' ? 'failures' : route.query.onglet
+const tab = ref(tabs.value.some((t) => t.key === wantedTab) ? wantedTab : 'overview')
+
+// Filtres : e-commerçant, commune, livreur
+const filters = reactive({
+  merchant_id: route.query.marchand ? Number(route.query.marchand) : null,
+  zone_id: route.query.zone ? Number(route.query.zone) : null,
+  courier_id: route.query.livreur ? Number(route.query.livreur) : null,
+})
+const filtered = computed(() => Object.values(filters).some((v) => v !== null))
+const options = reactive({ merchants: [], zones: [], couriers: [] })
+function clearFilters() {
+  Object.assign(filters, { merchant_id: null, zone_id: null, courier_id: null })
+  reloadAll()
+}
+async function loadOptions() {
+  const none = { data: { data: [] } }
+  const [m, z, c] = await Promise.all([
+    auth.can('merchants.view') ? http.get('/merchants', { params: { per_page: 200 } }).catch(() => none) : none,
+    http.get('/zones').catch(() => none),
+    auth.can('orders.dispatch') ? http.get('/couriers').catch(() => none) : none,
+  ])
+  options.merchants = m.data.data
+  options.zones = z.data.data.filter((x) => !x.parent_id)
+  options.couriers = c.data.data.map((x) => ({ id: x.id, name: x.user?.name || x.name || `Livreur n° ${x.id}` }))
+}
+function printPage() {
+  window.print()
+}
+
+// Livreurs : tendance de la réussite et ceux à accompagner
+function trendOf(r) {
+  if (r.success_rate === null || r.previous_success_rate === null || r.previous_success_rate === undefined) return null
+  const diff = r.success_rate - r.previous_success_rate
+  if (Math.abs(diff) < 3) return { icon: '=', cls: 'text-slate-400', title: 'Stable' }
+  return diff > 0
+    ? { icon: '▲', cls: 'text-emerald-700', title: `+${Math.round(diff)} pt` }
+    : { icon: '▼', cls: 'text-red-600', title: `${Math.round(diff)} pt` }
+}
+const needsHelp = (r) => r.success_rate !== null && r.success_rate < 80 && r.delivered + r.failed >= 10
 const data = reactive(Object.fromEntries(Object.keys(ENDPOINTS).map((k) => [k, null])))
 const loading = ref(false)
 const error = ref('')
@@ -268,12 +351,12 @@ const cr = computed(() => data.couriers)
 const withAmounts = computed(() => auth.can('finance.view'))
 
 async function load() {
-  if (current.value?.locked) return
+  if (current.value?.locked || !ENDPOINTS[tab.value]) return
   loading.value = true
   error.value = ''
   const wanted = tab.value
   try {
-    const { data: res } = await http.get(ENDPOINTS[wanted], { params: { from: from.value, to: to.value } })
+    const { data: res } = await http.get(ENDPOINTS[wanted], { params: { from: from.value, to: to.value, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== null)) } })
     data[wanted] = res.data
   } catch (e) {
     error.value = apiErrorMessage(e)
@@ -312,7 +395,14 @@ async function revealTab() {
 onMounted(revealTab)
 watch(tab, revealTab)
 
-watch([tab, preset], () => router.replace({ query: { ...route.query, onglet: tab.value, periode: preset.value === 'custom' ? undefined : preset.value } }))
+watch([tab, preset, () => ({ ...filters })], () => router.replace({ query: {
+  ...route.query,
+  onglet: tab.value,
+  periode: preset.value === 'custom' ? undefined : preset.value,
+  marchand: filters.merchant_id ?? undefined,
+  zone: filters.zone_id ?? undefined,
+  livreur: filters.courier_id ?? undefined,
+} }))
 
 function duration(minutes) {
   return minutes === null || minutes === undefined ? '—' : waitDuration(minutes)
@@ -378,4 +468,5 @@ function exportCouriers() {
 }
 
 load()
+loadOptions()
 </script>

@@ -48,7 +48,8 @@ class LiveController extends Controller
         $data = $request->validate([
             'name' => ['nullable', 'string', 'max:120'],
             'items' => ['present', 'array', 'max:60'],
-            'items.*.product_id' => ['required', 'integer', 'distinct'],
+            'items.*.product_id' => ['required', 'integer'],
+            'items.*.variant' => ['nullable', 'string', 'max:40'],
             'items.*.price' => ['nullable', 'integer', 'min:0', 'max:100000000'],
             'items.*.quantity' => ['nullable', 'integer', 'min:1', 'max:100000'],
         ]);
@@ -84,7 +85,7 @@ class LiveController extends Controller
         ], [], ['name' => 'nom', 'price' => 'prix', 'quantity' => 'quantité']);
         $product = $this->studio->createProduct($merchant, $request->user(), $data, $request->file('photo'));
 
-        $rows = $live->items()->get()->map(fn ($i) => ['product_id' => $i->product_id, 'price' => $i->price, 'quantity' => $i->quantity])
+        $rows = $live->items()->get()->map(fn ($i) => ['product_id' => $i->product_id, 'variant' => $i->variant, 'price' => $i->price, 'quantity' => $i->quantity])
             ->filter(fn ($r) => $r['product_id'] !== null)->values()->all();
         $rows[] = ['product_id' => $product->id, 'price' => $data['price'], 'quantity' => $data['quantity']];
         $live = $this->studio->setItems($live, $rows);
@@ -112,7 +113,7 @@ class LiveController extends Controller
     {
         $merchant = $this->own($request, $live);
         $data = $request->validate([
-            'code' => ['required', 'string', 'max:4'],
+            'code' => ['required', 'string', 'max:12'],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:100'],
             'recipient_name' => ['required', 'string', 'max:120'],
             'recipient_phone' => ['required', 'string', 'max:32'],
@@ -167,7 +168,7 @@ class LiveController extends Controller
         return [
             'live' => $this->studio->present($live),
             'items' => $live->items->map(fn ($i) => [
-                'id' => $i->id, 'product_id' => $i->product_id, 'code' => $i->code, 'name' => $i->name, 'price' => $i->price,
+                'id' => $i->id, 'product_id' => $i->product_id, 'code' => $i->code, 'name' => $i->name, 'variant' => $i->variant, 'price' => $i->price,
                 'quantity' => $i->quantity, 'photo_url' => $i->product?->photoUrl(),
             ])->values(),
             'catalog' => $catalog,

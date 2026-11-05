@@ -28,7 +28,7 @@
         <span v-else>—</span>
       </template>
     </SortableTable>
-    <p class="text-xs text-slate-500">Les quartiers comptent dans leur commune. Réussite : livrées / (livrées + échecs). Délai : médiane entre le ramassage et la livraison. Frais moyen : à comparer avec votre grille de tarifs pour repérer les zones sous-payées.</p>
+    <p class="text-xs text-slate-500">Les quartiers comptent dans leur commune. Réussite : livrées / (livrées + échecs). Délai : médiane entre le ramassage et la livraison. Frais moyen : à comparer avec votre grille de tarifs. Rentabilité : frais moins la paie des livreurs et les frais pris en charge ; une commune en rouge fait perdre de l'argent : revoir son prix.</p>
   </div>
 </template>
 
@@ -72,6 +72,8 @@ const columns = computed(() => [
     ? [
         { key: 'average_fee', label: 'Frais moyen', align: 'right', format: money },
         { key: 'revenue', label: 'Chiffre d\'affaires', align: 'right', format: money },
+        { key: 'margin', label: 'Rentabilité', align: 'right', format: money, class: (r) => (r.margin < 0 ? 'font-semibold text-red-600' : 'text-emerald-700') },
+        { key: 'margin_per_order', label: 'Par course', align: 'right', format: (v) => (v === null ? '—' : money(v)), class: (r) => (r.margin_per_order < 0 ? 'font-semibold text-red-600' : '') },
       ]
     : []),
 ])

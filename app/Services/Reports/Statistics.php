@@ -10,6 +10,9 @@ use App\Models\Company;
 use App\Models\Courier;
 use App\Models\CourierEarning;
 use App\Models\CourierRemittance;
+use App\Models\Live;
+use App\Models\LiveCharge;
+use App\Models\LiveOrder;
 use App\Models\Merchant;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
@@ -21,6 +24,7 @@ use App\Services\Finance\MerchantPayouts;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Statistiques de l'entreprise sur une période (dates dans son fuseau horaire) :
@@ -49,12 +53,33 @@ class Statistics
     // Statistiques d'un seul e-commerçant (son application) ; null = toute l'entreprise
     private ?int $merchantId = null;
 
+    // Filtres du back-office : zones de livraison (commune et ses quartiers), livreur
+    private ?array $zoneIds = null;
+
+    private ?int $courierId = null;
+
     public function for(Company $company): self
     {
         $clone = clone $this;
         $clone->company = $company;
         $clone->tz = $company->timezone ?: config('app.timezone');
         $clone->merchantId = null;
+        $clone->zoneIds = null;
+        $clone->courierId = null;
+
+        return $clone;
+    }
+
+    /**
+     * Filtres du back-office : un e-commerçant, une zone (la commune compte avec ses quartiers), un livreur
+     * (ramassage ou livraison).
+     */
+    public function filtered(?int $merchantId, ?int $zoneId, ?int $courierId): self
+    {
+        $clone = clone $this;
+        $clone->merchantId = $merchantId;
+        $clone->zoneIds = $zoneId ? Zone::forCompany($this->company->id)->where(fn ($q) => $q->whereKey($zoneId)->orWhere('parent_id', $zoneId))->pluck('id')->all() : null;
+        $clone->courierId = $courierId;
 
         return $clone;
     }
@@ -197,8 +222,16 @@ class Statistics
         $gaps = $withAmounts ? CourierRemittance::forCompany($this->company->id)->whereBetween('received_at', [$start, $end])->where('difference', '<', 0)
             ->groupBy('courier_id')->selectRaw('courier_id, SUM(difference) AS total')->pluck('total', 'courier_id') : collect();
 
-        $rows = Courier::forCompany($this->company->id)->with('user:id,name,status')->get()
-            ->map(function (Courier $courier) use ($delivered, $pickups, $returned, $failures, $earnings, $gaps, $withAmounts) {
+        // Période précédente : tendance de chaque livreur
+        [$prevFrom, $prevTo] = self::previous($from, $to);
+        $prevDelivered = $this->deliveredBetween($prevFrom, $prevTo, ['id', 'delivery_courier_id'])->countBy('delivery_courier_id');
+        $prevFailed = $this->failureEvents($prevFrom, $prevTo)
+            ->join('order_assignments', 'order_assignments.id', '=', 'order_events.assignment_id')
+            ->get(['order_events.id', 'order_assignments.courier_id'])->countBy('courier_id');
+
+        $rows = Courier::forCompany($this->company->id)->with('user:id,name,status')
+            ->when($this->courierId !== null, fn ($q) => $q->whereKey($this->courierId))->get()
+            ->map(function (Courier $courier) use ($delivered, $pickups, $returned, $failures, $earnings, $gaps, $withAmounts, $prevDelivered, $prevFailed) {
                 $own = $delivered->get($courier->id, collect());
                 $picked = $pickups->get($courier->id, collect());
                 $failed = $failures->get($courier->id, collect())->count();
@@ -216,6 +249,8 @@ class Statistics
                     'failed' => $failed,
                     'returned' => $returned->get($courier->id, collect())->count(),
                     'success_rate' => $this->rate($own->count(), $own->count() + $failed),
+                    'previous_delivered' => (int) ($prevDelivered[$courier->id] ?? 0),
+                    'previous_success_rate' => $this->rate((int) ($prevDelivered[$courier->id] ?? 0), (int) ($prevDelivered[$courier->id] ?? 0) + (int) ($prevFailed[$courier->id] ?? 0)),
                     // Délai habituel entre le ramassage et la livraison (minutes)
                     'delivery_minutes' => $this->median($own->map(fn (Order $o) => $o->picked_up_at && $o->delivered_at && $o->delivered_at->greaterThanOrEqualTo($o->picked_up_at) ? (int) round($o->picked_up_at->diffInMinutes($o->delivered_at)) : null)),
                     'days_worked' => $days,
@@ -230,9 +265,19 @@ class Statistics
             ->sortBy([['delivered', 'desc'], ['name', 'asc']])
             ->values();
 
+        // Charge de travail : livraisons par jour de la semaine (1 = lundi) et par heure
+        $workload = array_fill(1, 7, array_fill(0, 24, 0));
+        foreach ($delivered->flatten(1) as $o) {
+            if ($o->delivered_at) {
+                $local = $o->delivered_at->copy()->setTimezone($this->tz);
+                $workload[$local->dayOfWeekIso][$local->hour]++;
+            }
+        }
+
         return [
             'period' => $this->period($from, $to),
             'couriers' => $rows,
+            'workload' => array_values(array_map('array_values', $workload)),
             'totals' => [
                 'delivered' => $rows->sum('delivered'),
                 'failed' => $rows->sum('failed'),
@@ -286,21 +331,36 @@ class Statistics
         [$start, $end] = $this->utcRange($from, $to);
         $inactiveSince = now()->subDays(self::INACTIVE_DAYS);
 
-        $merchants = Merchant::forCompany($this->company->id)->get(['id', 'business_name', 'contact_name', 'phone', 'status', 'created_at']);
+        $merchants = Merchant::forCompany($this->company->id)->when($this->merchantId !== null, fn ($q) => $q->whereKey($this->merchantId))
+            ->get(['id', 'business_name', 'contact_name', 'phone', 'status', 'created_at']);
 
-        $rows = $merchants->map(function (Merchant $m) use ($created, $delivered, $returned, $lost, $cancelled, $lastOrder, $balances, $withAmounts) {
+        // Période précédente : qui monte, qui baisse ; ce que chacun rapporte à l'agence
+        [$prevFrom, $prevTo] = self::previous($from, $to);
+        $prevCreated = $this->ordersBetween('created_at', $prevFrom, $prevTo, ['id', 'merchant_id'])->countBy('merchant_id');
+        $margins = $withAmounts ? $this->margins($from, $to, $delivered->flatten(1), 'merchant_id') : [];
+
+        $rows = $merchants->map(function (Merchant $m) use ($created, $delivered, $returned, $lost, $cancelled, $lastOrder, $balances, $withAmounts, $prevCreated, $margins) {
             $own = $delivered->get($m->id, collect());
+            $now = (int) ($created[$m->id] ?? 0);
+            $before = (int) ($prevCreated[$m->id] ?? 0);
             $finished = $own->count() + ($returned[$m->id] ?? 0) + ($lost[$m->id] ?? 0);
 
             return [
                 'id' => $m->id,
                 'name' => $m->business_name,
+                'phone' => $m->phone,
                 'created' => $created[$m->id] ?? 0,
                 'delivered' => $own->count(),
                 'returned' => $returned[$m->id] ?? 0,
                 'cancelled' => $cancelled[$m->id] ?? 0,
                 'success_rate' => $this->rate($own->count(), $finished),
+                'previous_created' => $before,
+                'evolution' => $before > 0 ? (int) round(($now - $before) / $before * 100) : null,
+                // up : +20 % ou plus ; down : −20 % ou moins (sur au moins 5 courses) ; new : rien avant
+                'trend' => $this->trend($now, $before),
                 'revenue' => $withAmounts ? (int) $own->sum(fn (Order $o) => $o->delivery_fee + $o->surcharges_total) : null,
+                'margin' => $withAmounts ? ($margins[$m->id]['margin'] ?? 0) : null,
+                'margin_per_order' => $withAmounts ? ($margins[$m->id]['per_order'] ?? null) : null,
                 'collected' => $withAmounts ? (int) $own->sum('collected_amount') : null,
                 // Reste à lui reverser (négatif : il doit de l'argent à l'entreprise)
                 'to_pay' => $withAmounts ? (int) ($balances[$m->id]['unpaid_total'] ?? 0) : null,
@@ -308,7 +368,7 @@ class Statistics
             ];
         });
 
-        $active = $rows->filter(fn (array $r) => $r['created'] + $r['delivered'] > 0)
+        $active = $rows->filter(fn (array $r) => $r['created'] + $r['delivered'] + $r['previous_created'] > 0)
             ->sortBy([['created', 'desc'], ['delivered', 'desc'], ['name', 'asc']])->values();
 
         // À relancer : actifs, qui ont déjà commandé, mais plus depuis INACTIVE_DAYS jours
@@ -337,6 +397,9 @@ class Statistics
                 'total' => $merchants->where('status', MerchantStatus::Active)->count(),
                 // Part des courses des 5 premiers : dépendance à quelques gros clients
                 'top5_share' => $this->rate($active->sortByDesc('created')->take(5)->sum('created'), $active->sum('created')),
+                'growing' => $active->where('trend', 'up')->count(),
+                'declining' => $active->where('trend', 'down')->count(),
+                'losing' => $withAmounts ? $active->filter(fn (array $r) => $r['margin'] < 0)->count() : null,
                 'to_pay' => $withAmounts ? (int) collect($balances)->sum(fn ($b) => max(0, $b['unpaid_total'])) : null,
             ],
         ];
@@ -363,7 +426,9 @@ class Statistics
             ->get(['order_events.id', 'orders.delivery_zone_id'])
             ->countBy(fn ($e) => $commune($e->delivery_zone_id));
 
-        $rows = $zones->whereNull('parent_id')->map(function (Zone $z) use ($created, $delivered, $returned, $lost, $failed, $withAmounts) {
+        $margins = $withAmounts ? $this->margins($from, $to, $delivered->flatten(1), 'delivery_zone_id', $commune) : [];
+
+        $rows = $zones->whereNull('parent_id')->map(function (Zone $z) use ($created, $delivered, $returned, $lost, $failed, $withAmounts, $margins) {
             $own = $delivered->get($z->id, collect());
             $revenue = (int) $own->sum(fn (Order $o) => $o->delivery_fee + $o->surcharges_total);
 
@@ -381,6 +446,8 @@ class Statistics
                 'delivery_minutes' => $this->median($own->map(fn (Order $o) => $o->picked_up_at && $o->delivered_at && $o->delivered_at->greaterThanOrEqualTo($o->picked_up_at) ? (int) round($o->picked_up_at->diffInMinutes($o->delivered_at)) : null)),
                 'revenue' => $withAmounts ? $revenue : null,
                 'average_fee' => $withAmounts && $own->count() ? (int) round($revenue / $own->count()) : null,
+                'margin' => $withAmounts ? ($margins[$z->id]['margin'] ?? 0) : null,
+                'margin_per_order' => $withAmounts ? ($margins[$z->id]['per_order'] ?? null) : null,
             ];
         })
             ->filter(fn (array $r) => $r['created'] + $r['delivered'] + $r['failed'] + $r['returned'] > 0)
@@ -452,6 +519,149 @@ class Statistics
                 'to_merchants_available' => (int) $merchantBalances->sum(fn ($b) => max(0, $b['available'])),
                 'owed_by_merchants' => (int) -$merchantBalances->sum(fn ($b) => min(0, $b['unpaid_total'])),
             ],
+        ];
+    }
+
+    /**
+     * Échecs et annulations : combien, pourquoi, où, chez quels e-commerçants, ce que ça coûte, et les clientes
+     * qui refusent souvent.
+     *
+     * @return array<string, mixed>
+     */
+    public function failures(CarbonInterface $from, CarbonInterface $to, bool $withAmounts): array
+    {
+        $zones = Zone::forCompany($this->company->id)->get(['id', 'name', 'parent_id']);
+        $communeOf = $zones->mapWithKeys(fn (Zone $z) => [$z->id => $z->parent_id ?? $z->id]);
+        $commune = fn (?int $zoneId) => $zoneId === null ? null : ($communeOf[$zoneId] ?? $zoneId);
+        $names = $zones->pluck('name', 'id');
+
+        $events = $this->failureEvents($from, $to)->join('orders', 'orders.id', '=', 'order_events.order_id')
+            ->get(['order_events.id', 'orders.merchant_id', 'orders.delivery_zone_id']);
+        $delivered = $this->deliveredBetween($from, $to, ['id', 'merchant_id', 'delivery_zone_id']);
+        $cancelled = $this->ordersBetween('cancelled_at', $from, $to, ['id', 'merchant_id'])->countBy('merchant_id');
+        $returned = $this->ordersBetween('returned_at', $from, $to, ['id', 'delivery_fee', 'surcharges_total']);
+
+        $table = function (Collection $failed, Collection $done, callable $name, int $min) {
+            return $failed->keys()->merge($done->keys())->unique()
+                ->map(fn ($key) => [
+                    'id' => $key,
+                    'name' => $name($key),
+                    'delivered' => (int) ($done[$key] ?? 0),
+                    'failed' => (int) ($failed[$key] ?? 0),
+                    'failure_rate' => $this->rate((int) ($failed[$key] ?? 0), (int) ($failed[$key] ?? 0) + (int) ($done[$key] ?? 0)),
+                ])
+                ->filter(fn ($r) => $min <= $r['delivered'] + $r['failed'] && $r['failed'] > 0)
+                ->sortByDesc('failure_rate')->take(10)->values();
+        };
+        $merchantNames = Merchant::forCompany($this->company->id)->pluck('business_name', 'id');
+        $byMerchant = $table($events->countBy('merchant_id'), $delivered->countBy('merchant_id'), fn ($id) => $merchantNames[$id] ?? '—', 5)
+            ->map(fn ($r) => [...$r, 'cancelled' => (int) ($cancelled[$r['id']] ?? 0)]);
+        $byZone = $table($events->countBy(fn ($e) => $commune($e->delivery_zone_id)), $delivered->countBy(fn ($o) => $commune($o->delivery_zone_id)), fn ($id) => $names[$id] ?? 'Sans zone', 5);
+
+        // Clientes qui refusent souvent : colis revenus (toutes dates), parmi les destinataires de la période
+        $phones = $this->orders()->whereBetween('created_at', $this->utcRange($from, $to))->select('recipient_phone');
+        $customers = $this->orders()->whereNotNull('returned_at')->whereIn('recipient_phone', $phones)
+            ->groupBy('recipient_phone')->selectRaw('recipient_phone, MAX(recipient_name) AS name, COUNT(*) AS refusals')
+            ->havingRaw('COUNT(*) >= 3')->orderByDesc('refusals')->limit(10)->get()
+            ->map(fn ($r) => ['phone' => $r->recipient_phone, 'name' => $r->name, 'refusals' => (int) $r->refusals])->values();
+
+        $failed = $events->count();
+        $kpis = fn (int $failedCount, int $deliveredCount, int $cancelledCount, int $returnedCount) => [
+            'failed_attempts' => $failedCount,
+            'failure_rate' => $this->rate($failedCount, $failedCount + $deliveredCount),
+            'cancelled' => $cancelledCount,
+            'returned' => $returnedCount,
+        ];
+        [$prevFrom, $prevTo] = self::previous($from, $to);
+
+        return [
+            'period' => $this->period($from, $to),
+            'kpis' => [
+                ...$kpis($failed, $delivered->count(), $cancelled->sum(), $returned->count()),
+                // Frais de livraison non gagnés : colis revenus chez l'e-commerçant
+                'lost_fees' => $withAmounts ? (int) $returned->sum(fn ($o) => $o->delivery_fee + $o->surcharges_total) : null,
+            ],
+            'previous_kpis' => $kpis(
+                $this->failureEvents($prevFrom, $prevTo)->count(),
+                $this->deliveredBetween($prevFrom, $prevTo, ['id'])->count(),
+                $this->ordersBetween('cancelled_at', $prevFrom, $prevTo, ['id'])->count(),
+                $this->ordersBetween('returned_at', $prevFrom, $prevTo, ['id'])->count(),
+            ),
+            'reasons' => $this->deliveries($from, $to)['failure_reasons'],
+            'by_zone' => $byZone,
+            'by_merchant' => $byMerchant,
+            'customers' => $customers,
+        ];
+    }
+
+    /**
+     * Lives des e-commerçants : nombre, commandes prises, livraisons, part des courses, meilleurs moments.
+     *
+     * @return array<string, mixed>
+     */
+    public function live(CarbonInterface $from, CarbonInterface $to, bool $withAmounts): array
+    {
+        $range = $this->utcRange($from, $to);
+        $lives = Live::forCompany($this->company->id)->whereBetween('started_at', $range)
+            ->when($this->merchantId !== null, fn ($q) => $q->where('merchant_id', $this->merchantId))
+            ->get(['id', 'merchant_id', 'started_at']);
+        $liveOrders = LiveOrder::query()->whereIn('live_id', $lives->pluck('id'))->where('status', LiveOrder::ORDERED)->get(['live_id', 'order_id', 'created_at']);
+        $statuses = $this->orders()->whereIn('id', $liveOrders->pluck('order_id')->filter())->pluck('status', 'id');
+        $liveOrders = $liveOrders->filter(fn ($o) => $o->order_id && $statuses->has($o->order_id));
+        $isDelivered = fn ($o) => $statuses[$o->order_id] === OrderStatus::Delivered;
+
+        $created = $this->ordersBetween('created_at', $from, $to, ['id', 'source']);
+        $byLive = $liveOrders->groupBy('live_id');
+        $names = Merchant::forCompany($this->company->id)->whereIn('id', $lives->pluck('merchant_id'))->pluck('business_name', 'id');
+
+        // Commandes par tranche de 5 minutes depuis le début du live (au-delà d'une heure : dernière tranche)
+        $startOf = $lives->pluck('started_at', 'id');
+        $minutes = array_fill(0, 13, 0);
+        foreach ($liveOrders as $o) {
+            $start = $startOf[$o->live_id] ?? null;
+            if ($start) {
+                $minutes[min(12, intdiv(max(0, (int) $start->diffInMinutes($o->created_at)), 5))]++;
+            }
+        }
+
+        $merchants = $lives->groupBy('merchant_id')->map(function (Collection $own, $merchantId) use ($byLive, $isDelivered, $names) {
+            $orders = $own->flatMap(fn ($l) => $byLive->get($l->id, collect()));
+
+            return [
+                'id' => $merchantId,
+                'name' => $names[$merchantId] ?? '—',
+                'lives' => $own->count(),
+                'orders' => $orders->count(),
+                'delivered_rate' => $this->rate($orders->filter($isDelivered)->count(), $orders->count()),
+            ];
+        })->sortByDesc('orders')->values();
+
+        [$prevFrom, $prevTo] = self::previous($from, $to);
+        $prevRange = $this->utcRange($prevFrom, $prevTo);
+        $prevLives = Live::forCompany($this->company->id)->whereBetween('started_at', $prevRange)
+            ->when($this->merchantId !== null, fn ($q) => $q->where('merchant_id', $this->merchantId))->pluck('id');
+        $prevCreated = $this->ordersBetween('created_at', $prevFrom, $prevTo, ['id', 'source']);
+
+        return [
+            'period' => $this->period($from, $to),
+            'kpis' => [
+                'lives' => $lives->count(),
+                'merchants' => $lives->pluck('merchant_id')->unique()->count(),
+                'orders' => $liveOrders->count(),
+                'delivered_rate' => $this->rate($liveOrders->filter($isDelivered)->count(), $liveOrders->count()),
+                'share' => $this->rate($created->where('source', 'live')->count(), $created->count()),
+                // Ce que l'agence garde sur les frais du live (part laissée par Jibiat)
+                'agency_amount' => $withAmounts ? (int) LiveCharge::forCompany($this->company->id)->whereBetween('created_at', $range)
+                    ->when($this->merchantId !== null, fn ($q) => $q->where('merchant_id', $this->merchantId))
+                    ->sum(DB::raw('amount - platform_amount')) : null,
+            ],
+            'previous_kpis' => [
+                'lives' => $prevLives->count(),
+                'orders' => LiveOrder::query()->whereIn('live_id', $prevLives)->where('status', LiveOrder::ORDERED)->count(),
+                'share' => $this->rate($prevCreated->where('source', 'live')->count(), $prevCreated->count()),
+            ],
+            'merchants' => $merchants,
+            'minutes' => $minutes,
         ];
     }
 
@@ -550,7 +760,9 @@ class Statistics
     private function orders()
     {
         return Order::forCompany($this->company->id)
-            ->when($this->merchantId !== null, fn ($q) => $q->where('merchant_id', $this->merchantId));
+            ->when($this->merchantId !== null, fn ($q) => $q->where('merchant_id', $this->merchantId))
+            ->when($this->zoneIds !== null, fn ($q) => $q->whereIn('delivery_zone_id', $this->zoneIds ?: [0]))
+            ->when($this->courierId !== null, fn ($q) => $q->where(fn ($w) => $w->where('delivery_courier_id', $this->courierId)->orWhere('pickup_courier_id', $this->courierId)));
     }
 
     /**
@@ -564,6 +776,78 @@ class Statistics
             ->where('order_events.from_status', OrderStatus::OutForDelivery->value)
             ->whereIn('order_events.to_status', self::FAILURE_STATUSES)
             ->whereBetween('order_events.created_at', $this->utcRange($from, $to));
+    }
+
+    /**
+     * Ce que rapportent les courses livrées, regroupées (par e-commerçant, par commune) : frais de livraison,
+     * moins la paie des livreurs liée à ces courses, moins les frais pris en charge par l'agence. La paie qui
+     * n'est liée à aucune course (salaire, primes) est répartie selon le nombre de courses livrées.
+     *
+     * @param  Collection<int, Order>  $delivered
+     * @return array<int|string, array{margin: int, per_order: ?int}>
+     */
+    private function margins(CarbonInterface $from, CarbonInterface $to, Collection $delivered, string $column, ?callable $group = null): array
+    {
+        $group ??= fn ($v) => $v;
+        [$start, $end] = $this->utcRange($from, $to);
+        $pay = CourierEarning::forCompany($this->company->id)->whereBetween('created_at', [$start, $end])->get(['order_id', 'amount']);
+        $expenses = OrderExpense::forCompany($this->company->id)->active()->where('billed_to', 'company')->whereBetween('created_at', [$start, $end])->get(['order_id', 'amount']);
+
+        // Groupe de chaque course payée ou avec frais
+        $keyOf = $delivered->mapWithKeys(fn (Order $o) => [$o->id => $group($o->{$column})])->all();
+        $missing = $pay->pluck('order_id')->merge($expenses->pluck('order_id'))->filter()->unique()->reject(fn ($id) => array_key_exists($id, $keyOf));
+        foreach ($missing->chunk(1000) as $ids) {
+            $this->orders()->whereIn('id', $ids->values())->get(['id', $column])->each(function (Order $o) use (&$keyOf, $column, $group) {
+                $keyOf[$o->id] = $group($o->{$column});
+            });
+        }
+
+        $rows = [];
+        $add = function ($key, int $amount) use (&$rows) {
+            if ($key !== null) {
+                $rows[$key] = ($rows[$key] ?? 0) + $amount;
+            }
+        };
+        $counts = $delivered->countBy(fn (Order $o) => $group($o->{$column}));
+        foreach ($delivered as $o) {
+            $add($group($o->{$column}), (int) $o->delivery_fee + (int) $o->surcharges_total);
+        }
+        $shared = 0;
+        foreach ($pay as $e) {
+            if ($e->order_id === null) {
+                $shared += (int) $e->amount;
+            } elseif (array_key_exists($e->order_id, $keyOf)) {
+                $add($keyOf[$e->order_id], -(int) $e->amount);
+            }
+        }
+        foreach ($expenses as $e) {
+            if ($e->order_id !== null && array_key_exists($e->order_id, $keyOf)) {
+                $add($keyOf[$e->order_id], -(int) $e->amount);
+            }
+        }
+        $total = max(1, $delivered->count());
+        foreach ($counts as $key => $n) {
+            $add($key, -(int) round($shared * $n / $total));
+        }
+
+        return collect($rows)->map(fn (int $margin, $key) => [
+            'margin' => $margin,
+            'per_order' => ($counts[$key] ?? 0) ? (int) round($margin / $counts[$key]) : null,
+        ])->all();
+    }
+
+    /** Tendance d'un volume face à la période précédente */
+    private function trend(int $now, int $before): ?string
+    {
+        if ($before === 0) {
+            return $now > 0 ? 'new' : null;
+        }
+        if (max($now, $before) < 5) {
+            return 'flat';
+        }
+        $change = ($now - $before) / $before * 100;
+
+        return $change >= 20 ? 'up' : ($change <= -20 ? 'down' : 'flat');
     }
 
     /**

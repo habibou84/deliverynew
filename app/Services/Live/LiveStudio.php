@@ -151,7 +151,10 @@ class LiveStudio
     /**
      * Produits du live, dans l'ordre : codes A1…A9, puis B1… (une carte par lettre).
      *
-     * @param  list<array{product_id: int, price?: ?int, quantity?: ?int}>  $rows
+     * Un même produit peut revenir plusieurs fois avec une variante différente (taille, couleur) : chaque
+     * variante a son code.
+     *
+     * @param  list<array{product_id: int, variant?: ?string, price?: ?int, quantity?: ?int}>  $rows
      */
     public function setItems(Live $live, array $rows, ?string $name = null): Live
     {
@@ -161,17 +164,33 @@ class LiveStudio
             ->findMany(array_column($rows, 'product_id'))->keyBy('id');
 
         DB::transaction(function () use ($live, $rows, $products, $perCard, $name) {
-            $existing = $live->items()->get()->keyBy('product_id');
+            $key = fn ($productId, $variant) => $productId.'|'.mb_strtolower(trim((string) $variant));
+            $existing = $live->items()->get()->keyBy(fn (LiveItem $i) => $key($i->product_id, $i->variant));
             $keep = [];
+            $seen = [];
             $position = 0;
+            // Produits retirés mais déjà commandés : ils gardent leur code, les autres ne le prennent pas
+            $wanted = collect($rows)->map(fn ($r) => $key($r['product_id'], $r['variant'] ?? null))->flip();
+            $taken = $existing->reject(fn ($i, $k) => $wanted->has($k))->filter(fn (LiveItem $i) => $i->orders()->exists())->pluck('code')->all();
+            $slot = 0;
             foreach ($rows as $row) {
                 $product = $products->get($row['product_id']) ?? throw new BusinessRuleException('Produit introuvable.', 'items');
-                $code = chr(65 + intdiv($position, $perCard)).(($position % $perCard) + 1);
-                $item = $existing->get($product->id) ?? new LiveItem(['live_id' => $live->id, 'product_id' => $product->id, 'sold' => 0]);
+                $variant = trim((string) ($row['variant'] ?? '')) ?: null;
+                $k = $key($product->id, $variant);
+                if (isset($seen[$k])) {
+                    throw new BusinessRuleException("{$product->name} : deux fois la même variante.", 'items');
+                }
+                $seen[$k] = true;
+                do {
+                    $code = chr(65 + intdiv($slot, $perCard)).(($slot % $perCard) + 1);
+                    $slot++;
+                } while (in_array($code, $taken, true));
+                $item = $existing->get($k) ?? new LiveItem(['live_id' => $live->id, 'product_id' => $product->id, 'sold' => 0]);
                 $stock = $product->levels->isNotEmpty() ? (int) $product->levels->sum(fn ($l) => $l->available()) : null;
                 $item->fill([
                     'code' => 'T'.$position, // code provisoire : évite les doublons pendant la renumérotation
                     'name' => $product->name,
+                    'variant' => $variant ? mb_substr($variant, 0, 40) : null,
                     'price' => max(0, (int) ($row['price'] ?? $item->price ?? $product->price ?? 0)),
                     'quantity' => max(1, (int) ($row['quantity'] ?? $item->quantity ?? $stock ?? 1)),
                     'position' => $position,
@@ -435,6 +454,10 @@ class LiveStudio
         $quantity = max(1, (int) ($data['quantity'] ?? 1));
 
         return DB::transaction(function () use ($live, $user, $data, $code, $quantity) {
+            // Live à un seul produit : la cliente écrit « JE PRENDS »
+            if (in_array($code, ['JEPRENDS', 'JEPREND'], true) && $live->items()->count() === 1) {
+                $code = $live->items()->value('code');
+            }
             $item = LiveItem::query()->where('live_id', $live->id)->where('code', $code)->lockForUpdate()->first()
                 ?? throw new BusinessRuleException("Le code {$code} n'existe pas dans ce live.", 'code');
             $phone = PhoneNumber::normalize($data['recipient_phone']) ?? $data['recipient_phone'];
@@ -458,7 +481,7 @@ class LiveStudio
                 'merchant_note' => "Live « {$live->name} »",
                 'items' => [[
                     'product_id' => $tracked ? $product->id : null,
-                    'label' => $item->name,
+                    'label' => $item->label(),
                     'quantity' => $quantity,
                     'unit_price' => $item->price,
                 ]],
@@ -489,7 +512,7 @@ class LiveStudio
     public function board(Live $live): array
     {
         $s = $this->settings();
-        $live->load(['items.product', 'orders' => fn ($q) => $q->latest('id')->with('item:id,code,name,price')]);
+        $live->load(['items.product', 'orders' => fn ($q) => $q->latest('id')->with('item:id,code,name,variant,price')]);
         $orders = $live->orders;
         $ordered = $orders->where('status', LiveOrder::ORDERED);
         $now = now();
@@ -527,11 +550,12 @@ class LiveStudio
         return [
             'live' => $this->present($live),
             'items' => $live->items->map(fn (LiveItem $i) => [
-                'id' => $i->id, 'code' => $i->code, 'name' => $i->name, 'price' => $i->price, 'quantity' => $i->quantity,
+                'id' => $i->id, 'product_id' => $i->product_id, 'code' => $i->code, 'name' => $i->name, 'variant' => $i->variant,
+                'label' => $i->label(), 'price' => $i->price, 'quantity' => $i->quantity,
                 'sold' => $i->sold, 'remaining' => $i->remaining(), 'photo_url' => $i->product?->photoUrl(),
             ])->values(),
             'orders' => $orders->map(fn (LiveOrder $o) => [
-                'id' => $o->id, 'code' => $o->item?->code, 'name' => $o->item?->name, 'customer_name' => $o->customer_name,
+                'id' => $o->id, 'code' => $o->item?->code, 'name' => $o->item?->label(), 'customer_name' => $o->customer_name,
                 'customer_phone' => $o->customer_phone, 'quantity' => $o->quantity, 'status' => $o->status, 'order_id' => $o->order_id,
                 'created_at' => $o->created_at,
                 'refusals' => ($n = (int) ($refusals[$o->customer_phone] ?? 0)) >= (int) $s['risk_refusals'] ? $n : 0,
