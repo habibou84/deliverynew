@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-4">
     <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <KpiTile title="Revenus" kind="money" :value="data.revenue.total" />
-      <KpiTile title="Dépenses" kind="money" :value="data.costs.total" />
-      <KpiTile title="Marge" kind="money" :value="data.margin" :hint="data.margin_rate === null ? '' : `${data.margin_rate.toLocaleString('fr-FR')} % des revenus`" />
-      <KpiTile title="Marge par course livrée" kind="money" :value="data.margin_per_order" :hint="`${data.delivered} courses livrées`" />
+      <KpiTile title="Revenus" kind="money" :value="data.revenue.total" :previous="data.previous?.revenue ?? null" />
+      <KpiTile title="Dépenses" kind="money" :value="data.costs.total" :previous="data.previous?.costs ?? null" :higher-is-better="false" />
+      <KpiTile title="Marge" kind="money" :value="data.margin" :previous="data.previous?.margin ?? null" :hint="data.margin_rate === null ? '' : `${data.margin_rate.toLocaleString('fr-FR')} % des revenus`" />
+      <KpiTile title="Marge par course livrée" kind="money" :value="data.margin_per_order" :previous="data.previous?.margin_per_order ?? null" :hint="`${data.delivered} courses livrées`" />
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
