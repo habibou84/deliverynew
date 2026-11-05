@@ -41,6 +41,29 @@
       </div>
     </section>
 
+    <!-- Pas ramassés à leur date : nouvelle date à choisir -->
+    <section v-if="toReschedule.length" class="rounded-[22px] bg-[#FFF7EB] p-4 ring-1 ring-[#FFD89A]">
+      <div class="flex items-center gap-3">
+        <ColorIcon name="aregler" :size="44" />
+        <div class="min-w-0 text-sm">
+          <p class="text-[15px] font-bold">📅 {{ toRescheduleTotal > 1 ? `${toRescheduleTotal} colis à reporter` : 'Un colis à reporter' }}</p>
+          <p class="text-slate-600">Pas ramassé{{ toRescheduleTotal > 1 ? 's' : '' }} à la date prévue : choisissez une nouvelle date.</p>
+        </div>
+      </div>
+      <div class="mt-3 space-y-2">
+        <RouterLink
+          v-for="o in toReschedule.slice(0, 3)" :key="o.id" :to="`/marchand/courses/${o.id}`"
+          class="tap flex items-center justify-between gap-2 rounded-2xl bg-white px-3 py-2.5 text-sm shadow-soft"
+        >
+          <span class="min-w-0 truncate"><b>{{ o.recipient.name || o.tracking_code }}</b> · {{ o.delivery.zone_name }}</span>
+          <span class="shrink-0 font-bold text-[var(--app-color)]">Choisir ›</span>
+        </RouterLink>
+      </div>
+      <button v-if="toReschedule.length" class="m-btn-primary mt-3 !py-3 !text-[15px]" :disabled="rescheduling" @click="allToday">
+        {{ toRescheduleTotal > 1 ? 'Tout livrer aujourd\'hui' : 'Livrer aujourd\'hui' }}
+      </button>
+    </section>
+
     <!-- L'argent : ce qui va revenir au marchand -->
     <RouterLink v-if="balance" to="/marchand/paiements" class="tap flex items-center gap-3.5 rounded-[22px] bg-white p-4 shadow-soft active:scale-[.99] transition">
       <ColorIcon name="argent" :size="52" />
@@ -173,6 +196,8 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { cachedGet } from '../../composables/useCachedApi'
+import http, { apiErrorMessage } from '../../bootstrap/axios'
+import { useToastStore } from '../../stores/toasts'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import OrderCard from '../../components/mobile/OrderCard.vue'
@@ -275,13 +300,36 @@ async function loadOrders(p = 1) {
   hasMore.value = data.meta ? data.meta.current_page < data.meta.last_page : false
 }
 
+// Colis pas ramassés à leur date
+const toasts = useToastStore()
+const toReschedule = ref([])
+const toRescheduleTotal = ref(0)
+const rescheduling = ref(false)
+async function allToday() {
+  rescheduling.value = true
+  const d = new Date()
+  const today = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+  try {
+    for (const o of toReschedule.value) await http.post(`/orders/${o.id}/reschedule-date`, { date: today })
+    toasts.success('C\'est noté : livraison aujourd\'hui.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    rescheduling.value = false
+    load()
+  }
+}
+
 async function load() {
   try {
-    const [a, later] = await Promise.all([
+    const [a, later, late] = await Promise.all([
       cachedGet('/orders', { params: { queue: 'to_decide', per_page: 5 } }),
       cachedGet('/orders', { params: { per_page: 1, ...filterParams(ORDER_FILTERS[0], periodFromQuery({ periode: 'later' })) } }),
+      cachedGet('/orders', { params: { queue: 'to_reschedule', per_page: 50 } }),
       loadOrders(1),
     ])
+    toReschedule.value = late.data.data
+    toRescheduleTotal.value = late.data.meta?.total ?? late.data.data.length
     alerts.value = a.data.data
     alertsTotal.value = a.data.meta?.total ?? a.data.data.length
     laterCount.value = later.data.meta?.total ?? later.data.data.length

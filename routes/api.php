@@ -699,6 +699,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/rating', [OrderActionController::class, 'rate'])->name('orders.rating');
         Route::post('orders/{order}/verify-delivery-code', [OrderActionController::class, 'verifyDeliveryCode'])->name('orders.verify-delivery-code');
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
+        // Colis pas ramassé à sa date : nouvelle date choisie dans l'application e-commerçant
+        Route::post('orders/{order}/reschedule-date', [RescheduleController::class, 'choose'])->middleware('throttle:30,1')->name('orders.reschedule-date');
         Route::post('orders/{order}/edit-preview', [OrderController::class, 'editPreview'])->middleware('throttle:120,1')->name('orders.edit-preview');
         Route::post('orders/{order}/change-request', [OrderActionController::class, 'decideChange'])->name('orders.change-request');
         Route::post('orders/{order}/attachments', [OrderActionController::class, 'storeAttachment'])->name('orders.attachments.store');
