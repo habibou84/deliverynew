@@ -22,6 +22,8 @@
   const BRANDS = {
     jibiat: { name: 'Jibiat', url: 'jibiat.com', color: '#f96f02', deep: '#b93f00', logo: 'assets/logo-jibiat.png', halo: ['#f96f02', '#1d4ed8'] },
     marchand: { name: 'Jibiat Marchand', url: 'jibiat-marchand.com', color: '#039a45', deep: '#01653a', logo: 'assets/logo-marchand.png', tile: '#ffffff', halo: ['#0fbb4f', '#0e7490'] },
+    // Vidéos montrées dans l'application e-commerçant : l'agence de livraison en avant, Jibiat discret
+    agence: { name: 'Votre agence de livraison', url: 'Propulsé par Jibiat', color: '#f43f5e', deep: '#be123c', letter: '🛵', tile: '#ffffff', halo: ['#e11d48', '#7c3aed'] },
   }
   // Application montrée sur le téléphone : étiquette au-dessus de l'écran
   const APPS = {
@@ -33,6 +35,8 @@
     suivi: { label: 'Jibiat', note: 'le suivi du destinataire', brand: 'jibiat' },
     annuaire: { label: 'jibiat.com', note: "l'annuaire", brand: 'jibiat' },
     boutique: { label: 'Votre boutique en ligne', note: 'vue par votre client', brand: 'marchand' },
+    live: { label: 'Votre live', note: 'sur votre téléphone', brand: 'agence' },
+    whatsapp: { label: 'WhatsApp', note: 'votre cliente', brand: 'agence' },
   }
 
   function el(tag, cls, parent, html) {
@@ -91,6 +95,8 @@
 
     start(scene, fmt, play) {
       document.documentElement.classList.add(`fmt-${fmt}`, `brand-${scene.brand}`)
+      // Vidéo regardée dans l'application (pas sur TikTok) : sous-titres en bas, pour ne rien cacher du téléphone
+      if (scene.captionsLow) document.documentElement.classList.add('captions-low')
       const [W, H] = FORMATS[fmt]
       const stage = document.getElementById('stage')
       const brand = BRANDS[scene.brand]
@@ -116,6 +122,7 @@
         if (shot.type === 'hook') {
           const box = el('div', 'hook', s.root)
           const inner = el('div', null, box)
+          if (shot.size) inner.style.fontSize = `${shot.size}em`
           s.words = words(inner, shot.text, scene.brand)
         } else if (shot.type === 'phone') {
           s.scrim = el('div', 'scrim', s.root)

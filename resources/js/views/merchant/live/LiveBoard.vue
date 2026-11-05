@@ -37,7 +37,7 @@
         <p class="guide-title">Étape 3 sur 3 · Pendant le live</p>
         <template v-if="b.whatsapp?.connected">
           <p>💬 Les commandes WhatsApp arrivent toutes seules.</p>
-          <p>Vous présentez, Jibiat répond aux clientes.</p>
+          <p>Vous présentez, les réponses partent toutes seules.</p>
         </template>
         <template v-else>
           <p>Gardez cet écran sur un 2e téléphone.</p>

@@ -116,6 +116,8 @@ class LiveStudio
         return [
             'enabled' => (bool) $s['enabled'],
             'offered_by_company' => (bool) $company?->live_offered,
+            // Nom de l'agence de livraison, mis en avant dans « Comment ça marche » (Jibiat reste discret)
+            'agency' => $company?->name,
             'trial_left' => $this->trialLeft($merchant),
             'monthly_until' => $this->monthlyActive($merchant) ? $merchant->live_plan_until : null,
             'monthly_cards_left' => $this->monthlyActive($merchant) ? max(0, $s['cards_per_month'] - $this->monthlyCardsUsed($merchant)) : 0,

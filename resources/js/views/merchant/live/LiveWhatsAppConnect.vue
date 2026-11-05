@@ -6,14 +6,14 @@
         <span class="grid h-9 w-9 place-items-center rounded-full bg-[#25d366] text-white" aria-hidden="true">✓</span>
         Commandes WhatsApp automatiques
       </p>
-      <p class="text-[15px] text-slate-700">Votre WhatsApp <b>{{ dottedPhone(state.phone) }}</b> est relié. Pendant le live, les clientes envoient le code : Jibiat leur répond et votre agence reçoit la commande. <b>Vous n'avez rien à faire.</b></p>
+      <p class="text-[15px] text-slate-700">Votre WhatsApp <b>{{ dottedPhone(state.phone) }}</b> est relié. Pendant le live, les clientes envoient le code : la réponse part toute seule et votre agence reçoit la commande. <b>Vous n'avez rien à faire.</b></p>
       <button v-if="!compact" type="button" class="text-[14px] font-semibold text-slate-500 underline" @click="logout">Délier ce WhatsApp</button>
     </template>
 
     <!-- À relier -->
     <template v-else>
       <p class="text-[17px] font-extrabold">💬 Les commandes arrivent toutes seules</p>
-      <p class="text-[15px] text-slate-700">Reliez votre WhatsApp une fois : les clientes envoient le code, Jibiat répond à votre place et la course part à votre agence.</p>
+      <p class="text-[15px] text-slate-700">Reliez votre WhatsApp une fois : les clientes envoient le code, la réponse part toute seule et votre agence reçoit la commande.</p>
 
       <button v-if="!open" type="button" class="m-btn-primary w-full !bg-none !bg-[#25d366]" @click="open = true">Relier mon WhatsApp</button>
 
@@ -46,7 +46,7 @@
         </details>
 
         <p v-if="code || qr" class="flex items-center justify-center gap-2 text-[14px] text-slate-500"><i class="block h-2 w-2 animate-pulse rounded-full bg-[#25d366]" /> En attente de WhatsApp…</p>
-        <p class="text-[13px] text-slate-500">Vous gardez votre WhatsApp comme d'habitude. Jibiat ne répond qu'aux codes du live, pendant le live.</p>
+        <p class="text-[13px] text-slate-500">Vous gardez votre WhatsApp comme d'habitude. Seuls les codes du live reçoivent une réponse automatique, pendant le live.</p>
       </div>
     </template>
   </section>

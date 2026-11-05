@@ -165,6 +165,7 @@ html, body {
 }
 .fmt-v .caption { left: 70px; right: 70px; bottom: 360px; }
 .fmt-v .caption span { font-size: 46px; padding: 22px 34px; }
+.captions-low.fmt-v .caption { bottom: 60px; }
 .fmt-f .caption { left: 60px; right: 60px; bottom: 50px; }
 .fmt-f .caption span { font-size: 38px; padding: 18px 28px; }
 .fmt-w .caption { left: 120px; right: 120px; bottom: 70px; }
