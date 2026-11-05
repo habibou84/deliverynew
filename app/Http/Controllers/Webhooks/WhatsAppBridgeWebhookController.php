@@ -5,25 +5,30 @@ namespace App\Http\Controllers\Webhooks;
 use App\Enums\MessageStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessInboundWhatsApp;
+use App\Jobs\ProcessLiveWhatsApp;
 use App\Models\InboundMessage;
 use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
+use App\Services\Live\LiveWhatsApp;
 use App\Services\Messaging\Gateways\QrBridgeGateway;
 use App\Services\Messaging\Messenger;
 use App\Services\Platform\PlatformWhatsApp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Événements du service whatsapp-bridge (connexion par QR code), signés avec WHATSAPP_BRIDGE_TOKEN : état de la
  * session (QR scanné, téléphone déconnecté), messages reçus, messages envoyés, remis, lus ou en échec. La session
- * « platform » est le numéro de Jibiat (messagerie de la console).
+ * « platform » est le numéro de Jibiat (messagerie de la console) ; « merchant-34 », le WhatsApp d'une e-commerçante
+ * relié pour ses lives (commandes automatiques).
  */
 class WhatsAppBridgeWebhookController extends Controller
 {
     public function __construct(
         private readonly Messenger $messenger,
         private readonly PlatformWhatsApp $platform,
+        private readonly LiveWhatsApp $live,
     ) {}
 
     public function __invoke(Request $request): JsonResponse
@@ -35,6 +40,17 @@ class WhatsAppBridgeWebhookController extends Controller
         // Numéro de Jibiat : messagerie de la console
         if ($request->input('session') === PlatformWhatsApp::SESSION) {
             $this->platform->handle($request->all());
+
+            return response()->json(['received' => true]);
+        }
+
+        // WhatsApp d'une e-commerçante relié pour ses lives : commandes automatiques
+        if (($merchantId = LiveWhatsApp::merchantId((string) $request->input('session'))) !== null) {
+            match ((string) $request->input('type')) {
+                'status' => $this->live->onStatus($merchantId, $request->all()),
+                'message' => $this->liveMessage($merchantId, $request),
+                default => null,
+            };
 
             return response()->json(['received' => true]);
         }
@@ -104,6 +120,19 @@ class WhatsAppBridgeWebhookController extends Controller
             'whatsapp_account_id' => $account->id,
             'provider_message_id' => $id,
         ]);
+    }
+
+    /** Message d'une cliente au WhatsApp de l'e-commerçante : traité une seule fois, dans la file */
+    private function liveMessage(int $merchantId, Request $request): void
+    {
+        $id = (string) $request->input('id');
+        if ($id === '' || ! Cache::add('live-wa:'.$id, true, now()->addDay())) {
+            return;
+        }
+        if ((string) $request->input('kind', 'text') !== 'text') {
+            return;
+        }
+        ProcessLiveWhatsApp::dispatch($merchantId, (string) $request->input('from'), $request->input('name'), $request->input('text'));
     }
 
     private function advance(string $id, MessageStatus $status, ?string $error = null): void

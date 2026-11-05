@@ -127,7 +127,8 @@ class LiveStudio
                 'trial_cards' => $s['trial_cards'],
             ],
             'items_per_card' => $s['items_per_card'],
-            'phone' => $merchant->messagingPhone(),
+            // Numéro de la carte : le WhatsApp relié (commandes automatiques), sinon celui de la boutique
+            'phone' => $merchant->live_wa_status === 'connected' && $merchant->live_wa_phone ? $merchant->live_wa_phone : $merchant->messagingPhone(),
         ];
     }
 
@@ -557,6 +558,7 @@ class LiveStudio
             'orders' => $orders->map(fn (LiveOrder $o) => [
                 'id' => $o->id, 'code' => $o->item?->code, 'name' => $o->item?->label(), 'customer_name' => $o->customer_name,
                 'customer_phone' => $o->customer_phone, 'quantity' => $o->quantity, 'status' => $o->status, 'order_id' => $o->order_id,
+                'source' => $o->source,
                 'created_at' => $o->created_at,
                 'refusals' => ($n = (int) ($refusals[$o->customer_phone] ?? 0)) >= (int) $s['risk_refusals'] ? $n : 0,
             ])->values(),
