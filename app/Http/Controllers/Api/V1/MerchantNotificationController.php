@@ -44,8 +44,8 @@ class MerchantNotificationController extends Controller
         $unknownEvents = array_diff(array_keys($data['events'] ?? []), array_column(NotificationEvent::cases(), 'value'));
         $unknownReports = array_diff(array_keys($data['reports'] ?? []), array_column(ReportFrequency::cases(), 'value'));
         abort_if($unknownEvents || $unknownReports, 422, 'Réglage inconnu.');
-        // Messages réglés par l'agence pour tous les e-commerçants
-        abort_if(! empty($data['events']) && Company::find($merchant->company_id)?->merchant_messages_locked, 422, 'Ces messages sont réglés par votre agence.');
+        // Messages automatiques : réglés par l'agence pour tous les e-commerçants
+        abort_if(! empty($data['events']), 422, 'Ces messages sont réglés par votre agence.');
 
         DB::transaction(function () use ($merchant, $data) {
             if (array_key_exists('whatsapp_phone', $data)) {
@@ -93,8 +93,8 @@ class MerchantNotificationController extends Controller
             // Notification sur le téléphone d'abord (gratuit), WhatsApp à défaut
             'push_first' => WebPush::enabled() && (bool) $merchant->company?->merchant_push_first,
             'push_devices' => $merchant->pushSubscriptions()->count(),
-            // Choix verrouillés par l'agence : interrupteurs grisés
-            'locked' => (bool) Company::find($merchant->company_id)?->merchant_messages_locked,
+            // Messages automatiques réglés par l'agence (plus de choix pour l'e-commerçant)
+            'locked' => true,
             'company_name' => Company::find($merchant->company_id)?->name,
             'events' => array_map(fn (NotificationEvent $e) => [
                 'event' => $e->value,

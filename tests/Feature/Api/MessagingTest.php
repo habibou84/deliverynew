@@ -98,13 +98,14 @@ class MessagingTest extends TestCase
         $this->assertSame(['colis_en_route', 'colis_livre', 'avis_livraison'], $this->templatesSent());
     }
 
-    public function test_merchant_preferences_choose_the_messages(): void
+    public function test_the_agency_chooses_the_merchant_messages(): void
     {
+        // L'e-commerçant ne choisit plus : c'est le réglage de l'agence qui compte
         $this->as($this->merchantUser)
-            ->putJson("/api/v1/merchants/{$this->merchant->id}/notifications", [
-                'events' => ['order.picked_up' => true, 'order.delivered' => false],
-            ])
-            ->assertOk()
+            ->putJson("/api/v1/merchants/{$this->merchant->id}/notifications", ['events' => ['order.delivered' => true]])
+            ->assertStatus(422);
+        $this->company->update(['merchant_whatsapp_events' => ['order.picked_up' => true, 'order.delivered' => false]]);
+        $this->as($this->merchantUser)->getJson("/api/v1/merchants/{$this->merchant->id}/notifications")
             ->assertJsonPath('data.events.2.event', 'order.picked_up')
             ->assertJsonPath('data.events.2.enabled', true)
             ->assertJsonPath('data.events.3.enabled', false);

@@ -186,8 +186,10 @@ class MerchantPushTest extends TestCase
             ->assertJsonPath('data.events.3.event', 'order.delivered')
             ->assertJsonPath('data.events.3.enabled', true);
 
+        // Événement coupé par l'agence (l'e-commerçant ne choisit plus)
         $this->subscribeMerchantPhone();
-        $this->as($this->merchantUser)->putJson($url, ['events' => ['order.delivered' => false]])
+        $this->company->update(['merchant_whatsapp_events' => ['order.delivered' => false]]);
+        $this->as($this->merchantUser)->getJson($url)
             ->assertOk()
             ->assertJsonPath('data.push_devices', 1)
             ->assertJsonPath('data.events.3.enabled', false);
