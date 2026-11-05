@@ -3,7 +3,10 @@
     <p v-if="error" class="rounded-2xl bg-red-50 px-4 py-3 text-[15px] text-red-700" role="alert">{{ error }}</p>
     <p v-if="!d && !error" class="m-card p-6 text-center text-slate-500">Chargement…</p>
 
-    <template v-if="d">
+    <!-- Comment ça marche : en entier aux premières visites -->
+    <LiveIntro v-if="d && introOpen" :offer="d.offer" />
+
+    <template v-if="d && !introOpen">
       <!-- Étapes -->
       <div class="flex gap-1.5 text-[13px] font-bold">
         <span v-for="(s, i) in STEPS" :key="s.key" :class="['flex-1 rounded-full py-1.5 text-center', step === s.key || (step === 'nouveau' && s.key === 'produits') ? 'bg-[var(--app-color)] text-white' : i < stepIndex ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-500']">{{ i + 1 }} {{ s.label }}</span>
@@ -17,6 +20,8 @@
           <p>2. Produit absent ? Prenez-le en photo.</p>
           <p>3. Appuyez sur « Continuer ».</p>
         </div>
+
+        <LiveIntro v-if="d.intro && !d.intro.full" :offer="d.offer" folded />
 
         <p v-if="d.offer.offered_by_company" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre agence vous offre vos lives.</p>
         <p v-else-if="d.offer.trial_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre premier live est offert, avec {{ d.offer.prices.trial_cards }} fiches IA.</p>
@@ -161,7 +166,10 @@
     </template>
 
     <!-- Bouton du bas -->
-    <div v-if="d && step !== 'nouveau'" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+    <div v-if="d && introOpen" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+      <button type="button" class="m-btn-primary w-full" @click="closeIntro">Préparer mon live</button>
+    </div>
+    <div v-if="d && !introOpen && step !== 'nouveau'" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
       <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>
       <div v-else class="flex gap-2">
         <button type="button" class="h-[52px] w-[52px] shrink-0 rounded-2xl bg-slate-100 text-2xl font-bold text-slate-700" aria-label="Revenir aux produits" @click="step = 'produits'">‹</button>
@@ -178,6 +186,7 @@ import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 import { money } from '../../../utils/format'
 import { drawCard, saveCard } from './liveCard'
+import LiveIntro from './LiveIntro.vue'
 import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
 
 /** Préparer mon live : produits (catalogue ou photo + IA), carte à télécharger, démarrage */
@@ -210,15 +219,34 @@ const priceLine = computed(() => {
 })
 
 function fill(data) {
+  // Compteur de « Comment ça marche » : seulement dans la réponse de « prepare »
+  data.intro ??= d.value?.intro
   d.value = data
   liveName.value = data.live.name
   selected.value = data.items.map((i) => row({ product_id: i.product_id, name: i.name, variant: i.variant || '', price: i.price, quantity: i.quantity, code: i.code, photo_url: i.photo_url }))
   if (data.live.status === 'live') router.replace(`/marchand/live/${data.live.id}`)
 }
 
+// « Comment ça marche » en entier aux premières visites (compté sur le serveur, par compte)
+const introOpen = ref(false)
+let introChecked = false
+async function closeIntro() {
+  introOpen.value = false
+  window.scrollTo({ top: 0 })
+  try {
+    d.value.intro = (await http.post('/live/intro-seen')).data.data
+  } catch {
+    // compteur non enregistré : la page reviendra à la prochaine visite
+  }
+}
+
 async function load() {
   try {
     fill((await http.post('/live/prepare')).data.data)
+    if (!introChecked) {
+      introChecked = true
+      introOpen.value = !!d.value.intro?.full
+    }
   } catch (e) {
     error.value = apiErrorMessage(e)
   }

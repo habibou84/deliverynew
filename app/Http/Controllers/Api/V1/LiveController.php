@@ -22,6 +22,9 @@ use Illuminate\Validation\Rule;
  */
 class LiveController extends Controller
 {
+    // « Comment ça marche » montré en entier aux premières visites, replié ensuite
+    public const INTRO_VISITS = 2;
+
     public function __construct(private readonly LiveStudio $studio, private readonly LiveWhatsApp $whatsapp) {}
 
     /** WhatsApp relié pour les commandes automatiques du live : état (et QR code / code pendant la liaison) */
@@ -68,13 +71,26 @@ class LiveController extends Controller
         ]]);
     }
 
+    /** « Comment ça marche » vu en entier : une visite de plus (replié après INTRO_VISITS visites) */
+    public function introSeen(Request $request): JsonResponse
+    {
+        $this->merchant($request);
+        $user = $request->user();
+        $user->forceFill(['live_intro_views' => min(255, (int) $user->live_intro_views + 1)])->save();
+
+        return response()->json(['data' => ['views' => $user->live_intro_views, 'full' => $user->live_intro_views < self::INTRO_VISITS]]);
+    }
+
     /** Préparer mon live : live en préparation (créé au besoin) et catalogue */
     public function prepare(Request $request): JsonResponse
     {
         $merchant = $this->merchant($request);
         $live = $this->studio->draft($merchant, $request->user());
 
-        return response()->json(['data' => $this->draftData($live, $merchant)]);
+        return response()->json(['data' => [
+            ...$this->draftData($live, $merchant),
+            'intro' => ['views' => (int) $request->user()->live_intro_views, 'full' => (int) $request->user()->live_intro_views < self::INTRO_VISITS],
+        ]]);
     }
 
     public function items(Request $request, Live $live): JsonResponse
