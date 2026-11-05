@@ -23,6 +23,7 @@ use App\Services\Orders\Cancellations;
 use App\Services\Orders\DeliveryDay;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\OrderWorkflow;
+use App\Services\Orders\Reschedules;
 use App\Services\Pricing\PricingService;
 use App\Services\Reports\OrderSummary;
 use Illuminate\Database\Eloquent\Builder;
@@ -138,6 +139,19 @@ class PublicApiController extends Controller
         ]);
 
         return PublicOrderResource::make($order->fresh()->load(self::RELATIONS));
+    }
+
+    /**
+     * Contrat 1.10 : nouvelle date pour un colis pas ramassé à sa date (entre aujourd'hui et
+     * Contract::RESCHEDULE_MAX_DAYS jours). L'annulation passe par …/cancel.
+     */
+    public function reschedule(Request $request, string $trackingCode, Reschedules $reschedules): PublicOrderResource
+    {
+        $data = $request->validate(['date' => ['required', 'date_format:Y-m-d']]);
+        $order = $this->find($request, $trackingCode);
+        Gate::authorize('update', $order);
+
+        return PublicOrderResource::make($reschedules->chooseDate($order, $data['date'], $request->user(), 'api')->load(self::RELATIONS));
     }
 
     /**

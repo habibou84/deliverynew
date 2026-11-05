@@ -47,7 +47,9 @@ class CourierSpaceController extends Controller
                 fn ($q) => $q->whereNotIn('status', ['assigned', 'accepted', 'in_progress'])->whereDate('updated_at', today()),
                 // Livraisons : seulement celles prévues aujourd'hui (les retards et les jours à venir restent à l'agence)
                 fn ($q) => $q->active()->where(fn ($q) => $q->where('type', '!=', AssignmentType::Delivery->value)
-                    ->orWhereHas('order', fn ($o) => $o->ofDay($today))),
+                    ->orWhereHas('order', fn ($o) => $o->ofDay($today)))
+                    // Ramassages pas commencés d'une course en retard : cachés tant que la date n'est pas actualisée
+                    ->whereHas('order', fn ($o) => $o->withoutToReschedule($today)),
             )
             // Frais déjà déclarés par ce livreur sur la course
             ->with(['order' => fn ($q) => $q->with([

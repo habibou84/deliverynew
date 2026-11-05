@@ -47,6 +47,7 @@ const routes = [
   { path: '/suivi/:code?', name: 'tracking', component: () => import('../views/Tracking.vue'), meta: { public: true } },
   // Avis du destinataire sur sa livraison (lien envoyé sur WhatsApp)
   { path: '/avis/:token', name: 'rating', component: () => import('../views/Rating.vue'), meta: { public: true } },
+  { path: '/reporter/:token', name: 'reschedule', component: () => import('../views/Reschedule.vue'), meta: { public: true } },
   {
     path: '/etiquette/:id',
     name: 'label',
@@ -77,6 +78,7 @@ const routes = [
       { path: 'courses/nouvelle', component: shared.orderCreate, meta: { permission: 'orders.create' } },
       { path: 'courses/import', component: () => import('../views/admin/OrderImport.vue'), meta: { permission: 'orders.create' } },
       { path: 'courses/non-traitees', component: () => import('../views/admin/UntreatedOrders.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'courses/a-reporter', component: () => import('../views/admin/RescheduleOrders.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'courses/annulations', component: () => import('../views/admin/Cancellations.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'courses/:id(\\d+)', component: shared.orderDetail, meta: { permission: 'orders.view' } },
       { path: 'marchands', component: () => import('../views/admin/Merchants.vue'), meta: { permission: 'merchants.view' } },

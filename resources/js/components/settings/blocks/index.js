@@ -1,6 +1,6 @@
 // Blocs de réglages de l'entreprise : un même bloc s'affiche dans la page Réglages et dans le panneau ⚙️ de la page
 // concernée. Chaque bloc déclare ses champs (chargés et enregistrés ensemble) et son résumé (étiquettes en haut de page).
-import { ACCEPT_MODES, AUTO_MODES, DELIVERY_MODES, EDIT_APPROVAL_MODES, VALIDATION_MODES } from '../../../views/admin/settings/options'
+import { ACCEPT_MODES, AUTO_MODES, DELIVERY_MODES, EDIT_APPROVAL_MODES, RESCHEDULE_NO_ANSWER, VALIDATION_MODES } from '../../../views/admin/settings/options'
 import AcceptanceBlock from './AcceptanceBlock.vue'
 import AutoDeliveryBlock from './AutoDeliveryBlock.vue'
 import AutoPickupBlock from './AutoPickupBlock.vue'
@@ -12,6 +12,7 @@ import EditApprovalBlock from './EditApprovalBlock.vue'
 import FieldReminderBlock from './FieldReminderBlock.vue'
 import HoldAlertBlock from './HoldAlertBlock.vue'
 import MerchantSignupBlock from './MerchantSignupBlock.vue'
+import RescheduleBlock from './RescheduleBlock.vue'
 import UnassignedAlertsBlock from './UnassignedAlertsBlock.vue'
 import ValidationBlock from './ValidationBlock.vue'
 import WeeklyReportBlock from './WeeklyReportBlock.vue'
@@ -38,6 +39,11 @@ export const BLOCKS = {
     component: AcceptanceBlock,
     fields: ['mission_acceptance', 'unreachable_minutes', 'late_pickup_alert_minutes', 'courier_available_alert'],
     summary: (f) => [['Missions', short(ACCEPT_MODES, f.mission_acceptance)]],
+  },
+  reschedule: {
+    component: RescheduleBlock,
+    fields: ['reschedule_evening', 'reschedule_evening_time', 'reschedule_channel', 'reschedule_no_answer'],
+    summary: (f) => [['Colis non ramassés', f.reschedule_evening ? `message à ${(f.reschedule_evening_time || '').slice(0, 5)}` : 'pas de message'], ['Sans réponse', short(RESCHEDULE_NO_ANSWER, f.reschedule_no_answer)]],
   },
   unassignedAlerts: {
     component: UnassignedAlertsBlock,

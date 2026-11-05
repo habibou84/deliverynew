@@ -39,6 +39,22 @@
         </div>
       </section>
 
+      <!-- Pas ramassé à sa date : l'agence attend une nouvelle date (ou l'annulation) -->
+      <section v-if="order.to_reschedule" class="rounded-[22px] bg-[#FFF7EB] p-4 ring-1 ring-[#FFD89A]">
+        <div class="flex items-center gap-3">
+          <ColorIcon name="aregler" :size="44" />
+          <div class="min-w-0">
+            <p class="font-bold">📅 Colis à reporter</p>
+            <p class="text-sm text-slate-600">Pas ramassé {{ dayWord(order.delivery.scheduled_date || order.created_at) }}. Choisissez une nouvelle date.</p>
+          </div>
+        </div>
+        <div class="mt-3 grid grid-cols-3 gap-2">
+          <button class="m-btn-primary !py-3 !text-[14px]" :disabled="busy" @click="doReschedule(todayIso)">Aujourd'hui</button>
+          <button class="m-btn-secondary !py-3 !text-[14px]" @click="openReschedule()">Autre date</button>
+          <button class="m-btn-secondary !py-3 !text-[14px] !text-red-700" @click="sheet = 'cancel'">Annuler</button>
+        </div>
+      </section>
+
       <section v-if="order.needs_decision" class="rounded-[22px] bg-[#FFF7EB] p-4 ring-1 ring-[#FFD89A]">
         <div class="flex items-center gap-3">
           <ColorIcon name="aregler" :size="44" />
@@ -244,6 +260,14 @@
         <button class="m-btn-danger" :disabled="busy || !cancelCode || (cancelCode === 'other' && !noteText.trim())" @click="doCancel">Oui, annuler la course</button>
         <button class="m-btn-secondary" @click="sheet = null">Non, garder</button>
       </div>
+    </BottomSheet>
+
+    <BottomSheet :open="sheet === 'reschedule'" title="Nouvelle date de livraison" @close="sheet = null">
+      <form class="space-y-3" @submit.prevent="doReschedule(newDate)">
+        <input v-model="newDate" type="date" class="m-input" :min="todayIso" :max="maxRescheduleDate" required aria-label="Nouvelle date de livraison">
+        <p class="text-xs text-slate-500">Jusqu'au {{ new Date(`${maxRescheduleDate}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) }}. Le livreur passera ce jour-là.</p>
+        <button class="m-btn-primary" :disabled="busy || !newDate">Valider</button>
+      </form>
     </BottomSheet>
 
     <BottomSheet :open="sheet === 'note'" title="Envoyer un message" @close="sheet = null">
@@ -470,6 +494,17 @@ async function run(action, success) {
   }
 }
 
+// Colis pas ramassé à sa date : nouvelle date (aujourd'hui, ou au plus tard dans 14 jours)
+const localIso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+const todayIso = localIso(new Date())
+const maxRescheduleDate = computed(() => order.value?.reschedule?.max_date || localIso(new Date(Date.now() + 14 * 86400000)))
+const newDate = ref('')
+function openReschedule() {
+  newDate.value = ''
+  sheet.value = 'reschedule'
+}
+const doReschedule = (date) => run(() => http.post(`/orders/${order.value.id}/reschedule-date`, { date }),
+  `Nouvelle date enregistrée : ${new Date(`${date}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}.`)
 const doReturn = () => run(() => http.post(`/orders/${order.value.id}/return-request`, { note: noteText.value || undefined }), 'Retour demandé.')
 const cancelCode = ref(null)
 const doCancel = () => run(() => http.post(`/orders/${order.value.id}/status`, { status: 'cancelled', cancel_reason_code: cancelCode.value, cancel_reason: noteText.value || undefined }), 'Course annulée.')
