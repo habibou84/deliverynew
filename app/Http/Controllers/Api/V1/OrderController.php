@@ -43,7 +43,7 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'failed', 'code_to_verify', 'change_requests', 'untreated'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'to_decide', 'scheduled', 'to_return', 'incidents', 'failed', 'code_to_verify', 'change_requests', 'untreated', 'to_reschedule'])],
             // Courses non traitées : celles qui n'ont pas de livreur
             'without_courier' => ['nullable', 'boolean'],
             // Courses non traitées : livreur de la livraison, à défaut du ramassage
@@ -190,6 +190,7 @@ class OrderController extends Controller
             'to_deliver' => $count('to_deliver'),
             'unassigned' => AwaitingCourier::scope(Order::query())->count(),
             'change_requests' => $count('change_requests'),
+            'to_reschedule' => $count('to_reschedule'),
             // Cas à régler (cartes au-dessus des onglets) : toutes dates, tant qu'ils ne sont pas réglés
             'exceptions' => collect(['late', 'untreated', 'to_return', 'to_decide', 'incidents', 'failed', 'code_to_verify', 'scheduled', 'to_prepare'])
                 ->mapWithKeys(fn (string $queue) => [$queue => $count($queue)])->all(),
@@ -359,7 +360,10 @@ class OrderController extends Controller
             'late' => $query->overdue($day),
             // Ramassages en cours : un livreur est assigné, le colis n'est pas encore récupéré
             // (les ramassages sans livreur sont dans « Sans livreur »)
-            'to_pickup' => $query->whereIn('status', OrderStatus::values([OrderStatus::PickupAssigned, OrderStatus::PickupInProgress]))->whereNull('pickup_hub_id'),
+            'to_pickup' => $query->whereIn('status', OrderStatus::values([OrderStatus::PickupAssigned, OrderStatus::PickupInProgress]))->whereNull('pickup_hub_id')
+                ->withoutToReschedule(today()->toDateString()),
+            // À reporter : date de livraison passée, ramassage pas commencé (cachées chez les livreurs)
+            'to_reschedule' => $query->toReschedule(today()->toDateString()),
             // Commandes d'entrepôt validées, à préparer avant la livraison
             'to_prepare' => $query->where('status', OrderStatus::Confirmed)->whereNotNull('pickup_hub_id'),
             // À livrer aujourd'hui : colis disponibles et reports arrivés à échéance

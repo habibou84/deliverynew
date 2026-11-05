@@ -246,10 +246,11 @@ class AwaitingCourierTest extends TestCase
         $this->artisan('orders:unassigned')->assertSuccessful();
         $this->assertSame(1, $cutoffAlerts());
 
-        // Le lendemain, la course attend toujours : nouvelle alerte
+        // Le lendemain, la date de livraison est passée : la course attend une nouvelle date (« À reporter »), pas un livreur
         $this->travelTo(CarbonImmutable::parse('2026-12-02 14:30', 'UTC'));
         $this->artisan('orders:unassigned')->assertSuccessful();
-        $this->assertSame(2, $cutoffAlerts());
+        $this->assertSame(1, $cutoffAlerts());
+        $this->assertTrue($order->fresh()->needsReschedule('2026-12-02'));
     }
 
     public function test_no_cutoff_alert_when_every_order_has_a_courier_and_setting_validation(): void

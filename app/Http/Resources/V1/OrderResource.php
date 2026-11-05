@@ -10,6 +10,7 @@ use App\Services\Couriers\ParcelRelays;
 use App\Services\Orders\AwaitingCourier;
 use App\Services\Orders\Cancellations;
 use App\Services\Orders\OrderService;
+use App\Services\Orders\Reschedules;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -144,6 +145,9 @@ class OrderResource extends JsonResource
             'cancel_reason' => $this->cancel_reason,
             // Contrat 1.9 : qui a annulé (e-commerçant ou entreprise, personne, rôle) et pourquoi
             'cancellation' => Cancellations::describe($this->resource),
+            // Colis pas ramassé à sa date : à reporter, et demande de nouvelle date en cours
+            'to_reschedule' => $this->resource->needsReschedule(today()->toDateString()),
+            'reschedule' => Reschedules::describe($this->resource),
             'lost_at' => $this->lost_at,
             'lost_reason' => $this->lost_reason,
 

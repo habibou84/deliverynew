@@ -34,7 +34,8 @@ class AwaitingCourier
     public function stage(Order $order): ?string
     {
         return match (true) {
-            $order->status === OrderStatus::Confirmed && $order->pickup_hub_id === null => self::PICKUP,
+            // Date de livraison passée : la course attend une nouvelle date (« À reporter »), pas un livreur
+            $order->status === OrderStatus::Confirmed && $order->pickup_hub_id === null && ! $order->needsReschedule(today()->toDateString()) => self::PICKUP,
             in_array($order->status, self::DELIVERY_STATUSES, true) && ! $order->return_requested
                 // Livraison déjà confiée (avant le ramassage, ou un report) : la course ne l'attend plus, comme dans la file
                 && ! $this->hasDeliveryCourier($order) => self::DELIVERY,
@@ -62,7 +63,8 @@ class AwaitingCourier
 
         return $query->where(function (Builder $q) use ($stage, $day) {
             if ($stage !== self::DELIVERY) {
-                $q->orWhere(fn (Builder $q) => $q->where('status', OrderStatus::Confirmed->value)->whereNull('pickup_hub_id'));
+                $q->orWhere(fn (Builder $q) => $q->where('status', OrderStatus::Confirmed->value)->whereNull('pickup_hub_id')
+                    ->whereRaw(Order::DELIVERY_DAY_SQL.' >= ?', [today()->toDateString()]));
             }
             if ($stage !== self::PICKUP) {
                 $q->orWhere(fn (Builder $q) => $q->whereIn('status', OrderStatus::values(self::DELIVERY_STATUSES))
