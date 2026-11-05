@@ -106,9 +106,11 @@ const routes = [
       { path: 'planning', redirect: (to) => ({ path: '/admin/activite/planning', query: to.query }) },
       { path: 'retours', component: () => import('../views/admin/MerchantReturns.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs', component: () => import('../views/admin/Couriers.vue'), meta: { permission: 'orders.dispatch' } },
-      { path: 'livreurs/notes', component: () => import('../views/admin/CourierRatings.vue'), meta: { permission: 'orders.dispatch' } },
+      // Ancienne page « Notes des livreurs » : la note est dans la liste et la fiche de chaque livreur
+      { path: 'livreurs/notes', redirect: '/admin/livreurs' },
+      { path: 'livreurs/:id(\\d+)', component: () => import('../views/admin/CourierProfile.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'vehicules', component: () => import('../views/admin/Vehicles.vue'), meta: { permission: 'orders.dispatch' } },
-      { path: 'livreurs/:id(\\d+)/notes', component: () => import('../views/admin/CourierRatingDetail.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'livreurs/:id(\\d+)/notes', redirect: (to) => ({ path: `/admin/livreurs/${to.params.id}`, query: { onglet: 'notes' } }) },
       { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
       { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },
       { path: 'tarifs', component: () => import('../views/admin/Pricing.vue'), meta: { permission: 'settings.manage' } },
