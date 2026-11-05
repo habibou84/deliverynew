@@ -22,7 +22,7 @@
       <span class="text-slate-400" aria-hidden="true">›</span>
     </RouterLink>
 
-    <!-- E-commerçant : sa boutique, ses notifications, puis les outils avancés (usage rare) -->
+    <!-- E-commerçant : sa boutique et ses notifications -->
     <template v-if="auth.user?.merchant_id">
       <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-400 uppercase tracking-wider">Ma boutique</h2>
       <section class="rounded-[22px] bg-white shadow-soft divide-y divide-slate-100">
@@ -39,16 +39,6 @@
 
     <WhatsAppPreferences v-if="auth.user?.merchant_id" />
 
-    <template v-if="toolRows.length">
-      <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-400 uppercase tracking-wider">Outils avancés</h2>
-      <section class="rounded-[22px] bg-white shadow-soft divide-y divide-slate-100">
-        <RouterLink v-for="row in toolRows" :key="row.to" :to="row.to" class="tap flex items-center gap-3 px-3.5 py-3 active:bg-slate-50 first:rounded-t-[22px] last:rounded-b-[22px]">
-          <ColorIcon :name="row.icon" :size="40" />
-          <span class="min-w-0 flex-1 text-[14.5px] font-semibold">{{ row.label }}</span>
-          <AppIcon name="right" class="h-4 w-4 shrink-0 text-slate-400" />
-        </RouterLink>
-      </section>
-    </template>
 
     <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-400 uppercase tracking-wider">Mon compte</h2>
     <PasswordForm class="m-card p-4" />
@@ -115,7 +105,7 @@ const route = useRoute()
 const app = computed(() => (route.path.startsWith('/livreur') ? 'livreur' : 'marchand'))
 const companyPhone = computed(() => auth.user?.company?.phone)
 const initials = computed(() => (auth.user?.name || '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase())
-// Rangées « Ma boutique » et « Outils avancés » de l'e-commerçant, avec leur icône en couleur
+// Rangées « Ma boutique » de l'e-commerçant, avec leur icône en couleur (pas d'API ni de webhooks ici)
 const shopRows = computed(() => {
   const m = auth.user?.merchant
   return [
@@ -124,14 +114,9 @@ const shopRows = computed(() => {
     auth.can('finance.view') && { to: '/marchand/moyens-de-paiement', icon: 'paiement', label: 'Comment être payé', text: 'Wave, Orange Money, MTN, Moov ou banque, avec lien et QR code' },
     auth.hasFeature('stock') && { to: '/marchand/stock', icon: 'stock', label: 'Mon stock', text: 'Vos produits et leurs quantités' },
     { to: '/marchand/statistiques', icon: 'stats', label: 'Mes statistiques', text: 'Taux de livraison, motifs d\'échec' },
+    auth.can('orders.create') && { to: '/marchand/courses/import', icon: 'excel', label: 'Importer des courses', text: 'Depuis un fichier Excel ou CSV' },
   ].filter(Boolean)
 })
-const toolRows = computed(() => (auth.user?.merchant_id
-  ? [
-      auth.can('orders.create') && { to: '/marchand/courses/import', icon: 'excel', label: 'Importer des courses (Excel, CSV)' },
-      auth.can('integrations.manage') && auth.hasFeature('api') && { to: '/marchand/integrations', icon: 'reglages', label: 'Intégrations (API, webhooks)' },
-    ].filter(Boolean)
-  : []))
 // Suppression du compte : e-commerçant (propriétaire ou employé) et livreur
 const canDelete = computed(() => ['merchant_owner', 'merchant_staff', 'courier'].includes(auth.role))
 const deleting = ref(false)

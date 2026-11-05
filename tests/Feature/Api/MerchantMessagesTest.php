@@ -53,32 +53,22 @@ class MerchantMessagesTest extends TestCase
         $this->assertSame('order.received', OutboundMessage::latest('id')->first()->event);
     }
 
-    public function test_the_agency_choice_is_the_default_and_can_be_locked(): void
+    public function test_the_agency_decides_for_every_merchant(): void
     {
-        // Choix de l'e-commerçant (avant le réglage) : WhatsApp pour « course validée par l'agence »
+        // L'e-commerçant ne choisit plus ses messages automatiques
         Sanctum::actingAs($this->merchantUser);
-        $this->putJson("/api/v1/merchants/{$this->merchant->id}/notifications", ['events' => ['order.received' => true]])->assertOk();
-        $this->createOrder();
-        $this->assertSame(1, $this->confirmationsSent());
-
-        Sanctum::actingAs($this->admin);
-        $this->getJson('/api/v1/company/merchant-messages')->assertOk()->assertJsonPath('data.events.0.differs', 1)
-            ->assertJsonPath('data.locked', false);
-
-        // Verrouillé : le choix de l'agence s'impose et l'e-commerçant ne peut plus changer
-        $this->putJson('/api/v1/company/merchant-messages', ['locked' => true])->assertOk()->assertJsonPath('data.locked', true);
-        $this->createOrder();
-        $this->assertSame(1, $this->confirmationsSent());
-        Sanctum::actingAs($this->merchantUser);
-        $this->getJson("/api/v1/merchants/{$this->merchant->id}/notifications")->assertJsonPath('data.locked', true)
-            ->assertJsonPath('data.events.0.enabled', false);
+        $this->getJson("/api/v1/merchants/{$this->merchant->id}/notifications")->assertOk()->assertJsonPath('data.locked', true);
         $this->putJson("/api/v1/merchants/{$this->merchant->id}/notifications", ['events' => ['order.received' => true]])->assertStatus(422);
+        // Son numéro WhatsApp reste modifiable
+        $this->putJson("/api/v1/merchants/{$this->merchant->id}/notifications", ['whatsapp_phone' => '0707000099'])->assertOk();
 
-        // Déverrouillé, puis « appliquer à tous » : les choix des e-commerçants sont remplacés
+        // Un ancien choix enregistré ne compte plus : seul le réglage de l'agence s'applique
+        $this->merchant->notificationPreferences()->create(['company_id' => $this->company->id, 'event' => 'order.received', 'channels' => ['push', 'whatsapp']]);
+        $this->createOrder();
+        $this->assertSame(0, $this->confirmationsSent());
+
         Sanctum::actingAs($this->admin);
-        $this->putJson('/api/v1/company/merchant-messages', ['locked' => false])->assertOk();
-        $this->postJson('/api/v1/company/merchant-messages/apply-all', ['event' => 'order.received'])->assertOk()
-            ->assertJsonPath('data.removed', 1)->assertJsonPath('data.events.0.differs', 0);
+        $this->putJson('/api/v1/company/merchant-messages', ['events' => ['order.received' => true]])->assertOk();
         $this->createOrder();
         $this->assertSame(1, $this->confirmationsSent());
 
