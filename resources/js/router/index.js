@@ -124,6 +124,7 @@ const routes = [
       { path: 'reglages', component: () => import('../views/admin/settings/SettingsHub.vue'), meta: { permission: ['settings.manage', 'integrations.manage', 'users.view'] } },
       { path: 'reglages/entreprise', component: () => import('../views/admin/settings/SettingsCompany.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/courses', component: () => import('../views/admin/settings/SettingsOrders.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'reglages/messages-e-commercants', component: () => import('../views/admin/settings/SettingsMerchantMessages.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/alertes', component: () => import('../views/admin/settings/SettingsAlerts.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },

@@ -5,6 +5,7 @@ namespace App\Services\Orders;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Enums\Role;
+use App\Models\Company;
 use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\OrderEvent;
@@ -12,6 +13,7 @@ use App\Models\User;
 use App\Notifications\OrderAlert;
 use App\Services\Couriers\MissionRing;
 use App\Support\Money;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 
@@ -150,6 +152,19 @@ class OrderNotifier
         return null;
     }
 
+    /** « Livraison aujourd'hui pour Awa K. (Yopougon). » ou « Livraison le vendredi 6 novembre (…) pour … » */
+    private function receivedLine(Order $order, ?string $postponed): string
+    {
+        $order->loadMissing('deliveryZone');
+        $who = trim(($order->recipient_name ?: $order->recipient_phone).($order->deliveryZone ? " ({$order->deliveryZone->name})" : ''));
+        $today = CarbonImmutable::now(Company::find($order->company_id)?->timezone ?: config('app.timezone'))->toDateString();
+        $day = $order->delivery_scheduled_date;
+        $when = $day === null || $day->toDateString() <= $today ? 'aujourd\'hui'
+            : 'le '.$day->locale('fr')->isoFormat('dddd D MMMM').($postponed ? " ({$postponed})" : '');
+
+        return "Livraison {$when} pour {$who}. Le livreur passe bientôt chercher le colis.";
+    }
+
     /** « par Koné (Dispatch) » : l'e-commerçant sait qui a annulé sa course */
     private function byWhom(Order $order): string
     {
@@ -184,7 +199,10 @@ class OrderNotifier
                     : ['rescheduled', "Livraison reportée {$code}", "Reportée au {$date}.{$why}{$note}"],
             ],
             OrderStatus::Confirmed => $event->from_status === OrderStatus::Pending
-                ? [['confirmed', "Course {$code} validée", 'Votre course a été validée.'], null]
+                ? [! empty($event->meta['auto'])
+                    // Validée automatiquement à l'enregistrement
+                    ? ['confirmed', "✅ Course {$code} reçue et validée", $this->receivedLine($order, $event->meta['postponed'] ?? null)]
+                    : ['confirmed', "Course {$code} validée", 'Votre course a été validée. Le livreur passe bientôt.'], null]
                 : [null, ['pickup_failed', "Échec du ramassage {$code}", trim("{$reason}{$note}")]],
             OrderStatus::Returned => [['returned', "Colis {$code} retourné", 'Le colis vous a été retourné.'], null],
             OrderStatus::Rejected => [['rejected', "Course {$code} refusée", 'La course a été refusée par l\'entreprise de livraison'.$this->byWhom($order).'.'.$note], null],

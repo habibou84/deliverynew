@@ -114,6 +114,11 @@ const ALL = computed(() => {
       keywords: 'whatsapp sms messages modèles envois test notifications push téléphone',
     },
     {
+      key: 'merchantMessages', icon: '📣', title: 'Messages aux e-commerçants', to: '/admin/reglages/messages-e-commercants', permission: 'settings.manage',
+      description: 'Pour chaque étape d\'une course : notification dans l\'application, et WhatsApp ou non. Choix laissés ou non aux e-commerçants.',
+      keywords: 'messages e-commerçant marchand whatsapp notification course validée reçue récupéré livré reversement',
+    },
+    {
       key: 'merchants', icon: '🏪', title: 'E-commerçants', to: '/admin/reglages/e-commercants', permission: 'settings.manage',
       also: [{ to: '/admin/marchands', label: 'E-commerçants' }],
       description: 'Inscriptions en ligne des e-commerçants.',
