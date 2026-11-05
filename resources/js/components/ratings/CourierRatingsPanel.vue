@@ -1,17 +1,9 @@
 <template>
   <div class="space-y-4">
-    <RouterLink to="/admin/livreurs/notes" class="text-sm text-blue-600">← Notes des livreurs</RouterLink>
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
+    <p v-if="!d && !error" class="card p-6 text-center text-gray-500">Chargement…</p>
 
     <template v-if="d">
-      <div class="flex items-center gap-3">
-        <span class="h-12 w-12 shrink-0 rounded-full bg-indigo-100 text-indigo-800 grid place-items-center font-bold" aria-hidden="true">{{ initials }}</span>
-        <div class="min-w-0">
-          <h1 class="text-xl font-bold truncate">{{ d.courier.name }}</h1>
-          <p class="text-sm text-gray-500">Notes des {{ d.window_days }} derniers jours</p>
-        </div>
-      </div>
-
       <div class="grid lg:grid-cols-[1fr_380px] gap-4 items-start">
         <div class="space-y-4 min-w-0">
           <!-- Note et sources -->
@@ -34,16 +26,6 @@
             <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Ce qui revient</h2>
             <div class="flex flex-wrap gap-2">
               <span v-for="t in d.tags" :key="t.code" :class="['rounded-full border px-3 py-1 text-sm font-semibold', t.good ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-red-300 bg-red-50 text-red-800']">{{ t.label }} · {{ t.count }}</span>
-            </div>
-          </div>
-
-          <div v-if="d.figures" class="card p-4">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Chiffres automatiques ({{ d.window_days }} jours)</h2>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-              <div><b class="block text-xl">{{ d.figures.delivered }}</b>livrées</div>
-              <div><b class="block text-xl">{{ d.figures.success_rate === null ? '—' : `${d.figures.success_rate} %` }}</b>de réussite</div>
-              <div><b class="block text-xl">{{ d.figures.delivery_minutes === null ? '—' : `${d.figures.delivery_minutes} min` }}</b>du ramassage à la livraison</div>
-              <div><b :class="['block text-xl', d.figures.cash_gap < 0 ? 'text-red-700' : '']">{{ money(d.figures.cash_gap || 0) }}</b>d'écart de caisse</div>
             </div>
           </div>
 
@@ -110,14 +92,16 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
-import Modal from '../../components/Modal.vue'
-import StarRating from '../../components/ratings/StarRating.vue'
-import { scoreText } from '../../components/ratings/ratingWords'
-import { dateTime, money } from '../../utils/format'
+import { dateTime } from '../../utils/format'
+import Modal from '../Modal.vue'
+import StarRating from './StarRating.vue'
+import { scoreText } from './ratingWords'
 
-const route = useRoute()
+/** Onglet Notes de la fiche du livreur : note, sources, derniers avis, évaluation du mois */
+const props = defineProps({ courierId: { type: [Number, String], required: true } })
+const emit = defineEmits(['loaded'])
 const d = ref(null)
 const error = ref('')
 const saving = ref(false)
@@ -128,7 +112,6 @@ const cancelReason = ref('')
 const thisMonth = new Date().toISOString().slice(0, 7)
 const review = reactive({ period: thisMonth, criteria: {}, comment: '', comment_visible: false })
 
-const initials = computed(() => (d.value?.courier.name || '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase())
 const below = computed(() => d.value?.score !== null && d.value?.count >= 5 && d.value?.score < d.value?.threshold)
 const sourceRows = computed(() => [
   { key: 'recipient', label: 'Clients', unit: 'avis' },
@@ -151,7 +134,8 @@ function fillReview() {
 
 async function load() {
   try {
-    d.value = (await http.get(`/couriers/${route.params.id}/ratings`)).data.data
+    d.value = (await http.get(`/couriers/${props.courierId}/ratings`)).data.data
+    emit('loaded', d.value)
     fillReview()
   } catch (e) {
     error.value = apiErrorMessage(e)
@@ -161,7 +145,7 @@ async function load() {
 async function saveReview() {
   saving.value = true
   try {
-    await http.post(`/couriers/${route.params.id}/reviews`, { ...review })
+    await http.post(`/couriers/${props.courierId}/reviews`, { ...review })
     await load()
     reviewSaved.value = true
   } catch (e) {

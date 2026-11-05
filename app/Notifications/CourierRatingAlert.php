@@ -43,7 +43,7 @@ class CourierRatingAlert extends Notification implements ShouldQueue
             'severity' => 'alert',
             'courier_id' => $rating->courier_id,
             'order_id' => $rating->order_id,
-            'href' => "/admin/livreurs/{$rating->courier_id}/notes",
+            'href' => "/admin/livreurs/{$rating->courier_id}?onglet=notes",
         ];
     }
 

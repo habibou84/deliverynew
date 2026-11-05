@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\V1\ConsoleWhatsAppController;
 use App\Http\Controllers\Api\V1\CourierActivityController;
 use App\Http\Controllers\Api\V1\CourierAvailabilityController;
 use App\Http\Controllers\Api\V1\CourierController;
+use App\Http\Controllers\Api\V1\CourierDirectoryController;
 use App\Http\Controllers\Api\V1\CourierMessageController;
 use App\Http\Controllers\Api\V1\CourierRatingController;
 use App\Http\Controllers\Api\V1\CourierRingController;
@@ -661,6 +662,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('couriers/{courier}/pickup-mission', [CourierAvailabilityController::class, 'pickupMission'])->middleware('can:orders.dispatch')->name('couriers.pickup-mission');
         Route::get('couriers/{courier}/track', [CourierController::class, 'track'])->middleware('can:orders.dispatch')->name('couriers.track');
         Route::get('couriers', [CourierController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.index');
+        Route::get('couriers/directory', [CourierDirectoryController::class, 'index'])->middleware('can:orders.dispatch')->name('couriers.directory');
+        Route::get('couriers/{courier}/profile', [CourierDirectoryController::class, 'show'])->middleware('can:orders.dispatch')->name('couriers.profile');
         Route::get('couriers/{courier}', [CourierController::class, 'show'])->middleware('can:orders.dispatch')->name('couriers.show');
         Route::patch('couriers/{courier}', [CourierController::class, 'update'])->middleware('can:users.manage')->name('couriers.update');
 
