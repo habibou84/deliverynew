@@ -468,7 +468,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         Route::get('roles', [RoleController::class, 'index'])->name('roles.index');
         Route::apiResource('companies', CompanyController::class)->except('destroy');
+        Route::get('users/summary', [UserController::class, 'summary'])->name('users.summary');
         Route::apiResource('users', UserController::class);
+        Route::post('users/{user}/logout', [UserController::class, 'logout'])->name('users.logout');
+        Route::get('users/{user}/history', [UserController::class, 'history'])->name('users.history');
         Route::post('users/{user}/invitation', [InvitationController::class, 'store'])->name('users.invitation');
 
         // Référentiels
