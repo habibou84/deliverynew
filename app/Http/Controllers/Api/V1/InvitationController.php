@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\TrustedDevice;
 use App\Models\User;
+use App\Models\UserAccountEvent;
 use App\Services\Accounts\Invitations;
 use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
@@ -25,7 +26,10 @@ class InvitationController extends Controller
         Gate::authorize('changeCredentials', $user);
         abort_if($user->merchant_id !== null, 422, 'Les e-commerçants se connectent par WhatsApp ou s\'inscrivent eux-mêmes.');
 
-        return response()->json(['data' => $this->invitations->create($user, $request->user())], 201);
+        $invitation = $this->invitations->create($user, $request->user());
+        UserAccountEvent::record($user, $request->user(), UserAccountEvent::INVITATION_SENT);
+
+        return response()->json(['data' => $invitation], 201);
     }
 
     public function show(string $token): JsonResponse
