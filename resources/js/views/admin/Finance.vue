@@ -72,7 +72,10 @@
           <div class="rounded-xl bg-slate-50 p-2">
             <DeliveryDatePicker :period="period" :periods="PERIODS" label="Courses livrées" :summary="periodLabel" @choose="choosePeriod" @changed="periodChanged" />
           </div>
-          <p class="text-xs text-gray-500">Cette date s'applique au point ci-dessous et à la liste des livreurs.{{ period.key === 'all' ? ' « Tout » : 31 derniers jours pour le point.' : '' }}</p>
+          <p class="text-sm">
+            <span class="font-semibold text-slate-800">📅 Date choisie : <span class="text-amber-700">{{ period.key === 'all' ? 'toutes les dates' : chosenDate }}</span></span>
+            <span class="block text-xs text-gray-500">S'applique au point ci-dessous et à la liste des livreurs.{{ period.key === 'all' ? ' « Tout » : 31 derniers jours pour le point.' : '' }}</span>
+          </p>
         </div>
         <template v-if="days">
           <div class="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
@@ -135,11 +138,11 @@
 
         <!-- Ordinateur : tableau -->
         <table class="hidden w-full text-sm md:table">
-          <thead class="bg-slate-50 text-left text-xs text-gray-500">
+          <thead class="border-b-2 border-slate-300 bg-slate-100 text-left text-sm font-bold text-slate-800">
             <tr>
               <th class="p-3">Livreur</th>
-              <th v-if="period.key !== 'all'" class="p-3 text-right">Date choisie</th>
-              <th class="p-3 text-right" title="Encaissé + avances − frais payés">Total à remettre</th>
+              <th v-if="period.key !== 'all'" class="p-3 text-right">Date choisie<span class="block text-xs font-semibold text-amber-700 first-letter:uppercase">{{ chosenDate }}</span></th>
+              <th class="p-3 text-right" title="Encaissé + avances − frais payés">Total à remettre<span class="block text-xs font-normal text-slate-500">toutes dates</span></th>
               <th class="hidden p-3 xl:table-cell">Colis</th>
               <th class="hidden p-3 xl:table-cell">Garde l'argent depuis</th>
               <th class="p-3" />
@@ -678,12 +681,19 @@ const PERIODS = [
   { key: 'month', label: 'Ce mois' }, { key: 'all', label: 'Tout' }, { key: 'custom', label: 'Choisir…' },
 ]
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+// Par défaut : argent chez les livreurs sur aujourd'hui ; soldes des e-commerçants sur toutes les dates (paiement complet)
+const DEFAULT_PERIOD = (route.query.tab || 'cash') === 'cash' ? 'today' : 'all'
 const period = reactive(DATE_RE.test(route.query.du || '')
   ? { key: 'custom', from: route.query.du, to: DATE_RE.test(route.query.au || '') ? route.query.au : route.query.du }
-  : { key: PERIOD_PRESETS[route.query.periode] ? route.query.periode : 'all', from: '', to: '' })
+  : { key: PERIOD_PRESETS[route.query.periode] ? route.query.periode : DEFAULT_PERIOD, from: '', to: '' })
 if (period.key !== 'custom') Object.assign(period, { from: PERIOD_PRESETS[period.key].from(), to: PERIOD_PRESETS[period.key].to() })
 const shortDay = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 const dayLabel = (d) => `${new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}${d === shift(0) ? ' (aujourd\'hui)' : ''}`
+// Date choisie en clair, sous l'en-tête « Date choisie » : « aujourd'hui, jeu. 5 nov. », « du 30 oct. au 5 nov. »
+const chosenDate = computed(() => {
+  if (period.from === period.to) return period.from === shift(0) ? `aujourd'hui, ${dayLabel(period.from).replace(' (aujourd\'hui)', '')}` : dayLabel(period.from)
+  return `du ${shortDay(period.from)} au ${shortDay(period.to)}`
+})
 const periodLabel = computed(() => {
   if (period.key === 'all') return 'toutes les dates'
   if (period.from === period.to) return `du ${dayLabel(period.from)}`
@@ -714,7 +724,7 @@ function syncPeriodQuery() {
   const query = { ...route.query }
   delete query.periode; delete query.du; delete query.au
   if (period.key === 'custom') Object.assign(query, { du: period.from, au: period.to })
-  else if (period.key !== 'all') query.periode = period.key
+  else if (period.key !== DEFAULT_PERIOD) query.periode = period.key
   router.replace({ query })
 }
 function choosePeriod(key) {
