@@ -80,7 +80,7 @@ class OrderWorkflow
             $this->authorizeActor($actor, $order, $from, $to, $context);
             $this->validate($order, $from, $to, $reason, $context);
 
-            $assignment = $this->applyEffects($order, $from, $to, $reason, $context);
+            $assignment = $this->applyEffects($actor, $order, $from, $to, $reason, $context);
 
             $order->status = $to;
             $order->save();
@@ -391,7 +391,7 @@ class OrderWorkflow
     /**
      * Met à jour assignations, horodatages et compteurs. Retourne l'assignation concernée.
      */
-    private function applyEffects(Order $order, OrderStatus $from, OrderStatus $to, ?IncidentReason $reason, array $context): ?OrderAssignment
+    private function applyEffects(User $actor, Order $order, OrderStatus $from, OrderStatus $to, ?IncidentReason $reason, array $context): ?OrderAssignment
     {
         // Action faite hors connexion : horodatée à son heure réelle
         $now = $context['occurred_at'] ?? now();
@@ -519,7 +519,15 @@ class OrderWorkflow
                 $order->assignments()->active()->update(['status' => AssignmentStatus::Cancelled, 'completed_at' => $now]);
                 $order->cancelled_at = $now;
                 $order->handTo(null);
-                $order->cancel_reason = $context['cancel_reason'] ?? $context['note'] ?? null;
+                // Motif de la liste (code) et précision écrite ; sans code (ancien appel), la note sert de motif
+                if (array_key_exists('cancel_reason_code', $context)) {
+                    $order->cancel_reason_code = $context['cancel_reason_code'];
+                    $order->cancel_reason = $context['cancel_reason'] ?? null;
+                } else {
+                    $order->cancel_reason = $context['cancel_reason'] ?? $context['note'] ?? null;
+                }
+                $order->cancelled_by_type = $actor->merchant_id !== null ? 'merchant' : 'company';
+                $order->cancelled_by_id = $actor->id;
 
                 return null;
 

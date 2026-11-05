@@ -19,7 +19,7 @@ class WeeklyReportReady extends Notification implements ShouldQueue
      * @param  array<string, mixed>  $kpis
      * @param  array<string, mixed>  $previous
      */
-    public function __construct(public string $period, public array $kpis, public array $previous, public int $toRelaunch) {}
+    public function __construct(public string $period, public array $kpis, public array $previous, public int $toRelaunch, public ?string $cancellations = null) {}
 
     /**
      * @return list<string>
@@ -36,6 +36,7 @@ class WeeklyReportReady extends Notification implements ShouldQueue
     {
         $rate = $this->kpis['success_rate'] === null ? '' : ' · taux de livraison '.str_replace('.', ',', (string) $this->kpis['success_rate']).' %';
         $relaunch = $this->toRelaunch ? " · {$this->toRelaunch} e-commerçant(s) à relancer" : '';
+        $relaunch .= $this->cancellations ? " · {$this->cancellations}" : '';
 
         return [
             'kind' => 'weekly_report',

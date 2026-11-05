@@ -280,6 +280,8 @@ const menu = computed(() => {
         { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
         // Jour de livraison dépassé, course pas terminée : toutes dates
         { to: '/admin/courses/non-traitees', icon: '⏳', label: 'Courses non traitées', permission: 'orders.dispatch', badge: dispatchCounts.counts.exceptions?.untreated || 0 },
+        // Point des annulations, demandes à valider, règles
+        { to: '/admin/courses/annulations', icon: '🚫', label: 'Annulations', permission: 'orders.dispatch' },
         // Carte, disponibles, colis en main, remontées terrain et planning : onglets de cette page
         { to: '/admin/activite', icon: '🛵', label: 'Activité des livreurs', permission: 'orders.dispatch', prefix: true, badge: fieldReports.open.total + heldParcels.counts.overdue },
         { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },

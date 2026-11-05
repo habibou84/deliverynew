@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Services\Couriers\CourierRatings;
 use App\Services\Couriers\ParcelRelays;
 use App\Services\Orders\AwaitingCourier;
+use App\Services\Orders\Cancellations;
 use App\Services\Orders\OrderService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -141,6 +142,8 @@ class OrderResource extends JsonResource
                 'label' => $this->lastIncidentReason->label,
             ] : null),
             'cancel_reason' => $this->cancel_reason,
+            // Contrat 1.9 : qui a annulé (e-commerçant ou entreprise, personne, rôle) et pourquoi
+            'cancellation' => Cancellations::describe($this->resource),
             'lost_at' => $this->lost_at,
             'lost_reason' => $this->lost_reason,
 

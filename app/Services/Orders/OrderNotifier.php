@@ -150,6 +150,14 @@ class OrderNotifier
         return null;
     }
 
+    /** « par Koné (Dispatch) » : l'e-commerçant sait qui a annulé sa course */
+    private function byWhom(Order $order): string
+    {
+        $who = Cancellations::describe($order);
+
+        return $who && $who['name'] ? " par {$who['name']}".($who['role'] ? " ({$who['role']})" : '') : '';
+    }
+
     /**
      * @return array{0: ?array, 1: ?array}
      */
@@ -179,10 +187,10 @@ class OrderNotifier
                 ? [['confirmed', "Course {$code} validée", 'Votre course a été validée.'], null]
                 : [null, ['pickup_failed', "Échec du ramassage {$code}", trim("{$reason}{$note}")]],
             OrderStatus::Returned => [['returned', "Colis {$code} retourné", 'Le colis vous a été retourné.'], null],
-            OrderStatus::Rejected => [['rejected', "Course {$code} refusée", 'La course a été refusée par l\'entreprise de livraison.'.$note], null],
+            OrderStatus::Rejected => [['rejected', "Course {$code} refusée", 'La course a été refusée par l\'entreprise de livraison'.$this->byWhom($order).'.'.$note], null],
             OrderStatus::Cancelled => $actorIsMerchant
                 ? [null, ['cancelled', "Course {$code} annulée", 'Le marchand a annulé la course.'.$note]]
-                : [['cancelled', "Course {$code} annulée", 'La course a été annulée.'.$note], null],
+                : [['cancelled', "Course {$code} annulée", 'La course a été annulée'.$this->byWhom($order).'.'.$note], null],
             default => [null, null],
         };
     }

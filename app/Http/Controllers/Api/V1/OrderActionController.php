@@ -10,11 +10,13 @@ use App\Http\Controllers\Api\PublicV1\PublicApiController;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\V1\TransitionOrderRequest;
 use App\Http\Resources\V1\OrderResource;
+use App\Models\CancellationRequest;
 use App\Models\Courier;
 use App\Models\CourierRating;
 use App\Models\Order;
 use App\Models\OrderAttachment;
 use App\Services\Couriers\CourierRatings;
+use App\Services\Orders\Cancellations;
 use App\Services\Orders\OrderDecisions;
 use App\Services\Orders\OrderDispatcher;
 use App\Services\Orders\OrderJournal;
@@ -41,9 +43,23 @@ class OrderActionController extends Controller
         private readonly OrderLosses $losses,
     ) {}
 
-    public function transition(TransitionOrderRequest $request, Order $order): OrderResource
+    public function transition(TransitionOrderRequest $request, Order $order, Cancellations $cancellations): OrderResource|JsonResponse
     {
         $data = $request->validated();
+        $to = OrderStatus::from($data['status']);
+
+        // Annulation ou refus : motif obligatoire, et validation d'un administrateur au-delà de la limite du jour
+        if (in_array($to, [OrderStatus::Cancelled, OrderStatus::Rejected], true)) {
+            $result = $cancellations->cancel($request->user(), $order, $to, $data);
+            if ($result instanceof CancellationRequest) {
+                return response()->json([
+                    'message' => 'Demande envoyée : un administrateur doit valider cette annulation. La course reste active d\'ici là.',
+                    'data' => ['cancellation_request' => ['id' => $result->id, 'status' => $result->status]],
+                ], 202);
+            }
+
+            return $this->detail($request, $result);
+        }
 
         $order = $this->workflow->transition(
             $request->user(),
