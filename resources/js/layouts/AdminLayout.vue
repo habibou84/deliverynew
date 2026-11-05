@@ -312,7 +312,6 @@ const menu = computed(() => {
       label: 'Équipe',
       items: [
         { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
-        { to: '/admin/livreurs/notes', icon: '⭐', label: 'Notes des livreurs', permission: 'orders.dispatch' },
         { to: '/admin/vehicules', icon: '🏍️', label: 'Véhicules', permission: 'orders.dispatch' },
         { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
       ],

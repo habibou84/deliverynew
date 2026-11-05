@@ -242,11 +242,7 @@
           </div>
           <div class="text-xs text-gray-600">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}<span v-if="isStaff && o.merchant"> · {{ o.merchant.business_name }}</span></div>
           <OrderStatusCell :order="o" :late="isLate(o)" :late-day="deliveryDay(o)" @decide="deciding = $event" />
-          <div v-if="o.pickup_courier || o.delivery_courier || o.held_by" class="flex flex-wrap gap-x-3 text-xs text-gray-700">
-            <span v-if="o.pickup_courier">↑ {{ o.pickup_courier.name }}</span>
-            <span v-if="o.delivery_courier">↓ {{ o.delivery_courier.name }}</span>
-            <span v-if="o.held_by" class="text-amber-700">🎒 {{ o.held_by.name }}</span>
-          </div>
+          <CourierCell v-if="o.pickup_courier || o.delivery_courier || o.held_by || (isDispatch && o.awaiting_courier)" :order="o" :couriers="couriers" :can-dispatch="isDispatch" class="text-gray-700" @updated="replaceOrder" />
           <div class="text-xs text-gray-400">Livraison {{ date(o.delivery.scheduled_date || o.created_at) }} · créée {{ dateTime(o.created_at) }}</div>
           <div v-if="o.pending_change && isDispatch" class="flex gap-2 pt-1" @click.stop>
             <span class="flex-1 text-xs text-amber-800">✏️ {{ changeSummary(o) }}</span>
@@ -289,21 +285,19 @@
               <td v-if="isStaff" class="p-2" @click.stop><input v-model="selected" type="checkbox" :value="o.id" :aria-label="`Sélectionner ${o.tracking_code}`"></td>
               <td class="p-2 font-mono text-xs">{{ o.tracking_code }}<span v-if="o.legacy_id" class="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-violet-800" :title="`Reprise de l'ancienne application, n° ${o.legacy_id}`">anc. {{ o.legacy_id }}</span></td>
               <td v-if="isStaff" class="p-2">{{ o.merchant?.business_name }}</td>
-              <td class="p-2">
+              <td :class="['p-2', canEdit(o) && 'editable-cell']" :title="canEdit(o) ? 'Modifier le client' : null" @click="editField(o, 'recipient', $event)">
                 <div>{{ o.recipient.name || '—' }}</div>
                 <div class="text-xs text-gray-500">{{ o.recipient.phone }}</div>
               </td>
-              <td class="p-2 whitespace-nowrap">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}</td>
+              <td :class="['p-2 whitespace-nowrap', canEdit(o) && 'editable-cell']" :title="canEdit(o) ? 'Modifier la commune de livraison' : null" @click="editField(o, 'zone', $event)">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}</td>
               <td class="p-2">
                 <OrderStatusCell :order="o" :late="isLate(o)" :late-day="deliveryDay(o)" @decide="deciding = $event" />
               </td>
-              <td class="p-2 text-xs">
-                <div v-if="o.pickup_courier">↑ {{ o.pickup_courier.name }}</div>
-                <div v-if="o.delivery_courier">↓ {{ o.delivery_courier.name }}</div>
-                <div v-if="o.held_by" class="text-amber-700" :title="`Colis chez ${o.held_by.name}`">🎒 {{ o.held_by.name }}</div>
+              <td class="p-2" @click.stop>
+                <CourierCell :order="o" :couriers="couriers" :can-dispatch="isDispatch" @updated="replaceOrder" />
               </td>
-              <td class="p-2 text-right whitespace-nowrap">{{ money(o.amounts.cod_amount) }}</td>
-              <td class="p-2 text-xs whitespace-nowrap">
+              <td :class="['p-2 text-right whitespace-nowrap', canEdit(o) && o.edit_scope === 'all' && 'editable-cell']" :title="canEdit(o) && o.edit_scope === 'all' ? 'Modifier le montant' : null" @click="o.edit_scope === 'all' ? editField(o, 'amount', $event) : null">{{ money(o.amounts.cod_amount) }}</td>
+              <td :class="['p-2 text-xs whitespace-nowrap', canEdit(o) && 'editable-cell']" :title="canEdit(o) ? 'Modifier le jour de livraison' : null" @click="editField(o, 'date', $event)">
                 <!-- Jour de livraison : la date prévue, sinon le jour de création -->
                 <div class="font-medium text-gray-800">{{ date(o.delivery.scheduled_date || o.created_at) }}</div>
                 <div class="text-gray-500">créée {{ dateTime(o.created_at) }}</div>
@@ -329,7 +323,7 @@
       <Pagination :meta="meta" @change="load" />
     </template>
 
-    <OrderEditModal :open="!!editing" :order="editing" @close="editing = null" @saved="replaceOrder" />
+    <OrderEditModal :open="!!editing" :order="editing" :focus="editFocus" @close="editing = null; editFocus = null" @saved="replaceOrder" />
     <OrderDecision :open="!!deciding" :order="deciding" :couriers="couriers" @close="deciding = null" @decided="decided" />
   </div>
 </template>
@@ -345,6 +339,7 @@ import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import Pagination from '../../components/Pagination.vue'
 import OrderDecision from '../../components/OrderDecision.vue'
 import OrderEditModal from '../../components/OrderEditModal.vue'
+import CourierCell from '../../components/CourierCell.vue'
 import PickupGroupsPanel from '../../components/PickupGroupsPanel.vue'
 import DeliveryDayBar from '../../components/DeliveryDayBar.vue'
 import DayPoint from '../../components/DayPoint.vue'
@@ -626,6 +621,15 @@ function open(order) {
 // ✏️ Modifier depuis la liste : tant que la course se modifie (pas en route vers le client, pas terminée)
 const editing = ref(null)
 const canEdit = (o) => !!o.edit_scope && (isStaff.value ? auth.can('orders.dispatch') : auth.can('orders.create'))
+// Clic sur une cellule modifiable (client, commune, montant, jour) : fenêtre de modification sur ce champ, sans ouvrir la fiche
+const editFocus = ref(null)
+function editField(o, field, event) {
+  if (!canEdit(o)) return
+  event.stopPropagation()
+  editFocus.value = field
+  editing.value = o
+}
+
 function replaceOrder(updated) {
   const i = orders.value.findIndex((o) => o.id === updated.id)
   if (i !== -1) orders.value[i] = updated
@@ -756,3 +760,8 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.editable-cell { cursor: text; border-radius: 0.375rem; }
+.editable-cell:hover { background: #fef9c3; box-shadow: inset 0 0 0 1px #facc15; }
+</style>
