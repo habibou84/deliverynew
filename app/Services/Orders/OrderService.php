@@ -164,7 +164,8 @@ class OrderService
                     'note' => $postponed
                         ? "Validation automatique · livraison le {$order->delivery_scheduled_date->format('d/m')} ({$postponed})"
                         : 'Validation automatique',
-                    'meta' => $postponed ? ['postponed' => $postponed] : null,
+                    // « auto » : l'e-commerçant reçoit « course reçue et validée »
+                    'meta' => ['auto' => true, ...($postponed ? ['postponed' => $postponed] : [])],
                 ]);
 
                 // Livreur déjà prévu chez ce client : le colis lui est ajouté ; sinon le planning des livreurs

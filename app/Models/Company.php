@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\CompanyStatus;
+use App\Enums\NotificationEvent;
 use App\Enums\PlatformFeature;
 use App\Services\Connect\Directory;
 use App\Support\Tenancy;
@@ -70,6 +71,7 @@ class Company extends Model
         'reschedule_evening_time',
         'reschedule_channel',
         'reschedule_no_answer',
+        'merchant_whatsapp_events', 'merchant_messages_locked',
         // Alerte « livreur libre avec des ramassages près de lui »
         'courier_available_alert',
         // Annuaire des entreprises de livraison (jibiat.com/annuaire, Jibiat Marchand)
@@ -136,6 +138,8 @@ class Company extends Model
             'unreachable_minutes' => 'integer',
             'late_pickup_alert_minutes' => 'integer',
             'reschedule_evening' => 'boolean',
+            'merchant_whatsapp_events' => 'array',
+            'merchant_messages_locked' => 'boolean',
             'reschedule_evening_sent_on' => 'date',
             'courier_available_alert' => 'boolean',
             'directory_listed' => 'boolean',
@@ -271,6 +275,12 @@ class Company extends Model
     /**
      * Lien vers une page de l'entreprise : son adresse sur la plateforme, sinon APP_URL.
      */
+    /** Message WhatsApp (ou notification sur le téléphone) à l'e-commerçant pour cette étape, choix de l'agence */
+    public function merchantWantsByDefault(NotificationEvent $event): bool
+    {
+        return (bool) ($this->merchant_whatsapp_events[$event->value] ?? $event->enabledByDefault());
+    }
+
     public function url(string $path = ''): string
     {
         return Tenancy::baseUrl($this).($path === '' ? '' : '/'.ltrim($path, '/'));
