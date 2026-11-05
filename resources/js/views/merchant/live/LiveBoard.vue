@@ -49,17 +49,21 @@
       <!-- Saisie d'une commande -->
       <form v-if="isLive" class="m-card space-y-3 p-4" @submit.prevent="addOrder">
         <p class="text-[16px] font-extrabold">Nouvelle commande</p>
-        <div class="grid grid-cols-3 gap-2">
-          <label class="col-span-2 block text-[14px] font-semibold text-slate-600">Code
-            <select v-model="form.code" class="m-input mt-1 w-full" required>
-              <option value="" disabled>Choisir</option>
-              <option v-for="i in b.items" :key="i.id" :value="i.code">{{ i.code }} · {{ i.name }}{{ i.remaining ? '' : ' (épuisé)' }}</option>
-            </select>
-          </label>
-          <label class="block text-[14px] font-semibold text-slate-600">Quantité
-            <input v-model.number="form.quantity" type="number" min="1" class="m-input mt-1 w-full" required>
-          </label>
+        <!-- Un seul article : déjà choisi. Sinon, un bouton par code -->
+        <p v-if="b.items.length === 1" class="rounded-xl bg-slate-100 px-3 py-2 text-[15px]"><b>{{ b.items[0].code }}</b> · {{ b.items[0].label || b.items[0].name }} · {{ money(b.items[0].price) }}</p>
+        <div v-else role="radiogroup" aria-label="Code du produit" class="grid grid-cols-3 gap-2">
+          <button
+            v-for="i in b.items" :key="i.id" type="button" role="radio" :aria-checked="form.code === i.code"
+            :class="['min-h-[52px] rounded-xl px-2 py-1.5 text-left leading-tight ring-1', form.code === i.code ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300', i.remaining ? '' : 'opacity-50']"
+            @click="form.code = i.code"
+          >
+            <b class="block text-[17px]">{{ i.code }}</b>
+            <span class="block truncate text-[12px]">{{ i.variant || i.name }}{{ i.remaining ? '' : ' · épuisé' }}</span>
+          </button>
         </div>
+        <label class="block w-28 text-[14px] font-semibold text-slate-600">Quantité
+          <input v-model.number="form.quantity" type="number" min="1" class="m-input mt-1 w-full" required>
+        </label>
         <div class="grid grid-cols-2 gap-2">
           <label class="block text-[14px] font-semibold text-slate-600">Nom
             <input v-model="form.recipient_name" class="m-input mt-1 w-full" required>
@@ -70,20 +74,26 @@
         </div>
         <label class="block text-[14px] font-semibold text-slate-600" for="live-zone">Quartier</label>
         <ZoneSelect id="live-zone" v-model="form.delivery_zone_id" :zones="zones" mobile input-class="m-input" required />
-        <button class="m-btn-primary w-full" :disabled="saving">{{ saving ? 'Enregistrement…' : 'Ajouter la commande' }}</button>
+        <button class="m-btn-primary w-full" :disabled="saving || !form.code">{{ saving ? 'Enregistrement…' : 'Ajouter la commande' }}</button>
         <p class="text-[13px] text-slate-500">La course part à votre agence. Produit épuisé : la cliente passe en liste d'attente.</p>
       </form>
 
       <!-- Produits -->
       <section class="m-card divide-y divide-slate-100">
         <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">MES PRODUITS</p>
+        <p v-if="productGroups.length > 1" class="px-4 py-2 text-[14px] text-slate-600">Vous présentez un produit ? Touchez 🖼️ pour sa carte en grand.</p>
         <div v-for="i in b.items" :key="i.id" :class="['flex items-center gap-3 px-4 py-2.5', i.remaining ? '' : 'opacity-60']">
           <span class="grid h-9 min-w-[44px] place-items-center rounded-lg bg-slate-900 px-1.5 text-[14px] font-extrabold text-white">{{ i.code }}</span>
           <div class="min-w-0 flex-1">
-            <p :class="['truncate text-[15px] font-bold', i.remaining ? '' : 'line-through']">{{ i.name }} <span class="font-normal text-slate-500">· {{ money(i.price) }}</span></p>
+            <p :class="['truncate text-[15px] font-bold', i.remaining ? '' : 'line-through']">{{ i.label || i.name }} <span class="font-normal text-slate-500">· {{ money(i.price) }}</span></p>
             <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><i class="block h-full bg-rose-600" :style="{ width: `${Math.min(100, (i.sold / Math.max(1, i.quantity)) * 100)}%` }" /></div>
           </div>
-          <span :class="['shrink-0 text-[14px] font-bold', !i.remaining ? 'text-red-700' : i.remaining <= 3 ? 'text-orange-700' : 'text-slate-600']">{{ i.remaining ? `${i.remaining} restent` : 'ÉPUISÉ' }}</span>
+          <span :class="['shrink-0 text-[14px] font-bold', !i.remaining ? 'text-red-700' : i.remaining <= 3 ? 'text-orange-700' : 'text-slate-600']">{{ i.remaining ? `${i.remaining} ${i.remaining > 1 ? 'restent' : 'reste'}` : 'ÉPUISÉ' }}</span>
+          <button
+            v-if="productGroups.length > 1 && firstOfProduct(i)" type="button"
+            class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-[18px]"
+            :aria-label="`Carte du produit en cours : ${i.name}`" @click="productCard(i)"
+          >🖼️</button>
         </div>
       </section>
 
@@ -144,9 +154,19 @@ const short = (v) => Number(v || 0).toLocaleString('fr-FR')
 const time = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const firstName = (n) => (n || '').split(/\s+/)[0]
 
+// Produits du live (les tailles d'un même produit ensemble)
+const productGroups = computed(() => {
+  const groups = new Map()
+  for (const i of b.value?.items || []) groups.set(i.product_id ?? i.id, [...(groups.get(i.product_id ?? i.id) || []), i])
+  return [...groups.values()]
+})
+const firstOfProduct = (i) => productGroups.value.some((g) => g[0].id === i.id)
+
 async function load() {
   try {
     b.value = (await http.get(`/live/${route.params.id}`)).data.data
+    // Un seul article : il est déjà choisi
+    if (b.value.items.length === 1) form.code = b.value.items[0].code
   } catch (e) {
     error.value = apiErrorMessage(e)
   }
@@ -175,6 +195,18 @@ async function refreshCard() {
       const canvas = await drawCard({ shop: prep.shop_name, name: b.value.live.name, letter, items: groups[letter], phone: prep.offer.phone })
       await saveCard(canvas, `live-carte-${letter}.png`)
     }
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
+// Carte du produit en cours : ce produit seul, en grand (avec ses tailles)
+async function productCard(item) {
+  try {
+    const prep = (await http.post('/live/prepare')).data.data
+    const items = productGroups.value.find((g) => g[0].id === item.id)
+    const canvas = await drawCard({ shop: prep.shop_name, name: b.value.live.name, letter: item.code[0], items, phone: prep.offer.phone })
+    await saveCard(canvas, `live-${item.code}.png`)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }

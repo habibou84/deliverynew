@@ -104,6 +104,39 @@ class LiveTest extends TestCase
         $this->assertSame(1, $summary['deliveries']['created']);
     }
 
+    public function test_un_seul_produit_avec_variantes_et_je_prends(): void
+    {
+        $live = $this->prepare();
+        $product = $this->addProduct($live, 'Robe wax', 9000, 5)['items'][0]['product_id'];
+
+        // Un seul produit : la cliente écrit « JE PRENDS »
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
+        $board = $this->order($live, 'je prends');
+        $this->assertSame('A1', $board['orders'][0]['code']);
+
+        // Un produit retiré mais déjà commandé garde son code : le suivant prend A2
+        $codes = $this->putJson("/api/v1/live/{$live}/items", ['items' => [['product_id' => $product, 'variant' => 'S']]])->assertOk()->json('data.items.*.code');
+        $this->assertSame(['A1', 'A2'], $codes);
+        $this->postJson("/api/v1/live/{$live}/end")->assertOk();
+
+        // Variantes : chaque taille a son code, la course porte la taille
+        $live = $this->prepare();
+        $this->putJson("/api/v1/live/{$live}/items", ['items' => [
+            ['product_id' => $product, 'variant' => 'M', 'price' => 9000, 'quantity' => 2],
+            ['product_id' => $product, 'variant' => 'L', 'price' => 10000, 'quantity' => 2],
+        ]])->assertOk()->assertJsonPath('data.items.1.code', 'A2')->assertJsonPath('data.items.1.variant', 'L');
+        $this->putJson("/api/v1/live/{$live}/items", ['items' => [
+            ['product_id' => $product, 'variant' => 'M'], ['product_id' => $product, 'variant' => 'm'],
+        ]])->assertStatus(422);
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
+        $board = $this->order($live, 'A2');
+        $this->assertSame('Robe wax · L', $board['orders'][0]['name']);
+        $this->assertSame('Robe wax · L', Order::query()->latest('id')->first()->items()->first()->label);
+        // Plusieurs produits : « JE PRENDS » ne suffit pas
+        $this->postJson("/api/v1/live/{$live}/orders", ['code' => 'JE PRENDS', 'recipient_name' => 'X', 'recipient_phone' => '0707', 'delivery_zone_id' => $this->yopougon->id])
+            ->assertStatus(422);
+    }
+
     public function test_cliente_qui_refuse_souvent(): void
     {
         $live = $this->prepare();
