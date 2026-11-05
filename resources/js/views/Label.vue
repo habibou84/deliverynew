@@ -34,6 +34,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import ShippingLabel from '../components/ShippingLabel.vue'
+import { printPage } from '../native/print'
 import { useAuthStore } from '../stores/auth'
 
 const FORMATS = [
@@ -85,8 +86,12 @@ function back() {
   else window.close()
 }
 
-function print() {
-  window.print()
+async function print() {
+  try {
+    await printPage(orders.value.length > 1 ? 'Étiquettes' : `Étiquette ${orders.value[0]?.tracking_code || ''}`.trim())
+  } catch (e) {
+    error.value = e?.message || 'Impression impossible sur ce téléphone.'
+  }
 }
 
 onMounted(async () => {
@@ -116,6 +121,12 @@ onBeforeUnmount(() => pageStyle.remove())
 .label-roll { width: 10cm; min-height: 15cm; }
 .sheet-a4 { display: grid; grid-template-columns: 10cm 10cm; gap: 0.5cm; width: 20.5cm; }
 .label-a4 { width: 10cm; height: 13.9cm; overflow: hidden; }
+/* Téléphone : l'aperçu tient dans l'écran (l'impression garde 10 × 15 cm) */
+@media screen and (max-width: 640px) {
+  .label-roll { width: 100%; max-width: 10cm; }
+  .sheet-a4 { width: 100%; grid-template-columns: 1fr; }
+  .label-a4 { width: 100%; max-width: 10cm; }
+}
 @media print {
   .no-print { display: none; }
   .label-page { padding: 0; }
