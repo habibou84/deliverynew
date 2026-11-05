@@ -44,6 +44,12 @@ class UserResource extends JsonResource
             // Sans mot de passe (inscription ou invitation par WhatsApp) : connexion par WhatsApp, mot de passe à définir
             'has_password' => $this->password !== null,
             'last_login_at' => $this->last_login_at,
+            // Page Utilisateurs : ce que la personne connectée peut faire sur ce compte (boutons affichés)
+            'abilities' => $this->when($request->routeIs('v1.users.*') && $request->user() !== null, fn () => [
+                'update' => $request->user()->can('update', $this->resource),
+                'credentials' => $request->user()->can('changeCredentials', $this->resource),
+                'access' => $request->user()->can('changeRoleOrStatus', $this->resource),
+            ]),
             'company' => CompanyResource::make($this->whenLoaded('company')),
             'merchant_id' => $this->merchant_id,
             'merchant' => $this->whenLoaded('merchant', fn () => $this->merchant ? [

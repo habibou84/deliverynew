@@ -205,10 +205,15 @@ async function save() {
 }
 
 onMounted(async () => {
+  // Depuis la page Utilisateurs : la boutique demandée est cherchée par son nom puis sa fiche ouverte
+  if (typeof route.query.q === 'string') search.value = route.query.q
   await load()
   if (route.query.onglet === 'paiement' && route.query.id) {
     const m = merchants.value.find((x) => x.id === Number(route.query.id))
     payment.value = { id: Number(route.query.id), business_name: m?.business_name || '' }
+  } else if (route.query.id) {
+    const m = merchants.value.find((x) => x.id === Number(route.query.id))
+    if (m) openForm(m)
   }
   zones.value = (await http.get('/zones')).data.data
   if (auth.can('settings.manage')) grids.value = (await http.get('/pricing-grids')).data.data

@@ -105,7 +105,7 @@ import { ACCEPT_MODES } from './settings/options'
 <script setup>
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -118,6 +118,7 @@ const couriers = ref([])
 const zones = ref([])
 const form = reactive({ open: false, id: null, vehicle: null, data: {}, error: '' })
 const router = useRouter()
+const route = useRoute()
 const plans = ref([])
 const canPay = computed(() => auth.can('settings.manage'))
 const defaultPlan = computed(() => plans.value.find((p) => p.is_default))
@@ -176,7 +177,11 @@ async function save() {
 }
 
 onMounted(async () => {
-  load()
+  // Depuis la page Utilisateurs : ouvre la fiche du livreur demandé
+  load().then(() => {
+    const c = route.query.id && couriers.value.find((x) => x.id === Number(route.query.id))
+    if (c) openForm(c)
+  })
   zones.value = (await http.get('/zones')).data.data
   if (canPay.value) plans.value = (await http.get('/pay-plans')).data.data
 })
