@@ -13,6 +13,19 @@
     </div>
 
     <!-- Modification de l'e-commerçant en attente : l'équipe valide ou refuse -->
+    <!-- Pas ramassé à sa date : caché chez les livreurs jusqu'à la nouvelle date -->
+    <RouterLink
+      v-if="order.to_reschedule && isStaff" to="/admin/courses/a-reporter"
+      class="card flex items-center gap-3 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 hover:bg-amber-100"
+    >
+      <span class="text-xl" aria-hidden="true">⏰</span>
+      <span class="flex-1">
+        <b>À reporter</b> : pas ramassé à la date prévue, caché chez les livreurs.
+        {{ order.reschedule ? `Nouvelle date demandée à l'e-commerçant (jusqu'au ${order.reschedule.max_date.split('-').reverse().slice(0, 2).join('/')}).` : 'Demandez une nouvelle date ou choisissez-la.' }}
+      </span>
+      <span class="font-semibold underline">Ouvrir</span>
+    </RouterLink>
+
     <div v-if="order.pending_change" class="card border-amber-300 bg-amber-50 p-4 space-y-2 text-sm text-amber-900">
       <p class="font-semibold">⏳ Modification demandée par {{ order.pending_change.requested_by || 'l\'e-commerçant' }}, à valider</p>
       <ul class="space-y-0.5">

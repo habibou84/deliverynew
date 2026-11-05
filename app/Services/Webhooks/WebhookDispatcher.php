@@ -80,6 +80,8 @@ class WebhookDispatcher
             $event->type === OrderEventType::ReturnRequested => ['return_requested'],
             // Journée de livraison fermée : livraison décalée au lendemain
             $event->type === OrderEventType::Note && isset($event->meta['postponed']) => ['delivery_scheduled_date'],
+            // Colis pas ramassé à sa date : nouvelle date demandée à l'e-commerçant, ou demande réglée (contrat 1.10)
+            $event->type === OrderEventType::Note && isset($event->meta['reschedule']) => ['reschedule'],
             // Nouvelle date pour une course déjà reportée
             $event->to_status === OrderStatus::Rescheduled && $event->from_status === OrderStatus::Rescheduled => ['delivery_scheduled_date'],
             $event->type === OrderEventType::Incident && $event->to_status === null => ['last_incident'],

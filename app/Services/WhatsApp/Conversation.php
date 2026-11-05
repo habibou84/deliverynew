@@ -60,6 +60,7 @@ class Conversation
         private readonly ZoneMatcher $zoneMatcher,
         private readonly PhoneVerifier $verifier,
         private readonly CourierRatings $ratings,
+        private readonly RescheduleConversation $reschedules,
     ) {}
 
     /**
@@ -106,6 +107,14 @@ class Conversation
         if ($merchant === null) {
             $this->reply("Bonjour 👋 Ce numéro n'est pas enregistré comme e-commerçant chez {$company->name}."
                 .($company->phone ? " Contactez l'agence au ".PhoneNumber::display($company->phone).'.' : ''));
+
+            return $this->done();
+        }
+
+        // Réponse à une demande de nouvelle date (colis pas ramassés), même sans la création de courses par WhatsApp
+        if (in_array($type, ['text', 'button'], true)
+            && ($answer = $this->reschedules->handle($company, $merchant, $this->phone, $text, $buttonId)) !== null) {
+            $this->reply($answer[0], $answer[1]);
 
             return $this->done();
         }
