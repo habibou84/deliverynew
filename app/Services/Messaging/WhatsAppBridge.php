@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Service whatsapp-bridge (dossier whatsapp-bridge, sur le serveur) : connexion WhatsApp par QR code, une session par
- * entreprise (« company-12 ») et une pour le numéro de Jibiat (« platform », messagerie de la console). Démarrer la session et lire son QR code, envoyer un message (mis en file, réponse immédiate), se
+ * entreprise (« company-12 »), une par e-commerçant qui fait des lives (« merchant-34 ») et une pour le numéro de Jibiat (« platform », messagerie de la console). Démarrer la session et lire son QR code, envoyer un message (mis en file, réponse immédiate), se
  * déconnecter. Les événements du service arrivent sur WhatsAppBridgeWebhookController.
  */
 class WhatsAppBridge
@@ -20,13 +20,18 @@ class WhatsAppBridge
     }
 
     /**
-     * @return array{status: string, qr: ?string, phone: ?string, name: ?string}
+     * Démarre la session. Avec un numéro : code d'association à saisir dans WhatsApp (« Associer avec un numéro de
+     * téléphone »), pour qui n'a pas d'autre écran pour scanner le QR code.
+     *
+     * @return array{status: string, qr: ?string, pairing_code: ?string, phone: ?string, name: ?string}
      *
      * @throws MessagingException
      */
-    public function start(string $session): array
+    public function start(string $session, ?string $pairPhone = null): array
     {
-        return $this->describe($this->call(fn () => $this->http(30)->post('/sessions/'.$session.'/start')));
+        $body = $pairPhone ? ['phone' => preg_replace('/\D+/', '', $pairPhone)] : [];
+
+        return $this->describe($this->call(fn () => $this->http(30)->post('/sessions/'.$session.'/start', $body)));
     }
 
     /**
@@ -90,13 +95,14 @@ class WhatsAppBridge
     }
 
     /**
-     * @return array{status: string, qr: ?string, phone: ?string, name: ?string}
+     * @return array{status: string, qr: ?string, pairing_code: ?string, phone: ?string, name: ?string}
      */
     private function describe(Response $response): array
     {
         return [
             'status' => (string) ($response->json('status') ?? 'logged_out'),
             'qr' => $response->json('qr'),
+            'pairing_code' => $response->json('pairing_code'),
             'phone' => $response->json('phone'),
             'name' => $response->json('name'),
         ];

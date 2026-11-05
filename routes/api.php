@@ -750,6 +750,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('prepare', 'prepare')->name('prepare');
             Route::post('subscribe', 'subscribe')->middleware('throttle:10,1')->name('subscribe');
             Route::post('pack', 'pack')->middleware('throttle:10,1')->name('pack');
+            // WhatsApp de l'e-commerçante relié : commandes automatiques pendant le live
+            Route::post('intro-seen', 'introSeen')->name('intro-seen');
+            Route::get('whatsapp', 'whatsapp')->name('whatsapp');
+            Route::post('whatsapp/connect', 'whatsappConnect')->middleware('throttle:10,1')->name('whatsapp.connect');
+            Route::post('whatsapp/logout', 'whatsappLogout')->middleware('throttle:10,1')->name('whatsapp.logout');
             Route::get('{live}', 'board')->name('board');
             Route::put('{live}/items', 'items')->name('items');
             Route::post('{live}/recognize', 'recognize')->middleware('throttle:20,1')->name('recognize');

@@ -3,7 +3,7 @@
 /*
  * Connexion WhatsApp par QR code (comme WhatsApp Web), en attendant la validation de Meta.
  *
- * Une session par entreprise (« company-12 »), gardée dans storage/app/whatsapp-bridge/<session>. Jibiat pilote ce
+ * Une session par entreprise (« company-12 ») et par e-commerçant qui fait des lives (« merchant-34 »), gardée dans storage/app/whatsapp-bridge/<session>. Jibiat pilote ce
  * service sur le serveur lui-même (127.0.0.1, jeton WHATSAPP_BRIDGE_TOKEN) : démarrer une session et lire son QR code,
  * envoyer un message, se déconnecter. Le service prévient Jibiat (webhook signé avec le même jeton) : état de la
  * session, messages reçus, messages envoyés, remis ou lus.
@@ -68,6 +68,9 @@ class Session {
     this.sent = new Map()
     this.stopped = false
     this.retries = 0
+    // Association par code (« Associer avec un numéro de téléphone ») : numéro à relier et code à 8 caractères
+    this.pairPhone = null
+    this.pairingCode = null
   }
 
   async start () {
@@ -99,10 +102,19 @@ class Session {
   async onConnection ({ connection, lastDisconnect, qr }) {
     if (qr) {
       this.qr = await QRCode.toDataURL(qr, { margin: 1, width: 300 })
+      // Téléphone seul (pas d'autre écran pour scanner) : code à saisir dans WhatsApp
+      if (this.pairPhone && !this.pairingCode && !this.sock.authState?.creds?.registered) {
+        try {
+          this.pairingCode = await this.sock.requestPairingCode(this.pairPhone)
+        } catch (e) {
+          log.warn({ err: e, session: this.id }, 'code d\'association impossible')
+        }
+      }
       this.setStatus('qr')
     }
     if (connection === 'open') {
       this.qr = null
+      this.pairingCode = null
       this.retries = 0
       const user = this.sock.user || {}
       this.phone = '+' + String(user.id || '').split(':')[0].split('@')[0]
@@ -210,21 +222,26 @@ class Session {
 
   clear () {
     this.qr = null
+    this.pairingCode = null
     this.phone = null
     this.name = null
     fs.rmSync(this.dir, { recursive: true, force: true })
   }
 
   describe () {
-    return { session: this.id, status: this.status, qr: this.qr, phone: this.phone, name: this.name }
+    return { session: this.id, status: this.status, qr: this.qr, pairing_code: this.pairingCode, phone: this.phone, name: this.name }
   }
 }
 
-async function open (id) {
+async function open (id, pairPhone = null) {
   let session = sessions.get(id)
   if (!session) {
     session = new Session(id)
     sessions.set(id, session)
+  }
+  if (pairPhone && pairPhone !== session.pairPhone) {
+    session.pairPhone = pairPhone
+    session.pairingCode = null
   }
   if (!session.sock || session.status === 'logged_out') {
     session.status = 'starting'
@@ -281,9 +298,11 @@ const server = http.createServer(async (req, res) => {
       return reply(200, session ? session.describe() : { session: id, status: 'logged_out', qr: null, phone: null, name: null })
     }
     if (req.method === 'POST' && action === 'start') {
-      const session = await open(id)
-      // Laisse le temps au premier QR code d'arriver
-      for (let i = 0; i < 20 && session.status === 'starting'; i++) await sleep(250)
+      // Numéro facultatif : association par code plutôt que par QR code
+      const { phone } = JSON.parse(await readBody(req) || '{}')
+      const session = await open(id, phone ? String(phone).replace(/\D/g, '') : null)
+      // Laisse le temps au premier QR code (et au code d'association) d'arriver
+      for (let i = 0; i < 24 && (session.status === 'starting' || (session.pairPhone && !session.pairingCode && session.status === 'qr')); i++) await sleep(250)
       return reply(200, session.describe())
     }
     if (req.method === 'POST' && action === 'logout') {
