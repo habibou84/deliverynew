@@ -13,14 +13,15 @@ const APPS = {
     roles: ['courier'],
     login: '/livreur/connexion',
     home: '/livreur',
-    paths: ['/livreur', '/mot-de-passe-oublie'],
+    paths: ['/livreur', '/mot-de-passe-oublie', '/bon-de-retour'],
     other: 'Cette application est réservée aux livreurs. Les e-commerçants utilisent l\'application « Jibiat E-commerçant ».',
   },
   ecommercant: {
     roles: ['merchant_owner', 'merchant_staff'],
     login: '/marchand/connexion',
     home: '/marchand',
-    paths: ['/marchand', '/inscription', '/mot-de-passe-oublie', '/suivi'],
+    // Étiquettes et bons de retour : pages d'impression ouvertes depuis l'espace e-commerçant
+    paths: ['/marchand', '/inscription', '/mot-de-passe-oublie', '/suivi', '/etiquette', '/etiquettes', '/bon-de-retour'],
     other: 'Cette application est réservée aux e-commerçants. Les livreurs utilisent l\'application « Jibiat Livreur ».',
   },
 }

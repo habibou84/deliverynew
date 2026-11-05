@@ -80,6 +80,7 @@
 </template>
 
 <script setup>
+import { printPage } from '../native/print'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
@@ -94,7 +95,7 @@ const error = ref('')
 const total = computed(() => (slip.value?.orders || []).reduce((s, o) => s + (o.items_amount || 0), 0))
 
 function print() {
-  window.print()
+  printPage('Bon de retour').catch(() => {})
 }
 
 onMounted(async () => {
