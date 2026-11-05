@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Webhooks;
 use App\Enums\MessageStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessInboundWhatsApp;
+use App\Jobs\ProcessLiveWhatsApp;
 use App\Models\InboundMessage;
 use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
-use App\Services\Live\LiveWhatsApp;
 use App\Services\Messaging\Messenger;
 use App\Services\Platform\PlatformWhatsApp;
 use Illuminate\Http\JsonResponse;
@@ -61,10 +61,13 @@ class WhatsAppWebhookController extends Controller
                     ->first();
 
                 foreach ($change['value']['messages'] ?? [] as $message) {
-                    // Numéro officiel de Jibiat : commande d'une cliente pendant un live, sinon messagerie de la console
-                    if ($account?->isPlatform() && $this->liveOrder($account, $message, $change['value']['contacts'][0]['profile']['name'] ?? null)) {
+                    // Numéro WhatsApp Business d'un e-commerçant : seulement les commandes de son live
+                    if ($account?->isMerchant()) {
+                        $this->liveMessage($account, $message, $change['value']['contacts'][0]['profile']['name'] ?? null);
+
                         continue;
                     }
+                    // Numéro officiel de Jibiat : messagerie de la console
                     if ($account?->isPlatform()) {
                         $this->platform->receiveFromMeta($message, $change['value']['contacts'][0]['profile']['name'] ?? null);
 
@@ -79,25 +82,17 @@ class WhatsAppWebhookController extends Controller
     }
 
     /**
-     * Code du live envoyé au numéro de Jibiat : traité une seule fois (Meta peut renvoyer le même webhook).
+     * Message reçu sur le numéro d'un e-commerçant : traité une seule fois (Meta peut renvoyer le même webhook).
      *
      * @param  array<string, mixed>  $message
      */
-    private function liveOrder(WhatsAppAccount $account, array $message, ?string $name): bool
+    private function liveMessage(WhatsAppAccount $account, array $message, ?string $name): void
     {
         $id = (string) ($message['id'] ?? '');
-        if ($id === '' || ($message['type'] ?? '') !== 'text') {
-            return false;
+        if ($id === '' || ($message['type'] ?? '') !== 'text' || ! Cache::add("live-wa-msg:{$id}", 1, now()->addDay())) {
+            return;
         }
-        if (Cache::get("live-wa-msg:{$id}") !== null) {
-            return true;
-        }
-        $handled = app(LiveWhatsApp::class)->onOfficial($account, '+'.ltrim((string) ($message['from'] ?? ''), '+'), $name, $message['text']['body'] ?? null);
-        if ($handled) {
-            Cache::put("live-wa-msg:{$id}", 1, now()->addDay());
-        }
-
-        return $handled;
+        ProcessLiveWhatsApp::dispatch($account->id, '+'.ltrim((string) ($message['from'] ?? ''), '+'), $name, (string) ($message['text']['body'] ?? ''), official: true);
     }
 
     /**

@@ -36,8 +36,8 @@
 
         <section class="card space-y-2 p-4">
           <h2 class="font-semibold">Commandes WhatsApp automatiques</h2>
-          <p class="text-sm text-gray-600">Par défaut, les clientes envoient le code au <b>numéro WhatsApp officiel</b> de l'agence (s'il est relié), sinon à celui de Jibiat. Aucun risque de blocage.</p>
-          <label class="flex items-start gap-2 text-sm"><input v-model="form.merchant_whatsapp" type="checkbox" class="mt-0.5" :disabled="!isOwner"> <span>Proposer aussi aux e-commerçants de relier <b>leur propre WhatsApp</b>, à côté du numéro officiel<br><span class="text-amber-700">Connexion non officielle : WhatsApp peut suspendre un numéro qui répond automatiquement.</span></span></label>
+          <p class="text-sm text-gray-600">Par défaut, l'e-commerçant relie son numéro WhatsApp Business par la <b>connexion officielle de WhatsApp</b> (fenêtre Facebook) : il garde son application, sans risque de blocage.</p>
+          <label class="flex items-start gap-2 text-sm"><input v-model="form.qr_whatsapp" type="checkbox" class="mt-0.5" :disabled="!isOwner"> <span>Proposer aussi la connexion par <b>code d'association ou QR code</b>, à côté de la connexion officielle<br><span class="text-amber-700">Connexion non officielle : WhatsApp peut suspendre un numéro qui répond automatiquement.</span></span></label>
         </section>
 
         <section v-for="g in GROUPS" :key="g.title" class="card space-y-3 p-4">

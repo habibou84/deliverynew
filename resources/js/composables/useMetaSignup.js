@@ -37,8 +37,10 @@ function fromFacebook(origin) {
 /**
  * Ouvre la fenêtre de Meta. Résout { code, phone_number_id, waba_id } ;
  * rejette avec un message lisible (fenêtre fermée, erreur, aucun numéro choisi).
+ * coexistence : relier le numéro de l'application WhatsApp Business, qui reste utilisée sur le téléphone
+ * (e-commerçants, commandes du live).
  */
-export async function connectWhatsApp({ app_id: appId, config_id: configId, graph_version: version }) {
+export async function connectWhatsApp({ app_id: appId, config_id: configId, graph_version: version }, { coexistence = false } = {}) {
   const FB = await loadSdk(appId, version)
 
   return new Promise((resolve, reject) => {
@@ -67,7 +69,7 @@ export async function connectWhatsApp({ app_id: appId, config_id: configId, grap
       }
       if (data?.type !== 'WA_EMBEDDED_SIGNUP') return
 
-      if (data.event === 'FINISH') {
+      if (data.event === 'FINISH' || (data.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING' && data.data?.phone_number_id)) {
         session = { phone_number_id: String(data.data.phone_number_id), waba_id: String(data.data.waba_id) }
         finish()
       } else if (data.event === 'CANCEL') {
@@ -91,7 +93,7 @@ export async function connectWhatsApp({ app_id: appId, config_id: configId, grap
       config_id: configId,
       response_type: 'code',
       override_default_response_type: true,
-      extras: { setup: {}, featureType: '', sessionInfoVersion: '3' },
+      extras: { setup: {}, featureType: coexistence ? 'whatsapp_business_app_onboarding' : '', sessionInfoVersion: '3' },
     })
   })
 }

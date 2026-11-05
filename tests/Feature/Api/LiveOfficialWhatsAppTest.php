@@ -4,176 +4,190 @@ namespace Tests\Feature\Api;
 
 use App\Enums\Role;
 use App\Jobs\ProcessInboundWhatsApp;
+use App\Jobs\ProcessLiveWhatsApp;
 use App\Jobs\SendLiveWhatsApp;
 use App\Models\LiveOrder;
-use App\Models\Merchant;
 use App\Models\Order;
-use App\Models\OutboundMessage;
-use App\Models\PlatformConversation;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
 use App\Services\Live\LiveStudio;
-use App\Services\WhatsApp\Conversation;
+use App\Services\Live\LiveWhatsApp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
 /**
- * Commandes du live sur le numéro WhatsApp officiel (agence, sinon Jibiat) : par défaut, sans relier le WhatsApp
- * de l'e-commerçante (option de la console, désactivée).
+ * Commandes du live sur le numéro WhatsApp Business de l'e-commerçante, relié par la connexion officielle de Meta
+ * (par défaut). Le code d'association / QR code n'apparaît que si la console le propose.
  */
 class LiveOfficialWhatsAppTest extends TestCase
 {
     use BuildsDeliveryWorld, RefreshDatabase;
 
+    private int $live;
+
+    /** @var list<int> Messages reçus déjà traités */
+    private array $handled = [];
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->buildWorld();
-        config(['messaging.whatsapp.driver' => 'auto']);
+        config([
+            'messaging.whatsapp.driver' => 'auto',
+            'messaging.whatsapp.app_id' => '1111',
+            'messaging.whatsapp.signup_config_id' => '2222',
+            'messaging.whatsapp.app_secret' => 'app-secret',
+            'messaging.whatsapp.bridge.token' => 'secret-bridge',
+            'messaging.whatsapp.bridge.url' => 'http://bridge.test',
+        ]);
         Queue::fake();
+        Sanctum::actingAs($this->merchantUser);
+        $this->live = $this->postJson('/api/v1/live/prepare')->assertOk()->json('data.live.id');
+        $this->postJson("/api/v1/live/{$this->live}/products", ['name' => 'Robe wax', 'price' => 9000, 'quantity' => 3])->assertCreated();
     }
 
-    private function platformNumber(): WhatsAppAccount
+    /** Fenêtre de Meta : l'e-commerçante relie son numéro WhatsApp Business */
+    private function connectOfficially(): void
     {
-        return WhatsAppAccount::create(['owner_type' => WhatsAppAccount::PLATFORM, 'phone_number_id' => '555', 'display_phone' => '+2250100000099',
-            'access_token' => 'jeton', 'status' => 'connected', 'verified_name' => 'Jibiat']);
+        Http::fake([
+            '*/oauth/access_token*' => Http::response(['access_token' => 'jeton-boutique', 'token_type' => 'bearer']),
+            '*/debug_token*' => Http::response(['data' => ['is_valid' => true, 'expires_at' => now()->addDays(60)->timestamp]]),
+            '*/888/subscribed_apps' => Http::response(['success' => true]),
+            '*/666*' => Http::response(['display_phone_number' => '+225 07 07 08 09 10', 'verified_name' => 'Boutique Test', 'quality_rating' => 'GREEN']),
+        ]);
+        $url = $this->postJson('/api/v1/live/whatsapp/official')->assertOk()->json('data.url');
+        $ticket = explode('#', $url, 2)[1];
+
+        app('auth')->forgetGuards();
+        $this->postJson('/api/v1/whatsapp-signup/session', ['ticket' => $ticket])->assertOk()
+            ->assertJsonPath('data.company', 'Boutique Test')
+            ->assertJsonPath('data.merchant', true)
+            ->assertJsonPath('data.return', '/marchand/live/preparer');
+        $this->postJson('/api/v1/whatsapp-signup/complete', ['ticket' => $ticket, 'code' => 'code-meta', 'phone_number_id' => '666', 'waba_id' => '888'])
+            ->assertOk()->assertJsonPath('data.display_phone', '+2250707080910');
+        Sanctum::actingAs($this->merchantUser);
     }
 
-    private function startLive(User $user, string $product = 'Robe wax'): int
-    {
-        Sanctum::actingAs($user);
-        $live = $this->postJson('/api/v1/live/prepare')->assertOk()->json('data.live.id');
-        $this->postJson("/api/v1/live/{$live}/products", ['name' => $product, 'price' => 9000, 'quantity' => 3])->assertCreated();
-        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
-
-        return $live;
-    }
-
-    /** Message reçu par Meta sur un numéro officiel */
-    private function meta(string $phoneNumberId, string $id, string $text, string $from = '2250707000001'): void
+    /** Message reçu par Meta sur le numéro de la boutique */
+    private function meta(string $id, string $text): void
     {
         app('auth')->forgetGuards();
-        $this->postJson('/api/webhooks/whatsapp', ['entry' => [['changes' => [['value' => [
-            'metadata' => ['phone_number_id' => $phoneNumberId],
+        // Signé avec le secret de l'application Meta, comme les vrais envois de Meta
+        $body = json_encode(['entry' => [['changes' => [['value' => [
+            'metadata' => ['phone_number_id' => '666'],
             'contacts' => [['profile' => ['name' => 'Awa']]],
-            'messages' => [['id' => $id, 'from' => $from, 'type' => 'text', 'text' => ['body' => $text]]],
-        ]]]]]])->assertOk();
+            'messages' => [['id' => $id, 'from' => '2250707000001', 'type' => 'text', 'text' => ['body' => $text]]],
+        ]]]]]]);
+        $this->call('POST', '/api/webhooks/whatsapp', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $body, 'app-secret'),
+        ], $body)->assertOk();
+        Sanctum::actingAs($this->merchantUser);
     }
 
-    /** @return list<string> */
-    private function platformReplies(): array
+    /**
+     * Traite les messages reçus (file), puis renvoie les réponses envoyées par le numéro relié.
+     *
+     * @return list<string>
+     */
+    private function process(): array
     {
-        $texts = [];
-        Queue::assertPushed(SendLiveWhatsApp::class, function (SendLiveWhatsApp $job) use (&$texts) {
-            $this->assertSame(SendLiveWhatsApp::PLATFORM, $job->session);
-            $texts[] = $job->text;
+        foreach (Queue::pushed(ProcessLiveWhatsApp::class) as $job) {
+            if (! in_array(spl_object_id($job), $this->handled, true)) {
+                $this->handled[] = spl_object_id($job);
+                app('auth')->forgetGuards();
+                $job->handle(app(LiveWhatsApp::class));
+            }
+        }
+        Sanctum::actingAs($this->merchantUser);
 
-            return true;
-        });
+        $accountId = WhatsAppAccount::forMerchant($this->merchant->id)?->id;
 
-        return $texts;
+        return collect(Queue::pushed(SendLiveWhatsApp::class))
+            ->each(fn (SendLiveWhatsApp $job) => $this->assertSame($accountId, $job->accountId))
+            ->map(fn (SendLiveWhatsApp $job) => $job->text)->values()->all();
     }
 
-    public function test_orders_arrive_on_jibiat_official_number_by_default(): void
+    public function test_merchant_connects_her_own_number_officially_and_orders_arrive_on_it(): void
     {
-        $this->platformNumber();
-        $live = $this->startLive($this->merchantUser);
+        // Avant : connexion officielle proposée, pas de code d'association
+        $this->getJson('/api/v1/live/whatsapp')->assertOk()
+            ->assertJsonPath('data.mode', 'none')
+            ->assertJsonPath('data.official.available', true)
+            ->assertJsonPath('data.qr_option', false)
+            ->assertJsonPath('data.available', false);
+        $this->postJson('/api/v1/live/whatsapp/connect', ['phone' => '0707080910'])->assertStatus(422);
 
-        // Numéro officiel sur la carte, aucun WhatsApp à relier
-        $this->postJson('/api/v1/live/prepare')->assertOk()
-            ->assertJsonPath('data.offer.phone', '+2250100000099');
-        $this->getJson("/api/v1/live/{$live}")->assertOk()
-            ->assertJsonPath('data.whatsapp.mode', 'official')
-            ->assertJsonPath('data.whatsapp.auto', true)
-            ->assertJsonPath('data.whatsapp.official.name', 'Jibiat')
-            ->assertJsonPath('data.whatsapp.merchant_option', false);
-        $this->postJson('/api/v1/live/whatsapp/connect', ['phone' => '0102030405'])->assertStatus(422);
+        $this->connectOfficially();
+        $account = WhatsAppAccount::forMerchant($this->merchant->id);
+        $this->assertSame([$this->company->id, 'connected', 'meta_cloud'], [$account->company_id, $account->status, $account->provider]);
+        $this->assertNull(WhatsAppAccount::forCompanyId($this->company->id));
+        // Le numéro reste dans l'application WhatsApp Business : ni activation ni modèles de messages
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), '/register') || str_contains($r->url(), 'message_templates'));
 
-        // Message ordinaire : messagerie de la console, pas de réponse du live
-        $this->meta('555', 'wamid.1', 'Bonjour, vous livrez à Bouaké ?');
-        Queue::assertNotPushed(SendLiveWhatsApp::class);
-        $this->assertSame(1, PlatformConversation::count());
+        $this->getJson('/api/v1/live/whatsapp')->assertJsonPath('data.mode', 'official')->assertJsonPath('data.official.phone', '+2250707080910');
+        $this->postJson('/api/v1/live/prepare')->assertJsonPath('data.offer.phone', '+2250707080910');
 
-        // Code du live : réponse automatique (avec le nom de la boutique), puis la commande
-        $this->meta('555', 'wamid.2', 'A1');
-        $this->meta('555', 'wamid.2', 'A1'); // renvoi du même webhook par Meta : ignoré
-        $this->assertCount(1, $this->platformReplies());
-        $this->assertStringContainsString('*Boutique Test*', $this->platformReplies()[0]);
-        $this->assertStringContainsString('Pour la livraison', $this->platformReplies()[0]);
+        // Sans live en cours : pas de réponse (et jamais la création de courses de l'agence)
+        $this->meta('wamid.0', 'A1');
+        $this->assertSame([], $this->process());
+        Queue::assertNotPushed(ProcessInboundWhatsApp::class);
 
-        $this->meta('555', 'wamid.3', 'Awa Koné, Yopougon');
+        $this->postJson("/api/v1/live/{$this->live}/start")->assertOk();
+        $this->getJson("/api/v1/live/{$this->live}")->assertJsonPath('data.whatsapp.auto', true);
+
+        $this->meta('wamid.1', 'A1');
+        $this->meta('wamid.1', 'A1'); // même webhook renvoyé par Meta : ignoré
+        $replies = $this->process();
+        $this->assertCount(1, $replies);
+        $this->assertStringContainsString('Pour la livraison', $replies[0]);
+
+        $this->meta('wamid.2', 'Awa Koné, Yopougon');
+        $replies = $this->process();
         $order = Order::withoutGlobalScopes()->latest('id')->first();
         $this->assertSame(['Awa Koné', $this->yopougon->id], [$order->recipient_name, $order->delivery_zone_id]);
         $this->assertSame('whatsapp', LiveOrder::first()->source);
-        $this->assertStringContainsString("C'est noté, Awa", $this->platformReplies()[1]);
-        // La console n'a reçu que le message ordinaire
-        $this->assertSame('Bonjour, vous livrez à Bouaké ?', PlatformConversation::first()->last_message);
+        $this->assertStringContainsString("C'est noté, Awa", $replies[1]);
+        Queue::assertNotPushed(ProcessInboundWhatsApp::class);
+
+        // Délier
+        $this->deleteJson('/api/v1/live/whatsapp/official')->assertOk()->assertJsonPath('data.mode', 'none');
+        $this->assertNull(WhatsAppAccount::forMerchant($this->merchant->id));
     }
 
-    public function test_agency_official_number_is_used_first_and_same_code_asks_which_shop(): void
+    public function test_console_option_shows_the_qr_code_next_to_the_official_connection(): void
     {
-        $this->platformNumber();
-        $agency = WhatsAppAccount::create(['company_id' => $this->company->id, 'owner_type' => 'company', 'phone_number_id' => '777',
-            'display_phone' => '+2250100000077', 'access_token' => 'jeton-agence', 'status' => 'connected']);
-        $this->startLive($this->merchantUser);
-
-        $other = Merchant::factory()->create(['company_id' => $this->company->id, 'business_name' => 'Chez Mariam',
-            'pickup_zone_id' => $this->cocody->id, 'pickup_address' => 'Angré']);
-        $otherUser = $this->userWithRole(Role::MerchantOwner, ['merchant_id' => $other->id]);
-        $otherLive = $this->startLive($otherUser, 'Sac cuir');
-
-        $this->getJson("/api/v1/live/{$otherLive}")->assertOk()
-            ->assertJsonPath('data.whatsapp.official.phone', '+2250100000077')
-            ->assertJsonPath('data.whatsapp.official.name', $this->company->name);
-
-        $say = function (string $id, string $text): void {
-            app('auth')->forgetGuards();
-            $this->meta('777', $id, $text);
-            $job = collect(Queue::pushed(ProcessInboundWhatsApp::class))->last();
-            $job->handle(app(Conversation::class));
-        };
-
-        // A1 existe dans les deux lives : la cliente choisit la boutique
-        $say('wamid.10', 'A1');
-        $this->assertStringContainsString("1. Boutique Test\n2. Chez Mariam", OutboundMessage::withoutGlobalScopes()->latest('id')->value('body'));
-        $this->assertSame($agency->id, OutboundMessage::withoutGlobalScopes()->latest('id')->value('whatsapp_account_id'));
-
-        $say('wamid.11', '2');
-        $this->assertStringContainsString('*Chez Mariam*', OutboundMessage::withoutGlobalScopes()->latest('id')->value('body'));
-        $this->assertStringContainsString('Sac cuir', OutboundMessage::withoutGlobalScopes()->latest('id')->value('body'));
-
-        $say('wamid.12', 'Awa, Yopougon');
-        $this->assertSame($other->id, Order::withoutGlobalScopes()->latest('id')->value('merchant_id'));
-        Queue::assertNotPushed(SendLiveWhatsApp::class);
-    }
-
-    public function test_console_option_shows_the_merchant_whatsapp_next_to_the_official_number(): void
-    {
-        $this->platformNumber();
-        config(['messaging.whatsapp.bridge.token' => 'secret-bridge', 'messaging.whatsapp.bridge.url' => 'http://bridge.test']);
-        $live = $this->startLive($this->merchantUser);
-
         $root = User::factory()->withRole(Role::SuperAdmin)->create(['company_id' => null, 'phone' => '+2250700000099']);
         Sanctum::actingAs($root);
-        $this->putJson('/api/v1/console/live', ['merchant_whatsapp' => true])->assertOk()->assertJsonPath('data.settings.merchant_whatsapp', true);
-        $this->assertTrue(app(LiveStudio::class)->settings()['merchant_whatsapp']);
+        $this->putJson('/api/v1/console/live', ['qr_whatsapp' => true])->assertOk()->assertJsonPath('data.settings.qr_whatsapp', true);
 
         Sanctum::actingAs($this->merchantUser);
-        $this->getJson("/api/v1/live/{$live}")->assertOk()
-            ->assertJsonPath('data.whatsapp.mode', 'official')
-            ->assertJsonPath('data.whatsapp.merchant_option', true)
-            ->assertJsonPath('data.whatsapp.available', true);
+        $this->getJson('/api/v1/live/whatsapp')->assertOk()
+            ->assertJsonPath('data.qr_option', true)
+            ->assertJsonPath('data.available', true)
+            ->assertJsonPath('data.official.available', true);
 
-        // WhatsApp de l'e-commerçante relié : il passe avant le numéro officiel, jusqu'à ce que l'option soit retirée
+        // Relié par code d'association : il reçoit les commandes…
         $this->merchant->forceFill(['live_wa_status' => 'connected', 'live_wa_phone' => '+2250102030405'])->save();
-        $this->getJson("/api/v1/live/{$live}")->assertJsonPath('data.whatsapp.mode', 'merchant');
+        $this->getJson('/api/v1/live/whatsapp')->assertJsonPath('data.mode', 'qr');
         $this->postJson('/api/v1/live/prepare')->assertJsonPath('data.offer.phone', '+2250102030405');
 
-        app(LiveStudio::class)->updateSettings(['merchant_whatsapp' => false]);
-        $this->getJson("/api/v1/live/{$live}")->assertJsonPath('data.whatsapp.mode', 'official');
-        $this->postJson('/api/v1/live/prepare')->assertJsonPath('data.offer.phone', '+2250100000099');
+        // … jusqu'à la connexion officielle, qui passe avant (pas de réponse en double)
+        $this->connectOfficially();
+        $this->getJson('/api/v1/live/whatsapp')->assertJsonPath('data.mode', 'official');
+        $this->postJson("/api/v1/live/{$this->live}/start")->assertOk();
+        app('auth')->forgetGuards();
+        app(LiveWhatsApp::class)->onMessage($this->merchant->id, '+2250707000001', 'Awa', 'A1');
+        Queue::assertNotPushed(SendLiveWhatsApp::class);
+        Sanctum::actingAs($this->merchantUser);
+
+        // Option retirée : plus de code d'association
+        app(LiveStudio::class)->updateSettings(['qr_whatsapp' => false]);
+        $this->deleteJson('/api/v1/live/whatsapp/official')->assertOk()->assertJsonPath('data.mode', 'none')->assertJsonPath('data.available', false);
+        $this->postJson('/api/v1/live/prepare')->assertJsonPath('data.offer.phone', $this->merchant->refresh()->messagingPhone());
     }
 }

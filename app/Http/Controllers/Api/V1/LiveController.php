@@ -56,6 +56,15 @@ class LiveController extends Controller
         return response()->json(['data' => $this->whatsapp->status($merchant->refresh())]);
     }
 
+    /** Délier le numéro relié officiellement */
+    public function whatsappOfficialLogout(Request $request): JsonResponse
+    {
+        $merchant = $this->merchant($request);
+        $this->whatsapp->disconnectOfficial($merchant);
+
+        return response()->json(['data' => $this->whatsapp->state($merchant)]);
+    }
+
     /** Offre, live en cours ou en préparation, derniers lives */
     public function index(Request $request): JsonResponse
     {

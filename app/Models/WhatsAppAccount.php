@@ -104,6 +104,19 @@ class WhatsAppAccount extends Model
         return $this->owner_type === self::PLATFORM;
     }
 
+    /** Numéro WhatsApp Business d'un e-commerçant, relié officiellement (commandes du live) */
+    public const MERCHANT = 'merchant';
+
+    public static function forMerchant(int $merchantId): ?self
+    {
+        return static::withoutGlobalScopes()->where('owner_type', self::MERCHANT)->where('owner_id', $merchantId)->first();
+    }
+
+    public function isMerchant(): bool
+    {
+        return $this->owner_type === self::MERCHANT;
+    }
+
     public static function forCompanyId(int $companyId): ?self
     {
         return static::forCompany($companyId)->where('owner_type', 'company')->first();

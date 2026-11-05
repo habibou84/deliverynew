@@ -32,14 +32,14 @@ window.SCENE = {
     {
       type: 'phone', dur: 7.5, app: 'whatsapp', src: 'assets/live-whatsapp-1.png',
       title: '3. La cliente envoie *le code*',
-      caption: 'Trois : pendant le live, la cliente envoie simplement le code au WhatsApp de votre agence. Par exemple : A2.',
+      caption: 'Trois : pendant le live, la cliente envoie simplement le code sur votre WhatsApp. Par exemple : A2.',
       zoom: [1, 1.6], focus: [260, 200], ring: { at: 3.4, x: 304, y: 136, w: 80, h: 58 },
     },
     {
       type: 'phone', dur: 6.8, app: 'whatsapp', src: 'assets/live-whatsapp-4.png',
       title: 'La réponse *part toute seule*',
       caption: 'La réponse part toute seule. Elle donne son nom et son quartier, et c’est noté. Vous n’avez rien à répondre.',
-      zoom: [1, 1.3], focus: [195, 360], ring: { at: 2.6, x: 8, y: 408, w: 300, h: 164 },
+      zoom: [1, 1.3], focus: [195, 360], ring: { at: 2.6, x: 8, y: 386, w: 300, h: 164 },
     },
     {
       type: 'phone', dur: 8.1, app: 'live', src: 'assets/live-ecran.png',

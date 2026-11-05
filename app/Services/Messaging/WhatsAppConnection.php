@@ -5,6 +5,7 @@ namespace App\Services\Messaging;
 use App\Enums\PlatformTemplate;
 use App\Enums\WhatsAppTemplate;
 use App\Models\Company;
+use App\Models\Merchant;
 use App\Models\WhatsAppAccount;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
@@ -96,6 +97,40 @@ class WhatsAppConnection
         }
 
         return $account;
+    }
+
+    /**
+     * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : son numéro WhatsApp
+     * Business est relié à Jibiat tout en restant dans son application WhatsApp Business (mode « coexistence » :
+     * pas d'activation du numéro, déjà en service sur le téléphone). Pas de modèles : le live ne répond qu'aux
+     * clientes qui viennent d'écrire.
+     */
+    public function completeMerchantSignup(Merchant $merchant, string $code, string $phoneNumberId, string $wabaId): WhatsAppAccount
+    {
+        if (! self::signupAvailable()) {
+            throw new MessagingException('La connexion officielle de WhatsApp n\'est pas encore configurée sur ce serveur.');
+        }
+
+        $token = $this->exchangeCode($code);
+        $account = WhatsAppAccount::forMerchant($merchant->id)
+            ?? new WhatsAppAccount(['company_id' => $merchant->company_id, 'owner_type' => WhatsAppAccount::MERCHANT, 'owner_id' => $merchant->id]);
+        $account->fill([
+            'provider' => 'meta_cloud',
+            'phone_number_id' => $phoneNumberId,
+            'waba_id' => $wabaId,
+            'status' => 'pending',
+            'last_error' => null,
+            'connected_via' => 'embedded_signup',
+            'token_expires_at' => $this->tokenExpiry($token),
+            'token_warned_at' => null,
+            'platform_token' => false,
+        ]);
+        $account->access_token = $token;
+        $account->save();
+
+        $this->adoptWithPlatform($account);
+
+        return $this->connect($account);
     }
 
     /**

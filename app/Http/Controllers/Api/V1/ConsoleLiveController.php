@@ -27,7 +27,7 @@ class ConsoleLiveController extends Controller
     {
         $int = fn (int $max) => ['sometimes', 'integer', 'min:0', "max:{$max}"];
         $data = $request->validate([
-            'enabled' => ['sometimes', 'boolean'], 'merchant_whatsapp' => ['sometimes', 'boolean'],
+            'enabled' => ['sometimes', 'boolean'], 'qr_whatsapp' => ['sometimes', 'boolean'],
             'price_live' => $int(1000000), 'cards_per_live' => $int(1000),
             'price_month' => $int(10000000), 'cards_per_month' => $int(10000),
             'pack_price' => $int(1000000), 'pack_cards' => ['sometimes', 'integer', 'min:1', 'max:10000'],

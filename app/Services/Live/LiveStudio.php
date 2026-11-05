@@ -54,8 +54,8 @@ class LiveStudio
         'risk_refusals' => 3,
         'min_sales_range' => 20,
         'monthly_ai_cap' => 200000,
-        // WhatsApp de l'e-commerçante (connexion non officielle) proposé à côté du numéro officiel
-        'merchant_whatsapp' => false,
+        // Relier son WhatsApp par code d'association ou QR code (non officiel), proposé à côté de la connexion officielle
+        'qr_whatsapp' => false,
     ];
 
     /** Statuts d'une course refusée ou revenue : clientes à risque */

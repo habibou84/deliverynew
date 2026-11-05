@@ -758,6 +758,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('whatsapp', 'whatsapp')->name('whatsapp');
             Route::post('whatsapp/connect', 'whatsappConnect')->middleware('throttle:10,1')->name('whatsapp.connect');
             Route::post('whatsapp/logout', 'whatsappLogout')->middleware('throttle:10,1')->name('whatsapp.logout');
+            // Connexion officielle de son numéro WhatsApp Business (fenêtre de Meta)
+            Route::post('whatsapp/official', [WhatsAppSignupController::class, 'merchantTicket'])->middleware('throttle:10,1')->name('whatsapp.official');
+            Route::delete('whatsapp/official', 'whatsappOfficialLogout')->middleware('throttle:10,1')->name('whatsapp.official.logout');
             Route::get('{live}', 'board')->name('board');
             Route::put('{live}/items', 'items')->name('items');
             Route::post('{live}/recognize', 'recognize')->middleware('throttle:20,1')->name('recognize');

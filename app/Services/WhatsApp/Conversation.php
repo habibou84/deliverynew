@@ -11,12 +11,10 @@ use App\Models\InboundMessage;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\User;
-use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppSession;
 use App\Models\Zone;
 use App\Services\Accounts\PhoneVerifier;
 use App\Services\Couriers\CourierRatings;
-use App\Services\Live\LiveWhatsApp;
 use App\Services\Messaging\Messenger;
 use App\Services\Orders\OrderService;
 use App\Services\Pricing\PricingService;
@@ -91,13 +89,6 @@ class Conversation
         if (! $simulated && $type === 'text' && ($answer = $this->verifier->handleWhatsApp($company, $this->phone, $text)) !== null) {
             $this->reply($answer);
 
-            return $this->done();
-        }
-
-        // Commande d'une cliente pendant un live d'un e-commerçant (code « A2 » envoyé au numéro officiel de l'agence)
-        $account = isset($meta['whatsapp_account_id']) ? WhatsAppAccount::withoutGlobalScopes()->find($meta['whatsapp_account_id']) : null;
-        if (! $simulated && $type === 'text' && $account !== null && ! $account->isQr()
-            && app(LiveWhatsApp::class)->onOfficial($account, $this->phone, null, $text)) {
             return $this->done();
         }
 
