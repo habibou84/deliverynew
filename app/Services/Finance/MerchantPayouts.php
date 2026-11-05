@@ -120,7 +120,8 @@ class MerchantPayouts
                 'total_collected' => $sum([LedgerEntryType::CodCredit]),
                 'total_fees' => -$sum([LedgerEntryType::DeliveryFee, LedgerEntryType::ReturnFee]),
                 'total_shipping_fees' => -$sum([LedgerEntryType::ShippingFee]),
-                'total_other_fees' => -$sum([LedgerEntryType::OtherFee]),
+                // Outil live compté avec les autres frais
+                'total_other_fees' => -$sum([LedgerEntryType::OtherFee, LedgerEntryType::LiveFee]),
                 'total_storage_fees' => -$sum([LedgerEntryType::StorageFee]),
                 'total_adjustments' => $sum([LedgerEntryType::Adjustment]),
                 'net_amount' => $entries->sum('amount'),

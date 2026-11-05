@@ -14,7 +14,7 @@ class Product extends Model
     use BelongsToCompany, SoftDeletes;
 
     protected $fillable = [
-        'company_id', 'merchant_id', 'sku', 'name', 'description', 'price', 'weight_kg', 'low_stock_threshold', 'is_active', 'shop_visible',
+        'company_id', 'merchant_id', 'sku', 'name', 'description', 'price', 'weight_kg', 'low_stock_threshold', 'is_active', 'shop_visible', 'category',
     ];
 
     protected function casts(): array
