@@ -48,8 +48,8 @@
           <p class="text-2xl font-bold">{{ toConfirm }}</p>
           <p class="text-xs">{{ toConfirm ? 'nouvelles courses en attente' : 'rien à valider' }}</p>
         </RouterLink>
-        <RouterLink to="/admin/courses/non-traitees" :class="['rounded-xl border p-3 hover:shadow', untreated ? 'border-red-300 bg-red-50 text-red-900' : 'border-slate-200']">
-          <p class="text-xs">⏳ Courses non traitées</p>
+        <RouterLink to="/admin/courses/en-retard" :class="['rounded-xl border p-3 hover:shadow', untreated ? 'border-red-300 bg-red-50 text-red-900' : 'border-slate-200']">
+          <p class="text-xs">⏳ Courses en retard</p>
           <p class="text-2xl font-bold">{{ untreated }}</p>
           <p class="text-xs">{{ untreated ? `date dépassée${oldestUntreated ? ` · la plus vieille : ${dayName(oldestUntreated)}` : ''}` : 'tout est à jour' }}</p>
         </RouterLink>
@@ -166,7 +166,9 @@ const chips = computed(() => [
   { queue: 'change_requests', icon: '✏️', label: 'modification à valider', plural: 'modifications à valider', count: counts.value.change_requests || 0, class: 'bg-amber-50 text-amber-900 ring-amber-300' },
   { queue: 'to_prepare', icon: '📦', label: 'à préparer', plural: 'à préparer', count: day.value?.to_prepare || 0, class: 'bg-indigo-50 text-indigo-900 ring-indigo-300' },
   { queue: 'code_to_verify', icon: '⚠️', label: 'code à vérifier', plural: 'codes à vérifier', count: counts.value.exceptions?.code_to_verify || 0, class: 'bg-red-50 text-red-900 ring-red-300' },
-].filter((t) => t.count || t.queue !== 'code_to_verify').map((t) => ({ ...t, to: tab(t.queue) })))
+  // Demandes d'annulation des e-commerçants : à accepter ou refuser
+  { queue: 'cancellations', icon: '🚫', label: 'annulation à valider', plural: 'annulations à valider', count: counts.value.cancellation_requests || 0, class: 'bg-red-50 text-red-900 ring-red-300', to: '/admin/courses/annulations' },
+].filter((t) => t.count || !['code_to_verify', 'cancellations'].includes(t.queue)).map((t) => ({ ...t, to: t.to || tab(t.queue) })))
 const dayName = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 
 async function loadUntreated() {
