@@ -56,6 +56,7 @@ use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\MerchantAppReferralController;
 use App\Http\Controllers\Api\V1\MerchantController;
 use App\Http\Controllers\Api\V1\MerchantLocationController;
+use App\Http\Controllers\Api\V1\MerchantMessagesController;
 use App\Http\Controllers\Api\V1\MerchantNotificationController;
 use App\Http\Controllers\Api\V1\MerchantPaymentMethodController;
 use App\Http\Controllers\Api\V1\MerchantShopController;
@@ -377,6 +378,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Domaine personnalisé de l'entreprise (module de la formule pour le choisir)
         // Ouvertures de l'espace par l'assistance Jibiat
+        // Messages aux e-commerçants : WhatsApp ou non par étape, choix verrouillés ou non
+        Route::get('company/merchant-messages', [MerchantMessagesController::class, 'show'])->middleware('can:settings.manage')->name('company.merchant-messages');
+        Route::put('company/merchant-messages', [MerchantMessagesController::class, 'update'])->middleware('can:settings.manage')->name('company.merchant-messages.update');
+        Route::post('company/merchant-messages/apply-all', [MerchantMessagesController::class, 'applyToAll'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('company.merchant-messages.apply-all');
         Route::get('company/support-sessions', [CompanySupportController::class, 'index'])->middleware('can:settings.manage')->name('company.support-sessions');
         // Reprise de l'ancienne application : accueil (où en est chaque étape, ce qui reste à faire)
         Route::get('company/legacy-overview', [LegacyOverviewController::class, 'show'])->middleware('can:settings.manage')->name('company.legacy-overview');
