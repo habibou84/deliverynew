@@ -1,11 +1,15 @@
 <template>
   <div class="space-y-4">
-    <div class="flex flex-wrap items-center gap-2">
-      <h1 class="flex-1 text-xl font-bold">Annulations</h1>
-      <button v-if="report?.is_admin" type="button" class="btn-secondary" @click="rulesOpen = !rulesOpen">⚙️ Règles d'annulation</button>
+    <div v-if="!embedded" class="flex flex-wrap items-center gap-2">
+      <div class="flex-1">
+        <RouterLink :to="section === 'rules' ? '/admin/reglages' : '/admin'" class="text-sm text-blue-600">‹ {{ section === 'rules' ? 'Réglages' : 'Tableau de bord' }}</RouterLink>
+        <h1 class="text-xl font-bold">{{ TITLES[section] }}</h1>
+      </div>
+      <RouterLink v-if="section === 'requests'" to="/admin/statistiques?onglet=cancellations" class="text-sm text-blue-600">📊 Point des annulations</RouterLink>
+      <RouterLink v-if="section === 'requests' && report?.is_admin" to="/admin/reglages/annulations" class="text-sm text-blue-600">⚙️ Règles</RouterLink>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2 text-sm">
+    <div v-if="shows('report') && !from" class="flex flex-wrap items-center gap-2 text-sm">
       <button v-for="p in PERIODS" :key="p.key" type="button" :class="['rounded-full px-3 py-1', period.key === p.key ? 'bg-slate-900 text-white' : 'border border-slate-300 bg-white']" @click="choose(p.key)">{{ p.label }}</button>
       <template v-if="period.key === 'custom'">
         <input v-model="period.from" type="date" class="input !w-auto" @change="load">
@@ -15,7 +19,8 @@
     </div>
 
     <!-- Demandes à valider (au-delà de la limite du jour) -->
-    <section v-if="report?.requests?.length" class="card space-y-2 border-amber-300 bg-amber-50 p-4">
+    <p v-if="section === 'requests' && report && !report.requests?.length" class="card p-6 text-center text-gray-500">✅ Aucune demande d'annulation à valider.</p>
+    <section v-if="shows('requests') && report?.requests?.length" class="card space-y-2 border-amber-300 bg-amber-50 p-4">
       <h2 class="font-semibold text-amber-900">⏳ {{ report.requests.length }} demande{{ report.requests.length > 1 ? 's' : '' }} d'annulation à valider</h2>
       <div v-for="r in report.requests" :key="r.id" class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-amber-200 pt-2 text-sm">
         <RouterLink :to="`/admin/courses/${r.order_id}`" class="font-mono text-emerald-700">{{ r.tracking_code }}</RouterLink>
@@ -31,8 +36,9 @@
     </section>
 
     <!-- Règles (administrateurs) -->
-    <section v-if="rulesOpen && rules" class="card space-y-3 p-4 text-sm">
-      <h2 class="font-semibold">⚙️ Règles d'annulation</h2>
+    <p v-if="section === 'rules' && report && !report.is_admin" class="card p-4 text-sm text-gray-600">Seul un administrateur peut changer les règles d'annulation.</p>
+    <section v-if="shows('rules') && report?.is_admin && rules" class="card space-y-3 p-4 text-sm">
+      <h2 v-if="section !== 'rules'" class="font-semibold">⚙️ Règles d'annulation</h2>
       <p class="text-gray-600">Les administrateurs annulent sans limite. Les autres membres de l'équipe (dispatch) ont une limite par jour : au-delà, un administrateur valide.</p>
       <label class="flex flex-wrap items-center gap-2">
         <input v-model="limits.staff" type="checkbox"> Dispatch : jusqu'à
@@ -51,7 +57,7 @@
       <button type="button" class="btn-primary" :disabled="busy" @click="saveRules">Enregistrer les règles</button>
     </section>
 
-    <template v-if="report">
+    <template v-if="report && shows('report')">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div class="card p-4"><p class="text-xs text-gray-500">Courses annulées</p><p class="text-2xl font-bold">{{ report.totals.cancelled }}</p><p class="text-xs text-gray-500">sur {{ report.totals.created }} créées<template v-if="report.totals.rate !== null"> · {{ pct(report.totals.rate) }}</template></p></div>
         <div class="card p-4"><p class="text-xs text-gray-500">Par les e-commerçants</p><p class="text-2xl font-bold">{{ report.totals.by_merchants }}</p><p class="text-xs text-gray-500">{{ share(report.totals.by_merchants) }}</p></div>
@@ -107,13 +113,25 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { shift } from '../../utils/periods'
 
-/** Courses › Annulations : demandes à valider, point par e-commerçant, par personne et par motif, règles */
+/**
+ * Annulations, en trois parties montrées chacune à sa place : demandes à valider (depuis le tableau de bord),
+ * règles (Réglages) et point par e-commerçant, par personne et par motif (Statistiques).
+ */
+const props = defineProps({
+  section: { type: String, default: 'all' },
+  embedded: Boolean,
+  // Période imposée (onglet des statistiques)
+  from: { type: String, default: null },
+  to: { type: String, default: null },
+})
+const TITLES = { all: 'Annulations', requests: 'Demandes d\'annulation', rules: 'Règles d\'annulation', report: 'Point des annulations' }
+const shows = (part) => props.section === 'all' || props.section === part
 const toasts = useToastStore()
 const PERIODS = [
   { key: 'today', label: 'Aujourd\'hui', from: () => shift(0) },
@@ -121,11 +139,15 @@ const PERIODS = [
   { key: 'month', label: '30 derniers jours', from: () => shift(-29) },
   { key: 'custom', label: 'Dates…', from: () => shift(-6) },
 ]
-const period = reactive({ key: 'week', from: shift(-6), to: shift(0) })
+const period = reactive({ key: 'week', from: props.from || shift(-6), to: props.to || shift(0) })
+watch(() => [props.from, props.to], ([f, t]) => {
+  if (!f || !t) return
+  Object.assign(period, { from: f, to: t })
+  load()
+})
 const report = ref(null)
 const rules = ref(null)
 const limits = reactive({ staff: true, hourly: true, merchant: true })
-const rulesOpen = ref(false)
 const busy = ref(false)
 
 const pct = (v) => (v === null || v === undefined ? '—' : `${String(v).replace('.', ',')} %`)
@@ -152,7 +174,7 @@ async function load() {
   try {
     const { data } = await http.get('/cancellations', { params: { from: period.from, to: period.to } })
     report.value = data.data
-    if (!rulesOpen.value) applyRules(data.data.rules)
+    if (!rules.value) applyRules(data.data.rules)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }

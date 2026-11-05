@@ -48,12 +48,20 @@
         <!-- Produits du live : prix et quantité -->
         <div v-if="selected.length" class="m-card divide-y divide-slate-100">
           <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">PRIX ET QUANTITÉ DU LIVE</p>
-          <div v-for="r in selected" :key="r.product_id" class="flex items-center gap-2 px-4 py-2.5">
-            <span class="min-w-0 flex-1 truncate text-[15px] font-semibold">{{ r.name }}</span>
-            <label class="sr-only" :for="`price-${r.product_id}`">Prix de {{ r.name }}</label>
-            <input :id="`price-${r.product_id}`" v-model.number="r.price" type="number" min="0" step="500" class="m-input !min-h-[42px] w-28 text-right">
-            <label class="sr-only" :for="`qty-${r.product_id}`">Quantité de {{ r.name }}</label>
-            <input :id="`qty-${r.product_id}`" v-model.number="r.quantity" type="number" min="1" class="m-input !min-h-[42px] w-16 text-right">
+          <div v-for="(r, idx) in selected" :key="r.key" class="px-4 py-2.5">
+            <div class="flex items-center gap-2">
+              <span class="min-w-0 flex-1 truncate text-[15px] font-semibold">{{ r.name }}</span>
+              <label class="sr-only" :for="`price-${r.key}`">Prix de {{ r.name }}</label>
+              <input :id="`price-${r.key}`" v-model.number="r.price" type="number" min="0" step="500" class="m-input !min-h-[42px] w-28 text-right">
+              <label class="sr-only" :for="`qty-${r.key}`">Quantité de {{ r.name }}</label>
+              <input :id="`qty-${r.key}`" v-model.number="r.quantity" type="number" min="1" class="m-input !min-h-[42px] w-16 text-right">
+            </div>
+            <!-- Tailles ou couleurs : chacune a son code sur la carte -->
+            <div v-if="hasVariants(r.product_id)" class="mt-1.5 flex items-center gap-2">
+              <input v-model="r.variant" maxlength="40" class="m-input !min-h-[42px] flex-1" placeholder="Taille ou couleur (ex. M, Rouge)" :aria-label="`Taille ou couleur de ${r.name}`">
+              <button type="button" class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-slate-100 text-[18px] text-slate-600" :aria-label="`Retirer cette taille de ${r.name}`" @click="removeRow(idx)">✕</button>
+            </div>
+            <button v-if="isLastOf(idx)" type="button" class="mt-1.5 text-[15px] font-bold text-[var(--app-color)]" @click="addVariant(idx)">＋ Taille ou couleur</button>
           </div>
         </div>
       </template>
@@ -151,7 +159,7 @@
 
     <!-- Bouton du bas -->
     <div v-if="d && step !== 'nouveau'" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
-      <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || saving" @click="toCard">Continuer avec {{ selected.length }} produit{{ selected.length > 1 ? 's' : '' }}</button>
+      <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>
       <div v-else class="flex gap-2">
         <button type="button" class="h-[52px] w-[52px] shrink-0 rounded-2xl bg-slate-100 text-2xl font-bold text-slate-700" aria-label="Revenir aux produits" @click="step = 'produits'">‹</button>
         <button type="button" class="m-btn-primary flex-1" :disabled="saving" @click="downloadAndStart">Télécharger la carte et ouvrir mon live</button>
@@ -200,7 +208,7 @@ const priceLine = computed(() => {
 function fill(data) {
   d.value = data
   liveName.value = data.live.name
-  selected.value = data.items.map((i) => ({ product_id: i.product_id, name: i.name, price: i.price, quantity: i.quantity, code: i.code, photo_url: i.photo_url }))
+  selected.value = data.items.map((i) => row({ product_id: i.product_id, name: i.name, variant: i.variant || '', price: i.price, quantity: i.quantity, code: i.code, photo_url: i.photo_url }))
   if (data.live.status === 'live') router.replace(`/marchand/live/${data.live.id}`)
 }
 
@@ -212,21 +220,40 @@ async function load() {
   }
 }
 
+let rowKey = 0
+const row = (r) => ({ ...r, key: ++rowKey })
+
 function toggle(p) {
   selected.value = isSelected(p.id)
     ? selected.value.filter((r) => r.product_id !== p.id)
-    : [...selected.value, { product_id: p.id, name: p.name, price: p.price, quantity: p.stock || 1, photo_url: p.photo_url }]
+    : [...selected.value, row({ product_id: p.id, name: p.name, variant: '', price: p.price, quantity: p.stock || 1, photo_url: p.photo_url })]
+}
+
+// Variantes : une ligne par taille ou couleur, juste sous le produit
+const hasVariants = (productId) => selected.value.filter((r) => r.product_id === productId).length > 1
+const isLastOf = (idx) => selected.value[idx + 1]?.product_id !== selected.value[idx].product_id
+function addVariant(idx) {
+  const r = selected.value[idx]
+  selected.value.splice(idx + 1, 0, row({ ...r, variant: '', quantity: 1 }))
+}
+function removeRow(idx) {
+  selected.value.splice(idx, 1)
 }
 
 async function saveItems() {
   const { data } = await http.put(`/live/${d.value.live.id}/items`, {
     name: liveName.value,
-    items: selected.value.map((r) => ({ product_id: r.product_id, price: r.price, quantity: r.quantity })),
+    items: selected.value.map((r) => ({ product_id: r.product_id, variant: hasVariants(r.product_id) ? r.variant.trim() || null : null, price: r.price, quantity: r.quantity })),
   })
   fill(data.data)
 }
 
 async function toCard() {
+  const missing = selected.value.find((r) => hasVariants(r.product_id) && !r.variant.trim())
+  if (missing) {
+    toasts.error(`${missing.name} : écrivez la taille ou la couleur de chaque ligne.`)
+    return
+  }
   saving.value = true
   try {
     await saveItems()

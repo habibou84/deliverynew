@@ -22,7 +22,7 @@
 
       <section class="m-card space-y-1.5 p-4 text-[16px]">
         <p class="text-[14px] font-extrabold uppercase tracking-wide">Le bilan</p>
-        <p v-if="s.best_item && s.best_item.sold"><b>Meilleur produit :</b> {{ s.best_item.code }} {{ s.best_item.name }} ({{ s.best_item.sold }} vendu{{ s.best_item.sold > 1 ? 's' : '' }}).</p>
+        <p v-if="s.best_item && s.best_item.sold"><b>Meilleur produit :</b> {{ s.best_item.code }} {{ s.best_item.label || s.best_item.name }} ({{ s.best_item.sold }} vendu{{ s.best_item.sold > 1 ? 's' : '' }}).</p>
         <p v-if="s.peak_minute !== null && s.peak_minute !== undefined"><b>Meilleur moment :</b> {{ s.peak_minute ? `de la ${s.peak_minute}e à la ${s.peak_minute + 5}e minute` : 'les 5 premières minutes' }}.</p>
         <p><b>Livraisons :</b> {{ s.deliveries.delivered }} livrée{{ s.deliveries.delivered > 1 ? 's' : '' }}, {{ s.deliveries.refused }} refusée{{ s.deliveries.refused > 1 ? 's' : '' }}, les autres en cours.</p>
       </section>
@@ -31,7 +31,7 @@
         <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">PAR PRODUIT</p>
         <div v-for="i in s.items" :key="i.id" class="flex items-center gap-3 px-4 py-2.5 text-[15px]">
           <span class="grid h-9 min-w-[44px] place-items-center rounded-lg bg-slate-900 px-1.5 text-[14px] font-extrabold text-white">{{ i.code }}</span>
-          <span class="min-w-0 flex-1 truncate"><b>{{ i.name }}</b> · {{ i.sold }} sur {{ i.quantity }}</span>
+          <span class="min-w-0 flex-1 truncate"><b>{{ i.label || i.name }}</b> · {{ i.sold }} sur {{ i.quantity }}</span>
           <span class="shrink-0 font-bold">{{ money(i.sold * i.price) }}</span>
         </div>
       </section>

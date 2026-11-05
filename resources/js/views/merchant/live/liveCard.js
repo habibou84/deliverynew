@@ -70,55 +70,14 @@ export async function drawCard({ shop, name, letter, items, phone, square = fals
   ctx.fillStyle = '#ffffff'
   ctx.fillText(badge, W - pad - bw + 20, square ? 94 : 124)
 
-  // Produits : 3 colonnes
+  // Produits : la mise en page suit leur nombre. Un seul produit (avec ou sans tailles) : grande photo ;
+  // 2 : deux colonnes ; 3 et 4 : deux par ligne ; 5 à 9 : trois par ligne.
   const top = square ? 190 : 260
   const footer = square ? 180 : 260
-  const rows = Math.max(1, Math.ceil(items.length / 3))
-  const gap = 24
-  const cw = (W - pad * 2 - gap * 2) / 3
-  const ch = Math.min(square ? 420 : 470, (H - top - footer - gap * (rows + 1)) / rows)
-  const photos = await Promise.all(items.map((i) => loadImage(i.photo_url)))
-  items.forEach((item, i) => {
-    const x = pad + (i % 3) * (cw + gap)
-    const y = top + Math.floor(i / 3) * (ch + gap)
-    const soldOut = item.remaining === 0
-    ctx.fillStyle = '#ffffff'
-    roundRect(ctx, x, y, cw, ch, 24)
-    ctx.fill()
-    const ph = ch - 130
-    ctx.save()
-    roundRect(ctx, x, y, cw, ph, 24)
-    ctx.clip()
-    if (photos[i]) {
-      const img = photos[i]
-      const scale = Math.max(cw / img.width, ph / img.height)
-      ctx.drawImage(img, x + (cw - img.width * scale) / 2, y + (ph - img.height * scale) / 2, img.width * scale, img.height * scale)
-    } else {
-      ctx.fillStyle = '#e2e8f0'
-      ctx.fillRect(x, y, cw, ph)
-    }
-    ctx.restore()
-    // Code
-    ctx.font = font(800, 40)
-    const cwid = ctx.measureText(item.code).width + 28
-    ctx.fillStyle = '#0f172a'
-    roundRect(ctx, x + 14, y + 14, cwid, 58, 12)
-    ctx.fill()
-    ctx.fillStyle = '#ffffff'
-    ctx.fillText(item.code, x + 28, y + 57)
-    // Nom et prix
-    ctx.fillStyle = '#334155'
-    ctx.font = font(500, 30)
-    ctx.fillText(fitText(ctx, item.name, cw - 28), x + 16, y + ph + 48)
-    ctx.fillStyle = soldOut ? '#b91c1c' : '#0f172a'
-    ctx.font = font(800, 40)
-    ctx.fillText(soldOut ? 'ÉPUISÉ' : money(item.price), x + 16, y + ph + 102)
-    if (soldOut) {
-      ctx.fillStyle = 'rgba(255,255,255,.55)'
-      roundRect(ctx, x, y, cw, ph, 24)
-      ctx.fill()
-    }
-  })
+  const single = isSingleProduct(items)
+  const photos = await Promise.all((single ? items.slice(0, 1) : items).map((i) => loadImage(i.photo_url)))
+  if (single) drawHero(ctx, { items, photo: photos[0], x: pad, y: top, w: W - pad * 2, h: H - top - footer - 24, font, square })
+  else drawGrid(ctx, { items, photos, x: pad, y: top, w: W - pad * 2, h: H - top - footer, font, square })
 
   // Pied : comment commander (numéro avec des points, sans le mot « WhatsApp »)
   const fy = H - footer + 30
@@ -128,12 +87,154 @@ export async function drawCard({ shop, name, letter, items, phone, square = fals
   ctx.textAlign = 'center'
   ctx.fillStyle = '#0f172a'
   ctx.font = font(700, square ? 36 : 42)
-  ctx.fillText(`Envoie le code, par ex. ${items[0]?.code || 'A1'}`, W / 2, fy + (square ? 50 : 66))
+  ctx.fillText(howToOrder(items), W / 2, fy + (square ? 50 : 66))
   ctx.font = font(800, square ? 54 : 68)
   ctx.fillText(dottedPhone(phone), W / 2, fy + (square ? 112 : 146))
   ctx.textAlign = 'left'
 
   return canvas
+}
+
+/** Un seul produit sur la carte (ses variantes comprises) */
+export function isSingleProduct(items) {
+  return items.length > 0 && items.every((i) => (i.product_id ?? i.name) === (items[0].product_id ?? items[0].name))
+}
+
+/** Phrase du pied de carte : « JE PRENDS » quand il n'y a qu'un article, sinon le code */
+export function howToOrder(items) {
+  if (items.length === 1) return 'Envoie JE PRENDS au'
+  if (isSingleProduct(items)) return 'Envoie le code de ta taille au'
+  return `Envoie le code, par ex. ${items[0]?.code || 'A1'}, au`
+}
+
+/** Colonnes de la grille selon le nombre de produits */
+export function columnsFor(count) {
+  return count <= 4 ? 2 : 3
+}
+
+function cover(ctx, img, x, y, w, h) {
+  const scale = Math.max(w / img.width, h / img.height)
+  ctx.drawImage(img, x + (w - img.width * scale) / 2, y + (h - img.height * scale) / 2, img.width * scale, img.height * scale)
+}
+
+function codeBadge(ctx, font, code, x, y, size) {
+  ctx.font = font(800, size)
+  const w = ctx.measureText(code).width + size * 0.7
+  ctx.fillStyle = '#0f172a'
+  roundRect(ctx, x, y, w, size * 1.45, size * 0.3)
+  ctx.fill()
+  ctx.fillStyle = '#ffffff'
+  ctx.fillText(code, x + size * 0.35, y + size * 1.08)
+  return w
+}
+
+/** Un seul produit : grande photo, nom, prix, et une pastille par variante (code + taille) */
+function drawHero(ctx, { items, photo, x, y, w, h, font, square }) {
+  const first = items[0]
+  const variants = items.length > 1
+  const samePrice = items.every((i) => i.price === first.price)
+  const allSoldOut = items.every((i) => i.remaining === 0)
+  const chipRows = variants ? Math.ceil(items.length / 3) : 0
+  const textH = (square ? 150 : 190) + chipRows * (square ? 86 : 100)
+  const ph = Math.max(200, h - textH)
+  ctx.fillStyle = '#ffffff'
+  roundRect(ctx, x, y, w, h, 32)
+  ctx.fill()
+  ctx.save()
+  roundRect(ctx, x, y, w, ph, 32)
+  ctx.clip()
+  if (photo) cover(ctx, photo, x, y, w, ph)
+  else {
+    ctx.fillStyle = '#e2e8f0'
+    ctx.fillRect(x, y, w, ph)
+  }
+  if (allSoldOut) {
+    ctx.fillStyle = 'rgba(255,255,255,.55)'
+    ctx.fillRect(x, y, w, ph)
+  }
+  ctx.restore()
+  if (!variants) codeBadge(ctx, font, first.code, x + 22, y + 22, 52)
+
+  let ty = y + ph + (square ? 62 : 78)
+  ctx.fillStyle = '#334155'
+  ctx.font = font(700, square ? 44 : 54)
+  ctx.fillText(fitText(ctx, first.name, w - 48), x + 24, ty)
+  ty += square ? 70 : 88
+  ctx.fillStyle = allSoldOut ? '#b91c1c' : '#0f172a'
+  ctx.font = font(800, square ? 64 : 80)
+  const minPrice = Math.min(...items.map((i) => i.price))
+  ctx.fillText(allSoldOut ? 'ÉPUISÉ' : `${samePrice ? '' : 'dès '}${money(minPrice)}`, x + 24, ty)
+  if (!variants) return
+
+  // Variantes : trois par ligne
+  const gap = 16
+  const cw = (w - 48 - gap * 2) / 3
+  const chH = square ? 70 : 84
+  items.forEach((item, i) => {
+    const cx = x + 24 + (i % 3) * (cw + gap)
+    const cy = ty + 24 + Math.floor(i / 3) * (chH + 16)
+    const soldOut = item.remaining === 0
+    ctx.fillStyle = soldOut ? '#f1f5f9' : '#0f172a'
+    roundRect(ctx, cx, cy, cw, chH, 16)
+    ctx.fill()
+    ctx.fillStyle = soldOut ? '#94a3b8' : '#ffffff'
+    ctx.font = font(800, square ? 34 : 40)
+    const label = `${item.code} · ${item.variant || ''}`
+    ctx.fillText(fitText(ctx, label, cw - 28), cx + 14, cy + chH * 0.66)
+    if (soldOut) {
+      ctx.strokeStyle = '#b91c1c'
+      ctx.lineWidth = 5
+      ctx.beginPath()
+      ctx.moveTo(cx + 10, cy + chH / 2)
+      ctx.lineTo(cx + cw - 10, cy + chH / 2)
+      ctx.stroke()
+    }
+  })
+}
+
+/** Plusieurs produits : 2 ou 3 colonnes, photo, code, nom et prix */
+function drawGrid(ctx, { items, photos, x, y, w, h, font, square }) {
+  const cols = columnsFor(items.length)
+  const rows = Math.ceil(items.length / cols)
+  const gap = 24
+  const cw = (w - gap * (cols - 1)) / cols
+  const big = cols === 2
+  const ch = Math.min(square ? (big ? 470 : 420) : (big ? 820 : 470), (h - gap * (rows - 1)) / rows)
+  const nameSize = big ? 36 : 30
+  const priceSize = big ? 50 : 40
+  const textH = big ? 150 : 130
+  // Grille centrée dans la hauteur disponible
+  y += Math.max(0, (h - (rows * ch + (rows - 1) * gap)) / 2)
+  items.forEach((item, i) => {
+    const ix = x + (i % cols) * (cw + gap)
+    const iy = y + Math.floor(i / cols) * (ch + gap)
+    const soldOut = item.remaining === 0
+    ctx.fillStyle = '#ffffff'
+    roundRect(ctx, ix, iy, cw, ch, 24)
+    ctx.fill()
+    const ph = ch - textH
+    ctx.save()
+    roundRect(ctx, ix, iy, cw, ph, 24)
+    ctx.clip()
+    if (photos[i]) cover(ctx, photos[i], ix, iy, cw, ph)
+    else {
+      ctx.fillStyle = '#e2e8f0'
+      ctx.fillRect(ix, iy, cw, ph)
+    }
+    ctx.restore()
+    codeBadge(ctx, font, item.code, ix + 14, iy + 14, big ? 46 : 40)
+    ctx.fillStyle = '#334155'
+    ctx.font = font(500, nameSize)
+    ctx.fillText(fitText(ctx, item.variant ? `${item.name} · ${item.variant}` : item.name, cw - 28), ix + 16, iy + ph + nameSize + 18)
+    ctx.fillStyle = soldOut ? '#b91c1c' : '#0f172a'
+    ctx.font = font(800, priceSize)
+    ctx.fillText(soldOut ? 'ÉPUISÉ' : money(item.price), ix + 16, iy + ph + nameSize + priceSize + 36)
+    if (soldOut) {
+      ctx.fillStyle = 'rgba(255,255,255,.55)'
+      roundRect(ctx, ix, iy, cw, ph, 24)
+      ctx.fill()
+    }
+  })
 }
 
 /** Enregistre ou partage l'image (téléphone : feuille de partage ; sinon téléchargement) */

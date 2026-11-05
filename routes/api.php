@@ -782,6 +782,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::prefix('stats')->name('stats.')->middleware('can:orders.view')->controller(StatisticsController::class)->group(function () {
             Route::get('overview', 'overview')->name('overview');
             Route::get('deliveries', 'deliveries')->name('deliveries');
+            Route::get('failures', 'failures')->name('failures');
+            Route::get('live', 'live')->name('live');
             Route::get('couriers', 'couriers')->name('couriers');
             Route::get('merchants', 'merchants')->name('merchants');
             // Statistiques avancées : selon la formule de l'entreprise

@@ -77,9 +77,12 @@ const routes = [
       { path: 'courses', component: shared.orders, meta: { permission: 'orders.view' } },
       { path: 'courses/nouvelle', component: shared.orderCreate, meta: { permission: 'orders.create' } },
       { path: 'courses/import', component: () => import('../views/admin/OrderImport.vue'), meta: { permission: 'orders.create' } },
-      { path: 'courses/non-traitees', component: () => import('../views/admin/UntreatedOrders.vue'), meta: { permission: 'orders.dispatch' } },
-      { path: 'courses/a-reporter', component: () => import('../views/admin/RescheduleOrders.vue'), meta: { permission: 'orders.dispatch' } },
-      { path: 'courses/annulations', component: () => import('../views/admin/Cancellations.vue'), meta: { permission: 'orders.dispatch' } },
+      // Courses en retard : pas ramassées (à reporter), ramassées pas livrées, toutes (anciennes pages en onglets)
+      { path: 'courses/en-retard', component: () => import('../views/admin/LateOrders.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'courses/non-traitees', redirect: (to) => ({ path: '/admin/courses/en-retard', query: { ...to.query, onglet: 'toutes' } }) },
+      { path: 'courses/a-reporter', redirect: '/admin/courses/en-retard?onglet=pas-ramassees' },
+      // Demandes d'annulation à valider (tableau de bord et notifications y mènent)
+      { path: 'courses/annulations', component: () => import('../views/admin/Cancellations.vue'), props: { section: 'requests' }, meta: { permission: 'orders.dispatch' } },
       { path: 'courses/:id(\\d+)', component: shared.orderDetail, meta: { permission: 'orders.view' } },
       { path: 'marchands', component: () => import('../views/admin/Merchants.vue'), meta: { permission: 'merchants.view' } },
       { path: 'premium', component: () => import('../views/admin/PremiumProgram.vue'), meta: { permission: 'merchants.view' } },
@@ -126,6 +129,7 @@ const routes = [
       { path: 'reglages', component: () => import('../views/admin/settings/SettingsHub.vue'), meta: { permission: ['settings.manage', 'integrations.manage', 'users.view'] } },
       { path: 'reglages/entreprise', component: () => import('../views/admin/settings/SettingsCompany.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/courses', component: () => import('../views/admin/settings/SettingsOrders.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'reglages/annulations', component: () => import('../views/admin/Cancellations.vue'), props: { section: 'rules' }, meta: { permission: 'settings.manage' } },
       { path: 'reglages/messages-e-commercants', component: () => import('../views/admin/settings/SettingsMerchantMessages.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/alertes', component: () => import('../views/admin/settings/SettingsAlerts.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
