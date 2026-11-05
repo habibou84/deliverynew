@@ -20,7 +20,8 @@ const ITEMS = [
   { id: 3, product_id: 12, code: 'A3', name: 'Sac à main cuir', variant: null, label: 'Sac à main cuir', price: 15000, quantity: 6, sold: 2, remaining: 4, photo_url: photo('sac') },
   { id: 4, product_id: 13, code: 'A4', name: 'Escarpins dorés', variant: null, label: 'Escarpins dorés', price: 9000, quantity: 5, sold: 1, remaining: 4, photo_url: photo('chaussures') },
 ]
-const WA = { available: true, connected: true, phone: '+2250707080910' }
+// Commandes automatiques sur le numéro WhatsApp officiel de l'agence (par défaut)
+const WA = { mode: 'official', auto: true, official: { phone: '+2250707080910', name: 'Express Livraison' }, merchant_option: false, available: false, connected: false, phone: null }
 const OFFER = { enabled: true, offered_by_company: false, trial_left: 0, monthly_until: null, monthly_cards_left: 0, extra_cards: 0,
   prices: { live: 2000, cards_per_live: 10, month: 10000, cards_per_month: 60, pack: 1000, pack_cards: 10, trial_cards: 5 }, items_per_card: 9, phone: WA.phone }
 const CATALOG = [

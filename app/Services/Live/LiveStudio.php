@@ -54,6 +54,8 @@ class LiveStudio
         'risk_refusals' => 3,
         'min_sales_range' => 20,
         'monthly_ai_cap' => 200000,
+        // WhatsApp de l'e-commerçante (connexion non officielle) proposé à côté du numéro officiel
+        'merchant_whatsapp' => false,
     ];
 
     /** Statuts d'une course refusée ou revenue : clientes à risque */
@@ -129,8 +131,8 @@ class LiveStudio
                 'trial_cards' => $s['trial_cards'],
             ],
             'items_per_card' => $s['items_per_card'],
-            // Numéro de la carte : le WhatsApp relié (commandes automatiques), sinon celui de la boutique
-            'phone' => $merchant->live_wa_status === 'connected' && $merchant->live_wa_phone ? $merchant->live_wa_phone : $merchant->messagingPhone(),
+            // Numéro de la carte : celui qui reçoit les commandes automatiques, sinon celui de la boutique
+            'phone' => app(LiveWhatsApp::class)->cardPhone($merchant),
         ];
     }
 

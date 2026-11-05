@@ -138,7 +138,7 @@
           <p>2. Téléchargez la carte.</p>
           <p>3. Montrez-la pendant le live.</p>
         </div>
-        <!-- Commandes automatiques : le WhatsApp de la boutique relié à Jibiat -->
+        <!-- Commandes automatiques : numéro WhatsApp officiel, ou WhatsApp de la boutique relié (option de la console) -->
         <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
 
         <label class="block text-[14px] font-semibold text-slate-600">Nom du live

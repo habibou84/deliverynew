@@ -18,7 +18,7 @@ Jibiat · Facebook et TikTok ».
 | `entreprise-chiffres` | Entreprises de livraison : statistiques et rapport de la semaine | 15 s |
 | `entreprise-presentation` | Entreprises de livraison : présentation générale, voix off et sous-titres | 2 min 11 |
 | `bascule` | Entreprises de livraison : le ménage après la reprise de l'ancienne application, puis le jour de la bascule (voix off, formats w et v, voir docs/VIDEO-BASCULE.md) | 4 min 06 |
-| `live-comment-ca-marche` | E-commerçantes d'une agence Jibiat : le live en 4 étapes et ses avantages, agence en avant, voix off (`voix/live/`) et sous-titres, format v seulement (montrée dans « Préparer mon live » : `public/videos/live/`, captures par `capture-live.cjs`) | 1 min 24 |
+| `live-comment-ca-marche` | E-commerçantes d'une agence Jibiat : le live en 4 étapes et ses avantages, agence en avant, voix off (`voix/live/`) et sous-titres, format v seulement (montrée dans « Préparer mon live » : `public/videos/live/`, captures par `capture-live.cjs` et `capture-live-props.cjs`) | 1 min 24 |
 | `marchand-livreur-fiable` | E-commerçants : un livreur fiable en un clic | 24 s |
 | `marchand-suivi-argent` | E-commerçants clients d'une entreprise Jibiat : colis et argent | 20 s |
 | `marchand-boutique` | E-commerçants : la boutique en ligne, de l'achat du client à la commande chez le marchand | 38 s |

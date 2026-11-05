@@ -8,11 +8,13 @@ use App\Jobs\ProcessInboundWhatsApp;
 use App\Models\InboundMessage;
 use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
+use App\Services\Live\LiveWhatsApp;
 use App\Services\Messaging\Messenger;
 use App\Services\Platform\PlatformWhatsApp;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Webhook de l'application Meta : accusés de remise des messages envoyés et
@@ -59,7 +61,10 @@ class WhatsAppWebhookController extends Controller
                     ->first();
 
                 foreach ($change['value']['messages'] ?? [] as $message) {
-                    // Numéro officiel de Jibiat : messagerie de la console
+                    // Numéro officiel de Jibiat : commande d'une cliente pendant un live, sinon messagerie de la console
+                    if ($account?->isPlatform() && $this->liveOrder($account, $message, $change['value']['contacts'][0]['profile']['name'] ?? null)) {
+                        continue;
+                    }
                     if ($account?->isPlatform()) {
                         $this->platform->receiveFromMeta($message, $change['value']['contacts'][0]['profile']['name'] ?? null);
 
@@ -71,6 +76,28 @@ class WhatsAppWebhookController extends Controller
         }
 
         return response()->json(['received' => true]);
+    }
+
+    /**
+     * Code du live envoyé au numéro de Jibiat : traité une seule fois (Meta peut renvoyer le même webhook).
+     *
+     * @param  array<string, mixed>  $message
+     */
+    private function liveOrder(WhatsAppAccount $account, array $message, ?string $name): bool
+    {
+        $id = (string) ($message['id'] ?? '');
+        if ($id === '' || ($message['type'] ?? '') !== 'text') {
+            return false;
+        }
+        if (Cache::get("live-wa-msg:{$id}") !== null) {
+            return true;
+        }
+        $handled = app(LiveWhatsApp::class)->onOfficial($account, '+'.ltrim((string) ($message['from'] ?? ''), '+'), $name, $message['text']['body'] ?? null);
+        if ($handled) {
+            Cache::put("live-wa-msg:{$id}", 1, now()->addDay());
+        }
+
+        return $handled;
     }
 
     /**

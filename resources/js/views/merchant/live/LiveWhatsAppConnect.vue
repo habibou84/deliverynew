@@ -1,19 +1,32 @@
 <template>
-  <section v-if="state.available" :class="['m-card space-y-3 p-4', state.connected ? 'border-2 border-emerald-600' : 'border-2 border-[#25d366]']">
-    <!-- Relié -->
-    <template v-if="state.connected">
+  <section v-if="state.auto || state.available" :class="['m-card space-y-3 p-4', state.auto ? 'border-2 border-emerald-600' : 'border-2 border-[#25d366]']">
+    <!-- Numéro officiel (par défaut) : rien à relier -->
+    <template v-if="state.mode === 'official'">
+      <p class="flex items-center gap-2 text-[17px] font-extrabold text-emerald-800">
+        <span class="grid h-9 w-9 place-items-center rounded-full bg-[#25d366] text-white" aria-hidden="true">✓</span>
+        Commandes WhatsApp automatiques
+      </p>
+      <p class="text-[15px] text-slate-700">Les clientes envoient le code au numéro WhatsApp officiel de <b>{{ state.official.name }}</b> : <b>{{ dottedPhone(state.official.phone) }}</b>. Il est déjà sur la photo à épingler. La réponse part toute seule et votre agence reçoit la commande. <b>Vous n'avez rien à faire.</b></p>
+    </template>
+
+    <!-- WhatsApp de l'e-commerçante relié (option) -->
+    <template v-else-if="state.mode === 'merchant'">
       <p class="flex items-center gap-2 text-[17px] font-extrabold text-emerald-800">
         <span class="grid h-9 w-9 place-items-center rounded-full bg-[#25d366] text-white" aria-hidden="true">✓</span>
         Commandes WhatsApp automatiques
       </p>
       <p class="text-[15px] text-slate-700">Votre WhatsApp <b>{{ dottedPhone(state.phone) }}</b> est relié. Pendant le live, les clientes envoient le code : la réponse part toute seule et votre agence reçoit la commande. <b>Vous n'avez rien à faire.</b></p>
-      <button v-if="!compact" type="button" class="text-[14px] font-semibold text-slate-500 underline" @click="logout">Délier ce WhatsApp</button>
+      <button v-if="!compact" type="button" class="text-[14px] font-semibold text-slate-500 underline" @click="logout">{{ state.official ? 'Revenir au numéro officiel' : 'Délier ce WhatsApp' }}</button>
     </template>
 
-    <!-- À relier -->
-    <template v-else>
-      <p class="text-[17px] font-extrabold">💬 Les commandes arrivent toutes seules</p>
-      <p class="text-[15px] text-slate-700">Reliez votre WhatsApp une fois : les clientes envoient le code, la réponse part toute seule et votre agence reçoit la commande.</p>
+    <!-- Option de la console : relier son propre WhatsApp, à côté du numéro officiel -->
+    <component :is="state.mode === 'official' ? 'details' : 'div'" v-if="state.available && state.mode !== 'merchant' && !compact" class="space-y-3" :class="state.mode === 'official' ? 'rounded-2xl bg-slate-50 p-3' : ''">
+      <summary v-if="state.mode === 'official'" class="cursor-pointer text-[15px] font-semibold text-slate-700">Ou utiliser mon propre numéro WhatsApp</summary>
+      <template v-if="state.mode !== 'official'">
+        <p class="text-[17px] font-extrabold">💬 Les commandes arrivent toutes seules</p>
+        <p class="text-[15px] text-slate-700">Reliez votre WhatsApp une fois : les clientes envoient le code, la réponse part toute seule et votre agence reçoit la commande.</p>
+      </template>
+      <p class="rounded-xl bg-amber-50 px-3 py-2 text-[13px] text-amber-900">⚠️ Connexion non officielle : WhatsApp peut suspendre un numéro qui répond automatiquement. {{ state.official ? 'Le numéro officiel est plus sûr.' : '' }}</p>
 
       <button v-if="!open" type="button" class="m-btn-primary w-full !bg-none !bg-[#25d366]" @click="open = true">Relier mon WhatsApp</button>
 
@@ -48,7 +61,7 @@
         <p v-if="code || qr" class="flex items-center justify-center gap-2 text-[14px] text-slate-500"><i class="block h-2 w-2 animate-pulse rounded-full bg-[#25d366]" /> En attente de WhatsApp…</p>
         <p class="text-[13px] text-slate-500">Vous gardez votre WhatsApp comme d'habitude. Seuls les codes du live reçoivent une réponse automatique, pendant le live.</p>
       </div>
-    </template>
+    </component>
   </section>
 </template>
 
@@ -58,9 +71,12 @@ import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 import { dottedPhone } from './liveCard'
 
-/** Relier le WhatsApp de l'e-commerçante : commandes du live reçues et enregistrées sans elle */
+/**
+ * Commandes du live reçues et enregistrées sans l'e-commerçante : par le numéro WhatsApp officiel (agence, sinon
+ * Jibiat), ou, si la console le propose, par son propre WhatsApp relié (connexion non officielle).
+ */
 const props = defineProps({
-  initial: { type: Object, default: () => ({ available: false, connected: false, phone: null }) },
+  initial: { type: Object, default: () => ({ mode: 'none', auto: false, official: null, available: false, connected: false, phone: null }) },
   defaultPhone: { type: String, default: '' },
   compact: Boolean,
 })
@@ -111,9 +127,10 @@ function done(data) {
 }
 
 async function logout() {
-  if (!window.confirm('Délier ce WhatsApp ? Les commandes du live ne seront plus automatiques.')) return
+  if (!window.confirm(state.official ? 'Délier ce WhatsApp ? Les commandes arriveront sur le numéro officiel.' : 'Délier ce WhatsApp ? Les commandes du live ne seront plus automatiques.')) return
   try {
     Object.assign(state, (await http.post('/live/whatsapp/logout')).data.data)
+    emit('connected', state)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }
