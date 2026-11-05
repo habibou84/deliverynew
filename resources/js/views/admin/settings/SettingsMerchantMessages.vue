@@ -63,6 +63,18 @@
           <button type="button" class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white" :disabled="busy" @click="applyAll(null)">Appliquer mes choix à tous</button>
         </div>
       </div>
+      <div v-if="live?.enabled" class="card space-y-2 p-4 text-sm">
+        <label class="flex items-start gap-2">
+          <input type="checkbox" class="mt-1" :checked="live.live_offered" :disabled="busy" @change="saveLive($event.target.checked)">
+          <span>
+            <b>Offrir l'outil live à mes e-commerçants</b>
+            <span class="block text-xs text-gray-500">
+              Sinon, chaque live leur coûte {{ live.price_live }} F (ou {{ live.price_month }} F par mois), retenus sur leur reversement.
+              Offert : c'est votre entreprise qui paie, sur votre facture Jibiat. Plus de lives, plus de livraisons.
+            </span>
+          </span>
+        </label>
+      </div>
       <p class="text-xs text-gray-500">
         Les courses envoyées par Jibiat Marchand ne reçoivent rien d'ici : Jibiat Marchand prévient lui-même la boutique.
         Numéro WhatsApp, modèles et envois : <RouterLink to="/admin/whatsapp" class="text-blue-600">page WhatsApp</RouterLink>.
@@ -88,7 +100,21 @@ const error = ref('')
 const busy = ref(false)
 const totalDiffers = computed(() => (data.value?.events || []).reduce((n, e) => n + e.differs, 0))
 
+const live = ref(null)
+async function saveLive(value) {
+  busy.value = true
+  try {
+    live.value.live_offered = (await http.put('/company/live-offer', { live_offered: value })).data.data.live_offered
+    toasts.success('Enregistré.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy.value = false
+  }
+}
+
 async function load() {
+  http.get('/company/live-offer').then(({ data: r }) => { live.value = r.data }).catch(() => {})
   try {
     data.value = (await http.get('/company/merchant-messages')).data.data
   } catch (e) {

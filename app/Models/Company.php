@@ -99,6 +99,7 @@ class Company extends Model
     {
         return [
             'billing_cycle_from' => 'date',
+            'live_offered' => 'boolean',
             'ai_trial_started_at' => 'datetime',
             'ai_trial_ends_at' => 'datetime',
             'ai_started_at' => 'datetime',

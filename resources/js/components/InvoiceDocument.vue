@@ -76,6 +76,12 @@
             <td class="py-2 text-right">—</td>
             <td class="py-2 text-right">{{ money(line.amount) }}</td>
           </tr>
+          <tr v-for="(line, i) in (invoice.live_lines || [])" :key="`live-${i}`">
+            <td class="py-2">{{ line.label }}</td>
+            <td class="py-2 text-right">{{ line.count }}</td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right">{{ money(line.amount) }}</td>
+          </tr>
           <tr v-for="(line, i) in (invoice.app_options || [])" :key="`app-${i}`">
             <td class="py-2">
               {{ line.label }}

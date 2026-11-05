@@ -174,6 +174,7 @@ class ConsoleBillingController extends Controller
             'app_options' => $i->app_options ?? [],
             'ai_amount' => (int) $i->ai_amount,
             'ai_lines' => $i->ai_lines ?? [],
+            'live_lines' => $i->live_lines ?? [],
             'carried_into' => $i->carried_into_id ? $i->carriedInto?->number : null,
             'total' => $i->total,
             'amount_paid' => $i->amount_paid,
