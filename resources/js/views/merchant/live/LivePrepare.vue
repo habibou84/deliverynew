@@ -24,7 +24,8 @@
         <LiveIntro v-if="d.intro && !d.intro.full" :offer="d.offer" folded />
 
         <p v-if="d.offer.offered_by_company" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre agence vous offre vos lives.</p>
-        <p v-else-if="d.offer.trial_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre premier live est offert, avec {{ d.offer.prices.trial_cards }} fiches IA.</p>
+        <p v-else-if="d.offer.trial_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre premier live est offert.</p>
+        <p v-if="d.offer.extra_cards" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] text-indigo-900">Il vous reste <b>{{ d.offer.extra_cards }} fiches IA</b> (photo + IA). Ajouter un produit à la main reste toujours gratuit.</p>
 
         <button type="button" class="tap flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--app-color)] bg-white py-3.5 text-[16px] font-bold text-[var(--app-color)]" @click="openNew">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
@@ -78,6 +79,7 @@
           <p>1. Prenez la photo (bien éclairée) ou choisissez-la dans la galerie.</p>
           <p>2. L'IA donne le nom. Vérifiez-le.</p>
           <p>3. Mettez le prix, puis « Ajouter au live ».</p>
+          <p class="text-slate-500">L'IA est facultative : vous pouvez aussi écrire le nom vous-même, c'est gratuit.</p>
         </div>
 
         <!-- Photo du produit : appareil photo, ou une photo déjà dans la galerie -->
@@ -104,9 +106,10 @@
           <p class="text-[14px] text-indigo-800">Fiches IA restantes : {{ ai.cards.left }}</p>
         </div>
         <div v-if="needPack" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">
-          Plus de fiches IA pour ce live.
+          Vous n'avez plus de fiches IA.
+          <span class="mt-1 block font-bold">Pas obligé d'en acheter : écrivez le nom ci-dessous, c'est gratuit.</span>
           <button type="button" class="mt-2 block w-full rounded-xl bg-amber-600 py-2.5 font-bold text-white" @click="buyPack">Acheter {{ d.offer.prices.pack_cards }} fiches pour {{ money(d.offer.prices.pack) }}</button>
-          <span class="mt-1 block text-[13px]">Ou remplissez la fiche vous-même ci-dessous.</span>
+          <span class="mt-1 block text-[13px]">Les fiches achetées restent valables pour vos prochains lives.</span>
         </div>
 
         <div class="space-y-3">
@@ -182,7 +185,7 @@
       <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>
       <div v-else class="flex gap-2">
         <button type="button" class="h-[52px] w-[52px] shrink-0 rounded-2xl bg-slate-100 text-2xl font-bold text-slate-700" aria-label="Revenir aux produits" @click="step = 'produits'">‹</button>
-        <button type="button" class="m-btn-primary flex-1" :disabled="saving" @click="downloadAndStart">{{ mustPay ? `Télécharger la carte et payer ${money(d.offer.prices.live)}` : 'Télécharger la carte et ouvrir mon live' }}</button>
+        <button type="button" class="m-btn-primary flex-1" :disabled="saving" @click="downloadAndStart">{{ mustPay ? `Télécharger la carte et payer ${money(d.offer.live_price)}` : 'Télécharger la carte et ouvrir mon live' }}</button>
       </div>
     </div>
   </div>
@@ -226,9 +229,11 @@ const priceLine = computed(() => {
   if (o.offered_by_company) return 'Ce live vous est offert par votre agence.'
   if (o.monthly_until) return 'Compris dans votre forfait du mois.'
   if (o.trial_left) return 'Votre premier live est offert.'
+  if (o.next_plan === 'capped') return `Vous avez atteint ${money(o.prices.cap)} ce mois-ci : vos lives sont gratuits jusqu'à la fin du mois.`
+  const cap = o.prices.cap ? ` Jamais plus de ${money(o.prices.cap)} par mois.` : ''
   return o.pay_online
-    ? `Ce live : ${money(o.prices.live)}, à payer par Orange Money, MTN, Moov, Wave ou carte. ${o.prices.cards_per_live} fiches IA comprises.`
-    : `Ce live : ${money(o.prices.live)}, retenus sur votre prochain reversement. ${o.prices.cards_per_live} fiches IA comprises.`
+    ? `Ce live : ${money(o.live_price)}, à payer par Orange Money, MTN, Moov, Wave ou carte.${cap}`
+    : `Ce live : ${money(o.live_price)}, retenus sur votre prochain reversement.${cap}`
 })
 
 function fill(data) {

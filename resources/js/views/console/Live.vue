@@ -117,9 +117,11 @@ import { promptDialog } from '../../composables/useDialog'
 const GROUPS = [
   {
     title: 'Prix',
-    help: 'Payé par l\'e-commerçant (retenu sur son reversement), ou par l\'agence quand elle offre le live. La part de Jibiat va sur la facture de l\'entreprise.',
+    help: 'Payé en ligne par l\'e-commerçant (ou retenu sur son reversement sans PayDunya), ou par l\'agence quand elle offre le live. Au-delà du plafond du mois, les lives sont gratuits jusqu\'à la fin du mois.',
     fields: [
       { key: 'price_live', label: 'Prix d\'un live', unit: 'F' },
+      { key: 'monthly_cap', label: 'Plafond par mois et par e-commerçant (0 = sans plafond)', unit: 'F' },
+      { key: 'welcome_cards', label: 'Fiches IA offertes au premier live' },
       { key: 'cards_per_live', label: 'Fiches IA comprises dans un live' },
       { key: 'price_month', label: 'Forfait du mois (lives sans limite)', unit: 'F' },
       { key: 'cards_per_month', label: 'Fiches IA du forfait' },
