@@ -1,27 +1,57 @@
 <template>
-  <div class="space-y-3.5 pb-28">
+  <div class="space-y-3 pb-10">
     <p v-if="error" class="rounded-2xl bg-red-50 px-4 py-3 text-[15px] text-red-700" role="alert">{{ error }}</p>
     <p v-if="!d && !error" class="m-card p-6 text-center text-slate-500">Chargement…</p>
 
-    <!-- Comment ça marche : en entier aux premières visites -->
+    <!-- Comment ça marche : en entier aux premières visites, ou à la demande -->
     <LiveIntro v-if="d && introOpen" :offer="d.offer" />
 
+    <!-- ══ Une seule page : les étapes, cochées une à une (chacune s'ouvre en grand) ══ -->
     <template v-if="d && !introOpen">
-      <!-- Étapes -->
-      <div class="flex gap-1.5 text-[13px] font-bold">
-        <span v-for="(s, i) in steps" :key="s.key" :class="['flex-1 rounded-full py-1.5 text-center', step === s.key || (step === 'nouveau' && s.key === 'produits') ? 'bg-[var(--app-color)] text-white' : i < stepIndex ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500']">{{ i < stepIndex ? '✓' : i + 1 }} {{ s.label }}</span>
+      <section class="rounded-[22px] bg-gradient-to-br from-[#1e3478] to-[#3c5bc4] px-4 py-5 text-center text-white">
+        <h2 class="text-[25px] font-black leading-tight">Votre live en {{ stepList.length }} étapes</h2>
+        <p class="mt-1 text-[15.5px] font-bold text-blue-50">Les clientes envoient le code, la commande part à votre agence.</p>
+        <button type="button" class="mt-3 rounded-full bg-white/20 px-4 py-1.5 text-[14px] font-bold" @click="introOpen = true">🎬 Comment ça marche</button>
+      </section>
+
+      <div v-for="(s, i) in stepList" :key="s.key" :class="['flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft', s.state === 'current' ? 'ring-2 ring-[var(--app-color)]' : '', s.state === 'todo' ? 'opacity-55' : '']">
+        <span :class="['grid h-10 w-10 shrink-0 place-items-center rounded-full text-[17px] font-black', s.state === 'done' ? 'bg-emerald-600 text-white' : s.state === 'current' ? 'bg-[var(--app-color)] text-white' : 'bg-slate-200 text-slate-500']">{{ s.state === 'done' ? '✓' : i + 1 }}</span>
+        <div class="min-w-0 flex-1">
+          <b class="block text-[17px] leading-tight">{{ s.title }}</b>
+          <span :class="['block text-[13.5px]', s.alert ? 'font-semibold text-red-700' : 'text-slate-500']">{{ s.text }}</span>
+        </div>
+        <button v-if="s.panel && s.state !== 'todo'" type="button" :class="['shrink-0 py-2 pl-2 text-[15px] font-black', s.state === 'done' ? 'text-emerald-700' : 'text-[var(--app-color)]']" @click="open(s.panel)">{{ s.state === 'done' ? s.again : 'Ouvrir ▸' }}</button>
       </div>
 
-      <!-- ── WhatsApp pas encore relié : d'abord le WhatsApp du live ── -->
-      <template v-if="step === 'whatsapp'">
-        <div class="guide">
-          <p class="guide-title">Étape 1 sur {{ steps.length }} : votre WhatsApp pour le live</p>
-          <p>Les clientes envoient le code du produit sur ce WhatsApp : la réponse part toute seule et votre agence reçoit la commande.</p>
-        </div>
+      <!-- Étape « Commencer » : le grand bouton -->
+      <template v-if="current === 'start'">
+        <button type="button" class="block w-full rounded-2xl bg-rose-600 py-4 text-[18px] font-black text-white shadow-soft active:scale-[.99] disabled:opacity-60" :disabled="saving" @click="start">{{ mustPay ? `● Payer ${money(d.offer.live_price)} et commencer` : '● Je commence mon live' }}</button>
+        <p class="text-center text-[14px] text-slate-500">{{ priceLine }}</p>
+      </template>
+      <RouterLink v-if="isPhone" to="/marchand/live" class="block pt-1 text-center text-[14px] font-bold text-[var(--app-color)]">Voir mes lives passés ▸</RouterLink>
+    </template>
 
+    <!-- Bouton du bas de « Comment ça marche » -->
+    <div v-if="d && introOpen" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+      <button type="button" class="m-btn-primary w-full" @click="closeIntro">Préparer mon live</button>
+      <p class="mt-1.5 text-center text-[12px] text-slate-400">Propulsé par <b>Jibiat</b></p>
+    </div>
+
+    <!-- ══ Une étape ouverte, en grand par-dessus la page ══ -->
+    <div v-if="d && panel" class="fixed inset-0 z-50 flex flex-col bg-[#F4F6F8]" role="dialog" aria-modal="true" :aria-label="panelTitle">
+      <header class="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-4 pb-3 pt-[max(.75rem,env(safe-area-inset-top))]">
+        <button v-if="panel === 'nouveau'" type="button" class="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-xl font-bold text-slate-700" aria-label="Revenir aux produits" @click="panel = 'produits'">‹</button>
+        <h2 class="min-w-0 flex-1 truncate text-[18px] font-black">{{ panelTitle }}</h2>
+        <button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-[15px] text-slate-600" aria-label="Fermer" @click="closePanel">✕</button>
+      </header>
+
+      <div class="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain px-4 py-4">
+        <!-- ── WhatsApp ── -->
+        <template v-if="panel === 'whatsapp'">
+          <p class="text-[16px] text-slate-700">Les clientes envoient le code du produit sur ce WhatsApp : la réponse part toute seule et votre agence reçoit la commande.</p>
         <p class="rounded-2xl bg-emerald-600 px-4 py-4 text-center text-[22px] font-extrabold leading-tight text-white">Les messages des commandes sont gratuits.</p>
 
-        <div class="m-card space-y-3 p-4">
+        <div v-if="!d.whatsapp?.auto" class="m-card space-y-3 p-4">
           <p class="text-[17px] font-extrabold">Ce que Meta (Facebook) vous demande</p>
           <div class="flex gap-3">
             <span class="text-[26px]" aria-hidden="true">📱</span>
@@ -35,24 +65,15 @@
 
         <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
 
-        <div class="m-card space-y-2 p-4">
+        <div v-if="!d.whatsapp?.auto" class="m-card space-y-2 p-4">
           <p class="text-[16px] font-bold">Pas de numéro spécial pour le moment ?</p>
           <p class="text-[15px] text-slate-600">Faites votre live sans WhatsApp : vos clientes commandent par <b>le lien du live</b>, à mettre dans votre bio ou en commentaire épinglé.</p>
           <button type="button" class="m-btn-secondary w-full" @click="skipWhatsApp">Continuer sans WhatsApp</button>
         </div>
-      </template>
+        </template>
 
-      <!-- ── 1. Choisir les produits ── -->
-      <template v-if="step === 'produits'">
-        <div class="guide">
-          <p class="guide-title">Étape {{ stepIndex + 1 }} sur {{ steps.length }}</p>
-          <p>1. Cochez vos produits.</p>
-          <p>2. Produit absent ? Prenez-le en photo.</p>
-          <p>3. Appuyez sur « Continuer ».</p>
-        </div>
-
-        <LiveIntro v-if="d.intro && !d.intro.full" :offer="d.offer" folded />
-
+        <!-- ── Produits ── -->
+        <template v-if="panel === 'produits'">
         <p v-if="d.offer.offered_by_company" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre agence vous offre vos lives.</p>
         <p v-else-if="d.offer.trial_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre premier live est offert.</p>
         <p v-if="d.offer.extra_cards" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] text-indigo-900">Il vous reste <b>{{ d.offer.extra_cards }} fiches IA</b> (photo + IA). Ajouter un produit à la main reste toujours gratuit.</p>
@@ -117,19 +138,10 @@
             <button v-if="isLastOf(idx)" type="button" class="mt-1.5 text-[15px] font-bold text-[var(--app-color)]" @click="addVariant(idx)">＋ Taille ou couleur</button>
           </div>
         </div>
-      </template>
+        </template>
 
-      <!-- ── Nouveau produit : photo + IA ── -->
-      <template v-if="step === 'nouveau'">
-        <div class="guide">
-          <p class="guide-title">Nouveau produit</p>
-          <p>1. Prenez la photo (bien éclairée) ou choisissez-la dans la galerie.</p>
-          <p>2. L'IA donne le nom. Vérifiez-le.</p>
-          <p>3. Mettez le prix, puis « Ajouter au live ».</p>
-          <p class="text-slate-500">L'IA est facultative : vous pouvez aussi écrire le nom vous-même, c'est gratuit.</p>
-        </div>
-
-        <!-- Photo du produit : appareil photo, ou une photo déjà dans la galerie -->
+        <!-- ── Nouveau produit : photo + IA ── -->
+        <template v-if="panel === 'nouveau'">
         <div class="overflow-hidden rounded-[22px] bg-slate-100">
           <img v-if="preview" :src="preview" alt="Photo du produit" class="h-52 w-full object-cover">
           <div class="grid grid-cols-2 gap-2 p-2">
@@ -196,85 +208,91 @@
           </p>
           <label class="flex items-center gap-2 text-[15px]"><input v-model="np.keep_in_catalog" type="checkbox" class="h-5 w-5"> Garder aussi dans mon catalogue</label>
         </div>
-        <p v-if="!photoFile" class="text-center text-[14px] font-semibold text-red-700">📷 Prenez ou choisissez d'abord la photo du produit : elle est obligatoire pour la carte.</p>
-        <button type="button" class="m-btn-primary w-full" :disabled="!photoFile || !np.name || !np.price || !np.quantity || saving" @click="saveProduct(false)">Ajouter au live</button>
-        <button type="button" class="m-btn-secondary w-full" :disabled="!photoFile || !np.name || !np.price || !np.quantity || saving" @click="saveProduct(true)">Ajouter et prendre un autre produit</button>
-        <button type="button" class="w-full py-2 text-[15px] font-semibold text-slate-500" @click="step = 'produits'">Annuler</button>
-      </template>
+        </template>
 
-      <!-- ── 2. Carte ── -->
-      <template v-if="step === 'carte'">
-        <div class="guide">
-          <p class="guide-title">Étape {{ stepIndex + 1 }} sur {{ steps.length }}</p>
-          <p>1. Donnez un nom à votre live.</p>
-          <p>2. Téléchargez la carte.</p>
-          <p>3. Montrez-la pendant le live.</p>
-        </div>
-        <!-- Commandes automatiques : numéro WhatsApp officiel, ou WhatsApp de la boutique relié (option de la console) -->
-        <LiveWhatsAppConnect v-if="d.whatsapp?.auto" :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
-        <LiveLink v-else :url="d.public_url" @whatsapp="step = 'whatsapp'" />
+        <!-- ── L'étiquette à télécharger ── -->
+        <template v-if="panel === 'etiquette'">
+          <button type="button" class="tap flex w-full items-center gap-3 rounded-2xl bg-slate-900 p-3 text-left text-white" @click="videoOpen = true">
+            <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white/15 text-[20px]" aria-hidden="true">▶</span>
+            <span class="min-w-0"><b class="block text-[16px]">Voir la vidéo de l'étiquette</b><span class="text-[13.5px] text-slate-300">Télécharger, publier, épingler : en moins d'une minute</span></span>
+          </button>
 
-        <label class="block text-[14px] font-semibold text-slate-600">Nom du live
-          <input v-model="liveName" class="m-input mt-1 w-full !text-[17px] !font-semibold" @change="saveItems">
-        </label>
-        <div class="flex gap-2">
-          <button type="button" :class="['flex-1 rounded-xl py-2.5 text-[15px] font-bold', !square ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-300']" @click="square = false">Vertical (TikTok)</button>
-          <button type="button" :class="['flex-1 rounded-xl py-2.5 text-[15px] font-bold', square ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-300']" @click="square = true">Carré (Facebook)</button>
-        </div>
-        <div class="space-y-3">
-          <div v-for="c in cards" :key="c.letter" class="space-y-2">
-            <img v-if="c.url" :src="c.url" :alt="`Carte ${c.letter} du live`" class="mx-auto w-full max-w-[320px] rounded-2xl shadow-soft">
-            <p v-else class="m-card p-6 text-center text-slate-500">Préparation de la carte {{ c.letter }}…</p>
+          <label class="block text-[14px] font-semibold text-slate-600">Nom du live
+            <input v-model="liveName" class="m-input mt-1 w-full !text-[17px] !font-semibold" @change="saveItems">
+          </label>
+          <div class="flex rounded-2xl bg-slate-200 p-1" role="radiogroup" aria-label="Format de l'étiquette">
+            <button type="button" role="radio" :aria-checked="!square" :class="['tap flex-1 rounded-xl py-2.5 text-[15px] font-bold', !square ? 'bg-white shadow-sm' : 'text-slate-600']" @click="square = false">TikTok</button>
+            <button type="button" role="radio" :aria-checked="square" :class="['tap flex-1 rounded-xl py-2.5 text-[15px] font-bold', square ? 'bg-white shadow-sm' : 'text-slate-600']" @click="square = true">Facebook</button>
           </div>
-        </div>
-        <p class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La carte montre seulement vos produits. <b>Pendant le live, dites votre numéro WhatsApp</b> (ou mettez-le dans votre bio) : les clientes y envoient le code du produit.</p>
+          <div class="space-y-3">
+            <div v-for="c in cards" :key="c.letter">
+              <img v-if="c.url" :src="c.url" :alt="`Étiquette ${c.letter} du live`" class="mx-auto w-full max-w-[300px] rounded-2xl shadow-soft">
+              <p v-else class="m-card p-6 text-center text-slate-500">Préparation de l'étiquette {{ c.letter }}…</p>
+            </div>
+          </div>
+          <button type="button" class="m-btn-primary w-full" :disabled="saving || !cards.every((c) => c.canvas)" @click="downloadCards">⬇ Télécharger l'étiquette{{ cards.length > 1 ? `s (${cards.length})` : '' }}</button>
 
-        <div class="m-card space-y-1.5 border-2 border-blue-900 p-4 text-[16px]">
-          <p class="text-[17px] font-extrabold">Montrer la carte</p>
-          <p><b>TikTok :</b> effet « Écran vert » avec la carte, ou montrez-la sur un 2e téléphone.</p>
-          <p><b>Facebook :</b> publiez la carte et épinglez-la.</p>
-        </div>
-        <p class="text-center text-[14px] text-slate-500">{{ priceLine }}</p>
-      </template>
-    </template>
-
-    <!-- Bouton du bas -->
-    <div v-if="d && introOpen" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
-      <button type="button" class="m-btn-primary w-full" @click="closeIntro">Préparer mon live</button>
-      <p class="mt-1.5 text-center text-[12px] text-slate-400">Propulsé par <b>Jibiat</b></p>
-    </div>
-    <div v-if="d && !introOpen && step !== 'nouveau' && step !== 'whatsapp'" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
-      <p v-if="step === 'produits' && noPhoto.length" class="mb-2 text-center text-[14px] font-semibold text-red-700">{{ noPhoto.length }} produit{{ noPhoto.length > 1 ? 's' : '' }} sans photo : ajoutez {{ noPhoto.length > 1 ? 'leur' : 'sa' }} photo pour créer la carte.</p>
-      <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || noPhoto.length > 0 || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>
-      <div v-else class="flex gap-2">
-        <button type="button" class="h-[52px] w-[52px] shrink-0 rounded-2xl bg-slate-100 text-2xl font-bold text-slate-700" aria-label="Revenir aux produits" @click="step = 'produits'">‹</button>
-        <button type="button" class="m-btn-primary flex-1" :disabled="saving" @click="downloadAndStart">{{ mustPay ? `Télécharger la carte et payer ${money(d.offer.live_price)}` : 'Télécharger la carte et ouvrir mon live' }}</button>
+          <section class="space-y-3 rounded-2xl bg-indigo-50 p-4">
+            <div class="flex gap-3"><b class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[14px] text-white">1</b><p class="text-[15.5px]">Publiez l'étiquette sur {{ square ? 'Facebook' : 'TikTok' }} et <b>épinglez-la</b> sur votre profil.</p></div>
+            <div class="flex gap-3"><b class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[14px] text-white">2</b>
+              <div class="min-w-0 flex-1 space-y-1.5">
+                <p class="text-[15.5px]">Mettez le <b>lien de votre live</b> dans votre bio : vos clientes peuvent aussi commander là.</p>
+                <div class="flex items-center gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200"><span class="min-w-0 flex-1 truncate text-[14px]">{{ d.public_url }}</span><button type="button" class="shrink-0 text-[14px] font-black text-[var(--app-color)]" @click="copyLink">{{ copied ? 'Copié ✓' : 'Copier' }}</button></div>
+              </div>
+            </div>
+            <div class="flex gap-3"><b class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[14px] text-white">3</b><p class="text-[15.5px]">Pendant le live, épinglez votre <b>numéro WhatsApp</b> en commentaire<template v-if="d.offer.phone"> : <b class="whitespace-nowrap">{{ localPhone(d.offer.phone) }}</b></template>. Les clientes y envoient le code du produit.</p></div>
+          </section>
+        </template>
       </div>
+
+      <!-- Bas de la fenêtre -->
+      <footer v-if="panel !== 'whatsapp'" class="shrink-0 border-t border-slate-200 bg-white px-4 pt-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+        <template v-if="panel === 'produits'">
+          <p v-if="noPhoto.length" class="mb-2 text-center text-[14px] font-semibold text-red-700">{{ noPhoto.length }} produit{{ noPhoto.length > 1 ? 's' : '' }} sans photo : ajoutez {{ noPhoto.length > 1 ? 'leur' : 'sa' }} photo pour l'étiquette.</p>
+          <button type="button" class="m-btn-primary w-full" :disabled="!selected.length || noPhoto.length > 0 || saving" @click="validateItems">Valider {{ selected.length }} produit{{ selected.length > 1 ? 's' : '' }}</button>
+        </template>
+        <template v-else-if="panel === 'nouveau'">
+          <p v-if="!photoFile" class="mb-2 text-center text-[14px] font-semibold text-red-700">📷 Prenez ou choisissez d'abord la photo : elle est obligatoire pour l'étiquette.</p>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" class="m-btn-secondary" :disabled="!photoFile || !np.name || !np.price || !np.quantity || saving" @click="saveProduct(true)">Ajouter + un autre</button>
+            <button type="button" class="m-btn-primary" :disabled="!photoFile || !np.name || !np.price || !np.quantity || saving" @click="saveProduct(false)">Ajouter au live</button>
+          </div>
+        </template>
+        <button v-else-if="panel === 'etiquette'" type="button" class="w-full rounded-2xl bg-emerald-600 py-3.5 text-[17px] font-black text-white disabled:opacity-60" :disabled="saving" @click="labelReady">C'est fait ✓</button>
+      </footer>
+    </div>
+
+    <!-- Vidéo de l'étiquette -->
+    <div v-if="videoOpen" class="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-label="Vidéo de l'étiquette" @click.self="videoOpen = false">
+      <button type="button" class="mb-3 self-end rounded-full bg-white/15 px-4 py-2 text-[15px] font-bold text-white" @click="videoOpen = false">Fermer ✕</button>
+      <video class="max-h-[80dvh] w-full max-w-[420px] rounded-2xl bg-black" controls autoplay playsinline :poster="`${LABEL_VIDEO}.jpg`" :src="`${LABEL_VIDEO}.mp4`" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
-import { money } from '../../../utils/format'
+import { localPhone, money } from '../../../utils/format'
 import { drawCard, saveCard } from './liveCard'
 import LiveIntro from './LiveIntro.vue'
+import { isPhone } from '../../../composables/usePhone'
 import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
-import LiveLink from './LiveLink.vue'
 
-/** Préparer mon live : produits (catalogue ou photo + IA), carte à télécharger, démarrage */
-const STEPS = [{ key: 'produits', label: 'Produits' }, { key: 'carte', label: 'Carte' }, { key: 'live', label: 'Live' }]
-// WhatsApp proposé (connexion officielle ou option de la console) mais pas encore relié : première étape
-const waStep = computed(() => !!d.value && !d.value.whatsapp?.auto && !!(d.value.whatsapp?.official?.available || d.value.whatsapp?.available))
-const steps = computed(() => waStep.value ? [{ key: 'whatsapp', label: 'WhatsApp' }, ...STEPS] : STEPS)
+/**
+ * Préparer mon live, sur une seule page (présentation de Jibiat Marchand) : WhatsApp, produits (catalogue ou
+ * photo + IA), étiquette à télécharger, puis « Je commence mon live ». Chaque étape s'ouvre en grand et se coche.
+ */
+const LABEL_VIDEO = '/videos/live/live-etiquette-v'
 const router = useRouter()
 const toasts = useToastStore()
 const d = ref(null)
 const error = ref('')
-const step = ref('produits')
+const panel = ref(null)
+const videoOpen = ref(false)
+const copied = ref(false)
 const search = ref('')
 const selected = ref([])
 const saving = ref(false)
@@ -282,27 +300,104 @@ const liveName = ref('')
 const square = ref(false)
 const cards = ref([])
 
-const stepIndex = computed(() => ({ whatsapp: 0, produits: 0, nouveau: 0, carte: 1 })[step.value] + (waStep.value && step.value !== 'whatsapp' ? 1 : 0))
-
+// ── Étapes et leur état ──
+const store = {
+  get(key) {
+    try {
+      return localStorage.getItem(key)
+    } catch {
+      return null
+    }
+  },
+  set(key, value) {
+    try {
+      localStorage.setItem(key, value)
+    } catch {
+      // stockage impossible : l'étape restera à refaire sur ce téléphone
+    }
+  },
+}
+// WhatsApp proposé (connexion officielle ou option de la console), relié ou non
+const waOffered = computed(() => !!d.value && !!(d.value.whatsapp?.auto || d.value.whatsapp?.official?.available || d.value.whatsapp?.available))
 // « Continuer sans WhatsApp » : retenu pour ce live, sur ce téléphone
+const skipped = ref(false)
 const skipKey = () => `live-sans-whatsapp-${d.value?.live?.id}`
 function skipWhatsApp() {
-  try {
-    localStorage.setItem(skipKey(), '1')
-  } catch {
-    // stockage impossible : on passe quand même à l'étape suivante
-  }
-  step.value = 'produits'
-  window.scrollTo({ top: 0 })
+  store.set(skipKey(), '1')
+  skipped.value = true
+  panel.value = null
 }
-function firstStep() {
-  let skipped = false
-  try {
-    skipped = localStorage.getItem(skipKey()) === '1'
-  } catch {
-    skipped = false
+// Étiquette faite pour ces produits-là (codes, prix et quantités) : un changement de produits la redemande
+const labelSign = computed(() => (d.value?.items || []).map((i) => `${i.code}:${i.price}:${i.quantity}`).join('|'))
+const labelDoneFor = ref('')
+const labelKey = () => `live-etiquette-${d.value?.live?.id}`
+
+const waDone = computed(() => !!d.value?.whatsapp?.auto || skipped.value)
+const itemsDone = computed(() => !!d.value?.items?.length && d.value.items.every((i) => i.photo_url))
+const labelDone = computed(() => itemsDone.value && !!labelSign.value && labelDoneFor.value === labelSign.value)
+const current = computed(() => {
+  if (waOffered.value && !waDone.value) return 'whatsapp'
+  if (!itemsDone.value) return 'produits'
+  if (!labelDone.value) return 'etiquette'
+  return 'start'
+})
+const stepList = computed(() => {
+  const items = d.value?.items || []
+  const codes = items.length ? `${items.length} produit${items.length > 1 ? 's' : ''} · ${items[0].code}${items.length > 1 ? ` à ${items[items.length - 1].code}` : ''}` : ''
+  const pieces = items.reduce((n, i) => n + Number(i.quantity || 0), 0)
+  const missing = items.filter((i) => !i.photo_url).length
+  const list = []
+  if (waOffered.value) {
+    list.push({
+      key: 'whatsapp', panel: 'whatsapp', again: 'Revoir',
+      title: d.value.whatsapp?.auto ? 'WhatsApp connecté' : skipped.value ? 'Sans WhatsApp : le lien du live' : 'Connectez votre WhatsApp',
+      text: d.value.whatsapp?.auto ? 'Les commandes arrivent toutes seules' : skipped.value ? 'Les clientes commandent par le lien' : 'Pour recevoir les commandes',
+    })
   }
-  if (waStep.value && !skipped && step.value === 'produits') step.value = 'whatsapp'
+  list.push({
+    key: 'produits', panel: 'produits', again: 'Modifier',
+    title: items.length ? codes : 'Choisissez vos produits',
+    text: missing ? `📷 ${missing} produit${missing > 1 ? 's' : ''} sans photo` : items.length ? `${pieces} pièce${pieces > 1 ? 's' : ''} · toutes avec photo` : 'Dans votre catalogue, ou un nouveau en photo',
+    alert: missing > 0,
+  })
+  list.push({
+    key: 'etiquette', panel: 'etiquette', again: 'Revoir',
+    title: labelDone.value ? 'Étiquette publiée' : 'L\'étiquette à télécharger',
+    text: labelDone.value ? 'Épinglée, lien dans la bio ✓' : 'Pour TikTok ou Facebook, à épingler',
+  })
+  list.push({ key: 'start', title: 'Commencez votre live', text: 'Lancez-le sur TikTok ou Facebook, puis touchez le bouton ici' })
+  const order = list.map((s) => s.key)
+  const at = order.indexOf(current.value)
+  return list.map((s, i) => ({ ...s, state: i < at ? 'done' : i === at ? 'current' : 'todo' }))
+})
+const panelTitle = computed(() => ({
+  whatsapp: `${stepNumber('whatsapp')} · Votre WhatsApp pour le live`,
+  produits: `${stepNumber('produits')} · Les produits du live`,
+  nouveau: 'Nouveau produit : photo + IA',
+  etiquette: `${stepNumber('etiquette')} · L'étiquette à épingler`,
+})[panel.value] || '')
+const stepNumber = (key) => stepList.value.findIndex((s) => s.key === key) + 1
+
+async function open(name) {
+  panel.value = name
+  if (name === 'etiquette') await renderCards()
+}
+function closePanel() {
+  panel.value = null
+}
+function labelReady() {
+  labelDoneFor.value = labelSign.value
+  store.set(labelKey(), labelSign.value)
+  panel.value = null
+}
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText(d.value.public_url)
+    copied.value = true
+    setTimeout(() => { copied.value = false }, 2500)
+  } catch {
+    toasts.error('Copie impossible : appuyez longtemps sur le lien pour le copier.')
+  }
 }
 const shownCatalog = computed(() => {
   const q = search.value.trim().toLowerCase()
@@ -352,7 +447,8 @@ async function load() {
     if (!introChecked) {
       introChecked = true
       introOpen.value = !!d.value.intro?.full
-      firstStep()
+      skipped.value = store.get(skipKey()) === '1'
+      labelDoneFor.value = store.get(labelKey()) || ''
     }
   } catch (e) {
     error.value = apiErrorMessage(e)
@@ -411,7 +507,7 @@ async function saveItems() {
   fill(data.data)
 }
 
-async function toCard() {
+async function validateItems() {
   if (noPhoto.value.length) {
     toasts.error('Ajoutez la photo de chaque produit pour créer la carte.')
     return
@@ -424,8 +520,8 @@ async function toCard() {
   saving.value = true
   try {
     await saveItems()
-    step.value = 'carte'
-    await renderCards()
+    panel.value = null
+    window.scrollTo({ top: 0 })
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -433,7 +529,7 @@ async function toCard() {
   }
 }
 
-// Une carte par lettre (A1…A9, B1…)
+// Une étiquette par lettre (A1…A9, B1…)
 async function renderCards() {
   const groups = {}
   for (const i of d.value.items) (groups[i.code[0]] ||= []).push(i)
@@ -443,21 +539,28 @@ async function renderCards() {
     c.url = c.canvas.toDataURL('image/png')
   }
 }
-watch(square, () => { if (step.value === 'carte') renderCards() })
+watch(square, () => { if (panel.value === 'etiquette') renderCards() })
 
 // WhatsApp relié : mise à jour de l'écran
 async function onWhatsApp() {
   await load()
-  if (step.value === 'whatsapp' && d.value.whatsapp?.auto) step.value = 'produits'
-  if (step.value === 'carte') await renderCards()
+  if (panel.value === 'whatsapp' && d.value.whatsapp?.auto) panel.value = null
 }
 
-async function downloadAndStart() {
+async function downloadCards() {
   saving.value = true
   try {
-    await saveItems()
-    await renderCards()
-    for (const c of cards.value) await saveCard(c.canvas, `live-carte-${c.letter}.png`)
+    for (const c of cards.value) await saveCard(c.canvas, `live-etiquette-${c.letter}.png`)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    saving.value = false
+  }
+}
+
+async function start() {
+  saving.value = true
+  try {
     const { data } = await http.post(`/live/${d.value.live.id}/start`)
     // Live payé en ligne : page de paiement de PayDunya, retour sur l'application une fois payé
     if (data.data.payment_url) {
@@ -486,7 +589,7 @@ function openNew() {
   photoFile.value = null
   ai.value = null
   needPack.value = false
-  step.value = 'nouveau'
+  panel.value = 'nouveau'
 }
 
 async function onPhoto(event) {
@@ -573,7 +676,7 @@ async function saveProduct(another) {
     fill(data.data)
     toasts.success(`${np.name} ajouté au live.`)
     if (another) openNew()
-    else step.value = 'produits'
+    else panel.value = 'produits'
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -583,25 +686,3 @@ async function saveProduct(another) {
 
 onMounted(load)
 </script>
-
-<style scoped>
-.guide {
-  border-radius: 18px;
-  background: #1e40af;
-  color: #fff;
-  padding: 14px 16px;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.35;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.guide-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: #bfdbfe;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-</style>
