@@ -71,6 +71,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { dateTime } from '../utils/format'
+import { confirmDialog } from '../composables/useDialog'
 
 /**
  * Réglages › Reprise › comptes et zones envoyés par l'ancienne application (Laravel 5.8). part « connect » : module et
@@ -84,7 +85,7 @@ const busy = ref(false)
 const origin = window.location.origin
 
 async function createKey() {
-  if (state.value.active && !window.confirm('Créer une nouvelle clé ? L\'ancienne ne fonctionnera plus.')) return
+  if (state.value.active && !await confirmDialog('Créer une nouvelle clé ? L\'ancienne ne fonctionnera plus.')) return
   busy.value = true
   try {
     const { data } = await http.post('/company/legacy-import/key')

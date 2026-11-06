@@ -100,6 +100,7 @@ import http, { apiErrorMessage } from '../bootstrap/axios'
 import ZoneSelect from './ZoneSelect.vue'
 import { useToastStore } from '../stores/toasts'
 import { money } from '../utils/format'
+import { confirmDialog } from '../composables/useDialog'
 
 /**
  * Réglages › Tarifs : groupes de lieux et leur prix « depuis partout », lieux encore sans prix, vérification d'un prix.
@@ -177,7 +178,7 @@ async function save() {
 }
 
 async function destroy() {
-  if (!window.confirm(`Supprimer le groupe « ${editing.value.name} » ? Ses lieux n'auront plus ce prix.`)) return
+  if (!await confirmDialog(`Supprimer le groupe « ${editing.value.name} » ? Ses lieux n'auront plus ce prix.`)) return
   busy.value = true
   try {
     await http.delete(`/pricing-grids/${props.gridId}/groups/${editing.value.id}`)

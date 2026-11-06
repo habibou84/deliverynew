@@ -81,6 +81,7 @@ import { onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { dateTime } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 const ROLES = [
   { value: 'super_admin', icon: '👑', label: 'Propriétaire', text: 'Tout : formules, Wave, WhatsApp, journal, équipe de la console.' },
@@ -135,17 +136,17 @@ async function update(member, payload, message) {
   }
 }
 
-function changeRole(member, role) {
-  if (!window.confirm(`Donner le rôle « ${roleOf(role)?.label} » à ${member.name} ? Il sera déconnecté et devra se reconnecter.`)) {
+async function changeRole(member, role) {
+  if (!await confirmDialog(`Donner le rôle « ${roleOf(role)?.label} » à ${member.name} ? Il sera déconnecté et devra se reconnecter.`)) {
     load()
     return
   }
   update(member, { role }, 'Rôle changé.')
 }
 
-function toggle(member) {
+async function toggle(member) {
   const next = member.status === 'active' ? 'suspended' : 'active'
-  if (next === 'suspended' && !window.confirm(`Suspendre ${member.name} ? Il ne pourra plus se connecter à la console.`)) return
+  if (next === 'suspended' && !await confirmDialog(`Suspendre ${member.name} ? Il ne pourra plus se connecter à la console.`)) return
   update(member, { status: next }, next === 'active' ? 'Compte réactivé.' : 'Compte suspendu.')
 }
 

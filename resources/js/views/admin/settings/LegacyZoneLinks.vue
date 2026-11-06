@@ -80,6 +80,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 import { dateTime, money } from '../../../utils/format'
+import { confirmDialog } from '../../../composables/useDialog'
 
 /**
  * Reprise › Rattacher les zones : zones reprises rapprochées des lieux de la liste commune, courses « À préciser ».
@@ -123,7 +124,7 @@ const keep = (p) => run(() => http.post(`/company/zone-links/zones/${p.id}/keep`
 const undo = (l) => run(() => http.post(`/company/zone-links/${l.id}/undo`), 'Rattachement annulé.')
 
 async function linkSure() {
-  if (!window.confirm(`Rattacher les ${counts.value.sure} zones sûres à leur lieu standard ?`)) return
+  if (!await confirmDialog(`Rattacher les ${counts.value.sure} zones sûres à leur lieu standard ?`)) return
   const data = await run(() => http.post('/company/zone-links/sure'))
   if (data) toasts.success(`${data.count} zone(s) rattachée(s).`)
 }

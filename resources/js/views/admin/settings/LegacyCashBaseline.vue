@@ -94,6 +94,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 import { date, dateTime, money } from '../../../utils/format'
+import { confirmDialog } from '../../../composables/useDialog'
 
 /** Réglages › Reprise › Argent chez les livreurs : point de départ à une date, livreur par livreur, annulable 7 jours */
 const toasts = useToastStore()
@@ -158,7 +159,7 @@ async function apply() {
 }
 
 async function undo() {
-  if (!window.confirm('Annuler ce point de départ ? L\'argent revient chez les livreurs comme avant.')) return
+  if (!await confirmDialog('Annuler ce point de départ ? L\'argent revient chez les livreurs comme avant.')) return
   busy.value = true
   try {
     const { data } = await http.post(`/company/legacy-cash/${last.value.id}/undo`)

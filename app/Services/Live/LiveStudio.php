@@ -40,14 +40,19 @@ class LiveStudio
 {
     public const DEFAULTS = [
         'enabled' => true,
-        'price_live' => 1000,
-        'cards_per_live' => 10,
+        'price_live' => 500,
+        // Jamais plus que ce montant de lives par mois et par e-commerçant : au-delà, les lives du mois sont gratuits
+        'monthly_cap' => 5000,
+        // Fiches IA comprises dans chaque live (0 : vendues à part, après les fiches offertes)
+        'cards_per_live' => 0,
+        // Fiches IA offertes une fois, au premier live préparé
+        'welcome_cards' => 20,
         'price_month' => 5000,
         'cards_per_month' => 60,
         'pack_price' => 500,
         'pack_cards' => 20,
         'trial_lives' => 1,
-        'trial_cards' => 5,
+        'trial_cards' => 0,
         'agency_share' => 0,
         'retakes' => 3,
         'cards_per_day' => 50,
@@ -130,8 +135,12 @@ class LiveStudio
             'monthly_until' => $this->monthlyActive($merchant) ? $merchant->live_plan_until : null,
             'monthly_cards_left' => $this->monthlyActive($merchant) ? max(0, $s['cards_per_month'] - $this->monthlyCardsUsed($merchant)) : 0,
             'extra_cards' => (int) $merchant->live_extra_cards,
+            // Prix du prochain live (plafond du mois compris) et ce qui reste avant le plafond
+            'live_price' => $this->livePrice($merchant),
+            'month_spent' => $this->spentThisMonth($merchant),
             'prices' => [
                 'live' => $s['price_live'], 'cards_per_live' => $s['cards_per_live'],
+                'cap' => $s['monthly_cap'], 'welcome_cards' => $s['welcome_cards'],
                 'month' => $s['price_month'], 'cards_per_month' => $s['cards_per_month'],
                 'pack' => $s['pack_price'], 'pack_cards' => $s['pack_cards'],
                 'trial_cards' => $s['trial_cards'],
@@ -148,6 +157,7 @@ class LiveStudio
     public function draft(Merchant $merchant, User $user): Live
     {
         $this->ensureEnabled();
+        $this->giveWelcomeCards($merchant);
 
         return Live::forCompany($merchant->company_id)->where('merchant_id', $merchant->id)->whereIn('status', [Live::DRAFT, Live::LIVE])->latest('id')->first()
             ?? Live::create([
@@ -362,15 +372,48 @@ class LiveStudio
 
     // ── Démarrage, frais ──────────────────────────────────────────────────────────────────────────
 
-    /** Formule du prochain live : offert par l'agence, forfait du mois, essai, ou live payé à l'unité */
+    /**
+     * Formule du prochain live : offert par l'agence, forfait du mois, essai, plafond du mois atteint (gratuit), ou
+     * live payé à l'unité.
+     */
     public function nextPlan(Merchant $merchant): string
     {
         return match (true) {
             (bool) $merchant->company?->live_offered => 'offered',
             $this->monthlyActive($merchant) => 'monthly',
             $this->trialLeft($merchant) > 0 => 'trial',
+            $this->livePrice($merchant) === 0 => 'capped',
             default => 'single',
         };
+    }
+
+    /** Lives payés par l'e-commerçant ce mois-ci (pour le plafond) */
+    public function spentThisMonth(Merchant $merchant): int
+    {
+        $tz = $merchant->company?->timezone ?: config('app.timezone');
+
+        return (int) LiveCharge::forCompany($merchant->company_id)->where('merchant_id', $merchant->id)->where('kind', 'live')
+            ->where('offered_by_company', false)->where('created_at', '>=', now($tz)->startOfMonth()->utc())->sum('amount');
+    }
+
+    /** Prix du prochain live : le prix d'un live, sans dépasser le plafond du mois (0 : plafond atteint) */
+    public function livePrice(Merchant $merchant): int
+    {
+        $s = $this->settings();
+        $price = (int) $s['price_live'];
+        $cap = (int) $s['monthly_cap'];
+
+        return $cap > 0 ? max(0, min($price, $cap - $this->spentThisMonth($merchant))) : $price;
+    }
+
+    /** 20 fiches IA offertes une seule fois, au premier live préparé */
+    private function giveWelcomeCards(Merchant $merchant): void
+    {
+        $cards = (int) $this->settings()['welcome_cards'];
+        if ($cards <= 0 || $merchant->live_welcome_cards_at !== null) {
+            return;
+        }
+        $merchant->forceFill(['live_welcome_cards_at' => now(), 'live_extra_cards' => (int) $merchant->live_extra_cards + $cards])->save();
     }
 
     /** L'e-commerçant paie lui-même en ligne (PayDunya) : sinon le montant est retenu sur ses reversements */
@@ -401,12 +444,12 @@ class LiveStudio
 
         return DB::transaction(function () use ($live, $merchant, $user, $s, $plan, $payment) {
             $included = match ($plan) {
-                'monthly' => 0,
+                'monthly', 'capped' => 0,
                 'trial' => (int) $s['trial_cards'],
                 default => (int) $s['cards_per_live'],
             };
             if (in_array($plan, ['offered', 'single'], true)) {
-                $this->charge($merchant, $user, 'live', "Live « {$live->name} »", $payment?->amount ?? (int) $s['price_live'], (int) $s['cards_per_live'], $live, $payment);
+                $this->charge($merchant, $user, 'live', "Live « {$live->name} »", $payment?->amount ?? ($plan === 'offered' ? (int) $s['price_live'] : $this->livePrice($merchant)), (int) $s['cards_per_live'], $live, $payment);
             }
             $live->forceFill(['status' => Live::LIVE, 'plan' => $plan, 'ai_cards_included' => $included, 'started_at' => now()])->save();
 

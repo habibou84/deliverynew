@@ -102,6 +102,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { dateTime } from '../utils/format'
+import { confirmDialog } from '../composables/useDialog'
 
 /**
  * Réglages › Reprise de l'ancienne application › Bascule : date à partir de laquelle les comptes de l'ancienne
@@ -153,19 +154,19 @@ function save(switchAt) {
   return run(() => http.put('/company/legacy-switch', { switch_at: switchAt }), switchAt ? 'Bascule programmée.' : 'Bascule annulée.')
 }
 
-function now() {
-  if (!window.confirm('Basculer maintenant ? Les e-commerçants et livreurs qui ouvrent l\'ancienne application arriveront sur Jibiat dès à présent.')) return
+async function now() {
+  if (!await confirmDialog('Basculer maintenant ? Les e-commerçants et livreurs qui ouvrent l\'ancienne application arriveront sur Jibiat dès à présent.')) return
   save(new Date().toISOString())
 }
 
 async function createKey() {
-  if (state.value.key_active && !window.confirm('Créer une nouvelle clé ? L\'ancienne ne fonctionnera plus : il faudra mettre la nouvelle dans l\'ancienne application.')) return
+  if (state.value.key_active && !await confirmDialog('Créer une nouvelle clé ? L\'ancienne ne fonctionnera plus : il faudra mettre la nouvelle dans l\'ancienne application.')) return
   const data = await run(() => http.post('/company/legacy-switch/key'))
   if (data) key.value = data.key
 }
 
 async function revoke() {
-  if (!window.confirm('Désactiver la clé ? Plus personne ne sera envoyé sur Jibiat depuis l\'ancienne application.')) return
+  if (!await confirmDialog('Désactiver la clé ? Plus personne ne sera envoyé sur Jibiat depuis l\'ancienne application.')) return
   await run(() => http.delete('/company/legacy-switch/key'), 'Clé désactivée.')
   key.value = ''
 }

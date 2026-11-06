@@ -166,6 +166,7 @@ import Modal from '../../components/Modal.vue'
 import PremiumLevelsPanel from '../../components/premium/PremiumLevelsPanel.vue'
 import { useAuthStore } from '../../stores/auth'
 import { date, money } from '../../utils/format'
+import { promptDialog } from '../../composables/useDialog'
 
 const auth = useAuthStore()
 const data = ref(null)
@@ -269,7 +270,7 @@ async function copy(url) {
     copied.value = url
     setTimeout(() => { copied.value = '' }, 2000)
   } catch {
-    window.prompt('Lien de la carte', url)
+    await promptDialog('Copiez le lien de la carte :', url, { okLabel: 'Fermer' })
   }
 }
 

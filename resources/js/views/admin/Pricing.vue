@@ -103,6 +103,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import ReturnFeeSettings from '../../components/settings/ReturnFeeSettings.vue'
 import PricingGroups from '../../components/PricingGroups.vue'
+import { confirmDialog, promptDialog } from '../../composables/useDialog'
 
 const toasts = useToastStore()
 const grids = ref([])
@@ -163,8 +164,8 @@ async function loadGrid() {
 }
 
 // Changer de grille fait perdre les modifications en cours : on demande d'abord
-function switchGrid() {
-  if (dirty.value && !window.confirm(leaveWarning)) {
+async function switchGrid() {
+  if (dirty.value && !await confirmDialog(leaveWarning)) {
     gridId.value = shownGridId
     return
   }
@@ -172,7 +173,7 @@ function switchGrid() {
 }
 
 async function renameGrid() {
-  const name = window.prompt('Nouveau nom de la grille :', grid.value.name)?.trim()
+  const name = (await promptDialog('Nouveau nom de la grille :', grid.value.name))?.trim()
   if (!name || name === grid.value.name) return
   try {
     await http.patch(`/pricing-grids/${gridId.value}`, { name })
@@ -187,7 +188,7 @@ async function renameGrid() {
 async function deleteGrid() {
   const count = grid.value.merchants_count ?? 0
   const consequence = count ? ` Ses ${count} e-commerçant(s) passeront sur la grille par défaut.` : ''
-  if (!window.confirm(`Supprimer la grille « ${grid.value.name} » et tous ses tarifs ?${consequence}`)) return
+  if (!await confirmDialog(`Supprimer la grille « ${grid.value.name} » et tous ses tarifs ?${consequence}`)) return
   try {
     await http.delete(`/pricing-grids/${gridId.value}`)
     gridId.value = null
@@ -224,8 +225,8 @@ async function save() {
 }
 
 async function newGrid() {
-  if (dirty.value && !window.confirm(leaveWarning)) return
-  const name = window.prompt('Nom de la grille négociée (ex. : Gros volume) :')
+  if (dirty.value && !await confirmDialog(leaveWarning)) return
+  const name = await promptDialog('Nom de la grille négociée (ex. : Gros volume) :')
   if (!name) return
   const { data } = await http.post('/pricing-grids', { name })
   await loadGrids()
@@ -239,7 +240,7 @@ async function makeDefault() {
   await loadGrid()
 }
 
-onBeforeRouteLeave(() => !dirty.value || window.confirm(leaveWarning))
+onBeforeRouteLeave(async () => !dirty.value || await confirmDialog(leaveWarning))
 
 function warnBeforeUnload(event) {
   if (dirty.value) event.preventDefault()
