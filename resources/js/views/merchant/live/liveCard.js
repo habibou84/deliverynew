@@ -79,6 +79,20 @@ function cover(ctx, img, x, y, w, h) {
   ctx.drawImage(img, x + (w - img.width * scale) / 2, y + (h - img.height * scale) / 2, img.width * scale, img.height * scale)
 }
 
+/** Produit sans photo (ancien live) : grand code et nom sur un fond de couleur, jamais une case vide */
+function noPhoto(ctx, font, item, x, y, w, h) {
+  ctx.fillStyle = '#e0e7ff'
+  ctx.fillRect(x, y, w, h)
+  ctx.textAlign = 'center'
+  ctx.fillStyle = '#312e81'
+  const size = Math.min(w, h) * 0.38
+  ctx.font = font(800, size)
+  ctx.fillText(item.code, x + w / 2, y + h / 2 + size * 0.2)
+  ctx.font = font(700, Math.max(24, size * 0.22))
+  ctx.fillText(fitText(ctx, item.name, w - 32), x + w / 2, y + h / 2 + size * 0.2 + size * 0.42)
+  ctx.textAlign = 'left'
+}
+
 function codeBadge(ctx, font, code, x, y, size) {
   ctx.font = font(800, size)
   const w = ctx.measureText(code).width + size * 0.7
@@ -106,16 +120,13 @@ function drawHero(ctx, { items, photo, x, y, w, h, font, square }) {
   roundRect(ctx, x, y, w, ph, 32)
   ctx.clip()
   if (photo) cover(ctx, photo, x, y, w, ph)
-  else {
-    ctx.fillStyle = '#e2e8f0'
-    ctx.fillRect(x, y, w, ph)
-  }
+  else noPhoto(ctx, font, first, x, y, w, ph)
   if (allSoldOut) {
     ctx.fillStyle = 'rgba(255,255,255,.55)'
     ctx.fillRect(x, y, w, ph)
   }
   ctx.restore()
-  if (!variants) codeBadge(ctx, font, first.code, x + 24, y + 24, 64)
+  if (!variants && photo) codeBadge(ctx, font, first.code, x + 24, y + 24, 64)
 
   let ty = y + ph + (square ? 62 : 78)
   ctx.fillStyle = '#334155'
@@ -179,12 +190,9 @@ function drawGrid(ctx, { items, photos, x, y, w, h, font, square }) {
     roundRect(ctx, ix, iy, cw, ph, 24)
     ctx.clip()
     if (photos[i]) cover(ctx, photos[i], ix, iy, cw, ph)
-    else {
-      ctx.fillStyle = '#e2e8f0'
-      ctx.fillRect(ix, iy, cw, ph)
-    }
+    else noPhoto(ctx, font, item, ix, iy, cw, ph)
     ctx.restore()
-    codeBadge(ctx, font, item.code, ix + 14, iy + 14, big ? 56 : 46)
+    if (photos[i]) codeBadge(ctx, font, item.code, ix + 14, iy + 14, big ? 56 : 46)
     ctx.fillStyle = '#334155'
     ctx.font = font(500, nameSize)
     ctx.fillText(fitText(ctx, item.variant ? `${item.name} · ${item.variant}` : item.name, cw - 28), ix + 16, iy + ph + nameSize + 18)

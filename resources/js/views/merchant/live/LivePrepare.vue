@@ -42,9 +42,10 @@
           <label v-for="p in shownCatalog" :key="p.id" :class="['flex min-h-[60px] items-center gap-3 px-4 py-2.5', p.stock === 0 ? 'opacity-50' : '']">
             <input type="checkbox" class="h-6 w-6 shrink-0 accent-[var(--app-color)]" :checked="isSelected(p.id)" :disabled="p.stock === 0" @change="toggle(p)">
             <img v-if="p.photo_url" :src="p.photo_url" alt="" class="h-12 w-12 shrink-0 rounded-xl object-cover">
-            <span v-else class="h-12 w-12 shrink-0 rounded-xl bg-slate-100" aria-hidden="true" />
+            <span v-else class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-50 text-[18px]" aria-hidden="true">📷</span>
             <span class="min-w-0 flex-1">
               <b class="block truncate text-[15px]">{{ p.name }}</b>
+              <span v-if="!p.photo_url" class="mr-1.5 inline-block rounded-md bg-red-50 px-1.5 text-[12px] font-bold text-red-700">sans photo</span>
               <span class="text-[14px] text-slate-500">{{ p.stock === null ? 'stock non suivi' : p.stock === 0 ? 'Plus en stock' : `${p.stock} en stock` }} · {{ money(p.price) }}</span>
             </span>
           </label>
@@ -55,7 +56,23 @@
         <div v-if="selected.length" class="m-card divide-y divide-slate-100">
           <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">PRIX ET QUANTITÉ DU LIVE</p>
           <div v-for="(r, idx) in selected" :key="r.key" class="px-4 py-2.5">
+            <!-- Photo obligatoire : elle est enregistrée sur le produit du catalogue -->
+            <div v-if="!r.photo_url && isFirstOf(idx)" class="mb-2 rounded-xl bg-red-50 p-2.5 text-red-800">
+              <p class="text-[14px] font-bold">📷 Photo manquante : elle est obligatoire pour la carte.</p>
+              <p v-if="uploadingFor === r.product_id" class="mt-1.5 text-[14px] font-semibold">Envoi de la photo…</p>
+              <div v-else class="mt-1.5 grid grid-cols-2 gap-2">
+                <label class="tap flex cursor-pointer items-center justify-center rounded-lg bg-white py-2 text-[14px] font-bold text-slate-800 ring-1 ring-red-200">
+                  Prendre la photo
+                  <input type="file" accept="image/*" capture="environment" class="sr-only" @change="productPhoto(r.product_id, $event)">
+                </label>
+                <label class="tap flex cursor-pointer items-center justify-center rounded-lg bg-white py-2 text-[14px] font-bold text-slate-800 ring-1 ring-red-200">
+                  Depuis la galerie
+                  <input type="file" accept="image/*" class="sr-only" @change="productPhoto(r.product_id, $event)">
+                </label>
+              </div>
+            </div>
             <div class="flex items-center gap-2">
+              <img v-if="r.photo_url && isFirstOf(idx)" :src="r.photo_url" alt="" class="h-9 w-9 shrink-0 rounded-lg object-cover">
               <span class="min-w-0 flex-1 truncate text-[15px] font-semibold">{{ r.name }}</span>
               <label class="sr-only" :for="`price-${r.key}`">Prix de {{ r.name }}</label>
               <input :id="`price-${r.key}`" v-model.number="r.price" type="number" min="0" step="500" class="m-input !min-h-[42px] w-28 text-right">
@@ -149,8 +166,9 @@
           </p>
           <label class="flex items-center gap-2 text-[15px]"><input v-model="np.keep_in_catalog" type="checkbox" class="h-5 w-5"> Garder aussi dans mon catalogue</label>
         </div>
-        <button type="button" class="m-btn-primary w-full" :disabled="!np.name || !np.price || !np.quantity || saving" @click="saveProduct(false)">Ajouter au live</button>
-        <button type="button" class="m-btn-secondary w-full" :disabled="!np.name || !np.price || !np.quantity || saving" @click="saveProduct(true)">Ajouter et prendre un autre produit</button>
+        <p v-if="!photoFile" class="text-center text-[14px] font-semibold text-red-700">📷 Prenez ou choisissez d'abord la photo du produit : elle est obligatoire pour la carte.</p>
+        <button type="button" class="m-btn-primary w-full" :disabled="!photoFile || !np.name || !np.price || !np.quantity || saving" @click="saveProduct(false)">Ajouter au live</button>
+        <button type="button" class="m-btn-secondary w-full" :disabled="!photoFile || !np.name || !np.price || !np.quantity || saving" @click="saveProduct(true)">Ajouter et prendre un autre produit</button>
         <button type="button" class="w-full py-2 text-[15px] font-semibold text-slate-500" @click="step = 'produits'">Annuler</button>
       </template>
 
@@ -195,7 +213,8 @@
       <p class="mt-1.5 text-center text-[12px] text-slate-400">Propulsé par <b>Jibiat</b></p>
     </div>
     <div v-if="d && !introOpen && step !== 'nouveau'" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
-      <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>
+      <p v-if="step === 'produits' && noPhoto.length" class="mb-2 text-center text-[14px] font-semibold text-red-700">{{ noPhoto.length }} produit{{ noPhoto.length > 1 ? 's' : '' }} sans photo : ajoutez {{ noPhoto.length > 1 ? 'leur' : 'sa' }} photo pour créer la carte.</p>
+      <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || noPhoto.length > 0 || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>
       <div v-else class="flex gap-2">
         <button type="button" class="h-[52px] w-[52px] shrink-0 rounded-2xl bg-slate-100 text-2xl font-bold text-slate-700" aria-label="Revenir aux produits" @click="step = 'produits'">‹</button>
         <button type="button" class="m-btn-primary flex-1" :disabled="saving" @click="downloadAndStart">{{ mustPay ? `Télécharger la carte et payer ${money(d.offer.live_price)}` : 'Télécharger la carte et ouvrir mon live' }}</button>
@@ -294,6 +313,30 @@ function toggle(p) {
 
 // Variantes : une ligne par taille ou couleur, juste sous le produit
 const hasVariants = (productId) => selected.value.filter((r) => r.product_id === productId).length > 1
+const isFirstOf = (idx) => selected.value[idx - 1]?.product_id !== selected.value[idx].product_id
+// Produits choisis sans photo : la carte ne peut pas être créée
+const noPhoto = computed(() => [...new Set(selected.value.filter((r) => !r.photo_url).map((r) => r.product_id))])
+const uploadingFor = ref(null)
+
+async function productPhoto(productId, event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  uploadingFor.value = productId
+  try {
+    const body = new FormData()
+    body.append('photo', await shrinkPhoto(file))
+    const { photo_url: url } = (await http.post(`/live/products/${productId}/photo`, body)).data.data
+    for (const r of selected.value) if (r.product_id === productId) r.photo_url = url
+    const p = d.value.catalog.find((c) => c.id === productId)
+    if (p) p.photo_url = url
+    toasts.success('Photo ajoutée.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    uploadingFor.value = null
+  }
+}
 const isLastOf = (idx) => selected.value[idx + 1]?.product_id !== selected.value[idx].product_id
 function addVariant(idx) {
   const r = selected.value[idx]
@@ -312,6 +355,10 @@ async function saveItems() {
 }
 
 async function toCard() {
+  if (noPhoto.value.length) {
+    toasts.error('Ajoutez la photo de chaque produit pour créer la carte.')
+    return
+  }
   const missing = selected.value.find((r) => hasVariants(r.product_id) && !r.variant.trim())
   if (missing) {
     toasts.error(`${missing.name} : écrivez la taille ou la couleur de chaque ligne.`)
