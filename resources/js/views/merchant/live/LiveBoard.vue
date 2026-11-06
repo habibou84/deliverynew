@@ -198,11 +198,10 @@ async function addOrder() {
 
 async function refreshCard() {
   try {
-    const prep = (await http.post('/live/prepare')).data.data
     const groups = {}
     for (const i of b.value.items) (groups[i.code[0]] ||= []).push(i)
     for (const letter of Object.keys(groups)) {
-      const canvas = await drawCard({ shop: prep.shop_name, name: b.value.live.name, letter, items: groups[letter], phone: prep.offer.phone })
+      const canvas = await drawCard({ items: groups[letter] })
       await saveCard(canvas, `live-carte-${letter}.png`)
     }
   } catch (e) {
@@ -213,9 +212,8 @@ async function refreshCard() {
 // Carte du produit en cours : ce produit seul, en grand (avec ses tailles)
 async function productCard(item) {
   try {
-    const prep = (await http.post('/live/prepare')).data.data
     const items = productGroups.value.find((g) => g[0].id === item.id)
-    const canvas = await drawCard({ shop: prep.shop_name, name: b.value.live.name, letter: item.code[0], items, phone: prep.offer.phone })
+    const canvas = await drawCard({ items })
     await saveCard(canvas, `live-${item.code}.png`)
   } catch (e) {
     toasts.error(apiErrorMessage(e))

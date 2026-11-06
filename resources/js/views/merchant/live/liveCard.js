@@ -1,6 +1,6 @@
 /**
- * Carte du live : image à épingler sur TikTok ou Facebook (produits, codes A1…, prix, numéro avec des points).
- * Dessinée dans le navigateur (canvas), sans service extérieur.
+ * Carte du live : image à épingler sur TikTok ou Facebook, 100 % produits (photo, code A1…, nom, prix). Ni nom de
+ * boutique, ni « live », ni numéro. Dessinée dans le navigateur (canvas), sans service extérieur.
  */
 
 // Numéro écrit avec des points, sans indicatif : 07.00.00.00.00 (bonne pratique TikTok)
@@ -38,10 +38,10 @@ function fitText(ctx, text, maxWidth) {
 }
 
 /**
- * @param {{ shop: string, name: string, letter: string, items: Array<{code:string,name:string,price:number,remaining?:number,photo_url?:string}>, phone: string, square?: boolean, accent?: string }} card
+ * @param {{ items: Array<{code:string,name:string,price:number,remaining?:number,photo_url?:string}>, square?: boolean }} card
  * @returns {Promise<HTMLCanvasElement>}
  */
-export async function drawCard({ shop, name, letter, items, phone, square = false, accent = '#e11d48' }) {
+export async function drawCard({ items, square = false }) {
   const W = 1080
   const H = square ? 1080 : 1920
   const canvas = document.createElement('canvas')
@@ -53,44 +53,13 @@ export async function drawCard({ shop, name, letter, items, phone, square = fals
   ctx.fillStyle = '#0f172a'
   ctx.fillRect(0, 0, W, H)
 
-  // En-tête : boutique, nom du live, carte
-  const pad = 56
-  ctx.fillStyle = '#ffffff'
-  ctx.font = font(800, square ? 52 : 64)
-  ctx.fillText(fitText(ctx, shop, W - pad * 2 - 260), pad, square ? 96 : 130)
-  ctx.font = font(500, square ? 34 : 40)
-  ctx.fillStyle = '#cbd5e1'
-  ctx.fillText(fitText(ctx, name, W - pad * 2), pad, square ? 148 : 196)
-  ctx.font = font(800, 34)
-  const badge = `EN LIVE · CARTE ${letter}`
-  const bw = ctx.measureText(badge).width + 40
-  ctx.fillStyle = accent
-  roundRect(ctx, W - pad - bw, square ? 52 : 82, bw, 60, 14)
-  ctx.fill()
-  ctx.fillStyle = '#ffffff'
-  ctx.fillText(badge, W - pad - bw + 20, square ? 94 : 124)
-
-  // Produits : la mise en page suit leur nombre. Un seul produit (avec ou sans tailles) : grande photo ;
-  // 2 : deux colonnes ; 3 et 4 : deux par ligne ; 5 à 9 : trois par ligne.
-  const top = square ? 190 : 260
-  const footer = square ? 180 : 260
+  // Seulement les produits, sur toute la carte. Un seul produit (avec ou sans tailles) : grande photo ;
+  // sinon une grille (deux par ligne, trois quand il y en a beaucoup).
+  const pad = 48
   const single = isSingleProduct(items)
   const photos = await Promise.all((single ? items.slice(0, 1) : items).map((i) => loadImage(i.photo_url)))
-  if (single) drawHero(ctx, { items, photo: photos[0], x: pad, y: top, w: W - pad * 2, h: H - top - footer - 24, font, square })
-  else drawGrid(ctx, { items, photos, x: pad, y: top, w: W - pad * 2, h: H - top - footer, font, square })
-
-  // Pied : comment commander (numéro avec des points, sans le mot « WhatsApp »)
-  const fy = H - footer + 30
-  ctx.fillStyle = '#ffffff'
-  roundRect(ctx, pad, fy, W - pad * 2, footer - 80, 28)
-  ctx.fill()
-  ctx.textAlign = 'center'
-  ctx.fillStyle = '#0f172a'
-  ctx.font = font(700, square ? 36 : 42)
-  ctx.fillText(howToOrder(items), W / 2, fy + (square ? 50 : 66))
-  ctx.font = font(800, square ? 54 : 68)
-  ctx.fillText(dottedPhone(phone), W / 2, fy + (square ? 112 : 146))
-  ctx.textAlign = 'left'
+  if (single) drawHero(ctx, { items, photo: photos[0], x: pad, y: pad, w: W - pad * 2, h: H - pad * 2, font, square })
+  else drawGrid(ctx, { items, photos, x: pad, y: pad, w: W - pad * 2, h: H - pad * 2, font, square })
 
   return canvas
 }
@@ -100,16 +69,9 @@ export function isSingleProduct(items) {
   return items.length > 0 && items.every((i) => (i.product_id ?? i.name) === (items[0].product_id ?? items[0].name))
 }
 
-/** Phrase du pied de carte : « JE PRENDS » quand il n'y a qu'un article, sinon le code */
-export function howToOrder(items) {
-  if (items.length === 1) return 'Envoie JE PRENDS au'
-  if (isSingleProduct(items)) return 'Envoie le code de ta taille au'
-  return `Envoie le code, par ex. ${items[0]?.code || 'A1'}, au`
-}
-
 /** Colonnes de la grille selon le nombre de produits */
-export function columnsFor(count) {
-  return count <= 4 ? 2 : 3
+export function columnsFor(count, square = false) {
+  return count <= (square ? 4 : 6) ? 2 : 3
 }
 
 function cover(ctx, img, x, y, w, h) {
@@ -153,7 +115,7 @@ function drawHero(ctx, { items, photo, x, y, w, h, font, square }) {
     ctx.fillRect(x, y, w, ph)
   }
   ctx.restore()
-  if (!variants) codeBadge(ctx, font, first.code, x + 22, y + 22, 52)
+  if (!variants) codeBadge(ctx, font, first.code, x + 24, y + 24, 64)
 
   let ty = y + ph + (square ? 62 : 78)
   ctx.fillStyle = '#334155'
@@ -194,15 +156,15 @@ function drawHero(ctx, { items, photo, x, y, w, h, font, square }) {
 
 /** Plusieurs produits : 2 ou 3 colonnes, photo, code, nom et prix */
 function drawGrid(ctx, { items, photos, x, y, w, h, font, square }) {
-  const cols = columnsFor(items.length)
+  const cols = columnsFor(items.length, square)
   const rows = Math.ceil(items.length / cols)
   const gap = 24
   const cw = (w - gap * (cols - 1)) / cols
   const big = cols === 2
-  const ch = Math.min(square ? (big ? 470 : 420) : (big ? 820 : 470), (h - gap * (rows - 1)) / rows)
-  const nameSize = big ? 36 : 30
-  const priceSize = big ? 50 : 40
-  const textH = big ? 150 : 130
+  const ch = Math.min(square ? (big ? 500 : 480) : (big ? 880 : 600), (h - gap * (rows - 1)) / rows)
+  const nameSize = big ? 40 : 32
+  const priceSize = big ? 56 : 44
+  const textH = big ? 165 : 140
   // Grille centrée dans la hauteur disponible
   y += Math.max(0, (h - (rows * ch + (rows - 1) * gap)) / 2)
   items.forEach((item, i) => {
@@ -222,7 +184,7 @@ function drawGrid(ctx, { items, photos, x, y, w, h, font, square }) {
       ctx.fillRect(ix, iy, cw, ph)
     }
     ctx.restore()
-    codeBadge(ctx, font, item.code, ix + 14, iy + 14, big ? 46 : 40)
+    codeBadge(ctx, font, item.code, ix + 14, iy + 14, big ? 56 : 46)
     ctx.fillStyle = '#334155'
     ctx.font = font(500, nameSize)
     ctx.fillText(fitText(ctx, item.variant ? `${item.name} · ${item.variant}` : item.name, cw - 28), ix + 16, iy + ph + nameSize + 18)

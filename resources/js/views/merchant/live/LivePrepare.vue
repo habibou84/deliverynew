@@ -9,7 +9,7 @@
     <template v-if="d && !introOpen">
       <!-- Étapes -->
       <div class="flex gap-1.5 text-[13px] font-bold">
-        <span v-for="(s, i) in STEPS" :key="s.key" :class="['flex-1 rounded-full py-1.5 text-center', step === s.key || (step === 'nouveau' && s.key === 'produits') ? 'bg-[var(--app-color)] text-white' : i < stepIndex ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-500']">{{ i + 1 }} {{ s.label }}</span>
+        <span v-for="(s, i) in STEPS" :key="s.key" :class="['flex-1 rounded-full py-1.5 text-center', step === s.key || (step === 'nouveau' && s.key === 'produits') ? 'bg-[var(--app-color)] text-white' : i < stepIndex ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500']">{{ i < stepIndex ? '✓' : i + 1 }} {{ s.label }}</span>
       </div>
 
       <!-- ── 1. Choisir les produits ── -->
@@ -99,11 +99,24 @@
           </div>
         </div>
 
+        <!-- Photo choisie : l'IA ne travaille que si on le demande (une fiche IA), sinon tout à la main, gratuit -->
+        <div v-if="preview && !ai && !recognizing && !needPack" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] text-indigo-900">
+          <template v-if="cardsLeft > 0">
+            <button type="button" class="block w-full rounded-xl bg-indigo-600 py-3 text-[16px] font-bold text-white" @click="analyze">✨ Remplir avec l'IA (1 fiche)</button>
+            <span class="mt-1.5 block text-center text-[14px]">Il vous reste {{ cardsLeft }} fiche{{ cardsLeft > 1 ? 's' : '' }} IA. Ou écrivez le nom vous-même ci-dessous, c'est gratuit.</span>
+          </template>
+          <template v-else>
+            <span class="block font-bold">Vous n'avez plus de fiches IA.</span>
+            <span class="mt-1 block">Pas obligé d'en acheter : écrivez le nom ci-dessous, c'est gratuit.</span>
+            <button type="button" class="mt-2 block w-full rounded-xl bg-amber-600 py-2.5 font-bold text-white" @click="buyPack">Acheter {{ d.offer.prices.pack_cards }} fiches pour {{ money(d.offer.prices.pack) }}</button>
+          </template>
+        </div>
         <div v-if="recognizing" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] font-semibold text-indigo-800">L'IA regarde la photo…</div>
         <div v-else-if="ai" class="rounded-2xl border-2 border-indigo-500 bg-indigo-50 px-4 py-3">
           <p class="text-[14px] font-bold text-indigo-700">L'IA a reconnu le produit</p>
           <p class="text-[18px] font-extrabold text-indigo-950">{{ ai.name }}</p>
           <p class="text-[14px] text-indigo-800">Fiches IA restantes : {{ ai.cards.left }}</p>
+          <button v-if="np.token" type="button" class="mt-1 text-[14px] font-bold text-indigo-700 underline" @click="analyze">Pas le bon nom ? Analyser de nouveau (gratuit)</button>
         </div>
         <div v-if="needPack" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">
           Vous n'avez plus de fiches IA.
@@ -165,7 +178,7 @@
             <p v-else class="m-card p-6 text-center text-slate-500">Préparation de la carte {{ c.letter }}…</p>
           </div>
         </div>
-        <p class="text-center text-[14px] text-slate-500">Le numéro est écrit avec des points, sans le mot « WhatsApp », comme le conseille TikTok.</p>
+        <p class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La carte montre seulement vos produits. <b>Pendant le live, dites votre numéro WhatsApp</b> (ou mettez-le dans votre bio) : les clientes y envoient le code du produit.</p>
 
         <div class="m-card space-y-1.5 border-2 border-blue-900 p-4 text-[16px]">
           <p class="text-[17px] font-extrabold">Montrer la carte</p>
@@ -322,13 +335,13 @@ async function renderCards() {
   for (const i of d.value.items) (groups[i.code[0]] ||= []).push(i)
   cards.value = Object.keys(groups).map((letter) => ({ letter, url: null, canvas: null }))
   for (const c of cards.value) {
-    c.canvas = await drawCard({ shop: d.value.shop_name, name: liveName.value, letter: c.letter, items: groups[c.letter], phone: d.value.offer.phone, square: square.value })
+    c.canvas = await drawCard({ items: groups[c.letter], square: square.value })
     c.url = c.canvas.toDataURL('image/png')
   }
 }
 watch(square, () => { if (step.value === 'carte') renderCards() })
 
-// WhatsApp relié : la carte affiche ce numéro
+// WhatsApp relié : mise à jour de l'écran
 async function onWhatsApp() {
   await load()
   await renderCards()
@@ -376,16 +389,47 @@ async function onPhoto(event) {
   // Le même fichier pourra être choisi de nouveau
   event.target.value = ''
   if (!file) return
-  photoFile.value = file
-  preview.value = URL.createObjectURL(file)
+  photoFile.value = await shrinkPhoto(file)
+  preview.value = URL.createObjectURL(photoFile.value)
+  // Nouvelle photo : rien n'est analysé tant que la vendeuse ne le demande pas
+  ai.value = null
+  needPack.value = false
+}
+
+/**
+ * Photo réduite (1600 px au plus, JPEG) : envoi plus rapide sur le réseau mobile, et l'IA refuse les images
+ * trop lourdes des téléphones récents. En cas de souci, la photo d'origine.
+ */
+async function shrinkPhoto(file, max = 1600) {
+  try {
+    const img = await createImageBitmap(file, { imageOrientation: 'from-image' })
+    const k = Math.min(1, max / Math.max(img.width, img.height))
+    if (k === 1 && file.size < 1_500_000) return file
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(img.width * k)
+    canvas.height = Math.round(img.height * k)
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
+    return blob ? new File([blob], 'produit.jpg', { type: 'image/jpeg' }) : file
+  } catch {
+    return file
+  }
+}
+
+// Fiches IA restantes (fiches offertes, recharges, forfait)
+const cardsLeft = computed(() => d.value?.cards?.left ?? 0)
+
+async function analyze() {
+  if (!photoFile.value) return
   recognizing.value = true
   needPack.value = false
   try {
     const body = new FormData()
-    body.append('photo', file)
+    body.append('photo', photoFile.value)
     if (np.token) body.append('token', np.token)
     const { data } = await http.post(`/live/${d.value.live.id}/recognize`, body)
     ai.value = data.data
+    if (data.data.cards) d.value.cards = data.data.cards
     Object.assign(np, { name: data.data.name, description: data.data.description, category: data.data.category, token: data.data.token })
   } catch (e) {
     const message = apiErrorMessage(e)
@@ -404,8 +448,9 @@ async function buyPack() {
       return
     }
     d.value.offer = data
+    d.value.cards = { ...d.value.cards, left: (d.value.cards?.left ?? 0) + Number(data.prices?.pack_cards ?? 0) }
     needPack.value = false
-    toasts.success('Fiches ajoutées. Reprenez la photo.')
+    toasts.success('Fiches ajoutées. Touchez « Remplir avec l\'IA ».')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }
