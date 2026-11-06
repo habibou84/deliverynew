@@ -28,6 +28,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -346,6 +347,21 @@ class LiveStudio
     }
 
     /** Produit enregistré dans le catalogue (fiche IA ou à la main) avec sa photo et son stock */
+    /** Photo d'un produit du catalogue (obligatoire pour la carte du live), l'ancienne est remplacée */
+    public function setProductPhoto(Merchant $merchant, Product $product, UploadedFile $photo): Product
+    {
+        if ($product->merchant_id !== $merchant->id) {
+            throw new BusinessRuleException('Ce produit n\'est pas dans votre catalogue.');
+        }
+        $old = $product->photo_path;
+        $product->forceFill(['photo_path' => $photo->store("products/merchant-{$merchant->id}", 'local')])->save();
+        if ($old && $old !== $product->photo_path) {
+            Storage::disk('local')->delete($old);
+        }
+
+        return $product;
+    }
+
     public function createProduct(Merchant $merchant, User $user, array $data, ?UploadedFile $photo): Product
     {
         return DB::transaction(function () use ($merchant, $user, $data, $photo) {
