@@ -199,6 +199,7 @@ import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money, rate } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 const APP_MODES = [
   { value: 'included', label: 'Incluse' },
@@ -249,7 +250,7 @@ const DECISIONS = {
 }
 
 async function decide(option, action) {
-  if (!window.confirm(DECISIONS[action][0])) return
+  if (!await confirmDialog(DECISIONS[action][0])) return
   try {
     await http.post(`/console/app-options/${option.id}/${action}`)
     toasts.success(DECISIONS[action][1])
@@ -325,7 +326,7 @@ function example(fee) {
 
 async function save() {
   const used = form.id ? (plans.value.find((p) => p.id === form.id)?.companies_count ?? 0) : 0
-  if (used > 0 && !window.confirm(`Cette formule est utilisée par ${used} entreprise${used > 1 ? 's' : ''} : le changement s'applique à leurs prochaines factures. Enregistrer ?`)) return
+  if (used > 0 && !await confirmDialog(`Cette formule est utilisée par ${used} entreprise${used > 1 ? 's' : ''} : le changement s'applique à leurs prochaines factures. Enregistrer ?`)) return
   form.saving = true
   form.error = ''
   const percent = form.pricing === 'percent'

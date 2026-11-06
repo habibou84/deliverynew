@@ -79,6 +79,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { date, dateTime } from '../utils/format'
+import { confirmDialog } from '../composables/useDialog'
 
 /**
  * Réglages › Reprise de l'ancienne application › Anciennes courses à clôturer : simulation par cas, clôture en
@@ -127,7 +128,7 @@ async function start() {
 }
 
 async function undo() {
-  if (!window.confirm('Annuler ce nettoyage ? Les courses reviennent à leur état d\'avant (sauf celles traitées depuis).')) return
+  if (!await confirmDialog('Annuler ce nettoyage ? Les courses reviennent à leur état d\'avant (sauf celles traitées depuis).')) return
   const data = await call(() => http.post(`/company/legacy-purge/${last.value.id}/undo`))
   if (data) {
     toasts.success(`${data.restored} course(s) remises comme avant.`)

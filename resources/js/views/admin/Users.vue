@@ -212,6 +212,7 @@ import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { date, dateTime } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 /** Équipe › Utilisateurs : onglets, compteurs, recherche, actions par compte, historique */
 const TABS = [
@@ -395,7 +396,7 @@ function go(delta) {
 }
 
 async function cancelDeletion(d) {
-  if (!window.confirm(`Rouvrir le compte de ${d.name} ? Il pourra de nouveau se connecter.`)) return
+  if (!await confirmDialog(`Rouvrir le compte de ${d.name} ? Il pourra de nouveau se connecter.`)) return
   cancelling.value = d.id
   try {
     await http.post(`/account-deletions/${d.id}/cancel`)

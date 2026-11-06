@@ -100,6 +100,7 @@ import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
+import { confirmDialog } from '../../composables/useDialog'
 
 const toasts = useToastStore()
 const zones = ref([])
@@ -153,7 +154,7 @@ async function saveEdit(zone) {
 }
 
 async function remove(zone) {
-  if (!window.confirm(`Supprimer la zone « ${zone.name} » et ses tarifs ?`)) return
+  if (!await confirmDialog(`Supprimer la zone « ${zone.name} » et ses tarifs ?`)) return
   try {
     await http.delete(`/zones/${zone.id}`)
     toasts.success('Zone supprimée.')

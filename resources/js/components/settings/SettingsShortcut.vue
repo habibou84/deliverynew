@@ -36,6 +36,7 @@ import http from '../../bootstrap/axios'
 import { useAuthStore } from '../../stores/auth'
 import { BLOCKS, fieldsOf } from './blocks'
 import SettingsPanelBody from './SettingsPanelBody.vue'
+import { confirmDialog } from '../../composables/useDialog'
 
 const props = defineProps({
   blocks: { type: Array, required: true },
@@ -56,8 +57,8 @@ const closeButton = ref(null)
 
 const summary = computed(() => (values.value ? props.blocks.flatMap((k) => BLOCKS[k].summary(values.value)) : []))
 
-function close() {
-  if (dirty.value && !window.confirm('Des modifications ne sont pas enregistrées. Fermer quand même ?')) return
+async function close() {
+  if (dirty.value && !await confirmDialog('Des modifications ne sont pas enregistrées. Fermer quand même ?')) return
   open.value = false
   dirty.value = false
 }

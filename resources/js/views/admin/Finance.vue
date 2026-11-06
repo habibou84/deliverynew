@@ -489,6 +489,7 @@ import { useToastStore } from '../../stores/toasts'
 import { date, dateTime, money, signedClass } from '../../utils/format'
 import { downloadCsv } from '../../components/stats/chart'
 import { PERIOD_PRESETS, shift } from '../../utils/periods'
+import { confirmDialog, promptDialog } from '../../composables/useDialog'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -717,7 +718,7 @@ async function saveBatchPay() {
 
 async function paySelectedPayslips() {
   const label = PAY_METHODS.find((m) => m.value === batch.payslipMethod)?.label
-  if (!window.confirm(`Payer ${batch.payslips.length} fiche(s) pour ${money(selectedPayslipsTotal.value)} en ${label} ?`)) return
+  if (!await confirmDialog(`Payer ${batch.payslips.length} fiche(s) pour ${money(selectedPayslipsTotal.value)} en ${label} ?`)) return
   batch.busy = true
   try {
     const { data } = await http.post('/finance/courier-payouts/pay-batch', { ids: batch.payslips, method: batch.payslipMethod })
@@ -815,7 +816,7 @@ function exportPayouts() {
 }
 
 async function cancelAdvance(a) {
-  const reason = window.prompt(`Annuler l'avance « ${a.reason} » de ${money(a.amount)} ? Raison :`)?.trim()
+  const reason = (await promptDialog(`Annuler l'avance « ${a.reason} » de ${money(a.amount)} ? Raison :`))?.trim()
   if (!reason) return
   try {
     await http.post(`/finance/advances/${a.id}/cancel`, { reason })
@@ -849,7 +850,7 @@ async function openRemit(courier, all = false) {
 
 // Paiement Wave ou Mobile Money retrouvé sur le relevé : il n'est plus dû par le livreur
 async function confirmCollection(c) {
-  if (!confirm(`Confirmer que ${money(c.amount_collected)} (${c.method_label}, réf. ${c.transaction_ref}) est bien arrivé sur le compte de l'entreprise ?`)) return
+  if (!await confirmDialog(`Confirmer que ${money(c.amount_collected)} (${c.method_label}, réf. ${c.transaction_ref}) est bien arrivé sur le compte de l'entreprise ?`)) return
   try {
     await http.post(`/finance/collections/${c.id}/confirm`)
     toasts.success('Paiement confirmé.')
@@ -862,7 +863,7 @@ async function confirmCollection(c) {
 
 // Frais déclarés par le livreur : validés (déduits de son versement, facturés au marchand) ou refusés
 async function decideExpense(e, approve) {
-  if (!approve && !confirm(`Refuser les frais « ${e.description} » (${money(e.amount)}) ?`)) return
+  if (!approve && !await confirmDialog(`Refuser les frais « ${e.description} » (${money(e.amount)}) ?`)) return
   try {
     await http.post(`/orders/${e.order_id}/expenses/${e.id}/${approve ? 'approve' : 'cancel'}`)
     toasts.success(approve ? 'Frais validés.' : 'Frais refusés.')
@@ -973,7 +974,7 @@ async function payCourierPayout(payment) {
 }
 
 async function cancelCourierPayout() {
-  if (!window.confirm(`Annuler la fiche de paie ${courierPayout.data.reference} ? Les gains reviennent dans « Gains non payés ».`)) return
+  if (!await confirmDialog(`Annuler la fiche de paie ${courierPayout.data.reference} ? Les gains reviennent dans « Gains non payés ».`)) return
   await http.post(`/finance/courier-payouts/${courierPayout.data.id}/cancel`)
   courierPayout.open = false
   load()

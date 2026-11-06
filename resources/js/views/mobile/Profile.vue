@@ -97,6 +97,7 @@ import { localPhone, telLink } from '../../utils/format'
 import { appLock, siteUrl } from '../../native'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
+import { confirmDialog } from '../../composables/useDialog'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -147,7 +148,7 @@ const installedLabel = computed(() => (pwa.installed ? 'application installée' 
 
 async function logout() {
   // Actions faites hors connexion pas encore envoyées : elles attendraient la prochaine connexion
-  if (offlineQueue.pending.length && !window.confirm(`${offlineQueue.pending.length} action(s) faite(s) hors connexion ne sont pas encore envoyées. Déconnecté, elles ne partiront que lorsque vous vous reconnecterez sur ce téléphone. Se déconnecter quand même ?`)) return
+  if (offlineQueue.pending.length && !await confirmDialog(`${offlineQueue.pending.length} action(s) faite(s) hors connexion ne sont pas encore envoyées. Déconnecté, elles ne partiront que lorsque vous vous reconnecterez sur ce téléphone. Se déconnecter quand même ?`)) return
   await forgetPushDevice()
   // Application installée : sa propre page de connexion (l'e-commerçant reste dans /marchand)
   const login = appLock()?.login || (auth.role === 'courier' ? '/livreur/connexion' : '/')

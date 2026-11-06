@@ -84,6 +84,7 @@ import { onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { dateTime } from '../utils/format'
+import { confirmDialog } from '../composables/useDialog'
 
 const toasts = useToastStore()
 const state = ref(null)
@@ -116,8 +117,8 @@ async function run(request, success) {
 const save = () => run(() => http.put('/company/domain', { domain: domain.value }))
 const check = () => run(() => http.post('/company/domain/check'))
 
-function remove() {
-  if (!window.confirm(`Retirer ${state.value.custom_domain} ? Votre espace reste accessible à ${host(state.value.platform_url)}.`)) return
+async function remove() {
+  if (!await confirmDialog(`Retirer ${state.value.custom_domain} ? Votre espace reste accessible à ${host(state.value.platform_url)}.`)) return
   run(() => http.delete('/company/domain'), 'Domaine retiré.')
   domain.value = ''
 }

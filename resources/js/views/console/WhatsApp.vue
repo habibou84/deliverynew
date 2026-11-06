@@ -192,6 +192,7 @@ import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { dateTime } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 /**
  * Console › WhatsApp : numéro de Jibiat (connexion officielle de Meta saisie à la main, ou QR code), conversations avec les entreprises et les prospects,
@@ -265,7 +266,7 @@ const saveOfficial = () => officialCall(() => http.put('/console/whatsapp/offici
 const verifyOfficial = () => officialCall(() => http.post('/console/whatsapp/official/verify'), 'Connexion officielle vérifiée.')
 
 async function removeOfficial() {
-  if (!window.confirm('Retirer la connexion officielle ? La console repassera par le QR code s\'il est relié.')) return
+  if (!await confirmDialog('Retirer la connexion officielle ? La console repassera par le QR code s\'il est relié.')) return
   await officialCall(() => http.delete('/console/whatsapp/official'), '')
   Object.assign(official, { display_phone: '', phone_number_id: '', waba_id: '', access_token: '' })
 }
@@ -339,7 +340,7 @@ async function connect() {
 }
 
 async function disconnect() {
-  if (!window.confirm('Déconnecter le numéro de Jibiat ? Les messages n\'arriveront plus dans la console.')) return
+  if (!await confirmDialog('Déconnecter le numéro de Jibiat ? Les messages n\'arriveront plus dans la console.')) return
   busy.value = true
   try {
     state.value = (await http.delete('/console/whatsapp/connect')).data.data
@@ -349,7 +350,7 @@ async function disconnect() {
 }
 
 async function setSmsFallback(on) {
-  if (on && !window.confirm('Chaque SMS coûte. Proposer le SMS même quand WhatsApp est possible ?')) {
+  if (on && !await confirmDialog('Chaque SMS coûte. Proposer le SMS même quand WhatsApp est possible ?')) {
     await loadState()
     return
   }

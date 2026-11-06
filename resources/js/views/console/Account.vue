@@ -56,6 +56,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { dateTime } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -114,7 +115,7 @@ async function changePassword() {
 }
 
 async function forget(id) {
-  if (!window.confirm(id ? 'Oublier cet appareil ? Le code lui sera redemandé.' : 'Oublier tous les appareils ? Le code sera redemandé partout, ici compris.')) return
+  if (!await confirmDialog(id ? 'Oublier cet appareil ? Le code lui sera redemandé.' : 'Oublier tous les appareils ? Le code sera redemandé partout, ici compris.')) return
   try {
     fill((await http.delete(id ? `/console/account/devices/${id}` : '/console/account/devices')).data.data)
     toasts.success('Appareil oublié.')

@@ -51,6 +51,7 @@ class Merchant extends Model
         return [
             'premium_level_since' => 'datetime',
             'live_plan_until' => 'datetime',
+            'live_welcome_cards_at' => 'datetime',
             'live_wa_connected_at' => 'datetime',
             'live_extra_cards' => 'integer',
             'default_fee_payer' => FeePayer::class,

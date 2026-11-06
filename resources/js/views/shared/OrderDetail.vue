@@ -264,6 +264,7 @@ import { useToastStore } from '../../stores/toasts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
 import { date, dateTime, money, telLink } from '../../utils/format'
 import { ASSIGNABLE, ASSIGNMENT_LABELS, BEFORE_PICKUP, FINAL, TRANSITIONS, isWarehouseStep } from '../../utils/workflow'
+import { confirmDialog, promptDialog } from '../../composables/useDialog'
 
 const STOCK_STATES = {
   reserved: { label: 'réservé', class: 'bg-amber-100 text-amber-800' },
@@ -365,7 +366,7 @@ const activeAssignments = computed(() => (order.value?.assignments || []).filter
 const canUnassign = (a) => a.type === 'pickup' || !['out_for_delivery', 'returning'].includes(order.value.status)
 
 async function unassign(a) {
-  const reason = window.prompt(`Retirer ${a.courier_name} de ce ${a.type_label.toLowerCase()} ? Il sera prévenu.\nMotif (facultatif) :`, '')
+  const reason = await promptDialog(`Retirer ${a.courier_name} de ce ${a.type_label.toLowerCase()} ? Il sera prévenu.\nMotif (facultatif) :`, '')
   if (reason === null) return
   try {
     const { data } = await http.post(`/orders/${order.value.id}/unassign`, { type: a.type, reason: reason.trim() || undefined })
@@ -402,7 +403,7 @@ async function quickMove(status, message = null) {
 }
 
 async function restock() {
-  if (!window.confirm('Le colis est-il bien revenu à l\'entrepôt ? Les articles redeviendront disponibles.')) return
+  if (!await confirmDialog('Le colis est-il bien revenu à l\'entrepôt ? Les articles redeviendront disponibles.')) return
   await quickMove('returned', 'Articles remis en stock.')
 }
 
@@ -433,7 +434,7 @@ async function addNote() {
 }
 
 async function verifyDeliveryCode() {
-  const note = window.prompt('Comment la livraison a-t-elle été vérifiée ? (facultatif)')
+  const note = await promptDialog('Comment la livraison a-t-elle été vérifiée ? (facultatif)')
   if (note === null) return
   try {
     const { data } = await http.post(`/orders/${order.value.id}/verify-delivery-code`, { note: note || undefined })
@@ -445,7 +446,7 @@ async function verifyDeliveryCode() {
 }
 
 async function requestReturn() {
-  const reason = window.prompt('Raison du retour (facultatif) :')
+  const reason = await promptDialog('Raison du retour (facultatif) :')
   if (reason === null) return
   try {
     const { data } = await http.post(`/orders/${order.value.id}/return-request`, { note: reason || undefined })
@@ -457,7 +458,7 @@ async function requestReturn() {
 }
 
 async function decideChange(decision) {
-  const reason = decision === 'refuse' ? window.prompt('Motif du refus (envoyé à l\'e-commerçant) :') : ''
+  const reason = decision === 'refuse' ? await promptDialog('Motif du refus (envoyé à l\'e-commerçant) :') : ''
   if (reason === null) return
   changeBusy.value = true
   try {
@@ -473,7 +474,7 @@ async function decideChange(decision) {
 
 const relayBusy = ref(false)
 async function validateRelay() {
-  const reason = window.prompt('Motif (ex. téléphone du livreur déchargé) :')
+  const reason = await promptDialog('Motif (ex. téléphone du livreur déchargé) :')
   if (!reason || reason.trim().length < 3) return
   relayBusy.value = true
   try {

@@ -69,6 +69,7 @@ import { onBeforeUnmount, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 import { dottedPhone } from './liveCard'
+import { confirmDialog } from '../../../composables/useDialog'
 
 /**
  * Commandes du live reçues et enregistrées sans l'e-commerçante : son numéro WhatsApp Business relié par la
@@ -137,7 +138,7 @@ function done(data) {
 }
 
 async function logout() {
-  if (!window.confirm('Délier ce WhatsApp ? Les commandes du live ne seront plus automatiques.')) return
+  if (!await confirmDialog('Délier ce WhatsApp ? Les commandes du live ne seront plus automatiques.')) return
   try {
     const data = state.mode === 'official'
       ? (await http.delete('/live/whatsapp/official')).data.data

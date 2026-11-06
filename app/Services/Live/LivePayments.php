@@ -35,7 +35,7 @@ class LivePayments
         }
         $s = $this->studio->settings();
         [$amount, $label] = match ($kind) {
-            'live' => [(int) $s['price_live'], 'Live « '.$live?->name.' »'],
+            'live' => [$this->studio->livePrice($merchant), 'Live « '.$live?->name.' »'],
             'monthly' => [(int) $s['price_month'], 'Forfait live du mois'],
             'pack' => [(int) $s['pack_price'], "{$s['pack_cards']} fiches produit IA"],
         };
