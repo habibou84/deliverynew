@@ -735,6 +735,29 @@ class LiveStudio
         ];
     }
 
+    /**
+     * Chiffres des lives passés de l'e-commerçante : nombre de lives et de commandes, article le plus commandé,
+     * meilleure heure (heure de la journée qui a reçu le plus de commandes).
+     *
+     * @return array{lives: int, orders: int, top_item: ?array{name: string, quantity: int}, best_hour: ?int}
+     */
+    public function insights(Merchant $merchant): array
+    {
+        $lives = Live::forCompany($merchant->company_id)->where('merchant_id', $merchant->id)->where('status', Live::ENDED)->pluck('id');
+        $orders = LiveOrder::query()->whereIn('live_id', $lives)->with('item:id,name')->get(['id', 'live_item_id', 'quantity', 'created_at']);
+        $top = $orders->groupBy(fn (LiveOrder $o) => $o->item?->name)->filter(fn ($g, $name) => $name !== '')
+            ->map(fn ($g) => (int) $g->sum('quantity'))->sortDesc();
+        $tz = $merchant->company?->timezone ?: config('app.timezone');
+        $hours = $orders->countBy(fn (LiveOrder $o) => (int) $o->created_at->copy()->setTimezone($tz)->format('G'))->sortDesc();
+
+        return [
+            'lives' => $lives->count(),
+            'orders' => $orders->count(),
+            'top_item' => $top->isEmpty() ? null : ['name' => (string) $top->keys()->first(), 'quantity' => (int) $top->first()],
+            'best_hour' => $hours->isEmpty() ? null : (int) $hours->keys()->first(),
+        ];
+    }
+
     // ── Plateforme ────────────────────────────────────────────────────────────────────────────────
 
     /**

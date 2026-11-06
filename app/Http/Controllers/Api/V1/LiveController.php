@@ -76,8 +76,10 @@ class LiveController extends Controller
         return response()->json(['data' => [
             'offer' => $this->studio->offer($merchant),
             'current' => $current ? $this->studio->present($current) : null,
-            'past' => Live::query()->where('merchant_id', $merchant->id)->where('status', Live::ENDED)->withCount('items')
-                ->latest('id')->limit(10)->get()->map(fn (Live $l) => $this->studio->present($l))->values(),
+            'past' => Live::query()->where('merchant_id', $merchant->id)->where('status', Live::ENDED)->withCount(['items', 'orders'])
+                ->latest('id')->limit(10)->get()->map(fn (Live $l) => [...$this->studio->present($l), 'orders_count' => $l->orders_count])->values(),
+            // Chiffres des lives passés : l'article le plus commandé et la meilleure heure
+            'insights' => $this->studio->insights($merchant),
         ]]);
     }
 
