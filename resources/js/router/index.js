@@ -1,3 +1,4 @@
+import { isPhone } from '../composables/usePhone'
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { CONSOLE_ROLES, SPACES } from '../roles'
@@ -223,7 +224,10 @@ const routes = [
       { path: 'courses/:id(\\d+)', component: () => import('../views/merchant/OrderView.vue'), meta: { title: 'Course', back: true, hideTabs: true } },
       { path: 'stock', component: () => import('../views/merchant/Stock.vue'), meta: { title: 'Mon stock', feature: 'stock' } },
       // Outil live : préparer (produits, carte), écran du direct, bilan
-      { path: 'live', redirect: '/marchand/live/preparer' },
+      // Téléphone : page Live (live en cours, préparer, lives passés) ; ordinateur : directement « Préparer mon live »
+      { path: 'live', component: () => import('../views/merchant/live/LiveHome.vue'), meta: { title: 'Live', permission: 'orders.create' }, beforeEnter: () => (isPhone.value ? true : '/marchand/live/preparer') },
+      { path: 'ma-boutique', component: () => import('../views/merchant/BoutiqueHub.vue'), meta: { title: 'Boutique' }, beforeEnter: () => (isPhone.value ? true : '/marchand/boutique') },
+      { path: 'plus', component: () => import('../views/merchant/MorePage.vue'), meta: { title: 'Plus' }, beforeEnter: () => (isPhone.value ? true : '/marchand/profil') },
       { path: 'live/preparer', component: () => import('../views/merchant/live/LivePrepare.vue'), meta: { title: 'Préparer mon live', back: true, hideTabs: true, permission: 'orders.create' } },
       { path: 'live/:id(\\d+)', component: () => import('../views/merchant/live/LiveBoard.vue'), meta: { title: 'Mon live', back: true, hideTabs: true, permission: 'orders.create' } },
       // Retour de la page de paiement (PayDunya)
