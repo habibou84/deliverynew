@@ -321,6 +321,8 @@ class LiveController extends Controller
             // Lien du live : sans WhatsApp relié, les clientes commandent par ce lien
             'public_url' => $live->publicUrl(),
             'whatsapp' => $this->whatsappState($merchant),
+            // Live en cours : la page ne montre que le bandeau « En direct » (commandes, montant)
+            'totals' => $live->status === Live::LIVE ? $this->studio->board($live)['totals'] : null,
             // Étape « L'étiquette » faite pour les produits actuels
             'label_ready' => $this->studio->labelReady($live),
             // Lives passés à reprendre (produits, ordre, prix)
