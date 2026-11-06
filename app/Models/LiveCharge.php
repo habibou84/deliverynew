@@ -11,7 +11,7 @@ class LiveCharge extends Model
 {
     use BelongsToCompany;
 
-    protected $fillable = ['company_id', 'merchant_id', 'live_id', 'kind', 'label', 'amount', 'platform_amount', 'offered_by_company', 'cards', 'platform_invoice_id'];
+    protected $fillable = ['company_id', 'merchant_id', 'live_id', 'kind', 'label', 'amount', 'platform_amount', 'offered_by_company', 'cards', 'platform_invoice_id', 'paid_via'];
 
     protected function casts(): array
     {
