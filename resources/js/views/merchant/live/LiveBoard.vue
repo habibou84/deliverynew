@@ -1,24 +1,19 @@
 <template>
-  <div class="space-y-3.5 pb-6">
+  <div class="space-y-3 pb-6">
     <p v-if="error" class="rounded-2xl bg-red-50 px-4 py-3 text-[15px] text-red-700" role="alert">{{ error }}</p>
     <p v-if="!b && !error" class="m-card p-6 text-center text-slate-500">Chargement…</p>
 
     <template v-if="b">
-      <!-- En-tête -->
-      <section class="rounded-[22px] bg-slate-900 p-4 text-white">
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <span v-if="isLive" class="inline-flex items-center gap-2 rounded-full bg-rose-600 px-3 py-1 text-[13px] font-extrabold"><i class="block h-2 w-2 rounded-full bg-white" />EN LIVE · {{ elapsed }}</span>
-            <span v-else class="inline-flex rounded-full bg-slate-700 px-3 py-1 text-[13px] font-bold">Live terminé</span>
-            <p class="mt-1.5 text-[16px] font-bold">{{ b.live.name }}</p>
-          </div>
-          <button v-if="isLive" type="button" class="min-h-[44px] rounded-xl border border-slate-500 px-3 text-[15px] font-semibold" @click="end">Terminer</button>
+      <!-- En-tête : en direct, ce que le live a rapporté -->
+      <section :class="['rounded-[22px] p-4 text-white', isLive ? 'bg-gradient-to-br from-rose-800 via-rose-600 to-rose-400' : 'bg-slate-900']">
+        <div class="flex items-center justify-between gap-2">
+          <span v-if="isLive" class="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[13px] font-extrabold"><i class="block h-2 w-2 animate-pulse rounded-full bg-white" />EN DIRECT · {{ elapsed }}</span>
+          <span v-else class="inline-flex rounded-full bg-white/15 px-3 py-1 text-[13px] font-bold">Live terminé</span>
+          <button v-if="isLive" type="button" class="min-h-[40px] rounded-xl border border-white/70 px-3 text-[14px] font-bold" @click="end">Terminer</button>
         </div>
-        <div class="mt-3 grid grid-cols-3 gap-2 text-center">
-          <div class="rounded-xl bg-slate-800 py-2"><b class="block text-[22px]">{{ b.totals.orders }}</b><span class="text-[13px] text-slate-300">commandes</span></div>
-          <div class="rounded-xl bg-slate-800 py-2"><b class="block text-[22px]">{{ short(b.totals.amount) }}</b><span class="text-[13px] text-slate-300">francs</span></div>
-          <div class="rounded-xl bg-slate-800 py-2"><b class="block text-[22px]">{{ b.totals.waiting }}</b><span class="text-[13px] text-slate-300">en attente</span></div>
-        </div>
+        <p class="mt-1.5 truncate text-[15px] font-bold opacity-90">{{ b.live.name }}</p>
+        <p class="text-[32px] font-black leading-tight tabular-nums">{{ short(b.totals.amount) }} F</p>
+        <p class="text-[14px] font-bold opacity-90">{{ b.totals.orders }} commande{{ b.totals.orders > 1 ? 's' : '' }} · {{ b.totals.waiting }} en attente</p>
       </section>
 
       <!-- Dernière commande, en grand -->
@@ -33,28 +28,86 @@
         </div>
       </section>
 
-      <div v-if="isLive" class="guide">
-        <p class="guide-title">Étape 3 sur 3 · Pendant le live</p>
-        <template v-if="b.whatsapp?.auto">
-          <p>💬 Les commandes WhatsApp arrivent toutes seules.</p>
-          <p>Vous présentez, les réponses partent toutes seules.</p>
-        </template>
-        <template v-else>
-          <p>🔗 Les clientes commandent par le lien du live : elles arrivent ici toutes seules.</p>
-          <p>Une commande ? Dites merci à la cliente.</p>
-        </template>
-      </div>
+      <!-- Comment arrivent les commandes -->
+      <p v-if="isLive && b.whatsapp?.auto" class="rounded-2xl bg-white px-4 py-2.5 text-[14.5px] font-semibold text-slate-700 shadow-soft">💬 Les commandes WhatsApp arrivent toutes seules : vous présentez, les réponses partent seules.</p>
       <LiveLink v-if="isLive && b.public_url && !b.whatsapp?.auto" :url="b.public_url" compact />
+
+      <!-- Le produit que vous montrez : pour présenter, et préremplir la commande à la main -->
+      <section v-if="isLive && shown" class="overflow-hidden rounded-[22px] bg-white shadow-soft">
+        <div class="relative h-44 bg-slate-100">
+          <img v-if="shown.photo_url" :src="shown.photo_url" alt="" class="h-full w-full object-cover">
+          <span v-else class="grid h-full place-items-center text-[44px] font-black text-slate-400">{{ shown.code }}</span>
+          <span class="absolute left-3 top-3 rounded-xl bg-slate-900 px-2.5 py-1 text-[20px] font-black text-white">{{ shown.code }}</span>
+          <span :class="['absolute right-3 top-3 rounded-full px-2.5 py-1 text-[13px] font-extrabold', !shown.remaining ? 'bg-red-600 text-white' : shown.remaining <= 3 ? 'bg-orange-100 text-orange-800' : 'bg-white/95 text-slate-800']">{{ shown.remaining ? `${shown.remaining} ${shown.remaining > 1 ? 'restent' : 'reste'}` : 'ÉPUISÉ' }}</span>
+        </div>
+        <div class="flex items-center gap-2 px-3.5 py-3">
+          <div class="min-w-0 flex-1">
+            <b class="block truncate text-[16px]">{{ shown.label || shown.name }} · {{ money(shown.price) }}</b>
+            <span class="text-[13px] text-slate-500">Le produit que vous montrez</span>
+          </div>
+          <button v-if="productGroups.length > 1" type="button" class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-[18px]" :aria-label="`Carte de ${shown.name} en grand`" @click="productCard(shown)">🖼️</button>
+          <button v-if="b.items.length > 1" type="button" class="shrink-0 rounded-xl bg-slate-900 px-3.5 py-2.5 text-[15px] font-black text-white" @click="show(shownIdx + 1)">Suivant ▸</button>
+        </div>
+      </section>
+      <div v-if="isLive && b.items.length > 1" class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="radiogroup" aria-label="Produit que vous montrez">
+        <button v-for="(i, k) in b.items" :key="i.id" type="button" role="radio" :aria-checked="k === shownIdx" :aria-label="`${i.code} ${i.name}`" :class="['relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-200', k === shownIdx ? 'ring-[3px] ring-rose-600' : '', i.remaining ? '' : 'opacity-40']" @click="show(k)">
+          <img v-if="i.photo_url" :src="i.photo_url" alt="" class="h-full w-full object-cover">
+          <span class="absolute left-0.5 top-0.5 rounded-md bg-slate-900 px-1 text-[10px] font-black text-white">{{ i.code }}</span>
+        </button>
+      </div>
 
       <!-- Conseils (calculs) -->
       <section v-if="b.advices.length" class="m-card space-y-1.5 border-2 border-slate-900 p-4">
         <p class="text-[14px] font-extrabold uppercase tracking-wide">Conseils</p>
         <p v-for="a in b.advices" :key="a.text" :class="['text-[16px]', a.level === 'alert' ? 'font-bold text-orange-700' : a.level === 'good' ? 'text-emerald-700' : 'text-slate-900']">{{ a.text }}</p>
-        <button v-if="b.advices.some((a) => a.level === 'alert')" type="button" class="mt-1 rounded-xl bg-slate-100 px-3 py-2 text-[15px] font-bold" @click="refreshCard">Carte à jour (produits épuisés barrés)</button>
+        <button v-if="b.advices.some((a) => a.level === 'alert')" type="button" class="mt-1 rounded-xl bg-slate-100 px-3 py-2 text-[15px] font-bold" @click="refreshCard">Étiquette à jour (produits épuisés barrés)</button>
+      </section>
+
+      <!-- Onglets : commandes, produits, ajouter -->
+      <div class="flex gap-1.5" role="tablist">
+        <button v-for="t in tabs" :key="t.key" type="button" role="tab" :aria-selected="tab === t.key" :class="['flex-1 rounded-full py-2 text-[14px] font-extrabold', tab === t.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 shadow-soft']" @click="tab = t.key">{{ t.label }}</button>
+      </div>
+
+      <!-- Commandes -->
+      <section v-if="tab === 'orders'" class="m-card divide-y divide-slate-100">
+        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">COMMANDES · {{ b.orders.length }}</p>
+        <div v-for="o in b.orders" :key="o.id" class="px-4 py-2.5 text-[15px]">
+          <div class="flex items-start gap-2">
+            <span :class="['mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-extrabold', o.status === 'waiting' ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800']">{{ o.status === 'waiting' ? 'ATTENTE' : 'COMMANDE' }}</span>
+            <span v-if="o.source === 'link'" class="mt-0.5 shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-extrabold text-indigo-700" title="Commande passée par la cliente sur le lien du live">🔗 LIEN</span>
+            <span v-if="o.source === 'whatsapp'" class="mt-0.5 shrink-0 rounded-md bg-[#dcfce7] px-1.5 py-0.5 text-[11px] font-extrabold text-[#128c4b]" title="Commande reçue par WhatsApp, enregistrée toute seule">💬 AUTO</span>
+            <div class="min-w-0 flex-1">
+              <b>{{ o.customer_name }}</b> · {{ o.code }} {{ o.name }}<template v-if="o.quantity > 1"> × {{ o.quantity }}</template>
+              <span class="block text-[13px] text-slate-500">{{ localPhone(o.customer_phone) }} · {{ time(o.created_at) }}</span>
+              <span v-if="o.refusals" class="mt-1 block rounded-lg bg-red-50 px-2 py-1 text-[13px] text-red-800"><b>Attention :</b> {{ o.refusals }} colis refusés. Demandez un acompte.</span>
+            </div>
+            <RouterLink v-if="o.order_id" :to="`/marchand/courses/${o.order_id}`" class="shrink-0 text-[14px] font-semibold text-[var(--app-color)]">Course ›</RouterLink>
+          </div>
+        </div>
+        <p v-if="!b.orders.length" class="p-5 text-center text-[15px] text-slate-500">Les commandes apparaîtront ici.</p>
+      </section>
+
+      <!-- Produits -->
+      <section v-if="tab === 'products'" class="m-card divide-y divide-slate-100">
+        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">MES PRODUITS</p>
+        <p v-if="productGroups.length > 1" class="px-4 py-2 text-[14px] text-slate-600">Vous présentez un produit ? Touchez 🖼️ pour sa carte en grand.</p>
+        <div v-for="i in b.items" :key="i.id" :class="['flex items-center gap-3 px-4 py-2.5', i.remaining ? '' : 'opacity-60']">
+          <span class="grid h-9 min-w-[44px] place-items-center rounded-lg bg-slate-900 px-1.5 text-[14px] font-extrabold text-white">{{ i.code }}</span>
+          <div class="min-w-0 flex-1">
+            <p :class="['truncate text-[15px] font-bold', i.remaining ? '' : 'line-through']">{{ i.label || i.name }} <span class="font-normal text-slate-500">· {{ money(i.price) }}</span></p>
+            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><i class="block h-full bg-rose-600" :style="{ width: `${Math.min(100, (i.sold / Math.max(1, i.quantity)) * 100)}%` }" /></div>
+          </div>
+          <span :class="['shrink-0 text-[14px] font-bold', !i.remaining ? 'text-red-700' : i.remaining <= 3 ? 'text-orange-700' : 'text-slate-600']">{{ i.remaining ? `${i.remaining} ${i.remaining > 1 ? 'restent' : 'reste'}` : 'ÉPUISÉ' }}</span>
+          <button
+            v-if="productGroups.length > 1 && firstOfProduct(i)" type="button"
+            class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-[18px]"
+            :aria-label="`Carte du produit en cours : ${i.name}`" @click="productCard(i)"
+          >🖼️</button>
+        </div>
       </section>
 
       <!-- Saisie d'une commande -->
-      <form v-if="isLive" class="m-card space-y-3 p-4" @submit.prevent="addOrder">
+      <form v-if="tab === 'add' && isLive" class="m-card space-y-3 p-4" @submit.prevent="addOrder">
         <p class="text-[16px] font-extrabold">{{ b.whatsapp?.auto ? 'Ajouter une commande à la main' : 'Nouvelle commande' }}</p>
         <!-- Un seul article : déjà choisi. Sinon, un bouton par code -->
         <p v-if="b.items.length === 1" class="rounded-xl bg-slate-100 px-3 py-2 text-[15px]"><b>{{ b.items[0].code }}</b> · {{ b.items[0].label || b.items[0].name }} · {{ money(b.items[0].price) }}</p>
@@ -84,44 +137,6 @@
         <button class="m-btn-primary w-full" :disabled="saving || !form.code">{{ saving ? 'Enregistrement…' : 'Ajouter la commande' }}</button>
         <p class="text-[13px] text-slate-500">La course part à votre agence. Produit épuisé : la cliente passe en liste d'attente.</p>
       </form>
-
-      <!-- Produits -->
-      <section class="m-card divide-y divide-slate-100">
-        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">MES PRODUITS</p>
-        <p v-if="productGroups.length > 1" class="px-4 py-2 text-[14px] text-slate-600">Vous présentez un produit ? Touchez 🖼️ pour sa carte en grand.</p>
-        <div v-for="i in b.items" :key="i.id" :class="['flex items-center gap-3 px-4 py-2.5', i.remaining ? '' : 'opacity-60']">
-          <span class="grid h-9 min-w-[44px] place-items-center rounded-lg bg-slate-900 px-1.5 text-[14px] font-extrabold text-white">{{ i.code }}</span>
-          <div class="min-w-0 flex-1">
-            <p :class="['truncate text-[15px] font-bold', i.remaining ? '' : 'line-through']">{{ i.label || i.name }} <span class="font-normal text-slate-500">· {{ money(i.price) }}</span></p>
-            <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><i class="block h-full bg-rose-600" :style="{ width: `${Math.min(100, (i.sold / Math.max(1, i.quantity)) * 100)}%` }" /></div>
-          </div>
-          <span :class="['shrink-0 text-[14px] font-bold', !i.remaining ? 'text-red-700' : i.remaining <= 3 ? 'text-orange-700' : 'text-slate-600']">{{ i.remaining ? `${i.remaining} ${i.remaining > 1 ? 'restent' : 'reste'}` : 'ÉPUISÉ' }}</span>
-          <button
-            v-if="productGroups.length > 1 && firstOfProduct(i)" type="button"
-            class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-[18px]"
-            :aria-label="`Carte du produit en cours : ${i.name}`" @click="productCard(i)"
-          >🖼️</button>
-        </div>
-      </section>
-
-      <!-- Commandes -->
-      <section class="m-card divide-y divide-slate-100">
-        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">COMMANDES · {{ b.orders.length }}</p>
-        <div v-for="o in b.orders" :key="o.id" class="px-4 py-2.5 text-[15px]">
-          <div class="flex items-start gap-2">
-            <span :class="['mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-extrabold', o.status === 'waiting' ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800']">{{ o.status === 'waiting' ? 'ATTENTE' : 'COMMANDE' }}</span>
-            <span v-if="o.source === 'link'" class="mt-0.5 shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-extrabold text-indigo-700" title="Commande passée par la cliente sur le lien du live">🔗 LIEN</span>
-            <span v-if="o.source === 'whatsapp'" class="mt-0.5 shrink-0 rounded-md bg-[#dcfce7] px-1.5 py-0.5 text-[11px] font-extrabold text-[#128c4b]" title="Commande reçue par WhatsApp, enregistrée toute seule">💬 AUTO</span>
-            <div class="min-w-0 flex-1">
-              <b>{{ o.customer_name }}</b> · {{ o.code }} {{ o.name }}<template v-if="o.quantity > 1"> × {{ o.quantity }}</template>
-              <span class="block text-[13px] text-slate-500">{{ localPhone(o.customer_phone) }} · {{ time(o.created_at) }}</span>
-              <span v-if="o.refusals" class="mt-1 block rounded-lg bg-red-50 px-2 py-1 text-[13px] text-red-800"><b>Attention :</b> {{ o.refusals }} colis refusés. Demandez un acompte.</span>
-            </div>
-            <RouterLink v-if="o.order_id" :to="`/marchand/courses/${o.order_id}`" class="shrink-0 text-[14px] font-semibold text-[var(--app-color)]">Course ›</RouterLink>
-          </div>
-        </div>
-        <p v-if="!b.orders.length" class="p-5 text-center text-[15px] text-slate-500">Les commandes apparaîtront ici.</p>
-      </section>
 
       <RouterLink v-if="!isLive" :to="`/marchand/live/${b.live.id}/bilan`" class="m-btn-primary w-full">Voir le bilan</RouterLink>
     </template>
@@ -153,6 +168,28 @@ let timer = null
 let clock = null
 
 const isLive = computed(() => b.value?.live.status === 'live')
+const tab = ref('orders')
+const tabs = computed(() => [
+  { key: 'orders', label: `🧾 Commandes ${b.value?.orders.length || ''}`.trim() },
+  { key: 'products', label: '🛍️ Produits' },
+  ...(isLive.value ? [{ key: 'add', label: '＋ Ajouter' }] : []),
+])
+
+// Le produit que la vendeuse montre : gardé sur ce téléphone pendant le live, il préremplit la commande à la main
+const shownIdx = ref(0)
+const shown = computed(() => b.value?.items[shownIdx.value] ?? b.value?.items[0] ?? null)
+const shownKey = () => `live-montre-${route.params.id}`
+function show(k) {
+  const n = b.value?.items.length || 0
+  if (!n) return
+  shownIdx.value = ((k % n) + n) % n
+  form.code = shown.value.code
+  try {
+    sessionStorage.setItem(shownKey(), String(shownIdx.value))
+  } catch {
+    // sans stockage : on garde le produit pour cet écran seulement
+  }
+}
 const latest = computed(() => {
   const o = b.value?.orders.find((x) => x.status === 'ordered')
   return o && Date.now() - new Date(o.created_at).getTime() < 10 * 60000 ? o : null
@@ -176,8 +213,9 @@ const firstOfProduct = (i) => productGroups.value.some((g) => g[0].id === i.id)
 async function load() {
   try {
     b.value = (await http.get(`/live/${route.params.id}`)).data.data
-    // Un seul article : il est déjà choisi
+    // Un seul article : il est déjà choisi ; sinon, le produit montré
     if (b.value.items.length === 1) form.code = b.value.items[0].code
+    else if (!form.code && shown.value) form.code = shown.value.code
   } catch (e) {
     error.value = apiErrorMessage(e)
   }
@@ -232,6 +270,11 @@ async function end() {
 }
 
 onMounted(async () => {
+  try {
+    shownIdx.value = Number(sessionStorage.getItem(shownKey()) || 0)
+  } catch {
+    shownIdx.value = 0
+  }
   await load()
   zones.value = (await http.get('/zones')).data.data
   timer = setInterval(() => { if (isLive.value && !saving.value) load() }, 8000)
@@ -242,25 +285,3 @@ onBeforeUnmount(() => {
   clearInterval(clock)
 })
 </script>
-
-<style scoped>
-.guide {
-  border-radius: 18px;
-  background: #1e40af;
-  color: #fff;
-  padding: 14px 16px;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1.35;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.guide-title {
-  font-size: 14px;
-  font-weight: 800;
-  color: #bfdbfe;
-  text-transform: uppercase;
-  letter-spacing: .04em;
-}
-</style>

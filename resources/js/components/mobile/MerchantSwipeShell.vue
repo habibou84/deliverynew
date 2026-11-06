@@ -33,8 +33,24 @@
 
     <!-- Pages côte à côte : on glisse avec le doigt, ou on touche l'onglet -->
     <div ref="track" data-swipe-pages :class="{ 'swipe-peek': peek }" class="swipe-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden" @scroll.passive="onScroll" @touchstart.passive="touched = true; peek = false">
-      <section v-for="(p, i) in pages" :key="p.key" class="h-full w-full shrink-0 snap-start snap-always overflow-y-auto overscroll-y-contain" :aria-hidden="i !== current">
-        <div class="mx-auto max-w-lg px-4 pb-28 pt-1">
+      <section
+        v-for="(p, i) in pages"
+        :key="p.key"
+        class="relative h-full w-full shrink-0 snap-start snap-always overflow-y-auto overscroll-y-contain"
+        :aria-hidden="i !== current"
+        @touchstart.passive="pullStart($event, i)"
+        @touchmove.passive="pullMove"
+        @touchend="pullEnd"
+        @touchcancel="pullCancel"
+      >
+        <!-- Tirer vers le bas, page tout en haut : actualiser la page -->
+        <div v-if="i === current && (pull || reloading)" class="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center" :style="{ transform: `translateY(${reloading ? 14 : Math.max(0, pull - 34)}px)` }" aria-live="polite">
+          <span class="flex items-center gap-2 rounded-full bg-white px-3.5 py-2 text-[13.5px] font-bold text-slate-700 shadow-soft">
+            <svg :class="['h-[18px] w-[18px] text-[var(--app-color)]', reloading ? 'animate-spin' : '']" :style="reloading ? {} : { transform: `rotate(${pull * 3}deg)` }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7" /><path d="M20 4v5h-5" /></svg>
+            {{ reloading ? 'Actualisation…' : pull >= PULL_AT ? 'Relâchez pour actualiser' : 'Tirez pour actualiser' }}
+          </span>
+        </div>
+        <div class="mx-auto max-w-lg px-4 pb-28 pt-1" :style="i === current && pull ? { transform: `translateY(${pull}px)`, transition: 'none' } : { transition: 'transform .2s ease' }">
           <!-- Commandes : nouvelle course en haut -->
           <button v-if="p.key === 'orders' && canCreate" type="button" class="m-btn-primary mb-3.5 flex w-full items-center justify-center gap-2" @click="menuOpen = true">
             <AppIcon name="plus" class="h-5 w-5" :stroke="2.6" /> Nouvelle course
@@ -141,7 +157,14 @@ if (!notifications.loaded) notifications.fetch().catch(() => {})
 
 watchEffect(() => document.documentElement.style.setProperty('--app-color', props.color))
 document.documentElement.classList.add('app-marchand')
+// Pas d'actualisation du navigateur en tirant : sur les pages c'est l'application qui actualise, et une fenêtre
+// ouverte se referme en la tirant vers le bas sans recharger la page derrière
+const rootOverscroll = document.documentElement.style.overscrollBehaviorY
+document.documentElement.style.overscrollBehaviorY = 'none'
+document.body.style.overscrollBehaviorY = 'none'
 onBeforeUnmount(() => {
+  document.documentElement.style.overscrollBehaviorY = rootOverscroll
+  document.body.style.overscrollBehaviorY = ''
   document.documentElement.style.removeProperty('--app-color')
   document.documentElement.classList.remove('app-marchand')
 })
@@ -152,6 +175,44 @@ const tabsEl = ref(null)
 const current = ref(0)
 const seen = reactive(new Set())
 const refresh = reactive({})
+
+// ── Tirer pour actualiser la page affichée ──
+const PULL_AT = 64
+const pull = ref(0)
+const reloading = ref(false)
+let pullY = null
+let pullX = 0
+let pullDir = null
+function pullStart(e, i) {
+  const section = e.currentTarget
+  pullY = i === current.value && !reloading.value && section.scrollTop <= 0 ? e.touches[0].clientY : null
+  pullX = e.touches[0].clientX
+  pullDir = null
+}
+function pullMove(e) {
+  if (pullY === null) return
+  const dy = e.touches[0].clientY - pullY
+  const dx = e.touches[0].clientX - pullX
+  // Le geste de côté change de page : pas d'actualisation
+  if (pullDir === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) pullDir = Math.abs(dy) > Math.abs(dx) && dy > 0 ? 'down' : 'other'
+  if (pullDir !== 'down') return
+  pull.value = Math.min(110, Math.max(0, dy * 0.5))
+}
+async function pullEnd() {
+  const go = pull.value >= PULL_AT
+  pullY = null
+  pull.value = 0
+  if (!go) return
+  reloading.value = true
+  const key = props.pages[current.value]?.key
+  if (key) refresh[key] = (refresh[key] || 0) + 1
+  notifications.fetch().catch(() => {})
+  setTimeout(() => { reloading.value = false }, 700)
+}
+function pullCancel() {
+  pullY = null
+  pull.value = 0
+}
 const pageIndex = (path) => props.pages.findIndex((p) => p.path === path)
 const lastPage = ref(props.pages[0]?.path ?? props.base)
 
