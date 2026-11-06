@@ -142,17 +142,12 @@ class Merchant extends Model
     }
 
     /**
-     * Le marchand veut-il être prévenu de cet événement (notification ou WhatsApp) ?
+     * Le marchand est-il prévenu de cet événement (notification ou WhatsApp) ? C'est l'agence qui décide, pour
+     * tous ses e-commerçants : ils ne choisissent plus leurs messages automatiques.
      */
     public function wantsNotification(NotificationEvent $event): bool
     {
-        $company = Company::find($this->company_id);
-        if ($company?->merchant_messages_locked) {
-            return $company->merchantWantsByDefault($event);
-        }
-        $preference = $this->loadMissing('notificationPreferences')->notificationPreferences->firstWhere('event', $event);
-
-        return $preference ? $preference->channels !== [] : ($company?->merchantWantsByDefault($event) ?? $event->enabledByDefault());
+        return Company::find($this->company_id)?->merchantWantsByDefault($event) ?? $event->enabledByDefault();
     }
 
     /**

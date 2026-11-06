@@ -28,10 +28,6 @@
               <td class="px-3 py-2.5">
                 <b>{{ e.label }}</b>
                 <span v-if="HINTS[e.event]" class="block text-xs text-gray-500">{{ HINTS[e.event] }}</span>
-                <span v-if="e.differs && !data.locked" class="mt-1 block text-xs text-amber-700">
-                  {{ e.differs }} e-commerçant{{ e.differs > 1 ? 's ont' : ' a' }} fait un autre choix.
-                  <button type="button" class="font-semibold underline" :disabled="busy" @click="applyAll(e)">Appliquer à tous</button>
-                </span>
               </td>
               <td class="px-3 py-2.5"><span class="text-xs font-semibold text-emerald-700">✓ toujours</span></td>
               <td class="px-3 py-2.5">
@@ -50,19 +46,7 @@
         </table>
       </div>
 
-      <div class="card space-y-2 p-4 text-sm">
-        <label class="flex items-start gap-2">
-          <input type="checkbox" class="mt-1" :checked="!data.locked" :disabled="busy" @change="save({ locked: !$event.target.checked })">
-          <span>
-            <b>Laisser chaque e-commerçant changer ses messages</b> (Profil de son application)
-            <span class="block text-xs text-gray-500">Sinon, vos choix s'appliquent à tous les e-commerçants et leurs interrupteurs sont grisés.</span>
-          </span>
-        </label>
-        <div v-if="totalDiffers && !data.locked" class="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-900">
-          <span>⚠️ Des e-commerçants ont gardé un autre choix que le vôtre ({{ totalDiffers }} réglage{{ totalDiffers > 1 ? 's' : '' }}).</span>
-          <button type="button" class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white" :disabled="busy" @click="applyAll(null)">Appliquer mes choix à tous</button>
-        </div>
-      </div>
+      <p class="text-sm text-gray-500">Vos choix s'appliquent à tous vos e-commerçants : ils ne peuvent pas les changer.</p>
       <div v-if="live?.enabled" class="card space-y-2 p-4 text-sm">
         <label class="flex items-start gap-2">
           <input type="checkbox" class="mt-1" :checked="live.live_offered" :disabled="busy" @change="saveLive($event.target.checked)">
@@ -84,7 +68,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
@@ -98,7 +82,6 @@ const toasts = useToastStore()
 const data = ref(null)
 const error = ref('')
 const busy = ref(false)
-const totalDiffers = computed(() => (data.value?.events || []).reduce((n, e) => n + e.differs, 0))
 
 const live = ref(null)
 async function saveLive(value) {
@@ -135,19 +118,6 @@ async function save(payload) {
 }
 
 const toggle = (e) => save({ events: { [e.event]: !e.whatsapp } })
-
-async function applyAll(e) {
-  if (!window.confirm(e ? `« ${e.label} » : appliquer votre choix à tous les e-commerçants ?` : 'Appliquer vos choix à tous les e-commerçants ? Leurs propres réglages seront remplacés.')) return
-  busy.value = true
-  try {
-    data.value = (await http.post('/company/merchant-messages/apply-all', { event: e?.event ?? null })).data.data
-    toasts.success('Vos choix s\'appliquent maintenant à tous.')
-  } catch (err) {
-    toasts.error(apiErrorMessage(err))
-  } finally {
-    busy.value = false
-  }
-}
 
 onMounted(load)
 </script>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\Merchant;
 use App\Models\User;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\WhatsAppConnection;
@@ -48,15 +49,40 @@ class WhatsAppSignupController extends Controller
     }
 
     /**
+     * Application e-commerçant : relier son numéro WhatsApp Business officiellement (commandes du live),
+     * sans quitter son application WhatsApp Business.
+     */
+    public function merchantTicket(Request $request): JsonResponse
+    {
+        abort_unless(WhatsAppConnection::signupAvailable(), 422, 'La connexion officielle de WhatsApp n\'est pas encore configurée sur ce serveur.');
+        $user = $request->user();
+        abort_unless($user->merchant_id !== null && $user->can('orders.create'), 403);
+
+        $ticket = Crypt::encryptString(json_encode([
+            'company' => $user->company_id,
+            'merchant' => $user->merchant_id,
+            'user' => $user->id,
+            'origin' => $request->getSchemeAndHttpHost(),
+            'return' => '/marchand/live/preparer',
+            'expires' => now()->addMinutes(self::TICKET_MINUTES)->timestamp,
+        ]));
+
+        return response()->json(['data' => ['url' => Tenancy::platformUrl().'/connecter-whatsapp#'.$ticket]]);
+    }
+
+    /**
      * Page de la plateforme : entreprise concernée et identifiants publics de l'application Meta.
      */
     public function session(Request $request): JsonResponse
     {
-        [$company, , $origin] = $this->resolve($request);
+        [$company, , $origin, $merchant, $return] = $this->resolve($request);
 
         return response()->json(['data' => [
-            'company' => $company->name,
+            'company' => $merchant?->business_name ?? $company->name,
             'origin' => $origin,
+            'return' => $return,
+            // E-commerçant : il garde son application WhatsApp Business (mode « coexistence » de Meta)
+            'merchant' => $merchant !== null,
             'embedded_signup' => [
                 'app_id' => config('messaging.whatsapp.app_id'),
                 'config_id' => config('messaging.whatsapp.signup_config_id'),
@@ -70,7 +96,7 @@ class WhatsAppSignupController extends Controller
      */
     public function complete(Request $request): JsonResponse
     {
-        [$company] = $this->resolve($request);
+        [$company, , , $merchant] = $this->resolve($request);
         $data = $request->validate([
             'code' => ['required', 'string', 'max:2000'],
             'phone_number_id' => ['required', 'string', 'max:50', 'regex:/^\d+$/'],
@@ -78,7 +104,9 @@ class WhatsAppSignupController extends Controller
         ]);
 
         try {
-            $account = $this->connection->completeSignup($company, $data['code'], $data['phone_number_id'], $data['waba_id']);
+            $account = $merchant !== null
+                ? $this->connection->completeMerchantSignup($merchant, $data['code'], $data['phone_number_id'], $data['waba_id'])
+                : $this->connection->completeSignup($company, $data['code'], $data['phone_number_id'], $data['waba_id']);
         } catch (MessagingException $e) {
             abort(422, $e->getMessage());
         }
@@ -93,9 +121,10 @@ class WhatsAppSignupController extends Controller
     }
 
     /**
-     * Ticket valide, non expiré, d'un utilisateur toujours autorisé à régler l'entreprise.
+     * Ticket valide, non expiré, d'un utilisateur toujours autorisé à régler l'entreprise (ou, pour un
+     * e-commerçant, à gérer sa boutique).
      *
-     * @return array{0: Company, 1: User, 2: string}
+     * @return array{0: Company, 1: User, 2: string, 3: ?Merchant, 4: string}
      */
     private function resolve(Request $request): array
     {
@@ -112,12 +141,25 @@ class WhatsAppSignupController extends Controller
 
         $user = User::query()->find($ticket['user'] ?? null);
         $company = Company::query()->find($ticket['company'] ?? null);
+
+        if (isset($ticket['merchant'])) {
+            $merchant = Merchant::withoutGlobalScopes()->find($ticket['merchant']);
+            abort_if(
+                $user === null || $company === null || $merchant === null || $user->merchant_id !== $merchant->id
+                    || $merchant->company_id !== $company->id || ! $user->isActive() || ! $user->can('orders.create'),
+                403,
+                'Vous n\'avez plus accès à cette boutique.',
+            );
+
+            return [$company, $user, (string) ($ticket['origin'] ?? ''), $merchant, (string) ($ticket['return'] ?? '/marchand')];
+        }
+
         abort_if(
             $user === null || $company === null || $user->company_id !== $company->id || ! $user->isActive() || ! $user->can('settings.manage'),
             403,
             'Vous n\'avez plus accès aux paramètres de cette entreprise.',
         );
 
-        return [$company, $user, (string) ($ticket['origin'] ?? '')];
+        return [$company, $user, (string) ($ticket['origin'] ?? ''), null, '/admin/whatsapp'];
     }
 }

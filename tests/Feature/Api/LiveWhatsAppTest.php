@@ -7,6 +7,7 @@ use App\Jobs\SendLiveWhatsApp;
 use App\Models\LiveChat;
 use App\Models\LiveOrder;
 use App\Models\Order;
+use App\Services\Live\LiveStudio;
 use App\Services\Live\LiveWhatsApp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -30,6 +31,9 @@ class LiveWhatsAppTest extends TestCase
         $this->buildWorld();
         config(['messaging.whatsapp.bridge.token' => 'secret-bridge', 'messaging.whatsapp.bridge.url' => 'http://bridge.test']);
         Queue::fake();
+        // Option de la console : WhatsApp relié par code d'association / QR code, à côté de la connexion officielle
+        app(LiveStudio::class)->updateSettings(['qr_whatsapp' => true]);
+        $this->merchant->forceFill(['live_wa_status' => 'connected', 'live_wa_phone' => '+2250102030405'])->save();
         Sanctum::actingAs($this->merchantUser);
         $this->live = $this->postJson('/api/v1/live/prepare')->assertOk()->json('data.live.id');
         $this->postJson("/api/v1/live/{$this->live}/products", ['name' => 'Robe wax', 'price' => 9000, 'quantity' => 3])->assertCreated();

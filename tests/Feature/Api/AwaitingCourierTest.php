@@ -23,6 +23,9 @@ class AwaitingCourierTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Milieu de journée : les tests avancent l'horloge d'une heure ou plus, sans changer de jour de livraison
+        // (lancés vers minuit, les courses passaient au lendemain et quittaient les files du jour)
+        $this->travelTo(now()->setTime(12, 0));
         $this->buildWorld();
         $this->company->update(['pickup_assign_alert_minutes' => 30, 'delivery_assign_alert_minutes' => 60]);
     }

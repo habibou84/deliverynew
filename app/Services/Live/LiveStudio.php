@@ -54,6 +54,8 @@ class LiveStudio
         'risk_refusals' => 3,
         'min_sales_range' => 20,
         'monthly_ai_cap' => 200000,
+        // Relier son WhatsApp par code d'association ou QR code (non officiel), proposé à côté de la connexion officielle
+        'qr_whatsapp' => false,
     ];
 
     /** Statuts d'une course refusée ou revenue : clientes à risque */
@@ -116,6 +118,8 @@ class LiveStudio
         return [
             'enabled' => (bool) $s['enabled'],
             'offered_by_company' => (bool) $company?->live_offered,
+            // Nom de l'agence de livraison, mis en avant dans « Comment ça marche » (Jibiat reste discret)
+            'agency' => $company?->name,
             'trial_left' => $this->trialLeft($merchant),
             'monthly_until' => $this->monthlyActive($merchant) ? $merchant->live_plan_until : null,
             'monthly_cards_left' => $this->monthlyActive($merchant) ? max(0, $s['cards_per_month'] - $this->monthlyCardsUsed($merchant)) : 0,
@@ -127,8 +131,8 @@ class LiveStudio
                 'trial_cards' => $s['trial_cards'],
             ],
             'items_per_card' => $s['items_per_card'],
-            // Numéro de la carte : le WhatsApp relié (commandes automatiques), sinon celui de la boutique
-            'phone' => $merchant->live_wa_status === 'connected' && $merchant->live_wa_phone ? $merchant->live_wa_phone : $merchant->messagingPhone(),
+            // Numéro de la carte : celui qui reçoit les commandes automatiques, sinon celui de la boutique
+            'phone' => app(LiveWhatsApp::class)->cardPhone($merchant),
         ];
     }
 
