@@ -111,6 +111,7 @@ use App\Http\Controllers\Api\V1\ZoneController;
 use App\Http\Controllers\Api\V1\ZoneLinkController;
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\CourierAppController;
+use App\Http\Controllers\Webhooks\PayDunyaWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppBridgeWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -121,6 +122,8 @@ Route::prefix('webhooks')->name('webhooks.')->group(function () {
     Route::post('whatsapp', [WhatsAppWebhookController::class, 'handle'])->name('whatsapp.handle');
     // Service whatsapp-bridge (connexion par QR code), signé avec WHATSAPP_BRIDGE_TOKEN
     Route::post('whatsapp-bridge', WhatsAppBridgeWebhookController::class)->name('whatsapp-bridge');
+    // PayDunya : paiements des e-commerçants (outil live)
+    Route::post('paydunya', PayDunyaWebhookController::class)->middleware('throttle:120,1')->name('paydunya');
 });
 
 // Reprise depuis l'ancienne application (Laravel 5.8) : paquets envoyés par son bouton, avec la clé de reprise
@@ -331,6 +334,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::prefix('console/live')->name('console.live.')->middleware($team)->controller(ConsoleLiveController::class)->group(function () use ($owner) {
             Route::get('/', 'show')->name('show');
             Route::put('/', 'update')->middleware($owner)->name('update');
+            // Paiements en ligne (PayDunya) et crédit des agences
+            Route::get('payments', 'payments')->name('payments');
+            Route::post('credits/{company}/payout', 'payout')->middleware($owner)->name('payout');
         });
         // Jibiat IA : niveaux et réglages au Propriétaire, coût réel par entreprise
         Route::prefix('console/ai')->name('console.ai.')->middleware($team)->controller(ConsoleJibiatAiController::class)->group(function () use ($owner) {
@@ -750,6 +756,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('prepare', 'prepare')->name('prepare');
             Route::post('subscribe', 'subscribe')->middleware('throttle:10,1')->name('subscribe');
             Route::post('pack', 'pack')->middleware('throttle:10,1')->name('pack');
+            // Paiement en ligne (PayDunya) : état relu au retour de la page de paiement
+            Route::get('payments/{payment}', 'payment')->whereNumber('payment')->middleware('throttle:60,1')->name('payment');
             // WhatsApp de l'e-commerçante relié : commandes automatiques pendant le live
             Route::post('intro-seen', 'introSeen')->name('intro-seen');
             Route::get('whatsapp', 'whatsapp')->name('whatsapp');

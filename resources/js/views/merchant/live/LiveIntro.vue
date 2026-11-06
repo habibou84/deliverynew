@@ -113,7 +113,9 @@ const IntroBody = defineComponent({
                 o.trial_left ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', 'Votre 1er live'), h('b', { class: 'text-emerald-700' }, 'Offert')]) : null,
                 h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `Un live (${o.prices.cards_per_live} fiches IA comprises)`), h('b', money(o.prices.live))]),
                 h('div', { class: 'flex justify-between py-2.5 text-[15px]' }, [h('span', 'Forfait du mois, lives sans limite'), h('b', money(o.prices.month))]),
-                h('p', { class: 'text-center text-[13px] text-slate-500' }, 'Retenu sur votre prochain reversement : rien à payer avant.'),
+                h('p', { class: 'text-center text-[13px] text-slate-500' }, o.pay_online
+                  ? 'Paiement par Orange Money, MTN, Moov, Wave ou carte, au moment de démarrer.'
+                  : 'Retenu sur votre prochain reversement : rien à payer avant.'),
               ],
         ]),
       ]

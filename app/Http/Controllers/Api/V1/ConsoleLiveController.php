@@ -3,7 +3,11 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\Company;
+use App\Models\LivePayment;
+use App\Models\PlatformCredit;
 use App\Services\Live\LiveStudio;
+use App\Services\Payments\PayDunya;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -41,6 +45,56 @@ class ConsoleLiveController extends Controller
         $this->studio->updateSettings($data);
 
         return $this->show();
+    }
+
+    /**
+     * Paiements en ligne des e-commerçants (PayDunya) et crédit des agences (leur part, déduite de leurs factures).
+     */
+    public function payments(): JsonResponse
+    {
+        $payments = LivePayment::withoutGlobalScopes()->with(['merchant' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'business_name'), 'company:id,name'])
+            ->latest('id')->limit(100)->get();
+        $credits = PlatformCredit::query()->selectRaw('company_id, SUM(amount) as balance, SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as earned')
+            ->groupBy('company_id')->with('company:id,name')->get()
+            ->map(fn (PlatformCredit $c) => ['company_id' => $c->company_id, 'company' => $c->company?->name, 'balance' => (int) $c->balance, 'earned' => (int) $c->earned])
+            ->sortByDesc('balance')->values();
+
+        return response()->json(['data' => [
+            'configured' => PayDunya::configured(),
+            'mode' => config('payments.paydunya.mode'),
+            'month' => [
+                'paid' => (int) LivePayment::withoutGlobalScopes()->where('status', LivePayment::PAID)->where('paid_at', '>=', now()->startOfMonth())->sum('amount'),
+                'count' => LivePayment::withoutGlobalScopes()->where('status', LivePayment::PAID)->where('paid_at', '>=', now()->startOfMonth())->count(),
+            ],
+            'payments' => $payments->map(fn (LivePayment $p) => [
+                'id' => $p->id,
+                'date' => $p->created_at->toIso8601String(),
+                'company' => $p->company?->name,
+                'merchant' => $p->merchant?->business_name,
+                'kind' => $p->kind,
+                'amount' => $p->amount,
+                'status' => $p->status,
+                'method' => $p->method,
+                'error' => $p->error,
+            ]),
+            'credits' => $credits,
+        ]]);
+    }
+
+    /** Versement du crédit d'une agence (fait en dehors de Jibiat, par Wave ou PayDunya) : enregistré ici */
+    public function payout(Request $request, Company $company): JsonResponse
+    {
+        $balance = PlatformCredit::balance($company->id);
+        $data = $request->validate(['amount' => ['required', 'integer', 'min:1', 'max:'.max(1, $balance)], 'note' => ['nullable', 'string', 'max:120']]);
+        PlatformCredit::create([
+            'company_id' => $company->id,
+            'amount' => -$data['amount'],
+            'reason' => PlatformCredit::PAYOUT,
+            'label' => 'Versé par Jibiat'.(filled($data['note'] ?? null) ? ' · '.$data['note'] : ''),
+            'created_by' => $request->user()->id,
+        ]);
+
+        return $this->payments();
     }
 
     /** Entreprise : l'outil live, son prix pour l'e-commerçant, et le choix de l'offrir */

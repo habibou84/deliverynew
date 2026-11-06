@@ -52,6 +52,18 @@
         <p class="text-xs text-gray-500">L'option est facturée au prorata des jours, à partir de son acceptation par Jibiat. Si vous l'arrêtez, vos applications installées continuent de marcher, sans nouvelle version.</p>
       </div>
 
+      <!-- Crédit chez Jibiat : part des lives payés en ligne par les e-commerçants -->
+      <div v-if="summary.live_credit && (summary.live_credit.balance || summary.live_credit.lines.length)" class="card p-4 space-y-2 text-sm">
+        <h2 class="font-semibold">Votre crédit chez Jibiat : {{ money(summary.live_credit.balance) }}</h2>
+        <p class="text-gray-600">Vos e-commerçants paient leurs lives en ligne à Jibiat ; votre part est déduite de vos prochaines factures. Le reste est reporté d'un mois sur l'autre. Pour recevoir un versement, contactez Jibiat.</p>
+        <ul class="divide-y">
+          <li v-for="(c, i) in summary.live_credit.lines" :key="i" class="flex justify-between gap-2 py-1.5">
+            <span>{{ c.label }} <span class="text-xs text-gray-500">· {{ c.date }}</span></span>
+            <span :class="c.amount > 0 ? 'text-emerald-700' : 'text-gray-600'">{{ c.amount > 0 ? '+' : '−' }}{{ money(Math.abs(c.amount)) }}</span>
+          </li>
+        </ul>
+      </div>
+
       <!-- Comparaison des formules sur les 30 derniers jours -->
       <div v-if="summary.comparison?.length > 1" class="card p-4 space-y-2 text-sm">
         <h2 class="font-semibold">Combien vous auriez payé avec chaque formule</h2>

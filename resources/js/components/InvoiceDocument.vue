@@ -109,6 +109,15 @@
             <td class="py-2 text-right">—</td>
             <td class="py-2 text-right">{{ money(invoice.carried_amount) }}</td>
           </tr>
+          <tr v-if="invoice.credit_amount">
+            <td class="py-2">
+              Part des lives de vos e-commerçants
+              <span class="block text-xs text-gray-500">Ils ont payé leurs lives en ligne à Jibiat : votre part est déduite de cette facture (le reste est reporté).</span>
+            </td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right">—</td>
+            <td class="py-2 text-right text-emerald-700">−{{ money(invoice.credit_amount) }}</td>
+          </tr>
         </tbody>
         <tfoot class="border-t">
           <tr><td colspan="3" class="py-2 text-right font-semibold">Total</td><td class="py-2 text-right font-bold">{{ money(invoice.total) }}</td></tr>

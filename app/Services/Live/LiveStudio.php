@@ -11,14 +11,17 @@ use App\Models\LiveAiCard;
 use App\Models\LiveCharge;
 use App\Models\LiveItem;
 use App\Models\LiveOrder;
+use App\Models\LivePayment;
 use App\Models\Merchant;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\PlatformCredit;
 use App\Models\PlatformSetting;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\Orders\OrderService;
+use App\Services\Payments\PayDunya;
 use App\Services\Stock\StockKeeper;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
@@ -120,6 +123,9 @@ class LiveStudio
             'offered_by_company' => (bool) $company?->live_offered,
             // Nom de l'agence de livraison, mis en avant dans « Comment ça marche » (Jibiat reste discret)
             'agency' => $company?->name,
+            // Paiement en ligne (Orange Money, MTN, Moov, Wave, carte) : sinon retenu sur le prochain reversement
+            'pay_online' => $this->paysOnline($merchant),
+            'next_plan' => $this->nextPlan($merchant),
             'trial_left' => $this->trialLeft($merchant),
             'monthly_until' => $this->monthlyActive($merchant) ? $merchant->live_plan_until : null,
             'monthly_cards_left' => $this->monthlyActive($merchant) ? max(0, $s['cards_per_month'] - $this->monthlyCardsUsed($merchant)) : 0,
@@ -356,7 +362,27 @@ class LiveStudio
 
     // ── Démarrage, frais ──────────────────────────────────────────────────────────────────────────
 
-    public function start(Live $live, User $user): Live
+    /** Formule du prochain live : offert par l'agence, forfait du mois, essai, ou live payé à l'unité */
+    public function nextPlan(Merchant $merchant): string
+    {
+        return match (true) {
+            (bool) $merchant->company?->live_offered => 'offered',
+            $this->monthlyActive($merchant) => 'monthly',
+            $this->trialLeft($merchant) > 0 => 'trial',
+            default => 'single',
+        };
+    }
+
+    /** L'e-commerçant paie lui-même en ligne (PayDunya) : sinon le montant est retenu sur ses reversements */
+    public function paysOnline(Merchant $merchant): bool
+    {
+        return PayDunya::configured() && ! $merchant->company?->live_offered;
+    }
+
+    /**
+     * Démarre le live. Live payé à l'unité et paiement en ligne : seulement avec le paiement PayDunya confirmé.
+     */
+    public function start(Live $live, User $user, ?LivePayment $payment = null): Live
     {
         $this->ensureEnabled();
         if ($live->status !== Live::DRAFT) {
@@ -368,15 +394,19 @@ class LiveStudio
         $merchant = $live->merchant()->with('company')->firstOrFail();
         $s = $this->settings();
 
-        return DB::transaction(function () use ($live, $merchant, $user, $s) {
-            [$plan, $included] = match (true) {
-                (bool) $merchant->company?->live_offered => ['offered', (int) $s['cards_per_live']],
-                $this->monthlyActive($merchant) => ['monthly', 0],
-                $this->trialLeft($merchant) > 0 => ['trial', (int) $s['trial_cards']],
-                default => ['single', (int) $s['cards_per_live']],
+        $plan = $payment !== null ? 'single' : $this->nextPlan($merchant);
+        if ($plan === 'single' && $payment === null && $this->paysOnline($merchant)) {
+            throw new BusinessRuleException('Payez votre live pour le démarrer.', 'payment');
+        }
+
+        return DB::transaction(function () use ($live, $merchant, $user, $s, $plan, $payment) {
+            $included = match ($plan) {
+                'monthly' => 0,
+                'trial' => (int) $s['trial_cards'],
+                default => (int) $s['cards_per_live'],
             };
             if (in_array($plan, ['offered', 'single'], true)) {
-                $this->charge($merchant, $user, 'live', "Live « {$live->name} »", (int) $s['price_live'], (int) $s['cards_per_live'], $live);
+                $this->charge($merchant, $user, 'live', "Live « {$live->name} »", $payment?->amount ?? (int) $s['price_live'], (int) $s['cards_per_live'], $live, $payment);
             }
             $live->forceFill(['status' => Live::LIVE, 'plan' => $plan, 'ai_cards_included' => $included, 'started_at' => now()])->save();
 
@@ -384,27 +414,35 @@ class LiveStudio
         });
     }
 
-    public function subscribeMonthly(Merchant $merchant, User $user): Merchant
+    public function subscribeMonthly(Merchant $merchant, User $user, ?LivePayment $payment = null): Merchant
     {
         $this->ensureEnabled();
-        if ($this->monthlyActive($merchant)) {
+        if ($payment === null && $this->paysOnline($merchant)) {
+            throw new BusinessRuleException('Payez votre forfait pour l\'activer.', 'payment');
+        }
+        if ($this->monthlyActive($merchant) && $payment === null) {
             throw new BusinessRuleException('Votre forfait live est déjà en cours.');
         }
         $s = $this->settings();
-        DB::transaction(function () use ($merchant, $user, $s) {
-            $this->charge($merchant, $user, 'monthly', 'Forfait live du mois', (int) $s['price_month'], (int) $s['cards_per_month']);
-            $merchant->forceFill(['live_plan_until' => now()->addDays(30)])->save();
+        DB::transaction(function () use ($merchant, $user, $s, $payment) {
+            $this->charge($merchant, $user, 'monthly', 'Forfait live du mois', $payment?->amount ?? (int) $s['price_month'], (int) $s['cards_per_month'], null, $payment);
+            // Forfait payé alors qu'un autre court encore : les 30 jours s'ajoutent
+            $from = $this->monthlyActive($merchant) ? $merchant->live_plan_until : now();
+            $merchant->forceFill(['live_plan_until' => $from->copy()->addDays(30)])->save();
         });
 
         return $merchant->refresh();
     }
 
-    public function buyPack(Merchant $merchant, User $user): Merchant
+    public function buyPack(Merchant $merchant, User $user, ?LivePayment $payment = null): Merchant
     {
         $this->ensureEnabled();
+        if ($payment === null && $this->paysOnline($merchant)) {
+            throw new BusinessRuleException('Payez vos fiches pour les ajouter.', 'payment');
+        }
         $s = $this->settings();
-        DB::transaction(function () use ($merchant, $user, $s) {
-            $this->charge($merchant, $user, 'pack', "{$s['pack_cards']} fiches produit IA", (int) $s['pack_price'], (int) $s['pack_cards']);
+        DB::transaction(function () use ($merchant, $user, $s, $payment) {
+            $this->charge($merchant, $user, 'pack', "{$s['pack_cards']} fiches produit IA", $payment?->amount ?? (int) $s['pack_price'], (int) $s['pack_cards'], null, $payment);
             $merchant->increment('live_extra_cards', (int) $s['pack_cards']);
         });
 
@@ -415,10 +453,15 @@ class LiveStudio
      * Frais : débités sur le compte de l'e-commerçante (retenus au prochain reversement), sauf si l'agence offre le
      * live. Part de Jibiat : tout quand l'agence offre, sinon le prix moins la part laissée à l'agence.
      */
-    private function charge(Merchant $merchant, User $user, string $kind, string $label, int $amount, int $cards, ?Live $live = null): LiveCharge
+    /**
+     * Frais d'un live, forfait ou pack. Payé en ligne (PayDunya) : Jibiat a reçu le montant, la part de l'agence va
+     * sur son crédit (déduit de ses factures). Sinon retenu sur les reversements de l'e-commerçant, ou offert par
+     * l'agence (facturé à l'agence).
+     */
+    private function charge(Merchant $merchant, User $user, string $kind, string $label, int $amount, int $cards, ?Live $live = null, ?LivePayment $payment = null): LiveCharge
     {
-        $offered = (bool) $merchant->company?->live_offered;
-        if (! $offered && $amount > 0) {
+        $offered = $payment === null && (bool) $merchant->company?->live_offered;
+        if (! $offered && $payment === null && $amount > 0) {
             MerchantLedgerEntry::create([
                 'company_id' => $merchant->company_id,
                 'merchant_id' => $merchant->id,
@@ -430,7 +473,7 @@ class LiveStudio
         }
         $share = $offered ? 0 : (int) $this->settings()['agency_share'];
 
-        return LiveCharge::create([
+        $charge = LiveCharge::create([
             'company_id' => $merchant->company_id,
             'merchant_id' => $merchant->id,
             'live_id' => $live?->id,
@@ -440,7 +483,24 @@ class LiveStudio
             'platform_amount' => (int) round($amount * (100 - $share) / 100),
             'offered_by_company' => $offered,
             'cards' => $cards,
+            'paid_via' => $payment !== null ? 'paydunya' : 'ledger',
         ]);
+
+        if ($payment !== null) {
+            $payment->forceFill(['live_charge_id' => $charge->id])->save();
+            $agencyShare = $charge->amount - $charge->platform_amount;
+            if ($agencyShare > 0) {
+                PlatformCredit::create([
+                    'company_id' => $merchant->company_id,
+                    'amount' => $agencyShare,
+                    'reason' => PlatformCredit::EARNED,
+                    'label' => mb_substr("{$merchant->business_name} · {$label}", 0, 190),
+                    'live_payment_id' => $payment->id,
+                ]);
+            }
+        }
+
+        return $charge;
     }
 
     // ── Pendant le live ───────────────────────────────────────────────────────────────────────────
@@ -624,7 +684,8 @@ class LiveStudio
      */
     public function billable(Company $company, CarbonImmutable $last): array
     {
-        $charges = LiveCharge::forCompany($company->id)->whereNull('platform_invoice_id')->where('platform_amount', '>', 0)
+        // Payés en ligne par les e-commerçants : rien à facturer à l'agence (sa part est sur son crédit)
+        $charges = LiveCharge::forCompany($company->id)->whereNull('platform_invoice_id')->where('platform_amount', '>', 0)->where('paid_via', '!=', 'paydunya')
             ->where('created_at', '<', $last->addDay()->startOfDay()->utc())->with('merchant:id,business_name')->get();
         $lines = $charges->groupBy('kind')->map(fn (Collection $group, string $kind) => [
             'kind' => $kind,
