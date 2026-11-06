@@ -13,12 +13,12 @@
     <!-- À relier -->
     <template v-else>
       <p class="text-[17px] font-extrabold">💬 Les commandes arrivent toutes seules</p>
-      <p class="text-[15px] text-slate-700">Reliez votre WhatsApp Business une fois : les clientes envoient le code, la réponse part toute seule et votre agence reçoit la commande.</p>
+      <p class="text-[15px] text-slate-700">Reliez votre numéro spécial live une fois : les clientes envoient le code, la réponse part toute seule et votre agence reçoit la commande.</p>
 
       <!-- Par défaut : connexion officielle de WhatsApp (fenêtre Facebook), l'application reste sur le téléphone -->
       <template v-if="state.official?.available">
-        <button type="button" class="m-btn-primary w-full !bg-none !bg-[#25d366]" :disabled="busy" @click="connectOfficial">{{ busy ? 'Un instant…' : 'Relier mon WhatsApp Business' }}</button>
-        <p class="text-[13px] text-slate-500">Connexion officielle de WhatsApp, avec Facebook. Vous gardez votre application WhatsApp Business comme d'habitude.</p>
+        <button type="button" class="m-btn-primary w-full !bg-none !bg-[#25d366]" :disabled="busy" @click="connectOfficial">{{ busy ? 'Un instant…' : 'Relier mon numéro spécial live' }}</button>
+        <p class="text-[13px] text-slate-500">Connexion officielle de WhatsApp, avec votre compte Facebook.</p>
       </template>
 
       <!-- Option de la console : code d'association ou QR code (non officiel), à côté de la connexion officielle -->

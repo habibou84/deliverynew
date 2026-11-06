@@ -9,13 +9,43 @@
     <template v-if="d && !introOpen">
       <!-- Étapes -->
       <div class="flex gap-1.5 text-[13px] font-bold">
-        <span v-for="(s, i) in STEPS" :key="s.key" :class="['flex-1 rounded-full py-1.5 text-center', step === s.key || (step === 'nouveau' && s.key === 'produits') ? 'bg-[var(--app-color)] text-white' : i < stepIndex ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500']">{{ i < stepIndex ? '✓' : i + 1 }} {{ s.label }}</span>
+        <span v-for="(s, i) in steps" :key="s.key" :class="['flex-1 rounded-full py-1.5 text-center', step === s.key || (step === 'nouveau' && s.key === 'produits') ? 'bg-[var(--app-color)] text-white' : i < stepIndex ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500']">{{ i < stepIndex ? '✓' : i + 1 }} {{ s.label }}</span>
       </div>
+
+      <!-- ── WhatsApp pas encore relié : d'abord le WhatsApp du live ── -->
+      <template v-if="step === 'whatsapp'">
+        <div class="guide">
+          <p class="guide-title">Étape 1 sur {{ steps.length }} : votre WhatsApp pour le live</p>
+          <p>Les clientes envoient le code du produit sur ce WhatsApp : la réponse part toute seule et votre agence reçoit la commande.</p>
+        </div>
+
+        <p class="rounded-2xl bg-emerald-600 px-4 py-4 text-center text-[22px] font-extrabold leading-tight text-white">Les messages des commandes sont gratuits.</p>
+
+        <div class="m-card space-y-3 p-4">
+          <p class="text-[17px] font-extrabold">Ce que Meta (Facebook) vous demande</p>
+          <div class="flex gap-3">
+            <span class="text-[26px]" aria-hidden="true">📱</span>
+            <p class="text-[16px]"><b>Un numéro spécial live</b>, qui n'a pas de compte WhatsApp (une nouvelle puce, par exemple). Vous recevrez un code par SMS ou par appel sur ce numéro.</p>
+          </div>
+          <div class="flex gap-3">
+            <span class="text-[26px]" aria-hidden="true">💳</span>
+            <p class="text-[16px]"><b>Une carte bancaire.</b> Elle ne sert que si vous envoyez des messages publicitaires en masse. Les réponses aux commandes ne sont pas facturées.</p>
+          </div>
+        </div>
+
+        <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
+
+        <div class="m-card space-y-2 p-4">
+          <p class="text-[16px] font-bold">Pas de numéro spécial pour le moment ?</p>
+          <p class="text-[15px] text-slate-600">Faites votre live sans WhatsApp : vos clientes commandent par <b>le lien du live</b>, à mettre dans votre bio ou en commentaire épinglé.</p>
+          <button type="button" class="m-btn-secondary w-full" @click="skipWhatsApp">Continuer sans WhatsApp</button>
+        </div>
+      </template>
 
       <!-- ── 1. Choisir les produits ── -->
       <template v-if="step === 'produits'">
         <div class="guide">
-          <p class="guide-title">Étape 1 sur 3</p>
+          <p class="guide-title">Étape {{ stepIndex + 1 }} sur {{ steps.length }}</p>
           <p>1. Cochez vos produits.</p>
           <p>2. Produit absent ? Prenez-le en photo.</p>
           <p>3. Appuyez sur « Continuer ».</p>
@@ -175,13 +205,14 @@
       <!-- ── 2. Carte ── -->
       <template v-if="step === 'carte'">
         <div class="guide">
-          <p class="guide-title">Étape 2 sur 3</p>
+          <p class="guide-title">Étape {{ stepIndex + 1 }} sur {{ steps.length }}</p>
           <p>1. Donnez un nom à votre live.</p>
           <p>2. Téléchargez la carte.</p>
           <p>3. Montrez-la pendant le live.</p>
         </div>
         <!-- Commandes automatiques : numéro WhatsApp officiel, ou WhatsApp de la boutique relié (option de la console) -->
-        <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
+        <LiveWhatsAppConnect v-if="d.whatsapp?.auto" :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
+        <LiveLink v-else :url="d.public_url" @whatsapp="step = 'whatsapp'" />
 
         <label class="block text-[14px] font-semibold text-slate-600">Nom du live
           <input v-model="liveName" class="m-input mt-1 w-full !text-[17px] !font-semibold" @change="saveItems">
@@ -212,7 +243,7 @@
       <button type="button" class="m-btn-primary w-full" @click="closeIntro">Préparer mon live</button>
       <p class="mt-1.5 text-center text-[12px] text-slate-400">Propulsé par <b>Jibiat</b></p>
     </div>
-    <div v-if="d && !introOpen && step !== 'nouveau'" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+    <div v-if="d && !introOpen && step !== 'nouveau' && step !== 'whatsapp'" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
       <p v-if="step === 'produits' && noPhoto.length" class="mb-2 text-center text-[14px] font-semibold text-red-700">{{ noPhoto.length }} produit{{ noPhoto.length > 1 ? 's' : '' }} sans photo : ajoutez {{ noPhoto.length > 1 ? 'leur' : 'sa' }} photo pour créer la carte.</p>
       <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || noPhoto.length > 0 || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>
       <div v-else class="flex gap-2">
@@ -232,9 +263,13 @@ import { money } from '../../../utils/format'
 import { drawCard, saveCard } from './liveCard'
 import LiveIntro from './LiveIntro.vue'
 import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
+import LiveLink from './LiveLink.vue'
 
 /** Préparer mon live : produits (catalogue ou photo + IA), carte à télécharger, démarrage */
 const STEPS = [{ key: 'produits', label: 'Produits' }, { key: 'carte', label: 'Carte' }, { key: 'live', label: 'Live' }]
+// WhatsApp proposé (connexion officielle ou option de la console) mais pas encore relié : première étape
+const waStep = computed(() => !!d.value && !d.value.whatsapp?.auto && !!(d.value.whatsapp?.official?.available || d.value.whatsapp?.available))
+const steps = computed(() => waStep.value ? [{ key: 'whatsapp', label: 'WhatsApp' }, ...STEPS] : STEPS)
 const router = useRouter()
 const toasts = useToastStore()
 const d = ref(null)
@@ -247,7 +282,28 @@ const liveName = ref('')
 const square = ref(false)
 const cards = ref([])
 
-const stepIndex = computed(() => ({ produits: 0, nouveau: 0, carte: 1 })[step.value])
+const stepIndex = computed(() => ({ whatsapp: 0, produits: 0, nouveau: 0, carte: 1 })[step.value] + (waStep.value && step.value !== 'whatsapp' ? 1 : 0))
+
+// « Continuer sans WhatsApp » : retenu pour ce live, sur ce téléphone
+const skipKey = () => `live-sans-whatsapp-${d.value?.live?.id}`
+function skipWhatsApp() {
+  try {
+    localStorage.setItem(skipKey(), '1')
+  } catch {
+    // stockage impossible : on passe quand même à l'étape suivante
+  }
+  step.value = 'produits'
+  window.scrollTo({ top: 0 })
+}
+function firstStep() {
+  let skipped = false
+  try {
+    skipped = localStorage.getItem(skipKey()) === '1'
+  } catch {
+    skipped = false
+  }
+  if (waStep.value && !skipped && step.value === 'produits') step.value = 'whatsapp'
+}
 const shownCatalog = computed(() => {
   const q = search.value.trim().toLowerCase()
   return (d.value?.catalog || []).filter((p) => !q || p.name.toLowerCase().includes(q))
@@ -296,6 +352,7 @@ async function load() {
     if (!introChecked) {
       introChecked = true
       introOpen.value = !!d.value.intro?.full
+      firstStep()
     }
   } catch (e) {
     error.value = apiErrorMessage(e)
@@ -391,7 +448,8 @@ watch(square, () => { if (step.value === 'carte') renderCards() })
 // WhatsApp relié : mise à jour de l'écran
 async function onWhatsApp() {
   await load()
-  await renderCards()
+  if (step.value === 'whatsapp' && d.value.whatsapp?.auto) step.value = 'produits'
+  if (step.value === 'carte') await renderCards()
 }
 
 async function downloadAndStart() {

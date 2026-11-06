@@ -20,16 +20,16 @@
       </div>
 
       <!-- Avant la fenêtre de Meta -->
-      <!-- E-commerçant : son numéro WhatsApp Business, qu'il garde sur son téléphone -->
+      <!-- E-commerçant : numéro spécial live, sans compte WhatsApp -->
       <div v-else-if="session?.merchant" class="space-y-4">
         <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
           <li>Une fenêtre Facebook s'ouvre : connectez-vous avec votre compte.</li>
-          <li>Choisissez de relier votre application <b>WhatsApp Business</b> et le numéro de la boutique.</li>
-          <li>Confirmez sur votre téléphone, dans WhatsApp Business.</li>
+          <li>Créez votre compte WhatsApp Business et tapez votre <b>numéro spécial live</b> (un numéro qui n'a pas de compte WhatsApp).</li>
+          <li>Recevez le code par SMS ou par appel et tapez-le.</li>
+          <li>Si Meta demande une carte bancaire, ajoutez-la : les réponses aux commandes du live ne sont pas facturées.</li>
         </ol>
         <p class="text-xs text-slate-500">
-          Connexion officielle de WhatsApp : vous gardez votre application WhatsApp Business comme d'habitude.
-          Pendant vos lives, les clientes qui envoient un code reçoivent une réponse automatique.
+          Connexion officielle de WhatsApp. Pendant vos lives, les clientes qui envoient un code reçoivent une réponse automatique.
         </p>
         <button type="button" class="btn-success w-full py-3" :disabled="working" @click="start">
           {{ working ? 'Fenêtre Facebook ouverte…' : (error ? 'Recommencer avec Facebook' : 'Continuer avec Facebook') }}
@@ -94,7 +94,7 @@ async function start() {
   error.value = ''
   working.value = true
   try {
-    const signup = await connectWhatsApp(session.value.embedded_signup, { coexistence: session.value.merchant })
+    const signup = await connectWhatsApp(session.value.embedded_signup, { coexistence: false })
     const { data } = await http.post('/whatsapp-signup/complete', { ticket, ...signup })
     result.value = data.data
     setTimeout(() => goBack({ whatsapp: 'connecte' }), 3000)
