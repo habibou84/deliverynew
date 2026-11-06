@@ -32,7 +32,7 @@
     </header>
 
     <!-- Pages côte à côte : on glisse avec le doigt, ou on touche l'onglet -->
-    <div ref="track" data-swipe-pages class="swipe-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden" @scroll.passive="onScroll">
+    <div ref="track" data-swipe-pages :class="{ 'swipe-peek': peek }" class="swipe-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden" @scroll.passive="onScroll" @touchstart.passive="touched = true; peek = false">
       <section v-for="(p, i) in pages" :key="p.key" class="h-full w-full shrink-0 snap-start snap-always overflow-y-auto overscroll-y-contain" :aria-hidden="i !== current">
         <div class="mx-auto max-w-lg px-4 pb-28 pt-1">
           <!-- Commandes : nouvelle course en haut -->
@@ -85,6 +85,23 @@
         </RouterLink>
       </div>
     </BottomSheet>
+
+    <!-- Indicateur : comment passer d'une page à l'autre (jusqu'au premier glissement du doigt) -->
+    <Transition name="hint">
+      <div v-if="hint && !screenOpen && !menuOpen" class="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+20px)]">
+        <div class="pointer-events-auto flex items-center gap-3 rounded-[20px] bg-slate-900/95 py-3 pl-4 pr-3 text-white shadow-2xl" role="status">
+          <span class="swipe-hand text-[28px] leading-none" aria-hidden="true">👆</span>
+          <span class="min-w-0">
+            <b class="block text-[15px] leading-tight">Glissez du doigt ← →</b>
+            <span class="text-[13px] opacity-80">pour passer d'une page à l'autre</span>
+            <span class="mt-1.5 flex gap-1" aria-hidden="true">
+              <i v-for="(p, i) in pages" :key="p.key" :class="['block h-1.5 rounded-full transition-all', i === current ? 'w-4 bg-white' : 'w-1.5 bg-white/40']" />
+            </span>
+          </span>
+          <button type="button" class="ml-1 shrink-0 rounded-full bg-white/15 px-3.5 py-2 text-[14px] font-bold" @click="hintDone">OK</button>
+        </div>
+      </div>
+    </Transition>
 
     <Toasts />
   </div>
@@ -145,6 +162,35 @@ function go(i, smooth = true) {
   setPage(i)
 }
 let scrollTimer
+// ── Indicateur du geste : affiché tant que l'e-commerçant n'a pas glissé une fois ; les pages « bougent » un peu ──
+const HINT_KEY = 'jibiat.swipe-hint-done'
+const hint = ref(false)
+const peek = ref(false)
+let touched = false
+function hintDone() {
+  hint.value = false
+  try {
+    localStorage.setItem(HINT_KEY, '1')
+  } catch {
+    // Sans stockage : l'indicateur reviendra à la prochaine ouverture
+  }
+}
+function showHint() {
+  let done = false
+  try {
+    done = localStorage.getItem(HINT_KEY) === '1'
+  } catch {
+    done = false
+  }
+  if (done || props.pages.length < 2) return
+  setTimeout(() => {
+    hint.value = true
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    peek.value = true
+    setTimeout(() => { peek.value = false }, 2600)
+  }, 900)
+}
+
 function onScroll() {
   clearTimeout(scrollTimer)
   scrollTimer = setTimeout(() => {
@@ -160,6 +206,7 @@ const tabClass = (p, i) => {
 function setPage(i) {
   const p = props.pages[i]
   if (!p) return
+  if (touched && i !== current.value) hintDone()
   if (i !== current.value) tabsEl.value?.children[i]?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
   current.value = i
   seen.add(p.key)
@@ -216,6 +263,7 @@ onMounted(async () => {
   lastPage.value = props.pages[start]?.path ?? props.base
   await nextTick()
   go(start, false)
+  showHint()
 })
 </script>
 
@@ -224,7 +272,14 @@ onMounted(async () => {
 .swipe-track::-webkit-scrollbar { display: none; }
 .swipe-urgent { animation: swipe-pulse 1.6s infinite; }
 @keyframes swipe-pulse { 0% { box-shadow: 0 0 0 0 rgba(229,74,110,.55) } 70% { box-shadow: 0 0 0 7px rgba(229,74,110,0) } 100% { box-shadow: 0 0 0 0 rgba(229,74,110,0) } }
-@media (prefers-reduced-motion: reduce) { .swipe-urgent { animation: none; } }
+/* Indicateur du geste : la main glisse, les pages bougent un peu deux fois */
+.swipe-hand { display: inline-block; animation: swipe-hand 1.8s ease-in-out infinite; }
+@keyframes swipe-hand { 0%, 100% { transform: translateX(8px) rotate(-8deg) } 50% { transform: translateX(-10px) rotate(-14deg) } }
+.swipe-peek > section { animation: swipe-peek 1.3s ease-in-out 2; }
+@keyframes swipe-peek { 0%, 100% { transform: translateX(0) } 45% { transform: translateX(-56px) } }
+.hint-enter-active, .hint-leave-active { transition: opacity .25s ease, transform .25s ease; }
+.hint-enter-from, .hint-leave-to { opacity: 0; transform: translateY(16px); }
+@media (prefers-reduced-motion: reduce) { .swipe-urgent, .swipe-hand, .swipe-peek > section { animation: none; } }
 .screen-enter-active, .screen-leave-active { transition: background-color .2s ease; }
 .screen-enter-active > div, .screen-leave-active > div { transition: transform .25s ease; }
 .screen-enter-from, .screen-leave-to { background-color: transparent; }
