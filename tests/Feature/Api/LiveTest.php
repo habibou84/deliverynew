@@ -313,6 +313,40 @@ class LiveTest extends TestCase
         $this->assertIsInt($data['insights']['best_hour']);
     }
 
+    public function test_etiquette_faite_puis_a_refaire_si_les_produits_changent(): void
+    {
+        $live = $this->prepare();
+        $this->postJson("/api/v1/live/{$live}/label-ready")->assertStatus(422);
+        $product = $this->addProduct($live, 'Robe wax', 9000, 5)['items'][0]['product_id'];
+        $this->assertFalse($this->postJson('/api/v1/live/prepare')->json('data.label_ready'));
+
+        $this->assertTrue($this->postJson("/api/v1/live/{$live}/label-ready")->assertOk()->json('data.label_ready'));
+        // Retenue sur le serveur : un autre téléphone la voit cochée
+        $this->assertTrue($this->postJson('/api/v1/live/prepare')->json('data.label_ready'));
+
+        // Prix changé : l'étiquette est à refaire
+        $this->putJson("/api/v1/live/{$live}/items", ['items' => [['product_id' => $product, 'price' => 8000, 'quantity' => 5]]])->assertOk();
+        $this->assertFalse($this->postJson('/api/v1/live/prepare')->json('data.label_ready'));
+    }
+
+    public function test_reprendre_les_produits_d_un_live_passe(): void
+    {
+        $live = $this->prepare();
+        $this->addProduct($live, 'Robe wax', 9000, 5);
+        $this->addProduct($live, 'Sac cuir', 15000, 3);
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
+        $this->postJson("/api/v1/live/{$live}/end")->assertOk();
+
+        $draft = $this->postJson('/api/v1/live/prepare')->assertOk()->json('data');
+        $this->assertNotSame($live, $draft['live']['id']);
+        $this->assertSame(['A1', 'A2'], array_column($draft['past'][0]['items'], 'code'));
+
+        // Un live déjà commencé ne reprend rien ; le live en préparation reprend les produits, prix et quantités
+        $this->postJson("/api/v1/live/{$live}/copy/{$live}")->assertStatus(422);
+        $items = $this->postJson("/api/v1/live/{$draft['live']['id']}/copy/{$live}")->assertOk()->json('data.items');
+        $this->assertSame([['A1', 'Robe wax', 9000, 5], ['A2', 'Sac cuir', 15000, 3]], array_map(fn ($i) => [$i['code'], $i['name'], $i['price'], $i['quantity']], $items));
+    }
+
     public function test_reglages_console_et_droits(): void
     {
         $this->getJson('/api/v1/console/live')->assertForbidden();

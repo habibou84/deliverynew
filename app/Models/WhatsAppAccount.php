@@ -20,7 +20,7 @@ class WhatsAppAccount extends Model
         'company_id', 'owner_type', 'owner_id', 'provider', 'waba_id', 'phone_number_id',
         'display_phone', 'access_token', 'status', 'verified_name', 'quality_rating', 'last_error',
         'connected_at', 'connected_via', 'webhook_subscribed_at', 'registration_pin',
-        'token_expires_at', 'token_warned_at', 'platform_token',
+        'token_expires_at', 'token_warned_at', 'platform_token', 'payment_missing_at',
     ];
 
     protected $hidden = ['access_token', 'registration_pin'];
@@ -35,6 +35,7 @@ class WhatsAppAccount extends Model
             'token_expires_at' => 'datetime',
             'token_warned_at' => 'datetime',
             'platform_token' => 'boolean',
+            'payment_missing_at' => 'datetime',
         ];
     }
 
@@ -115,6 +116,33 @@ class WhatsAppAccount extends Model
     public function isMerchant(): bool
     {
         return $this->owner_type === self::MERCHANT;
+    }
+
+    /**
+     * Mode sans carte : Meta a refusé un modèle (message payant) faute de moyen de paiement. Les réponses dans une
+     * conversation ouverte par le client restent gratuites et marchent.
+     */
+    public function withoutCard(): bool
+    {
+        return $this->payment_missing_at !== null;
+    }
+
+    /** Modèles payants pas tentés : ils seraient refusés. Un essai toutes les 12 h pour voir si une carte a été ajoutée */
+    public function skipsTemplates(): bool
+    {
+        return $this->payment_missing_at !== null && $this->payment_missing_at->gt(now()->subHours(12));
+    }
+
+    /** Refus de Meta faute de moyen de paiement (#131042 « Business eligibility payment issue ») */
+    public static function isPaymentError(?string $code, ?string $message = null): bool
+    {
+        return $code === '131042' || str_contains(strtolower((string) $message), '(131042)');
+    }
+
+    /** Lien direct vers les moyens de paiement du compte chez Meta */
+    public function paymentUrl(): string
+    {
+        return 'https://business.facebook.com/billing_hub/payment_settings/';
     }
 
     public static function forCompanyId(int $companyId): ?self

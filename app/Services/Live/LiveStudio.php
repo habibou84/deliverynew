@@ -233,6 +233,46 @@ class LiveStudio
         return $live->refresh()->load('items.product');
     }
 
+    /** Empreinte des produits du live (codes, variantes, prix, quantités) : l'étiquette correspond à cette liste */
+    public function labelSign(Live $live): string
+    {
+        return sha1($live->items()->orderBy('position')->get(['code', 'variant', 'price', 'quantity'])
+            ->map(fn (LiveItem $i) => "{$i->code}|{$i->variant}|{$i->price}|{$i->quantity}")->implode(';'));
+    }
+
+    /** Étiquette téléchargée et épinglée (« C'est fait ») pour les produits actuels */
+    public function markLabelReady(Live $live): Live
+    {
+        abort_if($live->status === Live::ENDED, 422, 'Ce live est terminé.');
+        abort_unless($live->items()->exists(), 422, 'Choisissez d\'abord les produits du live.');
+        $live->forceFill(['label_ready_sign' => $this->labelSign($live)])->save();
+
+        return $live;
+    }
+
+    public function labelReady(Live $live): bool
+    {
+        return $live->label_ready_sign !== null && hash_equals($live->label_ready_sign, $this->labelSign($live));
+    }
+
+    /**
+     * Reprendre un live passé : ses produits (encore au catalogue), leur ordre, leurs prix et leurs quantités
+     * remplacent ceux du live en préparation.
+     */
+    public function copyFrom(Live $draft, Live $past): Live
+    {
+        abort_unless($draft->status === Live::DRAFT, 422, 'Le live a déjà commencé.');
+        abort_unless($past->merchant_id === $draft->merchant_id && $past->id !== $draft->id, 404);
+        $active = Product::forCompany($draft->company_id)->where('merchant_id', $draft->merchant_id)->where('is_active', true)->pluck('id')->flip();
+        $rows = $past->items()->orderBy('position')->get()
+            ->filter(fn (LiveItem $i) => $i->product_id !== null && $active->has($i->product_id))
+            ->map(fn (LiveItem $i) => ['product_id' => $i->product_id, 'variant' => $i->variant, 'price' => $i->price, 'quantity' => $i->quantity])
+            ->values()->all();
+        abort_if($rows === [], 422, 'Les produits de ce live ne sont plus dans votre catalogue.');
+
+        return $this->setItems($draft, $rows);
+    }
+
     /**
      * Fiche produit par l'IA à partir d'une photo. Une fiche = un produit ; reprendre la photo avec le même jeton
      * ne compte pas en plus jusqu'au nombre de reprises gratuites.

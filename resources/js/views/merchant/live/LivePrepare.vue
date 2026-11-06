@@ -52,14 +52,14 @@
         <p class="rounded-2xl bg-emerald-600 px-4 py-4 text-center text-[22px] font-extrabold leading-tight text-white">Les messages des commandes sont gratuits.</p>
 
         <div v-if="!d.whatsapp?.auto" class="m-card space-y-3 p-4">
-          <p class="text-[17px] font-extrabold">Ce que Meta (Facebook) vous demande</p>
+          <p class="text-[17px] font-extrabold">Ce qu'il vous faut</p>
           <div class="flex gap-3">
             <span class="text-[26px]" aria-hidden="true">📱</span>
             <p class="text-[16px]"><b>Un numéro spécial live</b>, qui n'a pas de compte WhatsApp (une nouvelle puce, par exemple). Vous recevrez un code par SMS ou par appel sur ce numéro.</p>
           </div>
           <div class="flex gap-3">
-            <span class="text-[26px]" aria-hidden="true">💳</span>
-            <p class="text-[16px]"><b>Une carte bancaire.</b> Elle ne sert que si vous envoyez des messages publicitaires en masse. Les réponses aux commandes ne sont pas facturées.</p>
+            <span class="text-[26px]" aria-hidden="true">✅</span>
+            <p class="text-[16px]"><b>Pas besoin de carte bancaire pour le live.</b> Les réponses aux clientes qui commandent sont gratuites. Si Meta vous demande une carte ou parle de « paiement », c'est normal : vous pouvez passer, les commandes du live marchent quand même.</p>
           </div>
         </div>
 
@@ -74,6 +74,22 @@
 
         <!-- ── Produits ── -->
         <template v-if="panel === 'produits'">
+          <!-- Reprendre un live passé -->
+          <div v-if="d.past?.length" class="m-card overflow-hidden">
+            <button type="button" class="tap flex w-full items-center justify-between gap-2 px-4 py-3 text-left" :aria-expanded="pastOpen" @click="pastOpen = !pastOpen">
+              <span><b class="block text-[16px]">📋 Reprendre un live passé</b><span class="text-[13.5px] text-slate-500">Ses produits, leur ordre et leurs prix</span></span>
+              <span class="text-[18px] text-slate-400" aria-hidden="true">{{ pastOpen ? '▴' : '▾' }}</span>
+            </button>
+            <div v-if="pastOpen" class="divide-y divide-slate-100 border-t border-slate-100">
+              <div v-for="pl in d.past" :key="pl.id" class="flex items-center gap-3 px-4 py-2.5">
+                <span class="min-w-0 flex-1">
+                  <b class="block truncate text-[15px]">{{ pl.name }}</b>
+                  <span class="block truncate text-[13px] text-slate-500">{{ pastDay(pl.ended_at) }} · {{ pl.items.length }} produit{{ pl.items.length > 1 ? 's' : '' }} · {{ pl.orders_count }} cde{{ pl.orders_count > 1 ? 's' : '' }} · {{ pl.items.map((i) => i.name).join(', ') }}</span>
+                </span>
+                <button type="button" class="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-[14px] font-bold text-white disabled:opacity-50" :disabled="saving" @click="reuse(pl)">Reprendre</button>
+              </div>
+            </div>
+          </div>
         <p v-if="d.offer.offered_by_company" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre agence vous offre vos lives.</p>
         <p v-else-if="d.offer.trial_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre premier live est offert.</p>
         <p v-if="d.offer.extra_cards" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] text-indigo-900">Il vous reste <b>{{ d.offer.extra_cards }} fiches IA</b> (photo + IA). Ajouter un produit à la main reste toujours gratuit.</p>
@@ -278,6 +294,7 @@ import { useToastStore } from '../../../stores/toasts'
 import { localPhone, money } from '../../../utils/format'
 import { drawCard, saveCard } from './liveCard'
 import LiveIntro from './LiveIntro.vue'
+import { confirmDialog } from '../../../composables/useDialog'
 import { isPhone } from '../../../composables/usePhone'
 import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
 
@@ -328,13 +345,11 @@ function skipWhatsApp() {
   panel.value = null
 }
 // Étiquette faite pour ces produits-là (codes, prix et quantités) : un changement de produits la redemande
-const labelSign = computed(() => (d.value?.items || []).map((i) => `${i.code}:${i.price}:${i.quantity}`).join('|'))
-const labelDoneFor = ref('')
-const labelKey = () => `live-etiquette-${d.value?.live?.id}`
 
 const waDone = computed(() => !!d.value?.whatsapp?.auto || skipped.value)
 const itemsDone = computed(() => !!d.value?.items?.length && d.value.items.every((i) => i.photo_url))
-const labelDone = computed(() => itemsDone.value && !!labelSign.value && labelDoneFor.value === labelSign.value)
+// Étiquette faite pour ces produits-là (enregistré sur le serveur) : un changement de produits la redemande
+const labelDone = computed(() => itemsDone.value && !!d.value?.label_ready)
 const current = computed(() => {
   if (waOffered.value && !waDone.value) return 'whatsapp'
   if (!itemsDone.value) return 'produits'
@@ -385,11 +400,34 @@ async function open(name) {
 function closePanel() {
   panel.value = null
 }
-function labelReady() {
-  labelDoneFor.value = labelSign.value
-  store.set(labelKey(), labelSign.value)
-  panel.value = null
+async function labelReady() {
+  saving.value = true
+  try {
+    fill((await http.post(`/live/${d.value.live.id}/label-ready`)).data.data)
+    panel.value = null
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    saving.value = false
+  }
 }
+
+// Reprendre un live passé : ses produits, leur ordre, leurs prix et leurs quantités
+const pastOpen = ref(false)
+async function reuse(past) {
+  if (selected.value.length && !(await confirmDialog(`Remplacer les ${selected.value.length} produits choisis par ceux de « ${past.name} » ?`))) return
+  saving.value = true
+  try {
+    fill((await http.post(`/live/${d.value.live.id}/copy/${past.id}`)).data.data)
+    pastOpen.value = false
+    toasts.success(`Produits de « ${past.name} » repris. Vérifiez les prix et les quantités.`)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    saving.value = false
+  }
+}
+const pastDay = (v) => (v ? new Date(v).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '')
 async function copyLink() {
   try {
     await navigator.clipboard.writeText(d.value.public_url)
@@ -448,7 +486,6 @@ async function load() {
       introChecked = true
       introOpen.value = !!d.value.intro?.full
       skipped.value = store.get(skipKey()) === '1'
-      labelDoneFor.value = store.get(labelKey()) || ''
     }
   } catch (e) {
     error.value = apiErrorMessage(e)

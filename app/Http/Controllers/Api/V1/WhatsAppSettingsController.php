@@ -280,6 +280,9 @@ class WhatsAppSettingsController extends Controller
                 // Accès limité dans le temps (bouton, sans relais de la plateforme) : à renouveler avant cette date
                 'token_expires_at' => $account?->platform_token ? null : $account?->token_expires_at,
                 'webhook_subscribed_at' => $account?->webhook_subscribed_at,
+                // Mode sans carte : Meta refuse les messages payants faute de moyen de paiement
+                'without_card' => (bool) $account?->withoutCard(),
+                'payment_url' => $account?->paymentUrl(),
             ],
             'templates' => array_map(fn (WhatsAppTemplate $t) => [
                 'name' => $t->value,

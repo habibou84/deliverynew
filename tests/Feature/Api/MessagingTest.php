@@ -179,6 +179,60 @@ class MessagingTest extends TestCase
         $this->assertSame(MessageStatus::Sent, $sms->status);
     }
 
+    public function test_without_card_at_meta_paid_messages_stop_and_resume_once_a_card_is_added(): void
+    {
+        $account = $this->useMeta();
+        $card = false;
+        Http::fake(['graph.facebook.com/*' => function () use (&$card) {
+            return $card
+                ? Http::response(['messages' => [['id' => 'wamid.NEW']]])
+                : Http::response(['error' => ['code' => 131042, 'message' => 'Business eligibility payment issue']], 400);
+        }]);
+
+        $order = $this->outForDelivery($this->createOrder());
+
+        // Refus faute de carte : mode sans carte, message expliqué, SMS de repli
+        $whatsapp = OutboundMessage::where('channel', 'whatsapp')->sole();
+        $this->assertSame(MessageStatus::Failed, $whatsapp->status);
+        $this->assertStringContainsString('Sans carte chez Meta', $whatsapp->error);
+        $this->assertNotNull($account->fresh()->payment_missing_at);
+        $this->assertSame(1, OutboundMessage::where('channel', 'sms')->count());
+
+        // Le message payant suivant n'est même pas tenté chez Meta
+        Http::assertSentCount(1);
+        $this->as($this->courierB->user)->move($order, 'delivered')->assertOk();
+        Http::assertSentCount(1);
+        $this->assertStringContainsString('Sans carte', OutboundMessage::where('template_name', 'colis_livre')->where('channel', 'whatsapp')->sole()->error);
+
+        // L'agence voit le mode sans carte (page WhatsApp, bandeau)
+        $this->as($this->admin)->getJson('/api/v1/whatsapp/settings')->assertOk()->assertJsonPath('data.account.without_card', true);
+
+        // 12 h plus tard, un nouvel essai : accepté (carte ajoutée), fin du mode sans carte
+        $card = true;
+        $this->travel(13)->hours();
+        $this->outForDelivery($this->createOrder());
+        $this->assertNull($account->fresh()->payment_missing_at);
+        $this->assertSame('wamid.NEW', OutboundMessage::where('channel', 'whatsapp')->latest('id')->first()->provider_message_id);
+    }
+
+    public function test_webhook_reporting_a_missing_card_turns_on_without_card_mode(): void
+    {
+        config(['messaging.whatsapp.app_secret' => 'app-secret']);
+        $account = $this->useMeta();
+        Http::fake(['graph.facebook.com/*' => Http::response(['messages' => [['id' => 'wamid.PAY']]])]);
+        $this->outForDelivery($this->createOrder());
+
+        $body = json_encode(['object' => 'whatsapp_business_account', 'entry' => [['changes' => [['field' => 'messages', 'value' => [
+            'statuses' => [['id' => 'wamid.PAY', 'status' => 'failed', 'errors' => [['code' => 131042, 'title' => 'Business eligibility payment issue']]]],
+        ]]]]]]);
+        $this->call('POST', '/api/webhooks/whatsapp', [], [], [], [
+            'CONTENT_TYPE' => 'application/json', 'HTTP_X_HUB_SIGNATURE_256' => 'sha256='.hash_hmac('sha256', $body, 'app-secret'),
+        ], $body)->assertOk();
+
+        $this->assertNotNull($account->fresh()->payment_missing_at);
+        $this->assertStringContainsString('Sans carte', OutboundMessage::where('provider_message_id', 'wamid.PAY')->sole()->error);
+    }
+
     public function test_temporary_errors_are_retried_and_sms_can_be_disabled(): void
     {
         $this->useMeta();

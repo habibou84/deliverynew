@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Models\Live;
+use App\Models\LiveChat;
 use App\Models\LivePayment;
 use App\Models\Merchant;
 use App\Models\Product;
@@ -121,6 +122,37 @@ class LiveController extends Controller
         return response()->json(['data' => $this->draftData($live, $merchant)]);
     }
 
+    /** Onglet « Messages » : la vendeuse choisit le quartier d'une cliente pas reconnue, la commande part */
+    public function completeChat(Request $request, Live $live, LiveChat $chat): JsonResponse
+    {
+        $merchant = $this->own($request, $live);
+        abort_unless($chat->live_id === $live->id, 404);
+        $data = $request->validate([
+            'delivery_zone_id' => ['required', 'integer'],
+            'recipient_name' => ['nullable', 'string', 'max:120'],
+        ], [], ['delivery_zone_id' => 'quartier', 'recipient_name' => 'nom']);
+        $this->whatsapp->completeByMerchant($merchant, $chat, (int) $data['delivery_zone_id'], $data['recipient_name'] ?? null);
+
+        return response()->json(['data' => [...$this->studio->board($live->refresh()), 'whatsapp' => $this->whatsappState($merchant), 'chats' => $this->whatsapp->chats($live)]]);
+    }
+
+    /** Étape « L'étiquette » faite : téléchargée, publiée et épinglée */
+    public function labelReady(Request $request, Live $live): JsonResponse
+    {
+        $merchant = $this->own($request, $live);
+
+        return response()->json(['data' => $this->draftData($this->studio->markLabelReady($live), $merchant)]);
+    }
+
+    /** Reprendre les produits d'un live passé dans le live en préparation */
+    public function copy(Request $request, Live $live, Live $past): JsonResponse
+    {
+        $merchant = $this->own($request, $live);
+        abort_unless($past->merchant_id === $merchant->id, 404);
+
+        return response()->json(['data' => $this->draftData($this->studio->copyFrom($live, $past), $merchant)]);
+    }
+
     /** Fiche produit par l'IA à partir d'une photo (comptée) */
     public function recognize(Request $request, Live $live): JsonResponse
     {
@@ -183,7 +215,7 @@ class LiveController extends Controller
     {
         $merchant = $this->own($request, $live);
 
-        return response()->json(['data' => [...$this->studio->board($live), 'whatsapp' => $this->whatsappState($merchant)]]);
+        return response()->json(['data' => [...$this->studio->board($live), 'whatsapp' => $this->whatsappState($merchant), 'chats' => $this->whatsapp->chats($live)]]);
     }
 
     public function order(Request $request, Live $live): JsonResponse
@@ -289,6 +321,15 @@ class LiveController extends Controller
             // Lien du live : sans WhatsApp relié, les clientes commandent par ce lien
             'public_url' => $live->publicUrl(),
             'whatsapp' => $this->whatsappState($merchant),
+            // Étape « L'étiquette » faite pour les produits actuels
+            'label_ready' => $this->studio->labelReady($live),
+            // Lives passés à reprendre (produits, ordre, prix)
+            'past' => Live::query()->where('merchant_id', $merchant->id)->where('status', Live::ENDED)->whereHas('items')
+                ->with(['items' => fn ($q) => $q->orderBy('position')])->withCount('orders')->latest('id')->limit(8)->get()
+                ->map(fn (Live $l) => [
+                    'id' => $l->id, 'name' => $l->name, 'ended_at' => $l->ended_at, 'orders_count' => $l->orders_count,
+                    'items' => $l->items->map(fn ($i) => ['code' => $i->code, 'name' => $i->name, 'variant' => $i->variant, 'price' => $i->price])->values(),
+                ])->values(),
         ];
     }
 

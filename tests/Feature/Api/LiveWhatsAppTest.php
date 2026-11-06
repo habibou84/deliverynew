@@ -85,6 +85,29 @@ class LiveWhatsAppTest extends TestCase
         Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => $job->session === "merchant-{$this->merchant->id}" && $job->to === '+2250707000001');
     }
 
+    public function test_the_merchant_sees_ongoing_chats_and_picks_the_neighbourhood(): void
+    {
+        $this->say('A1');
+        $this->say('Awa Koné, quelque part', name: 'Awa');
+
+        // Onglet « Messages » : la conversation en cours, quartier pas reconnu
+        $chats = $this->getJson("/api/v1/live/{$this->live}")->assertOk()->json('data.chats');
+        $this->assertCount(1, $chats);
+        $this->assertTrue($chats[0]['stuck']);
+        $this->assertSame('Awa Koné, quelque part', $chats[0]['last_text']);
+        $this->assertSame('A1', $chats[0]['code']);
+
+        // La vendeuse choisit le quartier : la commande part et la cliente reçoit la confirmation
+        $data = $this->postJson("/api/v1/live/{$this->live}/chats/{$chats[0]['id']}/complete", [
+            'delivery_zone_id' => $this->yopougon->id, 'recipient_name' => 'Awa Koné',
+        ])->assertOk()->json('data');
+        $this->assertSame([], $data['chats']);
+        $this->assertSame(1, $data['totals']['orders']);
+        $order = Order::query()->latest('id')->first();
+        $this->assertSame(['Awa Koné', $this->yopougon->id], [$order->recipient_name, $order->delivery_zone_id]);
+        $this->assertStringContainsString("C'est noté, Awa", collect($this->replies())->last());
+    }
+
     public function test_known_customer_confirms_with_yes_and_sold_out_goes_to_waiting_list(): void
     {
         $this->say('A1');

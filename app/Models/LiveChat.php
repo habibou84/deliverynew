@@ -12,11 +12,11 @@ class LiveChat extends Model
 
     public const CONFIRM = 'confirm';
 
-    protected $fillable = ['live_id', 'phone', 'push_name', 'step', 'live_item_id', 'quantity', 'customer_name', 'zone_id', 'expires_at'];
+    protected $fillable = ['live_id', 'phone', 'push_name', 'step', 'live_item_id', 'quantity', 'customer_name', 'zone_id', 'expires_at', 'last_text', 'misses'];
 
     protected function casts(): array
     {
-        return ['quantity' => 'integer', 'expires_at' => 'datetime'];
+        return ['quantity' => 'integer', 'expires_at' => 'datetime', 'misses' => 'integer'];
     }
 
     public function live(): BelongsTo

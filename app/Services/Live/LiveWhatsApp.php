@@ -257,6 +257,7 @@ class LiveWhatsApp
             // Message ordinaire (pas un code) : conversation personnelle, pas de réponse automatique
             return;
         }
+        $chat->forceFill(['last_text' => mb_substr($text, 0, 300)])->save();
 
         if ($chat->step === LiveChat::CONFIRM && in_array(ZoneMatcher::normalize($text), self::YES, true)) {
             $this->order($merchant, $live, $chat, $chat->customer_name, $chat->zone_id);
@@ -267,7 +268,8 @@ class LiveWhatsApp
         $zone = $this->zoneIn($merchant, $text);
         if ($zone === null) {
             $this->reply($merchant, $phone, "Je n'ai pas reconnu le quartier 🤔\nÉcrivez votre nom et votre quartier, par exemple :\n*Awa, Cocody Angré*");
-            $chat->forceFill(['expires_at' => now()->addMinutes(self::CHAT_MINUTES)])->save();
+            // Quartier pas reconnu : visible dans l'onglet « Messages », la vendeuse peut le choisir elle-même
+            $chat->forceFill(['expires_at' => now()->addMinutes(self::CHAT_MINUTES), 'misses' => min(255, $chat->misses + 1)])->save();
 
             return;
         }
@@ -330,6 +332,36 @@ class LiveWhatsApp
         $this->reply($merchant, $phone, $zone
             ? "{$intro}\nJe livre à *{$last->recipient_name}*, *{$zone->name}* ?\nRépondez *OUI*, ou envoyez votre nom et votre quartier."
             : "{$intro}\nPour la livraison, envoyez votre *nom* et votre *quartier*.\nExemple : *Awa, Yopougon Niangon*");
+    }
+
+    /**
+     * La vendeuse termine elle-même une commande en cours (onglet « Messages ») : elle choisit le quartier (et le nom)
+     * quand le message de la cliente n'a pas été reconnu. La cliente reçoit la même confirmation.
+     */
+    public function completeByMerchant(Merchant $merchant, LiveChat $chat, int $zoneId, ?string $name): void
+    {
+        $live = $chat->live;
+        abort_unless($live !== null && $live->merchant_id === $merchant->id && $live->status === Live::LIVE, 422, 'Le live n\'est pas en cours.');
+        abort_unless($this->companyZones($merchant)->contains('id', $zoneId), 422, 'Quartier inconnu.');
+        // Réponse depuis le même numéro que la conversation
+        $this->accountId = $this->official($merchant)?->id;
+        $this->order($merchant, $live, $chat, trim((string) $name) ?: ($chat->customer_name ?: $chat->push_name ?: 'Cliente'), $zoneId);
+    }
+
+    /**
+     * Conversations en cours du live (commandes commencées par WhatsApp, pas encore terminées)
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function chats(Live $live): array
+    {
+        return LiveChat::query()->where('live_id', $live->id)->where('expires_at', '>', now())->with(['item', 'zone'])
+            ->orderByDesc('misses')->latest('updated_at')->limit(50)->get()
+            ->map(fn (LiveChat $c) => [
+                'id' => $c->id, 'phone' => $c->phone, 'name' => $c->customer_name ?: $c->push_name,
+                'step' => $c->step, 'code' => $c->item?->code, 'item' => $c->item?->label(), 'quantity' => $c->quantity,
+                'zone' => $c->zone?->name, 'last_text' => $c->last_text, 'stuck' => $c->misses > 0, 'updated_at' => $c->updated_at,
+            ])->all();
     }
 
     private function order(Merchant $merchant, Live $live, LiveChat $chat, string $name, int $zoneId): void

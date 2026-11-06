@@ -32,6 +32,9 @@ class SendOutboundMessage implements ShouldQueue
     /** Essais d'une notification push avant le WhatsApp de repli */
     public const PUSH_TRIES = 2;
 
+    /** Erreur affichée sur un message payant pas envoyé en mode sans carte */
+    public const WITHOUT_CARD = 'Sans carte chez Meta : message payant non envoyé. Envoyez-le depuis votre WhatsApp, ou ajoutez une carte chez Meta.';
+
     public function __construct(public OutboundMessage $message)
     {
         $this->tries = config('messaging.tries');
@@ -62,9 +65,18 @@ class SendOutboundMessage implements ShouldQueue
             return;
         }
 
-        try {
-            $account = $message->whatsapp_account_id ? WhatsAppAccount::forCompany($message->company_id)->find($message->whatsapp_account_id) : null;
+        $account = $message->whatsapp_account_id ? WhatsAppAccount::forCompany($message->company_id)->find($message->whatsapp_account_id) : null;
+        $template = $message->channel === MessageChannel::WhatsApp && $message->template_name !== null;
 
+        // Mode sans carte : un message payant serait refusé par Meta ; SMS de repli s'il est activé, sinon à envoyer
+        // depuis le WhatsApp de l'agence (bouton sur la fiche de la course)
+        if ($template && $account?->skipsTemplates()) {
+            $this->markFailed($message, self::WITHOUT_CARD, $messenger);
+
+            return;
+        }
+
+        try {
             $providerId = match (true) {
                 $message->channel === MessageChannel::Sms => $sms->send($message->to, $message->body),
                 // Réponse dans une conversation ouverte par l'expéditeur : texte libre et boutons
@@ -78,6 +90,12 @@ class SendOutboundMessage implements ShouldQueue
                 ),
             };
         } catch (MessagingException $e) {
+            if ($template && $account !== null && WhatsAppAccount::isPaymentError($e->providerCode, $e->getMessage())) {
+                $account->forceFill(['payment_missing_at' => now()])->save();
+                $this->markFailed($message, self::WITHOUT_CARD, $messenger);
+
+                return;
+            }
             if ($e->retryable && $this->attempts() < $this->tries) {
                 $message->update(['error' => $e->getMessage()]);
                 $this->release($this->backoff()[$this->attempts() - 1] ?? 60);
@@ -90,6 +108,10 @@ class SendOutboundMessage implements ShouldQueue
             return;
         }
 
+        // Modèle accepté : une carte a été ajoutée chez Meta, fin du mode sans carte
+        if ($template && $account?->payment_missing_at !== null) {
+            $account->forceFill(['payment_missing_at' => null])->save();
+        }
         $message->provider_message_id = $providerId ?: null;
         $message->error = null;
         $message->advanceTo(MessageStatus::Sent);

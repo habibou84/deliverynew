@@ -71,6 +71,12 @@
           </button>
         </div>
 
+        <!-- Mode sans carte : les réponses marchent, les messages payants attendent une carte chez Meta -->
+        <div v-if="s.account.without_card" class="space-y-1.5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2.5 text-sm text-sky-900">
+          <p class="font-semibold">Mode sans carte : en partie bloqué chez Meta</p>
+          <p>Les réponses à vos clients marchent. Les messages automatiques (colis en route, course reçue…) sont payants chez Meta : sans carte, ils partent par SMS si le repli est activé, sinon envoyez-les depuis votre WhatsApp (bouton sur la fiche de la course).</p>
+          <a :href="s.account.payment_url" target="_blank" rel="noopener" class="inline-block font-semibold underline">Ajouter une carte chez Meta</a>
+        </div>
         <p v-if="s.account.last_error" class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{{ s.account.last_error }}</p>
 
         <!-- Saisie manuelle : sans bouton (serveur non configuré) ou pour les experts -->
