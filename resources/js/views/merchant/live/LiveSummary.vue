@@ -45,6 +45,7 @@
       </section>
 
       <RouterLink to="/marchand/live/preparer" class="m-btn-primary w-full">Préparer le prochain live</RouterLink>
+      <button type="button" class="m-btn-secondary w-full" :disabled="redoing" @click="redo">🔁 Refaire ce live (mêmes produits)</button>
       <RouterLink :to="`/marchand/live/${s.live.id}`" class="m-btn-secondary w-full">Voir les commandes du live</RouterLink>
     </template>
   </div>
@@ -52,7 +53,8 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { useToastStore } from '../../../stores/toasts'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { money, whatsappLink } from '../../../utils/format'
 
@@ -60,6 +62,22 @@ import { money, whatsappLink } from '../../../utils/format'
 const route = useRoute()
 const s = ref(null)
 const error = ref('')
+const router = useRouter()
+const toasts = useToastStore()
+// Le live en préparation reprend les produits, l'ordre et les prix de ce live
+const redoing = ref(false)
+async function redo() {
+  redoing.value = true
+  try {
+    const draft = (await http.post('/live/prepare')).data.data
+    await http.post(`/live/${draft.live.id}/copy/${s.value.live.id}`)
+    router.push('/marchand/live/preparer')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    redoing.value = false
+  }
+}
 const waiting = computed(() => (s.value?.orders || []).filter((o) => o.status === 'waiting'))
 
 onMounted(async () => {

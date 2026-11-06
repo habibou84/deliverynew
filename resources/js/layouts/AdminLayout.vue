@@ -101,6 +101,14 @@
         {{ billingBanner.text }} <span class="font-medium underline">Voir mon abonnement</span>
       </RouterLink>
 
+      <!-- WhatsApp en mode sans carte : les messages automatiques (payants chez Meta) ne partent plus ; bandeau calme, masquable -->
+      <div v-if="auth.user?.company?.whatsapp_without_card && !cardHidden" class="flex items-center gap-3 bg-sky-50 px-4 py-2 text-sm text-sky-900 print:hidden">
+        <RouterLink to="/admin/whatsapp" class="min-w-0 flex-1">
+          WhatsApp sans carte chez Meta : les réponses marchent, mais les messages automatiques (colis en route, course reçue) ne partent plus par WhatsApp. <span class="font-medium underline">Ajouter une carte</span>
+        </RouterLink>
+        <button type="button" class="shrink-0 rounded px-2 py-1 text-sky-700 hover:bg-sky-100" aria-label="Masquer pour aujourd'hui" @click="hideCard">✕</button>
+      </div>
+
       <!-- Mise en route : étapes essentielles qui restent (tableau de bord) -->
       <RouterLink
         v-if="setupBanner"
@@ -200,6 +208,24 @@ const heldParcels = useHeldParcelStore()
 // Courses qui attendent un livreur au-delà du délai : badge du menu « Courses »
 const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
+
+// Bandeau « sans carte chez Meta » : masqué pour la journée sur cet appareil
+const CARD_KEY = `whatsapp-sans-carte-${new Date().toISOString().slice(0, 10)}`
+const cardHidden = ref((() => {
+  try {
+    return localStorage.getItem(CARD_KEY) === '1'
+  } catch {
+    return false
+  }
+})())
+function hideCard() {
+  cardHidden.value = true
+  try {
+    localStorage.setItem(CARD_KEY, '1')
+  } catch {
+    // stockage impossible : masqué jusqu'au rechargement
+  }
+}
 
 // Bandeau d'impayé : échéance passée, alerte (J+7), création de courses suspendue (J+15)
 const billingBanner = computed(() => ({

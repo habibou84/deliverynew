@@ -6,6 +6,7 @@ use App\Enums\MessageStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessInboundWhatsApp;
 use App\Jobs\ProcessLiveWhatsApp;
+use App\Jobs\SendOutboundMessage;
 use App\Models\InboundMessage;
 use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
@@ -149,6 +150,13 @@ class WhatsAppWebhookController extends Controller
             $this->platform->acknowledge($status['id'], $newStatus->value, $error);
 
             return;
+        }
+
+        // Refus annoncé après coup faute de carte chez Meta : mode sans carte pour le numéro qui a envoyé
+        if ($newStatus === MessageStatus::Failed && $message->template_name !== null && $message->whatsapp_account_id !== null
+            && WhatsAppAccount::isPaymentError((string) ($status['errors'][0]['code'] ?? ''))) {
+            WhatsAppAccount::withoutGlobalScopes()->whereKey($message->whatsapp_account_id)->update(['payment_missing_at' => now()]);
+            $error = SendOutboundMessage::WITHOUT_CARD;
         }
 
         if ($message->advanceTo($newStatus, $error) && $newStatus === MessageStatus::Failed) {

@@ -776,6 +776,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('{live}/items', 'items')->name('items');
             Route::post('{live}/recognize', 'recognize')->middleware('throttle:20,1')->name('recognize');
             Route::post('{live}/products', 'addProduct')->middleware('throttle:60,1')->name('products');
+            Route::post('{live}/label-ready', 'labelReady')->name('label-ready');
+            Route::post('{live}/chats/{chat}/complete', 'completeChat')->middleware('throttle:60,1')->name('chats.complete');
+            Route::post('{live}/copy/{past}', 'copy')->middleware('throttle:30,1')->name('copy');
             Route::post('{live}/start', 'start')->middleware('throttle:10,1')->name('start');
             Route::post('{live}/orders', 'order')->middleware('throttle:120,1')->name('orders');
             Route::post('{live}/end', 'end')->name('end');

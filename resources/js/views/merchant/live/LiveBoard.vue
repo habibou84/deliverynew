@@ -68,6 +68,27 @@
         <button v-for="t in tabs" :key="t.key" type="button" role="tab" :aria-selected="tab === t.key" :class="['flex-1 rounded-full py-2 text-[14px] font-extrabold', tab === t.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 shadow-soft']" @click="tab = t.key">{{ t.label }}</button>
       </div>
 
+      <!-- Messages : clientes en train de commander par WhatsApp -->
+      <section v-if="tab === 'messages'" class="m-card divide-y divide-slate-100">
+        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">EN TRAIN DE COMMANDER · {{ b.chats?.length || 0 }}</p>
+        <div v-for="c in b.chats || []" :key="c.id" :class="['space-y-2 px-4 py-3', c.stuck ? 'bg-red-50/60' : '']">
+          <div class="flex items-start justify-between gap-2">
+            <p class="min-w-0 text-[15px]"><b>{{ c.name || localPhone(c.phone) }}</b> · {{ c.code }} {{ c.item }}<template v-if="c.quantity > 1"> × {{ c.quantity }}</template>
+              <span class="block text-[13px] text-slate-500">{{ localPhone(c.phone) }} · {{ STEP_TEXT[c.step] || 'en cours' }}</span>
+            </p>
+            <span v-if="c.stuck" class="shrink-0 rounded-md bg-red-100 px-1.5 py-0.5 text-[11px] font-extrabold text-red-800">QUARTIER ?</span>
+          </div>
+          <p v-if="c.last_text" class="rounded-xl bg-white px-3 py-2 text-[14px] text-slate-700 ring-1 ring-slate-200">« {{ c.last_text }} »</p>
+          <!-- Quartier pas reconnu : la vendeuse le choisit, la commande part -->
+          <form v-if="c.stuck" class="space-y-2" @submit.prevent="completeChat(c)">
+            <input v-model="formFor(c).recipient_name" class="m-input w-full" placeholder="Nom de la cliente" :aria-label="`Nom de ${c.name || 'la cliente'}`">
+            <ZoneSelect v-model="formFor(c).delivery_zone_id" :zones="zones" mobile input-class="m-input" required />
+            <button class="m-btn-primary w-full" :disabled="saving || !formFor(c).delivery_zone_id">Valider la commande</button>
+          </form>
+        </div>
+        <p v-if="!b.chats?.length" class="p-5 text-center text-[15px] text-slate-500">Les clientes qui commandent par WhatsApp apparaissent ici pendant qu'elles écrivent.</p>
+      </section>
+
       <!-- Commandes -->
       <section v-if="tab === 'orders'" class="m-card divide-y divide-slate-100">
         <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">COMMANDES · {{ b.orders.length }}</p>
@@ -172,8 +193,28 @@ const tab = ref('orders')
 const tabs = computed(() => [
   { key: 'orders', label: `🧾 Commandes ${b.value?.orders.length || ''}`.trim() },
   { key: 'products', label: '🛍️ Produits' },
+  ...(isLive.value && (b.value?.whatsapp?.auto || b.value?.chats?.length) ? [{ key: 'messages', label: `💬 ${stuckCount.value ? `${stuckCount.value} ⚠` : (b.value?.chats?.length || '')}`.trim() }] : []),
   ...(isLive.value ? [{ key: 'add', label: '＋ Ajouter' }] : []),
 ])
+
+// ── Onglet « Messages » : commandes WhatsApp en cours ; quartier pas reconnu = la vendeuse le choisit ──
+const stuckCount = computed(() => (b.value?.chats || []).filter((c) => c.stuck).length)
+const chatForm = reactive({})
+const formFor = (c) => (chatForm[c.id] ||= { delivery_zone_id: null, recipient_name: c.name || '' })
+const STEP_TEXT = { details: 'attend son nom et son quartier', confirm: 'doit répondre OUI' }
+async function completeChat(c) {
+  const name = formFor(c).recipient_name || c.name || 'la cliente'
+  saving.value = true
+  try {
+    b.value = (await http.post(`/live/${route.params.id}/chats/${c.id}/complete`, formFor(c))).data.data
+    delete chatForm[c.id]
+    toasts.success(`Commande de ${name} enregistrée, elle a reçu la confirmation.`)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    saving.value = false
+  }
+}
 
 // Le produit que la vendeuse montre : gardé sur ce téléphone pendant le live, il préremplit la commande à la main
 const shownIdx = ref(0)

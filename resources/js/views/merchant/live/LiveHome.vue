@@ -16,7 +16,7 @@
       <RouterLink v-else to="/marchand/live/preparer" class="tap block rounded-[22px] bg-brand-grad p-4 text-white shadow-soft">
         <p class="text-[13px] font-bold opacity-80">🔴 LIVE</p>
         <p class="text-[20px] font-extrabold leading-tight">{{ d.current ? 'Reprendre la préparation' : 'Préparer mon live' }}</p>
-        <p class="mt-1 text-[14px] opacity-90">Choisissez vos produits, téléchargez la carte, et les commandes arrivent toutes seules.</p>
+        <p class="mt-1 text-[14px] opacity-90">Choisissez vos produits, téléchargez l'étiquette, et les commandes arrivent toutes seules.</p>
       </RouterLink>
 
       <!-- Chiffres des lives passés -->
@@ -40,13 +40,15 @@
       <!-- Lives passés -->
       <div v-if="d.past.length" class="m-card divide-y divide-slate-100">
         <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">MES LIVES PASSÉS</p>
-        <RouterLink v-for="l in d.past" :key="l.id" :to="`/marchand/live/${l.id}/bilan`" class="tap flex items-center justify-between gap-3 px-4 py-3 active:bg-slate-50">
-          <span class="min-w-0">
-            <b class="block truncate text-[15px]">{{ l.name }}</b>
-            <span class="text-[13px] text-slate-500">{{ day(l.started_at || l.ended_at) }} · {{ l.items_count }} produit{{ l.items_count > 1 ? 's' : '' }}</span>
-          </span>
-          <span class="shrink-0 text-[15px] font-bold">{{ l.orders_count }} cde{{ l.orders_count > 1 ? 's' : '' }} ›</span>
-        </RouterLink>
+        <div v-for="l in d.past" :key="l.id" class="flex items-center gap-2 pr-3">
+          <RouterLink :to="`/marchand/live/${l.id}/bilan`" class="tap flex min-w-0 flex-1 items-center justify-between gap-3 py-3 pl-4 active:bg-slate-50">
+            <span class="min-w-0">
+              <b class="block truncate text-[15px]">{{ l.name }}</b>
+              <span class="text-[13px] text-slate-500">{{ day(l.started_at || l.ended_at) }} · {{ l.items_count }} produit{{ l.items_count > 1 ? 's' : '' }} · {{ l.orders_count }} cde{{ l.orders_count > 1 ? 's' : '' }}</span>
+            </span>
+          </RouterLink>
+          <button v-if="!live" type="button" class="shrink-0 rounded-xl bg-slate-100 px-3 py-2 text-[13.5px] font-bold text-slate-800 disabled:opacity-50" :disabled="redoing" @click="redo(l)">Refaire</button>
+        </div>
       </div>
       <p v-else class="m-card p-5 text-center text-[15px] text-slate-500">Vos lives passés et leurs chiffres apparaîtront ici.</p>
 
@@ -56,12 +58,31 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import LiveIntro from './LiveIntro.vue'
+import { useToastStore } from '../../../stores/toasts'
 
 const d = ref(null)
 const error = ref('')
+const router = useRouter()
+const toasts = useToastStore()
+const live = computed(() => d.value?.current?.status === 'live')
+// « Refaire » : le live en préparation reprend les produits, l'ordre et les prix de ce live passé
+const redoing = ref(false)
+async function redo(past) {
+  redoing.value = true
+  try {
+    const draft = (await http.post('/live/prepare')).data.data
+    await http.post(`/live/${draft.live.id}/copy/${past.id}`)
+    router.push('/marchand/live/preparer')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    redoing.value = false
+  }
+}
 const day = (v) => (v ? new Date(v).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '')
 
 async function load() {
