@@ -60,7 +60,10 @@
           <p class="text-[16px] text-slate-700">Les clientes envoient le code du produit sur ce WhatsApp : la réponse part toute seule et votre agence reçoit la commande.</p>
         <p class="rounded-2xl bg-emerald-600 px-4 py-4 text-center text-[22px] font-extrabold leading-tight text-white">Les messages des commandes sont gratuits.</p>
 
-        <div v-if="!d.whatsapp?.auto" class="m-card space-y-3 p-4">
+        <!-- Connexion pas encore ouverte sur cette installation : le lien du live en attendant -->
+        <p v-if="!waConnectable" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La connexion de WhatsApp n'est pas encore ouverte par votre agence. En attendant, vos clientes commandent par <b>le lien du live</b> : touchez « Continuer sans WhatsApp ».</p>
+
+        <div v-if="!d.whatsapp?.auto && waConnectable" class="m-card space-y-3 p-4">
           <p class="text-[17px] font-extrabold">Ce qu'il vous faut</p>
           <div class="flex gap-3">
             <span class="text-[26px]" aria-hidden="true">📱</span>
@@ -346,7 +349,9 @@ const store = {
   },
 }
 // WhatsApp proposé (connexion officielle ou option de la console), relié ou non
-const waOffered = computed(() => !!d.value && !!(d.value.whatsapp?.auto || d.value.whatsapp?.official?.available || d.value.whatsapp?.available))
+// Étape WhatsApp toujours présente (comme Jibiat Marchand) : connexion, ou « Continuer sans WhatsApp » avec le lien du live
+const waOffered = computed(() => !!d.value)
+const waConnectable = computed(() => !!(d.value?.whatsapp?.auto || d.value?.whatsapp?.official?.available || d.value?.whatsapp?.available))
 // « Continuer sans WhatsApp » : retenu pour ce live, sur ce téléphone
 const skipped = ref(false)
 const skipKey = () => `live-sans-whatsapp-${d.value?.live?.id}`
