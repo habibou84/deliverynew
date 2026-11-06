@@ -37,6 +37,7 @@
     boutique: { label: 'Votre boutique en ligne', note: 'vue par votre client', brand: 'marchand' },
     live: { label: 'Votre live', note: 'sur votre téléphone', brand: 'agence' },
     whatsapp: { label: 'WhatsApp', note: 'votre cliente', brand: 'agence' },
+    reseau: { label: 'TikTok ou Facebook', note: 'votre compte', brand: 'agence' },
   }
 
   function el(tag, cls, parent, html) {
