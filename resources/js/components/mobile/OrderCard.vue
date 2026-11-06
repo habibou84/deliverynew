@@ -76,7 +76,11 @@ let moved = false
 
 watch(openCard, (id) => { if (id !== props.order.id) offset.value = 0 })
 
+// Dans les pages à glisser du téléphone, le geste horizontal change de page : la carte ne l'attrape pas
+let off = false
 function start(e) {
+  off = !!e.target.closest?.('[data-swipe-pages]')
+  if (off) return
   x0 = e.touches[0].clientX
   y0 = e.touches[0].clientY
   base = offset.value
@@ -85,6 +89,7 @@ function start(e) {
 }
 
 function move(e) {
+  if (off) return
   const dx = e.touches[0].clientX - x0
   const dy = e.touches[0].clientY - y0
   if (horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horizontal = Math.abs(dx) > Math.abs(dy)
