@@ -100,10 +100,9 @@ class WhatsAppConnection
     }
 
     /**
-     * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : son numéro WhatsApp
-     * Business est relié à Jibiat tout en restant dans son application WhatsApp Business (mode « coexistence » :
-     * pas d'activation du numéro, déjà en service sur le téléphone). Pas de modèles : le live ne répond qu'aux
-     * clientes qui viennent d'écrire.
+     * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : un numéro spécial live,
+     * qui n'a pas de compte WhatsApp, est activé pour l'API (code PIN). Pas de modèles : le live ne répond
+     * qu'aux clientes qui viennent d'écrire, et ces réponses ne sont pas facturées par Meta.
      */
     public function completeMerchantSignup(Merchant $merchant, string $code, string $phoneNumberId, string $wabaId): WhatsAppAccount
     {
@@ -114,6 +113,10 @@ class WhatsAppConnection
         $token = $this->exchangeCode($code);
         $account = WhatsAppAccount::forMerchant($merchant->id)
             ?? new WhatsAppAccount(['company_id' => $merchant->company_id, 'owner_type' => WhatsAppAccount::MERCHANT, 'owner_id' => $merchant->id]);
+        // Nouveau numéro : nouveau code PIN d'activation
+        if ($account->phone_number_id !== $phoneNumberId || blank($account->registration_pin)) {
+            $account->registration_pin = (string) random_int(100000, 999999);
+        }
         $account->fill([
             'provider' => 'meta_cloud',
             'phone_number_id' => $phoneNumberId,
@@ -130,7 +133,13 @@ class WhatsAppConnection
 
         $this->adoptWithPlatform($account);
 
-        return $this->connect($account);
+        $registration = $this->register($account);
+        $this->connect($account);
+        if ($account->status === 'connected' && $registration !== null) {
+            $account->forceFill(['last_error' => 'Numéro relié, mais son activation a échoué : '.$registration])->save();
+        }
+
+        return $account;
     }
 
     /**

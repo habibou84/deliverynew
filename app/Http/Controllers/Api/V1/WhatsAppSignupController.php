@@ -81,7 +81,7 @@ class WhatsAppSignupController extends Controller
             'company' => $merchant?->business_name ?? $company->name,
             'origin' => $origin,
             'return' => $return,
-            // E-commerçant : il garde son application WhatsApp Business (mode « coexistence » de Meta)
+            // E-commerçant : numéro spécial live (sans compte WhatsApp), activé pour les commandes du live
             'merchant' => $merchant !== null,
             'embedded_signup' => [
                 'app_id' => config('messaging.whatsapp.app_id'),

@@ -57,6 +57,7 @@ class LiveOfficialWhatsAppTest extends TestCase
             '*/oauth/access_token*' => Http::response(['access_token' => 'jeton-boutique', 'token_type' => 'bearer']),
             '*/debug_token*' => Http::response(['data' => ['is_valid' => true, 'expires_at' => now()->addDays(60)->timestamp]]),
             '*/888/subscribed_apps' => Http::response(['success' => true]),
+            '*/666/register' => Http::response(['success' => true]),
             '*/666*' => Http::response(['display_phone_number' => '+225 07 07 08 09 10', 'verified_name' => 'Boutique Test', 'quality_rating' => 'GREEN']),
         ]);
         $url = $this->postJson('/api/v1/live/whatsapp/official')->assertOk()->json('data.url');
@@ -126,8 +127,9 @@ class LiveOfficialWhatsAppTest extends TestCase
         $account = WhatsAppAccount::forMerchant($this->merchant->id);
         $this->assertSame([$this->company->id, 'connected', 'meta_cloud'], [$account->company_id, $account->status, $account->provider]);
         $this->assertNull(WhatsAppAccount::forCompanyId($this->company->id));
-        // Le numéro reste dans l'application WhatsApp Business : ni activation ni modèles de messages
-        Http::assertNotSent(fn ($r) => str_contains($r->url(), '/register') || str_contains($r->url(), 'message_templates'));
+        // Numéro spécial live activé (code PIN), sans modèles de messages
+        Http::assertSent(fn ($r) => str_ends_with($r->url(), '/666/register') && strlen((string) $r['pin']) === 6);
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), 'message_templates'));
 
         $this->getJson('/api/v1/live/whatsapp')->assertJsonPath('data.mode', 'official')->assertJsonPath('data.official.phone', '+2250707080910');
         $this->postJson('/api/v1/live/prepare')->assertJsonPath('data.offer.phone', '+2250707080910');
