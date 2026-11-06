@@ -1,40 +1,40 @@
 <template>
   <div class="flex h-dvh flex-col overflow-hidden bg-[#F4F6F8] tap" :style="{ '--app-color': color }">
-    <!-- En-tête : boutique, recherche, cloche ; dessous les onglets (on glisse d'une page à l'autre) -->
-    <header class="z-30 shrink-0 bg-white pt-safe shadow-[0_1px_0_#e2e8f0]">
-      <div class="flex h-[54px] items-center gap-2 px-3">
-        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-brand-grad text-[12.5px] font-extrabold text-white" aria-hidden="true">{{ initials }}</span>
-        <p class="min-w-0 flex-1 truncate text-[16.5px] font-bold text-slate-900">{{ appName }}</p>
-        <RouterLink :to="`${base}/courses?chercher=1`" class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-600" aria-label="Rechercher une course">
-          <AppIcon name="search" class="h-5 w-5" :stroke="2.2" />
-        </RouterLink>
-        <RouterLink :to="`${base}/notifications`" class="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100" :aria-label="actionCount ? `Notifications : ${actionCount} colis à régler` : 'Notifications'">
-          <ColorIcon name="cloche" :size="22" :tile="false" />
-          <span v-if="notifications.unread" class="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[#E54A6E] ring-2 ring-white" />
-        </RouterLink>
+    <!-- En-tête figé, comme Jibiat Marchand : les onglets des pages (à faire défiler du doigt) et la cloche, rien d'autre -->
+    <header class="z-30 shrink-0 bg-[#F4F6F8] pt-safe">
+      <div class="relative flex h-14 items-center">
+        <nav ref="tabsEl" class="flex h-full min-w-0 flex-1 items-center gap-2 overflow-x-auto pl-4 pr-20 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Pages">
+          <button
+            v-for="(p, i) in pages"
+            :key="p.key"
+            type="button"
+            role="tab"
+            :aria-selected="i === current"
+            :class="['relative mt-1 shrink-0 rounded-full px-3 py-1.5 text-[13.5px] font-extrabold transition', tabClass(p, i)]"
+            @click="go(i)"
+          >
+            {{ p.emoji }} {{ p.label }}
+            <span
+              v-if="p.badge?.()"
+              :class="['absolute -right-1.5 -top-2 min-w-[19px] rounded-full border-2 border-[#F4F6F8] px-1 text-center text-[11px] font-black leading-[15px] text-white', p.badge().level === 'red' ? 'swipe-urgent bg-rose-600' : 'bg-amber-500']"
+            >{{ p.badge().n }}</span>
+          </button>
+        </nav>
+        <!-- La cloche, par-dessus la fin des onglets (fondu) -->
+        <div class="absolute inset-y-0 right-0 flex items-center bg-[#F4F6F8] pr-4 before:pointer-events-none before:absolute before:inset-y-0 before:-left-8 before:w-8 before:bg-gradient-to-r before:from-transparent before:to-[#F4F6F8]">
+          <RouterLink :to="`${base}/notifications`" class="relative grid h-10 w-10 place-items-center rounded-full bg-white shadow-soft" :aria-label="actionCount ? `Notifications : ${actionCount} colis à régler` : 'Notifications'">
+            <ColorIcon name="cloche" :size="22" :tile="false" />
+            <span v-if="notifications.unread" class="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[#E54A6E] ring-2 ring-white" />
+          </RouterLink>
+        </div>
       </div>
-      <nav ref="tabsEl" class="flex" aria-label="Pages">
-        <button
-          v-for="(p, i) in pages"
-          :key="p.key"
-          type="button"
-          :class="['relative flex flex-1 flex-col items-center gap-0.5 border-b-[3px] pb-1.5 pt-0.5 text-[11.5px] font-bold transition-colors', i === current ? 'border-[var(--app-color)] text-[var(--app-color)]' : 'border-transparent text-slate-500']"
-          :aria-current="i === current ? 'page' : undefined"
-          @click="go(i)"
-        >
-          <ColorIcon v-if="p.icon" :name="p.icon" :size="26" :tile="false" />
-          <span v-else class="text-[19px] leading-[26px]" aria-hidden="true">{{ p.emoji }}</span>
-          {{ p.label }}
-          <span v-if="p.badge?.()" :class="['absolute right-[18%] top-0 grid h-[17px] min-w-[17px] place-items-center rounded-full px-1 text-[10px] font-extrabold text-white', p.badge().level === 'red' ? 'swipe-urgent bg-[#E54A6E]' : 'bg-orange-500']">{{ p.badge().n }}</span>
-        </button>
-      </nav>
       <div v-if="!pwa.online" class="bg-amber-500 py-1 text-center text-[13px] font-medium text-amber-950">Hors ligne : les informations peuvent ne pas être à jour</div>
     </header>
 
     <!-- Pages côte à côte : on glisse avec le doigt, ou on touche l'onglet -->
-    <div ref="track" class="swipe-track flex flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden" @scroll.passive="onScroll">
-      <section v-for="(p, i) in pages" :key="p.key" class="h-full w-full shrink-0 snap-start snap-always overflow-y-auto overscroll-contain" :aria-hidden="i !== current">
-        <div class="mx-auto max-w-lg px-4 pb-16 pt-3">
+    <div ref="track" data-swipe-pages class="swipe-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden" @scroll.passive="onScroll">
+      <section v-for="(p, i) in pages" :key="p.key" class="h-full w-full shrink-0 snap-start snap-always overflow-y-auto overscroll-y-contain" :aria-hidden="i !== current">
+        <div class="mx-auto max-w-lg px-4 pb-28 pt-1">
           <!-- Commandes : nouvelle course en haut -->
           <button v-if="p.key === 'orders' && canCreate" type="button" class="m-btn-primary mb-3.5 flex w-full items-center justify-center gap-2" @click="menuOpen = true">
             <AppIcon name="plus" class="h-5 w-5" :stroke="2.6" /> Nouvelle course
@@ -103,16 +103,14 @@ import { pwa } from '../../composables/usePwa'
 import { pageTitle } from '../../composables/usePageTitle'
 
 /**
- * Application e-commerçant sur téléphone (comme Jibiat Marchand) : onglets en haut, pages à glisser
+ * Application e-commerçant sur téléphone (comme Jibiat Marchand) : onglets en pastilles dans l'en-tête, pages à glisser du doigt
  * (Commandes, Argent, Live, Boutique, Plus). Les autres écrans s'ouvrent dans une fenêtre par-dessus la page,
  * qu'on ferme d'un ✕, en touchant le fond ou en glissant vers le bas.
  */
 const props = defineProps({
   base: { type: String, required: true },
   color: { type: String, required: true },
-  appName: { type: String, required: true },
-  initials: { type: String, default: '' },
-  pages: { type: Array, required: true }, // { key, label, path, component, icon?, emoji?, badge?() }
+  pages: { type: Array, required: true }, // { key, label, path, component, emoji, badge?() }
   newMenu: { type: Array, default: () => [] },
   canCreate: Boolean,
   actionCount: { type: Number, default: 0 },
@@ -154,9 +152,15 @@ function onScroll() {
     setPage(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))
   }, 80)
 }
+const tabClass = (p, i) => {
+  const red = p.badge?.()?.level === 'red'
+  if (i === current.value) return red ? 'bg-rose-800 text-white' : 'bg-slate-900 text-white'
+  return red ? 'bg-rose-100 text-rose-900' : 'bg-white text-slate-600 shadow-soft'
+}
 function setPage(i) {
   const p = props.pages[i]
   if (!p) return
+  if (i !== current.value) tabsEl.value?.children[i]?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
   current.value = i
   seen.add(p.key)
   lastPage.value = p.path

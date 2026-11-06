@@ -4,8 +4,6 @@
     v-if="phone"
     base="/marchand"
     :color="spaceColor('marchand')"
-    :app-name="shopName"
-    :initials="initials"
     :pages="pages"
     :new-menu="newMenu"
     :can-create="auth.can('orders.create')"
@@ -67,11 +65,11 @@ const newMenu = [
 ]
 const liveOn = ref(false)
 const pages = computed(() => [
-  { key: 'orders', label: 'Commandes', path: '/marchand', component: Home, icon: 'colis', badge: () => (toDecide.value ? { n: toDecide.value > 9 ? '9+' : toDecide.value, level: 'red' } : null) },
-  auth.can('finance.view') && { key: 'money', label: 'Argent', path: '/marchand/paiements', component: Payments, icon: 'argent' },
+  { key: 'orders', label: 'Commandes', path: '/marchand', component: Home, emoji: '📦', badge: () => (toDecide.value ? { n: toDecide.value > 9 ? '9+' : toDecide.value, level: 'red' } : null) },
+  auth.can('finance.view') && { key: 'money', label: 'Argent', path: '/marchand/paiements', component: Payments, emoji: '💰' },
   auth.can('orders.create') && { key: 'live', label: 'Live', path: '/marchand/live', component: LiveHome, emoji: '🔴', badge: () => (liveOn.value ? { n: '●', level: 'red' } : null) },
-  { key: 'shop', label: 'Boutique', path: '/marchand/ma-boutique', component: BoutiqueHub, icon: 'boutique' },
-  { key: 'more', label: 'Plus', path: '/marchand/plus', component: MorePage, icon: 'plus' },
+  { key: 'shop', label: 'Boutique', path: '/marchand/ma-boutique', component: BoutiqueHub, emoji: '🏪' },
+  { key: 'more', label: 'Plus', path: '/marchand/plus', component: MorePage, emoji: '☰' },
 ].filter(Boolean))
 async function loadLive() {
   if (!phone.value || !auth.can('orders.create')) return
