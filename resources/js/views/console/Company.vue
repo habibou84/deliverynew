@@ -200,6 +200,7 @@ import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { dateTime, money } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 const ROLES = { admin: 'Administrateur', dispatcher: 'Dispatch', cashier: 'Caisse', hub_agent: 'Entrepôt' }
 
@@ -238,7 +239,7 @@ const qrSaving = ref(false)
 
 async function toggleQr(enabled) {
   const linked = company.value.whatsapp_qr.status === 'connected'
-  if (!enabled && linked && !window.confirm(`Le numéro ${company.value.whatsapp_qr.phone} relié par QR code sera déconnecté. Continuer ?`)) {
+  if (!enabled && linked && !await confirmDialog(`Le numéro ${company.value.whatsapp_qr.phone} relié par QR code sera déconnecté. Continuer ?`)) {
     await load()
     return
   }
@@ -266,7 +267,7 @@ async function load() {
 }
 
 async function changeCycle(cycle) {
-  if (!window.confirm(`Facturer ${company.value.name} ${cycle === 'weekly' ? 'chaque semaine' : 'chaque mois'} ? Le changement s'applique à la prochaine période.`)) {
+  if (!await confirmDialog(`Facturer ${company.value.name} ${cycle === 'weekly' ? 'chaque semaine' : 'chaque mois'} ? Le changement s'applique à la prochaine période.`)) {
     await load()
     return
   }
@@ -286,7 +287,7 @@ async function save() {
     // L'adresse n'est envoyée que si elle change
     const payload = { name: edit.name, phone: edit.phone || null, email: edit.email || null, timezone: edit.timezone }
     if (edit.slug !== company.value.slug) {
-      if (!window.confirm(`Changer l'adresse de ${company.value.name} en « ${edit.slug} » ? L'ancienne adresse ne marchera plus : prévenez ses équipes, marchands et livreurs.`)) return
+      if (!await confirmDialog(`Changer l'adresse de ${company.value.name} en « ${edit.slug} » ? L'ancienne adresse ne marchera plus : prévenez ses équipes, marchands et livreurs.`)) return
       payload.slug = edit.slug
     }
     await http.patch(`/companies/${company.value.id}`, payload)
@@ -300,7 +301,7 @@ async function save() {
 }
 
 async function saveSubscription() {
-  if (!window.confirm(`Enregistrer la formule et la fin d'essai de ${company.value.name} ? Ses prochaines factures en dépendent.`)) return
+  if (!await confirmDialog(`Enregistrer la formule et la fin d'essai de ${company.value.name} ? Ses prochaines factures en dépendent.`)) return
   subSaving.value = true
   subError.value = ''
   try {
@@ -316,7 +317,7 @@ async function saveSubscription() {
 
 async function toggleStatus() {
   const next = active.value ? 'suspended' : 'active'
-  if (next === 'suspended' && !window.confirm(`Suspendre ${company.value.name} ? Ses équipes, marchands et livreurs ne pourront plus se connecter, et son adresse affichera « service suspendu ».`)) return
+  if (next === 'suspended' && !await confirmDialog(`Suspendre ${company.value.name} ? Ses équipes, marchands et livreurs ne pourront plus se connecter, et son adresse affichera « service suspendu ».`)) return
   try {
     await http.patch(`/companies/${company.value.id}`, { status: next })
     await load()

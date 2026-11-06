@@ -103,6 +103,7 @@ import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { date, money, today } from '../../utils/format'
+import { promptDialog } from '../../composables/useDialog'
 
 const toasts = useToastStore()
 const auth = useAuthStore()
@@ -177,7 +178,7 @@ async function savePayment() {
 }
 
 async function voidInvoice(invoice) {
-  const reason = window.prompt(`Annuler la facture ${invoice.number} ? Motif (facultatif) :`)
+  const reason = await promptDialog(`Annuler la facture ${invoice.number} ? Motif (facultatif) :`)
   if (reason === null) return
   try {
     await http.post(`/console/invoices/${invoice.id}/void`, { reason: reason || null })

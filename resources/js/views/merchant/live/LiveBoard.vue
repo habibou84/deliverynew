@@ -136,6 +136,7 @@ import { useToastStore } from '../../../stores/toasts'
 import { localPhone, money } from '../../../utils/format'
 import { drawCard, saveCard } from './liveCard'
 import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
+import { confirmDialog } from '../../../composables/useDialog'
 
 /** Écran du live : commandes en direct, conseils, produits, saisie rapide */
 const route = useRoute()
@@ -222,7 +223,7 @@ async function productCard(item) {
 }
 
 async function end() {
-  if (!window.confirm('Terminer le live ?')) return
+  if (!await confirmDialog('Terminer le live ?')) return
   try {
     await http.post(`/live/${route.params.id}/end`)
     router.push(`/marchand/live/${route.params.id}/bilan`)

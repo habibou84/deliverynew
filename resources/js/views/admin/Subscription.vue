@@ -182,6 +182,7 @@ import Modal from '../../components/Modal.vue'
 import { useToastStore } from '../../stores/toasts'
 import SubscriptionSummary from '../../components/SubscriptionSummary.vue'
 import { date, money } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 const summary = ref(null)
 
@@ -249,7 +250,7 @@ function appHelp(a) {
 const appBusy = ref(false)
 
 async function requestApps(a) {
-  if (!window.confirm(`Demander l'option ${a.label} à ${money(a.price)} par mois ?`)) return
+  if (!await confirmDialog(`Demander l'option ${a.label} à ${money(a.price)} par mois ?`)) return
   appBusy.value = true
   try {
     const { data } = await http.post(`/subscription/apps/${a.platform}`)
@@ -263,7 +264,7 @@ async function requestApps(a) {
 }
 
 async function stopApps(a, question) {
-  if (!window.confirm(question)) return
+  if (!await confirmDialog(question)) return
   appBusy.value = true
   try {
     await http.delete(`/subscription/apps/${a.platform}`)

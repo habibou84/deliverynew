@@ -95,6 +95,7 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import GuideVideo from '../../components/GuideVideo.vue'
+import { confirmDialog } from '../../composables/useDialog'
 
 /**
  * Parcours de mise en route : étapes essentielles puis conseillées, vérifiées par le serveur sur les vraies données.
@@ -143,7 +144,7 @@ async function startTest() {
 }
 
 async function cleanTest() {
-  if (!confirm('Effacer la course d\'essai ? Son journal, les gains du livreur et l\'argent encaissé sont effacés aussi.')) return
+  if (!await confirmDialog('Effacer la course d\'essai ? Son journal, les gains du livreur et l\'argent encaissé sont effacés aussi.')) return
   busy.value = true
   error.value = ''
   try {

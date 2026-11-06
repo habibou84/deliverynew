@@ -111,6 +111,7 @@ import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
+import { promptDialog } from '../../composables/useDialog'
 
 /** Console : réglages et suivi de l'outil live */
 const GROUPS = [
@@ -176,7 +177,7 @@ const statusLabel = (s) => ({ pending: 'En attente', paid: 'Payé', cancelled: '
 const statusClass = (s) => ({ paid: 'bg-emerald-100 text-emerald-800', pending: 'bg-amber-100 text-amber-800' })[s] || 'bg-slate-100 text-slate-600'
 
 async function payout(c) {
-  const answer = window.prompt(`Montant versé à ${c.company} (solde : ${money(c.balance)}) :`, String(c.balance))
+  const answer = await promptDialog(`Montant versé à ${c.company} (solde : ${money(c.balance)}) :`, String(c.balance))
   if (!answer) return
   try {
     pay.value = (await http.post(`/console/live/credits/${c.company_id}/payout`, { amount: Number(answer.replace(/\D/g, '')) })).data.data

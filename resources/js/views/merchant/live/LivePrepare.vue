@@ -75,19 +75,27 @@
       <template v-if="step === 'nouveau'">
         <div class="guide">
           <p class="guide-title">Nouveau produit</p>
-          <p>1. Prenez la photo, bien éclairée.</p>
+          <p>1. Prenez la photo (bien éclairée) ou choisissez-la dans la galerie.</p>
           <p>2. L'IA donne le nom. Vérifiez-le.</p>
           <p>3. Mettez le prix, puis « Ajouter au live ».</p>
         </div>
 
-        <label class="tap flex h-52 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-[22px] bg-slate-100 text-[16px] font-bold text-slate-600">
-          <img v-if="preview" :src="preview" alt="Photo du produit" class="h-full w-full object-cover">
-          <template v-else>
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
-            Prendre la photo
-          </template>
-          <input type="file" accept="image/*" capture="environment" class="sr-only" @change="onPhoto">
-        </label>
+        <!-- Photo du produit : appareil photo, ou une photo déjà dans la galerie -->
+        <div class="overflow-hidden rounded-[22px] bg-slate-100">
+          <img v-if="preview" :src="preview" alt="Photo du produit" class="h-52 w-full object-cover">
+          <div class="grid grid-cols-2 gap-2 p-2">
+            <label class="tap flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl bg-white py-4 text-[15px] font-bold text-slate-700 shadow-sm">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+              {{ preview ? 'Reprendre la photo' : 'Prendre la photo' }}
+              <input type="file" accept="image/*" capture="environment" class="sr-only" @change="onPhoto">
+            </label>
+            <label class="tap flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl bg-white py-4 text-[15px] font-bold text-slate-700 shadow-sm">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="m21 16-5-5-9 9" /></svg>
+              Depuis la galerie
+              <input type="file" accept="image/*" class="sr-only" @change="onPhoto">
+            </label>
+          </div>
+        </div>
 
         <div v-if="recognizing" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] font-semibold text-indigo-800">L'IA regarde la photo…</div>
         <div v-else-if="ai" class="rounded-2xl border-2 border-indigo-500 bg-indigo-50 px-4 py-3">
@@ -360,6 +368,8 @@ function openNew() {
 
 async function onPhoto(event) {
   const file = event.target.files?.[0]
+  // Le même fichier pourra être choisi de nouveau
+  event.target.value = ''
   if (!file) return
   photoFile.value = file
   preview.value = URL.createObjectURL(file)
