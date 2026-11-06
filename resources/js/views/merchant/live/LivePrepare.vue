@@ -165,7 +165,7 @@
             <p v-else class="m-card p-6 text-center text-slate-500">Préparation de la carte {{ c.letter }}…</p>
           </div>
         </div>
-        <p class="text-center text-[14px] text-slate-500">Le numéro est écrit avec des points, sans le mot « WhatsApp », comme le conseille TikTok.</p>
+        <p class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La carte montre seulement vos produits. <b>Pendant le live, dites votre numéro WhatsApp</b> (ou mettez-le dans votre bio) : les clientes y envoient le code du produit.</p>
 
         <div class="m-card space-y-1.5 border-2 border-blue-900 p-4 text-[16px]">
           <p class="text-[17px] font-extrabold">Montrer la carte</p>
@@ -322,13 +322,13 @@ async function renderCards() {
   for (const i of d.value.items) (groups[i.code[0]] ||= []).push(i)
   cards.value = Object.keys(groups).map((letter) => ({ letter, url: null, canvas: null }))
   for (const c of cards.value) {
-    c.canvas = await drawCard({ shop: d.value.shop_name, name: liveName.value, letter: c.letter, items: groups[c.letter], phone: d.value.offer.phone, square: square.value })
+    c.canvas = await drawCard({ items: groups[c.letter], square: square.value })
     c.url = c.canvas.toDataURL('image/png')
   }
 }
 watch(square, () => { if (step.value === 'carte') renderCards() })
 
-// WhatsApp relié : la carte affiche ce numéro
+// WhatsApp relié : mise à jour de l'écran
 async function onWhatsApp() {
   await load()
   await renderCards()
