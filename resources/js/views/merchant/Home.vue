@@ -195,11 +195,9 @@
       </RouterLink>
     </section>
 
-    <!-- Installation et notifications : proposées une fois l'application utilisée -->
-    <template v-if="orders.length">
-      <InstallBanner app="marchand" />
-      <PushInvite />
-    </template>
+    <!-- Installation (fenêtre qui s'ouvre toute seule) ; notifications une fois l'application utilisée -->
+    <InstallBanner app="marchand" popup />
+    <PushInvite v-if="orders.length" />
   </div>
 </template>
 
