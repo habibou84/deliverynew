@@ -3,6 +3,7 @@
 namespace App\Http\Resources\V1;
 
 use App\Models\Company;
+use App\Models\WhatsAppAccount;
 use App\Services\Platform\Billing;
 use App\Support\Branding;
 use Illuminate\Http\Request;
@@ -78,6 +79,11 @@ class CompanyResource extends JsonResource
             'billing_state' => $this->when(
                 $this->plan_id !== null && (bool) $request->user()?->can('settings.manage') && ! $request->user()->isSuperAdmin(),
                 fn () => app(Billing::class)->state($this->resource)['state'],
+            ),
+            // Mode sans carte du numéro WhatsApp de l'agence (bandeau du back-office) : pour qui gère les réglages
+            'whatsapp_without_card' => $this->when(
+                (bool) $request->user()?->can('settings.manage') && ! $request->user()->isSuperAdmin(),
+                fn () => (bool) WhatsAppAccount::forCompanyId($this->resource->id)?->withoutCard(),
             ),
             'users_count' => $this->whenCounted('users'),
             'created_at' => $this->created_at,
