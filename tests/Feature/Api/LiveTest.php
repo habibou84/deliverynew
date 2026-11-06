@@ -297,6 +297,22 @@ class LiveTest extends TestCase
         $this->getJson('/api/v1/lives/inconnu')->assertNotFound();
     }
 
+    public function test_chiffres_des_lives_passes(): void
+    {
+        $live = $this->prepare();
+        $this->addProduct($live, 'Robe wax', 9000, 5);
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
+        $this->order($live, 'A1', 2);
+        $this->order($live, 'A1', 1, '0707070708');
+        $this->postJson("/api/v1/live/{$live}/end")->assertOk();
+
+        $data = $this->getJson('/api/v1/live')->assertOk()->json('data');
+        $this->assertSame(2, $data['past'][0]['orders_count']);
+        $this->assertSame(['lives' => 1, 'orders' => 2], ['lives' => $data['insights']['lives'], 'orders' => $data['insights']['orders']]);
+        $this->assertSame(['name' => 'Robe wax', 'quantity' => 3], $data['insights']['top_item']);
+        $this->assertIsInt($data['insights']['best_hour']);
+    }
+
     public function test_reglages_console_et_droits(): void
     {
         $this->getJson('/api/v1/console/live')->assertForbidden();

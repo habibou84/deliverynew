@@ -27,7 +27,7 @@
     </section>
 
     <!-- Outil live : préparer la carte des produits, prendre les commandes du direct -->
-    <RouterLink v-if="auth.can('orders.create')" to="/marchand/live/preparer" class="tap flex items-center gap-3 rounded-[22px] bg-slate-900 p-4 text-white shadow-soft">
+    <RouterLink v-if="auth.can('orders.create') && !isPhone" to="/marchand/live/preparer" class="tap flex items-center gap-3 rounded-[22px] bg-slate-900 p-4 text-white shadow-soft">
       <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-rose-600 text-[13px] font-extrabold" aria-hidden="true">LIVE</span>
       <span class="min-w-0 flex-1">
         <span class="block text-[16px] font-bold">Préparer mon live</span>
@@ -75,7 +75,7 @@
     </section>
 
     <!-- L'argent : ce qui va revenir au marchand -->
-    <RouterLink v-if="balance" to="/marchand/paiements" class="tap flex items-center gap-3.5 rounded-[22px] bg-white p-4 shadow-soft active:scale-[.99] transition">
+    <RouterLink v-if="balance && !isPhone" to="/marchand/paiements" class="tap flex items-center gap-3.5 rounded-[22px] bg-white p-4 shadow-soft active:scale-[.99] transition">
       <ColorIcon name="argent" :size="52" />
       <div class="min-w-0 flex-1">
         <p class="text-[13px] font-medium text-slate-500">{{ balance.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'À recevoir' }}</p>
@@ -202,6 +202,7 @@
 </template>
 
 <script setup>
+import { isPhone } from '../../composables/usePhone'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { cachedGet } from '../../composables/useCachedApi'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
