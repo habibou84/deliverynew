@@ -15,7 +15,7 @@
       </span>
     </button>
 
-    <InstallBanner app="livreur" />
+    <InstallBanner app="livreur" popup />
 
     <!-- Invitation à activer les notifications push -->
     <div v-if="showPushInvite" class="rounded-2xl bg-amber-50 ring-1 ring-amber-200 p-4 space-y-2">
