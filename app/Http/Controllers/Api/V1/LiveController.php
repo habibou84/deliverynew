@@ -131,6 +131,16 @@ class LiveController extends Controller
         return response()->json(['data' => $this->studio->recognize($live, $merchant, $request->file('photo'), $request->input('token'))]);
     }
 
+    /** Photo d'un produit déjà dans le catalogue : la carte du live n'accepte que des produits en photo */
+    public function productPhoto(Request $request, Product $product): JsonResponse
+    {
+        $merchant = $this->merchant($request);
+        $request->validate(['photo' => ['required', 'file', 'mimes:png,jpg,jpeg,webp', 'max:6144']], [], ['photo' => 'photo']);
+        $product = $this->studio->setProductPhoto($merchant, $product, $request->file('photo'));
+
+        return response()->json(['data' => ['product_id' => $product->id, 'photo_url' => $product->photoUrl()]]);
+    }
+
     /** Nouveau produit (fiche IA vérifiée ou à la main) ajouté au catalogue et au live */
     public function addProduct(Request $request, Live $live): JsonResponse
     {
