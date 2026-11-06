@@ -40,11 +40,11 @@
           <p>Vous présentez, les réponses partent toutes seules.</p>
         </template>
         <template v-else>
-          <p>Gardez cet écran sur un 2e téléphone.</p>
+          <p>🔗 Les clientes commandent par le lien du live : elles arrivent ici toutes seules.</p>
           <p>Une commande ? Dites merci à la cliente.</p>
         </template>
       </div>
-      <LiveWhatsAppConnect v-if="isLive && b.whatsapp && !b.whatsapp.auto" :initial="b.whatsapp" compact @connected="load" />
+      <LiveLink v-if="isLive && b.public_url && !b.whatsapp?.auto" :url="b.public_url" compact />
 
       <!-- Conseils (calculs) -->
       <section v-if="b.advices.length" class="m-card space-y-1.5 border-2 border-slate-900 p-4">
@@ -110,6 +110,7 @@
         <div v-for="o in b.orders" :key="o.id" class="px-4 py-2.5 text-[15px]">
           <div class="flex items-start gap-2">
             <span :class="['mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-extrabold', o.status === 'waiting' ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800']">{{ o.status === 'waiting' ? 'ATTENTE' : 'COMMANDE' }}</span>
+            <span v-if="o.source === 'link'" class="mt-0.5 shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-extrabold text-indigo-700" title="Commande passée par la cliente sur le lien du live">🔗 LIEN</span>
             <span v-if="o.source === 'whatsapp'" class="mt-0.5 shrink-0 rounded-md bg-[#dcfce7] px-1.5 py-0.5 text-[11px] font-extrabold text-[#128c4b]" title="Commande reçue par WhatsApp, enregistrée toute seule">💬 AUTO</span>
             <div class="min-w-0 flex-1">
               <b>{{ o.customer_name }}</b> · {{ o.code }} {{ o.name }}<template v-if="o.quantity > 1"> × {{ o.quantity }}</template>
@@ -135,7 +136,7 @@ import ZoneSelect from '../../../components/ZoneSelect.vue'
 import { useToastStore } from '../../../stores/toasts'
 import { localPhone, money } from '../../../utils/format'
 import { drawCard, saveCard } from './liveCard'
-import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
+import LiveLink from './LiveLink.vue'
 import { confirmDialog } from '../../../composables/useDialog'
 
 /** Écran du live : commandes en direct, conseils, produits, saisie rapide */

@@ -82,6 +82,7 @@ use App\Http\Controllers\Api\V1\PricingGridController;
 use App\Http\Controllers\Api\V1\PricingGroupController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\ProductPhotoController;
+use App\Http\Controllers\Api\V1\PublicLiveController;
 use App\Http\Controllers\Api\V1\PublicRatingController;
 use App\Http\Controllers\Api\V1\PublicRescheduleController;
 use App\Http\Controllers\Api\V1\PushSubscriptionController;
@@ -228,6 +229,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('shops/{slug}', [ShopController::class, 'show'])->middleware('throttle:60,1')->name('shops.show');
     Route::post('shops/{slug}/quote', [ShopController::class, 'quote'])->middleware('throttle:60,1')->name('shops.quote');
     Route::post('shops/{slug}/orders', [ShopController::class, 'order'])->middleware('throttle:shop-order')->name('shops.order');
+
+    // Lien du live (/l/{jeton}) : les clientes commandent sans WhatsApp
+    Route::get('lives/{token}', [PublicLiveController::class, 'show'])->middleware('throttle:120,1')->name('lives.public');
+    Route::post('lives/{token}/orders', [PublicLiveController::class, 'order'])->middleware('throttle:live-order')->name('lives.public.order');
 
     // Bouton « Connecter WhatsApp » : page de jibiat.com ouverte avec un ticket de l'espace de l'entreprise
     Route::post('whatsapp-signup/session', [WhatsAppSignupController::class, 'session'])->middleware('throttle:30,1')->name('whatsapp-signup.session');

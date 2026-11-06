@@ -284,6 +284,8 @@ class LiveController extends Controller
             'cards' => $this->studio->cardsLeft($live, $merchant),
             'offer' => $this->studio->offer($merchant),
             'shop_name' => $merchant->business_name,
+            // Lien du live : sans WhatsApp relié, les clientes commandent par ce lien
+            'public_url' => $live->publicUrl(),
             'whatsapp' => $this->whatsappState($merchant),
         ];
     }
