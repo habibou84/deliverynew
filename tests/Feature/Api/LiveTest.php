@@ -6,6 +6,7 @@ use App\Enums\LedgerEntryType;
 use App\Enums\Role;
 use App\Models\LiveAiCard;
 use App\Models\LiveCharge;
+use App\Models\LiveOrder;
 use App\Models\Merchant;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
@@ -262,6 +263,38 @@ class LiveTest extends TestCase
         $other = Merchant::factory()->create(['company_id' => $this->company->id]);
         Sanctum::actingAs($this->userWithRole(Role::MerchantOwner, ['merchant_id' => $other->id]));
         $this->post("/api/v1/live/products/{$productId}/photo", ['photo' => UploadedFile::fake()->image('x.jpg')], ['Accept' => 'application/json'])->assertStatus(422);
+    }
+
+    public function test_lien_du_live_les_clientes_commandent_sans_whatsapp(): void
+    {
+        $live = $this->prepare();
+        $this->addProduct($live, 'Robe wax', 9000, 2);
+        $url = $this->postJson('/api/v1/live/prepare')->json('data.public_url');
+        $token = basename($url);
+        $this->assertStringContainsString('/l/', $url);
+
+        // Avant le live : produits visibles, commande refusée
+        app('auth')->forgetGuards();
+        $this->getJson("/api/v1/lives/{$token}")->assertOk()
+            ->assertJsonPath('data.status', 'draft')
+            ->assertJsonPath('data.items.0.code', 'A1')
+            ->assertJsonPath('data.items.0.remaining', 2);
+        $form = ['code' => 'A1', 'quantity' => 1, 'name' => 'Awa K.', 'phone' => '0707070707', 'zone_id' => $this->yopougon->id];
+        $this->postJson("/api/v1/lives/{$token}/orders", $form)->assertStatus(422);
+
+        Sanctum::actingAs($this->merchantUser);
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
+
+        // Pendant le live : la commande arrive chez l'agence, comme une commande WhatsApp
+        app('auth')->forgetGuards();
+        $this->postJson("/api/v1/lives/{$token}/orders", $form)->assertCreated()->assertJsonPath('data.status', 'ordered');
+        $this->assertSame('link', LiveOrder::query()->latest('id')->value('source'));
+        $this->assertSame('Awa K.', Order::withoutGlobalScopes()->latest('id')->value('recipient_name'));
+        $this->getJson("/api/v1/lives/{$token}")->assertJsonPath('data.items.0.remaining', 1);
+        // Code inconnu, et robots
+        $this->postJson("/api/v1/lives/{$token}/orders", [...$form, 'code' => 'Z9'])->assertStatus(422);
+        $this->postJson("/api/v1/lives/{$token}/orders", [...$form, 'website' => 'x'])->assertStatus(422);
+        $this->getJson('/api/v1/lives/inconnu')->assertNotFound();
     }
 
     public function test_reglages_console_et_droits(): void

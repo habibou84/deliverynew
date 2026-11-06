@@ -673,6 +673,7 @@ class LiveStudio
 
         return [
             'live' => $this->present($live),
+            'public_url' => $live->publicUrl(),
             'items' => $live->items->map(fn (LiveItem $i) => [
                 'id' => $i->id, 'product_id' => $i->product_id, 'code' => $i->code, 'name' => $i->name, 'variant' => $i->variant,
                 'label' => $i->label(), 'price' => $i->price, 'quantity' => $i->quantity,
