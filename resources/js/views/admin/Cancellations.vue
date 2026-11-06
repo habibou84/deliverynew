@@ -118,6 +118,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { shift } from '../../utils/periods'
+import { confirmDialog, promptDialog } from '../../composables/useDialog'
 
 /**
  * Annulations, en trois parties montrées chacune à sa place : demandes à valider (depuis le tableau de bord),
@@ -183,9 +184,9 @@ async function load() {
 async function decide(r, approve) {
   let note = null
   if (!approve) {
-    note = window.prompt('Pourquoi refusez-vous ? (facultatif, la personne le verra)')
+    note = await promptDialog('Pourquoi refusez-vous ? (facultatif, la personne le verra)')
     if (note === null) return
-  } else if (!window.confirm(`Valider l'annulation de ${r.tracking_code} ?`)) return
+  } else if (!await confirmDialog(`Valider l'annulation de ${r.tracking_code} ?`)) return
   busy.value = true
   try {
     const { data } = await http.post(`/cancellation-requests/${r.id}/decision`, { approve, note: note || undefined })

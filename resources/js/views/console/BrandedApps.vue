@@ -185,6 +185,7 @@ import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { date } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 const STATE = {
   ready: 'bg-emerald-100 text-emerald-800',
@@ -288,7 +289,7 @@ async function saveToken() {
 }
 
 async function tokenCall(action) {
-  if (action === 'remove' && !window.confirm('Retirer le jeton GitHub ? Les fabrications ne pourront plus être lancées.')) return
+  if (action === 'remove' && !await confirmDialog('Retirer le jeton GitHub ? Les fabrications ne pourront plus être lancées.')) return
   busy.value = true
   try {
     const { data } = action === 'remove'

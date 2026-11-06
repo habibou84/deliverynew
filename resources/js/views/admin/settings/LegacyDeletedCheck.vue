@@ -58,6 +58,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 import { date, localPhone, money, telLink, whatsappLink } from '../../../utils/format'
+import { confirmDialog } from '../../../composables/useDialog'
 
 /** Reprise : commandes effacées dans l'ancienne application avec de l'argent en jeu, à garder ou annuler */
 const toasts = useToastStore()
@@ -78,7 +79,7 @@ async function load() {
 }
 
 async function resolve(order, action) {
-  if (action === 'cancel' && !window.confirm(`Annuler la course ${order.legacy_id} ? L'argent pas encore réglé de cette course disparaît.`)) return
+  if (action === 'cancel' && !await confirmDialog(`Annuler la course ${order.legacy_id} ? L'argent pas encore réglé de cette course disparaît.`)) return
   busy.value = true
   try {
     await http.post(`/company/legacy-recheck/deleted/${order.id}`, { action })

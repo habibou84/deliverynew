@@ -183,6 +183,7 @@ import http, { apiErrorMessage } from '../bootstrap/axios'
 import StatCard from './StatCard.vue'
 import { useToastStore } from '../stores/toasts'
 import { dateTime, money, STATUS_LABELS } from '../utils/format'
+import { confirmDialog } from '../composables/useDialog'
 
 /**
  * Réglages › Reprise › commandes de l'ancienne application. part « connect » : branchement (module, clé, adresse) ;
@@ -248,7 +249,7 @@ const load = () => call(() => http.get('/company/legacy-orders'))
 const saveUrl = () => call(() => http.put('/company/legacy-orders', { url: url.value }), 'Adresse enregistrée.')
 
 async function createKey() {
-  if (state.value.has_key && !window.confirm('Créer une nouvelle clé ? L\'ancienne ne fonctionnera plus : il faudra mettre la nouvelle dans le .env de l\'ancienne application.')) return
+  if (state.value.has_key && !await confirmDialog('Créer une nouvelle clé ? L\'ancienne ne fonctionnera plus : il faudra mettre la nouvelle dans le .env de l\'ancienne application.')) return
   const data = await call(() => http.post('/company/legacy-orders/key'))
   if (data) key.value = data.key
 }
@@ -258,7 +259,7 @@ async function test() {
 }
 
 async function start(mode) {
-  if (mode === 'import' && !window.confirm('Reprendre les commandes maintenant ? Aucun message ne sera envoyé ; relancer plus tard ne crée pas de doublon.')) return
+  if (mode === 'import' && !await confirmDialog('Reprendre les commandes maintenant ? Aucun message ne sera envoyé ; relancer plus tard ne crée pas de doublon.')) return
   await call(() => http.post(`/company/legacy-orders/run/${mode}`))
 }
 

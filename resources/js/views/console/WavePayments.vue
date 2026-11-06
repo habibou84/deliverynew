@@ -153,6 +153,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
 import { shrinkImage } from '../../utils/image'
+import { confirmDialog } from '../../composables/useDialog'
 
 const toasts = useToastStore()
 const auth = useAuthStore()
@@ -188,7 +189,7 @@ async function decide(p, decision) {
   const text = decision === 'received'
     ? `Confirmer la réception de ${money(p.amount)} depuis le ${p.payer_phone} ? Le paiement sera enregistré sur la facture ${p.invoice.number}.`
     : `Marquer le paiement de ${money(p.amount)} comme non reçu ?`
-  if (!window.confirm(text)) return
+  if (!await confirmDialog(text)) return
   busy.value = p.id
   try {
     await http.post(`/console/wave/payments/${p.id}/decide`, { decision })
@@ -202,7 +203,7 @@ async function decide(p, decision) {
 }
 
 async function save() {
-  if (form.link !== (settings.value?.link ?? '') && !window.confirm('Changer le lien de paiement Wave ? Toutes les entreprises paieront leurs factures sur ce nouveau lien.')) return
+  if (form.link !== (settings.value?.link ?? '') && !await confirmDialog('Changer le lien de paiement Wave ? Toutes les entreprises paieront leurs factures sur ce nouveau lien.')) return
   try {
     fill((await http.put('/console/wave', form)).data.data)
     toasts.success('Réglages Wave enregistrés.')
@@ -222,7 +223,7 @@ async function connectGmail() {
 }
 
 async function disconnectGmail() {
-  if (!window.confirm('Déconnecter Gmail ? Les e-mails ne partiront plus par ce compte.')) return
+  if (!await confirmDialog('Déconnecter Gmail ? Les e-mails ne partiront plus par ce compte.')) return
   try {
     fill((await http.delete('/console/gmail')).data.data)
     toasts.success('Gmail déconnecté.')
@@ -271,7 +272,7 @@ async function uploadQr(event) {
 }
 
 async function removeQr() {
-  if (!window.confirm('Retirer le QR code Wave ?')) return
+  if (!await confirmDialog('Retirer le QR code Wave ?')) return
   fill((await http.delete('/console/wave/qr')).data.data)
 }
 

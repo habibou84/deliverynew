@@ -349,6 +349,7 @@ import { useToastStore } from '../../stores/toasts'
 import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
 import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
+import { confirmDialog, promptDialog } from '../../composables/useDialog'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -638,7 +639,7 @@ const changeSummary = (o) => (o.pending_change?.changes ?? []).map((c) => `${c.l
   + (o.pending_change && o.pending_change.fees.from !== o.pending_change.fees.to ? ` · livraison ${money(o.pending_change.fees.from)} → ${money(o.pending_change.fees.to)}` : '')
 
 async function decideChange(o, decision) {
-  const reason = decision === 'refuse' ? window.prompt('Motif du refus (envoyé à l\'e-commerçant) :') : ''
+  const reason = decision === 'refuse' ? await promptDialog('Motif du refus (envoyé à l\'e-commerçant) :') : ''
   if (reason === null) return
   try {
     const { data } = await http.post(`/orders/${o.id}/change-request`, { decision, reason: reason || undefined })
@@ -652,7 +653,7 @@ async function decideChange(o, decision) {
 
 async function bulkConfirm() {
   const count = pendingSelected.value.length
-  if (!window.confirm(`Valider ${count} course(s) en attente ?`)) return
+  if (!await confirmDialog(`Valider ${count} course(s) en attente ?`)) return
   confirming.value = true
   try {
     const { data } = await http.post('/orders/bulk-confirm', { order_ids: pendingSelected.value })
@@ -711,7 +712,7 @@ async function bulkUnassign() {
   // « Selon la course » : la mission de l'étape en cours de chaque course
   const type = bulk.type === 'auto' ? undefined : bulk.type
   const what = type ? `du ${{ pickup: 'ramassage', delivery: 'livraison', return: 'retour' }[type]}` : 'de l\'étape en cours'
-  const reason = window.prompt(`Retirer le livreur ${what} sur ${ids.length} course(s) ? Les livreurs seront prévenus.\nMotif (facultatif) :`, '')
+  const reason = await promptDialog(`Retirer le livreur ${what} sur ${ids.length} course(s) ? Les livreurs seront prévenus.\nMotif (facultatif) :`, '')
   if (reason === null) return
   assigning.value = true
   try {

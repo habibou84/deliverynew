@@ -220,6 +220,7 @@ import AuthImage from '../../components/AuthImage.vue'
 import Modal from '../../components/Modal.vue'
 import { useAuthStore } from '../../stores/auth'
 import { date } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 const ICONS = { moto: '🛵', velo: '🚲', voiture: '🚗', tricycle: '🛺' }
 const STATUS_CLASS = { active: 'bg-emerald-100 text-emerald-700', repair: 'bg-amber-100 text-amber-800', retired: 'bg-slate-100 text-gray-600' }
@@ -394,7 +395,7 @@ async function saveDocument() {
 }
 
 async function removeDocument(d) {
-  if (!window.confirm(`Supprimer ce papier (${d.label}) ?`)) return
+  if (!await confirmDialog(`Supprimer ce papier (${d.label}) ?`)) return
   try {
     await http.delete(`/vehicle-documents/${d.id}`)
     await refreshDetail()

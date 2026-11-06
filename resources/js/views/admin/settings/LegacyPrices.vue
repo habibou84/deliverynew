@@ -61,6 +61,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 import { money } from '../../../utils/format'
+import { confirmDialog } from '../../../composables/useDialog'
 
 /**
  * Reprise › Tarifs proposés : prix de l'ancienne application, regroupés par montant, validés en groupes de prix.
@@ -102,7 +103,7 @@ async function apply(g) {
 }
 
 async function applyAll() {
-  if (!window.confirm(`Valider les ${state.value.groups.length} groupes de prix ?`)) return
+  if (!await confirmDialog(`Valider les ${state.value.groups.length} groupes de prix ?`)) return
   for (const g of [...state.value.groups]) {
     if (!(await post('/company/zone-links/prices', { zone_ids: g.zones.map((z) => z.id), price: prices[g.price] ?? g.price }))) break
   }

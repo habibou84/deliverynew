@@ -49,6 +49,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { dateTime } from '../utils/format'
+import { confirmDialog } from '../composables/useDialog'
 
 /**
  * WhatsApp › Connexion par QR code (service whatsapp-bridge), en attendant la validation de Meta. Le QR code et
@@ -103,7 +104,7 @@ async function start() {
 }
 
 async function disconnect() {
-  if (!window.confirm('Déconnecter ce numéro ? Les messages repasseront en simulation jusqu\'à une nouvelle connexion.')) return
+  if (!await confirmDialog('Déconnecter ce numéro ? Les messages repasseront en simulation jusqu\'à une nouvelle connexion.')) return
   busy.value = true
   try {
     apply((await http.delete('/whatsapp/qr')).data.data)

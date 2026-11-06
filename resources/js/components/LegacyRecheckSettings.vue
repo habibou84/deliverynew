@@ -63,6 +63,7 @@ import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { date, dateTime } from '../utils/format'
+import { confirmDialog } from '../composables/useDialog'
 
 /** Réglages › Reprise › Recomparaison complète : modifiées, supprimées (annulées ou à vérifier), annulation 7 jours */
 const toasts = useToastStore()
@@ -86,7 +87,7 @@ async function load() {
 }
 
 async function start() {
-  if (!window.confirm('Lancer la recomparaison avec l\'ancienne application ? Cela peut prendre un moment.')) return
+  if (!await confirmDialog('Lancer la recomparaison avec l\'ancienne application ? Cela peut prendre un moment.')) return
   busy.value = true
   try {
     const { data } = await http.post('/company/legacy-recheck', { since: since.value })
@@ -100,7 +101,7 @@ async function start() {
 }
 
 async function undo() {
-  if (!window.confirm('Défaire les annulations ? Ces courses reviennent comme avant, dans la liste des supprimées à vérifier.')) return
+  if (!await confirmDialog('Défaire les annulations ? Ces courses reviennent comme avant, dans la liste des supprimées à vérifier.')) return
   busy.value = true
   try {
     const { data } = await http.post(`/company/legacy-recheck/${last.value.id}/undo`)

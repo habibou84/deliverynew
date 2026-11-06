@@ -102,6 +102,7 @@ import { computed, defineComponent, h, onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { date, money } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 /** Jibiat IA : niveaux, essai, abonnement à part (en plus de la formule), consommation du mois, recharges */
 const Meter = defineComponent({
@@ -158,19 +159,19 @@ async function run(request, success) {
 const load = () => run(() => http.get('/company/ai'))
 const act = (name) => run(() => http.post(`/company/ai/${name}`), name === 'resume' ? 'L\'IA continue.' : null)
 const trial = (tier) => run(() => http.post('/company/ai/trial', { tier }), 'Essai gratuit commencé : l\'IA travaille déjà.')
-function subscribe(tier) {
+async function subscribe(tier) {
   const t = data.value.tiers.find((x) => x.key === tier)
   const price = period.value === 'yearly' ? `${money(t.yearly_price)} pour l'année` : `${money(t.price)} par mois`
-  if (!window.confirm(`S'abonner à ${t.name} : ${price}, sur la facture de votre abonnement Jibiat ?`)) return
+  if (!await confirmDialog(`S'abonner à ${t.name} : ${price}, sur la facture de votre abonnement Jibiat ?`)) return
   run(() => http.post('/company/ai/subscribe', { tier, period: period.value }), `${t.name} activée.`)
 }
-function stop() {
+async function stop() {
   const trialing = sub.value.status === 'trial'
-  if (!window.confirm(trialing ? 'Arrêter l\'essai maintenant ?' : 'Arrêter Jibiat IA ? Elle continue jusqu\'à la fin de la période payée.')) return
+  if (!await confirmDialog(trialing ? 'Arrêter l\'essai maintenant ?' : 'Arrêter Jibiat IA ? Elle continue jusqu\'à la fin de la période payée.')) return
   run(() => http.post('/company/ai/stop'), trialing ? 'Essai arrêté.' : 'Arrêt programmé.')
 }
-function recharge(amount) {
-  if (!window.confirm(`Recharger ${money(amount)} ? Ajouté à votre prochaine facture.`)) return
+async function recharge(amount) {
+  if (!await confirmDialog(`Recharger ${money(amount)} ? Ajouté à votre prochaine facture.`)) return
   run(() => http.post('/company/ai/recharge', { amount }), 'Recharge ajoutée.')
 }
 

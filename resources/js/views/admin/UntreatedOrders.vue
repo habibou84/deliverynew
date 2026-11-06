@@ -111,6 +111,7 @@ import OrderDecision from '../../components/OrderDecision.vue'
 import OrderEditModal from '../../components/OrderEditModal.vue'
 import { useToastStore } from '../../stores/toasts'
 import { date, money } from '../../utils/format'
+import { confirmDialog } from '../../composables/useDialog'
 
 /**
  * Courses non traitées : jour de livraison dépassé, course pas terminée. Regroupées par date prévue, par livreur ou par
@@ -250,8 +251,8 @@ function assignMany() {
   }, `${list.length} course${list.length > 1 ? 's' : ''} confiée${list.length > 1 ? 's' : ''} à ${couriers.value.find((c) => c.id === bulkCourier.value)?.name}.`)
 }
 
-function returnMany(list = returnable.value) {
-  if (!window.confirm(`Faire revenir ${list.length > 1 ? `ces ${list.length} colis` : 'ce colis'} chez l'e-commerçant ?`)) return
+async function returnMany(list = returnable.value) {
+  if (!await confirmDialog(`Faire revenir ${list.length > 1 ? `ces ${list.length} colis` : 'ce colis'} chez l'e-commerçant ?`)) return
   return run(async () => {
     for (const o of list) await http.post(`/orders/${o.id}/return-request`, { note: 'Course non traitée : retour décidé par l\'agence' })
   }, `Retour demandé pour ${list.length} colis.`)
