@@ -127,6 +127,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { dateTime, money } from '../../utils/format'
 
+const emit = defineEmits(['loaded'])
 const auth = useAuthStore()
 const toasts = useToastStore()
 const route = useRoute()
@@ -159,6 +160,8 @@ async function load() {
   const { data } = await http.get('/products', { params: { per_page: 200, search: search.value || undefined, low: filter.value === 'low' ? 1 : undefined } })
   products.value = data.data
   loaded.value = true
+  // Onglet Boutique (téléphone) : totaux par endroit (tout le stock, pas seulement le filtre « Stock bas »)
+  if (filter.value === 'all' && !search.value) emit('loaded', data.data)
 }
 
 let timer
