@@ -174,7 +174,7 @@
       <button v-if="step === 'produits'" type="button" class="m-btn-primary w-full" :disabled="!selected.length || saving" @click="toCard">Continuer avec {{ selected.length }} article{{ selected.length > 1 ? 's' : '' }}</button>
       <div v-else class="flex gap-2">
         <button type="button" class="h-[52px] w-[52px] shrink-0 rounded-2xl bg-slate-100 text-2xl font-bold text-slate-700" aria-label="Revenir aux produits" @click="step = 'produits'">‹</button>
-        <button type="button" class="m-btn-primary flex-1" :disabled="saving" @click="downloadAndStart">Télécharger la carte et ouvrir mon live</button>
+        <button type="button" class="m-btn-primary flex-1" :disabled="saving" @click="downloadAndStart">{{ mustPay ? `Télécharger la carte et payer ${money(d.offer.prices.live)}` : 'Télécharger la carte et ouvrir mon live' }}</button>
       </div>
     </div>
   </div>
@@ -210,13 +210,17 @@ const shownCatalog = computed(() => {
   return (d.value?.catalog || []).filter((p) => !q || p.name.toLowerCase().includes(q))
 })
 const isSelected = (id) => selected.value.some((r) => r.product_id === id)
+// Live payé à l'unité, en ligne : le bouton mène au paiement
+const mustPay = computed(() => !!d.value?.offer?.pay_online && d.value.offer.next_plan === 'single')
 const priceLine = computed(() => {
   const o = d.value?.offer
   if (!o) return ''
   if (o.offered_by_company) return 'Ce live vous est offert par votre agence.'
   if (o.monthly_until) return 'Compris dans votre forfait du mois.'
   if (o.trial_left) return 'Votre premier live est offert.'
-  return `Ce live : ${money(o.prices.live)}, retenus sur votre prochain reversement. ${o.prices.cards_per_live} fiches IA comprises.`
+  return o.pay_online
+    ? `Ce live : ${money(o.prices.live)}, à payer par Orange Money, MTN, Moov, Wave ou carte. ${o.prices.cards_per_live} fiches IA comprises.`
+    : `Ce live : ${money(o.prices.live)}, retenus sur votre prochain reversement. ${o.prices.cards_per_live} fiches IA comprises.`
 })
 
 function fill(data) {
@@ -324,6 +328,11 @@ async function downloadAndStart() {
     await renderCards()
     for (const c of cards.value) await saveCard(c.canvas, `live-carte-${c.letter}.png`)
     const { data } = await http.post(`/live/${d.value.live.id}/start`)
+    // Live payé en ligne : page de paiement de PayDunya, retour sur l'application une fois payé
+    if (data.data.payment_url) {
+      window.location.assign(data.data.payment_url)
+      return
+    }
     router.push(`/marchand/live/${data.data.live.id}`)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
@@ -374,7 +383,12 @@ async function onPhoto(event) {
 
 async function buyPack() {
   try {
-    d.value.offer = (await http.post('/live/pack')).data.data
+    const data = (await http.post('/live/pack')).data.data
+    if (data.payment_url) {
+      window.location.assign(data.payment_url)
+      return
+    }
+    d.value.offer = data
     needPack.value = false
     toasts.success('Fiches ajoutées. Reprenez la photo.')
   } catch (e) {

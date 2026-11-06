@@ -16,6 +16,49 @@
         </div>
       </div>
 
+      <!-- Paiements en ligne (PayDunya) et crédit des agences -->
+      <section v-if="pay" class="card space-y-3 p-4">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="font-semibold">Paiements en ligne (PayDunya)</h2>
+          <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', pay.configured ? (pay.mode === 'live' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800') : 'bg-slate-100 text-slate-600']">
+            {{ pay.configured ? (pay.mode === 'live' ? 'Réel' : 'Mode test') : 'Non configuré : frais retenus sur les reversements' }}
+          </span>
+        </div>
+        <p class="text-sm text-gray-600">Ce mois-ci : <b>{{ money(pay.month.paid) }}</b> reçus ({{ pay.month.count }} paiement(s)). La part de chaque agence va sur son crédit, déduit de ses factures.</p>
+
+        <div v-if="pay.credits.length" class="overflow-x-auto">
+          <p class="mb-1 text-sm font-medium">Crédit des agences</p>
+          <table class="w-full text-sm">
+            <thead class="text-left text-gray-500"><tr><th class="py-1">Agence</th><th class="py-1 text-right">Gagné</th><th class="py-1 text-right">Solde</th><th /></tr></thead>
+            <tbody>
+              <tr v-for="c in pay.credits" :key="c.company_id" class="border-t">
+                <td class="py-2">{{ c.company }}</td>
+                <td class="py-2 text-right tabular-nums">{{ money(c.earned) }}</td>
+                <td class="py-2 text-right font-semibold tabular-nums">{{ money(c.balance) }}</td>
+                <td class="py-2 text-right"><button v-if="isOwner && c.balance > 0" type="button" class="text-blue-600" @click="payout(c)">Versé…</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <details v-if="pay.payments.length">
+          <summary class="cursor-pointer text-sm font-medium">Derniers paiements ({{ pay.payments.length }})</summary>
+          <div class="mt-2 overflow-x-auto">
+            <table class="w-full text-sm">
+              <tbody>
+                <tr v-for="p in pay.payments" :key="p.id" class="border-t">
+                  <td class="py-1.5 whitespace-nowrap text-gray-500">{{ new Date(p.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }}</td>
+                  <td class="py-1.5">{{ p.merchant }} <span class="text-gray-500">· {{ p.company }}</span></td>
+                  <td class="py-1.5">{{ ({ live: 'Live', monthly: 'Forfait', pack: 'Fiches IA' })[p.kind] }}</td>
+                  <td class="py-1.5 text-right tabular-nums">{{ money(p.amount) }}</td>
+                  <td class="py-1.5 text-right"><span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', statusClass(p.status)]" :title="p.error || ''">{{ statusLabel(p.status) }}{{ p.error ? ' ⚠️' : '' }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
       <section v-if="data.overview.by_company.length" class="card overflow-x-auto p-4">
         <h2 class="mb-2 font-semibold">Lives du mois par entreprise</h2>
         <table class="w-full text-sm">
@@ -127,9 +170,26 @@ const kpis = computed(() => {
   ]
 })
 
+// Paiements PayDunya et crédit des agences
+const pay = ref(null)
+const statusLabel = (s) => ({ pending: 'En attente', paid: 'Payé', cancelled: 'Annulé', failed: 'Échoué' })[s] || s
+const statusClass = (s) => ({ paid: 'bg-emerald-100 text-emerald-800', pending: 'bg-amber-100 text-amber-800' })[s] || 'bg-slate-100 text-slate-600'
+
+async function payout(c) {
+  const answer = window.prompt(`Montant versé à ${c.company} (solde : ${money(c.balance)}) :`, String(c.balance))
+  if (!answer) return
+  try {
+    pay.value = (await http.post(`/console/live/credits/${c.company_id}/payout`, { amount: Number(answer.replace(/\D/g, '')) })).data.data
+    toasts.success('Versement enregistré.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
 async function load() {
   try {
     data.value = (await http.get('/console/live')).data.data
+    pay.value = (await http.get('/console/live/payments')).data.data
     Object.assign(form, data.value.settings)
   } catch (e) {
     error.value = apiErrorMessage(e)

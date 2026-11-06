@@ -224,6 +224,8 @@ const routes = [
       { path: 'live', redirect: '/marchand/live/preparer' },
       { path: 'live/preparer', component: () => import('../views/merchant/live/LivePrepare.vue'), meta: { title: 'Préparer mon live', back: true, hideTabs: true, permission: 'orders.create' } },
       { path: 'live/:id(\\d+)', component: () => import('../views/merchant/live/LiveBoard.vue'), meta: { title: 'Mon live', back: true, hideTabs: true, permission: 'orders.create' } },
+      // Retour de la page de paiement (PayDunya)
+      { path: 'live/paiement/:id(\\d+)', component: () => import('../views/merchant/live/LivePayment.vue'), meta: { title: 'Paiement', hideTabs: true, permission: 'orders.create' } },
       { path: 'live/:id(\\d+)/bilan', component: () => import('../views/merchant/live/LiveSummary.vue'), meta: { title: 'Après le live', back: true, permission: 'orders.create' } },
       { path: 'lieu-de-ramassage', component: () => import('../views/merchant/PickupLocation.vue'), meta: { title: 'Lieu de ramassage', back: true } },
       { path: 'paiements', component: () => import('../views/merchant/Payments.vue'), meta: { title: 'Mon argent', permission: 'finance.view' } },

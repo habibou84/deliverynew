@@ -24,7 +24,7 @@ class PlatformInvoice extends Model
         'total', 'amount_paid', 'status', 'issued_at', 'due_at', 'paid_at', 'last_reminder', 'notes', 'cycle',
         'pricing', 'deliveries_amount', 'cap_applied', 'carried_amount', 'carried_into_id',
         'extra_courier_days', 'extra_courier_price', 'extra_couriers_amount', 'premium_cards_count', 'premium_cards_amount',
-        'app_options_amount', 'app_options', 'ai_amount', 'ai_lines', 'live_amount', 'live_lines',
+        'app_options_amount', 'app_options', 'ai_amount', 'ai_lines', 'live_amount', 'live_lines', 'credit_amount',
     ];
 
     // Petite facture reportée sur la suivante (rien à payer à part)
