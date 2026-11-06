@@ -15,6 +15,7 @@ use App\Services\Live\ProductRecognizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -238,6 +239,29 @@ class LiveTest extends TestCase
         // Le mois suivant : de nouveau 500 F
         $this->travel(1)->months();
         $this->assertSame(500, $this->postJson('/api/v1/live/prepare')->json('data.offer.live_price'));
+    }
+
+    public function test_photo_ajoutee_a_un_produit_du_catalogue_sans_photo(): void
+    {
+        Storage::fake('local');
+        $live = $this->prepare();
+        $data = $this->addProduct($live);
+        $productId = $data['items'][0]['product_id'];
+        $this->assertNull($data['items'][0]['photo_url']);
+
+        $url = $this->post("/api/v1/live/products/{$productId}/photo", ['photo' => UploadedFile::fake()->image('robe.jpg', 600, 600)], ['Accept' => 'application/json'])
+            ->assertOk()->json('data.photo_url');
+        $this->assertStringStartsWith("/produits/{$productId}/photo", $url);
+        // La photo reste sur le produit : le live et le catalogue la montrent
+        $prep = $this->postJson('/api/v1/live/prepare')->json('data');
+        $this->assertSame($url, $prep['items'][0]['photo_url']);
+        $this->assertSame($url, collect($prep['catalog'])->firstWhere('id', $productId)['photo_url']);
+
+        // Photo obligatoire, et seulement pour un produit de sa boutique
+        $this->postJson("/api/v1/live/products/{$productId}/photo")->assertJsonValidationErrors('photo');
+        $other = Merchant::factory()->create(['company_id' => $this->company->id]);
+        Sanctum::actingAs($this->userWithRole(Role::MerchantOwner, ['merchant_id' => $other->id]));
+        $this->post("/api/v1/live/products/{$productId}/photo", ['photo' => UploadedFile::fake()->image('x.jpg')], ['Accept' => 'application/json'])->assertStatus(422);
     }
 
     public function test_reglages_console_et_droits(): void
