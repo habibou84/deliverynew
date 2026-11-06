@@ -12,6 +12,7 @@ use App\Models\CourierCount;
 use App\Models\LiveCharge;
 use App\Models\Order;
 use App\Models\Plan;
+use App\Models\PlatformCredit;
 use App\Models\PlatformInvoice;
 use App\Models\PlatformPayment;
 use App\Models\PremiumCard;
@@ -115,8 +116,12 @@ class Billing
         }
         // Trop petite pour une facture à part : reportée sur la suivante
         $isCarried = $plan->min_invoice !== null && $total < $plan->min_invoice;
+        // Crédit de l'agence (sa part des paiements en ligne de ses e-commerçants) : déduit de la facture, le reste
+        // est reporté sur les suivantes
+        $credit = $isCarried ? 0 : min($total, max(0, PlatformCredit::balance($company->id)));
+        $total -= $credit;
 
-        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $apps, $ai, $live, $carried, $carriedAmount, $total, $isCarried, $tz) {
+        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $apps, $ai, $live, $carried, $carriedAmount, $total, $isCarried, $tz, $credit) {
             $today = CarbonImmutable::now($tz);
             $dueDays = (int) config($cycle === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_due_days' : 'platform.billing.due_days');
 
@@ -149,8 +154,11 @@ class Billing
                 'live_amount' => $live['amount'],
                 'live_lines' => $live['lines'] ?: null,
                 'carried_amount' => $carriedAmount,
+                'credit_amount' => $credit,
                 'total' => $total,
-                'status' => $isCarried ? PlatformInvoice::CARRIED : PlatformInvoice::OPEN,
+                // Entièrement couverte par le crédit : rien à payer
+                'status' => $isCarried ? PlatformInvoice::CARRIED : ($total === 0 ? PlatformInvoice::PAID : PlatformInvoice::OPEN),
+                'paid_at' => ! $isCarried && $total === 0 ? $today : null,
                 'issued_at' => $today->toDateString(),
                 'due_at' => $today->addDays($dueDays)->toDateString(),
                 'last_reminder' => 'issued',
@@ -163,6 +171,15 @@ class Billing
             }
             if ($live['ids'] !== []) {
                 LiveCharge::forCompany($company->id)->whereKey($live['ids'])->update(['platform_invoice_id' => $invoice->id]);
+            }
+            if ($credit > 0) {
+                PlatformCredit::create([
+                    'company_id' => $company->id,
+                    'amount' => -$credit,
+                    'reason' => PlatformCredit::APPLIED,
+                    'label' => 'Déduit de la facture '.$invoice->number,
+                    'platform_invoice_id' => $invoice->id,
+                ]);
             }
             if ($carried->isNotEmpty()) {
                 PlatformInvoice::query()->whereKey($carried->modelKeys())->update(['carried_into_id' => $invoice->id]);

@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api\V1;
 use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Models\Live;
+use App\Models\LivePayment;
 use App\Models\Merchant;
 use App\Models\Product;
 use App\Rules\PhoneNumber;
+use App\Services\Live\LivePayments;
 use App\Services\Live\LiveStudio;
 use App\Services\Live\LiveWhatsApp;
 use App\Services\Messaging\MessagingException;
@@ -155,7 +157,11 @@ class LiveController extends Controller
     /** Télécharger la carte et ouvrir mon live : frais du live, puis direct */
     public function start(Request $request, Live $live): JsonResponse
     {
-        $this->own($request, $live);
+        $merchant = $this->own($request, $live);
+        // Live payé à l'unité : paiement en ligne d'abord, le live démarre une fois payé
+        if ($live->status === Live::DRAFT && $this->studio->paysOnline($merchant) && $this->studio->nextPlan($merchant) === 'single') {
+            return $this->checkout($request, $merchant, 'live', $live);
+        }
         $this->studio->start($live, $request->user());
 
         return response()->json(['data' => $this->studio->board($live->refresh())]);
@@ -201,16 +207,50 @@ class LiveController extends Controller
 
     public function subscribe(Request $request): JsonResponse
     {
-        $merchant = $this->studio->subscribeMonthly($this->merchant($request), $request->user());
+        $merchant = $this->merchant($request);
+        if ($this->studio->paysOnline($merchant)) {
+            return $this->checkout($request, $merchant, 'monthly');
+        }
+        $merchant = $this->studio->subscribeMonthly($merchant, $request->user());
 
         return response()->json(['data' => $this->studio->offer($merchant)]);
     }
 
     public function pack(Request $request): JsonResponse
     {
-        $merchant = $this->studio->buyPack($this->merchant($request), $request->user());
+        $merchant = $this->merchant($request);
+        if ($this->studio->paysOnline($merchant)) {
+            return $this->checkout($request, $merchant, 'pack');
+        }
+        $merchant = $this->studio->buyPack($merchant, $request->user());
 
         return response()->json(['data' => $this->studio->offer($merchant)]);
+    }
+
+    /** Retour de la page de paiement : état relu chez PayDunya (et appliqué s'il est payé) */
+    public function payment(Request $request, LivePayment $payment, LivePayments $payments): JsonResponse
+    {
+        $merchant = $this->merchant($request);
+        abort_unless($payment->merchant_id === $merchant->id, 404);
+        $payment = $payments->refresh($payment);
+
+        return response()->json(['data' => [
+            'id' => $payment->id,
+            'kind' => $payment->kind,
+            'amount' => $payment->amount,
+            'status' => $payment->status,
+            'live_id' => $payment->live_id,
+            'live_status' => $payment->live?->status,
+            'error' => $payment->error,
+        ]]);
+    }
+
+    /** Paiement à faire : adresse de la page de PayDunya */
+    private function checkout(Request $request, Merchant $merchant, string $kind, ?Live $live = null): JsonResponse
+    {
+        $result = app(LivePayments::class)->checkout($merchant, $request->user(), $kind, $live, $request->getSchemeAndHttpHost());
+
+        return response()->json(['data' => ['payment_url' => $result['url'], 'payment_id' => $result['payment']->id]]);
     }
 
     /** @return array<string, mixed> */

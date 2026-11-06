@@ -8,6 +8,7 @@ use App\Enums\UserStatus;
 use App\Models\Company;
 use App\Models\CourierCount;
 use App\Models\Plan;
+use App\Models\PlatformCredit;
 use App\Models\PlatformInvoice;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -124,6 +125,12 @@ class Subscription
                 'cap_amount_weekly' => $plan->cap_amount !== null ? (int) round($plan->cap_amount * 12 / 52) : null,
                 'min_invoice' => $plan->min_invoice,
             ] : null,
+            // Crédit chez Jibiat : part des lives payés en ligne par ses e-commerçants, déduite des prochaines factures
+            'live_credit' => [
+                'balance' => PlatformCredit::balance($company->id),
+                'lines' => PlatformCredit::query()->where('company_id', $company->id)->latest('id')->limit(10)
+                    ->get(['amount', 'label', 'created_at'])->map(fn (PlatformCredit $c) => ['amount' => $c->amount, 'label' => $c->label, 'date' => $c->created_at->toDateString()])->all(),
+            ],
             'trial_ends_at' => $company->trial_ends_at?->toDateString(),
             'on_trial' => $company->onTrial(),
             'month' => CarbonImmutable::now($company->timezone)->format('Y-m'),
