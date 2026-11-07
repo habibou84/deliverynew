@@ -5,8 +5,6 @@
     base="/marchand"
     :color="spaceColor('marchand')"
     :pages="pages"
-    :new-menu="newMenu"
-    :can-create="auth.can('orders.create')"
     :action-count="toDecide"
   />
   <MerchantShell v-else base="/marchand" :color="spaceColor('marchand')" :app-name="shopName" :initials="initials" :tabs="tabs" :action-count="toDecide" />
@@ -48,7 +46,7 @@ const tabs = computed(() => [
     menu: [
       { to: '/marchand/courses/nouvelle', color: 'colis', label: 'Nouvelle course', text: 'Un client, une adresse, un montant' },
       { to: '/marchand/courses/nouvelle?coller=1', color: 'coller', label: 'Coller un message WhatsApp', text: 'Jibiat remplit la course pour vous' },
-      { to: '/marchand/courses/plusieurs', color: 'colis', label: 'Plusieurs courses', text: 'Plusieurs clients d\'un coup, ou une liste collée' },
+      { to: '/marchand/courses/plusieurs', color: 'colis2', label: 'Plusieurs courses', text: 'Plusieurs clients d\'un coup, ou une liste collée' },
       { to: '/marchand/courses/import', color: 'excel', label: 'Importer un fichier Excel', text: 'Beaucoup de courses d\'un coup' },
     ],
   }] : []),
@@ -58,12 +56,6 @@ const tabs = computed(() => [
 
 // ── Téléphone : pages à glisser, dans cet ordre ──
 const phone = isPhone
-const newMenu = [
-  { to: '/marchand/courses/nouvelle', color: 'colis', label: 'Nouvelle course', text: 'Un client, une adresse, un montant' },
-  { to: '/marchand/courses/nouvelle?coller=1', color: 'coller', label: 'Coller un message WhatsApp', text: 'Jibiat remplit la course pour vous' },
-  { to: '/marchand/courses/plusieurs', color: 'colis', label: 'Plusieurs courses', text: 'Plusieurs clients d\'un coup, ou une liste collée' },
-  { to: '/marchand/courses/import', color: 'excel', label: 'Importer un fichier Excel', text: 'Beaucoup de courses d\'un coup' },
-]
 const liveOn = ref(false)
 // Onglet Live : la préparation (ou le bandeau du live en cours), sans rien de fixé en bas de l'écran
 const LiveTab = { name: 'LiveTab', render: () => h(LivePrepare, { embedded: true }) }

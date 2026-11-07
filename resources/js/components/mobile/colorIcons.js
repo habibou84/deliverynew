@@ -24,6 +24,12 @@ export const ICONS = {
     body: ['M24 5.5 40.5 14v20L24 42.5 7.5 34V14z'],
     line: ['M7.5 14 24 22.5 40.5 14', 'M24 22.5v20'],
     accentP: ['M15.5 9.6 32 18.2v7l-4-2v-5.1L11.6 9.6l3.9-2z'] },
+  // Plusieurs courses : deux colis l'un derrière l'autre
+  colis2: { hue: 'amber', accent: 'amber',
+    body: ['M30 4 41.5 9.8v13.4L30 29 18.5 23.2V9.8z'],
+    line: ['M18.5 9.8 30 15.6 41.5 9.8', 'M30 15.6v6'],
+    accentP: ['M19 17.5 31 23.5v14L19 43.5 7 37.5v-14z'],
+    accentLine: ['M7 23.5 19 29.5 31 23.5', 'M19 29.5v14'] },
   moto: { lineOut: true, hue: 'blue', accent: 'amber',
     body: ['M12.5 27.5h13l5-10h6.5l4 9.5-3 2.5H27l-2.5 4H14z'],
     line: [c(13, 34, 5.5), c(37, 34, 5.5), 'M30.5 17.5 28.5 11h5'],
