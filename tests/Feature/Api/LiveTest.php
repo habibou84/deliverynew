@@ -204,42 +204,60 @@ class LiveTest extends TestCase
         $live2 = $this->prepare();
         $this->addProduct($live2, 'Sac');
         $this->postJson("/api/v1/live/{$live2}/start")->assertJsonPath('data.live.plan', 'monthly');
-        $this->assertSame(-5500, (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount'));
+        $this->assertSame(-7500, (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount'));
 
-        // Part de Jibiat sur la facture de l'entreprise
+        // Part de Jibiat sur la facture de l'entreprise (forfait du mois à 7 000 F)
         $billable = $studio->billable($this->company, CarbonImmutable::now());
-        $this->assertSame(400 + 4000, $billable['amount']);
+        $this->assertSame(400 + 5600, $billable['amount']);
 
-        // L'agence offre le live : rien pour l'e-commerçante, tout pour Jibiat
+        // L'agence offre le live (un autre jour) : rien pour l'e-commerçante, un jour de live pour Jibiat
         $this->company->forceFill(['live_offered' => true])->save();
         $this->merchant->forceFill(['live_plan_until' => null])->save();
         $this->postJson("/api/v1/live/{$live2}/end");
+        $this->travel(1)->days();
         $live3 = $this->prepare();
         $this->addProduct($live3, 'Parfum');
         $this->postJson("/api/v1/live/{$live3}/start")->assertJsonPath('data.live.plan', 'offered');
-        $this->assertSame(-5500, (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount'));
+        $this->assertSame(-7500, (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount'));
         $this->assertSame(500, LiveCharge::query()->latest('id')->first()->platform_amount);
+        // Deuxième live offert le même jour : la journée est déjà comptée
+        $count = LiveCharge::query()->count();
+        $this->postJson("/api/v1/live/{$live3}/end");
+        $live4 = $this->prepare();
+        $this->addProduct($live4, 'Chaussures');
+        $this->postJson("/api/v1/live/{$live4}/start")->assertJsonPath('data.live.plan', 'offered');
+        $this->assertSame($count, LiveCharge::query()->count());
     }
 
-    public function test_plafond_du_mois_puis_lives_gratuits(): void
+    public function test_un_jour_de_live_paye_couvre_les_lives_de_la_journee(): void
     {
-        $this->travelTo(now()->setDay(15)->setTime(12, 0));
-        app(LiveStudio::class)->updateSettings(['trial_lives' => 0, 'price_live' => 500, 'monthly_cap' => 1200]);
+        $this->travelTo(now()->setTime(9, 0));
+        app(LiveStudio::class)->updateSettings(['trial_lives' => 0, 'price_live' => 500]);
         $fee = fn () => (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount');
 
-        // 500 F, 500 F, puis seulement 200 F pour atteindre le plafond, puis gratuit jusqu'à la fin du mois
-        foreach ([[500, 'single', -500], [500, 'single', -1000], [200, 'single', -1200], [0, 'capped', -1200]] as $n => [$price, $plan, $total]) {
+        // Premier live du jour : 500 F ; les suivants du même jour sont compris
+        foreach ([[500, 'single', -500], [0, 'day', -500], [0, 'day', -500]] as $n => [$price, $plan, $total]) {
             $live = $this->prepare();
-            $this->assertSame($price, $this->postJson('/api/v1/live/prepare')->json('data.offer.live_price'));
+            $offer = $this->postJson('/api/v1/live/prepare')->json('data.offer');
+            $this->assertSame([$price, $n > 0], [$offer['live_price'], $offer['day_paid']]);
             $this->addProduct($live, "Produit {$n}");
             $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.plan', $plan);
             $this->assertSame($total, $fee());
             $this->postJson("/api/v1/live/{$live}/end");
         }
 
-        // Le mois suivant : de nouveau 500 F
-        $this->travel(1)->months();
+        // Le lendemain : de nouveau 500 F, plus de plafond du mois
+        $this->travel(1)->days();
         $this->assertSame(500, $this->postJson('/api/v1/live/prepare')->json('data.offer.live_price'));
+        $this->assertArrayNotHasKey('cap', $this->postJson('/api/v1/live/prepare')->json('data.offer.prices'));
+    }
+
+    public function test_dix_lives_offerts_et_forfait_a_7000_par_defaut(): void
+    {
+        $offer = $this->postJson('/api/v1/live/prepare')->json('data.offer');
+        $this->assertSame(10, $offer['trial_left']);
+        $this->assertSame(7000, $offer['prices']['month']);
+        $this->assertSame(500, $offer['prices']['live']);
     }
 
     public function test_photo_ajoutee_a_un_produit_du_catalogue_sans_photo(): void
