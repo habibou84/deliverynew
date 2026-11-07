@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Notifications\CourierAvailableAlert;
 use App\Services\Couriers\CourierAvailability;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
@@ -27,6 +28,8 @@ class CourierAvailabilityTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Heure figée en milieu de journée : « il y a une heure » reste aujourd'hui même juste après minuit.
+        $this->travelTo(Carbon::today()->setTime(10, 0));
         $this->buildWorld();
         $this->courierA->update(['is_available' => true]);
         $this->courierB->update(['is_available' => true]);
