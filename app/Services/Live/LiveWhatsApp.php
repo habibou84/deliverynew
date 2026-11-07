@@ -297,18 +297,38 @@ class LiveWhatsApp
             return;
         }
 
-        // Nom et quartier attendus
-        $zone = $this->zoneIn($merchant, $text);
-        if ($zone === null) {
+        // Quartier proposé : le client répond par son chiffre (ou réécrit son adresse)
+        if ($chat->step === LiveChat::ZONE && preg_match('/^\s*([1-9])\s*$/', $text, $m)) {
+            $zoneId = $chat->zone_choices[(int) $m[1] - 1] ?? null;
+            if ($zoneId !== null && $this->companyZones($merchant)->contains('id', $zoneId)) {
+                $chat->forceFill(['zone_id' => $zoneId, 'zone_choices' => null, 'step' => LiveChat::CONFIRM, 'misses' => 0])->save();
+                $this->recap($merchant, $chat);
+
+                return;
+            }
+        }
+
+        // Nom et quartier attendus (même mal écrits : « yopougn sipores »)
+        $found = $this->zonesIn($merchant, $text);
+        if ($found->isEmpty()) {
             $this->reply($merchant, $phone, "Je n'ai pas reconnu le quartier 🤔\n✍️ Écrivez *votre nom, votre commune et votre quartier*\n_Exemple : Awa, Cocody Angré_");
             // Quartier pas reconnu : visible dans l'onglet « Messages », la vendeuse peut le choisir elle-même
             $chat->forceFill(['misses' => min(255, $chat->misses + 1)])->save();
 
             return;
         }
+        $name = $this->nameIn($text, $found) ?? $chat->customer_name ?? $chat->push_name ?? 'Client';
+        if ($found->count() > 1) {
+            $chat->forceFill([
+                'customer_name' => $name, 'zone_choices' => $found->pluck('id')->all(), 'step' => LiveChat::ZONE, 'misses' => 0,
+            ])->save();
+            $list = $found->values()->map(fn (Zone $z, int $i) => '*'.($i + 1).'* '.$z->fullName())->implode("\n");
+            $this->reply($merchant, $phone, "📍 *QUEL EST VOTRE QUARTIER ?*\n\n{$list}\n\n👉 Répondez avec le chiffre, ou écrivez à nouveau votre quartier.");
+
+            return;
+        }
         $chat->forceFill([
-            'customer_name' => $this->nameIn($text, $zone) ?? $chat->customer_name ?? $chat->push_name ?? 'Client',
-            'zone_id' => $zone->id, 'step' => LiveChat::CONFIRM, 'misses' => 0,
+            'customer_name' => $name, 'zone_id' => $found->first()->id, 'zone_choices' => null, 'step' => LiveChat::CONFIRM, 'misses' => 0,
         ])->save();
         $this->recap($merchant, $chat);
     }
@@ -576,19 +596,23 @@ class LiveWhatsApp
         })->filter()->implode(', ');
     }
 
-    private function zoneIn(Merchant $merchant, string $text): ?Zone
+    /** @return Collection<int, Zone> */
+    private function zonesIn(Merchant $merchant, string $text): Collection
     {
-        $zones = $this->companyZones($merchant);
-
-        return $this->zones->inText($text, $zones)->first() ?? $this->zones->answer($text, $zones)->first();
+        return $this->zones->guess($text, $this->companyZones($merchant));
     }
 
-    /** Nom du client : le message sans le quartier (« Awa, Yopougon Niangon » → « Awa ») */
-    private function nameIn(string $text, Zone $zone): ?string
+    /**
+     * Nom du client : le message sans le quartier (« Awa, Yopougon Niangon » → « Awa »), même mal écrit.
+     *
+     * @param  Collection<int, Zone>  $zones
+     */
+    private function nameIn(string $text, Collection $zones): ?string
     {
-        $words = collect([$zone->name, $zone->parent?->name])->filter()->flatMap(fn ($n) => explode(' ', ZoneMatcher::normalize($n)));
+        $words = $zones->flatMap(fn (Zone $z) => [$z->name, $z->parent?->name])->filter()
+            ->flatMap(fn ($n) => explode(' ', ZoneMatcher::normalize($n)))->unique();
         $kept = collect(preg_split('/[\s,;.\-:\/]+/u', $text) ?: [])
-            ->reject(fn ($w) => $w === '' || $words->contains(ZoneMatcher::normalize($w)))
+            ->reject(fn ($w) => $w === '' || $words->contains(fn ($z) => ZoneMatcher::close($w, $z)))
             ->reject(fn ($w) => in_array(ZoneMatcher::normalize($w), ['a', 'au', 'je', 'suis', 'moi', 'c', 'est', 'quartier', 'commune', 'nom', 'mon', 'livraison', 'livrer'], true));
         $name = trim($kept->take(4)->implode(' '));
 

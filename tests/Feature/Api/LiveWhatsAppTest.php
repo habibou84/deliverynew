@@ -102,6 +102,47 @@ class LiveWhatsAppTest extends TestCase
         Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => $job->session === "merchant-{$this->merchant->id}" && $job->to === '+2250707000001');
     }
 
+    public function test_misspelled_neighbourhood_is_understood_or_offered_as_a_choice(): void
+    {
+        $siporex = $this->zone('Siporex', $this->yopougon);
+        $koumassi = $this->zone('Koumassi');
+        $sicogiYop = $this->zone('Sicogi', $this->yopougon);
+        $sicogiKoum = $this->zone('Sicogi', $koumassi);
+        $this->zone('Riviera 2', $this->cocody);
+
+        // Commune et quartier mal écrits : compris, le nom du client reste propre
+        $this->say('a1');
+        $this->say('Awa yopougn sipores');
+        $this->assertStringContainsString('*Siporex* · Awa', $this->replies()[1]);
+        $this->assertSame($siporex->id, LiveChat::first()->zone_id);
+
+        // Chiffre différent : ce n'est pas le même quartier
+        $this->say('3');
+        $this->say('Awa riviera 4');
+        $this->assertStringContainsString('pas reconnu le quartier', $this->replies()[3]);
+
+        // Le même quartier dans deux communes : le client choisit avec un chiffre
+        $this->say('Awa sicgi');
+        $choice = $this->replies()[4];
+        $this->assertStringContainsString('QUEL EST VOTRE QUARTIER', $choice);
+        $this->assertStringContainsString('Yopougon › Sicogi', $choice);
+        $this->assertStringContainsString('Koumassi › Sicogi', $choice);
+        $this->assertSame(LiveChat::ZONE, LiveChat::first()->step);
+        $pick = str_contains(explode("\n", explode('*2* ', $choice)[1])[0], 'Koumassi') ? 2 : 1;
+        $this->say((string) $pick);
+        $this->assertSame($sicogiKoum->id, LiveChat::first()->zone_id);
+        $this->assertStringContainsString('*Sicogi* · Awa', $this->replies()[5]);
+
+        // Avec la commune, plus besoin de choisir
+        $this->say('3');
+        $this->say('Awa Yopougon sicogie');
+        $this->assertSame($sicogiYop->id, LiveChat::first()->zone_id);
+        $this->assertSame(LiveChat::CONFIRM, LiveChat::first()->step);
+
+        $this->say('1');
+        $this->assertSame($sicogiYop->id, Order::query()->latest('id')->first()->delivery_zone_id);
+    }
+
     public function test_adding_an_article_makes_one_course_and_cancelling_needs_two_answers(): void
     {
         $this->postJson("/api/v1/live/{$this->live}/products", ['name' => 'Sac cuir', 'price' => 15000, 'quantity' => 2])->assertCreated();
