@@ -139,4 +139,36 @@ class MerchantLocationTest extends TestCase
         $this->postJson('/api/v1/geo/link', ['link' => 'https://exemple.com/redirige'])->assertJsonValidationErrors('link');
         Http::assertSentCount(1);
     }
+
+    public function test_place_name_of_a_position_is_shown_and_kept(): void
+    {
+        $down = false;
+        Http::fake(['nominatim.openstreetmap.org/*' => function () use (&$down) {
+            return $down ? Http::response('', 503) : Http::response(['address' => ['road' => 'Rue des Jardins', 'neighbourhood' => 'Riviera 2', 'city_district' => 'Cocody', 'city' => 'Abidjan']]);
+        }]);
+
+        $this->as($this->merchantUser)->getJson('/api/v1/geo/place?lat=5.3631&lng=-3.9735')
+            ->assertOk()->assertJsonPath('data', ['name' => 'Riviera 2, Cocody', 'street' => 'Rue des Jardins']);
+        // Même endroit (à quelques mètres) : pas de nouvelle demande
+        $this->getJson('/api/v1/geo/place?lat=5.36312&lng=-3.97351')->assertOk()->assertJsonPath('data.name', 'Riviera 2, Cocody');
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($r) => str_contains($r->header('User-Agent')[0] ?? '', 'Jibiat'));
+
+        // Service muet : pas de nom, pas d'erreur
+        $down = true;
+        $this->getJson('/api/v1/geo/place?lat=5.30&lng=-4.00')->assertOk()->assertJsonPath('data', null);
+        $this->getJson('/api/v1/geo/place?lat=95&lng=-4')->assertJsonValidationErrors('lat');
+    }
+
+    public function test_changing_only_the_address_keeps_the_position_and_its_origin(): void
+    {
+        $this->merchant->forceFill(['pickup_lat' => 5.3631, 'pickup_lng' => -3.9735, 'pickup_location_source' => 'courier'])->save();
+
+        $this->as($this->merchantUser)->putJson('/api/v1/merchant/pickup-location', ['lat' => 5.3631, 'lng' => -3.9735, 'pickup_address' => 'Riviera 2', 'pickup_landmark' => 'Portail bleu'])
+            ->assertOk()->assertJsonPath('data.pickup_address', 'Riviera 2')->assertJsonPath('data.pickup_location_source', 'courier');
+
+        // Autre position : celle de l'e-commerçant
+        $this->putJson('/api/v1/merchant/pickup-location', ['lat' => 5.3640, 'lng' => -3.9740, 'accuracy' => 15])
+            ->assertOk()->assertJsonPath('data.pickup_location_source', 'merchant');
+    }
 }

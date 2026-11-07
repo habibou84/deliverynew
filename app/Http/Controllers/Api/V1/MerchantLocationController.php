@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Merchant;
 use App\Services\Merchants\GeoLink;
 use App\Services\Merchants\MerchantLocation;
+use App\Services\Merchants\PlaceName;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -37,7 +38,13 @@ class MerchantLocationController extends Controller
         ], [], self::attributes());
 
         $merchant->fill(collect($data)->only(['pickup_address', 'pickup_landmark'])->all())->save();
-        $this->locations->set($merchant, $data['lat'], $data['lng'], Merchant::LOCATION_MERCHANT, $data['accuracy'] ?? null);
+        // Seulement l'adresse ou le repère changés (même position) : la position et son origine restent telles quelles
+        $samePlace = $merchant->pickup_lat !== null
+            && abs((float) $merchant->pickup_lat - (float) $data['lat']) < 1e-7
+            && abs((float) $merchant->pickup_lng - (float) $data['lng']) < 1e-7;
+        if (! $samePlace) {
+            $this->locations->set($merchant, $data['lat'], $data['lng'], Merchant::LOCATION_MERCHANT, $data['accuracy'] ?? null);
+        }
 
         return response()->json(['data' => self::data($merchant)]);
     }
@@ -75,6 +82,19 @@ class MerchantLocationController extends Controller
         }
 
         return response()->json(['data' => $found]);
+    }
+
+    /**
+     * Nom du lieu d'une position (quartier, commune, rue) : affiché dès que le repère est posé.
+     */
+    public function placeName(Request $request, PlaceName $places): JsonResponse
+    {
+        $data = $request->validate([
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+        ], [], self::attributes());
+
+        return response()->json(['data' => $places->at((float) $data['lat'], (float) $data['lng'])]);
     }
 
     private function ownMerchant(Request $request): Merchant
