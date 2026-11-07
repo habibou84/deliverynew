@@ -19,7 +19,7 @@
     </section>
 
     <!-- Actions rapides : une seule icône (le colis) pour les courses -->
-    <section v-if="auth.can('orders.create')" class="grid grid-cols-4 gap-2">
+    <section v-if="auth.can('orders.create')" class="grid grid-cols-3 gap-2">
       <RouterLink v-for="a in quickActions" :key="a.label" :to="a.to" class="tap flex flex-col items-center gap-1.5 rounded-[20px] bg-white py-3 px-1 text-center shadow-soft active:scale-95 transition">
         <ColorIcon :name="a.icon" :size="46" />
         <span class="text-[12px] font-semibold leading-tight text-slate-700">{{ a.label }}</span>
@@ -166,12 +166,7 @@
       <button v-if="hasMore" type="button" class="m-btn-secondary" @click="loadOrders(page + 1)">Voir plus</button>
 
       <div v-if="loaded && !orders.length" class="rounded-[24px] bg-white shadow-soft">
-        <EmptyState art="livraison" title="Aucune course aujourd'hui" text="Un livreur passe chercher le colis chez vous et vous rapporte l'argent.">
-          <template v-if="auth.can('orders.create')">
-            <RouterLink to="/marchand/courses/nouvelle" class="m-btn-primary">Créer une course</RouterLink>
-            <RouterLink to="/marchand/courses/nouvelle?coller=1" class="mt-3 block text-[13.5px] font-bold text-[var(--app-color)]">ou collez un message WhatsApp</RouterLink>
-          </template>
-        </EmptyState>
+        <EmptyState art="livraison" title="Aucune course aujourd'hui" text="Un livreur passe chercher le colis chez vous et vous rapporte l'argent." />
       </div>
 
       <RouterLink v-if="laterCount" to="/marchand/courses?periode=later" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft text-sm active:scale-[.99] transition">
@@ -289,7 +284,6 @@ const visible = computed(() => {
 const BEFORE_PICKUP = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress']
 const toLabel = computed(() => orders.value.filter((o) => BEFORE_PICKUP.includes(o.status)).map((o) => o.id).slice(0, 100))
 const quickActions = computed(() => [
-  { icon: 'colis', label: 'Nouvelle course', to: '/marchand/courses/nouvelle' },
   { icon: 'colis', label: 'Plusieurs courses', to: '/marchand/courses/plusieurs' },
   { icon: 'coller', label: 'Coller WhatsApp', to: '/marchand/courses/nouvelle?coller=1' },
   toLabel.value.length

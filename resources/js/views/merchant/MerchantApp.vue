@@ -68,7 +68,7 @@ const liveOn = ref(false)
 // Onglet Live : la préparation (ou le bandeau du live en cours), sans rien de fixé en bas de l'écran
 const LiveTab = { name: 'LiveTab', render: () => h(LivePrepare, { embedded: true }) }
 const pages = computed(() => [
-  { key: 'orders', label: 'Commandes', path: '/marchand', component: Home, emoji: '📦', badge: () => (toDecide.value ? { n: toDecide.value > 9 ? '9+' : toDecide.value, level: 'red' } : null) },
+  { key: 'orders', label: 'Courses', path: '/marchand', component: Home, emoji: '📦', badge: () => (toDecide.value ? { n: toDecide.value > 9 ? '9+' : toDecide.value, level: 'red' } : null) },
   auth.can('finance.view') && { key: 'money', label: 'Argent', path: '/marchand/paiements', component: Payments, emoji: '💰' },
   auth.can('orders.create') && { key: 'live', label: 'Live', path: '/marchand/live', component: LiveTab, emoji: '🔴', badge: () => (liveOn.value ? { n: '●', level: 'red' } : null) },
   { key: 'shop', label: 'Boutique', path: '/marchand/ma-boutique', component: BoutiqueHub, emoji: '🏪' },
