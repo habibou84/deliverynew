@@ -40,6 +40,8 @@ class StockTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Heure figée en milieu de journée : un test lancé juste avant minuit ne change pas de jour en route.
+        $this->travelTo(Carbon::today()->setTime(10, 0));
         $this->buildWorld();
         $this->hubAgent = $this->userWithRole(Role::HubAgent);
 

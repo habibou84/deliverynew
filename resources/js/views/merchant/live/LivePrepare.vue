@@ -4,10 +4,19 @@
     <p v-if="!d && !error" class="m-card p-6 text-center text-slate-500">Chargement…</p>
 
     <!-- Comment ça marche : en entier aux premières visites, ou à la demande -->
-    <LiveIntro v-if="d && introOpen" :offer="d.offer" />
+    <LiveIntro v-if="d && introOpen && !running" :offer="d.offer" />
 
     <!-- ══ Une seule page : les étapes, cochées une à une (chacune s'ouvre en grand) ══ -->
-    <template v-if="d && !introOpen">
+    <!-- Live en cours : seulement le bandeau, pour y retourner -->
+    <section v-if="d && running" class="rounded-[24px] bg-gradient-to-br from-rose-800 via-rose-600 to-rose-400 p-5 text-white">
+      <span class="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[12.5px] font-extrabold"><i class="block h-2 w-2 animate-pulse rounded-full bg-white" />EN DIRECT</span>
+      <h2 class="mt-2 text-[20px] font-extrabold leading-tight">{{ d.live.name }}</h2>
+      <p class="mt-1 text-[30px] font-black leading-tight tabular-nums">{{ money(d.totals?.amount || 0) }}</p>
+      <p class="text-[14px] font-bold opacity-90">{{ d.totals?.orders || 0 }} commande{{ (d.totals?.orders || 0) > 1 ? 's' : '' }}<template v-if="d.totals?.waiting"> · {{ d.totals.waiting }} en attente</template></p>
+      <RouterLink :to="`/marchand/live/${d.live.id}`" class="mt-4 block rounded-2xl bg-white py-3 text-center text-[16px] font-extrabold text-rose-700">Suivre le live en cours</RouterLink>
+    </section>
+
+    <template v-else-if="d && !introOpen">
       <section class="rounded-[22px] bg-gradient-to-br from-[#1e3478] to-[#3c5bc4] px-4 py-5 text-center text-white">
         <h2 class="text-[25px] font-black leading-tight">Votre live en {{ stepList.length }} étapes</h2>
         <p class="mt-1 text-[15.5px] font-bold text-blue-50">Les clientes envoient le code, la commande part à votre agence.</p>
@@ -28,11 +37,11 @@
         <button type="button" class="block w-full rounded-2xl bg-rose-600 py-4 text-[18px] font-black text-white shadow-soft active:scale-[.99] disabled:opacity-60" :disabled="saving" @click="start">{{ mustPay ? `● Payer ${money(d.offer.live_price)} et commencer` : '● Je commence mon live' }}</button>
         <p class="text-center text-[14px] text-slate-500">{{ priceLine }}</p>
       </template>
-      <RouterLink v-if="isPhone" to="/marchand/live" class="block pt-1 text-center text-[14px] font-bold text-[var(--app-color)]">Voir mes lives passés ▸</RouterLink>
+      <RouterLink to="/marchand/live/passes" class="block pt-1 text-center text-[14px] font-bold text-[var(--app-color)]">Voir mes lives passés ▸</RouterLink>
     </template>
 
     <!-- Bouton du bas de « Comment ça marche » -->
-    <div v-if="d && introOpen" class="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]">
+    <div v-if="d && introOpen && !running" :class="embedded ? 'pt-1' : 'fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]'">
       <button type="button" class="m-btn-primary w-full" @click="closeIntro">Préparer mon live</button>
       <p class="mt-1.5 text-center text-[12px] text-slate-400">Propulsé par <b>Jibiat</b></p>
     </div>
@@ -51,7 +60,10 @@
           <p class="text-[16px] text-slate-700">Les clientes envoient le code du produit sur ce WhatsApp : la réponse part toute seule et votre agence reçoit la commande.</p>
         <p class="rounded-2xl bg-emerald-600 px-4 py-4 text-center text-[22px] font-extrabold leading-tight text-white">Les messages des commandes sont gratuits.</p>
 
-        <div v-if="!d.whatsapp?.auto" class="m-card space-y-3 p-4">
+        <!-- Connexion pas encore ouverte sur cette installation : le lien du live en attendant -->
+        <p v-if="!waConnectable" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La connexion de WhatsApp n'est pas encore ouverte par votre agence. En attendant, vos clientes commandent par <b>le lien du live</b> : touchez « Continuer sans WhatsApp ».</p>
+
+        <div v-if="!d.whatsapp?.auto && waConnectable" class="m-card space-y-3 p-4">
           <p class="text-[17px] font-extrabold">Ce qu'il vous faut</p>
           <div class="flex gap-3">
             <span class="text-[26px]" aria-hidden="true">📱</span>
@@ -303,6 +315,8 @@ import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
  * photo + IA), étiquette à télécharger, puis « Je commence mon live ». Chaque étape s'ouvre en grand et se coche.
  */
 const LABEL_VIDEO = '/videos/live/live-etiquette-v'
+// Dans l'onglet Live du téléphone (page à glisser) : rien de fixé en bas de l'écran
+defineProps({ embedded: Boolean })
 const router = useRouter()
 const toasts = useToastStore()
 const d = ref(null)
@@ -335,7 +349,9 @@ const store = {
   },
 }
 // WhatsApp proposé (connexion officielle ou option de la console), relié ou non
-const waOffered = computed(() => !!d.value && !!(d.value.whatsapp?.auto || d.value.whatsapp?.official?.available || d.value.whatsapp?.available))
+// Étape WhatsApp toujours présente (comme Jibiat Marchand) : connexion, ou « Continuer sans WhatsApp » avec le lien du live
+const waOffered = computed(() => !!d.value)
+const waConnectable = computed(() => !!(d.value?.whatsapp?.auto || d.value?.whatsapp?.official?.available || d.value?.whatsapp?.available))
 // « Continuer sans WhatsApp » : retenu pour ce live, sur ce téléphone
 const skipped = ref(false)
 const skipKey = () => `live-sans-whatsapp-${d.value?.live?.id}`
@@ -364,9 +380,11 @@ const stepList = computed(() => {
   const list = []
   if (waOffered.value) {
     list.push({
-      key: 'whatsapp', panel: 'whatsapp', again: 'Revoir',
+      key: 'whatsapp', panel: 'whatsapp', again: d.value.whatsapp?.auto ? 'Changer' : 'Revoir',
       title: d.value.whatsapp?.auto ? 'WhatsApp connecté' : skipped.value ? 'Sans WhatsApp : le lien du live' : 'Connectez votre WhatsApp',
-      text: d.value.whatsapp?.auto ? 'Les commandes arrivent toutes seules' : skipped.value ? 'Les clientes commandent par le lien' : 'Pour recevoir les commandes',
+      text: d.value.whatsapp?.auto
+        ? `📱 ${waPhone.value ? localPhone(waPhone.value) : 'Numéro relié'} · réponses gratuites`
+        : skipped.value ? 'Les clientes commandent par le lien' : 'Pour recevoir les commandes',
     })
   }
   list.push({
@@ -463,11 +481,14 @@ function fill(data) {
   d.value = data
   liveName.value = data.live.name
   selected.value = data.items.map((i) => row({ product_id: i.product_id, name: i.name, variant: i.variant || '', price: i.price, quantity: i.quantity, code: i.code, photo_url: i.photo_url }))
-  if (data.live.status === 'live') router.replace(`/marchand/live/${data.live.id}`)
+  // Live en cours : bandeau seulement (plus d'ouverture automatique de l'écran du live)
 }
 
 // « Comment ça marche » en entier aux premières visites (compté sur le serveur, par compte)
 const introOpen = ref(false)
+const running = computed(() => d.value?.live?.status === 'live')
+// Numéro qui reçoit les commandes (connexion officielle, sinon code d'association)
+const waPhone = computed(() => d.value?.whatsapp?.official?.phone || d.value?.whatsapp?.phone || null)
 let introChecked = false
 async function closeIntro() {
   introOpen.value = false

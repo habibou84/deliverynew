@@ -1,24 +1,10 @@
 <template>
-  <!-- Onglet Live (téléphone) : le live en cours d'abord, sinon Préparer ; puis les lives passés et leurs chiffres -->
+  <!-- Mes lives passés : leurs chiffres et la liste (« Refaire » reprend les produits dans le live en préparation) -->
   <div class="space-y-3.5">
     <p v-if="error" class="rounded-2xl bg-red-50 px-4 py-3 text-[15px] text-red-700" role="alert">{{ error }}</p>
     <p v-else-if="!d" class="m-card p-6 text-center text-slate-500">Chargement…</p>
 
     <template v-else>
-      <!-- Live en cours -->
-      <RouterLink v-if="d.current?.status === 'live'" :to="`/marchand/live/${d.current.id}`" class="tap block rounded-[22px] bg-gradient-to-br from-rose-700 to-rose-500 p-4 text-white shadow-soft">
-        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-[12px] font-extrabold"><i class="block h-2 w-2 animate-pulse rounded-full bg-white" />EN DIRECT</span>
-        <p class="mt-1.5 text-[20px] font-extrabold leading-tight">{{ d.current.name }}</p>
-        <p class="mt-2 rounded-xl bg-white py-2.5 text-center text-[16px] font-bold text-rose-700">Ouvrir l'écran du live</p>
-      </RouterLink>
-
-      <!-- Pas de live en cours : préparer (ou reprendre la préparation) -->
-      <RouterLink v-else to="/marchand/live/preparer" class="tap block rounded-[22px] bg-brand-grad p-4 text-white shadow-soft">
-        <p class="text-[13px] font-bold opacity-80">🔴 LIVE</p>
-        <p class="text-[20px] font-extrabold leading-tight">{{ d.current ? 'Reprendre la préparation' : 'Préparer mon live' }}</p>
-        <p class="mt-1 text-[14px] opacity-90">Choisissez vos produits, téléchargez l'étiquette, et les commandes arrivent toutes seules.</p>
-      </RouterLink>
-
       <!-- Chiffres des lives passés -->
       <div v-if="d.insights?.lives" class="grid grid-cols-2 gap-2.5">
         <div class="m-card p-3">
@@ -52,7 +38,6 @@
       </div>
       <p v-else class="m-card p-5 text-center text-[15px] text-slate-500">Vos lives passés et leurs chiffres apparaîtront ici.</p>
 
-      <LiveIntro :offer="d.offer" folded />
     </template>
   </div>
 </template>
@@ -61,7 +46,6 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
-import LiveIntro from './LiveIntro.vue'
 import { useToastStore } from '../../../stores/toasts'
 
 const d = ref(null)
