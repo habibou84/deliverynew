@@ -30,9 +30,6 @@ return [
         // et de sa configuration « Facebook Login for Business ». Sans eux, saisie manuelle seulement.
         'app_id' => env('WHATSAPP_APP_ID'),
         'signup_config_id' => env('WHATSAPP_SIGNUP_CONFIG_ID'),
-        // Sur téléphone, Facebook en page entière plutôt qu'en petite fenêtre. À activer une fois l'adresse
-        // {plateforme}/connecter-whatsapp ajoutée dans Meta (Facebook Login for Business › Valid OAuth Redirect URIs).
-        'signup_full_page' => env('WHATSAPP_SIGNUP_FULL_PAGE', false),
         // Utilisateur système de Jibiat (jeton permanent) : ajouté au compte WhatsApp de chaque
         // entreprise connectée par le bouton, pour ne pas dépendre de son jeton de 60 jours.
         'system_user_id' => env('WHATSAPP_SYSTEM_USER_ID'),

@@ -130,7 +130,7 @@ async function start() {
   error.value = ''
   const es = session.value.embedded_signup
   // Téléphone : Facebook en page entière, retour ici avec le code
-  if (es.full_page && prefersFullPage()) {
+  if (prefersFullPage()) {
     working.value = true
     window.location.assign(facebookDialogUrl(es, es.return_url, ticket))
     return
