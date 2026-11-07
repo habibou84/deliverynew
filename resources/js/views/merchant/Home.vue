@@ -1,18 +1,28 @@
 <template>
   <div class="space-y-3.5">
-    <!-- Ma journée : une barre de couleurs montre où en sont les courses du jour -->
+    <!-- Ma journée (courses à livrer aujourd'hui) : nombre, argent encaissé et à encaisser, où en sont les courses -->
     <section class="relative overflow-hidden rounded-[24px] bg-brand-grad p-4 text-white">
       <svg class="pointer-events-none absolute -right-6 -top-8 opacity-[.12]" width="170" height="170" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5.5 40.5 14v20L24 42.5 7.5 34V14z" fill="#fff" /></svg>
       <p class="text-[13px] font-medium opacity-90">Ma journée</p>
       <p class="text-[30px] font-extrabold leading-tight tabular-nums">{{ total }} course{{ total > 1 ? 's' : '' }}</p>
       <template v-if="total">
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <div class="rounded-2xl bg-white/15 px-3 py-2.5">
+            <p class="text-[12px] font-semibold opacity-90">Encaissé · {{ day.delivered }} livrée{{ day.delivered > 1 ? 's' : '' }}</p>
+            <p class="text-[18px] font-extrabold tabular-nums">{{ money(day.collected) }}</p>
+          </div>
+          <div class="rounded-2xl bg-white/15 px-3 py-2.5">
+            <p class="text-[12px] font-semibold opacity-90">À encaisser · {{ day.pending }} en cours</p>
+            <p class="text-[18px] font-extrabold tabular-nums">{{ money(day.toCollect) }}</p>
+          </div>
+        </div>
         <div class="mt-3 flex h-2.5 gap-[2px] overflow-hidden rounded-full bg-white/20" aria-hidden="true">
           <span v-for="part in parts" :key="part.key" :style="{ flex: part.count, background: part.light }" />
         </div>
         <div class="mt-2.5 flex flex-wrap gap-x-3 gap-y-1.5">
-          <button v-for="part in parts" :key="part.key" type="button" :class="['tap inline-flex items-center gap-1.5 rounded-full px-1 text-[12.5px] font-semibold', filter === part.filter ? 'bg-white/20 px-2' : '']" @click="filter = filter === part.filter ? 'all' : part.filter">
+          <span v-for="part in parts" :key="part.key" class="inline-flex items-center gap-1.5 px-1 text-[12.5px] font-semibold">
             <i class="block h-2 w-2 rounded-full" :style="{ background: part.light }" />{{ part.count }} {{ part.label }}
-          </button>
+          </span>
         </div>
       </template>
       <p v-else-if="loaded" class="mt-1 text-sm opacity-90">Aucune course à livrer aujourd'hui.</p>
@@ -41,13 +51,13 @@
       <div class="flex items-center gap-3">
         <ColorIcon name="aregler" :size="44" />
         <div class="min-w-0 text-sm">
-          <p class="text-[15px] font-bold">{{ alertsTotal > 1 ? `${alertsTotal} colis attendent votre décision` : 'Un colis attend votre décision' }}</p>
+          <p class="text-[15px] font-bold">{{ alertsTotal > 1 ? `${alertsTotal} courses à régler` : 'Une course à régler' }}</p>
           <p class="truncate text-slate-600">{{ alertLine(alerts[0]) }}</p>
         </div>
       </div>
       <div class="mt-3 grid grid-cols-2 gap-2">
         <RouterLink :to="`/marchand/courses/${alerts[0].id}?action=decider&choix=demain`" class="m-btn-primary !py-3 !text-[15px]">Relivrer demain</RouterLink>
-        <RouterLink :to="alertsTotal > 1 ? '/marchand/courses?filtre=problems&periode=all' : `/marchand/courses/${alerts[0].id}?action=decider`" class="m-btn-secondary !py-3 !text-[15px] !ring-0 shadow-soft">{{ alertsTotal > 1 ? 'Tout voir' : 'Autre choix' }}</RouterLink>
+        <RouterLink :to="alertsTotal > 1 ? '/marchand/courses?filtre=problems&periode=all' : `/marchand/courses/${alerts[0].id}?action=decider`" class="m-btn-secondary !py-3 !text-[15px] !ring-0 shadow-soft">{{ alertsTotal > 1 ? `Voir les ${alertsTotal}` : 'Autre choix' }}</RouterLink>
       </div>
     </section>
 
@@ -85,55 +95,6 @@
       <AppIcon name="right" class="h-5 w-5 text-slate-400" />
     </RouterLink>
 
-    <!-- Carte Membre Premium Jibiat Marchand : gagnée (ou offerte), ou ce qu'il reste pour la gagner -->
-    <!-- Niveau Premium chez l'agence : avantages et niveau suivant -->
-    <section v-if="premium?.levels && (premium.levels.level || premium.levels.next)" class="rounded-[22px] bg-white p-4 shadow-soft">
-      <div v-if="premium.levels.level" class="rounded-2xl bg-gradient-to-br from-[#F59E0B] to-[#B45309] p-4 text-white">
-        <p class="text-[11px] font-bold uppercase tracking-widest opacity-90">⭐ Niveau {{ premium.levels.level.name }}</p>
-        <p class="text-[13px] opacity-90">offert par {{ premium.company }} · prochain bilan le {{ date(premium.levels.next_review) }}</p>
-      </div>
-      <ul v-if="premium.levels.level" class="mt-3 space-y-1 text-[13.5px]">
-        <li v-for="a in premium.levels.level.advantages" :key="a" class="flex gap-2"><span class="font-bold text-violet-600">✓</span>{{ a }}</li>
-      </ul>
-      <p v-if="premium.levels.saved_month" class="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-[13px] font-semibold text-emerald-700">{{ money(premium.levels.saved_month) }} gagnés ce mois grâce à votre niveau</p>
-      <div v-if="premium.levels.next" class="mt-3">
-        <p class="text-[14px] font-bold">{{ premium.levels.level ? 'Prochain niveau' : 'Premier niveau' }} : {{ premium.levels.next.name }}</p>
-        <div class="mt-1.5 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" :aria-valuenow="premium.levels.next.needs.delivered.have" aria-valuemin="0" :aria-valuemax="premium.levels.next.needs.delivered.need">
-          <span class="block h-full rounded-full bg-violet-600" :style="{ width: `${Math.min(100, Math.round(premium.levels.next.needs.delivered.have / Math.max(1, premium.levels.next.needs.delivered.need) * 100))}%` }" />
-        </div>
-        <p class="mt-1 text-[12.5px] text-slate-500">{{ premium.levels.next.needs.delivered.have }} / {{ premium.levels.next.needs.delivered.need }} courses livrées en {{ premium.levels.window_days }} jours<template v-if="premium.levels.next.needs.success_rate.have !== null"> · réussite {{ Math.round(premium.levels.next.needs.success_rate.have * 100) }} % (il faut {{ Math.round(premium.levels.next.needs.success_rate.need * 100) }} %)</template></p>
-        <p class="mt-1 text-[12.5px] text-slate-600">Vous gagnerez : {{ premium.levels.next.advantages.join(' · ') }}</p>
-      </div>
-    </section>
-
-    <section v-if="premium?.card" class="relative overflow-hidden rounded-[22px] bg-gradient-to-br from-[#14161F] to-[#2B2F3D] p-4 text-white">
-      <p class="text-[12px] font-bold uppercase tracking-[.14em] text-[#F2C45A]">Membre Premium</p>
-      <p class="mt-1 text-[17px] font-extrabold leading-snug">Vous êtes Membre Premium Jibiat Marchand</p>
-      <p class="mt-0.5 text-[13px] text-white/75">
-        {{ premium.card.label }} · offerte par {{ premium.company }}<template v-if="premium.card.free_until && premium.card.state === 'free'">, gratuite jusqu'au {{ date(premium.card.free_until) }}</template>
-      </p>
-      <a :href="premium.card.store_url || premium.card.url" target="_blank" rel="noopener" class="tap mt-3 flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F2C45A] to-[#E3A72F] py-3 text-[15px] font-extrabold text-[#2B1D00] active:scale-[.99] transition">
-        {{ premium.card.store_url ? 'Ouvrir mon espace Jibiat Marchand' : 'Activer ma carte' }}
-      </a>
-    </section>
-    <section v-else-if="premium?.progress" class="rounded-[22px] bg-white p-4 shadow-soft">
-      <div class="flex items-center gap-3">
-        <ColorIcon name="boutique" :size="46" />
-        <div class="min-w-0">
-          <p class="text-[15px] font-bold leading-snug">{{ premiumTitle }}</p>
-          <p class="text-[12.5px] text-slate-500">Carte Membre Premium Jibiat Marchand offerte par {{ premium.company }} : votre boutique en ligne</p>
-        </div>
-      </div>
-      <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-100" role="progressbar" :aria-valuenow="premium.progress.delivered" aria-valuemin="0" :aria-valuemax="premium.progress.target">
-        <span class="block h-full rounded-full bg-gradient-to-r from-[#F2C45A] to-[#E3A72F]" :style="{ width: `${Math.min(100, Math.round(premium.progress.delivered / premium.progress.target * 100))}%` }" />
-      </div>
-      <div class="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[12.5px] text-slate-600">
-        <span class="tabular-nums"><strong class="text-slate-900">{{ Math.min(premium.progress.delivered, premium.progress.target) }}/{{ premium.progress.target }}</strong> livrées en {{ premium.progress.window_days }} jours</span>
-        <span v-if="premium.progress.success_rate !== null" :class="premium.progress.checks.success_rate ? '' : 'font-semibold text-amber-700'">Taux {{ Math.round(premium.progress.success_rate * 100) }} % (il faut {{ Math.round(premium.progress.min_success_rate * 100) }} %)</span>
-      </div>
-      <p v-if="premium.progress.late_debt" class="mt-1.5 text-[12.5px] font-semibold text-amber-700">Réglez ce que vous devez à l'agence pour gagner la carte.</p>
-    </section>
-
     <!-- Lieu de ramassage à indiquer -->
     <RouterLink v-if="needsPickupLocation" to="/marchand/lieu-de-ramassage" class="tap flex items-center gap-3 rounded-[20px] border border-[#FFC1CB] bg-[#FFF6F7] p-3.5 active:scale-[.99] transition">
       <ColorIcon name="lieu" :size="44" />
@@ -141,29 +102,15 @@
       <span class="shrink-0 rounded-full bg-[#E54A6E] px-3 py-1.5 text-[12.5px] font-bold text-white">Indiquer</span>
     </RouterLink>
 
-    <!-- Toutes les courses du jour, la plus urgente en premier -->
+    <!-- Les 10 dernières courses du jour, la plus récente en haut ; toutes avec « Voir + » (plein écran) -->
     <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-[16px] font-bold text-slate-900">Mes courses du jour<span v-if="total" class="text-slate-400"> · {{ total }}</span></h2>
-        <RouterLink to="/marchand/courses?periode=week" class="text-sm font-bold text-[var(--app-color)]">Autres dates ›</RouterLink>
-      </div>
-      <div v-if="total" class="-mx-4 px-4 flex gap-1.5 overflow-x-auto no-scrollbar" role="radiogroup" aria-label="Filtrer les courses du jour">
-        <button
-          v-for="f in chips"
-          :key="f.value"
-          type="button"
-          role="radio"
-          :aria-checked="filter === f.value"
-          :class="['tap shrink-0 inline-flex items-center gap-1.5 rounded-full py-1.5 pl-3.5 pr-1.5 text-[13.5px] font-semibold', filter === f.value ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 shadow-soft']"
-          @click="filter = f.value"
-        >
-          {{ f.label }}
-          <span class="min-w-[22px] h-[22px] px-1.5 rounded-full grid place-items-center text-[12px] font-bold tabular-nums" :style="filter === f.value ? { background: 'rgba(255,255,255,.18)', color: '#fff' } : { background: f.soft, color: f.deep }">{{ f.count }}</span>
-        </button>
+        <h2 class="text-[16px] font-bold text-slate-900">Courses du jour<span v-if="total" class="text-slate-400"> · {{ total }}</span></h2>
+        <RouterLink to="/marchand/courses?periode=today" class="tap rounded-full bg-[color-mix(in_srgb,var(--app-color)_12%,white)] px-3 py-1 text-sm font-bold text-[var(--app-color)]">Voir +</RouterLink>
       </div>
 
-      <OrderCard v-for="o in visible" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
-      <button v-if="hasMore" type="button" class="m-btn-secondary" @click="loadOrders(page + 1)">Voir plus</button>
+      <OrderCard v-for="o in latest" :key="o.id" :order="o" :to="`/marchand/courses/${o.id}`" />
+      <RouterLink v-if="total > latest.length" to="/marchand/courses?periode=today" class="m-btn-secondary">Voir les {{ total }} courses du jour</RouterLink>
 
       <div v-if="loaded && !orders.length" class="rounded-[24px] bg-white shadow-soft">
         <EmptyState art="livraison" title="Aucune course aujourd'hui" text="Un livreur passe chercher le colis chez vous et vous rapporte l'argent." />
@@ -212,26 +159,6 @@ const alerts = ref([])
 const alertsTotal = ref(0)
 const laterCount = ref(0)
 const balance = ref(null)
-const filter = ref('all')
-
-// Carte Membre Premium (rien quand l'entreprise ne la propose pas)
-const premium = ref(null)
-const premiumTitle = computed(() => {
-  const p = premium.value?.progress
-  if (!p) return ''
-  if (p.missing > 0) return `Plus que ${p.missing} course${p.missing > 1 ? 's' : ''} livrée${p.missing > 1 ? 's' : ''} pour gagner votre carte`
-  if (!p.checks.success_rate) return 'Encore un peu moins de retours pour gagner votre carte'
-  if (!p.checks.client_since) return 'Votre carte arrive bientôt : il faut être client depuis quelques mois'
-  return p.late_debt ? 'Presque : votre carte vous attend' : 'Bravo ! Votre carte arrive dans la journée'
-})
-async function loadPremium() {
-  if (!auth.user?.merchant_id) return
-  try {
-    premium.value = (await cachedGet('/merchant/premium')).data.data
-  } catch {
-    // Facultatif
-  }
-}
 
 const needsPickupLocation = computed(() => !!auth.user?.merchant && !auth.user.merchant.has_pickup_location)
 
@@ -256,14 +183,20 @@ const parts = computed(() => PARTS
     return { ...p, count, label: count > 1 ? p.plural : p.label }
   })
   .filter((p) => p.count))
-const chips = computed(() => [
-  { value: 'all', label: 'Toutes', count: orders.value.length, soft: '#EEF1F5', deep: '#3B4859' },
-  ...parts.value.map((p) => ({ value: p.filter, label: p.key === 'delivered' ? 'Livrées' : p.key === 'moving' ? 'En route' : p.key === 'pickup' ? 'À ramasser' : p.key === 'decide' ? 'À régler' : 'Retours', count: p.count, soft: p.soft, deep: p.deep })),
-])
-const visible = computed(() => {
-  if (filter.value === 'all') return staged.value.map((s) => s.order)
-  const part = PARTS.find((p) => p.filter === filter.value)
-  return staged.value.filter((s) => part.groups.includes(s.stage.group)).map((s) => s.order)
+// Les 10 dernières courses du jour (la plus récente en haut)
+const latest = computed(() => [...orders.value].sort((x, y) => y.id - x.id).slice(0, 10))
+
+// Argent du jour : encaissé (livrées) et à encaisser (courses encore en route ou à ramasser)
+const day = computed(() => {
+  const cod = (s) => Number(s.order.amounts?.cod_amount || 0)
+  const done = staged.value.filter((s) => s.stage.group === 'delivered')
+  const going = staged.value.filter((s) => ['route', 'picked', 'pickup'].includes(s.stage.group))
+  return {
+    delivered: done.length,
+    collected: done.reduce((n, s) => n + cod(s), 0),
+    pending: going.length,
+    toCollect: going.reduce((n, s) => n + cod(s), 0),
+  }
 })
 
 // Actions rapides de l'accueil : nouvelle course, plusieurs courses, et « Étiquettes » quand des colis du jour attendent le livreur
@@ -272,7 +205,7 @@ const toLabel = computed(() => orders.value.filter((o) => BEFORE_PICKUP.includes
 const quickActions = computed(() => [
   { icon: 'colis', label: 'Nouvelle course', to: '/marchand/courses/nouvelle' },
   { icon: 'colis2', label: 'Plusieurs courses', to: '/marchand/courses/plusieurs' },
-  ...(toLabel.value.length ? [{ icon: 'etiquette', label: 'Étiquettes', to: { path: '/etiquettes', query: { ids: toLabel.value.join(',') } } }] : []),
+  ...(toLabel.value.length ? [{ icon: 'etiquette', label: `${toLabel.value.length} étiquette${toLabel.value.length > 1 ? 's' : ''}`, to: { path: '/etiquettes', query: { ids: toLabel.value.join(',') } } }] : []),
 ])
 
 const alertLine = (o) => [o.recipient.name || localPhone(o.recipient.phone), o.delivery.zone_name, o.last_incident?.label?.toLowerCase()].filter(Boolean).join(' · ')
@@ -285,6 +218,8 @@ async function loadOrders(p = 1) {
   page.value = p
   total.value = data.meta?.total ?? orders.value.length
   hasMore.value = data.meta ? data.meta.current_page < data.meta.last_page : false
+  // Toutes les courses du jour (jusqu'à 500) pour que les montants de « Ma journée » soient justes
+  if (hasMore.value && p < 5) await loadOrders(p + 1)
 }
 
 // Colis pas ramassés à leur date
@@ -342,7 +277,6 @@ watch(orderChanges, () => {
 })
 onMounted(() => {
   load()
-  loadPremium()
   loadBalance()
 })
 </script>
