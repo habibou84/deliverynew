@@ -93,6 +93,20 @@ class MetaCloudGateway implements WhatsAppGateway
         return (string) $response->json('messages.0.id');
     }
 
+    /**
+     * Photo avec sa légende (réponse dans la fenêtre de 24 h : gratuite). L'adresse doit être publique (Meta la télécharge).
+     */
+    public function sendImage(?WhatsAppAccount $account, string $to, string $link, string $caption = ''): string
+    {
+        $account = $this->ensureConfigured($account);
+        $image = ['link' => $link] + ($caption !== '' ? ['caption' => mb_substr($caption, 0, 1024)] : []);
+        $response = $this->call(fn () => $this->client($account)->post("{$account->phone_number_id}/messages", [
+            'messaging_product' => 'whatsapp', 'to' => ltrim($to, '+'), 'type' => 'image', 'image' => $image,
+        ]));
+
+        return (string) $response->json('messages.0.id');
+    }
+
     public function templates(?WhatsAppAccount $account): array
     {
         $account = $this->ensureConfigured($account);
