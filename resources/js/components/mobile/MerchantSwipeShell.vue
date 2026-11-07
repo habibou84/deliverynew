@@ -59,14 +59,21 @@
     <!-- Écran ouvert depuis une page (course, relevé, réglage…) : fenêtre par-dessus, l'onglet reste derrière -->
     <Transition name="screen">
       <div v-if="screenOpen" class="fixed inset-0 z-40 flex flex-col justify-end bg-black/40" @click.self="close">
+        <!-- Fenêtre qui monte du bas, ou plein écran (ex. « Voir + » : toutes les courses) -->
         <div
-          class="flex max-h-[calc(100dvh-28px)] min-h-[60dvh] flex-col rounded-t-[26px] bg-[#F4F6F8] shadow-2xl transition-transform"
-          :style="drag ? { transform: `translateY(${drag}px)`, transition: 'none' } : {}"
+          :class="['flex flex-col bg-[#F4F6F8] shadow-2xl transition-transform', full ? 'h-dvh pt-safe' : 'max-h-[calc(100dvh-28px)] min-h-[60dvh] rounded-t-[26px]']"
+          :style="drag && !full ? { transform: `translateY(${drag}px)`, transition: 'none' } : {}"
           role="dialog"
           aria-modal="true"
           :aria-label="screenTitle"
         >
-          <div class="shrink-0 rounded-t-[26px] bg-white px-3 pb-2 pt-2" @touchstart.passive="dragStart" @touchmove.passive="dragMove" @touchend="dragEnd">
+          <div v-if="full" class="flex shrink-0 items-center gap-2 bg-white px-3 py-2.5">
+            <button type="button" class="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-700" aria-label="Retour" @click="depth > 1 ? router.back() : close()">
+              <AppIcon name="left" class="h-5 w-5" :stroke="2.4" />
+            </button>
+            <p class="min-w-0 flex-1 truncate px-1 text-[18px] font-extrabold">{{ screenTitle }}</p>
+          </div>
+          <div v-else class="shrink-0 rounded-t-[26px] bg-white px-3 pb-2 pt-2" @touchstart.passive="dragStart" @touchmove.passive="dragMove" @touchend="dragEnd">
             <div class="mx-auto mb-2 h-1.5 w-10 rounded-full bg-slate-300" />
             <div class="flex items-center gap-2">
               <button v-if="depth > 1" type="button" class="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-700" aria-label="Retour" @click="router.back()">
@@ -76,7 +83,7 @@
               <button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-500" aria-label="Fermer" @click="close">✕</button>
             </div>
           </div>
-          <div ref="screenBody" class="flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-3" @touchstart.passive="bodyDragStart" @touchmove.passive="dragMove" @touchend="dragEnd">
+          <div ref="screenBody" class="flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-3" @touchstart.passive="full ? null : bodyDragStart($event)" @touchmove.passive="dragMove" @touchend="dragEnd">
             <RouterView />
           </div>
         </div>
@@ -257,6 +264,8 @@ function setPage(i) {
 // ── Écran par-dessus : toute adresse qui n'est pas une des pages ──
 const screenOpen = computed(() => pageIndex(route.path) === -1)
 const screenTitle = computed(() => pageTitle.value || route.meta.title || '')
+// Écran en plein écran (pas de fenêtre à glisser vers le bas) : « fullscreen » dans la route
+const full = computed(() => !!route.meta.fullscreen)
 const depth = ref(0)
 watch(() => route.fullPath, (to, from) => {
   pageTitle.value = ''
