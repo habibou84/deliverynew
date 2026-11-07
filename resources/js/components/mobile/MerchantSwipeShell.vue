@@ -51,10 +51,6 @@
           </span>
         </div>
         <div class="mx-auto max-w-lg px-4 pb-28 pt-1" :style="i === current && pull ? { transform: `translateY(${pull}px)`, transition: 'none' } : { transition: 'transform .2s ease' }">
-          <!-- Courses : nouvelle course en haut -->
-          <button v-if="p.key === 'orders' && canCreate" type="button" class="m-btn-primary mb-3.5 flex w-full items-center justify-center gap-2" @click="menuOpen = true">
-            <AppIcon name="plus" class="h-5 w-5" :stroke="2.6" /> Nouvelle course
-          </button>
           <component :is="p.component" v-if="seen.has(p.key)" :key="`${p.key}-${refresh[p.key] || 0}`" />
         </div>
       </section>
@@ -87,24 +83,9 @@
       </div>
     </Transition>
 
-    <BottomSheet :open="menuOpen" title="Que voulez-vous envoyer ?" @close="menuOpen = false">
-      <div class="space-y-2.5">
-        <RouterLink
-          v-for="(item, i) in newMenu"
-          :key="item.to"
-          :to="item.to"
-          :class="['tap flex items-center gap-3.5 rounded-[20px] p-3 active:scale-[.99] transition', i === 0 ? 'bg-brand-soft ring-2 ring-[color-mix(in_srgb,var(--app-color)_30%,white)]' : 'bg-[#F7F8FA]']"
-          @click="menuOpen = false"
-        >
-          <ColorIcon :name="item.color" :size="52" />
-          <span class="min-w-0"><span class="block text-[15.5px] font-bold text-slate-900">{{ item.label }}</span><span class="text-[13px] text-slate-500">{{ item.text }}</span></span>
-        </RouterLink>
-      </div>
-    </BottomSheet>
-
     <!-- Indicateur : comment passer d'une page à l'autre (jusqu'au premier glissement du doigt) -->
     <Transition name="hint">
-      <div v-if="hint && !screenOpen && !menuOpen" class="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+20px)]">
+      <div v-if="hint && !screenOpen" class="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+20px)]">
         <div class="pointer-events-auto flex items-center gap-3 rounded-[20px] bg-slate-900/95 py-3 pl-4 pr-3 text-white shadow-2xl" role="status">
           <span class="swipe-hand text-[28px] leading-none" aria-hidden="true">👆</span>
           <span class="min-w-0">
@@ -128,7 +109,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, w
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
 import ColorIcon from './ColorIcon.vue'
-import BottomSheet from './BottomSheet.vue'
 import Toasts from '../Toasts.vue'
 import { useNotificationStore } from '../../stores/notifications'
 import { useRealtime } from '../../composables/useRealtime'
@@ -144,8 +124,6 @@ const props = defineProps({
   base: { type: String, required: true },
   color: { type: String, required: true },
   pages: { type: Array, required: true }, // { key, label, path, component, emoji, badge?() }
-  newMenu: { type: Array, default: () => [] },
-  canCreate: Boolean,
   actionCount: { type: Number, default: 0 },
 })
 
@@ -175,8 +153,6 @@ const tabsEl = ref(null)
 const current = ref(0)
 const seen = reactive(new Set())
 const refresh = reactive({})
-// Menu « Que voulez-vous envoyer ? » du bouton Nouvelle course
-const menuOpen = ref(false)
 
 // ── Tirer pour actualiser la page affichée ──
 const PULL_AT = 64
