@@ -19,7 +19,7 @@
     <template v-else-if="d && !introOpen">
       <section class="rounded-[22px] bg-gradient-to-br from-[#1e3478] to-[#3c5bc4] px-4 py-5 text-center text-white">
         <h2 class="text-[25px] font-black leading-tight">Votre live en {{ stepList.length }} étapes</h2>
-        <p class="mt-1 text-[15.5px] font-bold text-blue-50">Les clientes envoient le code, la commande part à votre agence.</p>
+        <p class="mt-1 text-[15.5px] font-bold text-blue-50">Les clients envoient le code, la commande part à votre agence.</p>
         <button type="button" class="mt-3 rounded-full bg-white/20 px-4 py-1.5 text-[14px] font-bold" @click="introOpen = true">🎬 Comment ça marche</button>
       </section>
 
@@ -59,18 +59,18 @@
         <template v-if="panel === 'whatsapp'">
           <!-- Court, comme Jibiat Marchand : une phrase, 3 étapes, un bouton -->
           <div v-if="!d.whatsapp?.auto" class="rounded-[22px] bg-[#E8F8EE] px-4 py-3.5">
-            <p class="text-[21px] font-black leading-tight text-[#0B6B3A]">💬 Vos clientes commandent sur WhatsApp</p>
-            <p class="mt-1 text-[15.5px] text-slate-700">Elles envoient le code du produit : la réponse part toute seule.</p>
+            <p class="text-[21px] font-black leading-tight text-[#0B6B3A]">💬 Vos clients commandent sur WhatsApp</p>
+            <p class="mt-1 text-[15.5px] text-slate-700">Ils envoient le code du produit : la réponse part toute seule.</p>
           </div>
 
           <!-- Connexion pas encore ouverte sur cette installation : le lien du live en attendant -->
-          <p v-if="!waConnectable" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La connexion de WhatsApp n'est pas encore ouverte par votre agence. En attendant, vos clientes commandent par <b>le lien du live</b>.</p>
+          <p v-if="!waConnectable" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La connexion de WhatsApp n'est pas encore ouverte par votre agence. En attendant, vos clients commandent par <b>le lien du live</b>.</p>
 
           <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" @next="open('produits')" />
 
           <div v-if="!d.whatsapp?.auto" class="space-y-1 pt-1 text-center">
             <button type="button" class="text-[15px] font-bold text-[var(--app-color)]" @click="skipWhatsApp">{{ waConnectable ? 'Pas de numéro spécial ? Continuer sans WhatsApp ›' : 'Continuer sans WhatsApp ›' }}</button>
-            <p class="text-[13px] text-slate-400">Sans WhatsApp, vos clientes commandent par le lien du live.</p>
+            <p class="text-[13px] text-slate-400">Sans WhatsApp, vos clients commandent par le lien du live.</p>
           </div>
         </template>
 
@@ -254,11 +254,11 @@
             <div class="flex gap-3"><b class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[14px] text-white">1</b><p class="text-[15.5px]">Publiez l'étiquette sur {{ square ? 'Facebook' : 'TikTok' }} et <b>épinglez-la</b> sur votre profil.</p></div>
             <div class="flex gap-3"><b class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[14px] text-white">2</b>
               <div class="min-w-0 flex-1 space-y-1.5">
-                <p class="text-[15.5px]">Mettez le <b>lien de votre live</b> dans votre bio : vos clientes peuvent aussi commander là.</p>
+                <p class="text-[15.5px]">Mettez le <b>lien de votre live</b> dans votre bio : vos clients peuvent aussi commander là.</p>
                 <div class="flex items-center gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200"><span class="min-w-0 flex-1 truncate text-[14px]">{{ d.public_url }}</span><button type="button" class="shrink-0 text-[14px] font-black text-[var(--app-color)]" @click="copyLink">{{ copied ? 'Copié ✓' : 'Copier' }}</button></div>
               </div>
             </div>
-            <div class="flex gap-3"><b class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[14px] text-white">3</b><p class="text-[15.5px]">Pendant le live, épinglez votre <b>numéro WhatsApp</b> en commentaire<template v-if="d.offer.phone"> : <b class="whitespace-nowrap">{{ localPhone(d.offer.phone) }}</b></template>. Les clientes y envoient le code du produit.</p></div>
+            <div class="flex gap-3"><b class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[14px] text-white">3</b><p class="text-[15.5px]">Pendant le live, épinglez votre <b>numéro WhatsApp</b> en commentaire<template v-if="d.offer.phone"> : <b class="whitespace-nowrap">{{ localPhone(d.offer.phone) }}</b></template>. Les clients y envoient le code du produit.</p></div>
           </section>
         </template>
       </div>
@@ -375,7 +375,7 @@ const stepList = computed(() => {
       title: d.value.whatsapp?.auto ? 'WhatsApp connecté' : skipped.value ? 'Sans WhatsApp : le lien du live' : 'Connectez votre WhatsApp',
       text: d.value.whatsapp?.auto
         ? `📱 ${waPhone.value ? localPhone(waPhone.value) : 'Numéro relié'} · réponses gratuites`
-        : skipped.value ? 'Les clientes commandent par le lien' : 'Pour recevoir les commandes',
+        : skipped.value ? 'Les clients commandent par le lien' : 'Pour recevoir les commandes',
     })
   }
   list.push({

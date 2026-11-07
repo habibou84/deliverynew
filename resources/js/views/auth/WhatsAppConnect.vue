@@ -29,7 +29,7 @@
           <li>Si Meta demande une carte bancaire, ajoutez-la : les réponses aux commandes du live ne sont pas facturées.</li>
         </ol>
         <p class="text-xs text-slate-500">
-          Connexion officielle de WhatsApp. Pendant vos lives, les clientes qui envoient un code reçoivent une réponse automatique.
+          Connexion officielle de WhatsApp. Pendant vos lives, les clients qui envoient un code reçoivent une réponse automatique.
         </p>
         <button type="button" class="btn-success w-full py-3" :disabled="working" @click="start">
           {{ working ? 'Fenêtre Facebook ouverte…' : (error ? 'Recommencer avec Facebook' : 'Continuer avec Facebook') }}

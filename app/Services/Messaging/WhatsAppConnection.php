@@ -102,7 +102,7 @@ class WhatsAppConnection
     /**
      * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : un numéro spécial live,
      * qui n'a pas de compte WhatsApp, est activé pour l'API (code PIN). Pas de modèles : le live ne répond
-     * qu'aux clientes qui viennent d'écrire, et ces réponses ne sont pas facturées par Meta.
+     * qu'aux clients qui viennent d'écrire, et ces réponses ne sont pas facturées par Meta.
      */
     public function completeMerchantSignup(Merchant $merchant, string $code, string $phoneNumberId, string $wabaId): WhatsAppAccount
     {

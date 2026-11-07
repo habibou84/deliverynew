@@ -45,7 +45,7 @@ const routes = [
   { path: '/login', redirect: (to) => ({ path: '/', query: to.query }) },
   // Pages publiques (destinataire)
   { path: '/b/:slug', name: 'shop', component: () => import('../views/shop/ShopPage.vue'), meta: { public: true } },
-  // Lien du live : les clientes commandent sans WhatsApp
+  // Lien du live : les clients commandent sans WhatsApp
   { path: '/l/:token', name: 'live-public', component: () => import('../views/shop/LivePage.vue'), meta: { public: true } },
   { path: '/suivi/:code?', name: 'tracking', component: () => import('../views/Tracking.vue'), meta: { public: true } },
   // Avis du destinataire sur sa livraison (lien envoyé sur WhatsApp)
