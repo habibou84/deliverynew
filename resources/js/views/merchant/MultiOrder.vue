@@ -50,7 +50,7 @@
     <!-- Coller une liste : une ligne ou un paragraphe par client -->
     <section class="rounded-2xl bg-white p-4 ring-1 ring-slate-200 space-y-3">
       <button v-if="!pasteOpen" type="button" class="tap w-full flex items-center justify-center gap-2 text-sm font-bold text-[var(--app-color)]" @click="openPaste">
-        <AppIcon name="clip" class="h-[18px] w-[18px]" />Coller une liste de commandes
+        <AppIcon name="clip" class="h-[18px] w-[18px]" />Coller une liste de courses
       </button>
       <template v-else>
         <label class="m-label" for="list">Collez la liste (une ligne ou un paragraphe par client)</label>
@@ -83,7 +83,7 @@
         <button type="button" class="tap h-9 w-9 shrink-0 grid place-items-center rounded-full text-slate-400 active:bg-slate-100" :aria-label="`Retirer la course ${i + 1}`" @click="remove(r)"><AppIcon name="x" class="h-4 w-4" /></button>
       </div>
     </div>
-    <p v-else class="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">Ajoutez vos clients un par un, ou collez une liste de commandes.</p>
+    <p v-else class="rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500">Ajoutez vos clients un par un, ou collez une liste de courses.</p>
     <button type="button" class="m-btn-secondary !border-dashed" @click="edit(null)"><AppIcon name="plus" class="h-5 w-5" />Ajouter un client</button>
 
     <!-- Totaux et envoi -->
