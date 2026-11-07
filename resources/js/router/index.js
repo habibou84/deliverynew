@@ -226,12 +226,12 @@ const routes = [
       // Outil live : préparer (produits, carte), écran du direct, bilan
       // Téléphone : page Live (live en cours, préparer, lives passés) ; ordinateur : directement « Préparer mon live »
       // Téléphone : l'onglet Live montre directement la préparation (ou le bandeau du live en cours)
-      { path: 'live', component: () => import('../views/merchant/live/LivePrepare.vue'), meta: { title: 'Live', permission: 'orders.create' }, beforeEnter: () => (isPhone.value ? true : '/marchand/live/preparer') },
+      { path: 'live', component: () => import('../views/merchant/live/LivePrepare.vue'), meta: { title: 'Live', permission: 'orders.create' }, beforeEnter: (to) => (isPhone.value ? true : { path: '/marchand/live/preparer', hash: to.hash }) },
       { path: 'live/passes', component: () => import('../views/merchant/live/LivesPast.vue'), meta: { title: 'Mes lives passés', back: true, permission: 'orders.create' } },
       { path: 'ma-boutique', component: () => import('../views/merchant/BoutiqueHub.vue'), meta: { title: 'Boutique' }, beforeEnter: () => (isPhone.value ? true : '/marchand/boutique') },
       { path: 'plus', component: () => import('../views/merchant/MorePage.vue'), meta: { title: 'Plus' }, beforeEnter: () => (isPhone.value ? true : '/marchand/profil') },
       // Téléphone : la préparation est dans l'onglet Live
-      { path: 'live/preparer', component: () => import('../views/merchant/live/LivePrepare.vue'), meta: { title: 'Préparer mon live', back: true, hideTabs: true, permission: 'orders.create' }, beforeEnter: () => (isPhone.value ? '/marchand/live' : true) },
+      { path: 'live/preparer', component: () => import('../views/merchant/live/LivePrepare.vue'), meta: { title: 'Préparer mon live', back: true, hideTabs: true, permission: 'orders.create' }, beforeEnter: (to) => (isPhone.value ? { path: '/marchand/live', hash: to.hash } : true) },
       { path: 'live/:id(\\d+)', component: () => import('../views/merchant/live/LiveBoard.vue'), meta: { title: 'Mon live', back: true, hideTabs: true, permission: 'orders.create' } },
       // Retour de la page de paiement (PayDunya)
       { path: 'live/paiement/:id(\\d+)', component: () => import('../views/merchant/live/LivePayment.vue'), meta: { title: 'Paiement', hideTabs: true, permission: 'orders.create' } },

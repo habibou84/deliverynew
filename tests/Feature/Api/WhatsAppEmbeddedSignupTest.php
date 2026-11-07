@@ -117,6 +117,39 @@ class WhatsAppEmbeddedSignupTest extends TestCase
         $this->assertSame($pin, $account->fresh()->registration_pin);
     }
 
+    public function test_full_page_connection_finds_the_real_number(): void
+    {
+        // Page entière (téléphone) : Facebook ne transmet ni le compte ni le numéro, le serveur les retrouve
+        Http::fake([
+            '*/oauth/access_token*' => Http::response(['access_token' => 'jeton-entreprise', 'token_type' => 'bearer']),
+            '*/debug_token*' => Http::response(['data' => ['is_valid' => true, 'expires_at' => 0, 'granular_scopes' => [
+                ['scope' => 'whatsapp_business_management', 'target_ids' => ['777']],
+            ]]]),
+            // Le numéro de test américain de Meta, puis le vrai numéro
+            '*/777/phone_numbers*' => Http::response(['data' => [
+                ['id' => '999', 'display_phone_number' => '+1 555-123-4567'],
+                ['id' => '555', 'display_phone_number' => '+225 07 00 00 00 01'],
+            ]]),
+            '*/777/assigned_users' => Http::response(['success' => true]),
+            '*/555/register' => Http::response(['success' => true]),
+            '*/777/subscribed_apps' => Http::response(['success' => true]),
+            '*/777/message_templates' => Http::response(['id' => '1', 'status' => 'PENDING']),
+            '*/555*' => Http::response(['display_phone_number' => '+225 07 00 00 00 01', 'verified_name' => 'Express DS', 'quality_rating' => 'GREEN']),
+        ]);
+        $return = rtrim(config('app.url'), '/').'/connecter-whatsapp';
+
+        $this->signup(['phone_number_id' => null, 'waba_id' => null, 'redirect_uri' => $return])->assertOk()
+            ->assertJsonPath('data.display_phone', '+2250700000001');
+
+        $account = WhatsAppAccount::forCompanyId($this->company->id);
+        $this->assertSame(['777', '555'], [$account->waba_id, $account->phone_number_id]);
+        // Même adresse de retour qu'à l'ouverture de Facebook, sinon Meta refuse le code
+        Http::assertSent(fn (HttpRequest $r) => str_contains($r->url(), '/oauth/access_token') && $r['redirect_uri'] === $return);
+
+        // Adresse de retour d'un autre site : refusée
+        $this->signup(['phone_number_id' => null, 'waba_id' => null, 'redirect_uri' => 'https://pirate.example/x'])->assertJsonValidationErrors('redirect_uri');
+    }
+
     public function test_refused_authorization_changes_nothing(): void
     {
         Http::fake(['*/oauth/access_token*' => Http::response(['error' => ['message' => 'Invalid verification code format.', 'code' => 100]], 400)]);
