@@ -19,7 +19,7 @@
     </section>
 
     <!-- Actions rapides : une seule icône (le colis) pour les courses -->
-    <section v-if="auth.can('orders.create')" class="grid grid-cols-3 gap-2">
+    <section v-if="auth.can('orders.create')" :class="['grid gap-2', quickActions.length > 2 ? 'grid-cols-3' : 'grid-cols-2']">
       <RouterLink v-for="a in quickActions" :key="a.label" :to="a.to" class="tap flex flex-col items-center gap-1.5 rounded-[20px] bg-white py-3 px-1 text-center shadow-soft active:scale-95 transition">
         <ColorIcon :name="a.icon" :size="46" />
         <span class="text-[12px] font-semibold leading-tight text-slate-700">{{ a.label }}</span>
@@ -176,20 +176,6 @@
       </RouterLink>
     </section>
 
-    <!-- Pour aller plus loin -->
-    <section class="space-y-2">
-      <RouterLink to="/marchand/statistiques" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft text-sm active:scale-[.99] transition">
-        <ColorIcon name="stats" :size="42" />
-        <span class="flex-1"><strong class="block">Mes statistiques</strong><span class="text-slate-500">Taux de livraison, motifs d'échec</span></span>
-        <AppIcon name="right" class="h-5 w-5 text-slate-400" />
-      </RouterLink>
-      <RouterLink v-if="stock.total" :to="stock.low ? '/marchand/stock?filtre=bas' : '/marchand/stock'" :class="['tap flex items-center gap-3 rounded-[20px] p-3.5 text-sm active:scale-[.99] transition', stock.low ? 'bg-[#FFF7EB] ring-1 ring-[#FFD89A]' : 'bg-white shadow-soft']">
-        <ColorIcon name="stock" :size="42" />
-        <span class="flex-1"><strong class="block">Mon stock · {{ stock.total }} produit{{ stock.total > 1 ? 's' : '' }}</strong><span :class="stock.low ? 'font-semibold text-amber-700' : 'text-slate-500'">{{ stock.low ? `${stock.low} en stock bas` : 'Voir mes produits' }}</span></span>
-        <AppIcon name="right" class="h-5 w-5 text-slate-400" />
-      </RouterLink>
-    </section>
-
     <!-- Installation (fenêtre qui s'ouvre toute seule) ; notifications une fois l'application utilisée -->
     <InstallBanner app="marchand" popup />
     <PushInvite v-if="orders.length" />
@@ -198,7 +184,7 @@
 
 <script setup>
 import { isPhone } from '../../composables/usePhone'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { cachedGet } from '../../composables/useCachedApi'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
@@ -280,15 +266,13 @@ const visible = computed(() => {
   return staged.value.filter((s) => part.groups.includes(s.stage.group)).map((s) => s.order)
 })
 
-// Actions rapides de l'accueil ; « Étiquettes » quand des colis du jour attendent le livreur, sinon les statistiques
+// Actions rapides de l'accueil : nouvelle course, plusieurs courses, et « Étiquettes » quand des colis du jour attendent le livreur
 const BEFORE_PICKUP = ['pending', 'confirmed', 'pickup_assigned', 'pickup_in_progress']
 const toLabel = computed(() => orders.value.filter((o) => BEFORE_PICKUP.includes(o.status)).map((o) => o.id).slice(0, 100))
 const quickActions = computed(() => [
-  { icon: 'colis', label: 'Plusieurs courses', to: '/marchand/courses/plusieurs' },
-  { icon: 'coller', label: 'Coller WhatsApp', to: '/marchand/courses/nouvelle?coller=1' },
-  toLabel.value.length
-    ? { icon: 'etiquette', label: 'Étiquettes', to: { path: '/etiquettes', query: { ids: toLabel.value.join(',') } } }
-    : { icon: 'stats', label: 'Statistiques', to: '/marchand/statistiques' },
+  { icon: 'colis', label: 'Nouvelle course', to: '/marchand/courses/nouvelle' },
+  { icon: 'colis2', label: 'Plusieurs courses', to: '/marchand/courses/plusieurs' },
+  ...(toLabel.value.length ? [{ icon: 'etiquette', label: 'Étiquettes', to: { path: '/etiquettes', query: { ids: toLabel.value.join(',') } } }] : []),
 ])
 
 const alertLine = (o) => [o.recipient.name || localPhone(o.recipient.phone), o.delivery.zone_name, o.last_incident?.label?.toLowerCase()].filter(Boolean).join(' · ')
@@ -352,22 +336,6 @@ async function loadBalance() {
   }
 }
 
-// Résumé du stock (seulement si la formule l'inclut et que le marchand a des produits)
-const stock = reactive({ total: 0, low: 0 })
-async function loadStock() {
-  if (!auth.hasFeature('stock')) return
-  try {
-    const [all, low] = await Promise.all([
-      cachedGet('/products', { params: { per_page: 1 } }),
-      cachedGet('/products', { params: { per_page: 1, low: 1 } }),
-    ])
-    stock.total = all.data.meta?.total || 0
-    stock.low = low.data.meta?.total || 0
-  } catch {
-    // Facultatif
-  }
-}
-
 watch(orderChanges, () => {
   load()
   loadBalance()
@@ -375,7 +343,6 @@ watch(orderChanges, () => {
 onMounted(() => {
   load()
   loadPremium()
-  loadStock()
   loadBalance()
 })
 </script>
