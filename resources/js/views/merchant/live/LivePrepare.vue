@@ -36,6 +36,11 @@
       <template v-if="current === 'start'">
         <button type="button" class="block w-full rounded-2xl bg-rose-600 py-4 text-[18px] font-black text-white shadow-soft active:scale-[.99] disabled:opacity-60" :disabled="saving" @click="start">{{ mustPay ? `● Payer ${money(d.offer.live_price)} et commencer` : '● Je commence mon live' }}</button>
         <p class="text-center text-[14px] text-slate-500">{{ priceLine }}</p>
+        <!-- Forfait du mois : lives sans limite pendant 30 jours -->
+        <button v-if="offerMonthly" type="button" class="block w-full rounded-2xl bg-white px-4 py-3 text-left shadow-soft" :disabled="saving" @click="subscribeMonthly">
+          <b class="block text-[15.5px]">📅 Forfait du mois : {{ money(d.offer.prices.month) }}</b>
+          <span class="text-[13.5px] text-slate-500">Lives sans limite pendant 30 jours. Toucher pour le prendre ›</span>
+        </button>
       </template>
       <RouterLink to="/marchand/live/passes" class="block pt-1 text-center text-[14px] font-bold text-[var(--app-color)]">Voir mes lives passés ▸</RouterLink>
     </template>
@@ -93,7 +98,7 @@
             </div>
           </div>
         <p v-if="d.offer.offered_by_company" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre agence vous offre vos lives.</p>
-        <p v-else-if="d.offer.trial_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre premier live est offert.</p>
+        <p v-else-if="d.offer.trial_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Ce live est offert : encore <b>{{ d.offer.trial_left }} live{{ d.offer.trial_left > 1 ? 's' : '' }} offert{{ d.offer.trial_left > 1 ? 's' : '' }}</b>.</p>
         <p v-if="d.offer.extra_cards" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] text-indigo-900">Il vous reste <b>{{ d.offer.extra_cards }} fiches IA</b> (photo + IA). Ajouter un produit à la main reste toujours gratuit.</p>
 
         <button type="button" class="tap flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--app-color)] bg-white py-3.5 text-[16px] font-bold text-[var(--app-color)]" @click="openNew">
@@ -458,13 +463,33 @@ const priceLine = computed(() => {
   if (!o) return ''
   if (o.offered_by_company) return 'Ce live vous est offert par votre agence.'
   if (o.monthly_until) return 'Compris dans votre forfait du mois.'
-  if (o.trial_left) return 'Votre premier live est offert.'
-  if (o.next_plan === 'capped') return `Vous avez atteint ${money(o.prices.cap)} ce mois-ci : vos lives sont gratuits jusqu'à la fin du mois.`
-  const cap = o.prices.cap ? ` Jamais plus de ${money(o.prices.cap)} par mois.` : ''
+  if (o.trial_left) return `Ce live est offert : encore ${o.trial_left} live${o.trial_left > 1 ? 's' : ''} offert${o.trial_left > 1 ? 's' : ''}.`
+  if (o.day_paid) return 'Journée payée : ce live est compris.'
   return o.pay_online
-    ? `Ce live : ${money(o.live_price)}, à payer par Orange Money, MTN, Moov, Wave ou carte.${cap}`
-    : `Ce live : ${money(o.live_price)}, retenus sur votre prochain reversement.${cap}`
+    ? `${money(o.live_price)} pour toute la journée : vos autres lives d'aujourd'hui sont compris. Par Orange Money, MTN, Moov, Wave ou carte.`
+    : `${money(o.live_price)} pour toute la journée, retenus sur votre prochain reversement : vos autres lives d'aujourd'hui sont compris.`
 })
+// Forfait du mois proposé quand les lives ne sont ni offerts ni déjà au forfait
+const offerMonthly = computed(() => {
+  const o = d.value?.offer
+  return !!o && !o.offered_by_company && !o.monthly_until && !o.trial_left && Number(o.prices?.month) > 0
+})
+async function subscribeMonthly() {
+  saving.value = true
+  try {
+    const data = (await http.post('/live/subscribe')).data.data
+    if (data.payment_url) {
+      window.location.assign(data.payment_url)
+      return
+    }
+    d.value.offer = data
+    toasts.success('Forfait du mois activé : lives sans limite pendant 30 jours.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    saving.value = false
+  }
+}
 
 function fill(data) {
   // Compteur de « Comment ça marche » : seulement dans la réponse de « prepare »
