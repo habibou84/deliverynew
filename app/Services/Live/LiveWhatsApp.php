@@ -27,9 +27,9 @@ use Illuminate\Support\Str;
  * Son numéro WhatsApp Business est relié à Jibiat par la connexion officielle de Meta (fenêtre « Connecter
  * WhatsApp », elle garde son application WhatsApp Business). Option de la console, désactivée par défaut : le
  * relier par code d'association ou QR code (session « merchant-34 » du service whatsapp-bridge, connexion non
- * officielle, risque de suspension du numéro). Pendant un live en cours, une cliente envoie le code d'un produit (« A2 », « A2 x2 », « JE PRENDS » quand
+ * officielle, risque de suspension du numéro). Pendant un live en cours, un client envoie le code d'un produit (« A2 », « A2 x2 », « JE PRENDS » quand
  * il n'y a qu'un article) ; Jibiat lui demande son nom et son quartier (ou propose ceux de sa dernière commande),
- * puis enregistre la commande : la course part à l'agence, ou la cliente passe en liste d'attente si c'est épuisé.
+ * puis enregistre la commande : la course part à l'agence, ou le client passe en liste d'attente si c'est épuisé.
  * Les autres messages (conversations personnelles) sont ignorés.
  */
 class LiveWhatsApp
@@ -199,7 +199,7 @@ class LiveWhatsApp
         ];
     }
 
-    // ── Conversation avec les clientes ────────────────────────────────────────────────────────────────
+    // ── Conversation avec les clients ────────────────────────────────────────────────────────────────
 
     /**
      * Message reçu par code d'association / QR code (option de la console). Ignoré si le numéro est relié
@@ -273,7 +273,7 @@ class LiveWhatsApp
 
             return;
         }
-        $this->order($merchant, $live, $chat, $this->nameIn($text, $zone) ?? $chat->push_name ?? 'Cliente', $zone->id);
+        $this->order($merchant, $live, $chat, $this->nameIn($text, $zone) ?? $chat->push_name ?? 'Client', $zone->id);
     }
 
     /**
@@ -311,7 +311,7 @@ class LiveWhatsApp
         $line = ($quantity > 1 ? "{$quantity} × " : '')."*{$item->code}* {$item->label()} : {$price}";
         $soldOut = $item->remaining() < $quantity;
 
-        // Cliente déjà livrée par cette boutique : on propose son nom et son quartier
+        // Client déjà livré par cette boutique : on propose son nom et son quartier
         $last = Order::withoutGlobalScopes()->where('merchant_id', $merchant->id)->where('recipient_phone', $phone)
             ->whereNotNull('delivery_zone_id')->latest('id')->first(['recipient_name', 'delivery_zone_id']);
         $zone = $last ? Zone::withoutGlobalScopes()->find($last->delivery_zone_id) : null;
@@ -336,7 +336,7 @@ class LiveWhatsApp
 
     /**
      * La vendeuse termine elle-même une commande en cours (onglet « Messages ») : elle choisit le quartier (et le nom)
-     * quand le message de la cliente n'a pas été reconnu. La cliente reçoit la même confirmation.
+     * quand le message du client n'a pas été reconnu. Le client reçoit la même confirmation.
      */
     public function completeByMerchant(Merchant $merchant, LiveChat $chat, int $zoneId, ?string $name): void
     {
@@ -345,7 +345,7 @@ class LiveWhatsApp
         abort_unless($this->companyZones($merchant)->contains('id', $zoneId), 422, 'Quartier inconnu.');
         // Réponse depuis le même numéro que la conversation
         $this->accountId = $this->official($merchant)?->id;
-        $this->order($merchant, $live, $chat, trim((string) $name) ?: ($chat->customer_name ?: $chat->push_name ?: 'Cliente'), $zoneId);
+        $this->order($merchant, $live, $chat, trim((string) $name) ?: ($chat->customer_name ?: $chat->push_name ?: 'Client'), $zoneId);
     }
 
     /**
@@ -416,7 +416,7 @@ class LiveWhatsApp
         return $this->zones->inText($text, $zones)->first() ?? $this->zones->answer($text, $zones)->first();
     }
 
-    /** Nom de la cliente : le message sans le quartier (« Awa, Yopougon Niangon » → « Awa ») */
+    /** Nom du client : le message sans le quartier (« Awa, Yopougon Niangon » → « Awa ») */
     private function nameIn(string $text, Zone $zone): ?string
     {
         $words = collect([$zone->name, $zone->parent?->name])->filter()->flatMap(fn ($n) => explode(' ', ZoneMatcher::normalize($n)));

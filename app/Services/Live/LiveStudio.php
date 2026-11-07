@@ -67,7 +67,7 @@ class LiveStudio
         'qr_whatsapp' => false,
     ];
 
-    /** Statuts d'une course refusée ou revenue : clientes à risque */
+    /** Statuts d'une course refusée ou revenue : clients à risque */
     private const REFUSED = [OrderStatus::Returned, OrderStatus::Returning, OrderStatus::ReturnAssigned, OrderStatus::Cancelled];
 
     public function __construct(
@@ -618,7 +618,7 @@ class LiveStudio
         $quantity = max(1, (int) ($data['quantity'] ?? 1));
 
         return DB::transaction(function () use ($live, $user, $data, $code, $quantity) {
-            // Live à un seul produit : la cliente écrit « JE PRENDS »
+            // Live à un seul produit : le client écrit « JE PRENDS »
             if (in_array($code, ['JEPRENDS', 'JEPREND'], true) && $live->items()->count() === 1) {
                 $code = $live->items()->value('code');
             }
@@ -669,7 +669,7 @@ class LiveStudio
     }
 
     /**
-     * Écran du live : produits (reste), commandes, conseils calculés (sans IA), clientes à risque.
+     * Écran du live : produits (reste), commandes, conseils calculés (sans IA), clients à risque.
      *
      * @return array<string, mixed>
      */
@@ -706,7 +706,7 @@ class LiveStudio
             }
         }
 
-        // Clientes qui ont souvent refusé leur colis chez cette entreprise
+        // Clients qui ont souvent refusé leur colis chez cette entreprise
         $phones = $orders->pluck('customer_phone')->unique()->values();
         $refusals = $phones->isEmpty() ? collect() : Order::forCompany($live->company_id)->whereIn('recipient_phone', $phones)
             ->whereIn('status', self::REFUSED)->selectRaw('recipient_phone, COUNT(*) AS n')->groupBy('recipient_phone')->pluck('n', 'recipient_phone');

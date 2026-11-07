@@ -60,7 +60,7 @@ const IntroBody = defineComponent({
         h('div', { class: 'rounded-[24px] bg-gradient-to-br from-rose-700 to-violet-600 p-5 text-white' }, [
           h('p', { class: 'text-[12px] font-extrabold uppercase tracking-wider text-rose-100' }, `🛵 ${agency} · Comment ça marche`),
           h('h1', { class: 'my-1.5 text-[26px] font-extrabold leading-tight' }, 'Vendez plus en live, sans perdre une seule commande'),
-          h('p', { class: 'text-[16px] text-rose-50' }, ['Vous montrez vos produits. Les clientes commandent par WhatsApp et ', h('b', agency), ' reçoit les commandes.']),
+          h('p', { class: 'text-[16px] text-rose-50' }, ['Vous montrez vos produits. Les clients commandent par WhatsApp et ', h('b', agency), ' reçoit les commandes.']),
           h('p', { class: 'mt-3 rounded-2xl bg-white px-3.5 py-2.5 text-[18px] font-extrabold leading-normal text-rose-700 underline decoration-[3px] underline-offset-4' }, ['✅ Vous n\'avez rien à répondre.', h('br'), '✅ Vous n\'avez rien à enregistrer.']),
         ]),
         // 2. Le problème
@@ -69,10 +69,10 @@ const IntroBody = defineComponent({
           h('h2', { class: 'mb-2.5 text-[19px] font-extrabold' }, 'Pendant un live, tout va trop vite'),
           h('div', { class: 'space-y-1.5 rounded-2xl bg-slate-900 p-2.5 text-[13px] text-white', 'aria-hidden': 'true' },
             comments.map(([n, t]) => h('div', { class: 'rounded-xl bg-slate-800 px-2.5 py-1.5' }, [h('b', n), ' ', h('span', { class: 'text-slate-400' }, t)]))),
-          row('bg-red-50', '💬', 'Répondre à chaque cliente', 'Pendant que vous parlez, les messages s\'empilent.'),
+          row('bg-red-50', '💬', 'Répondre à chaque client', 'Pendant que vous parlez, les messages s\'empilent.'),
           row('bg-red-50', '📝', 'Vous notez à la main', 'Les messages défilent, vous en ratez.'),
-          row('bg-red-50', '❓', '« Laquelle ? Quelle taille ? »', 'Les clientes se trompent d\'article, vous perdez du temps.'),
-          row('bg-red-50', '📦', 'Vendu deux fois', 'Un produit épuisé est promis à 3 clientes.'),
+          row('bg-red-50', '❓', '« Laquelle ? Quelle taille ? »', 'Les clients se trompent d\'article, vous perdez du temps.'),
+          row('bg-red-50', '📦', 'Vendu deux fois', 'Un produit épuisé est promis à 3 clients.'),
           row('bg-red-50', '🌙', 'Le soir, tout recopier', 'Enregistrer chaque commande et chaque livraison, une par une.'),
         ]),
         // 3. La solution
@@ -84,7 +84,7 @@ const IntroBody = defineComponent({
           step('2', h('div', { class: 'grid h-full grid-cols-3 gap-1 bg-slate-900 p-1.5' }, ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'].map((c) => h('div', { class: 'relative rounded bg-white' }, [h('em', { class: 'absolute left-0.5 top-0.5 rounded-sm bg-slate-900 px-0.5 text-[9px] font-extrabold not-italic text-white' }, c)]))),
             'La photo à épingler est prête', 'Préparée automatiquement : produits, codes A1, A2…, prix, votre numéro.'),
           step('3', h('div', { class: 'h-full bg-[#e7f8ee] p-2 text-[12px]' }, [h('div', { class: 'w-3/4 rounded-lg bg-white px-2 py-1' }, 'A2'), h('div', { class: 'ml-auto mt-1.5 whitespace-nowrap rounded-lg bg-[#25d366] px-2 py-1 text-[10px] text-white' }, '✅ Commande notée !')]),
-            'Les clientes commandent par WhatsApp', ['Elles envoient le code. La réponse part toute seule : ', bold('vous n\'avez rien à répondre.')]),
+            'Les clients commandent par WhatsApp', ['Ils envoient le code. La réponse part toute seule : ', bold('vous n\'avez rien à répondre.')]),
           step('4', h('div', { class: 'grid h-full place-items-center bg-emerald-50 text-[40px]' }, '🛵'),
             `${agency} reçoit les commandes`, ['Directement, avec le nom, le numéro et le quartier. ', bold('Vous n\'enregistrez rien'), ' : tout se fait seul.']),
         ]),
@@ -95,8 +95,8 @@ const IntroBody = defineComponent({
           zero('0', 'message à répondre'), zero('0', 'commande à enregistrer'), zero('0', 'commande oubliée'), zero('📊', 'le bilan de votre live, tout prêt', true),
           row('bg-emerald-50', '🎤', 'Vous restez devant la caméra', 'Pas besoin de lire les messages ni de noter : vous présentez vos produits.'),
           row('bg-emerald-50', '🔔', 'Stock à jour en direct', '« Il en reste 2 », « Épuisé » : vous le dites au bon moment.'),
-          row('bg-emerald-50', '⏳', 'Liste d\'attente', 'Produit épuisé ? La cliente est notée et prévenue.'),
-          row('bg-emerald-50', '⚠️', 'Clientes à risque signalées', 'Celles qui refusent souvent : demandez un acompte.'),
+          row('bg-emerald-50', '⏳', 'Liste d\'attente', 'Produit épuisé ? Le client est noté et prévenu.'),
+          row('bg-emerald-50', '⚠️', 'Clients à risque signalés', 'Ceux qui refusent souvent : demandez un acompte.'),
         ]),
         // 5. Vidéo
         card('', [

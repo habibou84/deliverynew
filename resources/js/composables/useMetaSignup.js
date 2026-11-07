@@ -73,7 +73,9 @@ export async function connectWhatsApp({ app_id: appId, config_id: configId, grap
         session = { phone_number_id: String(data.data.phone_number_id), waba_id: String(data.data.waba_id) }
         finish()
       } else if (data.event === 'CANCEL') {
-        settle(reject, new Error(data.data?.error_message || 'Connexion interrompue avant la fin : recommencez quand vous voulez.'))
+        // La raison donnée par Meta, ou l'étape où la personne s'est arrêtée
+        const step = data.data?.current_step ? ` à l'étape « ${data.data.current_step} »` : ''
+        settle(reject, new Error(data.data?.error_message || `Connexion interrompue${step}. Vous pouvez recommencer quand vous voulez.`))
       } else if (data.event === 'FINISH_ONLY_WABA') {
         settle(reject, new Error('Aucun numéro n\'a été choisi : recommencez et ajoutez le numéro WhatsApp de l\'entreprise.'))
       }
@@ -96,4 +98,27 @@ export async function connectWhatsApp({ app_id: appId, config_id: configId, grap
       extras: { setup: {}, featureType: coexistence ? 'whatsapp_business_app_onboarding' : '', sessionInfoVersion: '3' },
     })
   })
+}
+
+/** Téléphone : la petite fenêtre de Facebook s'y ferme souvent avant de démarrer, la page entière marche */
+export function prefersFullPage() {
+  return window.matchMedia?.('(pointer: coarse)').matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+}
+
+/** Navigateur intégré de WhatsApp, Facebook, Instagram, TikTok… : la connexion à Facebook y échoue souvent */
+export function inAppBrowser() {
+  return /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|musical_ly|TikTok|Line\/|; wv\)/i.test(navigator.userAgent)
+}
+
+/**
+ * Connexion par la page entière : adresse de la fenêtre Facebook ; Facebook revient sur redirectUri avec
+ * ?code=…&state=… (state : le ticket de la connexion).
+ */
+export function facebookDialogUrl({ app_id: appId, config_id: configId, graph_version: version }, redirectUri, state, { coexistence = false } = {}) {
+  const extras = { setup: {}, sessionInfoVersion: '3', ...(coexistence ? { featureType: 'whatsapp_business_app_onboarding' } : {}) }
+  const query = new URLSearchParams({
+    client_id: appId, config_id: configId, response_type: 'code', override_default_response_type: 'true',
+    redirect_uri: redirectUri, state, extras: JSON.stringify(extras),
+  })
+  return `https://www.facebook.com/${version || 'v21.0'}/dialog/oauth?${query}`
 }

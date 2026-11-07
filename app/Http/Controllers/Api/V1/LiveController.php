@@ -122,7 +122,7 @@ class LiveController extends Controller
         return response()->json(['data' => $this->draftData($live, $merchant)]);
     }
 
-    /** Onglet « Messages » : la vendeuse choisit le quartier d'une cliente pas reconnue, la commande part */
+    /** Onglet « Messages » : la vendeuse choisit le quartier d'un client pas reconnu, la commande part */
     public function completeChat(Request $request, Live $live, LiveChat $chat): JsonResponse
     {
         $merchant = $this->own($request, $live);
@@ -318,7 +318,7 @@ class LiveController extends Controller
             'cards' => $this->studio->cardsLeft($live, $merchant),
             'offer' => $this->studio->offer($merchant),
             'shop_name' => $merchant->business_name,
-            // Lien du live : sans WhatsApp relié, les clientes commandent par ce lien
+            // Lien du live : sans WhatsApp relié, les clients commandent par ce lien
             'public_url' => $live->publicUrl(),
             'whatsapp' => $this->whatsappState($merchant),
             // Live en cours : la page ne montre que le bandeau « En direct » (commandes, montant)

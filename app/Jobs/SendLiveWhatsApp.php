@@ -11,7 +11,7 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Réponse automatique à une cliente du live, depuis le WhatsApp de l'e-commerçante : par la connexion officielle
+ * Réponse automatique à un client du live, depuis le WhatsApp de l'e-commerçante : par la connexion officielle
  * (numéro relié à Meta), sinon par le service whatsapp-bridge (code d'association / QR code).
  */
 class SendLiveWhatsApp implements ShouldQueue

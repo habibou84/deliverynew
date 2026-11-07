@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Conversation WhatsApp d'une cliente pendant un live : produit choisi, puis nom et quartier attendus */
+/** Conversation WhatsApp d'un client pendant un live : produit choisi, puis nom et quartier attendus */
 class LiveChat extends Model
 {
     public const DETAILS = 'details';

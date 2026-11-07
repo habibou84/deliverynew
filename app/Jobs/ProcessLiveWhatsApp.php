@@ -8,7 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
 /**
- * Message d'une cliente reçu sur le WhatsApp de l'e-commerçante pendant un live : par la connexion officielle
+ * Message d'un client reçu sur le WhatsApp de l'e-commerçante pendant un live : par la connexion officielle
  * ($id = son numéro relié à Meta), sinon par code d'association / QR code ($id = l'e-commerçante).
  */
 class ProcessLiveWhatsApp implements ShouldQueue

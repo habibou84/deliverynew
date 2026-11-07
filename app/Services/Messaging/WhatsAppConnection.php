@@ -45,17 +45,18 @@ class WhatsAppConnection
      * jeton, le numéro est activé pour l'API Cloud, vérifié, abonné aux messages reçus, et
      * les modèles de messages sont soumis à Meta.
      */
-    public function completeSignup(Company $company, string $code, string $phoneNumberId, string $wabaId): WhatsAppAccount
+    public function completeSignup(Company $company, string $code, ?string $phoneNumberId, ?string $wabaId, ?string $redirectUri = null): WhatsAppAccount
     {
         if (! self::signupAvailable()) {
             throw new MessagingException('Le bouton « Connecter WhatsApp » n\'est pas encore configuré sur ce serveur.');
         }
 
-        $token = $this->exchangeCode($code);
+        $token = $this->exchangeCode($code, $redirectUri);
         $expiresAt = $this->tokenExpiry($token);
 
         $account = WhatsAppAccount::forCompanyId($company->id)
             ?? new WhatsAppAccount(['company_id' => $company->id, 'owner_type' => 'company']);
+        [$wabaId, $phoneNumberId] = $this->chosenNumber($token, $wabaId, $phoneNumberId, $account->phone_number_id);
 
         // Nouveau numéro : nouveau code PIN d'activation
         if ($account->phone_number_id !== $phoneNumberId || blank($account->registration_pin)) {
@@ -102,17 +103,18 @@ class WhatsAppConnection
     /**
      * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : un numéro spécial live,
      * qui n'a pas de compte WhatsApp, est activé pour l'API (code PIN). Pas de modèles : le live ne répond
-     * qu'aux clientes qui viennent d'écrire, et ces réponses ne sont pas facturées par Meta.
+     * qu'aux clients qui viennent d'écrire, et ces réponses ne sont pas facturées par Meta.
      */
-    public function completeMerchantSignup(Merchant $merchant, string $code, string $phoneNumberId, string $wabaId): WhatsAppAccount
+    public function completeMerchantSignup(Merchant $merchant, string $code, ?string $phoneNumberId, ?string $wabaId, ?string $redirectUri = null): WhatsAppAccount
     {
         if (! self::signupAvailable()) {
             throw new MessagingException('La connexion officielle de WhatsApp n\'est pas encore configurée sur ce serveur.');
         }
 
-        $token = $this->exchangeCode($code);
+        $token = $this->exchangeCode($code, $redirectUri);
         $account = WhatsAppAccount::forMerchant($merchant->id)
             ?? new WhatsAppAccount(['company_id' => $merchant->company_id, 'owner_type' => WhatsAppAccount::MERCHANT, 'owner_id' => $merchant->id]);
+        [$wabaId, $phoneNumberId] = $this->chosenNumber($token, $wabaId, $phoneNumberId, $account->phone_number_id);
         // Nouveau numéro : nouveau code PIN d'activation
         if ($account->phone_number_id !== $phoneNumberId || blank($account->registration_pin)) {
             $account->registration_pin = (string) random_int(100000, 999999);
@@ -182,7 +184,7 @@ class WhatsAppConnection
      * Échange le code d'autorisation de l'inscription intégrée contre un jeton d'accès
      * au compte WhatsApp Business de l'entreprise.
      */
-    private function exchangeCode(string $code): string
+    private function exchangeCode(string $code, ?string $redirectUri = null): string
     {
         $base = rtrim(config('messaging.whatsapp.graph_url'), '/').'/'.config('messaging.whatsapp.graph_version');
 
@@ -191,6 +193,8 @@ class WhatsAppConnection
                 'client_id' => config('messaging.whatsapp.app_id'),
                 'client_secret' => config('messaging.whatsapp.app_secret'),
                 'code' => $code,
+                // Connexion par la page entière : la même adresse de retour que pour la fenêtre de Facebook
+                ...($redirectUri ? ['redirect_uri' => $redirectUri] : []),
             ]));
         } catch (MessagingException $e) {
             // Code expiré (quelques minutes), déjà utilisé ou application mal configurée
@@ -203,6 +207,65 @@ class WhatsAppConnection
         }
 
         return $token;
+    }
+
+    /**
+     * Compte WhatsApp et numéro choisis dans Facebook. Par la petite fenêtre, Facebook les transmet ; par la page
+     * entière (téléphone), non : on les retrouve avec le jeton, en prenant le vrai numéro plutôt que le numéro de
+     * test américain que Meta crée, et un autre que celui qu'on vient de délier.
+     *
+     * @return array{0: string, 1: string} [compte, numéro]
+     */
+    private function chosenNumber(string $token, ?string $wabaId, ?string $phoneNumberId, ?string $previous): array
+    {
+        if (filled($wabaId) && filled($phoneNumberId)) {
+            return [$wabaId, $phoneNumberId];
+        }
+
+        $wabaIds = filled($wabaId) ? [$wabaId] : $this->authorizedAccounts($token);
+        $numbers = [];
+        foreach (array_reverse($wabaIds) as $waba) {
+            try {
+                $list = $this->call(fn () => $this->http($token)->get($waba.'/phone_numbers', ['fields' => 'id,display_phone_number']))?->json('data') ?? [];
+            } catch (MessagingException) {
+                $list = [];
+            }
+            foreach ($list as $n) {
+                if (filled($n['id'] ?? null)) {
+                    $phone = preg_replace('/[^\d+]/', '', (string) ($n['display_phone_number'] ?? ''));
+                    $numbers[] = ['waba' => (string) $waba, 'id' => (string) $n['id'], 'test' => str_starts_with($phone, '+1') || str_starts_with($phone, '1555')];
+                }
+            }
+        }
+        if ($numbers === []) {
+            throw new MessagingException('Aucun numéro trouvé sur votre compte WhatsApp : recommencez et ajoutez votre numéro spécial live dans Facebook.');
+        }
+        usort($numbers, fn ($a, $b) => [$a['test'], $a['id'] === $previous] <=> [$b['test'], $b['id'] === $previous]);
+
+        return [$numbers[0]['waba'], $numbers[0]['id']];
+    }
+
+    /**
+     * Comptes WhatsApp Business autorisés par la personne dans Facebook (le dernier est celui choisi en dernier).
+     *
+     * @return list<string>
+     */
+    private function authorizedAccounts(string $token): array
+    {
+        try {
+            $scopes = $this->call(fn () => $this->http(config('messaging.whatsapp.app_id').'|'.config('messaging.whatsapp.app_secret'))
+                ->get('debug_token', ['input_token' => $token]))?->json('data.granular_scopes') ?? [];
+        } catch (MessagingException) {
+            $scopes = [];
+        }
+        foreach (['whatsapp_business_management', 'whatsapp_business_messaging'] as $scope) {
+            $ids = collect($scopes)->firstWhere('scope', $scope)['target_ids'] ?? [];
+            if ($ids !== []) {
+                return array_values(array_map('strval', $ids));
+            }
+        }
+
+        throw new MessagingException('Aucun compte WhatsApp n\'a été choisi dans Facebook : recommencez la connexion.');
     }
 
     /**
