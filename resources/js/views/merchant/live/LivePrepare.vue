@@ -57,31 +57,18 @@
       <div class="min-h-0 flex-1 space-y-3.5 overflow-y-auto overscroll-contain px-4 py-4">
         <!-- ── WhatsApp ── -->
         <template v-if="panel === 'whatsapp'">
-          <p class="text-[16px] text-slate-700">Les clientes envoient le code du produit sur ce WhatsApp : la réponse part toute seule et votre agence reçoit la commande.</p>
-        <p class="rounded-2xl bg-emerald-600 px-4 py-4 text-center text-[22px] font-extrabold leading-tight text-white">Les messages des commandes sont gratuits.</p>
+          <!-- Court, comme Jibiat Marchand : une phrase, 3 étapes, un bouton -->
+          <p v-if="!d.whatsapp?.auto" class="text-[16px] text-slate-700">Les clientes envoient le code du produit. <b>La réponse part toute seule</b> et votre agence reçoit la commande.</p>
 
-        <!-- Connexion pas encore ouverte sur cette installation : le lien du live en attendant -->
-        <p v-if="!waConnectable" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La connexion de WhatsApp n'est pas encore ouverte par votre agence. En attendant, vos clientes commandent par <b>le lien du live</b> : touchez « Continuer sans WhatsApp ».</p>
+          <!-- Connexion pas encore ouverte sur cette installation : le lien du live en attendant -->
+          <p v-if="!waConnectable" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La connexion de WhatsApp n'est pas encore ouverte par votre agence. En attendant, vos clientes commandent par <b>le lien du live</b>.</p>
 
-        <div v-if="!d.whatsapp?.auto && waConnectable" class="m-card space-y-3 p-4">
-          <p class="text-[17px] font-extrabold">Ce qu'il vous faut</p>
-          <div class="flex gap-3">
-            <span class="text-[26px]" aria-hidden="true">📱</span>
-            <p class="text-[16px]"><b>Un numéro spécial live</b>, qui n'a pas de compte WhatsApp (une nouvelle puce, par exemple). Vous recevrez un code par SMS ou par appel sur ce numéro.</p>
+          <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" @next="open('produits')" />
+
+          <div v-if="!d.whatsapp?.auto" class="space-y-1 pt-1 text-center">
+            <button type="button" class="text-[15px] font-bold text-[var(--app-color)]" @click="skipWhatsApp">{{ waConnectable ? 'Pas de numéro spécial ? Continuer sans WhatsApp ›' : 'Continuer sans WhatsApp ›' }}</button>
+            <p class="text-[13px] text-slate-400">Sans WhatsApp, vos clientes commandent par le lien du live.</p>
           </div>
-          <div class="flex gap-3">
-            <span class="text-[26px]" aria-hidden="true">✅</span>
-            <p class="text-[16px]"><b>Pas besoin de carte bancaire pour le live.</b> Les réponses aux clientes qui commandent sont gratuites. Si Meta vous demande une carte ou parle de « paiement », c'est normal : vous pouvez passer, les commandes du live marchent quand même.</p>
-          </div>
-        </div>
-
-        <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" />
-
-        <div v-if="!d.whatsapp?.auto" class="m-card space-y-2 p-4">
-          <p class="text-[16px] font-bold">Pas de numéro spécial pour le moment ?</p>
-          <p class="text-[15px] text-slate-600">Faites votre live sans WhatsApp : vos clientes commandent par <b>le lien du live</b>, à mettre dans votre bio ou en commentaire épinglé.</p>
-          <button type="button" class="m-btn-secondary w-full" @click="skipWhatsApp">Continuer sans WhatsApp</button>
-        </div>
         </template>
 
         <!-- ── Produits ── -->
@@ -351,7 +338,8 @@ const store = {
 // WhatsApp proposé (connexion officielle ou option de la console), relié ou non
 // Étape WhatsApp toujours présente (comme Jibiat Marchand) : connexion, ou « Continuer sans WhatsApp » avec le lien du live
 const waOffered = computed(() => !!d.value)
-const waConnectable = computed(() => !!(d.value?.whatsapp?.auto || d.value?.whatsapp?.official?.available || d.value?.whatsapp?.available))
+// Seule la connexion officielle (Facebook) est proposée ; un numéro déjà relié autrement reste relié
+const waConnectable = computed(() => !!(d.value?.whatsapp?.auto || d.value?.whatsapp?.official?.available))
 // « Continuer sans WhatsApp » : retenu pour ce live, sur ce téléphone
 const skipped = ref(false)
 const skipKey = () => `live-sans-whatsapp-${d.value?.live?.id}`
@@ -404,7 +392,7 @@ const stepList = computed(() => {
   return list.map((s, i) => ({ ...s, state: i < at ? 'done' : i === at ? 'current' : 'todo' }))
 })
 const panelTitle = computed(() => ({
-  whatsapp: `${stepNumber('whatsapp')} · Votre WhatsApp pour le live`,
+  whatsapp: `${stepNumber('whatsapp')} · Votre WhatsApp du live`,
   produits: `${stepNumber('produits')} · Les produits du live`,
   nouveau: 'Nouveau produit : photo + IA',
   etiquette: `${stepNumber('etiquette')} · L'étiquette à épingler`,
