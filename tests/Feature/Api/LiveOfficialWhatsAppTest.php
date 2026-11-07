@@ -146,14 +146,18 @@ class LiveOfficialWhatsAppTest extends TestCase
         $this->meta('wamid.1', 'A1'); // même webhook renvoyé par Meta : ignoré
         $replies = $this->process();
         $this->assertCount(1, $replies);
-        $this->assertStringContainsString('Pour la livraison', $replies[0]);
+        $this->assertStringContainsString('VOTRE ADRESSE', $replies[0]);
 
+        // Récapitulatif, puis « 1 » : la commande part à l'agence
         $this->meta('wamid.2', 'Awa Koné, Yopougon');
+        $this->assertStringContainsString('VOTRE COMMANDE', $this->process()[1]);
+        $this->assertSame(0, Order::withoutGlobalScopes()->count());
+        $this->meta('wamid.3', '1');
         $replies = $this->process();
         $order = Order::withoutGlobalScopes()->latest('id')->first();
         $this->assertSame(['Awa Koné', $this->yopougon->id], [$order->recipient_name, $order->delivery_zone_id]);
         $this->assertSame('whatsapp', LiveOrder::first()->source);
-        $this->assertStringContainsString("C'est noté, Awa", $replies[1]);
+        $this->assertStringContainsString('COMMANDE CONFIRMÉE', $replies[2]);
         Queue::assertNotPushed(ProcessInboundWhatsApp::class);
 
         // Délier

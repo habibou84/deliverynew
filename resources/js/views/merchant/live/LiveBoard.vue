@@ -73,7 +73,7 @@
         <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">EN TRAIN DE COMMANDER · {{ b.chats?.length || 0 }}</p>
         <div v-for="c in b.chats || []" :key="c.id" :class="['space-y-2 px-4 py-3', c.stuck ? 'bg-red-50/60' : '']">
           <div class="flex items-start justify-between gap-2">
-            <p class="min-w-0 text-[15px]"><b>{{ c.name || localPhone(c.phone) }}</b> · {{ c.code }} {{ c.item }}<template v-if="c.quantity > 1"> × {{ c.quantity }}</template>
+            <p class="min-w-0 text-[15px]"><b>{{ c.name || localPhone(c.phone) }}</b> · {{ c.item }}
               <span class="block text-[13px] text-slate-500">{{ localPhone(c.phone) }} · {{ STEP_TEXT[c.step] || 'en cours' }}</span>
             </p>
             <span v-if="c.stuck" class="shrink-0 rounded-md bg-red-100 px-1.5 py-0.5 text-[11px] font-extrabold text-red-800">QUARTIER ?</span>
@@ -201,7 +201,7 @@ const tabs = computed(() => [
 const stuckCount = computed(() => (b.value?.chats || []).filter((c) => c.stuck).length)
 const chatForm = reactive({})
 const formFor = (c) => (chatForm[c.id] ||= { delivery_zone_id: null, recipient_name: c.name || '' })
-const STEP_TEXT = { details: 'attend son nom et son quartier', confirm: 'doit répondre OUI' }
+const STEP_TEXT = { details: 'donne son nom et son quartier', confirm: 'doit confirmer le récapitulatif', add: 'ajoute un article', cancel: 'veut annuler' }
 async function completeChat(c) {
   const name = formFor(c).recipient_name || c.name || 'le client'
   saving.value = true

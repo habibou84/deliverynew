@@ -5,8 +5,10 @@ namespace Tests\Feature\Api;
 use App\Jobs\ProcessLiveWhatsApp;
 use App\Jobs\SendLiveWhatsApp;
 use App\Models\LiveChat;
+use App\Models\LiveItem;
 use App\Models\LiveOrder;
 use App\Models\Order;
+use App\Models\WhatsAppAccount;
 use App\Services\Live\LiveStudio;
 use App\Services\Live\LiveWhatsApp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -17,7 +19,7 @@ use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
 /**
- * Commandes du live par WhatsApp, sans intervention : code → nom et quartier → course créée et réponse automatique.
+ * Commandes du live par WhatsApp, sans intervention : code → nom et quartier → récapitulatif → « 1 » : course créée.
  */
 class LiveWhatsAppTest extends TestCase
 {
@@ -61,28 +63,90 @@ class LiveWhatsAppTest extends TestCase
         return $texts;
     }
 
-    public function test_code_then_name_and_neighbourhood_creates_the_order_without_the_merchant(): void
+    public function test_code_address_and_recap_then_the_order_leaves_only_once_confirmed(): void
     {
         // Message ordinaire : Jibiat ne répond pas (conversation personnelle)
         $this->say('Bonjour ma chérie, ça va ?');
         Queue::assertNotPushed(SendLiveWhatsApp::class);
 
         $this->say('a1');
-        $this->assertStringContainsString('Pour la livraison', $this->replies()[0]);
+        $this->assertStringContainsString('VOTRE ADRESSE', $this->replies()[0]);
         $this->assertSame(LiveChat::DETAILS, LiveChat::first()->step);
 
         // Quartier inconnu : on redemande
         $this->say('Awa Koné, quelque part');
         $this->assertStringContainsString('pas reconnu le quartier', $this->replies()[1]);
 
+        // Quartier reconnu : récapitulatif à confirmer, rien n'est encore envoyé à l'agence
         $this->say('Awa Koné, Yopougon');
+        $recap = $this->replies()[2];
+        $this->assertStringContainsString('VOTRE COMMANDE', $recap);
+        $this->assertStringContainsString('1 × *A1* Robe wax', $recap);
+        $this->assertStringContainsString('*Yopougon* · Awa Koné', $recap);
+        $this->assertStringContainsString('*1* ✅ Je confirme', $recap);
+        $this->assertSame(0, Order::count());
+
+        // Une réponse qui n'est pas un chiffre : on rappelle les choix
+        $this->say('ok merci beaucoup ma soeur');
+        $this->assertStringContainsString('RÉPONDEZ AVEC UN CHIFFRE', $this->replies()[3]);
+        $this->assertSame(0, Order::count());
+
+        $this->say('1');
         $order = Order::query()->latest('id')->first();
         $this->assertSame('Awa Koné', $order->recipient_name);
         $this->assertSame($this->yopougon->id, $order->delivery_zone_id);
         $this->assertSame('whatsapp', LiveOrder::first()->source);
-        $this->assertStringContainsString("C'est noté, Awa", $this->replies()[2]);
+        $this->assertStringContainsString('COMMANDE CONFIRMÉE', $this->replies()[4]);
+        $this->assertStringContainsString($order->tracking_code, $this->replies()[4]);
         $this->assertSame(0, LiveChat::count());
         Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => $job->session === "merchant-{$this->merchant->id}" && $job->to === '+2250707000001');
+    }
+
+    public function test_adding_an_article_makes_one_course_and_cancelling_needs_two_answers(): void
+    {
+        $this->postJson("/api/v1/live/{$this->live}/products", ['name' => 'Sac cuir', 'price' => 15000, 'quantity' => 2])->assertCreated();
+        $this->say('A1');
+        $this->say('Awa, Yopougon');
+
+        // 2 : ajouter un article, puis le code
+        $this->say('2');
+        $this->assertStringContainsString("code de l'article", $this->replies()[2]);
+        $this->say('A2');
+        $updated = $this->replies()[3];
+        $this->assertStringContainsString('COMMANDE MISE À JOUR', $updated);
+        $this->assertStringContainsString('*A1*', $updated);
+        $this->assertStringContainsString('*A2* Sac cuir', $updated);
+
+        // Confirmée : une seule course pour les deux articles
+        $this->say('Je confirme');
+        $this->assertSame(1, Order::count());
+        $this->assertSame(2, LiveOrder::count());
+        $this->assertSame(1, LiveOrder::query()->distinct()->count('order_id'));
+        $this->assertSame(24000, (int) Order::first()->items_amount);
+
+        // Autre client : 4 puis 4 annule, rien n'est envoyé à l'agence
+        $this->say('A2', '+2250707000002', 'Fatou');
+        $this->say('Fatou, Yopougon', '+2250707000002');
+        $this->say('4', '+2250707000002');
+        $this->assertStringContainsString('VOUS VOULEZ ANNULER', $this->replies()[7]);
+        $this->assertSame(1, LiveChat::count());
+        $this->say('ANNULER', '+2250707000002');
+        $this->assertStringContainsString('COMMANDE ANNULÉE', $this->replies()[8]);
+        $this->assertSame(0, LiveChat::count());
+        $this->assertSame(1, Order::count());
+
+        // 3 : changer l'adresse avant de confirmer
+        $this->say('A2', '+2250707000003', 'Aya');
+        $this->say('Aya, Yopougon', '+2250707000003');
+        $this->say('3', '+2250707000003');
+        $this->assertStringContainsString('NOUVELLE ADRESSE', $this->replies()[11]);
+        $this->assertSame(LiveChat::DETAILS, LiveChat::first()->step);
+
+        // Sans réponse pendant 30 minutes : la commande est oubliée, l'article reste disponible
+        $this->travel(LiveWhatsApp::CHAT_MINUTES + 1)->minutes();
+        $this->say('1', '+2250707000003');
+        $this->assertSame(1, Order::count());
+        $this->assertSame(1, LiveOrder::query()->where('live_item_id', LiveOrder::first()->live_item_id)->count());
     }
 
     public function test_the_merchant_sees_ongoing_chats_and_picks_the_neighbourhood(): void
@@ -97,7 +161,7 @@ class LiveWhatsAppTest extends TestCase
         $this->assertSame('Awa Koné, quelque part', $chats[0]['last_text']);
         $this->assertSame('A1', $chats[0]['code']);
 
-        // La vendeuse choisit le quartier : la commande part et la cliente reçoit la confirmation
+        // La vendeuse choisit le quartier : la commande part et le client reçoit la confirmation
         $data = $this->postJson("/api/v1/live/{$this->live}/chats/{$chats[0]['id']}/complete", [
             'delivery_zone_id' => $this->yopougon->id, 'recipient_name' => 'Awa Koné',
         ])->assertOk()->json('data');
@@ -105,32 +169,52 @@ class LiveWhatsAppTest extends TestCase
         $this->assertSame(1, $data['totals']['orders']);
         $order = Order::query()->latest('id')->first();
         $this->assertSame(['Awa Koné', $this->yopougon->id], [$order->recipient_name, $order->delivery_zone_id]);
-        $this->assertStringContainsString("C'est noté, Awa", collect($this->replies())->last());
+        $this->assertStringContainsString('COMMANDE CONFIRMÉE', collect($this->replies())->last());
     }
 
-    public function test_known_customer_confirms_with_yes_and_sold_out_goes_to_waiting_list(): void
+    public function test_known_customer_gets_the_recap_at_once_and_sold_out_goes_to_waiting_list(): void
     {
         $this->say('A1');
         $this->say('Awa, Yopougon');
+        $this->say('1');
 
-        // Deuxième commande : nom et quartier proposés, « oui » suffit
+        // Deuxième commande : nom et quartier repris, récapitulatif tout de suite
         $this->say('Je veux A1 x2 svp');
-        $this->assertStringContainsString('Je livre à *Awa*, *Yopougon*', $this->replies()[2]);
+        $this->assertStringContainsString('*Yopougon* · Awa', $this->replies()[3]);
+        $this->assertStringContainsString('2 × *A1*', $this->replies()[3]);
         $this->say('Oui');
         $this->assertSame(2, Order::count());
         $this->assertSame(3, LiveOrder::query()->sum('quantity'));
 
         // Plus de stock : liste d'attente
         $this->say('A1', '+2250707000002', 'Fatou');
-        $this->assertStringContainsString('épuisé', $this->replies()[4]);
+        $this->assertStringContainsString('épuisé', $this->replies()[5]);
         $this->say('Fatou, Yopougon', '+2250707000002');
+        $this->say('1', '+2250707000002');
         $this->assertSame(LiveOrder::WAITING, LiveOrder::query()->latest('id')->first()->status);
-        $this->assertStringContainsString("liste d'attente", $this->replies()[5]);
+        $this->assertStringContainsString("liste d'attente", collect($this->replies())->last());
         $this->assertSame(2, Order::count());
 
         // « JE PRENDS » : un seul article dans le live
         $this->say('Je prends', '+2250707000003');
         $this->assertSame(1, LiveChat::where('phone', '+2250707000003')->count());
+    }
+
+    public function test_official_number_sends_the_photos(): void
+    {
+        $account = WhatsAppAccount::create(['company_id' => $this->company->id, 'owner_type' => WhatsAppAccount::MERCHANT, 'owner_id' => $this->merchant->id, 'phone_number_id' => '9001', 'status' => 'connected']);
+        LiveItem::query()->first()->product->forceFill(['photo_path' => 'produits/robe.jpg'])->save();
+        $official = function (string $text) use ($account) {
+            app('auth')->forgetGuards();
+            app(LiveWhatsApp::class)->onOfficial($account, '+2250707000001', 'Awa', $text);
+        };
+
+        $official('A1');
+        $official('Awa, Yopougon');
+        // Récapitulatif : la photo et le texte en légende
+        Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => str_contains($job->text, 'VOTRE COMMANDE') && str_contains((string) $job->image, '/produits/') && $job->accountId === $account->id);
+        $official('1');
+        Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => str_contains($job->text, 'Voici les photos de votre commande') && $job->image !== null);
     }
 
     public function test_nothing_happens_without_a_live_in_progress(): void

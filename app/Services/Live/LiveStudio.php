@@ -611,51 +611,77 @@ class LiveStudio
      */
     public function addOrder(Live $live, User $user, array $data): LiveOrder
     {
+        $code = strtoupper(preg_replace('/\s+/', '', $data['code']));
+        // Live à un seul produit : le client écrit « JE PRENDS »
+        if (in_array($code, ['JEPRENDS', 'JEPREND'], true) && $live->items()->count() === 1) {
+            $code = $live->items()->value('code');
+        }
+
+        return $this->addCart($live, $user, [...$data, 'items' => [['code' => $code, 'quantity' => $data['quantity'] ?? 1]]])[0];
+    }
+
+    /**
+     * Commande de plusieurs articles (panier WhatsApp) : une seule course chez l'agence pour les articles disponibles,
+     * liste d'attente pour ceux qui sont épuisés. Une ligne de commande du live par article.
+     *
+     * @param  array{items: list<array{code: string, quantity?: int}>, recipient_name: string, recipient_phone: string, delivery_zone_id: int, delivery_address?: ?string, source?: string}  $data
+     * @return list<LiveOrder>
+     */
+    public function addCart(Live $live, User $user, array $data): array
+    {
         if ($live->status !== Live::LIVE) {
             throw new BusinessRuleException('Démarrez le live pour enregistrer des commandes.');
         }
-        $code = strtoupper(preg_replace('/\s+/', '', $data['code']));
-        $quantity = max(1, (int) ($data['quantity'] ?? 1));
 
-        return DB::transaction(function () use ($live, $user, $data, $code, $quantity) {
-            // Live à un seul produit : le client écrit « JE PRENDS »
-            if (in_array($code, ['JEPRENDS', 'JEPREND'], true) && $live->items()->count() === 1) {
-                $code = $live->items()->value('code');
-            }
-            $item = LiveItem::query()->where('live_id', $live->id)->where('code', $code)->lockForUpdate()->first()
-                ?? throw new BusinessRuleException("Le code {$code} n'existe pas dans ce live.", 'code');
+        return DB::transaction(function () use ($live, $user, $data) {
             $phone = PhoneNumber::normalize($data['recipient_phone']) ?? $data['recipient_phone'];
+            $source = $data['source'] ?? 'manual';
+            $lines = [];
+            foreach ($data['items'] as $line) {
+                $code = strtoupper(preg_replace('/\s+/', '', $line['code']));
+                $item = LiveItem::query()->where('live_id', $live->id)->where('code', $code)->lockForUpdate()->first()
+                    ?? throw new BusinessRuleException("Le code {$code} n'existe pas dans ce live.", 'code');
+                // Même article demandé deux fois : une seule ligne, quantités additionnées
+                $quantity = max(1, (int) ($line['quantity'] ?? 1)) + ($lines[$item->id][1] ?? 0);
+                $lines[$item->id] = [$item, $quantity];
+            }
+            $lines = array_values($lines);
 
-            if ($item->remaining() < $quantity) {
-                return LiveOrder::create([
-                    'live_id' => $live->id, 'live_item_id' => $item->id, 'customer_name' => $data['recipient_name'],
-                    'customer_phone' => $phone, 'quantity' => $quantity, 'status' => LiveOrder::WAITING, 'source' => $data['source'] ?? 'manual',
-                ]);
+            $available = array_values(array_filter($lines, fn ($l) => $l[0]->remaining() >= $l[1]));
+            $availableIds = array_map(fn ($l) => $l[0]->id, $available);
+            $order = null;
+            if ($available !== []) {
+                $merchant = $live->merchant()->firstOrFail();
+                $order = $this->orders->create($user, $merchant, [
+                    'recipient_name' => $data['recipient_name'],
+                    'recipient_phone' => $phone,
+                    'delivery_zone_id' => $data['delivery_zone_id'],
+                    'delivery_address' => $data['delivery_address'] ?? null,
+                    'merchant_note' => "Live « {$live->name} »",
+                    'items' => array_map(function ($l) {
+                        [$item, $quantity] = $l;
+                        $product = $item->product;
+                        $tracked = $product && $product->levels()->exists()
+                            && (int) $product->levels()->get()->sum(fn ($level) => $level->available()) >= $quantity;
+
+                        return ['product_id' => $tracked ? $product->id : null, 'label' => $item->label(), 'quantity' => $quantity, 'unit_price' => $item->price];
+                    }, $available),
+                ], 'live');
             }
 
-            $merchant = $live->merchant()->firstOrFail();
-            $product = $item->product;
-            $tracked = $product && $product->levels()->exists()
-                && (int) $product->levels()->get()->sum(fn ($l) => $l->available()) >= $quantity;
-            $order = $this->orders->create($user, $merchant, [
-                'recipient_name' => $data['recipient_name'],
-                'recipient_phone' => $phone,
-                'delivery_zone_id' => $data['delivery_zone_id'],
-                'delivery_address' => $data['delivery_address'] ?? null,
-                'merchant_note' => "Live « {$live->name} »",
-                'items' => [[
-                    'product_id' => $tracked ? $product->id : null,
-                    'label' => $item->label(),
-                    'quantity' => $quantity,
-                    'unit_price' => $item->price,
-                ]],
-            ], 'live');
-            $item->increment('sold', $quantity);
+            return array_map(function ($l) use ($live, $data, $phone, $source, $order, $availableIds) {
+                [$item, $quantity] = $l;
+                $ordered = $order !== null && in_array($item->id, $availableIds, true);
+                if ($ordered) {
+                    $item->increment('sold', $quantity);
+                }
 
-            return LiveOrder::create([
-                'live_id' => $live->id, 'live_item_id' => $item->id, 'order_id' => $order->id, 'customer_name' => $data['recipient_name'],
-                'customer_phone' => $phone, 'quantity' => $quantity, 'status' => LiveOrder::ORDERED, 'source' => $data['source'] ?? 'manual',
-            ]);
+                return LiveOrder::create([
+                    'live_id' => $live->id, 'live_item_id' => $item->id, 'order_id' => $ordered ? $order->id : null,
+                    'customer_name' => $data['recipient_name'], 'customer_phone' => $phone, 'quantity' => $quantity,
+                    'status' => $ordered ? LiveOrder::ORDERED : LiveOrder::WAITING, 'source' => $source,
+                ]);
+            }, $lines);
         });
     }
 
