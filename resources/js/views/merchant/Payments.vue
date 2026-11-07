@@ -1,17 +1,12 @@
 <template>
   <div class="space-y-4">
-    <!-- Un seul gros montant : ce qui va revenir au marchand -->
+    <!-- Un seul gros montant : ce que l'agence doit en tout au marchand (argent encore chez les livreurs compris) -->
     <section v-if="summary" class="relative overflow-hidden rounded-[24px] bg-brand-grad p-4 text-white">
       <svg class="pointer-events-none absolute -right-8 -top-10 opacity-[.10]" width="170" height="170" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="#fff" /></svg>
-      <p class="text-[13px] font-medium opacity-90">{{ summary.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'À recevoir' }}</p>
+      <p class="text-[13px] font-medium opacity-90">{{ summary.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'L\'agence vous doit' }}</p>
       <p class="text-[34px] font-extrabold tracking-tight leading-tight tabular-nums">{{ money(Math.abs(summary.unpaid_total)) }}</p>
       <p v-if="draft" class="text-[13px] font-semibold opacity-95">Versement de {{ money(draft.net_amount) }} en préparation</p>
       <p v-else-if="lastPaid" class="text-[13px] opacity-90">Dernier versement le {{ date(lastPaid.paid_at) }}</p>
-      <!-- Répartition : chez les livreurs, à l'agence -->
-      <div v-if="spread" class="mt-3 flex h-2.5 gap-[2px] overflow-hidden rounded-full bg-white/20" aria-hidden="true">
-        <span v-if="spread.couriers" class="bg-[#9CC8FF]" :style="{ flex: spread.couriers }" />
-        <span v-if="spread.agency" class="bg-[#FFD89A]" :style="{ flex: spread.agency }" />
-      </div>
     </section>
 
     <!-- Comment être payé : rappel tant qu'aucun moyen n'est donné -->
@@ -94,13 +89,6 @@ const thisMonth = computed(() => {
   return paid.value.filter((p) => String(p.paid_at).slice(0, 7) === month)
 })
 
-// Barre de l'en-tête : part chez les livreurs et part à l'agence
-const spread = computed(() => {
-  const couriers = Math.max(0, summary.value?.pending_cash || 0)
-  const agency = Math.max(0, summary.value?.available || 0)
-  return couriers + agency > 0 ? { couriers, agency } : null
-})
-
 // Pastille du moyen de paiement d'un versement (couleur et lettres, d'après son libellé)
 function methodLook(p) {
   const label = (p.method_label || '').toLowerCase()
@@ -114,8 +102,14 @@ function methodLook(p) {
 }
 
 const flow = computed(() => [
-  { icon: 'moto', label: 'Chez les livreurs', text: 'encaissé, pas encore rendu à l\'agence', amount: summary.value.pending_cash },
-  { icon: 'boutique', label: 'À l\'agence', text: draft.value ? 'en partie dans le versement en préparation' : 'prêt pour le prochain versement', amount: summary.value.available, amountClass: summary.value.available < 0 ? 'text-red-600' : '' },
+  // Ce que l'agence doit en tout (sans distinguer l'argent encore chez les livreurs)
+  {
+    icon: 'boutique',
+    label: summary.value.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'L\'agence vous doit',
+    text: draft.value ? `dont ${money(draft.value.net_amount)} dans le versement en préparation` : 'courses livrées, pas encore versées',
+    amount: Math.abs(summary.value.unpaid_total),
+    amountClass: summary.value.unpaid_total < 0 ? 'text-red-600' : '',
+  },
   {
     icon: 'billets',
     label: 'Versé à vous',
