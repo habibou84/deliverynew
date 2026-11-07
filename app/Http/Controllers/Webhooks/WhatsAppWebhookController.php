@@ -90,10 +90,17 @@ class WhatsAppWebhookController extends Controller
     private function liveMessage(WhatsAppAccount $account, array $message, ?string $name): void
     {
         $id = (string) ($message['id'] ?? '');
-        if ($id === '' || ($message['type'] ?? '') !== 'text' || ! Cache::add("live-wa-msg:{$id}", 1, now()->addDay())) {
+        // Bouton ou ligne de liste touché : son identifiant (« 1 », « 2 »…) vaut la réponse tapée
+        $text = match ($message['type'] ?? '') {
+            'text' => $message['text']['body'] ?? null,
+            'interactive' => $message['interactive']['button_reply']['id'] ?? $message['interactive']['list_reply']['id'] ?? null,
+            'button' => $message['button']['text'] ?? null,
+            default => null,
+        };
+        if ($id === '' || blank($text) || ! Cache::add("live-wa-msg:{$id}", 1, now()->addDay())) {
             return;
         }
-        ProcessLiveWhatsApp::dispatch($account->id, '+'.ltrim((string) ($message['from'] ?? ''), '+'), $name, (string) ($message['text']['body'] ?? ''), official: true);
+        ProcessLiveWhatsApp::dispatch($account->id, '+'.ltrim((string) ($message['from'] ?? ''), '+'), $name, (string) $text, official: true);
     }
 
     /**

@@ -74,14 +74,18 @@ class LiveOfficialWhatsAppTest extends TestCase
     }
 
     /** Message reçu par Meta sur le numéro de la boutique */
-    private function meta(string $id, string $text): void
+    private function meta(string $id, string $text, bool $tapped = false): void
     {
+        // Ligne de liste touchée : Meta envoie son identifiant
+        $message = $tapped
+            ? ['type' => 'interactive', 'interactive' => ['type' => 'list_reply', 'list_reply' => ['id' => $text, 'title' => '✅ Je confirme']]]
+            : ['type' => 'text', 'text' => ['body' => $text]];
         app('auth')->forgetGuards();
         // Signé avec le secret de l'application Meta, comme les vrais envois de Meta
         $body = json_encode(['entry' => [['changes' => [['value' => [
             'metadata' => ['phone_number_id' => '666'],
             'contacts' => [['profile' => ['name' => 'Awa']]],
-            'messages' => [['id' => $id, 'from' => '2250707000001', 'type' => 'text', 'text' => ['body' => $text]]],
+            'messages' => [['id' => $id, 'from' => '2250707000001'] + $message],
         ]]]]]]);
         $this->call('POST', '/api/webhooks/whatsapp', [], [], [], [
             'CONTENT_TYPE' => 'application/json',
@@ -151,8 +155,11 @@ class LiveOfficialWhatsAppTest extends TestCase
         // Récapitulatif, puis « 1 » : la commande part à l'agence
         $this->meta('wamid.2', 'Awa Koné, Yopougon');
         $this->assertStringContainsString('VOTRE COMMANDE', $this->process()[1]);
+        // Connexion officielle : une liste à toucher plutôt que des chiffres à taper
+        Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => str_contains($job->text, 'VOTRE COMMANDE')
+            && ! str_contains($job->text, 'RÉPONDEZ AVEC UN CHIFFRE') && array_column($job->choices, 'id') === ['1', '2', '3', '4']);
         $this->assertSame(0, Order::withoutGlobalScopes()->count());
-        $this->meta('wamid.3', '1');
+        $this->meta('wamid.3', '1', tapped: true);
         $replies = $this->process();
         $order = Order::withoutGlobalScopes()->latest('id')->first();
         $this->assertSame(['Awa Koné', $this->yopougon->id], [$order->recipient_name, $order->delivery_zone_id]);
