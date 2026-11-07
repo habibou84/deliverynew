@@ -31,7 +31,7 @@
     <!-- Étiquettes des colis que le livreur n'a pas encore récupérés (courses affichées) -->
     <RouterLink v-if="toLabel.length" :to="{ path: '/etiquettes', query: { ids: toLabel.join(',') } }" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3 text-sm shadow-soft active:scale-[.99] transition">
       <ColorIcon name="etiquette" :size="40" />
-      <span class="flex-1"><strong class="block text-[14.5px]">Étiquettes à coller · {{ toLabel.length }}</strong><span class="text-slate-500">Pour les colis pas encore récupérés</span></span>
+      <span class="flex-1"><strong class="block text-[14.5px]">{{ toLabel.length }} étiquette{{ toLabel.length > 1 ? 's' : '' }} à coller</strong><span class="text-slate-500">Pour les colis pas encore récupérés</span></span>
       <AppIcon name="right" class="h-5 w-5 text-slate-400" />
     </RouterLink>
 
