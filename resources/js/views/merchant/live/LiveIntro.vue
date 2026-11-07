@@ -110,9 +110,9 @@ const IntroBody = defineComponent({
           o.offered_by_company
             ? h('p', { class: 'py-2 text-[16px] font-bold text-emerald-700' }, 'Votre agence vous offre vos lives.')
             : [
-                o.trial_left ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', 'Votre 1er live'), h('b', { class: 'text-emerald-700' }, 'Offert')]) : null,
-                h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', 'Un live'), h('b', money(o.prices.live))]),
-                o.prices.cap ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', 'Au maximum par mois, même avec un live par jour'), h('b', money(o.prices.cap))]) : null,
+                o.trial_left ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `Vos ${o.trial_left} prochains lives`), h('b', { class: 'text-emerald-700' }, 'Offerts')]) : null,
+                h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', 'Une journée de live (tous vos lives du jour)'), h('b', money(o.prices.live))]),
+                o.prices.month ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', 'Ou le forfait du mois, lives sans limite'), h('b', money(o.prices.month))]) : null,
                 o.prices.welcome_cards ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `${o.prices.welcome_cards} fiches IA (photo + IA)`), h('b', { class: 'text-emerald-700' }, 'Offertes')]) : null,
                 h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `Ensuite, ${o.prices.pack_cards} fiches IA`), h('b', money(o.prices.pack))]),
                 h('div', { class: 'flex justify-between py-2.5 text-[15px]' }, [h('span', 'Ajouter un produit à la main'), h('b', { class: 'text-emerald-700' }, 'Toujours gratuit')]),

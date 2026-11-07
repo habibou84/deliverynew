@@ -117,18 +117,17 @@ import { promptDialog } from '../../composables/useDialog'
 const GROUPS = [
   {
     title: 'Prix',
-    help: 'Payé en ligne par l\'e-commerçant (ou retenu sur son reversement sans PayDunya), ou par l\'agence quand elle offre le live. Au-delà du plafond du mois, les lives sont gratuits jusqu\'à la fin du mois.',
+    help: 'Payé en ligne par l\'e-commerçant (ou retenu sur son reversement sans PayDunya), ou par l\'agence quand elle offre le live. Un jour de live payé couvre tous les lives de la journée ; le forfait du mois couvre 30 jours.',
     fields: [
-      { key: 'price_live', label: 'Prix d\'un live', unit: 'F' },
-      { key: 'monthly_cap', label: 'Plafond par mois et par e-commerçant (0 = sans plafond)', unit: 'F' },
+      { key: 'price_live', label: 'Prix d\'un jour de live (tous les lives de la journée)', unit: 'F' },
       { key: 'welcome_cards', label: 'Fiches IA offertes au premier live' },
       { key: 'cards_per_live', label: 'Fiches IA comprises dans un live' },
-      { key: 'price_month', label: 'Forfait du mois (lives sans limite)', unit: 'F' },
+      { key: 'price_month', label: 'Forfait du mois (lives sans limite pendant 30 jours)', unit: 'F' },
       { key: 'cards_per_month', label: 'Fiches IA du forfait' },
       { key: 'pack_price', label: 'Pack de fiches en plus', unit: 'F' },
       { key: 'pack_cards', label: 'Fiches dans le pack' },
-      { key: 'trial_lives', label: 'Lives offerts pour découvrir' },
-      { key: 'trial_cards', label: 'Fiches IA du live offert' },
+      { key: 'trial_lives', label: 'Lives offerts au départ' },
+      { key: 'trial_cards', label: 'Fiches IA comprises dans chaque live offert' },
       { key: 'agency_share', label: 'Part laissée à l\'agence', unit: '%' },
     ],
   },
