@@ -2,6 +2,7 @@
 
 namespace App\Services\Live;
 
+use App\Enums\FeePayer;
 use App\Exceptions\BusinessRuleException;
 use App\Jobs\SendLiveWhatsApp;
 use App\Models\Live;
@@ -16,10 +17,13 @@ use App\Models\Zone;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\WhatsAppBridge;
 use App\Services\Messaging\WhatsAppConnection;
+use App\Services\Pricing\PricingService;
 use App\Services\WhatsApp\ZoneMatcher;
 use App\Support\PhoneNumber;
+use App\Support\Tenancy;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Commandes du live par WhatsApp, sans intervention de l'e-commerçante.
@@ -28,14 +32,22 @@ use Illuminate\Support\Str;
  * WhatsApp », elle garde son application WhatsApp Business). Option de la console, désactivée par défaut : le
  * relier par code d'association ou QR code (session « merchant-34 » du service whatsapp-bridge, connexion non
  * officielle, risque de suspension du numéro). Pendant un live en cours, un client envoie le code d'un produit (« A2 », « A2 x2 », « JE PRENDS » quand
- * il n'y a qu'un article) ; Jibiat lui demande son nom et son quartier (ou propose ceux de sa dernière commande),
- * puis enregistre la commande : la course part à l'agence, ou le client passe en liste d'attente si c'est épuisé.
+ * il n'y a qu'un article) ; Jibiat lui demande son nom et son quartier (ou reprend ceux de sa dernière commande),
+ * puis envoie le récapitulatif avec la photo : 1 Je confirme, 2 Ajouter un article, 3 Changer l'adresse, 4 Annuler.
+ * Rien ne part à l'agence avant « 1 » : la course est alors créée (une seule pour tous les articles), ou le client
+ * passe en liste d'attente si c'est épuisé, et il reçoit les photos de sa commande. Sans réponse pendant
+ * CHAT_MINUTES, la commande est oubliée (les articles restent disponibles pour les autres).
  * Les autres messages (conversations personnelles) sont ignorés.
  */
 class LiveWhatsApp
 {
-    // Une conversation sans réponse est oubliée au bout de ce délai
+    // Une commande pas confirmée est oubliée au bout de ce délai (les articles restent disponibles)
     public const CHAT_MINUTES = 30;
+
+    // Photos envoyées après « Je confirme » (au-delà, la liste suffit)
+    private const PHOTOS = 4;
+
+    private const LINE = '━━━━━━━━━━━━';
 
     private const YES = ['oui', 'ok', 'okay', 'd accord', 'dac', 'yes', 'ouais', 'oui oui', 'oui merci', 'c est ca', 'exact', 'c est bon'];
 
@@ -46,6 +58,7 @@ class LiveWhatsApp
         private readonly WhatsAppBridge $bridge,
         private readonly LiveStudio $studio,
         private readonly ZoneMatcher $zones,
+        private readonly PricingService $pricing,
     ) {}
 
     /** Option de la console : proposer aussi le code d'association / QR code (non officiel) */
@@ -246,10 +259,10 @@ class LiveWhatsApp
             $chat = null;
         }
 
-        // Un code seul relance toujours la commande (nouveau produit, ou changement d'avis)
+        // Un code ajoute l'article à la commande en cours (ou en commence une)
         $pick = $this->pick($live, $text, strict: $chat !== null);
         if ($pick !== null) {
-            $this->choose($merchant, $live, $phone, $pushName, $pick['item'], $pick['quantity']);
+            $this->choose($merchant, $live, $chat, $phone, $pushName, $pick['item'], $pick['quantity']);
 
             return;
         }
@@ -257,23 +270,70 @@ class LiveWhatsApp
             // Message ordinaire (pas un code) : conversation personnelle, pas de réponse automatique
             return;
         }
-        $chat->forceFill(['last_text' => mb_substr($text, 0, 300)])->save();
+        $chat->forceFill(['last_text' => mb_substr($text, 0, 300), 'expires_at' => now()->addMinutes(self::CHAT_MINUTES)])->save();
+        $answer = $this->answer($text);
 
-        if ($chat->step === LiveChat::CONFIRM && in_array(ZoneMatcher::normalize($text), self::YES, true)) {
-            $this->order($merchant, $live, $chat, $chat->customer_name, $chat->zone_id);
+        // Récapitulatif envoyé : un chiffre (ou un mot) choisit la suite
+        if (in_array($chat->step, [LiveChat::CONFIRM, LiveChat::ADD, LiveChat::CANCEL], true)) {
+            if ($chat->step === LiveChat::CANCEL && $answer === 4) {
+                $chat->delete();
+                $this->reply($merchant, $phone, "❌ *COMMANDE ANNULÉE*\n\nVotre commande est annulée. Merci et à bientôt sur nos lives !");
+
+                return;
+            }
+            match ($answer) {
+                1 => $this->order($merchant, $live, $chat, $chat->customer_name ?: ($chat->push_name ?: 'Client'), (int) $chat->zone_id),
+                2 => $this->ask($merchant, $chat, LiveChat::ADD, "➕ Envoyez le *code de l'article* à ajouter\n_Exemple : A3_"),
+                3 => $this->ask($merchant, $chat, LiveChat::DETAILS, "📍 *NOUVELLE ADRESSE*\n\n✍️ Écrivez *votre nom, votre commune et votre quartier*\n_Exemple : Awa, Cocody Angré 8e tranche_"),
+                4 => $this->ask($merchant, $chat, LiveChat::CANCEL, "⚠️ *VOUS VOULEZ ANNULER ?*\n\nPour annuler la commande, répondez *4* ou *ANNULER* encore une fois."),
+                default => $this->reply($merchant, $phone, $chat->step === LiveChat::ADD
+                    ? "Envoyez le *code de l'article* à ajouter (exemple : A3), ou répondez *1* pour confirmer votre commande."
+                    : "👉 *RÉPONDEZ AVEC UN CHIFFRE :*\n*1* ✅ Je confirme\n*2* ➕ Ajouter un article\n*3* 📍 Changer l'adresse\n*4* ❌ Annuler"),
+            };
+            if ($chat->step === LiveChat::CANCEL && $answer !== null && $answer !== 4 && $chat->exists) {
+                $chat->forceFill(['step' => LiveChat::CONFIRM])->save();
+            }
 
             return;
         }
 
+        // Nom et quartier attendus
         $zone = $this->zoneIn($merchant, $text);
         if ($zone === null) {
-            $this->reply($merchant, $phone, "Je n'ai pas reconnu le quartier 🤔\nÉcrivez votre nom et votre quartier, par exemple :\n*Awa, Cocody Angré*");
+            $this->reply($merchant, $phone, "Je n'ai pas reconnu le quartier 🤔\n✍️ Écrivez *votre nom, votre commune et votre quartier*\n_Exemple : Awa, Cocody Angré_");
             // Quartier pas reconnu : visible dans l'onglet « Messages », la vendeuse peut le choisir elle-même
-            $chat->forceFill(['expires_at' => now()->addMinutes(self::CHAT_MINUTES), 'misses' => min(255, $chat->misses + 1)])->save();
+            $chat->forceFill(['misses' => min(255, $chat->misses + 1)])->save();
 
             return;
         }
-        $this->order($merchant, $live, $chat, $this->nameIn($text, $zone) ?? $chat->push_name ?? 'Client', $zone->id);
+        $chat->forceFill([
+            'customer_name' => $this->nameIn($text, $zone) ?? $chat->customer_name ?? $chat->push_name ?? 'Client',
+            'zone_id' => $zone->id, 'step' => LiveChat::CONFIRM, 'misses' => 0,
+        ])->save();
+        $this->recap($merchant, $chat);
+    }
+
+    /** « 1 », « 1 ✅ », « oui », « je confirme », « annuler »… → 1 à 4 ; autre chose → null */
+    private function answer(string $text): ?int
+    {
+        $norm = ZoneMatcher::normalize($text);
+        if (preg_match('/^\s*([1-4])\b/', $text, $m)) {
+            return (int) $m[1];
+        }
+
+        return match (true) {
+            in_array($norm, self::YES, true), in_array($norm, ['je confirme', 'confirme', 'confirmer', 'valider', 'je valide'], true) => 1,
+            in_array($norm, ['ajouter', 'ajout'], true) => 2,
+            in_array($norm, ['adresse', 'changer', 'changer l adresse', 'changer adresse'], true) => 3,
+            in_array($norm, ['annuler', 'annule', 'non'], true) => 4,
+            default => null,
+        };
+    }
+
+    private function ask(Merchant $merchant, LiveChat $chat, string $step, string $text): void
+    {
+        $chat->forceFill(['step' => $step])->save();
+        $this->reply($merchant, $chat->phone, $text);
     }
 
     /**
@@ -305,33 +365,110 @@ class LiveWhatsApp
         return ['item' => $item, 'quantity' => max(1, min(20, (int) (($m[4] ?? '') ?: ($m[1] ?? '') ?: 1)))];
     }
 
-    private function choose(Merchant $merchant, Live $live, string $phone, ?string $pushName, LiveItem $item, int $quantity): void
+    /**
+     * Article demandé : ajouté à la commande en cours (ou nouvelle commande). Adresse connue (dernière commande chez
+     * cette boutique, ou déjà donnée) : récapitulatif tout de suite ; sinon on demande le nom et le quartier.
+     */
+    private function choose(Merchant $merchant, Live $live, ?LiveChat $chat, string $phone, ?string $pushName, LiveItem $item, int $quantity): void
     {
-        $price = $this->money($item->price * $quantity);
-        $line = ($quantity > 1 ? "{$quantity} × " : '')."*{$item->code}* {$item->label()} : {$price}";
-        $soldOut = $item->remaining() < $quantity;
+        $chat ??= new LiveChat(['live_id' => $live->id, 'phone' => $phone]);
+        $cart = $chat->lines();
+        $found = false;
+        foreach ($cart as $k => $line) {
+            if ($line['item_id'] === $item->id) {
+                // Même article redemandé pendant l'ajout : une pièce de plus ; sinon la quantité demandée
+                $cart[$k]['quantity'] = min(20, $chat->step === LiveChat::ADD ? $line['quantity'] + $quantity : $quantity);
+                $found = true;
+            }
+        }
+        if (! $found) {
+            $cart[] = ['item_id' => $item->id, 'quantity' => $quantity];
+        }
 
-        // Client déjà livré par cette boutique : on propose son nom et son quartier
-        $last = Order::withoutGlobalScopes()->where('merchant_id', $merchant->id)->where('recipient_phone', $phone)
-            ->whereNotNull('delivery_zone_id')->latest('id')->first(['recipient_name', 'delivery_zone_id']);
-        $zone = $last ? Zone::withoutGlobalScopes()->find($last->delivery_zone_id) : null;
-
-        LiveChat::query()->updateOrCreate(['live_id' => $live->id, 'phone' => $phone], [
-            'push_name' => $pushName ? mb_substr($pushName, 0, 120) : null,
-            'step' => $zone ? LiveChat::CONFIRM : LiveChat::DETAILS,
+        // Client déjà livré par cette boutique : son nom et son quartier sont repris
+        if (! $chat->zone_id) {
+            $last = Order::withoutGlobalScopes()->where('merchant_id', $merchant->id)->where('recipient_phone', $phone)
+                ->whereNotNull('delivery_zone_id')->latest('id')->first(['recipient_name', 'delivery_zone_id']);
+            if ($last && Zone::withoutGlobalScopes()->whereKey($last->delivery_zone_id)->exists()) {
+                $chat->customer_name = $last->recipient_name;
+                $chat->zone_id = $last->delivery_zone_id;
+            }
+        }
+        $updated = $chat->exists;
+        $chat->fill([
+            'push_name' => $pushName ? mb_substr($pushName, 0, 120) : $chat->push_name,
             'live_item_id' => $item->id,
             'quantity' => $quantity,
-            'customer_name' => $zone ? $last->recipient_name : null,
-            'zone_id' => $zone?->id,
+            'cart' => $cart,
+            'step' => $chat->zone_id ? LiveChat::CONFIRM : LiveChat::DETAILS,
             'expires_at' => now()->addMinutes(self::CHAT_MINUTES),
-        ]);
+        ])->save();
 
-        $intro = $soldOut
-            ? "😔 {$line}\nC'est *épuisé* pour le moment. Je vous mets sur la liste d'attente :"
-            : "👍 {$line}";
-        $this->reply($merchant, $phone, $zone
-            ? "{$intro}\nJe livre à *{$last->recipient_name}*, *{$zone->name}* ?\nRépondez *OUI*, ou envoyez votre nom et votre quartier."
-            : "{$intro}\nPour la livraison, envoyez votre *nom* et votre *quartier*.\nExemple : *Awa, Yopougon Niangon*");
+        if ($chat->zone_id) {
+            $this->recap($merchant, $chat, $updated, $item);
+
+            return;
+        }
+        $price = $this->money($item->price * $quantity);
+        $line = ($quantity > 1 ? "{$quantity} × " : '')."*{$item->code}* {$item->label()} : *{$price}*";
+        $soldOut = $item->remaining() < $quantity;
+        $this->reply($merchant, $phone, ($soldOut ? "😔 {$line}\nC'est *épuisé* pour le moment : vous serez sur la *liste d'attente*." : "🛍️ {$line}")
+            ."\n\n📍 *VOTRE ADRESSE*\n✍️ Écrivez *votre nom, votre commune et votre quartier*\n_Exemple : Awa, Cocody Angré 8e tranche_");
+    }
+
+    /**
+     * Récapitulatif à confirmer : articles, nom et quartier, livraison, total, et la photo de l'article demandé.
+     */
+    private function recap(Merchant $merchant, LiveChat $chat, bool $updated = false, ?LiveItem $photoOf = null): void
+    {
+        $items = LiveItem::query()->whereIn('id', array_column($chat->lines(), 'item_id'))->with('product')->get()->keyBy('id');
+        $lines = '';
+        $total = 0;
+        $waiting = false;
+        foreach ($chat->lines() as $line) {
+            $item = $items->get($line['item_id']);
+            if ($item === null) {
+                continue;
+            }
+            $soldOut = $item->remaining() < $line['quantity'];
+            $waiting = $waiting || $soldOut;
+            $amount = $item->price * $line['quantity'];
+            $total += $soldOut ? 0 : $amount;
+            $lines .= "{$line['quantity']} × *{$item->code}* {$item->label()} : ".$this->money($amount).($soldOut ? ' _(épuisé : liste d\'attente)_' : '')."\n";
+        }
+        $zone = Zone::withoutGlobalScopes()->find($chat->zone_id);
+        $fee = $total > 0 ? $this->deliveryFee($merchant, $zone) : null;
+        $photo = $items->get($photoOf?->id ?? $chat->live_item_id)?->product?->photoUrl();
+
+        $text = ($updated ? "✅ *COMMANDE MISE À JOUR*\n\n" : "🧾 *VOTRE COMMANDE*\n\n")
+            .$lines
+            ."📍 *{$zone?->name}* · {$chat->customer_name}\n"
+            .($fee !== null ? '🚚 Livraison : '.$this->money($fee)."\n" : '')
+            .($total > 0 ? '💰 *À payer à la livraison : '.$this->money($total + ($fee ?? 0))."*\n" : '')
+            .($photo ? "📷 _Vérifiez la photo avant de confirmer_\n" : '')
+            .self::LINE."\n👉 *RÉPONDEZ AVEC UN CHIFFRE :*\n*1* ✅ Je confirme\n*2* ➕ Ajouter un article\n*3* 📍 Changer l'adresse\n*4* ❌ Annuler";
+        $this->reply($merchant, $chat->phone, $text, $photo ? $this->absolute($merchant, $photo) : null);
+    }
+
+    /** Frais de livraison payés par le client (réglage de l'e-commerçant), sinon null : rien à ajouter au total */
+    private function deliveryFee(Merchant $merchant, ?Zone $zone): ?int
+    {
+        if ($zone === null || $merchant->default_fee_payer !== FeePayer::Recipient || ! $merchant->pickup_zone_id) {
+            return null;
+        }
+        try {
+            $pickup = Zone::withoutGlobalScopes()->find($merchant->pickup_zone_id);
+
+            return $pickup ? $this->pricing->quote($merchant, $pickup, $zone)->total() : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** Adresse complète d'une photo (Meta la télécharge depuis le site de l'entreprise) */
+    private function absolute(Merchant $merchant, string $path): string
+    {
+        return rtrim($merchant->company ? Tenancy::baseUrl($merchant->company) : (string) config('app.url'), '/').$path;
     }
 
     /**
@@ -359,28 +496,30 @@ class LiveWhatsApp
             ->orderByDesc('misses')->latest('updated_at')->limit(50)->get()
             ->map(fn (LiveChat $c) => [
                 'id' => $c->id, 'phone' => $c->phone, 'name' => $c->customer_name ?: $c->push_name,
-                'step' => $c->step, 'code' => $c->item?->code, 'item' => $c->item?->label(), 'quantity' => $c->quantity,
+                'step' => $c->step, 'code' => $this->cartText($c, codes: true) ?: $c->item?->code,
+                'item' => $this->cartText($c) ?: $c->item?->label(), 'quantity' => $c->quantity,
                 'zone' => $c->zone?->name, 'last_text' => $c->last_text, 'stuck' => $c->misses > 0, 'updated_at' => $c->updated_at,
             ])->all();
     }
 
+    /**
+     * « 1 Je confirme » (ou la vendeuse qui choisit le quartier) : la commande part à l'agence, une seule course pour
+     * les articles disponibles ; liste d'attente pour les épuisés. Puis les photos de la commande.
+     */
     private function order(Merchant $merchant, Live $live, LiveChat $chat, string $name, int $zoneId): void
     {
-        $item = $chat->item;
-        if ($item === null) {
+        $items = LiveItem::query()->whereIn('id', array_column($chat->lines(), 'item_id'))->with('product')->get()->keyBy('id');
+        $lines = array_values(array_filter($chat->lines(), fn ($l) => $items->has($l['item_id'])));
+        $user = User::withoutGlobalScopes()->where('merchant_id', $merchant->id)->orderBy('id')->first();
+        if ($lines === [] || $user === null) {
             $chat->delete();
 
             return;
         }
-        $user = User::withoutGlobalScopes()->where('merchant_id', $merchant->id)->orderBy('id')->first();
-        if ($user === null) {
-            return;
-        }
 
         try {
-            $order = $this->studio->addOrder($live, $user, [
-                'code' => $item->code,
-                'quantity' => $chat->quantity,
+            $orders = $this->studio->addCart($live, $user, [
+                'items' => array_map(fn ($l) => ['code' => $items[$l['item_id']]->code, 'quantity' => $l['quantity']], $lines),
                 'recipient_name' => mb_substr($name, 0, 120),
                 'recipient_phone' => $chat->phone,
                 'delivery_zone_id' => $zoneId,
@@ -395,18 +534,46 @@ class LiveWhatsApp
         $chat->delete();
 
         $first = Str::of($name)->explode(' ')->first();
-        if ($order->status === LiveOrder::WAITING) {
-            $this->reply($merchant, $chat->phone, "📝 C'est noté, {$first} : vous êtes sur la *liste d'attente* pour {$item->code} {$item->label()}.\nOn vous écrit dès qu'il revient.");
+        $ordered = array_values(array_filter($orders, fn (LiveOrder $o) => $o->status !== LiveOrder::WAITING));
+        $waiting = array_values(array_filter($orders, fn (LiveOrder $o) => $o->status === LiveOrder::WAITING));
+        $waitingText = implode(', ', array_map(fn (LiveOrder $o) => "{$items[$o->live_item_id]->code} {$items[$o->live_item_id]->label()}", $waiting));
+
+        if ($ordered === []) {
+            $this->reply($merchant, $chat->phone, "📝 C'est noté, {$first} : vous êtes sur la *liste d'attente* pour {$waitingText}.\nOn vous écrit dès qu'il revient.");
 
             return;
         }
-        $course = $order->order()->withoutGlobalScopes()->first(['id', 'cod_amount', 'delivery_zone_id']);
-        $zone = Zone::withoutGlobalScopes()->find($zoneId);
-        $this->reply($merchant, $chat->phone, "✅ C'est noté, {$first} !\n"
-            .($chat->quantity > 1 ? "{$chat->quantity} × " : '')."{$item->code} {$item->label()}\n"
-            ."Livraison : {$zone?->name}\n"
-            .($course && $course->cod_amount ? "À payer à la livraison : *{$this->money($course->cod_amount)}*\n" : '')
-            .'Le livreur vous appelle avant de passer. Merci ! 🙏');
+        $course = Order::withoutGlobalScopes()->find($ordered[0]->order_id, ['id', 'tracking_code', 'cod_amount']);
+        $this->reply($merchant, $chat->phone, "🎉 *COMMANDE CONFIRMÉE !*\n\nMerci {$first} 🙏\n"
+            .($course?->tracking_code ? "🧾 N° {$course->tracking_code}\n" : '')
+            .($course && $course->cod_amount ? '💰 *'.$this->money($course->cod_amount)."* à payer à la livraison\n" : '')
+            .'🛵 Le livreur vous appelle avant de passer.'
+            .($waiting !== [] ? "\n\n📝 Épuisé pour le moment : {$waitingText}. Vous êtes sur la *liste d'attente*." : ''));
+
+        // Les photos de la commande, en grand
+        $shown = 0;
+        foreach ($ordered as $o) {
+            $photo = $items[$o->live_item_id]->product?->photoUrl();
+            if ($photo === null || $shown >= self::PHOTOS) {
+                continue;
+            }
+            $caption = ($shown === 0 ? '📷 *Voici les photos de votre commande'.($course?->tracking_code ? " N° {$course->tracking_code}" : '')."*\n" : '')
+                ."{$items[$o->live_item_id]->code} {$items[$o->live_item_id]->label()}";
+            $this->reply($merchant, $chat->phone, $caption, $this->absolute($merchant, $photo));
+            $shown++;
+        }
+    }
+
+    /** Articles d'une conversation : « A1, A3 » (codes) ou « Robe wax · M, Sac » */
+    private function cartText(LiveChat $chat, bool $codes = false): string
+    {
+        $items = LiveItem::query()->whereIn('id', array_column($chat->lines(), 'item_id'))->get()->keyBy('id');
+
+        return collect($chat->lines())->map(function ($l) use ($items, $codes) {
+            $item = $items->get($l['item_id']);
+
+            return $item ? ($codes ? $item->code : ($l['quantity'] > 1 ? "{$l['quantity']} × " : '').$item->label()) : null;
+        })->filter()->implode(', ');
     }
 
     private function zoneIn(Merchant $merchant, string $text): ?Zone
@@ -434,9 +601,10 @@ class LiveWhatsApp
         return Zone::forCompany($merchant->company_id)->active()->with('parent')->get();
     }
 
-    private function reply(Merchant $merchant, string $to, string $text): void
+    /** Réponse au client ; avec une photo : la photo et le texte en légende (connexion officielle) */
+    private function reply(Merchant $merchant, string $to, string $text, ?string $image = null): void
     {
-        SendLiveWhatsApp::dispatch(self::session($merchant), $to, $text, $this->accountId);
+        SendLiveWhatsApp::dispatch(self::session($merchant), $to, $text, $this->accountId, $this->accountId ? $image : null);
     }
 
     private function money(int $amount): string

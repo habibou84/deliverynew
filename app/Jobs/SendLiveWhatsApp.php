@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 /**
  * Réponse automatique à un client du live, depuis le WhatsApp de l'e-commerçante : par la connexion officielle
  * (numéro relié à Meta), sinon par le service whatsapp-bridge (code d'association / QR code).
+ * Avec une photo (image) : la photo et le texte en légende par la connexion officielle ; le texte seul sinon.
  */
 class SendLiveWhatsApp implements ShouldQueue
 {
@@ -20,7 +21,7 @@ class SendLiveWhatsApp implements ShouldQueue
 
     public int $tries = 3;
 
-    public function __construct(public string $session, public string $to, public string $text, public ?int $accountId = null)
+    public function __construct(public string $session, public string $to, public string $text, public ?int $accountId = null, public ?string $image = null)
     {
         $this->onQueue('messages');
     }
@@ -34,9 +35,11 @@ class SendLiveWhatsApp implements ShouldQueue
     {
         try {
             $account = $this->accountId ? WhatsAppAccount::withoutGlobalScopes()->find($this->accountId) : null;
-            $account !== null
-                ? $meta->sendReply($account, $this->to, $this->text)
-                : $bridge->send($this->session, $this->to, $this->text);
+            match (true) {
+                $account !== null && $this->image !== null => $meta->sendImage($account, $this->to, $this->image, $this->text),
+                $account !== null => $meta->sendReply($account, $this->to, $this->text),
+                default => $this->text !== '' ? $bridge->send($this->session, $this->to, $this->text) : null,
+            };
         } catch (MessagingException $e) {
             if ($e->retryable) {
                 throw $e;
