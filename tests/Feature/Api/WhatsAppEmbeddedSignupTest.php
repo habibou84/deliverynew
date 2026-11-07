@@ -136,7 +136,7 @@ class WhatsAppEmbeddedSignupTest extends TestCase
             '*/777/message_templates' => Http::response(['id' => '1', 'status' => 'PENDING']),
             '*/555*' => Http::response(['display_phone_number' => '+225 07 00 00 00 01', 'verified_name' => 'Express DS', 'quality_rating' => 'GREEN']),
         ]);
-        $return = rtrim(config('app.url'), '/').'/connecter-whatsapp';
+        $return = rtrim(config('app.url'), '/').'/';
 
         $this->signup(['phone_number_id' => null, 'waba_id' => null, 'redirect_uri' => $return])->assertOk()
             ->assertJsonPath('data.display_phone', '+2250700000001');
@@ -145,6 +145,10 @@ class WhatsAppEmbeddedSignupTest extends TestCase
         $this->assertSame(['777', '555'], [$account->waba_id, $account->phone_number_id]);
         // Même adresse de retour qu'à l'ouverture de Facebook, sinon Meta refuse le code
         Http::assertSent(fn (HttpRequest $r) => str_contains($r->url(), '/oauth/access_token') && $r['redirect_uri'] === $return);
+
+        // Facebook revient sur l'accueil (adresse déclarée chez Meta) : on continue sur la page de connexion
+        $this->get('/?code=abc&state=TICKET')->assertRedirect('/connecter-whatsapp?code=abc&state=TICKET');
+        $this->get('/?error=access_denied&error_reason=user_denied&state=TICKET')->assertRedirect('/connecter-whatsapp?state=TICKET&error=access_denied&error_reason=user_denied');
 
         // Adresse de retour d'un autre site : refusée
         $this->signup(['phone_number_id' => null, 'waba_id' => null, 'redirect_uri' => 'https://pirate.example/x'])->assertJsonValidationErrors('redirect_uri');

@@ -87,9 +87,9 @@ class WhatsAppSignupController extends Controller
                 'app_id' => config('messaging.whatsapp.app_id'),
                 'config_id' => config('messaging.whatsapp.signup_config_id'),
                 'graph_version' => config('messaging.whatsapp.graph_version'),
-                // Téléphone : Facebook en page entière (la petite fenêtre s'y ferme avant de démarrer), retour ici.
-                // Adresse à déclarer dans Meta : Facebook Login for Business › Valid OAuth Redirect URIs
-                'return_url' => Tenancy::platformUrl().'/connecter-whatsapp',
+                // Téléphone : Facebook en page entière (la petite fenêtre s'y ferme avant de démarrer). Retour sur
+                // l'adresse de la plateforme, déjà déclarée chez Meta (Valid OAuth Redirect URIs), qui renvoie ici
+                'return_url' => Tenancy::platformUrl().'/',
             ],
         ]]);
     }

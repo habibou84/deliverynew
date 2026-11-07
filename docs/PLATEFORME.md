@@ -333,9 +333,8 @@ le vérifie, l'abonne aux messages reçus et soumet les modèles de messages, pu
 l'application WhatsApp d'un téléphone ; l'entreprise ajoute un moyen de paiement dans Meta (messages facturés à son compte).
 
 Sur téléphone, Facebook s'ouvre en page entière (la petite fenêtre s'y ferme avant de démarrer) et revient sur
-`jibiat.com/connecter-whatsapp` avec le code ; le serveur retrouve lui-même le compte et le numéro choisis. **À déclarer
-chez Meta** (application Meta › Facebook Login for Business › Settings › Valid OAuth Redirect URIs) :
-`https://jibiat.com/connecter-whatsapp` (et `https://preprod.jibiat.com/connecter-whatsapp` pour la préproduction).
+`https://jibiat.com/` avec le code, adresse déjà déclarée chez Meta (Facebook Login for Business › Valid OAuth Redirect
+URIs) ; Jibiat renvoie aussitôt vers `/connecter-whatsapp`, et le serveur retrouve lui-même le compte et le numéro choisis.
 
 **Saisie manuelle (avancé)**, dans la même page : identifiant du numéro, WABA ID et jeton permanent d'un utilisateur
 système (Meta Business > Utilisateurs système) — utile sans le bouton ou pour un numéro déjà branché.

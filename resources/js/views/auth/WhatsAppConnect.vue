@@ -113,7 +113,7 @@ function cancel() {
 
 async function copyLink() {
   try {
-    await navigator.clipboard.writeText(`${session.value.embedded_signup.return_url}#${ticket}`)
+    await navigator.clipboard.writeText(`${window.location.origin}/connecter-whatsapp#${ticket}`)
     copied.value = true
   } catch {
     copied.value = false
