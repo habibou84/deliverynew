@@ -87,6 +87,9 @@ class WhatsAppSignupController extends Controller
                 'app_id' => config('messaging.whatsapp.app_id'),
                 'config_id' => config('messaging.whatsapp.signup_config_id'),
                 'graph_version' => config('messaging.whatsapp.graph_version'),
+                // Téléphone : Facebook en page entière (la petite fenêtre s'y ferme avant de démarrer). Retour sur
+                // l'adresse de la plateforme, déjà déclarée chez Meta (Valid OAuth Redirect URIs), qui renvoie ici
+                'return_url' => Tenancy::platformUrl().'/',
             ],
         ]]);
     }
@@ -99,14 +102,16 @@ class WhatsAppSignupController extends Controller
         [$company, , , $merchant] = $this->resolve($request);
         $data = $request->validate([
             'code' => ['required', 'string', 'max:2000'],
-            'phone_number_id' => ['required', 'string', 'max:50', 'regex:/^\d+$/'],
-            'waba_id' => ['required', 'string', 'max:50', 'regex:/^\d+$/'],
+            // Petite fenêtre : numéro et compte choisis ; page entière (téléphone) : retrouvés par le serveur
+            'phone_number_id' => ['nullable', 'string', 'max:50', 'regex:/^\d+$/'],
+            'waba_id' => ['nullable', 'string', 'max:50', 'regex:/^\d+$/'],
+            'redirect_uri' => ['nullable', 'string', 'max:500', 'starts_with:'.Tenancy::platformUrl().'/'],
         ]);
 
         try {
             $account = $merchant !== null
-                ? $this->connection->completeMerchantSignup($merchant, $data['code'], $data['phone_number_id'], $data['waba_id'])
-                : $this->connection->completeSignup($company, $data['code'], $data['phone_number_id'], $data['waba_id']);
+                ? $this->connection->completeMerchantSignup($merchant, $data['code'], $data['phone_number_id'] ?? null, $data['waba_id'] ?? null, $data['redirect_uri'] ?? null)
+                : $this->connection->completeSignup($company, $data['code'], $data['phone_number_id'] ?? null, $data['waba_id'] ?? null, $data['redirect_uri'] ?? null);
         } catch (MessagingException $e) {
             abort(422, $e->getMessage());
         }

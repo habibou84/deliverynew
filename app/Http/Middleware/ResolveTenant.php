@@ -29,6 +29,12 @@ class ResolveTenant
     {
         $this->tenancy->resolve($request);
 
+        // Retour de Facebook (connexion WhatsApp en page entière) sur l'adresse déjà déclarée chez Meta
+        // (https://jibiat.com/) : on continue sur la page de connexion, avec le code et le ticket
+        if ($request->path() === '/' && $request->query('state') && ($request->query('code') || $request->query('error'))) {
+            return redirect('/connecter-whatsapp?'.http_build_query($request->only(['code', 'state', 'error', 'error_reason'])));
+        }
+
         if ($this->tenancy->zone() === Tenancy::SINGLE || $request->is(...self::ANY_HOST)) {
             return $next($request);
         }

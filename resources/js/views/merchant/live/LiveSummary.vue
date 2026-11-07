@@ -7,7 +7,7 @@
       <div class="guide">
         <p class="guide-title">Maintenant</p>
         <p>1. Préparez les colis : l'agence a les commandes.</p>
-        <p>2. Écrivez aux clientes en attente.</p>
+        <p>2. Écrivez aux clients en attente.</p>
       </div>
 
       <section class="rounded-[22px] bg-slate-900 p-4 text-white">
@@ -16,7 +16,7 @@
         <div class="mt-2 grid grid-cols-3 gap-2 text-center">
           <div class="rounded-xl bg-slate-800 py-2"><b class="block text-[20px]">{{ s.totals.orders }}</b><span class="text-[13px] text-slate-300">commandes</span></div>
           <div class="rounded-xl bg-slate-800 py-2"><b class="block text-[20px]">{{ s.deliveries.created }}</b><span class="text-[13px] text-slate-300">courses créées</span></div>
-          <div class="rounded-xl bg-slate-800 py-2"><b class="block text-[20px]">{{ s.new_customers }}</b><span class="text-[13px] text-slate-300">nouvelles clientes</span></div>
+          <div class="rounded-xl bg-slate-800 py-2"><b class="block text-[20px]">{{ s.new_customers }}</b><span class="text-[13px] text-slate-300">nouveaux clients</span></div>
         </div>
       </section>
 
@@ -58,7 +58,7 @@ import { useToastStore } from '../../../stores/toasts'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { money, whatsappLink } from '../../../utils/format'
 
-/** Après le live : chiffres, bilan calculé, produits, clientes en liste d'attente */
+/** Après le live : chiffres, bilan calculé, produits, clients en liste d'attente */
 const route = useRoute()
 const s = ref(null)
 const error = ref('')

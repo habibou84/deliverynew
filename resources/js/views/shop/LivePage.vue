@@ -1,5 +1,5 @@
 <template>
-  <!-- Lien du live (/l/{jeton}) : les clientes voient les produits du live et commandent sans WhatsApp -->
+  <!-- Lien du live (/l/{jeton}) : les clients voient les produits du live et commandent sans WhatsApp -->
   <div class="min-h-dvh bg-slate-50 pb-10 text-slate-900" :style="{ '--app-color': '#e11d48' }">
     <div v-if="error" class="mx-auto max-w-md space-y-2 px-4 py-24 text-center">
       <p class="text-4xl" aria-hidden="true">🎥</p>

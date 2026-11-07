@@ -332,6 +332,10 @@ Jibiat échange ensuite l'autorisation contre un jeton propre à l'entreprise, a
 le vérifie, l'abonne aux messages reçus et soumet les modèles de messages, puis ramène sur la page WhatsApp de l'espace (en cas d'échec, le message d'erreur y est affiché). Le numéro ne doit pas être utilisé dans
 l'application WhatsApp d'un téléphone ; l'entreprise ajoute un moyen de paiement dans Meta (messages facturés à son compte).
 
+Sur téléphone, Facebook s'ouvre en page entière (la petite fenêtre s'y ferme avant de démarrer) et revient sur
+`https://jibiat.com/` avec le code, adresse déjà déclarée chez Meta (Facebook Login for Business › Valid OAuth Redirect
+URIs) ; Jibiat renvoie aussitôt vers `/connecter-whatsapp`, et le serveur retrouve lui-même le compte et le numéro choisis.
+
 **Saisie manuelle (avancé)**, dans la même page : identifiant du numéro, WABA ID et jeton permanent d'un utilisateur
 système (Meta Business > Utilisateurs système) — utile sans le bouton ou pour un numéro déjà branché.
 

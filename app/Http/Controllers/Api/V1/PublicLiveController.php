@@ -19,7 +19,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 /**
- * Lien du live (/l/{jeton}) : sans WhatsApp relié, les clientes voient les produits du live et commandent
+ * Lien du live (/l/{jeton}) : sans WhatsApp relié, les clients voient les produits du live et commandent
  * elles-mêmes (nom, téléphone, quartier). La commande arrive chez l'agence comme une commande WhatsApp.
  */
 class PublicLiveController extends Controller

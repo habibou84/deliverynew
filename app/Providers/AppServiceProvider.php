@@ -111,7 +111,7 @@ class AppServiceProvider extends ServiceProvider
             Limit::perHour(200)->by('shop-all-hour:'.mb_strtolower((string) $request->route('slug'))),
         ]);
 
-        // Commandes par le lien d'un live : beaucoup de clientes en même temps, mais pas de robot
+        // Commandes par le lien d'un live : beaucoup de clients en même temps, mais pas de robot
         RateLimiter::for('live-order', fn (Request $request) => [
             Limit::perMinute(5)->by('live-min:'.$request->ip()),
             Limit::perMinute(300)->by('live-all-min:'.mb_strtolower((string) $request->route('token'))),

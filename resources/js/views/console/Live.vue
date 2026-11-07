@@ -147,7 +147,7 @@ const GROUPS = [
       { key: 'items_per_card', label: 'Produits par carte (9 au plus)' },
       { key: 'low_stock', label: 'Conseil « il en reste » à partir de' },
       { key: 'idle_minutes', label: 'Conseil « rien depuis »', unit: 'min' },
-      { key: 'risk_refusals', label: 'Alerte cliente à partir de', unit: 'refus' },
+      { key: 'risk_refusals', label: 'Alerte client à partir de', unit: 'refus' },
       { key: 'min_sales_range', label: 'Ventes minimum pour la fourchette de prix' },
     ],
   },
