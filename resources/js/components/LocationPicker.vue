@@ -9,7 +9,13 @@
         <button type="submit" class="btn-secondary" :disabled="!link || resolving">{{ resolving ? '…' : 'Placer' }}</button>
       </form>
     </div>
-    <p v-if="message" :class="['text-sm', messageError ? 'text-red-600' : 'text-slate-600']">{{ message }}</p>
+    <!-- Résultat de la localisation : encadré bien visible (une petite ligne passait inaperçue) -->
+    <div v-if="message" ref="messageEl" :class="['rounded-xl px-3.5 py-3 text-[14.5px] leading-snug', tone === 'error' ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200' : tone === 'warn' ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-200' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200']" role="status" aria-live="polite">
+      <p class="font-semibold">{{ message }}</p>
+      <ol v-if="steps.length" class="mt-1.5 list-decimal space-y-0.5 pl-5">
+        <li v-for="st in steps" :key="st">{{ st }}</li>
+      </ol>
+    </div>
 
     <div class="relative rounded-xl overflow-hidden ring-1 ring-slate-200">
       <div ref="mapEl" :class="['w-full z-0', height]" role="application" aria-label="Carte : touchez pour placer le repère" />
@@ -22,7 +28,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import http, { apiErrorMessage } from '../bootstrap/axios'
@@ -53,16 +59,20 @@ const locating = ref(false)
 const resolving = ref(false)
 const link = ref('')
 const message = ref('')
-const messageError = ref(false)
+const tone = ref('ok') // ok | warn | error
+const steps = ref([])
+const messageEl = ref(null)
 let map = null
 let marker = null
 let circle = null
 
 const hasPoint = computed(() => props.modelValue?.lat != null && props.modelValue?.lng != null)
 
-function say(text, error = false) {
+function say(text, kind = false, list = []) {
   message.value = text
-  messageError.value = error
+  tone.value = kind === true ? 'error' : kind || 'ok'
+  steps.value = list
+  if (text) nextTick(() => messageEl.value?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
 }
 
 function place(lat, lng, accuracy = null, zoom = true) {
@@ -92,27 +102,91 @@ function draw() {
   circle = accuracy ? L.circle([lat, lng], { radius: accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.08 }).addTo(map) : null
 }
 
-function useMyPosition() {
-  if (!navigator.geolocation) return say('La localisation n\'est pas disponible sur cet appareil.', true)
-  locating.value = true
+// ── Ma position ──
+// 1. Position approximative tout de suite (réseau, ou dernière position connue) : le repère se place en 1 à 2 s.
+// 2. En même temps, le GPS affine pendant 25 s au plus ; le repère suit tant que la précision s'améliore.
+// 3. Rien du tout au bout de 25 s (fenêtre d'autorisation ignorée, GPS muet) : on le dit, jamais d'attente sans fin.
+const GOOD = 30 // mètres : assez précis, on arrête de chercher
+const LIMIT = 25000
+let watchId = null
+let stopTimer = null
+let best = null
+
+function stopLocating() {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId)
+  watchId = null
+  clearTimeout(stopTimer)
+  locating.value = false
+}
+
+function onFix(p) {
+  const accuracy = Math.round(p.coords.accuracy)
+  if (best && accuracy >= best) return
+  const first = best === null
+  best = accuracy
+  place(p.coords.latitude, p.coords.longitude, accuracy, true)
+  if (first) nextTick(() => mapEl.value?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
+  if (accuracy <= GOOD) {
+    stopLocating()
+    say(`Position trouvée (à ${accuracy} m près). Vérifiez le repère sur la carte.`)
+  } else {
+    say(`Position trouvée à ${accuracy} m près${locating.value ? ' : on affine…' : '.'}`, 'warn',
+      locating.value ? [] : ['Déplacez le repère du doigt pour le poser exactement sur votre boutique.'])
+  }
+}
+
+const HELP = {
+  // Refusée pour ce site
+  1: ['La localisation est bloquée pour Jibiat.', [
+    'Dans Chrome, touchez ⋮ (en haut à droite) › Paramètres › Paramètres des sites › Position.',
+    'Autorisez ce site, puis touchez à nouveau le bouton.',
+    'Ou touchez la carte à l\'emplacement de votre boutique.',
+  ]],
+  // Le téléphone ne trouve pas de position (localisation coupée)
+  2: ['Le téléphone ne trouve pas votre position.', [
+    'Activez la localisation : tirez le haut de l\'écran vers le bas, puis touchez « Localisation ».',
+    'Touchez à nouveau le bouton.',
+    'Ou touchez la carte à l\'emplacement de votre boutique.',
+  ]],
+  // Trop long
+  3: ['La position met trop de temps à arriver.', [
+    'Vérifiez que la localisation du téléphone est activée.',
+    'Approchez-vous d\'une fenêtre ou sortez, puis touchez à nouveau le bouton.',
+    'Ou touchez la carte à l\'emplacement de votre boutique.',
+  ]],
+}
+function fail(code) {
+  stopLocating()
+  if (best !== null) {
+    say(`Position trouvée à ${best} m près.`, 'warn', ['Déplacez le repère du doigt pour le poser exactement sur votre boutique.'])
+    return
+  }
+  const [text, list] = HELP[code] || HELP[3]
+  say(text, true, list)
+}
+
+async function useMyPosition() {
+  if (!navigator.geolocation) return say('La localisation n\'est pas disponible sur cet appareil.', true, ['Touchez la carte à l\'emplacement de votre boutique.'])
+  stopLocating()
+  best = null
   say('')
-  navigator.geolocation.getCurrentPosition(
-    (p) => {
-      locating.value = false
-      const accuracy = Math.round(p.coords.accuracy)
-      place(p.coords.latitude, p.coords.longitude, accuracy)
-      say(accuracy > 100
-        ? `Position approximative (à ${accuracy} m près) : sortez à découvert ou ajustez le repère sur la carte.`
-        : `Position trouvée (à ${accuracy} m près). Vérifiez le repère.`, accuracy > 100)
-    },
-    (e) => {
-      locating.value = false
-      say(e.code === 1
-        ? 'Localisation refusée : autorisez-la pour ce site dans les réglages du navigateur, ou placez le repère sur la carte.'
-        : 'Position introuvable pour le moment : réessayez, ou placez le repère sur la carte.', true)
-    },
-    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-  )
+  // Déjà refusée : pas la peine d'attendre, on explique tout de suite comment l'autoriser
+  try {
+    if ((await navigator.permissions?.query({ name: 'geolocation' }))?.state === 'denied') return fail(1)
+  } catch {
+    // Navigateur sans cette question : on essaie directement
+  }
+  locating.value = true
+  say('Recherche de votre position…', 'warn', ['Si le téléphone demande l\'autorisation, touchez « Autoriser ».'])
+  let errors = 0
+  const onError = (e) => {
+    errors++
+    // Refus : inutile d'attendre le GPS ; sinon on laisse sa chance à l'autre demande
+    if (e.code === 1 || errors >= 2) fail(e.code)
+  }
+  navigator.geolocation.getCurrentPosition(onFix, onError, { enableHighAccuracy: false, maximumAge: 120000, timeout: 10000 })
+  watchId = navigator.geolocation.watchPosition(onFix, onError, { enableHighAccuracy: true, maximumAge: 0, timeout: LIMIT })
+  stopTimer = setTimeout(() => fail(3), LIMIT)
 }
 
 async function useLink() {
@@ -145,6 +219,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopLocating()
   map?.remove()
   map = null
 })
