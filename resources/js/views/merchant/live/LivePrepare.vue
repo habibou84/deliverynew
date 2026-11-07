@@ -58,7 +58,10 @@
         <!-- ── WhatsApp ── -->
         <template v-if="panel === 'whatsapp'">
           <!-- Court, comme Jibiat Marchand : une phrase, 3 étapes, un bouton -->
-          <p v-if="!d.whatsapp?.auto" class="text-[16px] text-slate-700">Les clientes envoient le code du produit. <b>La réponse part toute seule</b> et votre agence reçoit la commande.</p>
+          <div v-if="!d.whatsapp?.auto" class="rounded-[22px] bg-[#E8F8EE] px-4 py-3.5">
+            <p class="text-[21px] font-black leading-tight text-[#0B6B3A]">💬 Vos clientes commandent sur WhatsApp</p>
+            <p class="mt-1 text-[15.5px] text-slate-700">Elles envoient le code du produit : la réponse part toute seule.</p>
+          </div>
 
           <!-- Connexion pas encore ouverte sur cette installation : le lien du live en attendant -->
           <p v-if="!waConnectable" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">La connexion de WhatsApp n'est pas encore ouverte par votre agence. En attendant, vos clientes commandent par <b>le lien du live</b>.</p>

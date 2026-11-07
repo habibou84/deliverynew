@@ -13,13 +13,16 @@
 
   <!-- À relier : 3 étapes courtes, un seul bouton (connexion officielle de WhatsApp, par Facebook) -->
   <section v-else-if="state.official?.available" class="space-y-3">
-    <ol class="m-card divide-y divide-slate-100 px-4">
-      <li v-for="(st, i) in STEPS" :key="st.title" class="flex items-start gap-3 py-3">
-        <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[15px] font-black text-white">{{ i + 1 }}</span>
-        <span class="min-w-0"><b class="block text-[15.5px]">{{ st.title }}</b><span class="text-[14px] text-slate-500">{{ st.text }}</span></span>
-      </li>
-    </ol>
-    <button type="button" class="m-btn-primary w-full !bg-none !bg-[#25d366]" :disabled="busy" @click="connectOfficial">{{ busy ? 'Un instant…' : 'Relier mon numéro spécial' }}</button>
+    <div class="m-card px-4 pb-1 pt-3.5">
+      <p class="text-[14px] font-extrabold uppercase tracking-wide text-slate-500">Ce qu'il vous faut</p>
+      <ol class="divide-y divide-slate-100">
+        <li v-for="(st, i) in STEPS" :key="st.title" class="flex items-start gap-3 py-3.5">
+          <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[17px] font-black text-white">{{ i + 1 }}</span>
+          <span class="min-w-0"><b class="block text-[19px] leading-snug">{{ st.title }}</b><span class="text-[15px] text-slate-600">{{ st.text }}</span></span>
+        </li>
+      </ol>
+    </div>
+    <button type="button" class="m-btn-primary w-full !bg-none !bg-[#25d366] !py-4 !text-[17px]" :disabled="busy" @click="connectOfficial">{{ busy ? 'Un instant…' : 'Relier mon numéro spécial' }}</button>
   </section>
 </template>
 
@@ -45,9 +48,9 @@ const state = reactive({ ...props.initial })
 const busy = ref(false)
 // Les 3 étapes, en bref (comme Jibiat Marchand)
 const STEPS = [
-  { title: '📱 Un numéro spécial live', text: 'Une puce sans compte WhatsApp. Vous recevrez un code par SMS.' },
-  { title: 'Touchez « Relier » ci-dessous', text: 'Suivez les étapes de Facebook avec ce numéro.' },
-  { title: '💳 Meta demande une carte ?', text: 'Touchez « Terminer » ou « Plus tard ». Pas besoin de carte : les messages des commandes sont gratuits.' },
+  { title: '📱 Un numéro spécial live', text: 'Une puce qui n\'a pas de WhatsApp.' },
+  { title: '🔗 Reliez-le avec Facebook', text: 'Touchez le bouton vert, puis suivez les étapes.' },
+  { title: '💳 Meta demande une carte ? Touchez « Terminer »', text: 'Pas besoin de carte : les commandes sont gratuites.' },
 ]
 
 /** Connexion officielle : fenêtre de Meta ouverte depuis l'adresse de la plateforme, retour ici à la fin */
