@@ -51,7 +51,7 @@
           </span>
         </div>
         <div class="mx-auto max-w-lg px-4 pb-28 pt-1" :style="i === current && pull ? { transform: `translateY(${pull}px)`, transition: 'none' } : { transition: 'transform .2s ease' }">
-          <!-- Commandes : nouvelle course en haut -->
+          <!-- Courses : nouvelle course en haut -->
           <button v-if="p.key === 'orders' && canCreate" type="button" class="m-btn-primary mb-3.5 flex w-full items-center justify-center gap-2" @click="menuOpen = true">
             <AppIcon name="plus" class="h-5 w-5" :stroke="2.6" /> Nouvelle course
           </button>
@@ -137,7 +137,7 @@ import { pageTitle } from '../../composables/usePageTitle'
 
 /**
  * Application e-commerçant sur téléphone (comme Jibiat Marchand) : onglets en pastilles dans l'en-tête, pages à glisser du doigt
- * (Commandes, Argent, Live, Boutique, Plus). Les autres écrans s'ouvrent dans une fenêtre par-dessus la page,
+ * (Courses, Argent, Live, Boutique, Plus). Les autres écrans s'ouvrent dans une fenêtre par-dessus la page,
  * qu'on ferme d'un ✕, en touchant le fond ou en glissant vers le bas.
  */
 const props = defineProps({
@@ -175,6 +175,8 @@ const tabsEl = ref(null)
 const current = ref(0)
 const seen = reactive(new Set())
 const refresh = reactive({})
+// Menu « Que voulez-vous envoyer ? » du bouton Nouvelle course
+const menuOpen = ref(false)
 
 // ── Tirer pour actualiser la page affichée ──
 const PULL_AT = 64
