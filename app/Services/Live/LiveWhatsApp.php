@@ -285,10 +285,16 @@ class LiveWhatsApp
                 1 => $this->order($merchant, $live, $chat, $chat->customer_name ?: ($chat->push_name ?: 'Client'), (int) $chat->zone_id),
                 2 => $this->ask($merchant, $chat, LiveChat::ADD, "➕ Envoyez le *code de l'article* à ajouter\n_Exemple : A3_"),
                 3 => $this->ask($merchant, $chat, LiveChat::DETAILS, "📍 *NOUVELLE ADRESSE*\n\n✍️ Écrivez *votre nom, votre commune et votre quartier*\n_Exemple : Awa, Cocody Angré 8e tranche_"),
-                4 => $this->ask($merchant, $chat, LiveChat::CANCEL, "⚠️ *VOUS VOULEZ ANNULER ?*\n\nPour annuler la commande, répondez *4* ou *ANNULER* encore une fois."),
-                default => $this->reply($merchant, $phone, $chat->step === LiveChat::ADD
-                    ? "Envoyez le *code de l'article* à ajouter (exemple : A3), ou répondez *1* pour confirmer votre commande."
-                    : "👉 *RÉPONDEZ AVEC UN CHIFFRE :*\n*1* ✅ Je confirme\n*2* ➕ Ajouter un article\n*3* 📍 Changer l'adresse\n*4* ❌ Annuler"),
+                4 => $this->ask($merchant, $chat, LiveChat::CANCEL, $this->buttons()
+                    ? "⚠️ *VOUS VOULEZ ANNULER ?*\n\nPour annuler la commande, touchez *Oui, annuler*."
+                    : "⚠️ *VOUS VOULEZ ANNULER ?*\n\nPour annuler la commande, répondez *4* ou *ANNULER* encore une fois.",
+                    [['id' => '4', 'title' => '❌ Oui, annuler']]),
+                default => $chat->step === LiveChat::ADD
+                    ? $this->reply($merchant, $phone, $this->buttons()
+                        ? "Envoyez le *code de l'article* à ajouter (exemple : A3), ou touchez *Je confirme*."
+                        : "Envoyez le *code de l'article* à ajouter (exemple : A3), ou répondez *1* pour confirmer votre commande.",
+                        null, [['id' => '1', 'title' => '✅ Je confirme']])
+                    : $this->reply($merchant, $phone, $this->menu()[0], null, $this->menu()[1]),
             };
             if ($chat->step === LiveChat::CANCEL && $answer !== null && $answer !== 4 && $chat->exists) {
                 $chat->forceFill(['step' => LiveChat::CONFIRM])->save();
@@ -297,18 +303,46 @@ class LiveWhatsApp
             return;
         }
 
-        // Nom et quartier attendus
-        $zone = $this->zoneIn($merchant, $text);
-        if ($zone === null) {
+        // Quartier proposé : le client répond par son chiffre (ou réécrit son adresse)
+        if ($chat->step === LiveChat::ZONE && preg_match('/^\s*([1-9])\s*$/', $text, $m)) {
+            $zoneId = $chat->zone_choices[(int) $m[1] - 1] ?? null;
+            if ($zoneId !== null && $this->companyZones($merchant)->contains('id', $zoneId)) {
+                $chat->forceFill(['zone_id' => $zoneId, 'zone_choices' => null, 'step' => LiveChat::CONFIRM, 'misses' => 0])->save();
+                $this->recap($merchant, $chat);
+
+                return;
+            }
+        }
+
+        // Nom et quartier attendus (même mal écrits : « yopougn sipores »)
+        $found = $this->zonesIn($merchant, $text);
+        if ($found->isEmpty()) {
             $this->reply($merchant, $phone, "Je n'ai pas reconnu le quartier 🤔\n✍️ Écrivez *votre nom, votre commune et votre quartier*\n_Exemple : Awa, Cocody Angré_");
             // Quartier pas reconnu : visible dans l'onglet « Messages », la vendeuse peut le choisir elle-même
             $chat->forceFill(['misses' => min(255, $chat->misses + 1)])->save();
 
             return;
         }
+        $name = $this->nameIn($text, $found) ?? $chat->customer_name ?? $chat->push_name ?? 'Client';
+        if ($found->count() > 1) {
+            $chat->forceFill([
+                'customer_name' => $name, 'zone_choices' => $found->pluck('id')->all(), 'step' => LiveChat::ZONE, 'misses' => 0,
+            ])->save();
+            if ($this->buttons()) {
+                $this->reply($merchant, $phone, "📍 *QUEL EST VOTRE QUARTIER ?*\n\nTouchez votre quartier, ou écrivez-le à nouveau.", null,
+                    $found->values()->map(fn (Zone $z, int $i) => [
+                        'id' => (string) ($i + 1), 'title' => $z->parent ? "{$z->name} ({$z->parent->name})" : $z->name, 'description' => $z->parent?->name,
+                    ])->all());
+
+                return;
+            }
+            $list = $found->values()->map(fn (Zone $z, int $i) => '*'.($i + 1).'* '.$z->fullName())->implode("\n");
+            $this->reply($merchant, $phone, "📍 *QUEL EST VOTRE QUARTIER ?*\n\n{$list}\n\n👉 Répondez avec le chiffre, ou écrivez à nouveau votre quartier.");
+
+            return;
+        }
         $chat->forceFill([
-            'customer_name' => $this->nameIn($text, $zone) ?? $chat->customer_name ?? $chat->push_name ?? 'Client',
-            'zone_id' => $zone->id, 'step' => LiveChat::CONFIRM, 'misses' => 0,
+            'customer_name' => $name, 'zone_id' => $found->first()->id, 'zone_choices' => null, 'step' => LiveChat::CONFIRM, 'misses' => 0,
         ])->save();
         $this->recap($merchant, $chat);
     }
@@ -330,10 +364,11 @@ class LiveWhatsApp
         };
     }
 
-    private function ask(Merchant $merchant, LiveChat $chat, string $step, string $text): void
+    /** @param  list<array{id: string, title: string}>  $choices */
+    private function ask(Merchant $merchant, LiveChat $chat, string $step, string $text, array $choices = []): void
     {
         $chat->forceFill(['step' => $step])->save();
-        $this->reply($merchant, $chat->phone, $text);
+        $this->reply($merchant, $chat->phone, $text, null, $choices);
     }
 
     /**
@@ -446,8 +481,8 @@ class LiveWhatsApp
             .($fee !== null ? '🚚 Livraison : '.$this->money($fee)."\n" : '')
             .($total > 0 ? '💰 *À payer à la livraison : '.$this->money($total + ($fee ?? 0))."*\n" : '')
             .($photo ? "📷 _Vérifiez la photo avant de confirmer_\n" : '')
-            .self::LINE."\n👉 *RÉPONDEZ AVEC UN CHIFFRE :*\n*1* ✅ Je confirme\n*2* ➕ Ajouter un article\n*3* 📍 Changer l'adresse\n*4* ❌ Annuler";
-        $this->reply($merchant, $chat->phone, $text, $photo ? $this->absolute($merchant, $photo) : null);
+            .self::LINE."\n".$this->menu()[0];
+        $this->reply($merchant, $chat->phone, $text, $photo ? $this->absolute($merchant, $photo) : null, $this->menu()[1]);
     }
 
     /** Frais de livraison payés par le client (réglage de l'e-commerçant), sinon null : rien à ajouter au total */
@@ -576,19 +611,23 @@ class LiveWhatsApp
         })->filter()->implode(', ');
     }
 
-    private function zoneIn(Merchant $merchant, string $text): ?Zone
+    /** @return Collection<int, Zone> */
+    private function zonesIn(Merchant $merchant, string $text): Collection
     {
-        $zones = $this->companyZones($merchant);
-
-        return $this->zones->inText($text, $zones)->first() ?? $this->zones->answer($text, $zones)->first();
+        return $this->zones->guess($text, $this->companyZones($merchant));
     }
 
-    /** Nom du client : le message sans le quartier (« Awa, Yopougon Niangon » → « Awa ») */
-    private function nameIn(string $text, Zone $zone): ?string
+    /**
+     * Nom du client : le message sans le quartier (« Awa, Yopougon Niangon » → « Awa »), même mal écrit.
+     *
+     * @param  Collection<int, Zone>  $zones
+     */
+    private function nameIn(string $text, Collection $zones): ?string
     {
-        $words = collect([$zone->name, $zone->parent?->name])->filter()->flatMap(fn ($n) => explode(' ', ZoneMatcher::normalize($n)));
+        $words = $zones->flatMap(fn (Zone $z) => [$z->name, $z->parent?->name])->filter()
+            ->flatMap(fn ($n) => explode(' ', ZoneMatcher::normalize($n)))->unique();
         $kept = collect(preg_split('/[\s,;.\-:\/]+/u', $text) ?: [])
-            ->reject(fn ($w) => $w === '' || $words->contains(ZoneMatcher::normalize($w)))
+            ->reject(fn ($w) => $w === '' || $words->contains(fn ($z) => ZoneMatcher::close($w, $z)))
             ->reject(fn ($w) => in_array(ZoneMatcher::normalize($w), ['a', 'au', 'je', 'suis', 'moi', 'c', 'est', 'quartier', 'commune', 'nom', 'mon', 'livraison', 'livrer'], true));
         $name = trim($kept->take(4)->implode(' '));
 
@@ -602,9 +641,33 @@ class LiveWhatsApp
     }
 
     /** Réponse au client ; avec une photo : la photo et le texte en légende (connexion officielle) */
-    private function reply(Merchant $merchant, string $to, string $text, ?string $image = null): void
+    /** @param  list<array{id: string, title: string, description?: string|null}>  $choices  boutons ou liste (connexion officielle) */
+    private function reply(Merchant $merchant, string $to, string $text, ?string $image = null, array $choices = []): void
     {
-        SendLiveWhatsApp::dispatch(self::session($merchant), $to, $text, $this->accountId, $this->accountId ? $image : null);
+        SendLiveWhatsApp::dispatch(self::session($merchant), $to, $text, $this->accountId, $this->accountId ? $image : null, $this->accountId ? $choices : []);
+    }
+
+    /** Connexion officielle : boutons et listes à toucher ; par code d'association : réponses à taper */
+    private function buttons(): bool
+    {
+        return $this->accountId !== null;
+    }
+
+    /**
+     * Suite du récapitulatif : liste à toucher (connexion officielle), sinon chiffres à taper
+     *
+     * @return array{0: string, 1: list<array{id: string, title: string}>}
+     */
+    private function menu(): array
+    {
+        if ($this->buttons()) {
+            return ['👉 *Touchez « Choisir » pour répondre*', [
+                ['id' => '1', 'title' => '✅ Je confirme'], ['id' => '2', 'title' => '➕ Ajouter un article'],
+                ['id' => '3', 'title' => "📍 Changer l'adresse"], ['id' => '4', 'title' => '❌ Annuler'],
+            ]];
+        }
+
+        return ["👉 *RÉPONDEZ AVEC UN CHIFFRE :*\n*1* ✅ Je confirme\n*2* ➕ Ajouter un article\n*3* 📍 Changer l'adresse\n*4* ❌ Annuler", []];
     }
 
     private function money(int $amount): string
