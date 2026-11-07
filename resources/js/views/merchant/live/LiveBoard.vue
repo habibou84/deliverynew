@@ -201,7 +201,7 @@ const tabs = computed(() => [
 const stuckCount = computed(() => (b.value?.chats || []).filter((c) => c.stuck).length)
 const chatForm = reactive({})
 const formFor = (c) => (chatForm[c.id] ||= { delivery_zone_id: null, recipient_name: c.name || '' })
-const STEP_TEXT = { details: 'donne son nom et son quartier', confirm: 'doit confirmer le récapitulatif', add: 'ajoute un article', cancel: 'veut annuler' }
+const STEP_TEXT = { details: 'donne son nom et son quartier', confirm: 'doit confirmer le récapitulatif', add: 'ajoute un article', cancel: 'veut annuler', zone: 'choisit son quartier' }
 async function completeChat(c) {
   const name = formFor(c).recipient_name || c.name || 'le client'
   saving.value = true

@@ -94,6 +94,29 @@ class MetaCloudGateway implements WhatsAppGateway
     }
 
     /**
+     * Liste à choisir (plus de 3 choix, ou libellés trop longs pour des boutons) : un bouton ouvre la liste,
+     * 10 lignes au plus (titre de 24 caractères, description de 72).
+     *
+     * @param  list<array{id: string, title: string, description?: string|null}>  $rows
+     */
+    public function sendList(?WhatsAppAccount $account, string $to, string $text, string $button, array $rows): string
+    {
+        $account = $this->ensureConfigured($account);
+        $rows = array_map(fn ($r) => ['id' => (string) $r['id'], 'title' => mb_substr($r['title'], 0, 24)]
+            + (filled($r['description'] ?? null) ? ['description' => mb_substr($r['description'], 0, 72)] : []), array_slice($rows, 0, 10));
+        $response = $this->call(fn () => $this->client($account)->post("{$account->phone_number_id}/messages", [
+            'messaging_product' => 'whatsapp', 'to' => ltrim($to, '+'), 'type' => 'interactive',
+            'interactive' => [
+                'type' => 'list',
+                'body' => ['text' => mb_substr($text, 0, 1024)],
+                'action' => ['button' => mb_substr($button, 0, 20), 'sections' => [['title' => mb_substr($button, 0, 24), 'rows' => $rows]]],
+            ],
+        ]));
+
+        return (string) $response->json('messages.0.id');
+    }
+
+    /**
      * Photo avec sa légende (réponse dans la fenêtre de 24 h : gratuite). L'adresse doit être publique (Meta la télécharge).
      */
     public function sendImage(?WhatsAppAccount $account, string $to, string $link, string $caption = ''): string

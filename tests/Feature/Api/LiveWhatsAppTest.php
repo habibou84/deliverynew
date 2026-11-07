@@ -11,6 +11,8 @@ use App\Models\Order;
 use App\Models\WhatsAppAccount;
 use App\Services\Live\LiveStudio;
 use App\Services\Live\LiveWhatsApp;
+use App\Services\Messaging\Gateways\MetaCloudGateway;
+use App\Services\Messaging\WhatsAppBridge;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -100,6 +102,47 @@ class LiveWhatsAppTest extends TestCase
         $this->assertStringContainsString($order->tracking_code, $this->replies()[4]);
         $this->assertSame(0, LiveChat::count());
         Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => $job->session === "merchant-{$this->merchant->id}" && $job->to === '+2250707000001');
+    }
+
+    public function test_misspelled_neighbourhood_is_understood_or_offered_as_a_choice(): void
+    {
+        $siporex = $this->zone('Siporex', $this->yopougon);
+        $koumassi = $this->zone('Koumassi');
+        $sicogiYop = $this->zone('Sicogi', $this->yopougon);
+        $sicogiKoum = $this->zone('Sicogi', $koumassi);
+        $this->zone('Riviera 2', $this->cocody);
+
+        // Commune et quartier mal écrits : compris, le nom du client reste propre
+        $this->say('a1');
+        $this->say('Awa yopougn sipores');
+        $this->assertStringContainsString('*Siporex* · Awa', $this->replies()[1]);
+        $this->assertSame($siporex->id, LiveChat::first()->zone_id);
+
+        // Chiffre différent : ce n'est pas le même quartier
+        $this->say('3');
+        $this->say('Awa riviera 4');
+        $this->assertStringContainsString('pas reconnu le quartier', $this->replies()[3]);
+
+        // Le même quartier dans deux communes : le client choisit avec un chiffre
+        $this->say('Awa sicgi');
+        $choice = $this->replies()[4];
+        $this->assertStringContainsString('QUEL EST VOTRE QUARTIER', $choice);
+        $this->assertStringContainsString('Yopougon › Sicogi', $choice);
+        $this->assertStringContainsString('Koumassi › Sicogi', $choice);
+        $this->assertSame(LiveChat::ZONE, LiveChat::first()->step);
+        $pick = str_contains(explode("\n", explode('*2* ', $choice)[1])[0], 'Koumassi') ? 2 : 1;
+        $this->say((string) $pick);
+        $this->assertSame($sicogiKoum->id, LiveChat::first()->zone_id);
+        $this->assertStringContainsString('*Sicogi* · Awa', $this->replies()[5]);
+
+        // Avec la commune, plus besoin de choisir
+        $this->say('3');
+        $this->say('Awa Yopougon sicogie');
+        $this->assertSame($sicogiYop->id, LiveChat::first()->zone_id);
+        $this->assertSame(LiveChat::CONFIRM, LiveChat::first()->step);
+
+        $this->say('1');
+        $this->assertSame($sicogiYop->id, Order::query()->latest('id')->first()->delivery_zone_id);
     }
 
     public function test_adding_an_article_makes_one_course_and_cancelling_needs_two_answers(): void
@@ -215,6 +258,53 @@ class LiveWhatsAppTest extends TestCase
         Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => str_contains($job->text, 'VOTRE COMMANDE') && str_contains((string) $job->image, '/produits/') && $job->accountId === $account->id);
         $official('1');
         Queue::assertPushed(SendLiveWhatsApp::class, fn ($job) => str_contains($job->text, 'Voici les photos de votre commande') && $job->image !== null);
+    }
+
+    public function test_official_number_sends_buttons_and_a_list(): void
+    {
+        $account = WhatsAppAccount::create(['company_id' => $this->company->id, 'owner_type' => WhatsAppAccount::MERCHANT, 'owner_id' => $this->merchant->id, 'phone_number_id' => '9001', 'status' => 'connected', 'access_token' => 'jeton']);
+        LiveItem::query()->first()->product->forceFill(['photo_path' => 'produits/robe.jpg'])->save();
+        $koumassi = $this->zone('Koumassi');
+        $this->zone('Sicogi', $this->yopougon);
+        $this->zone('Sicogi', $koumassi);
+        $official = function (string $text) use ($account) {
+            app('auth')->forgetGuards();
+            app(LiveWhatsApp::class)->onOfficial($account, '+2250707000001', 'Awa', $text);
+        };
+        $sent = [];
+        Http::fake(['graph.facebook.com/*' => function ($request) use (&$sent) {
+            $sent[] = $request->data();
+
+            return Http::response(['messages' => [['id' => 'wamid.x']]]);
+        }]);
+        $send = function (string $needle) use (&$sent) {
+            $job = collect(Queue::pushed(SendLiveWhatsApp::class))->last(fn ($j) => str_contains($j->text, $needle));
+            $sent = [];
+            $job->handle(app(WhatsAppBridge::class), app(MetaCloudGateway::class));
+
+            return $sent;
+        };
+
+        // Quartier qui ressemble à deux quartiers : des boutons
+        $official('A1');
+        $official('Awa sicgi');
+        $zone = $send('QUEL EST VOTRE QUARTIER');
+        $this->assertCount(1, $zone);
+        $this->assertSame('button', $zone[0]['interactive']['type']);
+        $this->assertEqualsCanonicalizing(['Sicogi (Yopougon)', 'Sicogi (Koumassi)'], array_column(array_column($zone[0]['interactive']['action']['buttons'], 'reply'), 'title'));
+
+        // Récapitulatif : la photo et sa légende, puis la liste à choisir
+        $official('2');
+        $recap = $send('VOTRE COMMANDE');
+        $this->assertSame(['image', 'interactive'], array_column($recap, 'type'));
+        $this->assertStringContainsString('Touchez « Choisir »', $recap[0]['image']['caption']);
+        $this->assertSame('list', $recap[1]['interactive']['type']);
+        $this->assertSame(['1', '2', '3', '4'], array_column($recap[1]['interactive']['action']['sections'][0]['rows'], 'id'));
+
+        // Annuler : un bouton pour confirmer
+        $official('4');
+        $cancel = $send('VOUS VOULEZ ANNULER');
+        $this->assertSame('4', $cancel[0]['interactive']['action']['buttons'][0]['reply']['id']);
     }
 
     public function test_nothing_happens_without_a_live_in_progress(): void
