@@ -88,9 +88,8 @@
     <RouterLink v-if="balance && !isPhone" to="/marchand/paiements" class="tap flex items-center gap-3.5 rounded-[22px] bg-white p-4 shadow-soft active:scale-[.99] transition">
       <ColorIcon name="argent" :size="52" />
       <div class="min-w-0 flex-1">
-        <p class="text-[13px] font-medium text-slate-500">{{ balance.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'À recevoir' }}</p>
+        <p class="text-[13px] font-medium text-slate-500">{{ balance.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'L\'agence vous doit' }}</p>
         <p class="text-[24px] font-extrabold leading-tight tabular-nums">{{ money(Math.abs(balance.unpaid_total)) }}</p>
-        <p v-if="balance.pending_cash > 0" class="text-[12.5px] text-slate-500">dont {{ money(balance.pending_cash) }} encore chez les livreurs</p>
       </div>
       <AppIcon name="right" class="h-5 w-5 text-slate-400" />
     </RouterLink>
