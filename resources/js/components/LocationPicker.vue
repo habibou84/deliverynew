@@ -1,14 +1,9 @@
 <template>
   <div class="space-y-2">
-    <div class="flex flex-wrap gap-2">
-      <button type="button" :class="buttonClass" :disabled="locating" @click="useMyPosition">
-        {{ locating ? 'Localisation…' : gpsLabel }}
-      </button>
-      <form v-if="allowLink" class="flex flex-1 min-w-56 gap-2" @submit.prevent="useLink">
-        <input v-model.trim="link" class="input flex-1" placeholder="Coller un lien Google Maps ou « 5.36, -3.97 »" aria-label="Lien Google Maps">
-        <button type="submit" class="btn-secondary" :disabled="!link || resolving">{{ resolving ? '…' : 'Placer' }}</button>
-      </form>
-    </div>
+    <button type="button" :class="buttonClass" :disabled="locating" @click="useMyPosition">
+      {{ locating ? 'Localisation…' : gpsLabel }}
+    </button>
+
     <!-- Résultat de la localisation : encadré bien visible (une petite ligne passait inaperçue) -->
     <div v-if="message" ref="messageEl" :class="['rounded-xl px-3.5 py-3 text-[14.5px] leading-snug', tone === 'error' ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200' : tone === 'warn' ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-200' : 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200']" role="status" aria-live="polite">
       <p class="font-semibold">{{ message }}</p>
@@ -17,13 +12,27 @@
       </ol>
     </div>
 
-    <div class="relative rounded-xl overflow-hidden ring-1 ring-slate-200">
-      <div ref="mapEl" :class="['w-full z-0', height]" role="application" aria-label="Carte : touchez pour placer le repère" />
-      <p v-if="!hasPoint" class="absolute inset-x-3 top-3 z-[400] rounded-lg bg-white/95 px-3 py-2 text-xs text-slate-600 shadow">
-        Touchez la carte à l'emplacement exact, ou utilisez votre position.
-      </p>
+    <!-- Mode « à valider » (confirm + pending) : le lieu trouvé, la carte et le bouton d'enregistrement ensemble -->
+    <div :class="pending ? 'space-y-2.5 rounded-[18px] bg-emerald-50 p-3 ring-1 ring-emerald-300' : 'space-y-2'">
+      <slot v-if="pending" name="found" />
+      <div class="relative rounded-xl overflow-hidden ring-1 ring-slate-200">
+        <div ref="mapEl" :class="['w-full z-0', height]" role="application" aria-label="Carte : touchez pour placer le repère" />
+        <p v-if="!hasPoint" class="absolute inset-x-3 top-3 z-[400] rounded-lg bg-white/95 px-3 py-2 text-xs text-slate-600 shadow">
+          Touchez la carte à l'emplacement exact, ou utilisez votre position.
+        </p>
+      </div>
+      <slot v-if="pending" name="actions" />
+      <p v-else-if="hasPoint" class="text-xs text-slate-500">Déplacez le repère ou touchez la carte pour corriger.</p>
     </div>
-    <p v-if="hasPoint" class="text-xs text-slate-500">Déplacez le repère ou touchez la carte pour corriger.</p>
+
+    <!-- Lien Google Maps : en petit, sous la carte -->
+    <template v-if="allowLink">
+      <button v-if="!linkOpen" type="button" class="text-[13.5px] font-semibold text-slate-500 underline" @click="linkOpen = true">Coller un lien Google Maps</button>
+      <form v-else class="flex gap-2" @submit.prevent="useLink">
+        <input v-model.trim="link" class="input min-w-0 flex-1" placeholder="Lien Google Maps ou « 5.36, -3.97 »" aria-label="Lien Google Maps">
+        <button type="submit" class="btn-secondary" :disabled="!link || resolving">{{ resolving ? '…' : 'Placer' }}</button>
+      </form>
+    </template>
   </div>
 </template>
 
@@ -43,6 +52,11 @@ const props = defineProps({
   gpsLabel: { type: String, default: '📍 Utiliser ma position actuelle' },
   buttonClass: { type: String, default: 'btn-secondary' },
   height: { type: String, default: 'h-64' },
+  // Position trouvée mais pas encore enregistrée : la carte passe dans un encadré avec les emplacements
+  // « found » (au-dessus) et « actions » (en dessous), et la réussite n'a pas de message à part
+  pending: Boolean,
+  // Le parent montre lui-même la position trouvée (pas de message « Position trouvée » ici)
+  confirm: Boolean,
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -58,6 +72,7 @@ const mapEl = ref(null)
 const locating = ref(false)
 const resolving = ref(false)
 const link = ref('')
+const linkOpen = ref(false)
 const message = ref('')
 const tone = ref('ok') // ok | warn | error
 const steps = ref([])
@@ -128,7 +143,7 @@ function onFix(p) {
   if (first) nextTick(() => mapEl.value?.scrollIntoView({ block: 'center', behavior: 'smooth' }))
   if (accuracy <= GOOD) {
     stopLocating()
-    say(`Position trouvée (à ${accuracy} m près). Vérifiez le repère sur la carte.`)
+    say(props.confirm ? '' : `Position trouvée (à ${accuracy} m près). Vérifiez le repère sur la carte.`)
   } else {
     say(`Position trouvée à ${accuracy} m près${locating.value ? ' : on affine…' : '.'}`, 'warn',
       locating.value ? [] : ['Déplacez le repère du doigt pour le poser exactement sur votre boutique.'])

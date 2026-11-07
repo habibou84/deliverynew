@@ -523,7 +523,7 @@ class Statistics
     }
 
     /**
-     * Échecs et annulations : combien, pourquoi, où, chez quels e-commerçants, ce que ça coûte, et les clientes
+     * Échecs et annulations : combien, pourquoi, où, chez quels e-commerçants, ce que ça coûte, et les clients
      * qui refusent souvent.
      *
      * @return array<string, mixed>
@@ -558,7 +558,7 @@ class Statistics
             ->map(fn ($r) => [...$r, 'cancelled' => (int) ($cancelled[$r['id']] ?? 0)]);
         $byZone = $table($events->countBy(fn ($e) => $commune($e->delivery_zone_id)), $delivered->countBy(fn ($o) => $commune($o->delivery_zone_id)), fn ($id) => $names[$id] ?? 'Sans zone', 5);
 
-        // Clientes qui refusent souvent : colis revenus (toutes dates), parmi les destinataires de la période
+        // Clients qui refusent souvent : colis revenus (toutes dates), parmi les destinataires de la période
         $phones = $this->orders()->whereBetween('created_at', $this->utcRange($from, $to))->select('recipient_phone');
         $customers = $this->orders()->whereNotNull('returned_at')->whereIn('recipient_phone', $phones)
             ->groupBy('recipient_phone')->selectRaw('recipient_phone, MAX(recipient_name) AS name, COUNT(*) AS refusals')

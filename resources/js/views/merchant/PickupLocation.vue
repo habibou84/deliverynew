@@ -11,38 +11,55 @@
       <section class="m-card p-4 space-y-3">
         <div>
           <h2 class="flex items-center gap-2 font-semibold"><ColorIcon name="lieu" :size="32" />Position de votre boutique</h2>
-          <p class="text-sm text-slate-600">
-            Le plus simple : <strong>depuis votre boutique</strong>, touchez le bouton ci-dessous. Sinon, placez le repère sur la carte.
-          </p>
+          <p v-if="!saved" class="text-sm text-slate-600">Depuis votre boutique, touchez le bouton.</p>
         </div>
 
-        <p v-if="current.pickup_location_source === 'courier' && !changed" class="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          Position estimée d'après les ramassages de nos livreurs : vérifiez-la et corrigez-la si besoin.
-        </p>
-        <p v-else-if="current.pickup_location_source && !changed" class="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
-          ✓ Position enregistrée{{ current.pickup_located_at ? ` le ${date(current.pickup_located_at)}` : '' }}{{ current.pickup_location_source === 'staff' ? ' par l\'agence' : '' }}.
-        </p>
+        <!-- Position déjà enregistrée (et pas changée) -->
+        <div v-if="saved && !changed" :class="['flex items-center gap-3 rounded-2xl px-3.5 py-3', current.pickup_location_source === 'courier' ? 'bg-amber-50' : 'bg-emerald-50']">
+          <span :class="['grid h-9 w-9 shrink-0 place-items-center rounded-full font-black text-white', current.pickup_location_source === 'courier' ? 'bg-amber-500' : 'bg-emerald-600']">{{ current.pickup_location_source === 'courier' ? '?' : '✓' }}</span>
+          <span class="min-w-0 text-sm">
+            <b class="block text-[15.5px]">{{ current.pickup_location_source === 'courier' ? 'Position estimée par nos livreurs' : 'Position enregistrée' }}</b>
+            <span :class="current.pickup_location_source === 'courier' ? 'text-amber-800' : 'text-emerald-800'">{{ [place?.name, current.pickup_located_at ? `le ${date(current.pickup_located_at)}` : '', current.pickup_location_source === 'staff' ? 'par l\'agence' : ''].filter(Boolean).join(' · ') }}</span>
+            <span v-if="current.pickup_location_source === 'courier'" class="block text-amber-800">Vérifiez-la depuis votre boutique.</span>
+          </span>
+        </div>
 
-        <LocationPicker v-model="point" button-class="m-btn-primary" gps-label="📍 Je suis à ma boutique : utiliser ma position" height="h-72" allow-link />
+        <LocationPicker v-model="point" button-class="m-btn-primary" :gps-label="saved ? '📍 Refaire avec ma position actuelle' : '📍 Je suis à ma boutique : utiliser ma position'" height="h-56" allow-link confirm :pending="changed">
+          <template #found>
+            <div>
+              <p class="text-[13px] font-extrabold uppercase tracking-wide text-emerald-700">✓ {{ point?.accuracy != null ? 'Position trouvée' : 'Nouvel emplacement' }}</p>
+              <p class="text-[19px] font-black leading-tight">{{ naming ? 'Recherche du lieu…' : place?.name || 'Votre repère sur la carte' }}</p>
+              <p class="text-[13px] text-emerald-800">{{ [point?.accuracy != null ? `à ${point.accuracy} m près` : '', place?.street].filter(Boolean).join(' · ') }}</p>
+            </div>
+          </template>
+          <template #actions>
+            <p v-if="error" class="field-error">{{ error }}</p>
+            <button type="button" class="m-btn-primary w-full !bg-none !bg-slate-900" :disabled="saving" @click="save">{{ saving ? 'Enregistrement…' : 'Enregistrer cette position' }}</button>
+            <p class="text-center text-[13px] text-slate-600">Pas le bon endroit ? Déplacez le repère sur la carte.</p>
+          </template>
+        </LocationPicker>
+      </section>
 
+      <!-- Facultatif : l'adresse et le repère, pour le livreur -->
+      <section v-if="saved" class="m-card p-4 space-y-3">
+        <h2 class="font-semibold">🏠 Pour aider le livreur <span class="text-[13px] font-normal text-slate-400">(facultatif)</span></h2>
         <div>
           <label class="m-label" for="pl-address">Adresse</label>
           <input id="pl-address" v-model.trim="address" class="m-input" maxlength="255" placeholder="Ex. : Riviera 2, rue des Jardins">
         </div>
         <div>
-          <label class="m-label" for="pl-landmark">Repère (facultatif)</label>
+          <label class="m-label" for="pl-landmark">Repère</label>
           <input id="pl-landmark" v-model.trim="landmark" class="m-input" maxlength="255" placeholder="Ex. : face à la pharmacie des Jardins, portail bleu">
         </div>
-        <p v-if="error" class="field-error">{{ error }}</p>
-        <button type="button" class="m-btn-primary" :disabled="!point || saving" @click="save">{{ saving ? 'Enregistrement…' : 'Enregistrer ce lieu' }}</button>
-        <RouterLink v-if="welcome" to="/marchand" class="block text-center text-sm text-slate-500 underline">Plus tard</RouterLink>
+        <button type="button" class="m-btn-secondary" :disabled="!addressChanged || saving" @click="save">{{ saving ? 'Enregistrement…' : addressChanged ? 'Enregistrer l\'adresse' : 'Adresse enregistrée ✓' }}</button>
       </section>
+      <RouterLink v-if="welcome" to="/marchand" class="block text-center text-sm text-slate-500 underline">Plus tard</RouterLink>
     </template>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
@@ -66,9 +83,34 @@ const point = ref(null)
 const address = ref('')
 const landmark = ref('')
 
-const changed = computed(() => point.value?.lat !== current.value.pickup_lat || point.value?.lng !== current.value.pickup_lng)
+// Une position enregistrée, et le repère posé ailleurs (pas encore enregistré)
+const saved = computed(() => current.value.pickup_lat != null)
+const changed = computed(() => !!point.value && (point.value.lat !== current.value.pickup_lat || point.value.lng !== current.value.pickup_lng))
+const addressChanged = computed(() => (address.value || '') !== (current.value.pickup_address || '') || (landmark.value || '') !== (current.value.pickup_landmark || ''))
+
+// Nom du lieu (quartier, commune) de la position affichée
+const place = ref(null)
+const naming = ref(false)
+let nameTimer = null
+watch(point, (p) => {
+  clearTimeout(nameTimer)
+  if (!p) return
+  naming.value = true
+  nameTimer = setTimeout(async () => {
+    try {
+      place.value = (await http.get('/geo/place', { params: { lat: p.lat, lng: p.lng } })).data.data
+      // Adresse encore vide : remplie avec le lieu trouvé
+      if (changed.value && !address.value && place.value) address.value = [place.value.name, place.value.street].filter(Boolean).join(', ')
+    } catch {
+      place.value = null
+    } finally {
+      naming.value = false
+    }
+  }, 500)
+}, { deep: true })
 
 async function save() {
+  const addressOnly = !changed.value
   saving.value = true
   error.value = ''
   try {
@@ -81,7 +123,7 @@ async function save() {
     })
     current.value = data.data
     await auth.fetchUser()
-    toasts.success('Lieu de ramassage enregistré. Merci !')
+    toasts.success(addressOnly ? 'Adresse enregistrée.' : 'Lieu de ramassage enregistré. Merci !')
     if (welcome.value) router.replace('/marchand')
   } catch (e) {
     error.value = apiErrorMessage(e)

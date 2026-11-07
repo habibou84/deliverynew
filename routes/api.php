@@ -643,6 +643,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::put('merchant/pickup-location', [MerchantLocationController::class, 'updateMine'])->name('merchant.pickup-location.update');
         // Lien Google Maps collé → coordonnées
         Route::post('geo/link', [MerchantLocationController::class, 'resolveLink'])->middleware('throttle:20,1')->name('geo.link');
+        // Position → nom du lieu (quartier, commune), pour montrer où le repère est posé
+        Route::get('geo/place', [MerchantLocationController::class, 'placeName'])->middleware('throttle:30,1')->name('geo.place');
         Route::get('merchants/{merchant}/notifications', [MerchantNotificationController::class, 'show'])->name('merchants.notifications');
         Route::put('merchants/{merchant}/notifications', [MerchantNotificationController::class, 'update'])->name('merchants.notifications.update');
         // Moyens de paiement du marchand : lui (propriétaire du compte) et la caisse, qui les vérifie

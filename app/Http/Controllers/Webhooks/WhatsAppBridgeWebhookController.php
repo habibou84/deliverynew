@@ -122,7 +122,7 @@ class WhatsAppBridgeWebhookController extends Controller
         ]);
     }
 
-    /** Message d'une cliente au WhatsApp de l'e-commerçante : traité une seule fois, dans la file */
+    /** Message d'un client au WhatsApp de l'e-commerçante : traité une seule fois, dans la file */
     private function liveMessage(int $merchantId, Request $request): void
     {
         $id = (string) $request->input('id');
