@@ -45,7 +45,7 @@
         <ul class="grid grid-cols-2 md:grid-cols-3 gap-3">
           <li v-for="p in shop.products" :key="p.id" class="m-card overflow-hidden flex flex-col">
             <div class="aspect-square bg-slate-100 grid place-items-center">
-              <img v-if="p.photo_url" :src="p.photo_url" :alt="p.name" class="h-full w-full object-cover" loading="lazy">
+              <img v-if="p.photo_url" :src="thumb(p.photo_url, 640)" :alt="p.name" class="h-full w-full object-cover" loading="lazy">
               <span v-else class="text-4xl" aria-hidden="true">🛍️</span>
             </div>
             <div class="p-3 flex flex-col gap-1 flex-1">
@@ -140,6 +140,7 @@
 </template>
 
 <script setup>
+import { thumb } from '../../utils/thumb'
 import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'

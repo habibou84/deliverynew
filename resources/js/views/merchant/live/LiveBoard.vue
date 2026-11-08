@@ -51,7 +51,7 @@
       </section>
       <div v-if="isLive && b.items.length > 1" class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="radiogroup" aria-label="Produit que vous montrez">
         <button v-for="(i, k) in b.items" :key="i.id" type="button" role="radio" :aria-checked="k === shownIdx" :aria-label="`${i.code} ${i.name}`" :class="['relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-200', k === shownIdx ? 'ring-[3px] ring-rose-600' : '', i.remaining ? '' : 'opacity-40']" @click="show(k)">
-          <img v-if="i.photo_url" :src="i.photo_url" alt="" class="h-full w-full object-cover">
+          <img v-if="i.photo_url" :src="thumb(i.photo_url, 160)" alt="" class="h-full w-full object-cover">
           <span class="absolute left-0.5 top-0.5 rounded-md bg-slate-900 px-1 text-[10px] font-black text-white">{{ i.code }}</span>
         </button>
       </div>
@@ -165,6 +165,7 @@
 </template>
 
 <script setup>
+import { thumb } from '../../../utils/thumb'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
