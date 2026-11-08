@@ -10,6 +10,7 @@ use App\Services\Live\LiveStudio;
 use App\Services\Payments\PayDunya;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Console : outil live des e-commerçants (prix, fiches IA, règles du live, suivi du mois). Côté entreprise : offrir
@@ -31,17 +32,23 @@ class ConsoleLiveController extends Controller
     {
         $int = fn (int $max) => ['sometimes', 'integer', 'min:0', "max:{$max}"];
         $data = $request->validate([
-            'enabled' => ['sometimes', 'boolean'], 'qr_whatsapp' => ['sometimes', 'boolean'],
-            'price_live' => $int(1000000), 'cards_per_live' => $int(1000), 'welcome_cards' => $int(1000),
+            'enabled' => ['sometimes', 'boolean'], 'qr_whatsapp' => ['sometimes', 'boolean'], 'paid' => ['sometimes', 'boolean'],
+            'free_upto' => $int(10000), 'tier2_upto' => ['sometimes', 'integer', 'min:1', 'max:100000'], 'tier2_price' => $int(1000000),
+            'tier3_upto' => ['sometimes', 'integer', 'min:1', 'max:100000'], 'tier3_price' => $int(1000000), 'top_price' => $int(1000000),
+            'free_orders' => $int(100000), 'min_credit' => $int(1000000),
+            'cards_per_live' => $int(1000), 'welcome_cards' => $int(1000),
             'price_month' => $int(10000000), 'cards_per_month' => $int(10000),
             'pack_price' => $int(1000000), 'pack_cards' => ['sometimes', 'integer', 'min:1', 'max:10000'],
-            'trial_lives' => $int(100), 'trial_cards' => $int(1000),
             'agency_share' => $int(100), 'retakes' => $int(20), 'cards_per_day' => $int(10000),
             'items_per_card' => ['sometimes', 'integer', 'min:1', 'max:9'],
             'low_stock' => $int(1000), 'idle_minutes' => ['sometimes', 'integer', 'min:1', 'max:240'],
             'risk_refusals' => ['sometimes', 'integer', 'min:1', 'max:100'], 'min_sales_range' => ['sometimes', 'integer', 'min:1', 'max:100000'],
             'monthly_ai_cap' => $int(100000000),
-        ]);
+        ], [], ['tier2_upto' => 'palier 2', 'tier3_upto' => 'palier 3', 'free_upto' => 'gratuit jusqu\'à']);
+        $next = [...$this->studio->settings(), ...$data];
+        if (! ($next['free_upto'] < $next['tier2_upto'] && $next['tier2_upto'] < $next['tier3_upto'])) {
+            throw ValidationException::withMessages(['tier2_upto' => 'Les paliers doivent se suivre : gratuit < palier 2 < palier 3.']);
+        }
         $this->studio->updateSettings($data);
 
         return $this->show();
@@ -105,7 +112,7 @@ class ConsoleLiveController extends Controller
         return response()->json(['data' => [
             'live_offered' => (bool) $request->user()->company->live_offered,
             'enabled' => (bool) $s['enabled'],
-            'price_live' => $s['price_live'],
+            'tiers' => $this->studio->tiers(),
             'price_month' => $s['price_month'],
         ]]);
     }

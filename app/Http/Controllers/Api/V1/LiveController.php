@@ -201,11 +201,8 @@ class LiveController extends Controller
     /** Télécharger la carte et ouvrir mon live : frais du live, puis direct */
     public function start(Request $request, Live $live): JsonResponse
     {
-        $merchant = $this->own($request, $live);
-        // Live payé à l'unité : paiement en ligne d'abord, le live démarre une fois payé
-        if ($live->status === Live::DRAFT && $this->studio->paysOnline($merchant) && $this->studio->nextPlan($merchant) === 'single') {
-            return $this->checkout($request, $merchant, 'live', $live);
-        }
+        $this->own($request, $live);
+        // Payé au palier à la fin du live ; sans commandes offertes ni crédit suffisant : recharge demandée (422)
         $this->studio->start($live, $request->user());
 
         return response()->json(['data' => $this->studio->board($live->refresh())]);
@@ -271,6 +268,15 @@ class LiveController extends Controller
         return response()->json(['data' => $this->studio->offer($merchant)]);
     }
 
+    /** Recharger le crédit live : page de paiement de PayDunya */
+    public function credit(Request $request): JsonResponse
+    {
+        $merchant = $this->merchant($request);
+        $data = $request->validate(['amount' => ['required', 'integer', 'min:100', 'max:1000000']], [], ['amount' => 'montant']);
+
+        return $this->checkout($request, $merchant, 'credit', null, $data['amount']);
+    }
+
     /** Retour de la page de paiement : état relu chez PayDunya (et appliqué s'il est payé) */
     public function payment(Request $request, LivePayment $payment, LivePayments $payments): JsonResponse
     {
@@ -290,9 +296,9 @@ class LiveController extends Controller
     }
 
     /** Paiement à faire : adresse de la page de PayDunya */
-    private function checkout(Request $request, Merchant $merchant, string $kind, ?Live $live = null): JsonResponse
+    private function checkout(Request $request, Merchant $merchant, string $kind, ?Live $live = null, ?int $amount = null): JsonResponse
     {
-        $result = app(LivePayments::class)->checkout($merchant, $request->user(), $kind, $live, $request->getSchemeAndHttpHost());
+        $result = app(LivePayments::class)->checkout($merchant, $request->user(), $kind, $live, $request->getSchemeAndHttpHost(), $amount);
 
         return response()->json(['data' => ['payment_url' => $result['url'], 'payment_id' => $result['payment']->id]]);
     }

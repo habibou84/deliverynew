@@ -21,7 +21,7 @@ class Live extends Model
 
     public const ENDED = 'ended';
 
-    protected $fillable = ['company_id', 'merchant_id', 'name', 'status', 'plan', 'ai_cards_included', 'ai_cards_used', 'started_at', 'ended_at', 'created_by'];
+    protected $fillable = ['company_id', 'merchant_id', 'name', 'status', 'plan', 'ai_cards_included', 'ai_cards_used', 'started_at', 'ended_at', 'created_by', 'billed_orders', 'billed_offered', 'billed_amount', 'billed_at'];
 
     protected static function booted(): void
     {
@@ -47,6 +47,10 @@ class Live extends Model
             'ai_cards_used' => 'integer',
             'started_at' => 'datetime',
             'ended_at' => 'datetime',
+            'billed_orders' => 'integer',
+            'billed_offered' => 'integer',
+            'billed_amount' => 'integer',
+            'billed_at' => 'datetime',
         ];
     }
 

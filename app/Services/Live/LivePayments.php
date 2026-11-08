@@ -13,13 +13,14 @@ use App\Support\Tenancy;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Paiement en ligne de l'outil live par l'e-commerçant, directement à Jibiat (PayDunya) : un live, le forfait du
- * mois ou des fiches IA. Le paiement est relu chez PayDunya avant d'être appliqué (une seule fois) : le live
+ * Paiement en ligne de l'outil live par l'e-commerçant, directement à Jibiat (PayDunya) : recharge du crédit live
+ * (le prix de chaque live y est pris à la fin, selon ses commandes), le forfait du mois ou des fiches IA. Le paiement est relu chez PayDunya avant d'être appliqué (une seule fois) : le live
  * démarre, le forfait s'active ou les fiches s'ajoutent, et la part de l'agence va sur son crédit.
  */
 class LivePayments
 {
-    public const KINDS = ['live', 'monthly', 'pack'];
+    /** live : ancien paiement d'un live à l'unité (avant les paliers), gardé pour les paiements en cours */
+    public const KINDS = ['credit', 'monthly', 'pack', 'live'];
 
     public function __construct(private readonly LiveStudio $studio, private readonly PayDunya $paydunya) {}
 
@@ -28,34 +29,27 @@ class LivePayments
      *
      * @return array{payment: LivePayment, url: string}
      */
-    public function checkout(Merchant $merchant, User $user, string $kind, ?Live $live, string $origin): array
+    public function checkout(Merchant $merchant, User $user, string $kind, ?Live $live, string $origin, ?int $amount = null): array
     {
         if (! $this->studio->paysOnline($merchant)) {
             throw new BusinessRuleException('Le paiement en ligne n\'est pas proposé pour votre boutique.');
         }
         $s = $this->studio->settings();
+        if ($kind === 'credit' && ($amount === null || $amount < (int) $s['min_credit'])) {
+            throw new BusinessRuleException('Rechargez au moins '.number_format((int) $s['min_credit'], 0, ',', ' ').' F.', 'amount');
+        }
         [$amount, $label] = match ($kind) {
-            'live' => [$this->studio->livePrice($merchant), 'Live « '.$live?->name.' »'],
+            'credit' => [(int) $amount, 'Crédit live'],
             'monthly' => [(int) $s['price_month'], 'Forfait live du mois'],
             'pack' => [(int) $s['pack_price'], "{$s['pack_cards']} fiches produit IA"],
+            default => throw new BusinessRuleException('Paiement inconnu.'),
         };
-        if ($kind === 'live') {
-            if ($live === null || $live->status !== Live::DRAFT || $live->merchant_id !== $merchant->id) {
-                throw new BusinessRuleException('Ce live ne peut plus être payé.');
-            }
-            if ($live->items()->count() === 0) {
-                throw new BusinessRuleException('Choisissez au moins un produit pour votre live.', 'items');
-            }
-            if ($this->studio->nextPlan($merchant) !== 'single') {
-                throw new BusinessRuleException('Ce live est déjà compris dans votre formule : démarrez-le directement.');
-            }
-        }
 
         $payment = LivePayment::create([
             'company_id' => $merchant->company_id,
             'merchant_id' => $merchant->id,
             'user_id' => $user->id,
-            'live_id' => $kind === 'live' ? $live->id : null,
+            'live_id' => $live?->id,
             'kind' => $kind,
             'amount' => $amount,
         ]);
@@ -119,6 +113,7 @@ class LivePayments
             $user = User::withoutGlobalScopes()->find($payment->user_id)
                 ?? User::withoutGlobalScopes()->where('merchant_id', $merchant->id)->orderBy('id')->firstOrFail();
             match ($payment->kind) {
+                'credit' => $this->studio->addCredit($merchant, $payment),
                 'live' => $this->startPaidLive($payment, $user),
                 'monthly' => $this->studio->subscribeMonthly($merchant, $user, $payment),
                 'pack' => $this->studio->buyPack($merchant, $user, $payment),
