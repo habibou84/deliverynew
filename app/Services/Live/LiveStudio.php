@@ -20,6 +20,7 @@ use App\Models\PlatformCredit;
 use App\Models\PlatformSetting;
 use App\Models\Product;
 use App\Models\User;
+use App\Notifications\LiveOrderReceived;
 use App\Services\Orders\OrderService;
 use App\Services\Payments\PayDunya;
 use App\Services\Stock\StockKeeper;
@@ -28,6 +29,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -678,7 +680,8 @@ class LiveStudio
             throw new BusinessRuleException('Démarrez le live pour enregistrer des commandes.');
         }
 
-        return DB::transaction(function () use ($live, $user, $data) {
+        $created = null;
+        $lines = DB::transaction(function () use ($live, $user, $data, &$created) {
             $phone = PhoneNumber::normalize($data['recipient_phone']) ?? $data['recipient_phone'];
             $source = $data['source'] ?? 'manual';
             $lines = [];
@@ -712,6 +715,7 @@ class LiveStudio
                         return ['product_id' => $tracked ? $product->id : null, 'label' => $item->label(), 'quantity' => $quantity, 'unit_price' => $item->price];
                     }, $available),
                 ], 'live');
+                $created = $order;
             }
 
             return array_map(function ($l) use ($live, $data, $phone, $source, $order, $availableIds) {
@@ -728,6 +732,25 @@ class LiveStudio
                 ]);
             }, $lines);
         });
+
+        // Commande prise sans la vendeuse (WhatsApp automatique, lien du live) : elle est prévenue tout de suite
+        if ($created !== null && ($data['source'] ?? 'manual') !== 'manual') {
+            $this->notifyMerchant($live, $created, $data['recipient_name'], $lines);
+        }
+
+        return $lines;
+    }
+
+    /** @param  list<LiveOrder>  $lines */
+    private function notifyMerchant(Live $live, Order $order, string $customer, array $lines): void
+    {
+        $users = User::forCompany($live->company_id)->where('merchant_id', $live->merchant_id)->where('status', 'active')->get();
+        if ($users->isEmpty()) {
+            return;
+        }
+        $items = collect($lines)->where('status', LiveOrder::ORDERED)
+            ->map(fn (LiveOrder $o) => ($o->quantity > 1 ? "{$o->quantity} × " : '').LiveItem::find($o->live_item_id)?->code)->implode(', ');
+        Notification::send($users, new LiveOrderReceived($order, $live, $customer, $items, $this->ordersOf($live)));
     }
 
     public function end(Live $live): Live
