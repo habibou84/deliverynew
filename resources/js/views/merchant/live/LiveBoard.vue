@@ -165,6 +165,7 @@
 </template>
 
 <script setup>
+import { refreshWhenVisible, visible as screenVisible } from '../../../composables/useVisibleRefresh'
 import { thumb } from '../../../utils/thumb'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -319,11 +320,13 @@ onMounted(async () => {
   }
   await load()
   zones.value = (await http.get('/zones')).data.data
-  timer = setInterval(() => { if (isLive.value && !saving.value) load() }, 8000)
+  timer = setInterval(() => { if (isLive.value && !saving.value && screenVisible()) load() }, 8000)
   clock = setInterval(() => { now.value = Date.now() }, 1000)
 })
 onBeforeUnmount(() => {
   clearInterval(timer)
   clearInterval(clock)
 })
+// Retour sur l'écran du live (après TikTok, Facebook…) : commandes à jour tout de suite
+refreshWhenVisible(() => { if (isLive.value && !saving.value) load() })
 </script>

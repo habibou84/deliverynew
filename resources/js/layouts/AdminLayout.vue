@@ -167,6 +167,7 @@
 </template>
 
 <script setup>
+import { refreshWhenVisible, visible as screenVisible } from '../composables/useVisibleRefresh'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http from '../bootstrap/axios'
@@ -291,7 +292,7 @@ onMounted(() => {
   loadSupport()
   if (!isDispatch.value) return
   fetchCounts()
-  countsTimer = setInterval(fetchCounts, 60000)
+  countsTimer = setInterval(() => screenVisible() && fetchCounts(), 60000)
 })
 onBeforeUnmount(() => clearInterval(countsTimer))
 
@@ -390,4 +391,6 @@ const logout = async () => {
   await auth.logout()
   router.push('/admin/connexion')
 }
+// Retour sur l'écran : compteurs à jour tout de suite
+refreshWhenVisible(() => isDispatch.value && fetchCounts())
 </script>
