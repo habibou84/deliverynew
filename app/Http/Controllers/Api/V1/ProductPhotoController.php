@@ -5,12 +5,13 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\ProductResource;
 use App\Models\Product;
+use App\Support\ImageVariants;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Photo d'un produit (page de commande du marchand).
@@ -32,6 +33,7 @@ class ProductPhotoController extends Controller
 
         if ($previous && $previous !== $path) {
             Storage::disk('local')->delete($previous);
+            ImageVariants::forget($previous);
         }
 
         return ProductResource::make($product->load('levels.location.hub'));
@@ -43,6 +45,7 @@ class ProductPhotoController extends Controller
 
         if ($product->photo_path) {
             Storage::disk('local')->delete($product->photo_path);
+            ImageVariants::forget($product->photo_path);
             $product->forceFill(['photo_path' => null])->save();
         }
 
@@ -52,7 +55,7 @@ class ProductPhotoController extends Controller
     /**
      * Fichier de la photo (public : affiché sur la page de commande).
      */
-    public function show(Product $product): StreamedResponse
+    public function show(Request $request, Product $product): Response
     {
         // Photo publique (boutique) : seulement à l'adresse de l'entreprise du produit
         abort_if(app(Tenancy::class)->zone() === Tenancy::COMPANY && $product->company_id !== app(Tenancy::class)->company()?->id, 404);
@@ -60,10 +63,11 @@ class ProductPhotoController extends Controller
         // Produit pas publié dans la boutique : seulement avec le lien donné par l'application (empreinte de la
         // photo), pas en essayant les numéros de produit
         if (! ($product->shop_visible && $product->is_active)) {
-            abort_unless(hash_equals(substr(md5($product->photo_path), 0, 10), (string) request()->query('v')), 404);
+            abort_unless(hash_equals(substr(md5($product->photo_path), 0, 10), (string) $request->query('v')), 404);
         }
 
-        return Storage::disk('local')->response($product->photo_path, null, [
+        // Photo allégée : 1080 px par défaut (photo envoyée sur WhatsApp), ?w=320 pour les vignettes
+        return ImageVariants::response($product->photo_path, ImageVariants::width($request->query('w'), 1080), headers: [
             'Cache-Control' => 'public, max-age=31536000, immutable',
             'X-Content-Type-Options' => 'nosniff',
         ]);

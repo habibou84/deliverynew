@@ -83,7 +83,7 @@
 
         <div v-for="p in products" :key="p.id" class="m-card p-3 flex gap-3">
           <label class="relative h-20 w-20 shrink-0 rounded-xl bg-slate-100 overflow-hidden grid place-items-center cursor-pointer" :title="p.photo_url ? 'Changer la photo' : 'Ajouter une photo'">
-            <img v-if="p.photo_url" :src="p.photo_url" :alt="p.name" class="h-full w-full object-cover">
+            <img v-if="p.photo_url" :src="thumb(p.photo_url)" :alt="p.name" class="h-full w-full object-cover">
             <span v-else class="text-center text-xs text-slate-500 px-1">📷<br>Photo</span>
             <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" @change="upload(p, $event)">
             <span v-if="uploading === p.id" class="absolute inset-0 bg-white/70 grid place-items-center text-xs">Envoi…</span>
@@ -128,6 +128,7 @@
 </template>
 
 <script setup>
+import { thumb } from '../../utils/thumb'
 import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
