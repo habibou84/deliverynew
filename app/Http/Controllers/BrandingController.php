@@ -5,12 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Support\Appearance;
 use App\Support\Branding;
+use App\Support\ImageVariants;
 use App\Support\LogoColors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Identité visuelle de l'entreprise de livraison : lecture publique (pages de
@@ -23,12 +24,13 @@ class BrandingController extends Controller
         return response()->json(['data' => Branding::data(Branding::company())]);
     }
 
-    public function logo(): StreamedResponse
+    /** Logo allégé : 320 px de large par défaut (assez net pour les en-têtes et la page de connexion) */
+    public function logo(Request $request): Response
     {
         $path = Branding::company()?->logo_path;
         abort_if($path === null || ! Storage::disk('local')->exists($path), 404);
 
-        return Storage::disk('local')->response($path, null, [
+        return ImageVariants::response($path, ImageVariants::width($request->query('w'), 320), keepAlpha: true, headers: [
             'Cache-Control' => 'public, max-age=31536000, immutable',
             'X-Content-Type-Options' => 'nosniff',
         ]);
@@ -61,6 +63,7 @@ class BrandingController extends Controller
 
         if ($previous && $previous !== $path) {
             Storage::disk('local')->delete($previous);
+            ImageVariants::forget($previous);
         }
 
         // Couleurs du logo : palettes proposées, la principale appliquée à l'espace e-commerçant si sa couleur
@@ -82,6 +85,7 @@ class BrandingController extends Controller
 
         if ($company->logo_path) {
             Storage::disk('local')->delete($company->logo_path);
+            ImageVariants::forget($company->logo_path);
             $company->forceFill(['logo_path' => null])->save();
         }
 

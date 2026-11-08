@@ -52,6 +52,10 @@ class BrandingTest extends TestCase
         $this->getJson('/api/v1/branding')->assertJsonPath('data.logo_url', $url);
         $this->getJson("/api/v1/companies/{$this->company->id}")->assertJsonPath('data.logo_url', $url);
         $this->get('/branding/logo')->assertOk()->assertHeader('Cache-Control', 'immutable, max-age=31536000, public');
+        // Logo allégé : WebP pour les navigateurs, PNG (transparence gardée) sinon ; jamais agrandi
+        $this->get('/branding/logo', ['Accept' => 'image/webp,*/*'])->assertHeader('Content-Type', 'image/webp');
+        $png = $this->get('/branding/logo', ['Accept' => '*/*'])->assertHeader('Content-Type', 'image/png');
+        $this->assertSame([300, 120], array_slice(getimagesizefromstring($png->streamedContent()), 0, 2));
 
         // Remplacement : l'ancien fichier disparaît ; suppression
         $this->post('/api/v1/company/logo', ['logo' => UploadedFile::fake()->image('logo2.jpg', 300, 120)], ['Accept' => 'application/json'])->assertOk();
