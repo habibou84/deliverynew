@@ -261,11 +261,12 @@
 </template>
 
 <script setup>
+import { refreshWhenVisible, visible as screenVisible } from '../../../composables/useVisibleRefresh'
 import SearchSelect from '../../../components/SearchSelect.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
-import { useEcho } from '../../../bootstrap/echo'
+import { loadEcho } from '../../../bootstrap/echo'
 import { orderChanges } from '../../../composables/useRealtime'
 import Modal from '../../../components/Modal.vue'
 import { downloadCsv } from '../../../components/stats/chart'
@@ -279,7 +280,8 @@ const auth = useAuthStore()
 const toasts = useToastStore()
 const route = useRoute()
 const router = useRouter()
-const echo = useEcho()
+// Direct (positions des livreurs) : branché dès que ses bibliothèques sont chargées
+let echo = null
 const STATE = {
   mission: { label: 'En mission', dot: 'bg-blue-600', chip: 'bg-blue-100 text-blue-900', color: '#2563eb' },
   available: { label: 'Disponible', dot: 'bg-emerald-600', chip: 'bg-emerald-100 text-emerald-900', color: '#059669' },
@@ -483,13 +485,15 @@ const channel = auth.user?.company_id ? `company.${auth.user.company_id}` : null
 
 onMounted(async () => {
   await load()
+  echo = await loadEcho()
   if (echo && channel) echo.private(channel).listen('.courier.location', onLocation)
   // Filet de sécurité si le direct est coupé
-  timer = setInterval(() => { if (isToday.value) load().catch(() => {}) }, 120000)
+  timer = setInterval(() => { if (isToday.value && screenVisible()) load().catch(() => {}) }, 120000)
 })
 onBeforeUnmount(() => {
   clearInterval(timer)
   clearTimeout(pending)
   if (echo && channel) echo.private(channel).stopListening('.courier.location', onLocation)
 })
+refreshWhenVisible(() => { if (isToday.value) load().catch(() => {}) })
 </script>

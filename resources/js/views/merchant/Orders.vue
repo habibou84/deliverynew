@@ -170,16 +170,20 @@ async function load(p = 1) {
   }
 }
 
-// Nombre de courses de chaque onglet sur la période (le total est dans « meta »)
+// Nombre de courses de chaque onglet sur la période : un seul appel pour tous les onglets
 async function loadCounts() {
-  await Promise.all(tabs.map(async (f) => {
-    try {
-      const { data } = await cachedGet('/orders', { params: { per_page: 1, ...filterParams(f, period.value) } })
-      counts[f.value] = data.meta?.total ?? 0
-    } catch {
-      // Compteur facultatif
-    }
+  const { from, to, date_basis } = filterParams(byValue.all, period.value)
+  const groups = Object.fromEntries(tabs.map((f) => {
+    const { status, queue } = filterParams(f, null)
+    // « Toutes » : aucun filtre, mais le groupe doit être envoyé (queue vide)
+    return [f.value, { ...(status ? { status } : {}), queue: queue || '' }]
   }))
+  try {
+    const { data } = await cachedGet('/orders/tally', { params: { from, to, date_basis, groups } })
+    Object.assign(counts, data.data)
+  } catch {
+    // Compteurs facultatifs
+  }
 }
 
 // Onglet et dates gardés dans l'adresse (retour depuis une fiche)

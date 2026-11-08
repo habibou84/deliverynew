@@ -699,6 +699,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('orders/counts', [OrderController::class, 'counts'])->name('orders.counts');
         // Courses non traitées (jour de livraison dépassé) regroupées par date, livreur ou e-commerçant
         Route::get('orders/untreated-groups', [OrderController::class, 'untreatedGroups'])->name('orders.untreated-groups');
+        // Plusieurs compteurs de la liste des courses en un seul appel (onglets)
+        Route::get('orders/tally', [OrderController::class, 'tally'])->name('orders.tally');
         Route::get('orders/labels', [OrderController::class, 'labels'])->middleware('throttle:30,1')->name('orders.labels');
         Route::get('orders/pickup-groups', [OrderController::class, 'pickupGroups'])->name('orders.pickup-groups');
         // À reporter : colis pas ramassés dont la date de livraison est passée
