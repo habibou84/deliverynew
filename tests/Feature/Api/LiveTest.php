@@ -440,4 +440,38 @@ class LiveTest extends TestCase
         // Paliers dans le désordre : refusés
         $this->putJson('http://admin.jibiat.test/api/v1/console/live', ['tier2_upto' => 5])->assertJsonValidationErrors('tier2_upto');
     }
+
+    public function test_la_console_offre_des_commandes_du_credit_ou_30_jours_et_voit_les_lives_comptes(): void
+    {
+        $this->smallTiers(['free_orders' => 0]);
+        $live = $this->prepare();
+        $this->addProduct($live, 'Robe wax', 9000, 50);
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
+        $this->orders($live, 2);
+        $this->postJson("/api/v1/live/{$live}/end")->assertOk();
+
+        config(['platform.domain' => 'jibiat.test']);
+        $root = User::factory()->withRole(Role::SuperAdmin)->create(['company_id' => null, 'phone' => '+2250700000099']);
+        Sanctum::actingAs($root);
+        $console = 'http://admin.jibiat.test/api/v1/console/live';
+
+        // Lives comptés du mois
+        $this->getJson("{$console}/payments")->assertOk()
+            ->assertJsonPath('data.month.billed.lives', 1)->assertJsonPath('data.month.billed.orders', 2)->assertJsonPath('data.month.billed.amount', 500);
+
+        // Trouver la boutique, puis lui offrir des commandes, du crédit, 30 jours
+        $name = mb_substr($this->merchant->business_name, 0, 5);
+        $this->getJson("{$console}/merchants?search=".urlencode($name))->assertOk()->assertJsonPath('data.0.id', $this->merchant->id);
+        $this->postJson("{$console}/merchants/{$this->merchant->id}/gift", [])->assertJsonValidationErrors('orders');
+        $this->postJson("{$console}/merchants/{$this->merchant->id}/gift", ['orders' => 50])->assertOk()->assertJsonPath('data.free_left', 50);
+        $this->postJson("{$console}/merchants/{$this->merchant->id}/gift", ['credit' => 2000])->assertOk()->assertJsonPath('data.credit', 2000);
+        $this->postJson("{$console}/merchants/{$this->merchant->id}/gift", ['month' => true])->assertOk();
+        $this->assertTrue($this->merchant->refresh()->live_plan_until->isAfter(now()->addDays(29)));
+        // Rien n'est encaissé ni facturé
+        $this->assertSame(1, LiveCharge::query()->count());
+
+        // L'e-commerçant le voit
+        $offer = app(LiveStudio::class)->offer($this->merchant->refresh());
+        $this->assertSame([50, 2000, 'monthly'], [$offer['free_left'], $offer['credit'], $offer['next_plan']]);
+    }
 }

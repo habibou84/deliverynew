@@ -342,6 +342,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             // Paiements en ligne (PayDunya) et crédit des agences
             Route::get('payments', 'payments')->name('payments');
             Route::post('credits/{company}/payout', 'payout')->middleware($owner)->name('payout');
+            // Offrir à un e-commerçant : commandes en live, crédit live, 30 jours
+            Route::get('merchants', 'merchants')->name('merchants');
+            Route::post('merchants/{merchant}/gift', 'gift')->middleware($owner)->whereNumber('merchant')->name('gift');
         });
         // Jibiat IA : niveaux et réglages au Propriétaire, coût réel par entreprise
         Route::prefix('console/ai')->name('console.ai.')->middleware($team)->controller(ConsoleJibiatAiController::class)->group(function () use ($owner) {
