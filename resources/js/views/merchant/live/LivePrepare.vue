@@ -34,13 +34,22 @@
 
       <!-- Étape « Commencer » : le grand bouton -->
       <template v-if="current === 'start'">
-        <button type="button" class="block w-full rounded-2xl bg-rose-600 py-4 text-[18px] font-black text-white shadow-soft active:scale-[.99] disabled:opacity-60" :disabled="saving" @click="start">{{ mustPay ? `● Payer ${money(d.offer.live_price)} et commencer` : '● Je commence mon live' }}</button>
+        <button type="button" class="block w-full rounded-2xl bg-rose-600 py-4 text-[18px] font-black text-white shadow-soft active:scale-[.99] disabled:opacity-60" :disabled="saving" @click="start">{{ d.offer.can_start ? '● Je commence mon live' : '● Recharger et commencer' }}</button>
         <p class="text-center text-[14px] text-slate-500">{{ priceLine }}</p>
-        <!-- Forfait du mois : lives sans limite pendant 30 jours -->
-        <button v-if="offerMonthly" type="button" class="block w-full rounded-2xl bg-white px-4 py-3 text-left shadow-soft" :disabled="saving" @click="subscribeMonthly">
-          <b class="block text-[15.5px]">📅 Forfait du mois : {{ money(d.offer.prices.month) }}</b>
-          <span class="text-[13.5px] text-slate-500">Lives sans limite pendant 30 jours. Toucher pour le prendre ›</span>
-        </button>
+        <!-- Payé au palier : prix selon les commandes, crédit, forfait du mois -->
+        <div v-if="d.offer.next_plan === 'tier'" class="space-y-2 rounded-2xl bg-white p-3.5 shadow-soft">
+          <b class="block text-[15.5px]">Prix d'un live, selon vos commandes</b>
+          <LiveTiers :tiers="d.offer.tiers" />
+          <div v-if="d.offer.pay_online" class="flex items-center gap-2 pt-1">
+            <span class="flex-1 text-[14.5px]">Crédit live : <b :class="d.offer.credit < 0 ? 'text-red-700' : ''">{{ money(d.offer.credit) }}</b></span>
+            <button type="button" class="rounded-xl bg-slate-900 px-3.5 py-2 text-[14.5px] font-bold text-white" @click="paySheet = true">Recharger</button>
+          </div>
+          <button v-if="offerMonthly" type="button" class="block w-full rounded-xl bg-slate-50 px-3 py-2.5 text-left" :disabled="saving" @click="subscribeMonthly">
+            <b class="block text-[15px]">📅 Ou le forfait du mois : {{ money(d.offer.prices.month) }}</b>
+            <span class="text-[13px] text-slate-500">Lives sans limite pendant 30 jours, sans compter les commandes ›</span>
+          </button>
+        </div>
+        <LivePaySheet v-if="paySheet" :offer="d.offer" @close="paySheet = false" @offer="d.offer = $event" />
       </template>
       <RouterLink to="/marchand/live/passes" class="block pt-1 text-center text-[14px] font-bold text-[var(--app-color)]">Voir mes lives passés ▸</RouterLink>
     </template>
@@ -98,7 +107,7 @@
             </div>
           </div>
         <p v-if="d.offer.offered_by_company" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre agence vous offre vos lives.</p>
-        <p v-else-if="d.offer.trial_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Ce live est offert : encore <b>{{ d.offer.trial_left }} live{{ d.offer.trial_left > 1 ? 's' : '' }} offert{{ d.offer.trial_left > 1 ? 's' : '' }}</b>.</p>
+        <p v-else-if="d.offer.next_plan === 'tier' && d.offer.free_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Il vous reste <b>{{ d.offer.free_left }} commandes offertes</b> en live.</p>
         <p v-if="d.offer.extra_cards" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] text-indigo-900">Il vous reste <b>{{ d.offer.extra_cards }} fiches IA</b> (photo + IA). Ajouter un produit à la main reste toujours gratuit.</p>
 
         <button type="button" class="tap flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--app-color)] bg-white py-3.5 text-[16px] font-bold text-[var(--app-color)]" @click="openNew">
@@ -294,6 +303,8 @@
 </template>
 
 <script setup>
+import LivePaySheet from './LivePaySheet.vue'
+import LiveTiers from './LiveTiers.vue'
 import { thumb } from '../../../utils/thumb'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
@@ -457,23 +468,24 @@ const shownCatalog = computed(() => {
   return (d.value?.catalog || []).filter((p) => !q || p.name.toLowerCase().includes(q))
 })
 const isSelected = (id) => selected.value.some((r) => r.product_id === id)
-// Live payé à l'unité, en ligne : le bouton mène au paiement
-const mustPay = computed(() => !!d.value?.offer?.pay_online && d.value.offer.next_plan === 'single')
+// Recharge du crédit live ou forfait du mois (PayDunya)
+const paySheet = ref(false)
 const priceLine = computed(() => {
   const o = d.value?.offer
   if (!o) return ''
+  if (o.next_plan === 'free') return 'Les lives sont gratuits en ce moment.'
   if (o.offered_by_company) return 'Ce live vous est offert par votre agence.'
   if (o.monthly_until) return 'Compris dans votre forfait du mois.'
-  if (o.trial_left) return `Ce live est offert : encore ${o.trial_left} live${o.trial_left > 1 ? 's' : ''} offert${o.trial_left > 1 ? 's' : ''}.`
-  if (o.day_paid) return 'Journée payée : ce live est compris.'
+  if (!o.can_start) return `Rechargez au moins ${money(o.min_credit)} pour démarrer : vous payez à la fin, selon vos commandes.`
+  if (o.free_left) return `Vous payez à la fin, selon vos commandes. Encore ${o.free_left} commandes offertes.`
   return o.pay_online
-    ? `${money(o.live_price)} pour toute la journée : vos autres lives d'aujourd'hui sont compris. Par Orange Money, MTN, Moov, Wave ou carte.`
-    : `${money(o.live_price)} pour toute la journée, retenus sur votre prochain reversement : vos autres lives d'aujourd'hui sont compris.`
+    ? 'Vous payez à la fin, selon vos commandes : pris sur votre crédit live.'
+    : 'Vous payez à la fin, selon vos commandes : retenu sur votre prochain reversement.'
 })
-// Forfait du mois proposé quand les lives ne sont ni offerts ni déjà au forfait
+// Forfait du mois proposé quand les lives sont payés au palier
 const offerMonthly = computed(() => {
   const o = d.value?.offer
-  return !!o && !o.offered_by_company && !o.monthly_until && !o.trial_left && Number(o.prices?.month) > 0
+  return !!o && o.next_plan === 'tier' && Number(o.prices?.month) > 0
 })
 async function subscribeMonthly() {
   saving.value = true
@@ -637,13 +649,13 @@ async function start() {
   saving.value = true
   try {
     const { data } = await http.post(`/live/${d.value.live.id}/start`)
-    // Live payé en ligne : page de paiement de PayDunya, retour sur l'application une fois payé
-    if (data.data.payment_url) {
-      window.location.assign(data.data.payment_url)
-      return
-    }
     router.push(`/marchand/live/${data.data.live.id}`)
   } catch (e) {
+    // Ni commandes offertes ni crédit suffisant : recharger (ou forfait du mois)
+    if (e.response?.data?.errors?.payment) {
+      paySheet.value = true
+      return
+    }
     toasts.error(apiErrorMessage(e))
   } finally {
     saving.value = false
