@@ -7,6 +7,7 @@ use App\Models\Company;
 use App\Models\CourierLocation;
 use App\Models\IdempotencyKey;
 use App\Models\WebhookDelivery;
+use App\Services\Live\LiveStudio;
 use App\Services\Orders\Cancellations;
 use App\Services\Platform\PlatformHealth;
 use Illuminate\Foundation\Inspiring;
@@ -24,6 +25,8 @@ Schedule::call(fn () => Cache::put(PlatformHealth::HEARTBEAT, now()->toIso8601St
 Schedule::command('platform:health --alert')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('reports:send')->everyFiveMinutes()->withoutOverlapping();
+// Lives restés ouverts plus de 12 h (oubliés) : fermés et comptés
+Schedule::call(fn () => app(LiveStudio::class)->closeStale())->hourly()->name('lives:close-stale')->withoutOverlapping();
 // Point de la semaine des administrateurs : vérifié toutes les 15 minutes, envoyé le lundi à 7 h 30 (heure de l'entreprise)
 Schedule::command('reports:weekly')->everyFifteenMinutes()->withoutOverlapping();
 // Domaines personnalisés en attente : activés dès qu'ils répondent en HTTPS

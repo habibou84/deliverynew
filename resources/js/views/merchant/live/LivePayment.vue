@@ -40,6 +40,7 @@ let tries = 0
 
 const done = computed(() => ({
   live: 'Votre live est ouvert. Bon live !',
+  credit: 'Votre crédit live est rechargé. Vous pouvez démarrer votre live.',
   monthly: 'Votre forfait du mois est activé : lives sans limite pendant 30 jours.',
   pack: 'Vos fiches produit IA sont ajoutées.',
 })[p.value?.kind] || 'Merci !')

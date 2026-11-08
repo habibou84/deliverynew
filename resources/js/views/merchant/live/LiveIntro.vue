@@ -110,14 +110,18 @@ const IntroBody = defineComponent({
           o.offered_by_company
             ? h('p', { class: 'py-2 text-[16px] font-bold text-emerald-700' }, 'Votre agence vous offre vos lives.')
             : [
-                o.trial_left ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `Vos ${o.trial_left} prochains lives`), h('b', { class: 'text-emerald-700' }, 'Offerts')]) : null,
-                h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', 'Une journée de live (tous vos lives du jour)'), h('b', money(o.prices.live))]),
+                h('p', { class: 'py-1 text-[14.5px] text-slate-600' }, 'Vous payez à la fin de chaque live, selon le nombre de commandes :'),
+                ...(o.tiers || []).map((t) => h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [
+                  h('span', t.to === null ? `Plus de ${t.from - 1} commandes` : t.from === 0 ? `0 à ${t.to} commandes` : `${t.from} à ${t.to} commandes`),
+                  t.price ? h('b', money(t.price)) : h('b', { class: 'text-emerald-700' }, 'Gratuit'),
+                ])),
+                o.free_left ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `Vos ${o.free_left} prochaines commandes en live`), h('b', { class: 'text-emerald-700' }, 'Offertes')]) : null,
                 o.prices.month ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', 'Ou le forfait du mois, lives sans limite'), h('b', money(o.prices.month))]) : null,
                 o.prices.welcome_cards ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `${o.prices.welcome_cards} fiches IA (photo + IA)`), h('b', { class: 'text-emerald-700' }, 'Offertes')]) : null,
                 h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `Ensuite, ${o.prices.pack_cards} fiches IA`), h('b', money(o.prices.pack))]),
                 h('div', { class: 'flex justify-between py-2.5 text-[15px]' }, [h('span', 'Ajouter un produit à la main'), h('b', { class: 'text-emerald-700' }, 'Toujours gratuit')]),
                 h('p', { class: 'text-center text-[13px] text-slate-500' }, o.pay_online
-                  ? 'Paiement par Orange Money, MTN, Moov, Wave ou carte, au moment de démarrer.'
+                  ? 'Crédit live rechargé par Orange Money, MTN, Moov, Wave ou carte : le prix y est pris à la fin du live.'
                   : 'Retenu sur votre prochain reversement : rien à payer avant.'),
               ],
         ]),
