@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\Live;
 use App\Models\LivePayment;
+use App\Models\Merchant;
 use App\Models\PlatformCredit;
 use App\Services\Live\LiveStudio;
 use App\Services\Payments\PayDunya;
@@ -72,6 +74,18 @@ class ConsoleLiveController extends Controller
             'month' => [
                 'paid' => (int) LivePayment::withoutGlobalScopes()->where('status', LivePayment::PAID)->where('paid_at', '>=', now()->startOfMonth())->sum('amount'),
                 'count' => LivePayment::withoutGlobalScopes()->where('status', LivePayment::PAID)->where('paid_at', '>=', now()->startOfMonth())->count(),
+                // Par type : recharges du crédit live, forfaits, packs de fiches IA
+                'by_kind' => LivePayment::withoutGlobalScopes()->where('status', LivePayment::PAID)->where('paid_at', '>=', now()->startOfMonth())
+                    ->selectRaw('kind, COUNT(*) AS n, SUM(amount) AS total')->groupBy('kind')->get()
+                    ->mapWithKeys(fn ($r) => [$r->kind => ['count' => (int) $r->n, 'total' => (int) $r->total]]),
+                // Lives comptés au palier : commandes, dont offertes, et prix pris (crédit, reversement ou agence)
+                'billed' => (fn ($q) => [
+                    'lives' => (clone $q)->count(),
+                    'orders' => (int) (clone $q)->sum('billed_orders'),
+                    'offered' => (int) (clone $q)->sum('billed_offered'),
+                    'amount' => (int) (clone $q)->sum('billed_amount'),
+                    'by_agency' => (clone $q)->where('plan', 'offered')->count(),
+                ])(Live::withoutGlobalScopes()->whereIn('plan', ['tier', 'offered'])->where('billed_at', '>=', now()->startOfMonth())),
             ],
             'payments' => $payments->map(fn (LivePayment $p) => [
                 'id' => $p->id,
@@ -86,6 +100,56 @@ class ConsoleLiveController extends Controller
             ]),
             'credits' => $credits,
         ]]);
+    }
+
+    /** E-commerçants à qui offrir des lives : recherche par nom ou numéro */
+    public function merchants(Request $request): JsonResponse
+    {
+        $term = trim((string) $request->validate(['search' => ['nullable', 'string', 'max:60']])['search'] ?? '');
+        $digits = preg_replace('/\D/', '', $term);
+        $merchants = $term === '' ? collect() : Merchant::withoutGlobalScopes()->with('company:id,name')
+            ->where(fn ($q) => $q->whereRaw('LOWER(business_name) LIKE ?', ['%'.mb_strtolower($term).'%'])
+                ->when(strlen($digits) >= 6, fn ($q) => $q->orWhere('phone', 'like', '%'.substr($digits, -8).'%')))
+            ->orderBy('business_name')->limit(20)->get();
+
+        return response()->json(['data' => $merchants->map(fn (Merchant $m) => $this->merchantLive($m))->values()]);
+    }
+
+    /** Offert à un e-commerçant : des commandes en live, du crédit live, ou 30 jours de lives sans limite */
+    public function gift(Request $request, int $merchant): JsonResponse
+    {
+        $model = Merchant::withoutGlobalScopes()->with('company:id,name')->findOrFail($merchant);
+        $data = $request->validate([
+            'orders' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'credit' => ['nullable', 'integer', 'min:100', 'max:1000000'],
+            'month' => ['nullable', 'boolean'],
+        ], [], ['orders' => 'commandes offertes', 'credit' => 'crédit offert']);
+        if (empty($data['orders']) && empty($data['credit']) && empty($data['month'])) {
+            throw ValidationException::withMessages(['orders' => 'Choisissez des commandes, du crédit ou 30 jours à offrir.']);
+        }
+        // Rien n'est encaissé : pas de frais ni de part d'agence (l'action est notée dans le journal de la console)
+        $model->forceFill([
+            'live_orders_bonus' => (int) $model->live_orders_bonus + (int) ($data['orders'] ?? 0),
+            'live_credit' => (int) $model->live_credit + (int) ($data['credit'] ?? 0),
+            ...(! empty($data['month']) ? ['live_plan_until' => ($this->studio->monthlyActive($model) ? $model->live_plan_until : now())->copy()->addDays(30)] : []),
+        ])->save();
+
+        return response()->json(['data' => $this->merchantLive($model->refresh()->load('company:id,name'))]);
+    }
+
+    /** @return array<string, mixed> */
+    private function merchantLive(Merchant $merchant): array
+    {
+        return [
+            'id' => $merchant->id,
+            'name' => $merchant->business_name,
+            'company' => $merchant->company?->name,
+            'phone' => $merchant->phone,
+            'free_left' => $this->studio->freeLeft($merchant),
+            'orders_bonus' => (int) $merchant->live_orders_bonus,
+            'credit' => (int) $merchant->live_credit,
+            'monthly_until' => $this->studio->monthlyActive($merchant) ? $merchant->live_plan_until : null,
+        ];
     }
 
     /** Versement du crédit d'une agence (fait en dehors de Jibiat, par Wave ou PayDunya) : enregistré ici */

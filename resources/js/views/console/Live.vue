@@ -25,6 +25,14 @@
           </span>
         </div>
         <p class="text-sm text-gray-600">Ce mois-ci : <b>{{ money(pay.month.paid) }}</b> reçus ({{ pay.month.count }} paiement(s)). La part de chaque agence va sur son crédit, déduit de ses factures.</p>
+        <!-- Ventes du mois par type, et lives comptés au palier -->
+        <div class="grid gap-2 sm:grid-cols-4">
+          <div v-for="k in monthKinds" :key="k.label" class="rounded-lg bg-slate-50 p-3">
+            <p class="text-xs text-gray-500">{{ k.label }}</p>
+            <p class="font-bold tabular-nums">{{ k.value }}</p>
+            <p class="text-xs text-gray-500">{{ k.hint }}</p>
+          </div>
+        </div>
 
         <div v-if="pay.credits.length" class="overflow-x-auto">
           <p class="mb-1 text-sm font-medium">Crédit des agences</p>
@@ -57,6 +65,25 @@
             </table>
           </div>
         </details>
+      </section>
+
+      <!-- Offrir à un e-commerçant : commandes en live, crédit live, 30 jours -->
+      <section class="card space-y-3 p-4">
+        <h2 class="font-semibold">Offrir à un e-commerçant</h2>
+        <p class="text-sm text-gray-500">Des commandes en live (en plus de celles du départ), du crédit live, ou 30 jours de lives sans limite. Rien n'est encaissé ; l'action est notée dans le journal.</p>
+        <input v-model="giftSearch" type="search" class="input w-full" placeholder="Nom de la boutique ou numéro" @input="searchMerchants">
+        <div v-for="m in giftMerchants" :key="m.id" class="space-y-2 rounded-lg border p-3 text-sm">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <span><b>{{ m.name }}</b> <span class="text-gray-500">· {{ m.company }}</span></span>
+            <span class="text-gray-600">{{ m.free_left }} commandes offertes · crédit {{ money(m.credit) }}<template v-if="m.monthly_until"> · forfait jusqu'au {{ new Date(m.monthly_until).toLocaleDateString('fr-FR') }}</template></span>
+          </div>
+          <div v-if="isOwner" class="flex flex-wrap gap-2">
+            <button type="button" class="btn-secondary" @click="gift(m, 'orders')">Offrir des commandes…</button>
+            <button type="button" class="btn-secondary" @click="gift(m, 'credit')">Offrir du crédit…</button>
+            <button type="button" class="btn-secondary" @click="gift(m, 'month')">Offrir 30 jours</button>
+          </div>
+        </div>
+        <p v-if="giftSearch.trim().length >= 2 && !giftMerchants.length && !giftLoading" class="text-sm text-gray-500">Aucun e-commerçant trouvé.</p>
       </section>
 
       <section v-if="data.overview.by_company.length" class="card overflow-x-auto p-4">
@@ -188,6 +215,59 @@ const kpis = computed(() => {
 const pay = ref(null)
 const statusLabel = (s) => ({ pending: 'En attente', paid: 'Payé', cancelled: 'Annulé', failed: 'Échoué' })[s] || s
 const statusClass = (s) => ({ paid: 'bg-emerald-100 text-emerald-800', pending: 'bg-amber-100 text-amber-800' })[s] || 'bg-slate-100 text-slate-600'
+
+// Ventes du mois par type
+const monthKinds = computed(() => {
+  const m = pay.value?.month
+  if (!m) return []
+  const k = (kind) => m.by_kind?.[kind] || { count: 0, total: 0 }
+  const b = m.billed || { lives: 0, orders: 0, offered: 0, amount: 0, by_agency: 0 }
+  return [
+    { label: 'Recharges du crédit live', value: money(k('credit').total), hint: `${k('credit').count} recharge(s)` },
+    { label: 'Forfaits du mois', value: money(k('monthly').total), hint: `${k('monthly').count} forfait(s)` },
+    { label: 'Packs de fiches IA', value: money(k('pack').total), hint: `${k('pack').count} pack(s)` },
+    { label: 'Lives comptés au palier', value: money(b.amount), hint: `${b.lives} live(s) · ${b.orders} commandes dont ${b.offered} offertes${b.by_agency ? ` · ${b.by_agency} payé(s) par l'agence` : ''}` },
+  ]
+})
+
+// Offrir à un e-commerçant
+const giftSearch = ref('')
+const giftMerchants = ref([])
+const giftLoading = ref(false)
+let giftTimer = null
+function searchMerchants() {
+  clearTimeout(giftTimer)
+  giftTimer = setTimeout(async () => {
+    const q = giftSearch.value.trim()
+    if (q.length < 2) {
+      giftMerchants.value = []
+      return
+    }
+    giftLoading.value = true
+    try {
+      giftMerchants.value = (await http.get('/console/live/merchants', { params: { search: q } })).data.data
+    } catch (e) {
+      toasts.error(apiErrorMessage(e))
+    } finally {
+      giftLoading.value = false
+    }
+  }, 300)
+}
+async function gift(m, kind) {
+  let body = { month: true }
+  if (kind !== 'month') {
+    const answer = await promptDialog(kind === 'orders' ? `Nombre de commandes en live à offrir à ${m.name} :` : `Crédit live à offrir à ${m.name} (F) :`, kind === 'orders' ? '50' : '2000')
+    if (!answer) return
+    body = { [kind]: Number(answer.replace(/\D/g, '')) }
+  }
+  try {
+    const updated = (await http.post(`/console/live/merchants/${m.id}/gift`, body)).data.data
+    giftMerchants.value = giftMerchants.value.map((x) => (x.id === m.id ? updated : x))
+    toasts.success('Offert à ' + m.name + '.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
 
 async function payout(c) {
   const answer = await promptDialog(`Montant versé à ${c.company} (solde : ${money(c.balance)}) :`, String(c.balance))
