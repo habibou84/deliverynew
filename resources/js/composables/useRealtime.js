@@ -1,5 +1,5 @@
 import { onBeforeUnmount, ref } from 'vue'
-import { useEcho } from '../bootstrap/echo'
+import { loadEcho } from '../bootstrap/echo'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationStore } from '../stores/notifications'
 import { useToastStore } from '../stores/toasts'
@@ -27,10 +27,22 @@ export function useRealtime() {
   const auth = useAuthStore()
   const notifications = useNotificationStore()
   const toasts = useToastStore()
-  const echo = useEcho()
-  const channels = []
+  if (!auth.user) return
 
-  if (!echo || !auth.user) return
+  // Le direct se branche dès que ses bibliothèques sont chargées (juste après l'affichage)
+  let stop = null
+  let unmounted = false
+  onBeforeUnmount(() => {
+    unmounted = true
+    stop?.()
+  })
+  loadEcho().then((echo) => {
+    if (echo && !unmounted && auth.user) stop = subscribe(echo, auth, notifications, toasts)
+  })
+}
+
+function subscribe(echo, auth, notifications, toasts) {
+  const channels = []
 
   const userChannel = `App.Models.User.${auth.user.id}`
   const fieldReports = useFieldReportStore()
@@ -125,8 +137,8 @@ export function useRealtime() {
   }
   connection?.bind('state_change', onStateChange)
 
-  onBeforeUnmount(() => {
+  return () => {
     connection?.unbind('state_change', onStateChange)
     channels.forEach((c) => echo.leave(c))
-  })
+  }
 }
