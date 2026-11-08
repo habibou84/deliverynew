@@ -9,12 +9,14 @@ use App\Models\LiveItem;
 use App\Models\LiveOrder;
 use App\Models\Order;
 use App\Models\WhatsAppAccount;
+use App\Notifications\LiveOrderReceived;
 use App\Services\Live\LiveStudio;
 use App\Services\Live\LiveWhatsApp;
 use App\Services\Messaging\Gateways\MetaCloudGateway;
 use App\Services\Messaging\WhatsAppBridge;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
@@ -143,6 +145,28 @@ class LiveWhatsAppTest extends TestCase
 
         $this->say('1');
         $this->assertSame($sicogiYop->id, Order::query()->latest('id')->first()->delivery_zone_id);
+    }
+
+    public function test_the_merchant_is_told_of_each_live_order_but_not_of_her_own(): void
+    {
+        Notification::fake();
+        $this->say('a1');
+        $this->say('Awa Koné, Yopougon');
+        Notification::assertNotSentTo($this->merchantUser, LiveOrderReceived::class);
+
+        // Confirmée par le client : la vendeuse est prévenue (cloche, direct, téléphone)
+        $this->say('1');
+        Notification::assertSentTo($this->merchantUser, LiveOrderReceived::class, function (LiveOrderReceived $n) {
+            $data = $n->toArray($this->merchantUser);
+
+            return $data['kind'] === 'live_order' && str_contains($data['title'], 'Awa Koné') && str_contains($data['body'], 'A1')
+                && $data['href'] === "/marchand/live/{$this->live}" && $n->toWebPush($this->merchantUser)['tag'] === "live-{$this->live}";
+        });
+
+        // Commande saisie par la vendeuse elle-même : pas d'alerte
+        Notification::fake();
+        $this->postJson("/api/v1/live/{$this->live}/orders", ['code' => 'A1', 'recipient_name' => 'Fatou', 'recipient_phone' => '0707070799', 'delivery_zone_id' => $this->yopougon->id])->assertCreated();
+        Notification::assertNotSentTo($this->merchantUser, LiveOrderReceived::class);
     }
 
     public function test_adding_an_article_makes_one_course_and_cancelling_needs_two_answers(): void
