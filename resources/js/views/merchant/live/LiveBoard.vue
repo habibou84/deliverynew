@@ -80,40 +80,35 @@
       <!-- Messages : clients en train de commander par WhatsApp -->
       <section v-if="tab === 'messages'" class="m-card divide-y divide-slate-100">
         <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">EN TRAIN DE COMMANDER · {{ b.chats?.length || 0 }}</p>
-        <div v-for="c in b.chats || []" :key="c.id" :class="['space-y-2 px-4 py-3', c.stuck ? 'bg-red-50/60' : '']">
-          <div class="flex items-start justify-between gap-2">
-            <p class="min-w-0 text-[15px]"><b>{{ c.name || localPhone(c.phone) }}</b> · {{ c.item }}
+        <button v-for="c in b.chats || []" :key="c.id" type="button" :class="['block w-full space-y-1.5 px-4 py-3 text-left active:bg-slate-50', c.stuck ? 'bg-red-50/60' : '']" @click="chatOpen = c">
+          <span class="flex items-start justify-between gap-2">
+            <span class="min-w-0 text-[15px]"><b>{{ c.name || localPhone(c.phone) }}</b><template v-if="c.item"> · {{ c.item }}</template>
               <span class="block text-[13px] text-slate-500">{{ localPhone(c.phone) }} · {{ STEP_TEXT[c.step] || 'en cours' }}</span>
-            </p>
+            </span>
             <span v-if="c.stuck" class="shrink-0 rounded-md bg-red-100 px-1.5 py-0.5 text-[11px] font-extrabold text-red-800">QUARTIER ?</span>
-          </div>
-          <p v-if="c.last_text" class="rounded-xl bg-white px-3 py-2 text-[14px] text-slate-700 ring-1 ring-slate-200">« {{ c.last_text }} »</p>
-          <!-- Quartier pas reconnu : la vendeuse le choisit, la commande part -->
-          <form v-if="c.stuck" class="space-y-2" @submit.prevent="completeChat(c)">
-            <input v-model="formFor(c).recipient_name" class="m-input w-full" placeholder="Nom du client" :aria-label="`Nom de ${c.name || 'ce client'}`">
-            <ZoneSelect v-model="formFor(c).delivery_zone_id" :zones="zones" mobile input-class="m-input" required />
-            <button class="m-btn-primary w-full" :disabled="saving || !formFor(c).delivery_zone_id">Valider la commande</button>
-          </form>
-        </div>
+            <span v-else class="shrink-0 text-[18px] text-slate-400" aria-hidden="true">›</span>
+          </span>
+          <span v-if="c.last_text" class="block truncate rounded-xl bg-white px-3 py-2 text-[14px] text-slate-700 ring-1 ring-slate-200">« {{ c.last_text }} »</span>
+        </button>
         <p v-if="!b.chats?.length" class="p-5 text-center text-[15px] text-slate-500">Les clients qui commandent par WhatsApp apparaissent ici pendant qu'ils écrivent.</p>
       </section>
 
       <!-- Commandes -->
       <section v-if="tab === 'orders'" class="m-card divide-y divide-slate-100">
         <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">COMMANDES · {{ b.orders.length }}</p>
-        <div v-for="o in b.orders" :key="o.id" class="px-4 py-2.5 text-[15px]">
-          <div class="flex items-start gap-2">
-            <span :class="['mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-extrabold', o.status === 'waiting' ? 'bg-orange-100 text-orange-800' : 'bg-emerald-100 text-emerald-800']">{{ o.status === 'waiting' ? 'ATTENTE' : 'COMMANDE' }}</span>
+        <button v-for="o in b.orders" :key="o.id" type="button" class="block w-full px-4 py-2.5 text-left text-[15px] active:bg-slate-50" @click="orderOpen = o">
+          <span class="flex items-start gap-2">
+            <span :class="['mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-extrabold', statusBadge(o).cls]">{{ statusBadge(o).text }}</span>
             <span v-if="o.source === 'link'" class="mt-0.5 shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-extrabold text-indigo-700" title="Commande passée par le client sur le lien du live">🔗 LIEN</span>
             <span v-if="o.source === 'whatsapp'" class="mt-0.5 shrink-0 rounded-md bg-[#dcfce7] px-1.5 py-0.5 text-[11px] font-extrabold text-[#128c4b]" title="Commande reçue par WhatsApp, enregistrée toute seule">💬 AUTO</span>
-            <div class="min-w-0 flex-1">
+            <span class="min-w-0 flex-1">
               <b>{{ o.customer_name }}</b> · {{ o.code }} {{ o.name }}<template v-if="o.quantity > 1"> × {{ o.quantity }}</template>
-              <span class="block text-[13px] text-slate-500">{{ localPhone(o.customer_phone) }} · {{ time(o.created_at) }}</span>
+              <span class="block text-[13px] text-slate-500">{{ localPhone(o.customer_phone) }} · {{ time(o.created_at) }}<template v-if="o.course?.zone"> · {{ o.course.zone }}</template></span>
               <span v-if="o.refusals" class="mt-1 block rounded-lg bg-red-50 px-2 py-1 text-[13px] text-red-800"><b>Attention :</b> {{ o.refusals }} colis refusés. Demandez un acompte.</span>
-            </div>
-            <RouterLink v-if="o.order_id" :to="`/marchand/courses/${o.order_id}`" class="shrink-0 text-[14px] font-semibold text-[var(--app-color)]">Course ›</RouterLink>
-          </div>
-        </div>
+            </span>
+            <span class="shrink-0 text-[18px] text-slate-400" aria-hidden="true">›</span>
+          </span>
+        </button>
         <p v-if="!b.orders.length" class="p-5 text-center text-[15px] text-slate-500">Les commandes apparaîtront ici.</p>
       </section>
 
@@ -169,11 +164,55 @@
       </form>
 
       <RouterLink v-if="!isLive" :to="`/marchand/live/${b.live.id}/bilan`" class="m-btn-primary w-full">Voir le bilan</RouterLink>
+
+      <!-- Une commande : le client, les articles, la course chez l'agence -->
+      <LiveSheet v-if="orderOpen" :title="orderOpen.customer_name" @close="orderOpen = null">
+        <p class="text-[15px] text-slate-600">{{ localPhone(orderOpen.customer_phone) }} · commandé à {{ time(orderOpen.created_at) }}{{ orderOpen.source === 'whatsapp' ? ' · par WhatsApp' : orderOpen.source === 'link' ? ' · par le lien du live' : '' }}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <a :href="`tel:${orderOpen.customer_phone}`" class="rounded-2xl bg-slate-100 py-3 text-center text-[16px] font-bold">📞 Appeler</a>
+          <a :href="waLink(orderOpen.customer_phone)" target="_blank" rel="noopener" class="rounded-2xl bg-[#dcfce7] py-3 text-center text-[16px] font-bold text-[#128c4b]">💬 WhatsApp</a>
+        </div>
+        <div class="divide-y divide-slate-100 rounded-2xl bg-slate-50 px-3">
+          <p v-for="l in orderLines" :key="l.id" class="flex justify-between gap-2 py-2.5 text-[15px]">
+            <span><b>{{ l.code }}</b> {{ l.name }}<template v-if="l.quantity > 1"> × {{ l.quantity }}</template></span>
+            <span :class="['shrink-0 text-[13px] font-bold', statusBadge(l).text === 'ATTENTE' ? 'text-orange-700' : 'text-slate-500']">{{ statusBadge(l).text === 'ATTENTE' ? 'liste d\'attente' : '' }}</span>
+          </p>
+        </div>
+        <div v-if="orderOpen.course" class="space-y-1 rounded-2xl border border-slate-200 p-3 text-[15px]">
+          <p class="flex justify-between gap-2"><span class="text-slate-500">Course</span><b>{{ orderOpen.course.tracking_code }}</b></p>
+          <p class="flex justify-between gap-2"><span class="text-slate-500">État</span><b>{{ orderOpen.course.status_label }}</b></p>
+          <p v-if="orderOpen.course.zone" class="flex justify-between gap-2"><span class="text-slate-500">Quartier</span><b class="text-right">{{ orderOpen.course.zone }}<template v-if="orderOpen.course.address"> · {{ orderOpen.course.address }}</template></b></p>
+          <p class="flex justify-between gap-2"><span class="text-slate-500">À encaisser</span><b>{{ money(orderOpen.course.cod_amount) }}</b></p>
+        </div>
+        <p v-else class="rounded-2xl bg-orange-50 px-3 py-2.5 text-[15px] text-orange-900">Produit épuisé : le client est sur la liste d'attente, aucune course n'est partie.</p>
+        <p v-if="orderOpen.refusals" class="rounded-2xl bg-red-50 px-3 py-2.5 text-[15px] text-red-800"><b>Attention :</b> {{ orderOpen.refusals }} colis refusés par ce client. Demandez un acompte.</p>
+        <RouterLink v-if="orderOpen.order_id" :to="`/marchand/courses/${orderOpen.order_id}`" class="m-btn-primary block w-full text-center">Ouvrir la course</RouterLink>
+      </LiveSheet>
+
+      <!-- Un message : le client en train de commander ; la vendeuse peut finir la commande -->
+      <LiveSheet v-if="chatOpen" :title="chatOpen.name || localPhone(chatOpen.phone)" @close="chatOpen = null">
+        <p class="text-[15px] text-slate-600">{{ localPhone(chatOpen.phone) }} · {{ STEP_TEXT[chatOpen.step] || 'en cours' }}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <a :href="`tel:${chatOpen.phone}`" class="rounded-2xl bg-slate-100 py-3 text-center text-[16px] font-bold">📞 Appeler</a>
+          <a :href="waLink(chatOpen.phone)" target="_blank" rel="noopener" class="rounded-2xl bg-[#dcfce7] py-3 text-center text-[16px] font-bold text-[#128c4b]">💬 WhatsApp</a>
+        </div>
+        <p v-if="chatOpen.item" class="rounded-2xl bg-slate-50 px-3 py-2.5 text-[15px]"><span class="text-slate-500">Panier :</span> <b>{{ chatOpen.item }}</b><template v-if="chatOpen.zone"> · {{ chatOpen.zone }}</template></p>
+        <p v-if="chatOpen.last_text" class="rounded-2xl bg-white px-3 py-2.5 text-[15px] text-slate-700 ring-1 ring-slate-200">Dernier message : « {{ chatOpen.last_text }} »</p>
+        <!-- Avant la commande : la vendeuse choisit le quartier (et le nom), la commande part et le client reçoit la confirmation -->
+        <form v-if="isLive && !chatOpen.after_order" class="space-y-2" @submit.prevent="completeChat(chatOpen)">
+          <p class="text-[15px] font-bold">{{ chatOpen.stuck ? 'Quartier pas reconnu : choisissez-le' : 'Finir la commande pour le client' }}</p>
+          <input v-model="formFor(chatOpen).recipient_name" class="m-input w-full" placeholder="Nom du client" :aria-label="`Nom de ${chatOpen.name || 'ce client'}`">
+          <ZoneSelect v-model="formFor(chatOpen).delivery_zone_id" :zones="zones" mobile input-class="m-input" required />
+          <button class="m-btn-primary w-full" :disabled="saving || !formFor(chatOpen).delivery_zone_id">Valider la commande</button>
+        </form>
+        <p v-else-if="chatOpen.after_order" class="rounded-2xl bg-slate-50 px-3 py-2.5 text-[14.5px] text-slate-600">Commande déjà confirmée : le client annule ou change son adresse lui-même tant que le colis n'est pas parti.</p>
+      </LiveSheet>
     </template>
   </div>
 </template>
 
 <script setup>
+import LiveSheet from './LiveSheet.vue'
 import { refreshWhenVisible, visible as screenVisible } from '../../../composables/useVisibleRefresh'
 import { thumb } from '../../../utils/thumb'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
@@ -211,7 +250,24 @@ const tabs = computed(() => [
 // ── Onglet « Messages » : commandes WhatsApp en cours ; quartier pas reconnu = la vendeuse le choisit ──
 const stuckCount = computed(() => (b.value?.chats || []).filter((c) => c.stuck).length)
 const chatForm = reactive({})
-const formFor = (c) => (chatForm[c.id] ||= { delivery_zone_id: null, recipient_name: c.name || '' })
+const formFor = (c) => (chatForm[c.id] ||= { delivery_zone_id: c.zone_id || null, recipient_name: c.name || '' })
+
+// ── Panneaux du bas : une commande, un message ──
+const orderOpen = ref(null)
+const chatOpen = ref(null)
+// Toutes les lignes de la même course (panier de plusieurs articles)
+const orderLines = computed(() => {
+  const o = orderOpen.value
+  if (!o) return []
+  return o.order_id ? b.value.orders.filter((x) => x.order_id === o.order_id) : [o]
+})
+const waLink = (phone) => `https://wa.me/${String(phone || '').replace(/\D/g, '')}`
+// Étiquette de la ligne : commande, liste d'attente, annulée (par le client ou chez l'agence)
+function statusBadge(o) {
+  if (o.status === 'waiting') return { text: 'ATTENTE', cls: 'bg-orange-100 text-orange-800' }
+  if (o.status === 'cancelled' || o.course?.status === 'cancelled') return { text: 'ANNULÉE', cls: 'bg-slate-200 text-slate-600' }
+  return { text: 'COMMANDE', cls: 'bg-emerald-100 text-emerald-800' }
+}
 const STEP_TEXT = { details: 'donne son nom et son quartier', confirm: 'doit confirmer le récapitulatif', add: 'ajoute un article', cancel: 'veut annuler', zone: 'choisit son quartier', order_cancel: 'veut annuler sa commande confirmée', order_address: 'change l\'adresse de sa commande' }
 async function completeChat(c) {
   const name = formFor(c).recipient_name || c.name || 'le client'
@@ -219,6 +275,7 @@ async function completeChat(c) {
   try {
     b.value = (await http.post(`/live/${route.params.id}/chats/${c.id}/complete`, formFor(c))).data.data
     delete chatForm[c.id]
+    chatOpen.value = null
     toasts.success(`Commande de ${name} enregistrée, elle a reçu la confirmation.`)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
