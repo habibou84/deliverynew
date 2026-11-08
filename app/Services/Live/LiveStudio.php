@@ -853,7 +853,8 @@ class LiveStudio
     public function board(Live $live): array
     {
         $s = $this->settings();
-        $live->load(['items.product', 'orders' => fn ($q) => $q->latest('id')->with('item:id,code,name,variant,price')]);
+        $live->load(['items.product', 'orders' => fn ($q) => $q->latest('id')->with(['item:id,code,name,variant,price',
+            'order' => fn ($q) => $q->withoutGlobalScopes()->select('id', 'tracking_code', 'status', 'cod_amount', 'delivery_zone_id', 'delivery_address')->with('deliveryZone:id,name')])]);
         $orders = $live->orders;
         $ordered = $orders->where('status', LiveOrder::ORDERED);
         $now = now();
@@ -901,6 +902,11 @@ class LiveStudio
                 'customer_phone' => $o->customer_phone, 'quantity' => $o->quantity, 'status' => $o->status, 'order_id' => $o->order_id,
                 'source' => $o->source,
                 'created_at' => $o->created_at,
+                // La course chez l'agence : numéro, état, quartier, montant à encaisser
+                'course' => $o->order ? [
+                    'tracking_code' => $o->order->tracking_code, 'status' => $o->order->status->value, 'status_label' => $o->order->status->label(),
+                    'zone' => $o->order->deliveryZone?->name, 'address' => $o->order->delivery_address, 'cod_amount' => (int) $o->order->cod_amount,
+                ] : null,
                 'refusals' => ($n = (int) ($refusals[$o->customer_phone] ?? 0)) >= (int) $s['risk_refusals'] ? $n : 0,
             ])->values(),
             'advices' => $advices,

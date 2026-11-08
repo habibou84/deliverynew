@@ -183,6 +183,12 @@ class LiveWhatsAppTest extends TestCase
         $this->say('ADRESSE');
         $this->assertStringContainsString('NOUVELLE ADRESSE', $this->replies()[$count() - 1]);
         $this->assertSame(LiveChat::ORDER_ADDRESS, LiveChat::first()->step);
+        // Dans l'onglet Messages : commande déjà confirmée, la vendeuse ne la valide pas une deuxième fois
+        $chat = $this->getJson("/api/v1/live/{$this->live}")->assertJsonPath('data.chats.0.after_order', true)->json('data.chats.0');
+        $this->postJson("/api/v1/live/{$this->live}/chats/{$chat['id']}/complete", ['delivery_zone_id' => $this->cocody->id])->assertStatus(422);
+        // Écran du live : la course de la commande (numéro, état, quartier, montant)
+        $this->getJson("/api/v1/live/{$this->live}")->assertJsonPath('data.orders.0.course.tracking_code', $order->tracking_code)
+            ->assertJsonPath('data.orders.0.course.zone', 'Yopougon');
         $this->say('Cocody');
         $last = $this->replies()[$count() - 1];
         $this->assertTrue(str_contains($last, 'ADRESSE CHANGÉE') || str_contains($last, 'la boutique vous confirme'), $last);

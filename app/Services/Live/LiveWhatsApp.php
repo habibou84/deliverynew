@@ -669,6 +669,7 @@ class LiveWhatsApp
     {
         $live = $chat->live;
         abort_unless($live !== null && $live->merchant_id === $merchant->id && $live->status === Live::LIVE, 422, 'Le live n\'est pas en cours.');
+        abort_if($chat->order_id !== null, 422, 'Cette commande est déjà enregistrée.');
         abort_unless($this->companyZones($merchant)->contains('id', $zoneId), 422, 'Quartier inconnu.');
         // Réponse depuis le même numéro que la conversation
         $this->accountId = $this->official($merchant)?->id;
@@ -688,7 +689,9 @@ class LiveWhatsApp
                 'id' => $c->id, 'phone' => $c->phone, 'name' => $c->customer_name ?: $c->push_name,
                 'step' => $c->step, 'code' => $this->cartText($c, codes: true) ?: $c->item?->code,
                 'item' => $this->cartText($c) ?: $c->item?->label(), 'quantity' => $c->quantity,
-                'zone' => $c->zone?->name, 'last_text' => $c->last_text, 'stuck' => $c->misses > 0, 'updated_at' => $c->updated_at,
+                'zone' => $c->zone?->name, 'zone_id' => $c->zone_id, 'last_text' => $c->last_text, 'stuck' => $c->misses > 0, 'updated_at' => $c->updated_at,
+                // Après la confirmation (annulation, nouvelle adresse) : la vendeuse ne valide pas une nouvelle commande
+                'after_order' => $c->order_id !== null,
             ])->all();
     }
 
