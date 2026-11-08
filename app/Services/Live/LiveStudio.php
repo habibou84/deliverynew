@@ -41,8 +41,19 @@ class LiveStudio
 {
     public const DEFAULTS = [
         'enabled' => true,
-        // Prix d'un jour de live : le premier live payé du jour couvre tous les lives de la journée
-        'price_live' => 500,
+        // Lives payants : éteint, tous les lives sont gratuits et rien n'est compté
+        'paid' => true,
+        // Prix d'un live selon ses commandes, compté à la fin : gratuit jusqu'à free_upto, puis par palier
+        'free_upto' => 10,
+        'tier2_upto' => 30,
+        'tier2_price' => 500,
+        'tier3_upto' => 100,
+        'tier3_price' => 1000,
+        'top_price' => 2000,
+        // Commandes en live offertes au départ, pour découvrir
+        'free_orders' => 300,
+        // Crédit live minimum pour démarrer un live (après les commandes offertes)
+        'min_credit' => 500,
         // Fiches IA comprises dans chaque live (0 : vendues à part, après les fiches offertes)
         'cards_per_live' => 0,
         // Fiches IA offertes une fois, au premier live préparé
@@ -52,9 +63,6 @@ class LiveStudio
         'cards_per_month' => 60,
         'pack_price' => 500,
         'pack_cards' => 20,
-        // Lives offerts au départ, pour découvrir
-        'trial_lives' => 10,
-        'trial_cards' => 0,
         'agency_share' => 0,
         'retakes' => 3,
         'cards_per_day' => 50,
@@ -67,6 +75,12 @@ class LiveStudio
         // Relier son WhatsApp par code d'association ou QR code (non officiel), proposé à côté de la connexion officielle
         'qr_whatsapp' => false,
     ];
+
+    /** Montants proposés pour recharger le crédit live */
+    public const RECHARGES = [2000, 5000, 10000];
+
+    /** Un live resté ouvert plus longtemps est fermé (et compté) tout seul */
+    public const MAX_HOURS = 12;
 
     /** Statuts d'une course refusée ou revenue : clients à risque */
     private const REFUSED = [OrderStatus::Returned, OrderStatus::Returning, OrderStatus::ReturnAssigned, OrderStatus::Cancelled];
@@ -101,11 +115,54 @@ class LiveStudio
         return $merchant->live_plan_until !== null && $merchant->live_plan_until->isFuture();
     }
 
-    public function trialLeft(Merchant $merchant): int
+    /** Commandes en live offertes qui restent (celles du départ et celles données par la console) */
+    public function freeLeft(Merchant $merchant): int
     {
-        $used = Live::forCompany($merchant->company_id)->where('merchant_id', $merchant->id)->where('plan', 'trial')->count();
+        return max(0, (int) $this->settings()['free_orders'] + (int) $merchant->live_orders_bonus - (int) $merchant->live_orders_used);
+    }
 
-        return max(0, (int) $this->settings()['trial_lives'] - $used);
+    /**
+     * Paliers : de, à (null = sans limite), prix.
+     *
+     * @return list<array{from: int, to: ?int, price: int}>
+     */
+    public function tiers(): array
+    {
+        $s = $this->settings();
+
+        return [
+            ['from' => 0, 'to' => (int) $s['free_upto'], 'price' => 0],
+            ['from' => (int) $s['free_upto'] + 1, 'to' => (int) $s['tier2_upto'], 'price' => (int) $s['tier2_price']],
+            ['from' => (int) $s['tier2_upto'] + 1, 'to' => (int) $s['tier3_upto'], 'price' => (int) $s['tier3_price']],
+            ['from' => (int) $s['tier3_upto'] + 1, 'to' => null, 'price' => (int) $s['top_price']],
+        ];
+    }
+
+    /** Prix d'un live selon son nombre de commandes payantes */
+    public function priceFor(int $orders): int
+    {
+        foreach ($this->tiers() as $tier) {
+            if ($tier['to'] === null || $orders <= $tier['to']) {
+                return $tier['price'];
+            }
+        }
+
+        return 0;
+    }
+
+    /** Courses créées pendant ce live (toutes, même annulées ensuite : la commande a été prise) */
+    public function ordersOf(Live $live): int
+    {
+        return LiveOrder::query()->where('live_id', $live->id)->whereNotNull('order_id')->distinct()->count('order_id');
+    }
+
+    /**
+     * Le prochain live payé au palier peut-il démarrer : commandes offertes restantes, ou crédit d'au moins le
+     * minimum. Sans paiement en ligne (PayDunya pas configuré), le prix est retenu sur les reversements.
+     */
+    public function canStart(Merchant $merchant): bool
+    {
+        return ! $this->paysOnline($merchant) || $this->freeLeft($merchant) > 0 || (int) $merchant->live_credit >= (int) $this->settings()['min_credit'];
     }
 
     /** Fiches IA du forfait utilisées depuis le début du forfait en cours */
@@ -132,22 +189,29 @@ class LiveStudio
             'agency' => $company?->name,
             // Paiement en ligne (Orange Money, MTN, Moov, Wave, carte) : sinon retenu sur le prochain reversement
             'pay_online' => $this->paysOnline($merchant),
+            'paid' => (bool) $s['paid'],
             'next_plan' => $this->nextPlan($merchant),
-            'trial_left' => $this->trialLeft($merchant),
+            // Payé au palier : commandes offertes, crédit, et peut-on démarrer sans recharger
+            'tiers' => $this->tiers(),
+            'free_orders' => (int) $s['free_orders'] + (int) $merchant->live_orders_bonus,
+            'free_left' => $this->freeLeft($merchant),
+            'credit' => (int) $merchant->live_credit,
+            'min_credit' => (int) $s['min_credit'],
+            'recharges' => self::RECHARGES,
+            'can_start' => $this->nextPlan($merchant) !== 'tier' || $this->canStart($merchant),
             'monthly_until' => $this->monthlyActive($merchant) ? $merchant->live_plan_until : null,
             'monthly_cards_left' => $this->monthlyActive($merchant) ? max(0, $s['cards_per_month'] - $this->monthlyCardsUsed($merchant)) : 0,
             'extra_cards' => (int) $merchant->live_extra_cards,
-            // Prix du prochain live : 0 quand la journée est déjà payée
-            'live_price' => $this->livePrice($merchant),
-            'day_paid' => $this->dayPaid($merchant),
-            'month_spent' => $this->spentThisMonth($merchant),
             'prices' => [
-                'live' => $s['price_live'], 'cards_per_live' => $s['cards_per_live'],
+                'cards_per_live' => $s['cards_per_live'],
                 'welcome_cards' => $s['welcome_cards'],
                 'month' => $s['price_month'], 'cards_per_month' => $s['cards_per_month'],
                 'pack' => $s['pack_price'], 'pack_cards' => $s['pack_cards'],
-                'trial_cards' => $s['trial_cards'],
             ],
+            // Derniers lives comptés : commandes et prix
+            'billed_lives' => Live::forCompany($merchant->company_id)->where('merchant_id', $merchant->id)->whereNotNull('billed_at')
+                ->whereIn('plan', ['tier', 'offered'])->latest('billed_at')->limit(20)->get(['id', 'name', 'plan', 'started_at', 'billed_orders', 'billed_offered', 'billed_amount'])
+                ->map(fn (Live $l) => ['id' => $l->id, 'name' => $l->name, 'plan' => $l->plan, 'started_at' => $l->started_at, 'orders' => $l->billed_orders, 'offered' => $l->billed_offered, 'amount' => $l->billed_amount])->all(),
             'items_per_card' => $s['items_per_card'],
             // Numéro de la carte : celui qui reçoit les commandes automatiques, sinon celui de la boutique
             'phone' => app(LiveWhatsApp::class)->cardPhone($merchant),
@@ -334,11 +398,7 @@ class LiveStudio
     private function cardSource(Live $live, Merchant $merchant): string
     {
         $s = $this->settings();
-        $includedInLive = match (true) {
-            $this->monthlyActive($merchant) => 0,
-            $this->trialLeft($merchant) > 0 && $live->status === Live::DRAFT, $live->plan === 'trial' => (int) $s['trial_cards'],
-            default => (int) $s['cards_per_live'],
-        };
+        $includedInLive = $this->monthlyActive($merchant) ? 0 : (int) $s['cards_per_live'];
         $usedInLive = LiveAiCard::forCompany($live->company_id)->where('live_id', $live->id)->where('source', 'live')->count();
 
         return match (true) {
@@ -357,7 +417,7 @@ class LiveStudio
         if ($this->monthlyActive($merchant)) {
             return ['used' => $used, 'left' => max(0, $s['cards_per_month'] - $this->monthlyCardsUsed($merchant)) + (int) $merchant->live_extra_cards];
         }
-        $included = ($live->plan === 'trial' || ($live->status === Live::DRAFT && $this->trialLeft($merchant) > 0)) ? $s['trial_cards'] : $s['cards_per_live'];
+        $included = (int) $s['cards_per_live'];
         $usedInLive = LiveAiCard::forCompany($live->company_id)->where('live_id', $live->id)->where('source', 'live')->count();
 
         return ['used' => $used, 'left' => max(0, $included - $usedInLive) + (int) $merchant->live_extra_cards];
@@ -434,42 +494,20 @@ class LiveStudio
      * Formule du prochain live : offert par l'agence, forfait du mois, lives offerts au départ, journée déjà payée
      * (gratuit), ou jour de live à payer.
      */
+    /**
+     * Comment le prochain live sera payé : gratuit (lives payants éteints), offert par l'agence (elle paie le palier),
+     * forfait du mois en cours, sinon au palier de commandes, à la fin du live.
+     */
     public function nextPlan(Merchant $merchant): string
     {
         return match (true) {
+            ! $this->settings()['paid'] => 'free',
             (bool) $merchant->company?->live_offered => 'offered',
             $this->monthlyActive($merchant) => 'monthly',
-            $this->trialLeft($merchant) > 0 => 'trial',
-            $this->dayPaid($merchant) => 'day',
-            default => 'single',
+            default => 'tier',
         };
     }
 
-    /** Jour de live déjà payé aujourd'hui (par l'e-commerçant ou l'agence) : les autres lives du jour sont compris */
-    public function dayPaid(Merchant $merchant): bool
-    {
-        $tz = $merchant->company?->timezone ?: config('app.timezone');
-
-        return LiveCharge::forCompany($merchant->company_id)->where('merchant_id', $merchant->id)->where('kind', 'live')
-            ->where('created_at', '>=', now($tz)->startOfDay()->utc())->exists();
-    }
-
-    /** Lives payés par l'e-commerçant ce mois-ci (pour le plafond) */
-    public function spentThisMonth(Merchant $merchant): int
-    {
-        $tz = $merchant->company?->timezone ?: config('app.timezone');
-
-        return (int) LiveCharge::forCompany($merchant->company_id)->where('merchant_id', $merchant->id)->where('kind', 'live')
-            ->where('offered_by_company', false)->where('created_at', '>=', now($tz)->startOfMonth()->utc())->sum('amount');
-    }
-
-    /** Prix du prochain live : le prix d'un jour de live, 0 si la journée est déjà payée */
-    public function livePrice(Merchant $merchant): int
-    {
-        return $this->dayPaid($merchant) ? 0 : (int) $this->settings()['price_live'];
-    }
-
-    /** 20 fiches IA offertes une seule fois, au premier live préparé */
     private function giveWelcomeCards(Merchant $merchant): void
     {
         $cards = (int) $this->settings()['welcome_cards'];
@@ -500,20 +538,16 @@ class LiveStudio
         $merchant = $live->merchant()->with('company')->firstOrFail();
         $s = $this->settings();
 
+        // Ancien paiement d'un live à l'unité (avant les paliers) : le live démarre, déjà payé
         $plan = $payment !== null ? 'single' : $this->nextPlan($merchant);
-        if ($plan === 'single' && $payment === null && $this->paysOnline($merchant)) {
-            throw new BusinessRuleException('Payez votre live pour le démarrer.', 'payment');
+        if ($plan === 'tier' && ! $this->canStart($merchant)) {
+            throw new BusinessRuleException('Rechargez votre crédit live (au moins '.number_format((int) $s['min_credit'], 0, ',', ' ').' F) pour démarrer votre live.', 'payment');
         }
 
         return DB::transaction(function () use ($live, $merchant, $user, $s, $plan, $payment) {
-            $included = match ($plan) {
-                'monthly', 'capped', 'day' => 0,
-                'trial' => (int) $s['trial_cards'],
-                default => (int) $s['cards_per_live'],
-            };
-            // Agence qui offre les lives : un jour de live facturé à l'agence, pas chaque live de la journée
-            if ($plan === 'single' || ($plan === 'offered' && ! $this->dayPaid($merchant))) {
-                $this->charge($merchant, $user, 'live', "Live « {$live->name} »", $payment?->amount ?? ($plan === 'offered' ? (int) $s['price_live'] : $this->livePrice($merchant)), (int) $s['cards_per_live'], $live, $payment);
+            $included = $plan === 'monthly' ? 0 : (int) $s['cards_per_live'];
+            if ($plan === 'single') {
+                $this->charge($merchant, $user, 'live', "Live « {$live->name} »", (int) $payment->amount, (int) $s['cards_per_live'], $live, $payment);
             }
             $live->forceFill(['status' => Live::LIVE, 'plan' => $plan, 'ai_cards_included' => $included, 'started_at' => now()])->save();
 
@@ -565,17 +599,20 @@ class LiveStudio
      * sur son crédit (déduit de ses factures). Sinon retenu sur les reversements de l'e-commerçant, ou offert par
      * l'agence (facturé à l'agence).
      */
-    private function charge(Merchant $merchant, User $user, string $kind, string $label, int $amount, int $cards, ?Live $live = null, ?LivePayment $payment = null): LiveCharge
+    private function charge(Merchant $merchant, ?User $user, string $kind, string $label, int $amount, int $cards, ?Live $live = null, ?LivePayment $payment = null, bool $fromCredit = false): LiveCharge
     {
-        $offered = $payment === null && (bool) $merchant->company?->live_offered;
-        if (! $offered && $payment === null && $amount > 0) {
+        $offered = $payment === null && ! $fromCredit && (bool) $merchant->company?->live_offered;
+        if ($fromCredit) {
+            // Payé sur le crédit live (rechargé par PayDunya) : déjà encaissé par Jibiat
+            $merchant->forceFill(['live_credit' => (int) $merchant->live_credit - $amount])->save();
+        } elseif (! $offered && $payment === null && $amount > 0) {
             MerchantLedgerEntry::create([
                 'company_id' => $merchant->company_id,
                 'merchant_id' => $merchant->id,
                 'type' => LedgerEntryType::LiveFee,
                 'amount' => -$amount,
                 'description' => $label,
-                'created_by' => $user->id,
+                'created_by' => $user?->id,
             ]);
         }
         $share = $offered ? 0 : (int) $this->settings()['agency_share'];
@@ -590,11 +627,11 @@ class LiveStudio
             'platform_amount' => (int) round($amount * (100 - $share) / 100),
             'offered_by_company' => $offered,
             'cards' => $cards,
-            'paid_via' => $payment !== null ? 'paydunya' : 'ledger',
+            'paid_via' => $payment !== null ? 'paydunya' : ($fromCredit ? 'credit' : 'ledger'),
         ]);
 
-        if ($payment !== null) {
-            $payment->forceFill(['live_charge_id' => $charge->id])->save();
+        if ($payment !== null || $fromCredit) {
+            $payment?->forceFill(['live_charge_id' => $charge->id])->save();
             $agencyShare = $charge->amount - $charge->platform_amount;
             if ($agencyShare > 0) {
                 PlatformCredit::create([
@@ -602,7 +639,7 @@ class LiveStudio
                     'amount' => $agencyShare,
                     'reason' => PlatformCredit::EARNED,
                     'label' => mb_substr("{$merchant->business_name} · {$label}", 0, 190),
-                    'live_payment_id' => $payment->id,
+                    'live_payment_id' => $payment?->id,
                 ]);
             }
         }
@@ -697,9 +734,92 @@ class LiveStudio
     {
         if ($live->status === Live::LIVE) {
             $live->forceFill(['status' => Live::ENDED, 'ended_at' => now()])->save();
+            $this->bill($live);
         }
 
-        return $live;
+        return $live->refresh();
+    }
+
+    /**
+     * Fin du live : commandes comptées (offertes d'abord), puis prix du palier retiré du crédit live (ou retenu sur
+     * les reversements sans paiement en ligne, ou facturé à l'agence qui offre les lives). Une seule fois par live.
+     */
+    public function bill(Live $live): void
+    {
+        DB::transaction(function () use ($live) {
+            $live = Live::withoutGlobalScopes()->lockForUpdate()->findOrFail($live->id);
+            if ($live->billed_at !== null) {
+                return;
+            }
+            $orders = $this->ordersOf($live);
+            $offered = 0;
+            $price = 0;
+            if (in_array($live->plan, ['tier', 'offered'], true)) {
+                $merchant = Merchant::withoutGlobalScopes()->with('company')->lockForUpdate()->findOrFail($live->merchant_id);
+                // Commandes offertes : pour les lives payés par l'e-commerçant (l'agence qui offre paie le palier)
+                if ($live->plan === 'tier') {
+                    $offered = min($orders, $this->freeLeft($merchant));
+                    $merchant->forceFill(['live_orders_used' => (int) $merchant->live_orders_used + $offered])->save();
+                }
+                $price = $this->priceFor($orders - $offered);
+                if ($price > 0) {
+                    $label = "Live « {$live->name} » · {$orders} commande".($orders > 1 ? 's' : '');
+                    $user = User::withoutGlobalScopes()->find($live->created_by);
+                    $this->charge($merchant, $user, 'live', $label, $price, 0, $live, null, $live->plan === 'tier' && $this->paysOnline($merchant));
+                }
+            }
+            $live->forceFill(['billed_orders' => $orders, 'billed_offered' => $offered, 'billed_amount' => $price, 'billed_at' => now()])->save();
+        });
+    }
+
+    /**
+     * Pendant le live : commandes, combien sont offertes, palier atteint et combien avant le suivant. Null quand le
+     * live n'est pas compté (gratuit, forfait du mois).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function progress(Live $live): ?array
+    {
+        if (! in_array($live->plan, ['tier', 'offered'], true)) {
+            return null;
+        }
+        $billed = $live->billed_at !== null;
+        $orders = $billed ? (int) $live->billed_orders : $this->ordersOf($live);
+        $merchant = $live->relationLoaded('merchant') ? $live->merchant : Merchant::withoutGlobalScopes()->find($live->merchant_id);
+        $offered = $billed ? (int) $live->billed_offered : ($live->plan === 'tier' ? min($orders, $this->freeLeft($merchant)) : 0);
+        $billable = max(0, $orders - $offered);
+        $tiers = $this->tiers();
+        $index = (int) collect($tiers)->search(fn ($t) => $t['to'] === null || $billable <= $t['to']);
+        $next = $tiers[$index + 1] ?? null;
+
+        return [
+            'orders' => $orders,
+            'offered' => $offered,
+            'billable' => $billable,
+            'tier' => $index + 1,
+            'price' => $billed ? (int) $live->billed_amount : $tiers[$index]['price'],
+            'next' => $next ? ['in' => $next['from'] - $billable, 'price' => $next['price']] : null,
+            'tiers' => $tiers,
+            'billed' => $billed,
+            'by_agency' => $live->plan === 'offered',
+        ];
+    }
+
+    /** Lives restés ouverts plus de MAX_HOURS heures : fermés et comptés (live oublié) */
+    public function closeStale(): int
+    {
+        $stale = Live::withoutGlobalScopes()->where('status', Live::LIVE)->where('started_at', '<', now()->subHours(self::MAX_HOURS))->get();
+        $stale->each(fn (Live $live) => $this->end($live));
+
+        return $stale->count();
+    }
+
+    /** Recharge du crédit live payée (PayDunya) */
+    public function addCredit(Merchant $merchant, LivePayment $payment): Merchant
+    {
+        $merchant->forceFill(['live_credit' => (int) $merchant->live_credit + (int) $payment->amount])->save();
+
+        return $merchant;
     }
 
     /**
@@ -761,6 +881,8 @@ class LiveStudio
                 'refusals' => ($n = (int) ($refusals[$o->customer_phone] ?? 0)) >= (int) $s['risk_refusals'] ? $n : 0,
             ])->values(),
             'advices' => $advices,
+            // Lives payés au palier : commandes comptées, prix atteint, combien avant le palier suivant
+            'billing' => $this->progress($live),
             'totals' => [
                 'orders' => $ordered->count(),
                 'amount' => (int) $ordered->sum(fn ($o) => $o->quantity * ($o->item?->price ?? 0)),
@@ -806,6 +928,8 @@ class LiveStudio
             'id' => $live->id, 'name' => $live->name, 'status' => $live->status, 'plan' => $live->plan,
             'started_at' => $live->started_at, 'ended_at' => $live->ended_at,
             'ai_cards_used' => $live->ai_cards_used, 'items_count' => $live->items_count ?? $live->items()->count(),
+            // Compté à la fin : commandes, dont offertes, et prix du palier
+            'billed' => $live->billed_at ? ['orders' => $live->billed_orders, 'offered' => $live->billed_offered, 'amount' => $live->billed_amount] : null,
         ];
     }
 
@@ -842,7 +966,7 @@ class LiveStudio
     public function billable(Company $company, CarbonImmutable $last): array
     {
         // Payés en ligne par les e-commerçants : rien à facturer à l'agence (sa part est sur son crédit)
-        $charges = LiveCharge::forCompany($company->id)->whereNull('platform_invoice_id')->where('platform_amount', '>', 0)->where('paid_via', '!=', 'paydunya')
+        $charges = LiveCharge::forCompany($company->id)->whereNull('platform_invoice_id')->where('platform_amount', '>', 0)->whereNotIn('paid_via', ['paydunya', 'credit'])
             ->where('created_at', '<', $last->addDay()->startOfDay()->utc())->with('merchant:id,business_name')->get();
         $lines = $charges->groupBy('kind')->map(fn (Collection $group, string $kind) => [
             'kind' => $kind,

@@ -53,7 +53,7 @@
           <span>
             <b>Offrir l'outil live à mes e-commerçants</b>
             <span class="block text-xs text-gray-500">
-              Sinon, chaque live leur coûte {{ live.price_live }} F (ou {{ live.price_month }} F par mois), retenus sur leur reversement.
+              Sinon, ils paient eux-mêmes leurs lives à Jibiat selon les commandes du live (gratuit jusqu'à {{ live.tiers?.[0]?.to }} commandes, puis à partir de {{ live.tiers?.[1]?.price }} F), ou {{ live.price_month }} F pour 30 jours.
               Offert : c'est votre entreprise qui paie, sur votre facture Jibiat. Plus de lives, plus de livraisons.
             </span>
           </span>

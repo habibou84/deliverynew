@@ -49,7 +49,7 @@
                 <tr v-for="p in pay.payments" :key="p.id" class="border-t">
                   <td class="py-1.5 whitespace-nowrap text-gray-500">{{ new Date(p.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }}</td>
                   <td class="py-1.5">{{ p.merchant }} <span class="text-gray-500">· {{ p.company }}</span></td>
-                  <td class="py-1.5">{{ ({ live: 'Live', monthly: 'Forfait', pack: 'Fiches IA' })[p.kind] }}</td>
+                  <td class="py-1.5">{{ ({ credit: 'Crédit live', live: 'Live', monthly: 'Forfait', pack: 'Fiches IA' })[p.kind] }}</td>
                   <td class="py-1.5 text-right tabular-nums">{{ money(p.amount) }}</td>
                   <td class="py-1.5 text-right"><span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', statusClass(p.status)]" :title="p.error || ''">{{ statusLabel(p.status) }}{{ p.error ? ' ⚠️' : '' }}</span></td>
                 </tr>
@@ -75,6 +75,7 @@
         <section class="card space-y-3 p-4">
           <h2 class="font-semibold">Activation</h2>
           <label class="flex items-center gap-2 text-sm"><input v-model="form.enabled" type="checkbox" :disabled="!isOwner"> Outil live ouvert aux e-commerçants</label>
+          <label class="flex items-center gap-2 text-sm"><input v-model="form.paid" type="checkbox" :disabled="!isOwner"> Lives payants (décoché : tous les lives sont gratuits, rien n'est compté)</label>
         </section>
 
         <section class="card space-y-2 p-4">
@@ -116,18 +117,29 @@ import { promptDialog } from '../../composables/useDialog'
 /** Console : réglages et suivi de l'outil live */
 const GROUPS = [
   {
-    title: 'Prix',
-    help: 'Payé en ligne par l\'e-commerçant (ou retenu sur son reversement sans PayDunya), ou par l\'agence quand elle offre le live. Un jour de live payé couvre tous les lives de la journée ; le forfait du mois couvre 30 jours.',
+    title: 'Prix selon les commandes du live',
+    help: 'Compté à la fin du live : toutes les commandes créées pendant le live, même annulées ensuite. Le prix est pris sur le crédit live de l\'e-commerçant (rechargé par PayDunya ; retenu sur son reversement sans PayDunya), ou payé par l\'agence quand elle offre les lives.',
     fields: [
-      { key: 'price_live', label: 'Prix d\'un jour de live (tous les lives de la journée)', unit: 'F' },
+      { key: 'free_upto', label: 'Gratuit jusqu\'à (commandes)' },
+      { key: 'tier2_upto', label: 'Palier 2 : jusqu\'à (commandes)' },
+      { key: 'tier2_price', label: 'Prix du palier 2', unit: 'F' },
+      { key: 'tier3_upto', label: 'Palier 3 : jusqu\'à (commandes)' },
+      { key: 'tier3_price', label: 'Prix du palier 3', unit: 'F' },
+      { key: 'top_price', label: 'Prix au-delà du palier 3', unit: 'F' },
+      { key: 'free_orders', label: 'Commandes en live offertes au départ' },
+      { key: 'min_credit', label: 'Crédit minimum pour démarrer un live', unit: 'F' },
+    ],
+  },
+  {
+    title: 'Forfait, fiches IA et agence',
+    help: 'Le forfait du mois couvre 30 jours de lives sans compter les commandes.',
+    fields: [
       { key: 'welcome_cards', label: 'Fiches IA offertes au premier live' },
       { key: 'cards_per_live', label: 'Fiches IA comprises dans un live' },
       { key: 'price_month', label: 'Forfait du mois (lives sans limite pendant 30 jours)', unit: 'F' },
       { key: 'cards_per_month', label: 'Fiches IA du forfait' },
       { key: 'pack_price', label: 'Pack de fiches en plus', unit: 'F' },
       { key: 'pack_cards', label: 'Fiches dans le pack' },
-      { key: 'trial_lives', label: 'Lives offerts au départ' },
-      { key: 'trial_cards', label: 'Fiches IA comprises dans chaque live offert' },
       { key: 'agency_share', label: 'Part laissée à l\'agence', unit: '%' },
     ],
   },
