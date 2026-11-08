@@ -42,7 +42,7 @@
           <li v-for="i in live.items" :key="i.code">
             <button type="button" :class="['m-card flex w-full flex-col overflow-hidden text-left', picked?.code === i.code ? 'ring-4 ring-[var(--app-color)]' : '']" :disabled="live.status !== 'live'" @click="pick(i)">
               <span class="relative grid aspect-square w-full place-items-center bg-slate-100">
-                <img v-if="i.photo_url" :src="i.photo_url" :alt="i.name" class="h-full w-full object-cover" loading="lazy">
+                <img v-if="i.photo_url" :src="thumb(i.photo_url, 640)" :alt="i.name" class="h-full w-full object-cover" loading="lazy">
                 <span v-else class="text-4xl font-extrabold text-slate-500">{{ i.code }}</span>
                 <span v-if="i.photo_url" class="absolute left-2 top-2 rounded-lg bg-slate-900 px-2 py-0.5 text-[15px] font-extrabold text-white">{{ i.code }}</span>
               </span>
@@ -96,6 +96,7 @@
 </template>
 
 <script setup>
+import { thumb } from '../../utils/thumb'
 import { nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

@@ -179,4 +179,27 @@ class MerchantShopTest extends TestCase
         Sanctum::actingAs($this->dispatcher);
         $this->postJson("/api/v1/products/{$this->dress->id}/photo", ['photo' => UploadedFile::fake()->image('robe.jpg', 400, 400)])->assertForbidden();
     }
+
+    public function test_product_photo_is_served_lighter_at_the_requested_size(): void
+    {
+        Storage::fake('local');
+        Sanctum::actingAs($this->merchantUser);
+
+        $url = $this->postJson("/api/v1/products/{$this->dress->id}/photo", ['photo' => UploadedFile::fake()->image('robe.jpg', 2400, 1600)])
+            ->assertOk()->json('data.photo_url');
+
+        // Navigateur : WebP, vignette de 320 px
+        $thumb = $this->get($url.'&w=300', ['Accept' => 'image/avif,image/webp,*/*'])->assertOk()
+            ->assertHeader('Content-Type', 'image/webp')->assertHeader('Vary', 'Accept');
+        $this->assertSame([320, 213], array_slice(getimagesizefromstring($thumb->streamedContent()), 0, 2));
+
+        // WhatsApp (pas de WebP) : JPEG de 1080 px par défaut
+        $photo = $this->get($url, ['Accept' => '*/*'])->assertOk()->assertHeader('Content-Type', 'image/jpeg');
+        $this->assertSame([1080, 720], array_slice(getimagesizefromstring($photo->streamedContent()), 0, 2));
+        $this->assertCount(2, Storage::disk('local')->files('variants'));
+
+        // Photo supprimée : ses versions réduites aussi
+        $this->deleteJson("/api/v1/products/{$this->dress->id}/photo")->assertNoContent();
+        $this->assertCount(0, Storage::disk('local')->files('variants'));
+    }
 }

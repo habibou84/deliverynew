@@ -63,7 +63,9 @@ class MarketingSiteTest extends TestCase
             ->assertOk()
             ->assertSee('Trouvez des clients.')
             ->assertSee('Les marchands de Jibiat Marchand cherchent un livreur')
-            ->assertSee('/marketing/videos/entreprise-productivite-w.mp4', false)
+            // Une seule vidéo du haut de page est téléchargée, choisie selon l'écran
+            ->assertSee('data-w="/marketing/videos/entreprise-productivite-w"', false)
+            ->assertDontSee('<source src="/marketing/videos/entreprise-productivite-w.mp4"', false)
             ->assertSee('Assignation automatique')
             ->assertSee('Trouvez des clients déjà sur Jibiat Marchand')
             ->assertSee('Comment Jibiat m&#039;aide-t-il à trouver des clients ?', false)

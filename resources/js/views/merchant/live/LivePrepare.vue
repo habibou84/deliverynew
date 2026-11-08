@@ -115,7 +115,7 @@
           <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">MON CATALOGUE · {{ selected.length }} choisi{{ selected.length > 1 ? 's' : '' }}</p>
           <label v-for="p in shownCatalog" :key="p.id" :class="['flex min-h-[60px] items-center gap-3 px-4 py-2.5', p.stock === 0 ? 'opacity-50' : '']">
             <input type="checkbox" class="h-6 w-6 shrink-0 accent-[var(--app-color)]" :checked="isSelected(p.id)" :disabled="p.stock === 0" @change="toggle(p)">
-            <img v-if="p.photo_url" :src="p.photo_url" alt="" class="h-12 w-12 shrink-0 rounded-xl object-cover">
+            <img v-if="p.photo_url" :src="thumb(p.photo_url, 160)" alt="" class="h-12 w-12 shrink-0 rounded-xl object-cover">
             <span v-else class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-50 text-[18px]" aria-hidden="true">📷</span>
             <span class="min-w-0 flex-1">
               <b class="block truncate text-[15px]">{{ p.name }}</b>
@@ -146,7 +146,7 @@
               </div>
             </div>
             <div class="flex items-center gap-2">
-              <img v-if="r.photo_url && isFirstOf(idx)" :src="r.photo_url" alt="" class="h-9 w-9 shrink-0 rounded-lg object-cover">
+              <img v-if="r.photo_url && isFirstOf(idx)" :src="thumb(r.photo_url, 160)" alt="" class="h-9 w-9 shrink-0 rounded-lg object-cover">
               <span class="min-w-0 flex-1 truncate text-[15px] font-semibold">{{ r.name }}</span>
               <label class="sr-only" :for="`price-${r.key}`">Prix de {{ r.name }}</label>
               <input :id="`price-${r.key}`" v-model.number="r.price" type="number" min="0" step="500" class="m-input !min-h-[42px] w-28 text-right">
@@ -294,6 +294,7 @@
 </template>
 
 <script setup>
+import { thumb } from '../../../utils/thumb'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../../bootstrap/axios'
