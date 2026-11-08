@@ -12,6 +12,9 @@ class LiveOrder extends Model
 
     public const WAITING = 'waiting';
 
+    /** Annulée par le client (WhatsApp) après la confirmation */
+    public const CANCELLED = 'cancelled';
+
     protected $fillable = ['live_id', 'live_item_id', 'order_id', 'customer_name', 'customer_phone', 'quantity', 'status', 'source'];
 
     protected function casts(): array

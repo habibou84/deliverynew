@@ -3,6 +3,7 @@
 namespace App\Services\Live;
 
 use App\Enums\FeePayer;
+use App\Enums\OrderStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Jobs\SendLiveWhatsApp;
 use App\Models\Live;
@@ -17,6 +18,8 @@ use App\Models\Zone;
 use App\Services\Messaging\MessagingException;
 use App\Services\Messaging\WhatsAppBridge;
 use App\Services\Messaging\WhatsAppConnection;
+use App\Services\Orders\Cancellations;
+use App\Services\Orders\OrderService;
 use App\Services\Pricing\PricingService;
 use App\Services\WhatsApp\ZoneMatcher;
 use App\Support\PhoneNumber;
@@ -248,8 +251,16 @@ class LiveWhatsApp
             return;
         }
         $live = Live::withoutGlobalScopes()->where('merchant_id', $merchant->id)->where('status', Live::LIVE)->latest('id')->first();
+        // Live terminé depuis moins d'un jour : plus de nouvelle commande, mais le client peut encore annuler ou
+        // changer l'adresse de la sienne
+        $ended = false;
         if ($live === null) {
-            return;
+            $live = Live::withoutGlobalScopes()->where('merchant_id', $merchant->id)->where('status', Live::ENDED)
+                ->where('ended_at', '>=', now()->subDay())->latest('ended_at')->first();
+            if ($live === null) {
+                return;
+            }
+            $ended = true;
         }
         $phone = PhoneNumber::normalize($from) ?? $from;
 
@@ -260,14 +271,21 @@ class LiveWhatsApp
         }
 
         // Un code ajoute l'article à la commande en cours (ou en commence une)
-        $pick = $this->pick($live, $text, strict: $chat !== null);
+        $pick = $ended ? null : $this->pick($live, $text, strict: $chat !== null);
         if ($pick !== null) {
+            // Nouveau code pendant une annulation ou un changement d'adresse : c'est une nouvelle commande
+            if ($chat && $chat->order_id !== null) {
+                $chat->delete();
+                $chat = null;
+            }
             $this->choose($merchant, $live, $chat, $phone, $pushName, $pick['item'], $pick['quantity']);
 
             return;
         }
-        if ($chat === null) {
-            // Message ordinaire (pas un code) : conversation personnelle, pas de réponse automatique
+        if ($chat === null || $chat->order_id !== null) {
+            // Après la confirmation : « ANNULER » ou « ADRESSE » pour sa commande ; sinon conversation personnelle
+            $this->afterOrder($merchant, $live, $chat, $phone, $text);
+
             return;
         }
         $chat->forceFill(['last_text' => mb_substr($text, 0, 300), 'expires_at' => now()->addMinutes(self::CHAT_MINUTES)])->save();
@@ -345,6 +363,143 @@ class LiveWhatsApp
             'customer_name' => $name, 'zone_id' => $found->first()->id, 'zone_choices' => null, 'step' => LiveChat::CONFIRM, 'misses' => 0,
         ])->save();
         $this->recap($merchant, $chat);
+    }
+
+    /**
+     * Après la confirmation : le client annule sa commande ou change son adresse, tant que le colis n'est pas parti.
+     * Sans demande de ce genre, rien n'est répondu (conversation personnelle).
+     */
+    private function afterOrder(Merchant $merchant, Live $live, ?LiveChat $chat, string $phone, string $text): void
+    {
+        $answer = $this->answer($text);
+        $norm = ZoneMatcher::normalize($text);
+
+        if ($chat === null) {
+            $wants = match (true) {
+                $answer === 4 || in_array($norm, ['annuler', 'annule', 'annulation', 'annuler ma commande', 'je veux annuler'], true) => 'cancel',
+                $answer === 3 || in_array($norm, ['adresse', 'changer l adresse', 'changer adresse', 'nouvelle adresse', 'changer mon adresse'], true) => 'address',
+                default => null,
+            };
+            $order = $wants ? $this->lastOrder($merchant, $phone) : null;
+            if ($order === null) {
+                return;
+            }
+            if (! $this->stillChangeable($order)) {
+                $this->reply($merchant, $phone, "🛵 Votre commande N° {$order->tracking_code} est *déjà en route* : appelez la boutique"
+                    .(($shop = $this->cardPhone($merchant)) ? ' au '.$shop : '').' pour la changer.');
+
+                return;
+            }
+            $chat = LiveChat::create([
+                'live_id' => $live->id, 'phone' => $phone, 'order_id' => $order->id, 'step' => $wants === 'cancel' ? LiveChat::ORDER_CANCEL : LiveChat::ORDER_ADDRESS,
+                'customer_name' => $order->recipient_name, 'expires_at' => now()->addMinutes(self::CHAT_MINUTES), 'last_text' => mb_substr($text, 0, 300),
+            ]);
+            if ($wants === 'cancel') {
+                $this->reply($merchant, $phone, $this->buttons()
+                    ? "⚠️ *VOUS VOULEZ ANNULER ?*\n\nPour annuler la commande N° {$order->tracking_code}, touchez *Oui, annuler*."
+                    : "⚠️ *VOUS VOULEZ ANNULER ?*\n\nPour annuler la commande N° {$order->tracking_code}, répondez *4* ou *ANNULER* encore une fois.",
+                    null, [['id' => '4', 'title' => '❌ Oui, annuler']]);
+            } else {
+                $this->reply($merchant, $phone, "📍 *NOUVELLE ADRESSE*\n\nPour la commande N° {$order->tracking_code}, écrivez *votre commune et votre quartier*\n_Exemple : Cocody Angré 8e tranche_");
+            }
+
+            return;
+        }
+
+        $chat->forceFill(['last_text' => mb_substr($text, 0, 300), 'expires_at' => now()->addMinutes(self::CHAT_MINUTES)])->save();
+        $order = Order::withoutGlobalScopes()->find($chat->order_id);
+        if ($order === null || ! $this->stillChangeable($order)) {
+            $chat->delete();
+            $order && $this->reply($merchant, $phone, "🛵 Votre commande N° {$order->tracking_code} est *déjà en route* : appelez la boutique pour la changer.");
+
+            return;
+        }
+        $user = User::withoutGlobalScopes()->where('merchant_id', $merchant->id)->orderBy('id')->first();
+
+        if ($chat->step === LiveChat::ORDER_CANCEL) {
+            $chat->delete();
+            if ($answer !== 4 && ! in_array($norm, ['annuler', 'annule', 'oui annuler', 'oui'], true)) {
+                $this->reply($merchant, $phone, "👍 C'est noté : votre commande N° {$order->tracking_code} est *gardée*.");
+
+                return;
+            }
+            try {
+                app(Cancellations::class)->cancel($user, $order, OrderStatus::Cancelled, [
+                    'cancel_reason_code' => 'customer_cancelled', 'cancel_reason' => 'Annulée par le client sur WhatsApp (live)',
+                ]);
+            } catch (Throwable) {
+                $this->reply($merchant, $phone, "Désolé, la commande N° {$order->tracking_code} ne peut plus être annulée ici : appelez la boutique.");
+
+                return;
+            }
+            // Articles remis en vente dans le live
+            LiveOrder::query()->where('order_id', $order->id)->where('status', LiveOrder::ORDERED)->get()->each(function (LiveOrder $o) {
+                LiveItem::query()->whereKey($o->live_item_id)->where('sold', '>=', $o->quantity)->decrement('sold', $o->quantity);
+                $o->forceFill(['status' => LiveOrder::CANCELLED])->save();
+            });
+            $this->reply($merchant, $phone, "❌ *COMMANDE ANNULÉE*\n\nLa commande N° {$order->tracking_code} est annulée. Merci et à bientôt sur nos lives !");
+
+            return;
+        }
+
+        // Nouvelle adresse : un chiffre choisit parmi les quartiers proposés, sinon le texte est lu
+        $zoneId = null;
+        if (preg_match('/^\s*([1-9])\s*$/', $text, $m) && $chat->zone_choices) {
+            $zoneId = $chat->zone_choices[(int) $m[1] - 1] ?? null;
+        } else {
+            $found = $this->zonesIn($merchant, $text);
+            if ($found->isEmpty()) {
+                $this->reply($merchant, $phone, "Je n'ai pas reconnu le quartier 🤔\n✍️ Écrivez *votre commune et votre quartier*\n_Exemple : Cocody Angré_");
+                $chat->forceFill(['misses' => min(255, $chat->misses + 1)])->save();
+
+                return;
+            }
+            if ($found->count() > 1) {
+                $chat->forceFill(['zone_choices' => $found->pluck('id')->all()])->save();
+                $list = $found->values()->map(fn (Zone $z, int $i) => '*'.($i + 1).'* '.$z->fullName())->implode("\n");
+                $this->reply($merchant, $phone, "📍 *QUEL EST VOTRE QUARTIER ?*\n\n{$list}\n\n👉 Répondez avec le chiffre.", null, $found->values()->map(fn (Zone $z, int $i) => [
+                    'id' => (string) ($i + 1), 'title' => $z->parent ? "{$z->name} ({$z->parent->name})" : $z->name, 'description' => $z->parent?->name,
+                ])->all());
+
+                return;
+            }
+            $zoneId = $found->first()->id;
+        }
+        if ($zoneId === null) {
+            return;
+        }
+        $chat->delete();
+        try {
+            $updated = app(OrderService::class)->update($user, $order, ['delivery_zone_id' => $zoneId], ['approval' => true]);
+        } catch (Throwable) {
+            $this->reply($merchant, $phone, "Désolé, l'adresse de la commande N° {$order->tracking_code} ne peut pas être changée ici : appelez la boutique.");
+
+            return;
+        }
+        $zone = Zone::withoutGlobalScopes()->find($zoneId);
+        if ((int) $updated->delivery_zone_id !== (int) $zoneId) {
+            // Prix de livraison différent : le changement attend l'accord de l'agence (règle de l'entreprise)
+            $this->reply($merchant, $phone, "📨 C'est noté : *{$zone?->name}*. Le prix de livraison change : la boutique vous confirme le nouveau montant pour la commande N° {$order->tracking_code}.");
+
+            return;
+        }
+        $this->reply($merchant, $phone, "✅ *ADRESSE CHANGÉE*\n\n📍 *{$zone?->name}* · commande N° {$order->tracking_code}\n💰 *".$this->money((int) $updated->cod_amount).'* à payer à la livraison');
+    }
+
+    /** Dernière commande du client chez cette boutique, prise en live ces deux derniers jours */
+    private function lastOrder(Merchant $merchant, string $phone): ?Order
+    {
+        $lives = Live::withoutGlobalScopes()->where('merchant_id', $merchant->id)->where('created_at', '>=', now()->subDays(2))->pluck('id');
+        $orderId = LiveOrder::query()->whereIn('live_id', $lives)->where('customer_phone', $phone)->where('status', LiveOrder::ORDERED)
+            ->whereNotNull('order_id')->latest('id')->value('order_id');
+
+        return $orderId ? Order::withoutGlobalScopes()->find($orderId) : null;
+    }
+
+    /** Colis pas encore ramassé : le client peut annuler ou changer l'adresse lui-même */
+    private function stillChangeable(Order $order): bool
+    {
+        return in_array($order->status, [OrderStatus::Pending, OrderStatus::Confirmed, OrderStatus::PickupAssigned], true);
     }
 
     /** « 1 », « 1 ✅ », « oui », « je confirme », « annuler »… → 1 à 4 ; autre chose → null */
@@ -583,6 +738,7 @@ class LiveWhatsApp
             .($course?->tracking_code ? "🧾 N° {$course->tracking_code}\n" : '')
             .($course && $course->cod_amount ? '💰 *'.$this->money($course->cod_amount)."* à payer à la livraison\n" : '')
             .'🛵 Le livreur vous appelle avant de passer.'
+            ."\n\n✏️ Pour changer l'adresse, répondez *ADRESSE*. Pour annuler, répondez *ANNULER*."
             .($waiting !== [] ? "\n\n📝 Épuisé pour le moment : {$waitingText}. Vous êtes sur la *liste d'attente*." : ''));
 
         // Les photos de la commande, en grand

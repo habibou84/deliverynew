@@ -26,7 +26,13 @@ class LiveChat extends Model
     /** Quartier mal écrit qui ressemble à plusieurs : le client choisit (1, 2, 3) ou réécrit */
     public const ZONE = 'zone';
 
-    protected $fillable = ['live_id', 'phone', 'push_name', 'step', 'live_item_id', 'quantity', 'cart', 'customer_name', 'zone_id', 'zone_choices', 'expires_at', 'last_text', 'misses'];
+    /** Après la confirmation : annulation de la course demandée, à redire une fois */
+    public const ORDER_CANCEL = 'order_cancel';
+
+    /** Après la confirmation : nouvelle adresse (commune et quartier) attendue pour la course */
+    public const ORDER_ADDRESS = 'order_address';
+
+    protected $fillable = ['live_id', 'phone', 'push_name', 'step', 'live_item_id', 'quantity', 'cart', 'customer_name', 'zone_id', 'zone_choices', 'order_id', 'expires_at', 'last_text', 'misses'];
 
     protected function casts(): array
     {

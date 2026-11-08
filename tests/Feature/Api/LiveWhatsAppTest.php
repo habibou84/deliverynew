@@ -169,6 +169,63 @@ class LiveWhatsAppTest extends TestCase
         Notification::assertNotSentTo($this->merchantUser, LiveOrderReceived::class);
     }
 
+    public function test_after_confirming_the_customer_can_cancel_or_change_the_address(): void
+    {
+        $count = fn () => count($this->replies());
+        // Commande confirmée : le message dit comment annuler ou changer l'adresse
+        $this->say('a1');
+        $this->say('Awa Koné, Yopougon');
+        $this->say('1');
+        $order = Order::query()->latest('id')->first();
+        $this->assertStringContainsString('répondez *ANNULER*', $this->replies()[2]);
+
+        // Changer l'adresse : nouveau quartier
+        $this->say('ADRESSE');
+        $this->assertStringContainsString('NOUVELLE ADRESSE', $this->replies()[$count() - 1]);
+        $this->assertSame(LiveChat::ORDER_ADDRESS, LiveChat::first()->step);
+        $this->say('Cocody');
+        $last = $this->replies()[$count() - 1];
+        $this->assertTrue(str_contains($last, 'ADRESSE CHANGÉE') || str_contains($last, 'la boutique vous confirme'), $last);
+        if (str_contains($last, 'ADRESSE CHANGÉE')) {
+            $this->assertSame($this->cocody->id, $order->fresh()->delivery_zone_id);
+        }
+        $this->assertSame(0, LiveChat::count());
+
+        // Annuler : à redire une fois ; « non » garde la commande
+        $this->say('annuler');
+        $this->assertStringContainsString('VOUS VOULEZ ANNULER', $this->replies()[$count() - 1]);
+        $this->say('non merci');
+        $this->assertStringContainsString('gardée', $this->replies()[$count() - 1]);
+        $this->assertSame('pending', $order->fresh()->status->value);
+
+        // Live terminé : on peut encore annuler
+        $this->postJson("/api/v1/live/{$this->live}/end")->assertOk();
+        $this->say('ANNULER');
+        $this->say('4');
+        $this->assertStringContainsString('COMMANDE ANNULÉE', $this->replies()[$count() - 1]);
+        $this->assertSame('cancelled', $order->fresh()->status->value);
+        $this->assertSame(0, LiveItem::query()->first()->sold);
+        $this->assertSame(LiveOrder::CANCELLED, LiveOrder::first()->status);
+
+        // Quelqu'un sans commande : rien n'est répondu
+        $before = $count();
+        $this->say('annuler', '+2250707000055');
+        $this->assertSame($before, $count());
+    }
+
+    public function test_a_parcel_already_picked_up_cannot_be_changed_by_whatsapp(): void
+    {
+        $this->say('a1');
+        $this->say('Awa Koné, Yopougon');
+        $this->say('1');
+        Order::query()->latest('id')->first()->forceFill(['status' => 'picked_up'])->save();
+
+        $this->say('ANNULER');
+        $replies = $this->replies();
+        $this->assertStringContainsString('déjà en route', end($replies));
+        $this->assertSame(0, LiveChat::count());
+    }
+
     public function test_adding_an_article_makes_one_course_and_cancelling_needs_two_answers(): void
     {
         $this->postJson("/api/v1/live/{$this->live}/products", ['name' => 'Sac cuir', 'price' => 15000, 'quantity' => 2])->assertCreated();
