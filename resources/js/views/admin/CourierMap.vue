@@ -113,6 +113,7 @@
 </template>
 
 <script setup>
+import { refreshWhenVisible, visible as screenVisible } from '../../composables/useVisibleRefresh'
 // Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
 defineProps({ embedded: { type: Boolean, default: false } })
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
@@ -121,7 +122,7 @@ import { useRoute, useRouter } from 'vue-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
-import { useEcho } from '../../bootstrap/echo'
+import { loadEcho } from '../../bootstrap/echo'
 import { useAuthStore } from '../../stores/auth'
 import { orderChanges } from '../../composables/useRealtime'
 import { useToastStore } from '../../stores/toasts'
@@ -134,7 +135,8 @@ const ABIDJAN = [5.345, -4.024]
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
-const echo = useEcho()
+// Direct (positions des livreurs) : branché dès que ses bibliothèques sont chargées
+let echo = null
 
 const mapEl = ref(null)
 const couriers = ref([])
@@ -468,8 +470,9 @@ onMounted(async () => {
     if (c) openTrack(c, route.query.date || today())
   }
 
+  echo = await loadEcho()
   if (echo && channel) echo.private(channel).listen('.courier.location', onLocation)
-  refreshTimer = setInterval(load, 60000)
+  refreshTimer = setInterval(() => screenVisible() && load(), 60000)
   clockTimer = setInterval(() => { now.value = Date.now() }, 30000)
 })
 
@@ -481,6 +484,7 @@ onBeforeUnmount(() => {
   map?.remove()
   map = null
 })
+refreshWhenVisible(() => load())
 </script>
 
 <style scoped>

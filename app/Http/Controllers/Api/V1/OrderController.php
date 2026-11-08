@@ -39,8 +39,47 @@ class OrderController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         Gate::authorize('viewAny', Order::class);
+        $request->validate(self::filterRules() + ['per_page' => ['nullable', 'integer', 'min:1', 'max:200']]);
 
-        $request->validate([
+        $orders = $this->filtered($request)
+            ->with(self::LIST_RELATIONS)
+            ->latest('id')
+            ->paginate(min(max($request->integer('per_page', 30), 1), 500));
+
+        return OrderResource::collection($orders);
+    }
+
+    /**
+     * Plusieurs compteurs en un seul appel (onglets « Toutes », « En cours », « À régler »…) : chaque groupe a ses
+     * propres filtres (statuts, file…), ajoutés aux filtres communs (période, recherche…). Remplace un appel
+     * « per_page=1 » par onglet.
+     */
+    public function tally(Request $request): JsonResponse
+    {
+        Gate::authorize('viewAny', Order::class);
+        $rules = self::filterRules();
+        $request->validate($rules + [
+            'groups' => ['required', 'array', 'min:1', 'max:12'],
+            'groups.*' => ['array'],
+        ]);
+
+        $common = $request->except('groups');
+        $counts = [];
+        foreach ($request->input('groups') as $key => $group) {
+            $params = array_merge($common, (array) $group);
+            validator($params, $rules)->validate();
+            $sub = Request::create('', 'GET', $params);
+            $sub->setUserResolver(fn () => $request->user());
+            $counts[(string) $key] = $this->filtered($sub)->reorder()->count();
+        }
+
+        return response()->json(['data' => $counts]);
+    }
+
+    /** Filtres de la liste des courses (aussi utilisés par les compteurs) */
+    private static function filterRules(): array
+    {
+        return [
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
@@ -66,16 +105,18 @@ class OrderController extends Controller
             // Livrées après leur première date prévue
             'delivered_late' => ['nullable', 'boolean'],
             'search' => ['nullable', 'string', 'max:100'],
-            'per_page' => ['nullable', 'integer', 'min:1', 'max:200'],
-        ]);
+        ];
+    }
 
+    /** Courses visibles par l'utilisateur, filtrées comme la liste (sans tri ni pagination) */
+    private function filtered(Request $request): Builder
+    {
         $queue = (string) $request->input('queue', '');
         // Une période choisie l'emporte sur le jour
         $day = $request->filled('day') && ! $request->filled('from') && ! $request->filled('to') ? $request->date('day')->toDateString() : null;
 
-        $orders = Order::query()
+        return Order::query()
             ->visibleTo($request->user())
-            ->with(self::LIST_RELATIONS)
             ->when($request->filled('status'), fn ($q) => $q->whereIn('status', $request->input('status')))
             ->when($request->boolean('delivered_late'), fn ($q) => $q->where('status', OrderStatus::Delivered)
                 ->whereNotNull('first_delivery_date')->whereRaw(Order::DELIVERY_DAY_SQL.' > DATE(orders.first_delivery_date)'))
@@ -109,11 +150,7 @@ class OrderController extends Controller
                     ->orWhere('legacy_id', $raw)
                     ->orWhereRaw('LOWER(recipient_name) LIKE ?', [$term])
                     ->orWhere('recipient_phone', 'like', $phone ? "%{$phone}%" : $term));
-            })
-            ->latest('id')
-            ->paginate(min(max($request->integer('per_page', 30), 1), 500));
-
-        return OrderResource::collection($orders);
+            });
     }
 
     /**

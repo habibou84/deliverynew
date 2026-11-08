@@ -255,7 +255,8 @@ function setPage(i) {
   if (touched && i !== current.value) hintDone()
   if (i !== current.value) tabsEl.value?.children[i]?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
   current.value = i
-  seen.add(p.key)
+  // Écran ouvert par-dessus (« Mes courses », une course…) : la page derrière n'est chargée qu'une fois visible
+  if (!screenOpen.value) seen.add(p.key)
   lastPage.value = p.path
   // L'adresse suit la page (retour du téléphone, liens partagés)
   if (route.path !== p.path && !screenOpen.value) router.replace(p.path)
@@ -274,6 +275,7 @@ watch(() => route.fullPath, (to, from) => {
     // Retour sur une page : on referme la fenêtre et on rafraîchit la page qui était derrière
     if (depth.value) refresh[props.pages[i].key] = (refresh[props.pages[i].key] || 0) + 1
     depth.value = 0
+    seen.add(props.pages[i].key)
     if (i !== current.value) nextTick(() => go(i, false))
   } else {
     depth.value = from && pageIndex(from.split('?')[0]) !== -1 ? 1 : depth.value + 1
@@ -306,7 +308,7 @@ function dragEnd() {
 onMounted(async () => {
   const i = pageIndex(route.path)
   const start = i === -1 ? 0 : i
-  props.pages.forEach((p, k) => { if (k === start) seen.add(p.key) })
+  if (i !== -1) seen.add(props.pages[start].key)
   current.value = start
   lastPage.value = props.pages[start]?.path ?? props.base
   await nextTick()

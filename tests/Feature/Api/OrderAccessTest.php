@@ -162,4 +162,22 @@ class OrderAccessTest extends TestCase
         $this->getJson('/api/v1/orders?search='.strtolower($order->tracking_code))->assertJsonCount(1, 'data');
         $this->getJson('/api/v1/orders?search=05 05 05 05 05')->assertJsonCount(1, 'data');
     }
+
+    public function test_tab_counters_come_in_one_call_and_match_the_list(): void
+    {
+        $this->createOrder();
+        $this->createOrder()->forceFill(['status' => 'delivered'])->save();
+        $this->otherMerchantOrder(); // pas visible par ce marchand
+
+        Sanctum::actingAs($this->merchantUser);
+        $groups = ['all' => ['queue' => ''], 'active' => ['status' => ['pending', 'confirmed']], 'delivered' => ['status' => ['delivered']], 'problems' => ['queue' => 'to_decide']];
+        $counts = $this->getJson('/api/v1/orders/tally?'.http_build_query(['groups' => $groups]))->assertOk()->json('data');
+
+        $this->assertSame(['all' => 2, 'active' => 1, 'delivered' => 1, 'problems' => 0], $counts);
+        // Mêmes nombres que la liste
+        $this->assertSame(1, $this->getJson('/api/v1/orders?per_page=1&'.http_build_query(['status' => ['delivered']]))->json('meta.total'));
+
+        $this->getJson('/api/v1/orders/tally')->assertJsonValidationErrors('groups');
+        $this->getJson('/api/v1/orders/tally?'.http_build_query(['groups' => ['x' => ['queue' => 'inconnue']]]))->assertJsonValidationErrors('queue');
+    }
 }
