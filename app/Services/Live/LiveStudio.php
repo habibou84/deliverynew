@@ -65,6 +65,8 @@ class LiveStudio
         'cards_per_month' => 60,
         'pack_price' => 500,
         'pack_cards' => 20,
+        // Packs de fiches qu'un e-commerçant peut prendre par mois quand l'agence offre le live (facturés à l'agence)
+        'offered_packs_per_month' => 3,
         'agency_share' => 0,
         'retakes' => 3,
         'cards_per_day' => 50,
@@ -585,6 +587,15 @@ class LiveStudio
         }
         $s = $this->settings();
         DB::transaction(function () use ($merchant, $user, $s, $payment) {
+            if ($payment === null && (bool) $merchant->company?->live_offered) {
+                // Offert par l'agence (facturé à l'agence) : plafond mensuel, compté sous verrou contre les envois simultanés
+                Merchant::withoutGlobalScopes()->whereKey($merchant->id)->lockForUpdate()->first();
+                $taken = LiveCharge::withoutGlobalScopes()->where('merchant_id', $merchant->id)->where('kind', 'pack')
+                    ->where('offered_by_company', true)->where('created_at', '>=', now()->startOfMonth())->count();
+                if ($taken >= (int) $s['offered_packs_per_month']) {
+                    throw new BusinessRuleException('Vous avez pris tous les packs de fiches offerts ce mois-ci. Demandez à votre agence.', 'pack');
+                }
+            }
             $this->charge($merchant, $user, 'pack', "{$s['pack_cards']} fiches produit IA", $payment?->amount ?? (int) $s['pack_price'], (int) $s['pack_cards'], null, $payment);
             $merchant->increment('live_extra_cards', (int) $s['pack_cards']);
         });
@@ -606,7 +617,8 @@ class LiveStudio
         $offered = $payment === null && ! $fromCredit && (bool) $merchant->company?->live_offered;
         if ($fromCredit) {
             // Payé sur le crédit live (rechargé par PayDunya) : déjà encaissé par Jibiat
-            $merchant->forceFill(['live_credit' => (int) $merchant->live_credit - $amount])->save();
+            // Écriture atomique (live_credit = live_credit - montant) : une recharge simultanée n'est jamais écrasée
+            $merchant->decrement('live_credit', $amount);
         } elseif (! $offered && $payment === null && $amount > 0) {
             MerchantLedgerEntry::create([
                 'company_id' => $merchant->company_id,
@@ -840,7 +852,8 @@ class LiveStudio
     /** Recharge du crédit live payée (PayDunya) */
     public function addCredit(Merchant $merchant, LivePayment $payment): Merchant
     {
-        $merchant->forceFill(['live_credit' => (int) $merchant->live_credit + (int) $payment->amount])->save();
+        // Écriture atomique : deux recharges confirmées en même temps s'additionnent
+        $merchant->increment('live_credit', (int) $payment->amount);
 
         return $merchant;
     }

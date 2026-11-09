@@ -8,6 +8,7 @@ use App\Models\Live;
 use App\Models\LiveAiCard;
 use App\Models\LiveCharge;
 use App\Models\LiveOrder;
+use App\Models\LivePayment;
 use App\Models\Merchant;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
@@ -249,6 +250,37 @@ class LiveTest extends TestCase
         $this->assertSame(0, $fee());
         $charge = LiveCharge::query()->latest('id')->first();
         $this->assertSame([2000, true], [$charge->amount, $charge->offered_by_company]);
+    }
+
+    public function test_packs_offerts_par_l_agence_plafonnes_par_mois(): void
+    {
+        // Sécurité : sans plafond, un e-commerçant pouvait faire facturer des packs sans fin à son agence
+        app(LiveStudio::class)->updateSettings(['offered_packs_per_month' => 2]);
+        $this->company->forceFill(['live_offered' => true])->save();
+
+        $this->postJson('/api/v1/live/pack')->assertOk();
+        $this->postJson('/api/v1/live/pack')->assertOk();
+        $this->postJson('/api/v1/live/pack')->assertStatus(422);
+        $this->assertSame(2, LiveCharge::query()->where('kind', 'pack')->where('offered_by_company', true)->count());
+        $this->assertSame(40, $this->merchant->refresh()->live_extra_cards);
+
+        // Le mois suivant, le compteur repart
+        $this->travelTo(now()->addMonthNoOverflow()->startOfMonth()->addDay());
+        $this->postJson('/api/v1/live/pack')->assertOk();
+    }
+
+    public function test_recharges_et_prelevements_du_credit_live_sont_atomiques(): void
+    {
+        // Deux écritures faites depuis des copies périmées du même e-commerçant : aucune ne doit écraser l'autre
+        $this->merchant->forceFill(['live_credit' => 1000])->save();
+        $a = Merchant::withoutGlobalScopes()->find($this->merchant->id);
+        $b = Merchant::withoutGlobalScopes()->find($this->merchant->id);
+        $payment = new LivePayment(['amount' => 700]);
+        $payment->forceFill(['amount' => 700]);
+
+        app(LiveStudio::class)->addCredit($a, $payment);
+        app(LiveStudio::class)->addCredit($b, $payment);
+        $this->assertSame(2400, (int) $this->merchant->refresh()->live_credit);
     }
 
     public function test_commandes_offertes_puis_palier_et_commande_annulee_comptee(): void

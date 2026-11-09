@@ -167,6 +167,7 @@ const GROUPS = [
       { key: 'cards_per_month', label: 'Fiches IA du forfait' },
       { key: 'pack_price', label: 'Pack de fiches en plus', unit: 'F' },
       { key: 'pack_cards', label: 'Fiches dans le pack' },
+      { key: 'offered_packs_per_month', label: 'Packs par mois quand l\'agence offre le live' },
       { key: 'agency_share', label: 'Part laissée à l\'agence', unit: '%' },
     ],
   },

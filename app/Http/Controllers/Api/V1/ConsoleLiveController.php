@@ -12,6 +12,7 @@ use App\Services\Live\LiveStudio;
 use App\Services\Payments\PayDunya;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -40,7 +41,7 @@ class ConsoleLiveController extends Controller
             'free_orders' => $int(100000), 'min_credit' => $int(1000000),
             'cards_per_live' => $int(1000), 'welcome_cards' => $int(1000),
             'price_month' => $int(10000000), 'cards_per_month' => $int(10000),
-            'pack_price' => $int(1000000), 'pack_cards' => ['sometimes', 'integer', 'min:1', 'max:10000'],
+            'pack_price' => $int(1000000), 'pack_cards' => ['sometimes', 'integer', 'min:1', 'max:10000'], 'offered_packs_per_month' => $int(100),
             'agency_share' => $int(100), 'retakes' => $int(20), 'cards_per_day' => $int(10000),
             'items_per_card' => ['sometimes', 'integer', 'min:1', 'max:9'],
             'low_stock' => $int(1000), 'idle_minutes' => ['sometimes', 'integer', 'min:1', 'max:240'],
@@ -127,12 +128,16 @@ class ConsoleLiveController extends Controller
         if (empty($data['orders']) && empty($data['credit']) && empty($data['month'])) {
             throw ValidationException::withMessages(['orders' => 'Choisissez des commandes, du crédit ou 30 jours à offrir.']);
         }
-        // Rien n'est encaissé : pas de frais ni de part d'agence (l'action est notée dans le journal de la console)
-        $model->forceFill([
-            'live_orders_bonus' => (int) $model->live_orders_bonus + (int) ($data['orders'] ?? 0),
-            'live_credit' => (int) $model->live_credit + (int) ($data['credit'] ?? 0),
-            ...(! empty($data['month']) ? ['live_plan_until' => ($this->studio->monthlyActive($model) ? $model->live_plan_until : now())->copy()->addDays(30)] : []),
-        ])->save();
+        // Rien n'est encaissé : pas de frais ni de part d'agence (l'action est notée dans le journal de la console).
+        // Sous verrou : un live facturé ou une recharge au même moment n'écrase pas le cadeau (ni l'inverse).
+        DB::transaction(function () use ($model, $data) {
+            $locked = Merchant::withoutGlobalScopes()->lockForUpdate()->findOrFail($model->id);
+            $locked->forceFill([
+                'live_orders_bonus' => (int) $locked->live_orders_bonus + (int) ($data['orders'] ?? 0),
+                'live_credit' => (int) $locked->live_credit + (int) ($data['credit'] ?? 0),
+                ...(! empty($data['month']) ? ['live_plan_until' => ($this->studio->monthlyActive($locked) ? $locked->live_plan_until : now())->copy()->addDays(30)] : []),
+            ])->save();
+        });
 
         return response()->json(['data' => $this->merchantLive($model->refresh()->load('company:id,name'))]);
     }
@@ -155,15 +160,22 @@ class ConsoleLiveController extends Controller
     /** Versement du crédit d'une agence (fait en dehors de Jibiat, par Wave ou PayDunya) : enregistré ici */
     public function payout(Request $request, Company $company): JsonResponse
     {
-        $balance = PlatformCredit::balance($company->id);
-        $data = $request->validate(['amount' => ['required', 'integer', 'min:1', 'max:'.max(1, $balance)], 'note' => ['nullable', 'string', 'max:120']]);
-        PlatformCredit::create([
-            'company_id' => $company->id,
-            'amount' => -$data['amount'],
-            'reason' => PlatformCredit::PAYOUT,
-            'label' => 'Versé par Jibiat'.(filled($data['note'] ?? null) ? ' · '.$data['note'] : ''),
-            'created_by' => $request->user()->id,
-        ]);
+        $data = $request->validate(['amount' => ['required', 'integer', 'min:1'], 'note' => ['nullable', 'string', 'max:120']]);
+        // Solde relu sous verrou de l'entreprise : un double envoi ou une facture en cours ne fait pas verser deux fois
+        DB::transaction(function () use ($request, $company, $data) {
+            Company::query()->whereKey($company->id)->lockForUpdate()->first();
+            $balance = PlatformCredit::balance($company->id);
+            if ($data['amount'] > $balance) {
+                throw ValidationException::withMessages(['amount' => "Le crédit de l'agence n'est que de {$balance} F."]);
+            }
+            PlatformCredit::create([
+                'company_id' => $company->id,
+                'amount' => -$data['amount'],
+                'reason' => PlatformCredit::PAYOUT,
+                'label' => 'Versé par Jibiat'.(filled($data['note'] ?? null) ? ' · '.$data['note'] : ''),
+                'created_by' => $request->user()->id,
+            ]);
+        });
 
         return $this->payments();
     }
