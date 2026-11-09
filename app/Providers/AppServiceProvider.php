@@ -115,6 +115,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('live-order', fn (Request $request) => [
             Limit::perMinute(5)->by('live-min:'.$request->ip()),
             Limit::perMinute(300)->by('live-all-min:'.mb_strtolower((string) $request->route('token'))),
+            Limit::perHour(2000)->by('live-all-hour:'.mb_strtolower((string) $request->route('token'))),
         ]);
 
         // Inscription des entreprises en libre-service

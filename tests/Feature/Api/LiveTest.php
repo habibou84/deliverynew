@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Enums\LedgerEntryType;
 use App\Enums\Role;
+use App\Http\Controllers\Api\V1\PublicLiveController;
 use App\Models\Live;
 use App\Models\LiveAiCard;
 use App\Models\LiveCharge;
@@ -395,6 +396,24 @@ class LiveTest extends TestCase
         $this->postJson("/api/v1/lives/{$token}/orders", [...$form, 'code' => 'Z9'])->assertStatus(422);
         $this->postJson("/api/v1/lives/{$token}/orders", [...$form, 'website' => 'x'])->assertStatus(422);
         $this->getJson('/api/v1/lives/inconnu')->assertNotFound();
+    }
+
+    public function test_lien_du_live_plafonne_les_commandes_d_un_meme_numero(): void
+    {
+        // Sécurité : de fausses commandes en masse (en changeant d'adresse IP) feraient payer un palier plus cher
+        $live = $this->prepare();
+        $this->addProduct($live, 'Robe wax', 9000, 100);
+        $token = basename($this->postJson('/api/v1/live/prepare')->json('data.public_url'));
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
+        app('auth')->forgetGuards();
+
+        $form = ['code' => 'A1', 'quantity' => 1, 'name' => 'Awa K.', 'phone' => '0707070707', 'zone_id' => $this->yopougon->id];
+        foreach (range(1, PublicLiveController::PER_PHONE) as $i) {
+            $this->withServerVariables(['REMOTE_ADDR' => "10.0.0.{$i}"])->postJson("/api/v1/lives/{$token}/orders", $form)->assertCreated();
+        }
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.1'])->postJson("/api/v1/lives/{$token}/orders", $form)->assertStatus(422);
+        // Une autre cliente commande toujours
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.2'])->postJson("/api/v1/lives/{$token}/orders", [...$form, 'phone' => '0707070799'])->assertCreated();
     }
 
     public function test_chiffres_des_lives_passes(): void

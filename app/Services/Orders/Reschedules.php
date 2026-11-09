@@ -362,7 +362,8 @@ class Reschedules
             ->whereDoesntHave('orders')->update(['status' => RescheduleRequest::CLOSED]);
     }
 
-    private function merchantActor(int $merchantId): ?User
+    /** Auteur des actions faites au nom d'un e-commerçant : compte actif, le propriétaire en premier */
+    public function merchantActor(int $merchantId): ?User
     {
         return User::withoutGlobalScopes()->where('merchant_id', $merchantId)->where('status', 'active')
             ->orderByRaw('CASE WHEN id IN (SELECT model_id FROM model_has_roles mr JOIN roles r ON r.id = mr.role_id WHERE r.name = ?) THEN 0 ELSE 1 END', [Role::MerchantOwner->value])

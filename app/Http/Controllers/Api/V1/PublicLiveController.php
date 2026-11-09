@@ -6,16 +6,17 @@ use App\Exceptions\BusinessRuleException;
 use App\Http\Controllers\Controller;
 use App\Models\Live;
 use App\Models\LiveItem;
-use App\Models\User;
 use App\Models\Zone;
 use App\Rules\PhoneNumber;
 use App\Services\Live\LiveStudio;
+use App\Services\Orders\Reschedules;
 use App\Support\Branding;
 use App\Support\PhoneNumber as Phone;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 
 /**
@@ -24,6 +25,9 @@ use Illuminate\Validation\Rule;
  */
 class PublicLiveController extends Controller
 {
+    /** Commandes par numéro de cliente et par live */
+    public const PER_PHONE = 10;
+
     public function __construct(private readonly LiveStudio $studio) {}
 
     public function show(string $token): JsonResponse
@@ -69,8 +73,15 @@ class PublicLiveController extends Controller
         if ($live->status !== Live::LIVE) {
             throw new BusinessRuleException($live->status === Live::ENDED ? 'Ce live est terminé.' : 'Le live n\'a pas encore commencé.');
         }
-        $user = User::withoutGlobalScopes()->where('merchant_id', $live->merchant_id)->orderBy('id')->first()
+        // Auteur des courses : un compte actif de la boutique (jamais un compte supprimé ou suspendu)
+        $user = app(Reschedules::class)->merchantActor($live->merchant_id)
             ?? throw new BusinessRuleException('Cette boutique ne prend pas de commandes pour le moment.');
+        // Sécurité : de fausses commandes en masse feraient payer un palier plus cher à l'e-commerçante. Une même
+        // cliente (numéro) passe au plus PER_PHONE commandes pendant un live, quelle que soit son adresse IP.
+        $phoneKey = 'live-phone:'.$live->id.':'.$data['phone'];
+        if (RateLimiter::tooManyAttempts($phoneKey, self::PER_PHONE)) {
+            throw new BusinessRuleException('Vous avez déjà passé plusieurs commandes pendant ce live. Écrivez à la boutique pour en ajouter.');
+        }
 
         $order = $this->studio->addOrder($live, $user, [
             'code' => $data['code'],
@@ -81,6 +92,8 @@ class PublicLiveController extends Controller
             'delivery_address' => $data['address'] ?? null,
             'source' => 'link',
         ]);
+
+        RateLimiter::hit($phoneKey, 12 * 3600);
 
         return response()->json(['data' => ['status' => $order->status, 'quantity' => $order->quantity]], 201);
     }
