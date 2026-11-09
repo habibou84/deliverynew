@@ -155,7 +155,9 @@ class LegacySwitchController extends Controller
         $courier = str_contains(mb_strtolower((string) $data['usertype']), 'livreur');
         $started = $company->legacy_switch_at !== null && ! $company->legacy_switch_at->isFuture();
         // Avant la date : seul le bouton du bandeau ouvre une session, et seulement si le bandeau est montré à ce public
-        $preview = $mode === 'open' && ($this->previewSettings($company)[$courier ? 'couriers' : 'merchants'] ?? false);
+        // Sécurité : sans date de bascule fixée, le bandeau n'ouvre rien (sinon la clé ouvrait des sessions sans fin)
+        $preview = $mode === 'open' && $company->legacy_switch_at !== null
+            && ($this->previewSettings($company)[$courier ? 'couriers' : 'merchants'] ?? false);
         if (! $started && ! $preview) {
             return response()->json(['status' => 'scheduled', 'switch_at' => $company->legacy_switch_at?->toIso8601String()]);
         }

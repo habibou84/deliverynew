@@ -139,6 +139,11 @@ class LegacySwitchTest extends TestCase
             ->assertOk()->assertJsonPath('data.preview.merchants', true)->assertJsonPath('data.preview.message', 'Essayez la nouvelle application')
             ->assertJsonPath('data.module.version', 2)->assertJsonPath('data.module.latest', 2);
 
+        // Sécurité : sans date de bascule, le bouton du bandeau n'ouvre aucune session
+        $this->company->forceFill(['legacy_switch_at' => null])->save();
+        $this->ask($key, [...$merchant, 'mode' => 'open'])->assertOk()->assertJsonPath('status', 'scheduled');
+        $this->company->forceFill(['legacy_switch_at' => now()->addWeek()])->save();
+
         $this->ask($key, ['mode' => 'config'])->assertOk()
             ->assertJsonPath('banner.team', true)->assertJsonPath('banner.merchants', true)->assertJsonPath('banner.couriers', false)
             ->assertJsonPath('banner.message', 'Essayez la nouvelle application');

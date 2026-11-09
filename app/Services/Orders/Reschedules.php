@@ -242,7 +242,9 @@ class Reschedules
 
         $result = ['rescheduled' => [], 'cancelled' => [], 'skipped' => []];
         foreach ($plan as $orderId => $choice) {
-            $order = Order::withoutGlobalScopes()->where('company_id', $request->company_id)->where('merchant_id', $request->merchant_id)->find($orderId);
+            // Course toujours rattachée à CETTE demande (un ancien lien n'agit pas sur une demande plus récente)
+            $order = Order::withoutGlobalScopes()->where('company_id', $request->company_id)->where('merchant_id', $request->merchant_id)
+                ->where('reschedule_request_id', $request->id)->find($orderId);
             if ($order === null || ! in_array((int) $orderId, array_map('intval', $request->order_ids), true)) {
                 continue;
             }

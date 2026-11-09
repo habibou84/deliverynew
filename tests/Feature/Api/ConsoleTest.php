@@ -107,6 +107,20 @@ class ConsoleTest extends TestCase
         $this->withToken($token)->getJson('http://rapide.jibiat.test/api/v1/auth/me')->assertUnauthorized();
     }
 
+    public function test_support_session_cannot_spend_or_log_out_the_team(): void
+    {
+        // Sécurité : pendant l'assistance, ni dépense (IA, live), ni effet comptable, ni déconnexion d'un membre
+        Sanctum::actingAs($this->root);
+        $url = $this->postJson($this->console("/console/companies/{$this->company->id}/support-session"), ['reason' => 'Aide'])->assertCreated()->json('data.url');
+        $token = substr($url, strpos($url, '#support=') + strlen('#support='));
+        $this->app['auth']->forgetGuards();
+
+        $api = fn (string $path) => $this->withToken($token)->postJson('http://rapide.jibiat.test/api/v1/'.$path);
+        foreach (['company/ai/subscribe', 'company/ai/recharge', 'company/ai/trial', "users/{$this->dispatcher->id}/logout"] as $path) {
+            $api($path)->assertForbidden()->assertJsonPath('message', fn ($m) => str_contains($m, 'session d\'assistance'));
+        }
+    }
+
     public function test_support_session_rules(): void
     {
         Sanctum::actingAs($this->root);

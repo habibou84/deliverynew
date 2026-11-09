@@ -62,7 +62,8 @@ class RescheduleController extends Controller
                     'reminded_at' => $open->reminded_at,
                     'expires_at' => $open->expires_at,
                     'note' => $open->note,
-                    'link' => Reschedules::link($open),
+                    // Pas de lien complet pour l'équipe : il agit au nom de l'e-commerçant (annulations comprises)
+                    'link_sent' => true,
                 ] : null,
                 'orders' => $list->map(fn (Order $o) => [
                     'id' => $o->id,

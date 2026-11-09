@@ -25,6 +25,11 @@ class LimitSupportSession
         'v1.auth.password', 'v1.account.deletion',
         'v1.merchants.payment-methods.store', 'v1.merchant-payment-methods.*',
         'v1.connect.authorize',
+        // Dépenses, paiements et effets comptables : décidés par l'entreprise elle-même
+        'v1.users.logout',
+        'v1.company.ai.trial', 'v1.company.ai.subscribe', 'v1.company.ai.recharge',
+        'v1.live.credit', 'v1.live.subscribe', 'v1.live.pack',
+        'v1.company.legacy-orders.payment-rule',
     ];
 
     public function handle(Request $request, Closure $next): Response

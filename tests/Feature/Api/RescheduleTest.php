@@ -126,7 +126,9 @@ class RescheduleTest extends TestCase
         // L'API publique et le webhook disent qu'une date est attendue
         $this->getJson("/api/v1/orders/{$a->id}")->assertJsonPath('data.reschedule.status', 'pending')
             ->assertJsonPath('data.reschedule.missed_day', '2026-11-03')->assertJsonPath('data.reschedule.max_date', '2026-11-19');
-        $this->getJson('/api/v1/orders/to-reschedule')->assertJsonPath('data.summary.waiting', 1)->assertJsonPath('data.groups.0.request.id', $request->id);
+        $this->getJson('/api/v1/orders/to-reschedule')->assertJsonPath('data.summary.waiting', 1)->assertJsonPath('data.groups.0.request.id', $request->id)
+            // Sécurité : l'équipe ne reçoit pas le lien qui agit au nom de l'e-commerçant
+            ->assertJsonMissingPath('data.groups.0.request.link');
 
         // Page de réponse (sans connexion)
         auth()->forgetGuards();
