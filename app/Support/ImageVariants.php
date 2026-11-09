@@ -15,6 +15,12 @@ class ImageVariants
     /** Largeurs permises (pas de taille au hasard : chaque taille est un fichier gardé) */
     public const WIDTHS = [160, 320, 640, 1080];
 
+    /**
+     * Au-delà (40 mégapixels, plus que n'importe quel téléphone), l'image n'est pas décodée : une petite image piégée de
+     * 20 000 × 20 000 pixels prendrait des centaines de Mo de mémoire à chaque affichage (déni de service).
+     */
+    public const MAX_PIXELS = 40_000_000;
+
     /** Réponse avec la version réduite ; l'original si l'image ne peut pas être lue */
     public static function response(string $path, int $width, bool $keepAlpha = false, array $headers = []): Response
     {
@@ -67,6 +73,11 @@ class ImageVariants
     private static function resize(string $bytes, int $width, string $format): ?string
     {
         if (! function_exists('imagecreatefromstring')) {
+            return null;
+        }
+        // Dimensions lues dans l'en-tête du fichier, sans décoder l'image
+        $size = @getimagesizefromstring($bytes);
+        if ($size === false || $size[0] < 1 || $size[1] < 1 || $size[0] * $size[1] > self::MAX_PIXELS) {
             return null;
         }
         $limit = ini_get('memory_limit');
