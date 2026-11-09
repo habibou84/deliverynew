@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\WhatsAppAccount;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Queue;
 use Throwable;
 
@@ -234,7 +235,36 @@ class PlatformHealth
         if (strlen((string) config('messaging.whatsapp.bridge.token')) < 32) {
             $issues[] = 'WHATSAPP_BRIDGE_TOKEN absent ou trop court (32 caractères au moins)';
         }
+        if (app()->isProduction() && ! config('session.secure')) {
+            $issues[] = 'SESSION_SECURE_COOKIE=false : le cookie de session peut partir en http (retirer la ligne du .env)';
+        }
+        if (config('trustedproxy.proxies') === '*') {
+            $issues[] = 'TRUSTED_PROXIES=* : n\'importe qui peut choisir son adresse IP et contourner les limites d\'essais (mettre « cloudflare » ou l\'adresse du proxy)';
+        }
+        $env = app()->environmentFilePath();
+        if (app()->isProduction() && is_file($env) && (fileperms($env) & 0o004)) {
+            $issues[] = 'Le fichier .env est lisible par tous les comptes du serveur : chmod 640 .env';
+        }
+        if (app()->isProduction() && filled(config('payments.paydunya.master_key')) && config('payments.paydunya.mode') !== 'live') {
+            $issues[] = 'PAYDUNYA_MODE='.config('payments.paydunya.mode').' en production : des paiements fictifs de test débloquent de vrais forfaits (mettre live avec les clés réelles)';
+        }
+        if (app()->isProduction()) {
+            // Comptes de la console restés avec le mot de passe des données de démonstration (installation avec DEMO=1)
+            $demo = User::query()->whereNull('company_id')->where('status', 'active')->get(['id', 'name', 'password'])
+                ->filter(fn (User $u) => filled($u->password) && Hash::check('password', $u->password));
+            if ($demo->isNotEmpty()) {
+                $issues[] = 'Compte(s) de la console avec le mot de passe de démonstration « password » : '.$demo->pluck('name')->implode(', ').' (changer le mot de passe ou suspendre)';
+            }
+        }
+        $warnings = [];
+        if (app()->isProduction() && in_array(config('logging.channels.single.level'), ['debug'], true)) {
+            $warnings[] = 'LOG_LEVEL=debug en production (journaux trop bavards) : mettre info';
+        }
 
-        return $issues === [] ? ['ok', 'Mode débogage coupé, https, jeton du service WhatsApp solide.'] : ['error', implode(' ; ', $issues).'.'];
+        return match (true) {
+            $issues !== [] => ['error', implode(' ; ', [...$issues, ...$warnings]).'.'],
+            $warnings !== [] => ['warning', implode(' ; ', $warnings).'.'],
+            default => ['ok', 'Mode débogage coupé, https, cookie sécurisé, proxys de confiance limités, .env protégé, jeton du service WhatsApp solide.'],
+        };
     }
 }
