@@ -5,6 +5,10 @@ on:
     branches: [main, master, production]
   pull_request:
 
+# Droits minimaux du jeton GitHub : lecture du code seulement
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

@@ -52,8 +52,12 @@ jobs:
           echo "API=$API" >> "$GITHUB_ENV"
           curl -fsS -H "X-Build-Token: $BUILD_TOKEN" -H 'Accept: application/json' "$API/manifest" -o "$RUNNER_TEMP/manifest.json"
           echo "::add-mask::$(jq -r '.data.signing.password' "$RUNNER_TEMP/manifest.json")"
-          echo "VERSION_NAME=$(jq -r '.data.build.version_name' "$RUNNER_TEMP/manifest.json")" >> "$GITHUB_ENV"
-          echo "VERSION_CODE=$(jq -r '.data.build.version_code' "$RUNNER_TEMP/manifest.json")" >> "$GITHUB_ENV"
+          # Valeurs venues de la plateforme filtrées avant $GITHUB_ENV (un saut de ligne y injecterait des variables)
+          VERSION_NAME="$(jq -r '.data.build.version_name' "$RUNNER_TEMP/manifest.json")"
+          VERSION_CODE="$(jq -r '.data.build.version_code' "$RUNNER_TEMP/manifest.json")"
+          [[ "$VERSION_NAME" =~ ^[0-9A-Za-z.+-]{1,40}$ && "$VERSION_CODE" =~ ^[0-9]{1,10}$ ]] || { echo "Version invalide dans la fiche" >&2; exit 1; }
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           curl -fsS -H "X-Build-Token: $BUILD_TOKEN" -H 'Accept: application/json' "$API/status" \
             --data-urlencode status=building --data-urlencode "run_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
 
@@ -77,7 +81,9 @@ jobs:
           node mobile/brand.mjs --app "$APP" --manifest "$RUNNER_TEMP/manifest.json" > "$RUNNER_TEMP/brand.json"
           ICON="$(jq -r '.icon // empty' "$RUNNER_TEMP/brand.json")"
           if [ -n "$ICON" ]; then python3 mobile/assets.py --app "$APP" --source "$ICON"; fi
-          echo "APP_ID=$(jq -r '.app_id' "$RUNNER_TEMP/brand.json")" >> "$GITHUB_ENV"
+          APP_ID="$(jq -r '.app_id' "$RUNNER_TEMP/brand.json")"
+          [[ "$APP_ID" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]] || { echo "Identifiant d'application invalide" >&2; exit 1; }
+          echo "APP_ID=$APP_ID" >> "$GITHUB_ENV"
           echo "VITE_BRANDED_COMPANY=$(jq -c '.company' "$RUNNER_TEMP/brand.json")" >> "$GITHUB_ENV"
 
       - name: Écrans de l'application

@@ -69,7 +69,8 @@ DOMAIN=$DOMAIN EMAIL=vous@mondomaine.ci bash deploy/ispconfig.sh
 Comptez 10 à 15 minutes. Le script installe PostgreSQL, Redis, Supervisor, Node.js, Composer et les
 extensions PHP manquantes, crée la base, le `.env` de production et les clés, compile l'interface,
 lance Horizon et Reverb (port local 6001 : 8080 et 8081 sont pris par ISPConfig) et la tâche
-planifiée. Ajoutez `DEMO=0` devant `bash` pour une base vide, `BRANCH=…` pour une autre branche.
+planifiée. La base est vide par défaut (`DEMO=1` devant `bash` pour des données de démonstration, jamais en
+production) ; `BRANCH=…` pour une autre branche.
 
 ### A4. Coller les directives Apache dans ISPConfig
 

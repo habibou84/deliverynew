@@ -16,7 +16,7 @@
 #   REPO     dépôt Git (défaut : git@github.com:habibou84/deliverynew.git)
 #   BRANCH   branche à déployer (défaut : main)
 #   SITE_ROOT dossier du site affiché par ISPConfig (défaut : lien /var/www/<domaine>)
-#   DEMO     1 = données de démonstration (mot de passe « password »), 0 = base vide
+#   DEMO     0 = base vide (défaut), 1 = données de démonstration (mot de passe « password ») : jamais en production
 #
 # Relançable sans risque : base de données, .env et clés sont conservés.
 
@@ -26,7 +26,7 @@ DOMAIN="${DOMAIN:-}"
 EMAIL="${EMAIL:-}"
 REPO="${REPO:-git@github.com:habibou84/deliverynew.git}"
 BRANCH="${BRANCH:-main}"
-DEMO="${DEMO:-1}"
+DEMO="${DEMO:-0}"
 # 8080 et 8081 sont pris par le panneau ISPConfig : Reverb écoute en local sur 6001
 REVERB_PORT=6001
 # Redis peut déjà servir à Rspamd (antispam ISPConfig) : bases séparées

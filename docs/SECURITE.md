@@ -73,6 +73,47 @@ correction a son test. À rejouer chaque trimestre (voir `docs/MAINTENANCE.md`).
 | Basse | Pièces jointes internes lisibles par l'e-commerçant ; historique interne visible du livreur ; photos de produits par numéro. | Pièce jointe d'une étape interne refusée ; le livreur voit l'historique partagé et ses propres notes ; photo d'un produit non publié seulement avec le lien de l'application. |
 | Basse | Configuration : cookie sécurisé non forcé, jetons de 30 jours pour tous, journal « debug » par défaut, temps réel ouvert à toutes les origines. | Cookie sécurisé par défaut en production ; session de 7 jours pour l'équipe d'une entreprise (30 jours pour livreurs et e-commerçants, 12 h pour la console) ; journal « info » par défaut en production ; origines du temps réel réglables (`REVERB_ALLOWED_ORIGINS`), laissées ouvertes par défaut car les canaux privés exigent le jeton et les applications et domaines personnalisés s'y connectent. |
 
+## Audit n° 3 (9 novembre 2026) : code ajouté depuis le 1er novembre, serveur et CI
+
+Corrigé :
+
+| Gravité | Problème | Correction |
+|---|---|---|
+| Haute | Dépendances Symfony avec sept failles connues (contournement de règles d'accès, proxys de confiance, URL vers un hôte choisi par le client). | Mises à jour en 7.4.23 (`composer audit` : 0 faille). |
+| Moyenne | Packs de fiches IA offerts par l'agence achetables sans limite (jusqu'à 300 000 F par heure facturés à l'agence). | Plafond mensuel par e-commerçant (3 par défaut, réglable dans la console), compté sous verrou. |
+| Moyenne | Crédit live : deux recharges PayDunya simultanées pouvaient s'écraser ; cadeau de la console et versement du crédit d'agence sans verrou. | Écritures atomiques ; cadeau et versement sous verrou, solde relu dedans. |
+| Moyenne | Analyse des messages WhatsApp par l'IA sans limite, même après la pause au plafond du mois. | Pause respectée ; 30 appels par heure et par numéro, 300 par entreprise ; au-delà, analyse par règles. |
+| Moyenne | Image piégée (20 000 × 20 000 pixels) : jusqu'à 512 Mo de mémoire à chaque affichage public. | Dimensions lues avant le décodage ; au-delà de 40 mégapixels, l'original est servi. |
+| Moyenne | Lien public du live : fausses commandes en masse (en changeant d'adresse IP) qui font payer un palier plus cher. | 10 commandes par numéro et par live ; 2 000 par heure et par live ; auteur des courses toujours un compte actif. |
+| Moyenne | Lien de report renvoyé à l'équipe : un dispatcher annulait des courses au nom de l'e-commerçant, hors quota. | Le lien n'est plus renvoyé à l'équipe ; un ancien lien n'agit que sur les courses de sa demande. |
+| Moyenne | Bandeau de bascule sans date fixée : la clé de l'ancienne application ouvrait des sessions sans limite de durée. | Sans date de bascule, le bandeau n'ouvre rien. |
+| Moyenne | Installation (`ispconfig.sh`, `install.sh`) avec les comptes de démonstration par défaut (mot de passe « password »). | Base vide par défaut ; la page Santé signale un compte de la console avec ce mot de passe. |
+| Basse | Session d'assistance : abonnement IA, paiements du live, règle de paiement des reprises et déconnexion d'un membre possibles. | Refusés pendant l'assistance. |
+| Basse | CI : jeton GitHub sans droits limités ; version et identifiant venus de la plateforme écrits dans `$GITHUB_ENV` sans filtre. | `permissions: contents: read` ; valeurs filtrées. |
+| Basse | Réglages dangereux de production non surveillés (cookie non sécurisé, `TRUSTED_PROXIES=*`, `.env` lisible, PayDunya en test). | Signalés par Console › Santé. |
+
+Outils ajoutés (voir `docs/SECURITE-OUTILS.md`) : audit du serveur `deploy/security-audit.sh`, workflow « Sécurité »
+(dépendances et secrets chaque semaine), contrôles de la page Santé.
+
+À faire sur le serveur (accès nécessaire) :
+
+1. **Haute — scripts lancés par root et modifiables par l'utilisateur du site** : la sauvegarde (cron root) et la
+   mise à jour (sudo) exécutent `deploy/*.sh` depuis le dossier de l'application, qui appartient à l'utilisateur de
+   PHP. Une faille PHP deviendrait un accès root (et la préproduction, sur le même serveur, y mène aussi). Copier ces
+   scripts dans un dossier de root (`/usr/local/lib/jibiat/`, 0755) et y faire pointer le cron et la règle sudo.
+2. **Moyenne — copie distante des sauvegardes effaçable depuis le serveur** : clé R2 dans le `.env` (lisible par
+   l'utilisateur du site) avec le droit de supprimer. Clé en écriture seule, verrouillage des objets ou règle de
+   conservation côté R2, secrets dans un fichier de root.
+3. Basse : chiffrement des sauvegardes sans contrôle d'intégrité (`openssl enc`) : passer à `age` ou `gpg`.
+
+À décider :
+
+- Jibiat IA des messages WhatsApp : exiger l'abonnement (aujourd'hui seule la formule compte).
+- Part d'agence sur le crédit live offert par la console (seulement si `agency_share` > 0).
+- Paiement d'un e-commerçant par période : les frais sans course (live, ajustements) ne sont pas déduits.
+- Import des anciens comptes : ne plus changer le numéro de connexion d'un compte déjà utilisé.
+- Limite de fiches IA du live dépassable par requêtes simultanées (faible).
+
 ## Vérifié et sain
 
 Isolement entre entreprises (scope global, jeton lié à l'adresse de l'entreprise), isolement entre marchands d'une

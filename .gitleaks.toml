@@ -1,0 +1,16 @@
+# Règles de gitleaks (workflow Sécurité) : celles par défaut, sans les faux positifs connus du dépôt.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Faux positifs connus"
+paths = [
+  # Données de test fictives (comptes de démonstration, images encodées)
+  '''tests/fixtures/''',
+  '''tests/Feature/.*Test\.php''',
+  '''tests/Unit/.*Test\.php''',
+  # Modèles de configuration sans valeur réelle
+  '''\.env\.example''',
+  '''(composer|package)-?lock\.json''',
+  '''composer\.lock''',
+]

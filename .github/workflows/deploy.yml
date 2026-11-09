@@ -10,6 +10,10 @@ on:
     branches: [main, production]
   workflow_dispatch:
 
+# Droits minimaux du jeton GitHub : lecture du code seulement
+permissions:
+  contents: read
+
 # Une mise à jour à la fois par serveur ; une fusion arrivée entre-temps passe ensuite (jamais annulée en cours)
 concurrency:
   group: deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}

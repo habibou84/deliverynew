@@ -12,7 +12,7 @@
 #   REPO     dépôt Git (défaut : git@github.com:habibou84/deliverynew.git)
 #   BRANCH   branche à déployer (défaut : main)
 #   APP_DIR  dossier de l'application (défaut : /var/www/livraison)
-#   DEMO     1 = données de démonstration (mot de passe « password »), 0 = base vide
+#   DEMO     0 = base vide (défaut), 1 = données de démonstration (mot de passe « password ») : jamais en production
 #
 # Relançable sans risque : base de données, .env et clés sont conservés.
 
@@ -23,7 +23,7 @@ EMAIL="${EMAIL:-}"
 REPO="${REPO:-git@github.com:habibou84/deliverynew.git}"
 BRANCH="${BRANCH:-main}"
 APP_DIR="${APP_DIR:-/var/www/livraison}"
-DEMO="${DEMO:-1}"
+DEMO="${DEMO:-0}"
 APP_USER=www-data
 TOOLS_HOME=/var/www
 REVERB_PORT=8080
