@@ -8,6 +8,7 @@ use App\Models\OutboundMessage;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppSession;
 use App\Models\Zone;
+use App\Services\Ai\JibiatAi;
 use App\Services\WhatsApp\ClaudeOrderParser;
 use App\Services\WhatsApp\Conversation;
 use App\Services\WhatsApp\HeuristicOrderParser;
@@ -236,5 +237,32 @@ class WhatsAppConversationTest extends TestCase
         $parser->answer = null;
         $this->assertSame([$this->angre->id], $parser->parse('07 08 09 10 11 Angré 5000 F', $zones)['zones']);
         $this->assertInstanceOf(HeuristicOrderParser::class, app(OrderMessageParser::class));
+    }
+
+    public function test_ai_calls_are_limited_per_number_and_stopped_at_the_monthly_cap(): void
+    {
+        // Sécurité (coût) : un numéro qui envoie des messages libres en masse ne déclenche pas un appel à l'IA à chaque fois
+        $parser = new class(app(HeuristicOrderParser::class), app(ZoneMatcher::class)) extends ClaudeOrderParser
+        {
+            public int $calls = 0;
+
+            protected function extract(string $text, Collection $zones): ?array
+            {
+                $this->calls++;
+
+                return null;
+            }
+        };
+        $zones = Zone::forCompany($this->company->id)->with('parent')->get();
+
+        foreach (range(1, ClaudeOrderParser::PER_PHONE_PER_HOUR + 5) as $i) {
+            $parser->parse("message {$i}", $zones, self::MERCHANT_PHONE);
+        }
+        $this->assertSame(ClaudeOrderParser::PER_PHONE_PER_HOUR, $parser->calls);
+
+        // Plafond du mois atteint (IA en pause pour l'entreprise) : plus aucun appel, même depuis un autre numéro
+        $this->company->forceFill(['ai_paused_month' => app(JibiatAi::class)->month($this->company)])->save();
+        $parser->parse('autre message', $zones, '+2250700000001');
+        $this->assertSame(ClaudeOrderParser::PER_PHONE_PER_HOUR, $parser->calls);
     }
 }

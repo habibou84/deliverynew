@@ -10,6 +10,7 @@ use App\Services\Ai\JibiatAi;
 use App\Support\PhoneNumber;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use JsonException;
 use Throwable;
 
@@ -21,6 +22,11 @@ use Throwable;
  */
 class ClaudeOrderParser implements OrderMessageParser
 {
+    /** Appels à l'IA par heure : par numéro qui écrit, et pour toute l'entreprise */
+    public const PER_PHONE_PER_HOUR = 30;
+
+    public const PER_COMPANY_PER_HOUR = 300;
+
     private const FIELDS = [
         'recipient_name', 'recipient_phone', 'recipient_phone2', 'zone_name', 'delivery_address',
         'delivery_landmark', 'items_amount', 'fee_payer', 'description', 'merchant_note',
@@ -34,6 +40,12 @@ class ClaudeOrderParser implements OrderMessageParser
     public function parse(string $text, Collection $zones, ?string $senderPhone = null): array
     {
         $rules = $this->fallback->parse($text, $zones, $senderPhone);
+
+        // Sécurité (coût) : chaque message libre coûte un appel à l'IA. Au plafond du mois, ou au-delà des limites par
+        // numéro et par entreprise (messages envoyés en masse), on se contente de l'analyse par règles.
+        if (! $this->mayCallAi($zones, $senderPhone)) {
+            return $rules;
+        }
 
         try {
             $ai = $this->extract($text, $zones);
@@ -75,6 +87,31 @@ class ClaudeOrderParser implements OrderMessageParser
 
         // Ce que Claude n'a pas trouvé, les règles le complètent
         return [...$rules, ...$result];
+    }
+
+    /** @param  Collection<int, Zone>  $zones */
+    private function mayCallAi(Collection $zones, ?string $senderPhone): bool
+    {
+        $company = Company::query()->find($zones->first()?->company_id);
+        if ($company !== null && app(JibiatAi::class)->isPaused($company)) {
+            return false;
+        }
+        $keys = array_filter([
+            $senderPhone !== null ? ['ai-parse:phone:'.$senderPhone, self::PER_PHONE_PER_HOUR] : null,
+            $company !== null ? ['ai-parse:company:'.$company->id, self::PER_COMPANY_PER_HOUR] : null,
+        ]);
+        foreach ($keys as [$key, $max]) {
+            if (RateLimiter::tooManyAttempts($key, $max)) {
+                Log::notice('Analyse WhatsApp par l\'IA suspendue une heure (trop de messages libres)', ['key' => $key]);
+
+                return false;
+            }
+        }
+        foreach ($keys as [$key]) {
+            RateLimiter::hit($key, 3600);
+        }
+
+        return true;
     }
 
     /**
