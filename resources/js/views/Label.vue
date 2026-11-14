@@ -6,15 +6,15 @@
       <div class="flex rounded-lg bg-slate-100 p-1 text-sm" role="radiogroup" aria-label="Format d'impression">
         <button
           v-for="f in FORMATS" :key="f.value" type="button" role="radio" :aria-checked="format === f.value"
-          :class="['rounded-md px-3 py-1.5', format === f.value ? 'bg-white font-semibold shadow-sm' : 'text-gray-600']"
+          :class="['rounded-md px-3 py-1.5', format === f.value ? 'bg-white font-semibold shadow-sm' : 'text-slate-600']"
           @click="format = f.value"
         >{{ f.label }}</button>
       </div>
-      <span class="text-sm text-gray-500">{{ FORMATS.find((f) => f.value === format).help }}</span>
+      <span class="text-sm text-slate-600">{{ FORMATS.find((f) => f.value === format).help }}</span>
       <p v-if="missing" class="w-full text-sm text-amber-700">{{ missing }} course(s) introuvable(s) ou hors de votre accès : non imprimée(s).</p>
     </div>
 
-    <p v-if="loading" class="text-gray-500">Chargement…</p>
+    <p v-if="loading" class="text-slate-600">Chargement…</p>
     <p v-else-if="error" class="text-red-700">{{ error }}</p>
 
     <!-- Rouleau : une étiquette par page ; A4 : 4 étiquettes par feuille -->

@@ -19,7 +19,7 @@
           <option :value="null">Plan par défaut{{ defaultPlan ? ` (${defaultPlan.name})` : '' }}</option>
           <option v-for="p in planOptions" :key="p.id" :value="p.id">{{ p.name }}{{ p.personal ? ' (personnel)' : '' }}</option>
         </select>
-        <p class="text-xs text-gray-500 mt-1">
+        <p class="text-xs text-slate-600 mt-1">
           Les gains déjà acquis ne changent pas.
           <button type="button" class="text-blue-600" @click="customize">{{ personalPlan ? 'Modifier son plan personnel' : 'Personnaliser pour ce livreur' }}</button>
           · <RouterLink to="/admin/paie-livreurs" class="text-blue-600">Gérer les plans</RouterLink>
@@ -44,7 +44,7 @@
             </select>
           </div>
         </div>
-        <p class="text-xs text-gray-500 mt-1">Zone de secours : il y livre automatiquement quand personne de la zone principale n'est libre.</p>
+        <p class="text-xs text-slate-600 mt-1">Zone de secours : il y livre automatiquement quand personne de la zone principale n'est libre.</p>
       </div>
       <div class="grid grid-cols-3 gap-2">
         <div><label class="label" for="c-parcels">Colis au plus</label><input id="c-parcels" v-model.number="data.max_parcels" type="number" min="1" class="input" placeholder="Sans limite"></div>

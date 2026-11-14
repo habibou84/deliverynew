@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
-    <p v-if="!d && !error" class="card p-6 text-center text-gray-500">Chargement…</p>
+    <p v-if="!d && !error" class="card p-6 text-center text-slate-600">Chargement…</p>
 
     <template v-if="d">
       <div class="grid lg:grid-cols-[1fr_380px] gap-4 items-start">
@@ -23,28 +23,28 @@
           </div>
 
           <div v-if="d.tags.length" class="card p-4">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Ce qui revient</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wide text-slate-600 mb-2">Ce qui revient</h2>
             <div class="flex flex-wrap gap-2">
               <span v-for="t in d.tags" :key="t.code" :class="['rounded-full border px-3 py-1 text-sm font-semibold', t.good ? 'border-emerald-300 bg-emerald-50 text-emerald-800' : 'border-red-300 bg-red-50 text-red-800']">{{ t.label }} · {{ t.count }}</span>
             </div>
           </div>
 
           <div class="card p-4">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">Derniers avis</h2>
-            <p v-if="!d.ratings.length" class="text-sm text-gray-500">Aucun avis pour le moment.</p>
+            <h2 class="text-xs font-bold uppercase tracking-wide text-slate-600 mb-2">Derniers avis</h2>
+            <p v-if="!d.ratings.length" class="text-sm text-slate-600">Aucun avis pour le moment.</p>
             <ul class="divide-y divide-slate-100">
               <li v-for="r in d.ratings" :key="r.id" :class="['py-2.5 flex flex-wrap items-start gap-x-3 gap-y-1 text-sm', r.cancelled_at ? 'opacity-50' : '']">
                 <StarRating :model-value="r.score" readonly size="sm" class="mt-0.5" />
                 <span class="min-w-0 flex-1">
                   <span :class="r.cancelled_at ? 'line-through' : ''">{{ r.comment ? `« ${r.comment} »` : (r.tags.length ? r.tags.map((t) => t.label).join(', ') : 'Sans commentaire') }}</span>
-                  <span class="text-gray-500"> · {{ r.source === 'merchant' ? 'e-commerçant' : 'client' }} · <RouterLink :to="`/admin/courses/${r.order_id}`" class="text-blue-600">{{ r.tracking_code }}</RouterLink> · {{ dateTime(r.created_at) }}</span>
-                  <span v-if="r.comment && r.tags.length" class="block text-xs text-gray-500">{{ r.tags.map((t) => t.label).join(', ') }}</span>
-                  <span v-if="r.cancelled_at" class="block text-xs text-gray-500">Annulé{{ r.cancel_reason ? ` : ${r.cancel_reason}` : '' }}</span>
+                  <span class="text-slate-600"> · {{ r.source === 'merchant' ? 'e-commerçant' : 'client' }} · <RouterLink :to="`/admin/courses/${r.order_id}`" class="text-blue-600">{{ r.tracking_code }}</RouterLink> · {{ dateTime(r.created_at) }}</span>
+                  <span v-if="r.comment && r.tags.length" class="block text-xs text-slate-600">{{ r.tags.map((t) => t.label).join(', ') }}</span>
+                  <span v-if="r.cancelled_at" class="block text-xs text-slate-600">Annulé{{ r.cancel_reason ? ` : ${r.cancel_reason}` : '' }}</span>
                   <span v-else-if="r.flagged && !r.handled_at" class="block text-xs font-semibold text-red-700">⚠ Signalement à traiter</span>
                 </span>
                 <span v-if="!r.cancelled_at" class="flex gap-3 text-xs">
                   <button v-if="r.flagged && !r.handled_at" class="text-blue-600" @click="handle(r)">Traité</button>
-                  <button class="text-gray-600 underline" @click="askCancel(r)">Annuler</button>
+                  <button class="text-slate-600 underline" @click="askCancel(r)">Annuler</button>
                 </span>
               </li>
             </ul>
@@ -55,7 +55,7 @@
         <form class="card p-5 space-y-3" @submit.prevent="saveReview">
           <div>
             <h2 class="text-lg font-bold">Évaluation du mois</h2>
-            <p class="text-sm text-gray-500">{{ monthLabel }} · par un responsable, privée</p>
+            <p class="text-sm text-slate-600">{{ monthLabel }} · par un responsable, privée</p>
           </div>
           <div>
             <label class="label" for="review-month">Mois évalué</label>
@@ -73,8 +73,8 @@
           <p v-if="reviewSaved" class="text-sm font-semibold text-emerald-700">Évaluation enregistrée.</p>
           <button class="btn-primary w-full" :disabled="!reviewComplete || saving">{{ saving ? 'Enregistrement…' : 'Enregistrer l\'évaluation' }}</button>
           <div v-if="d.reviews.length" class="border-t border-slate-100 pt-3 space-y-1 text-sm">
-            <p class="text-xs font-bold uppercase tracking-wide text-gray-500">Évaluations précédentes</p>
-            <p v-for="r in d.reviews" :key="r.id" class="flex justify-between"><span>{{ monthName(r.period) }}<span class="text-gray-500"> · {{ r.reviewer || '—' }}</span></span><b>{{ scoreText(r.score) }}</b></p>
+            <p class="text-xs font-bold uppercase tracking-wide text-slate-600">Évaluations précédentes</p>
+            <p v-for="r in d.reviews" :key="r.id" class="flex justify-between"><span>{{ monthName(r.period) }}<span class="text-slate-600"> · {{ r.reviewer || '—' }}</span></span><b>{{ scoreText(r.score) }}</b></p>
           </div>
         </form>
       </div>
@@ -82,7 +82,7 @@
 
     <Modal :open="!!cancelling" title="Annuler cet avis" @close="cancelling = null">
       <form class="space-y-3" @submit.prevent="cancel">
-        <p class="text-sm text-gray-600">L'avis ne comptera plus dans la note du livreur.</p>
+        <p class="text-sm text-slate-600">L'avis ne comptera plus dans la note du livreur.</p>
         <div><label class="label" for="cancel-reason-d">Raison</label><input id="cancel-reason-d" v-model="cancelReason" class="input" placeholder="Ex. : client absent, pas la faute du livreur"></div>
         <button class="btn-primary w-full">Annuler l'avis</button>
       </form>

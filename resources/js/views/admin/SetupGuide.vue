@@ -2,7 +2,7 @@
   <div class="max-w-3xl space-y-4">
     <div>
       <h1 class="text-xl font-bold">🧭 Mise en route</h1>
-      <p class="text-sm text-gray-600">Étape par étape, ce qu'il faut régler pour que l'application travaille bien. Chaque étape se coche toute seule quand c'est fait.</p>
+      <p class="text-sm text-slate-600">Étape par étape, ce qu'il faut régler pour que l'application travaille bien. Chaque étape se coche toute seule quand c'est fait.</p>
     </div>
 
     <GuideVideo
@@ -19,9 +19,9 @@
           {{ guide.ready ? '✅ Les étapes essentielles sont faites : l\'application est prête à travailler.' : `Étapes essentielles : ${guide.essentials.done} sur ${guide.essentials.total}` }}
         </p>
         <div class="h-2 rounded-full bg-slate-200 overflow-hidden" role="progressbar" :aria-valuenow="guide.essentials.done" :aria-valuemax="guide.essentials.total" aria-label="Étapes essentielles faites">
-          <div class="h-full bg-emerald-600 transition-all" :style="{ width: `${percent(guide.essentials)}%` }" />
+          <div class="h-full bg-emerald-700 transition-all" :style="{ width: `${percent(guide.essentials)}%` }" />
         </div>
-        <p class="text-sm text-gray-600">Étapes conseillées : {{ guide.recommended.done }} sur {{ guide.recommended.total }}.</p>
+        <p class="text-sm text-slate-600">Étapes conseillées : {{ guide.recommended.done }} sur {{ guide.recommended.total }}.</p>
         <p v-if="next" class="text-sm">
           Prochaine étape : <strong>{{ next.title }}</strong>
           <RouterLink :to="link(next)" class="ml-1 text-blue-600 underline">{{ next.action.label }}</RouterLink>
@@ -42,7 +42,7 @@
 
       <section v-for="group in groups" :key="group.title" class="space-y-2">
         <h2 class="font-semibold">{{ group.title }}</h2>
-        <p class="text-sm text-gray-500">{{ group.intro }}</p>
+        <p class="text-sm text-slate-600">{{ group.intro }}</p>
         <ol class="space-y-2">
           <li v-for="(s, i) in group.steps" :key="s.key" :class="['card p-4 space-y-2', s.skipped ? 'opacity-60' : '']">
             <div class="flex items-start gap-3">
@@ -52,14 +52,14 @@
                   {{ group.essential ? `${i + 1}. ` : '' }}{{ s.title }}
                   <span :class="['ml-1 rounded-full px-2 py-0.5 text-xs font-medium', STATUS[s.status].cls]">{{ s.skipped ? 'Plus tard' : STATUS[s.status].label }}</span>
                 </p>
-                <p class="text-sm text-gray-600">{{ s.why }}</p>
-                <ul class="text-sm text-gray-800 space-y-0.5">
+                <p class="text-sm text-slate-600">{{ s.why }}</p>
+                <ul class="text-sm text-slate-800 space-y-0.5">
                   <li v-for="line in s.lines" :key="line">{{ line }}</li>
                 </ul>
                 <!-- Course d'essai : où elle en est -->
                 <template v-if="s.test">
                   <ol class="mt-2 space-y-1 text-sm">
-                    <li v-for="c in s.test.checkpoints" :key="c.label" :class="c.done ? 'text-emerald-800' : 'text-gray-500'">
+                    <li v-for="c in s.test.checkpoints" :key="c.label" :class="c.done ? 'text-emerald-800' : 'text-slate-600'">
                       {{ c.done ? '✅' : '⬜' }} {{ c.label }}
                     </li>
                   </ol>
@@ -86,7 +86,7 @@
       </section>
     </template>
 
-    <p v-else-if="!error" class="text-sm text-gray-500">Chargement…</p>
+    <p v-else-if="!error" class="text-sm text-slate-600">Chargement…</p>
   </div>
 </template>
 

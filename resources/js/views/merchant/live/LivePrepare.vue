@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3 pb-10">
     <p v-if="error" class="rounded-2xl bg-red-50 px-4 py-3 text-[15px] text-red-700" role="alert">{{ error }}</p>
-    <p v-if="!d && !error" class="m-card p-6 text-center text-slate-500">Chargement…</p>
+    <p v-if="!d && !error" class="m-card p-6 text-center text-slate-600">Chargement…</p>
 
     <!-- Comment ça marche : en entier aux premières visites, ou à la demande -->
     <LiveIntro v-if="d && introOpen && !running" :offer="d.offer" />
@@ -24,10 +24,10 @@
       </section>
 
       <div v-for="(s, i) in stepList" :key="s.key" :class="['flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft', s.state === 'current' ? 'ring-2 ring-[var(--app-color)]' : '', s.state === 'todo' ? 'opacity-55' : '']">
-        <span :class="['grid h-10 w-10 shrink-0 place-items-center rounded-full text-[17px] font-black', s.state === 'done' ? 'bg-emerald-600 text-white' : s.state === 'current' ? 'bg-[var(--app-color)] text-white' : 'bg-slate-200 text-slate-500']">{{ s.state === 'done' ? '✓' : i + 1 }}</span>
+        <span :class="['grid h-10 w-10 shrink-0 place-items-center rounded-full text-[17px] font-black', s.state === 'done' ? 'bg-emerald-700 text-white' : s.state === 'current' ? 'bg-[var(--app-color)] text-white' : 'bg-slate-200 text-slate-600']">{{ s.state === 'done' ? '✓' : i + 1 }}</span>
         <div class="min-w-0 flex-1">
           <b class="block text-[17px] leading-tight">{{ s.title }}</b>
-          <span :class="['block text-[13.5px]', s.alert ? 'font-semibold text-red-700' : 'text-slate-500']">{{ s.text }}</span>
+          <span :class="['block text-[13.5px]', s.alert ? 'font-semibold text-red-700' : 'text-slate-600']">{{ s.text }}</span>
         </div>
         <button v-if="s.panel && s.state !== 'todo'" type="button" :class="['shrink-0 py-2 pl-2 text-[15px] font-black', s.state === 'done' ? 'text-emerald-700' : 'text-[var(--app-color)]']" @click="open(s.panel)">{{ s.state === 'done' ? s.again : 'Ouvrir ▸' }}</button>
       </div>
@@ -35,7 +35,7 @@
       <!-- Étape « Commencer » : le grand bouton -->
       <template v-if="current === 'start'">
         <button type="button" class="block w-full rounded-2xl bg-rose-600 py-4 text-[18px] font-black text-white shadow-soft active:scale-[.99] disabled:opacity-60" :disabled="saving" @click="start">{{ d.offer.can_start ? '● Je commence mon live' : '● Recharger et commencer' }}</button>
-        <p class="text-center text-[14px] text-slate-500">{{ priceLine }}</p>
+        <p class="text-center text-[14px] text-slate-600">{{ priceLine }}</p>
         <!-- Payé au palier : prix selon les commandes, crédit, forfait du mois -->
         <div v-if="d.offer.next_plan === 'tier'" class="space-y-2 rounded-2xl bg-white p-3.5 shadow-soft">
           <b class="block text-[15.5px]">Prix d'un live, selon vos commandes</b>
@@ -46,7 +46,7 @@
           </div>
           <button v-if="offerMonthly" type="button" class="block w-full rounded-xl bg-slate-50 px-3 py-2.5 text-left" :disabled="saving" @click="subscribeMonthly">
             <b class="block text-[15px]">📅 Ou le forfait du mois : {{ money(d.offer.prices.month) }}</b>
-            <span class="text-[13px] text-slate-500">Lives sans limite pendant 30 jours, sans compter les commandes ›</span>
+            <span class="text-[13px] text-slate-600">Lives sans limite pendant 30 jours, sans compter les commandes ›</span>
           </button>
         </div>
         <LivePaySheet v-if="paySheet" :offer="d.offer" @close="paySheet = false" @offer="d.offer = $event" />
@@ -57,7 +57,7 @@
     <!-- Bouton du bas de « Comment ça marche » -->
     <div v-if="d && introOpen && !running" :class="embedded ? 'pt-1' : 'fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white px-4 py-3 pb-[max(.75rem,env(safe-area-inset-bottom))]'">
       <button type="button" class="m-btn-primary w-full" @click="closeIntro">Préparer mon live</button>
-      <p class="mt-1.5 text-center text-[12px] text-slate-400">Propulsé par <b>Jibiat</b></p>
+      <p class="mt-1.5 text-center text-xs text-slate-600">Propulsé par <b>Jibiat</b></p>
     </div>
 
     <!-- ══ Une étape ouverte, en grand par-dessus la page ══ -->
@@ -84,7 +84,7 @@
 
           <div v-if="!d.whatsapp?.auto" class="space-y-1 pt-1 text-center">
             <button type="button" class="text-[15px] font-bold text-[var(--app-color)]" @click="skipWhatsApp">{{ waConnectable ? 'Pas de numéro spécial ? Continuer sans WhatsApp ›' : 'Continuer sans WhatsApp ›' }}</button>
-            <p class="text-[13px] text-slate-400">Sans WhatsApp, vos clients commandent par le lien du live.</p>
+            <p class="text-[13px] text-slate-600">Sans WhatsApp, vos clients commandent par le lien du live.</p>
           </div>
         </template>
 
@@ -93,14 +93,14 @@
           <!-- Reprendre un live passé -->
           <div v-if="d.past?.length" class="m-card overflow-hidden">
             <button type="button" class="tap flex w-full items-center justify-between gap-2 px-4 py-3 text-left" :aria-expanded="pastOpen" @click="pastOpen = !pastOpen">
-              <span><b class="block text-[16px]">📋 Reprendre un live passé</b><span class="text-[13.5px] text-slate-500">Ses produits, leur ordre et leurs prix</span></span>
-              <span class="text-[18px] text-slate-400" aria-hidden="true">{{ pastOpen ? '▴' : '▾' }}</span>
+              <span><b class="block text-[16px]">📋 Reprendre un live passé</b><span class="text-[13.5px] text-slate-600">Ses produits, leur ordre et leurs prix</span></span>
+              <span class="text-[18px] text-slate-600" aria-hidden="true">{{ pastOpen ? '▴' : '▾' }}</span>
             </button>
             <div v-if="pastOpen" class="divide-y divide-slate-100 border-t border-slate-100">
               <div v-for="pl in d.past" :key="pl.id" class="flex items-center gap-3 px-4 py-2.5">
                 <span class="min-w-0 flex-1">
                   <b class="block truncate text-[15px]">{{ pl.name }}</b>
-                  <span class="block truncate text-[13px] text-slate-500">{{ pastDay(pl.ended_at) }} · {{ pl.items.length }} produit{{ pl.items.length > 1 ? 's' : '' }} · {{ pl.orders_count }} cde{{ pl.orders_count > 1 ? 's' : '' }} · {{ pl.items.map((i) => i.name).join(', ') }}</span>
+                  <span class="block truncate text-[13px] text-slate-600">{{ pastDay(pl.ended_at) }} · {{ pl.items.length }} produit{{ pl.items.length > 1 ? 's' : '' }} · {{ pl.orders_count }} cde{{ pl.orders_count > 1 ? 's' : '' }} · {{ pl.items.map((i) => i.name).join(', ') }}</span>
                 </span>
                 <button type="button" class="shrink-0 rounded-xl bg-slate-900 px-3 py-2 text-[14px] font-bold text-white disabled:opacity-50" :disabled="saving" @click="reuse(pl)">Reprendre</button>
               </div>
@@ -121,23 +121,23 @@
         </label>
 
         <div class="m-card divide-y divide-slate-100 overflow-hidden">
-          <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">MON CATALOGUE · {{ selected.length }} choisi{{ selected.length > 1 ? 's' : '' }}</p>
+          <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-600">MON CATALOGUE · {{ selected.length }} choisi{{ selected.length > 1 ? 's' : '' }}</p>
           <label v-for="p in shownCatalog" :key="p.id" :class="['flex min-h-[60px] items-center gap-3 px-4 py-2.5', p.stock === 0 ? 'opacity-50' : '']">
             <input type="checkbox" class="h-6 w-6 shrink-0 accent-[var(--app-color)]" :checked="isSelected(p.id)" :disabled="p.stock === 0" @change="toggle(p)">
             <img v-if="p.photo_url" :src="thumb(p.photo_url, 160)" alt="" class="h-12 w-12 shrink-0 rounded-xl object-cover">
             <span v-else class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-red-50 text-[18px]" aria-hidden="true">📷</span>
             <span class="min-w-0 flex-1">
               <b class="block truncate text-[15px]">{{ p.name }}</b>
-              <span v-if="!p.photo_url" class="mr-1.5 inline-block rounded-md bg-red-50 px-1.5 text-[12px] font-bold text-red-700">sans photo</span>
-              <span class="text-[14px] text-slate-500">{{ p.stock === null ? 'stock non suivi' : p.stock === 0 ? 'Plus en stock' : `${p.stock} en stock` }} · {{ money(p.price) }}</span>
+              <span v-if="!p.photo_url" class="mr-1.5 inline-block rounded-md bg-red-50 px-1.5 text-xs font-bold text-red-700">sans photo</span>
+              <span class="text-[14px] text-slate-600">{{ p.stock === null ? 'stock non suivi' : p.stock === 0 ? 'Plus en stock' : `${p.stock} en stock` }} · {{ money(p.price) }}</span>
             </span>
           </label>
-          <p v-if="!d.catalog.length" class="p-6 text-center text-[15px] text-slate-500">Votre catalogue est vide : ajoutez vos produits en photo.</p>
+          <p v-if="!d.catalog.length" class="p-6 text-center text-[15px] text-slate-600">Votre catalogue est vide : ajoutez vos produits en photo.</p>
         </div>
 
         <!-- Produits du live : prix et quantité -->
         <div v-if="selected.length" class="m-card divide-y divide-slate-100">
-          <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">PRIX ET QUANTITÉ DU LIVE</p>
+          <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-600">PRIX ET QUANTITÉ DU LIVE</p>
           <div v-for="(r, idx) in selected" :key="r.key" class="px-4 py-2.5">
             <!-- Photo obligatoire : elle est enregistrée sur le produit du catalogue -->
             <div v-if="!r.photo_url && isFirstOf(idx)" class="mb-2 rounded-xl bg-red-50 p-2.5 text-red-800">
@@ -259,7 +259,7 @@
           <div class="space-y-3">
             <div v-for="c in cards" :key="c.letter">
               <img v-if="c.url" :src="c.url" :alt="`Étiquette ${c.letter} du live`" class="mx-auto w-full max-w-[300px] rounded-2xl shadow-soft">
-              <p v-else class="m-card p-6 text-center text-slate-500">Préparation de l'étiquette {{ c.letter }}…</p>
+              <p v-else class="m-card p-6 text-center text-slate-600">Préparation de l'étiquette {{ c.letter }}…</p>
             </div>
           </div>
           <button type="button" class="m-btn-primary w-full" :disabled="saving || !cards.every((c) => c.canvas)" @click="downloadCards">⬇ Télécharger l'étiquette{{ cards.length > 1 ? `s (${cards.length})` : '' }}</button>
@@ -290,7 +290,7 @@
             <button type="button" class="m-btn-primary" :disabled="!photoFile || !np.name || !np.price || !np.quantity || saving" @click="saveProduct(false)">Ajouter au live</button>
           </div>
         </template>
-        <button v-else-if="panel === 'etiquette'" type="button" class="w-full rounded-2xl bg-emerald-600 py-3.5 text-[17px] font-black text-white disabled:opacity-60" :disabled="saving" @click="labelReady">C'est fait ✓</button>
+        <button v-else-if="panel === 'etiquette'" type="button" class="w-full rounded-2xl bg-emerald-700 py-3.5 text-[17px] font-black text-white disabled:opacity-60" :disabled="saving" @click="labelReady">C'est fait ✓</button>
       </footer>
     </div>
 

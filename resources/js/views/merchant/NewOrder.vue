@@ -4,13 +4,13 @@
     <div class="flex justify-center"><ColorIcon name="livre" :size="88" /></div>
     <div>
       <p class="text-2xl font-bold">Course enregistrée</p>
-      <p class="text-slate-500">{{ created.from_warehouse ? 'L\'agence prépare votre commande à l\'entrepôt.' : 'Nous allons envoyer un livreur récupérer le colis.' }}</p>
+      <p class="text-slate-600">{{ created.from_warehouse ? 'L\'agence prépare votre commande à l\'entrepôt.' : 'Nous allons envoyer un livreur récupérer le colis.' }}</p>
       <p v-if="created.delivery?.scheduled_date" class="mt-1 font-semibold text-slate-700">Livraison prévue le {{ longDay(created.delivery.scheduled_date) }}</p>
     </div>
     <div class="m-card p-4 space-y-1">
-      <p class="text-sm text-slate-500">Code de suivi</p>
+      <p class="text-sm text-slate-600">Code de suivi</p>
       <p class="font-mono text-xl font-bold tracking-wider">{{ created.tracking_code }}</p>
-      <p class="text-sm text-slate-500 pt-2">Code de livraison à donner au client</p>
+      <p class="text-sm text-slate-600 pt-2">Code de livraison à donner au client</p>
       <p class="font-mono text-2xl font-bold tracking-[0.3em]">{{ created.delivery_code }}</p>
     </div>
     <a :href="shareLink" target="_blank" class="m-btn-success"><AppIcon name="chat" class="h-5 w-5" />Envoyer le suivi au client sur WhatsApp</a>
@@ -68,7 +68,7 @@
         <span class="shrink-0 rounded-lg px-3 py-2 text-xs font-bold text-white bg-[var(--app-color)]">Utiliser</span>
       </button>
       <div>
-        <label class="m-label" for="name">Nom <span class="font-normal text-slate-500">(facultatif)</span></label>
+        <label class="m-label" for="name">Nom <span class="font-normal text-slate-600">(facultatif)</span></label>
         <input id="name" v-model="form.recipient_name" class="m-input" autocomplete="jibiat-off" placeholder="Ex. : Jean Kouadio">
       </div>
       </template>
@@ -82,7 +82,7 @@
     <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-3" aria-labelledby="step-where" @pointerdown="enter(2)">
       <h2 id="step-where" class="m-step"><ColorIcon name="lieu" :size="34" />Où livrer</h2>
       <button v-if="folded.where" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.where = false">
-        <span class="min-w-0 truncate font-semibold">{{ [zoneName, form.delivery_address].filter((v) => v && v !== '—').join(' · ') }}<span v-if="quote" class="font-normal text-slate-500"> · livraison {{ money(quote.total) }}</span></span>
+        <span class="min-w-0 truncate font-semibold">{{ [zoneName, form.delivery_address].filter((v) => v && v !== '—').join(' · ') }}<span v-if="quote" class="font-normal text-slate-600"> · livraison {{ money(quote.total) }}</span></span>
         <span class="shrink-0 font-bold text-[var(--app-color)]">Modifier</span>
       </button>
       <template v-else>
@@ -101,7 +101,7 @@
         <ZoneSelect id="zone" v-model="form.delivery_zone_id" :zones="zones" mobile :input-class="['m-input', missing.zone ? 'ring-2 ring-red-500' : '']" />
         <!-- Le tarif dès que la commune est choisie -->
         <p v-if="quote" class="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-800">Livraison : {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
-        <p v-else-if="form.delivery_zone_id && !quoteError" class="mt-2 text-sm text-slate-500">Calcul du prix…</p>
+        <p v-else-if="form.delivery_zone_id && !quoteError" class="mt-2 text-sm text-slate-600">Calcul du prix…</p>
         <p v-if="selectedZone?.is_shipping" class="mt-2 rounded-xl bg-indigo-50 text-indigo-900 text-sm p-3">
           <strong>Expédition</strong> : notre livreur dépose le colis à la gare et paie l'envoi
           <template v-if="selectedZone.shipping_fee_estimate">(environ {{ money(selectedZone.shipping_fee_estimate) }})</template>.
@@ -130,7 +130,7 @@
       <template v-else>
 
       <button v-if="products.length && !showStock" type="button" class="tap w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
-        <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon stock</span><AppIcon name="right" class="h-4 w-4 text-slate-400" />
+        <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon stock</span><AppIcon name="right" class="h-4 w-4 text-slate-600" />
       </button>
       <div v-if="products.length && showStock" class="space-y-3">
         <div v-if="stockHubs.length">
@@ -141,7 +141,7 @@
           <div v-for="p in sourceProducts" :key="p.id" class="p-3 flex items-center gap-3">
             <div class="min-w-0 flex-1">
               <p class="font-medium truncate">{{ p.name }}</p>
-              <p class="text-xs text-slate-500">{{ money(p.price) }} · {{ availableAt(p) }} dispo</p>
+              <p class="text-xs text-slate-600">{{ money(p.price) }} · {{ availableAt(p) }} dispo</p>
             </div>
             <div class="flex items-center gap-2">
               <button type="button" class="tap h-9 w-9 rounded-full bg-slate-100 text-lg font-bold disabled:opacity-40" :disabled="!picked[p.id]" :aria-label="`Retirer un ${p.name}`" @click="pick(p, -1)">−</button>
@@ -149,7 +149,7 @@
               <button type="button" class="tap h-9 w-9 rounded-full text-white text-lg font-bold disabled:opacity-40 bg-[var(--app-color)]" :disabled="(picked[p.id] || 0) >= availableAt(p)" :aria-label="`Ajouter un ${p.name}`" @click="pick(p, 1)">+</button>
             </div>
           </div>
-          <p v-if="!sourceProducts.length" class="p-3 text-sm text-slate-500">Aucun produit disponible {{ source ? 'à cet entrepôt' : 'chez vous' }}.</p>
+          <p v-if="!sourceProducts.length" class="p-3 text-sm text-slate-600">Aucun produit disponible {{ source ? 'à cet entrepôt' : 'chez vous' }}.</p>
         </div>
       </div>
 
@@ -157,9 +157,9 @@
         <label class="m-label" for="amount-input">Montant à encaisser chez le client</label>
         <div class="relative">
           <input id="amount-input" v-model.number="form.items_amount" type="number" min="0" step="50" inputmode="numeric" autocomplete="jibiat-off" class="m-input !text-2xl !font-bold pr-12" placeholder="0">
-          <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">F</span>
+          <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 font-bold">F</span>
         </div>
-        <p class="text-xs text-slate-500 mt-1">Prix des articles, sans la livraison. Laissez vide si le client a déjà payé.</p>
+        <p class="text-xs text-slate-600 mt-1">Prix des articles, sans la livraison. Laissez vide si le client a déjà payé.</p>
       </div>
 
       <div id="fee-payer" :class="['rounded-2xl', missing.feePayer ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
@@ -173,7 +173,7 @@
             { value: 'merchant', label: 'Moi', description: 'déduite de mon paiement' },
           ]"
         />
-        <p v-if="habitsUsed.feePayer && !missing.feePayer" class="mt-1.5 text-xs text-slate-500">Comme la dernière fois.</p>
+        <p v-if="habitsUsed.feePayer && !missing.feePayer" class="mt-1.5 text-xs text-slate-600">Comme la dernière fois.</p>
         <p v-if="missing.feePayer" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez qui paie la livraison.</p>
       </div>
       </template>
@@ -184,9 +184,9 @@
       <h2 id="step-when" class="m-step"><ColorIcon name="calendrier" :size="34" /><span>Quand livrer <span class="text-red-600">*</span></span></h2>
       <div id="when-field" :class="['rounded-2xl', missing.date ? 'ring-2 ring-red-500 p-2 -mx-2' : '']">
         <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de livraison" />
-        <p v-if="closed" class="mt-2 text-xs text-slate-500">{{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
+        <p v-if="closed" class="mt-2 text-xs text-slate-600">{{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
         <input v-if="when === 'other'" id="date" v-model="form.delivery_scheduled_date" type="date" :min="minDate" class="m-input mt-2" aria-label="Jour de livraison">
-        <p v-if="habitsUsed.when && !missing.date" class="mt-1.5 text-xs text-slate-500">Comme la dernière fois.</p>
+        <p v-if="habitsUsed.when && !missing.date" class="mt-1.5 text-xs text-slate-600">Comme la dernière fois.</p>
         <p v-if="missing.date" class="mt-2 text-sm font-medium text-red-600" role="alert">Choisissez quand livrer la course.</p>
       </div>
     </section>
@@ -195,7 +195,7 @@
     <section class="rounded-[22px] bg-white px-4 py-1 shadow-soft" @pointerdown="enter(5)">
       <button type="button" class="tap w-full flex items-center justify-between py-3 text-[15px] font-semibold" :aria-expanded="showMore" @click="showMore = !showMore">
         <span>{{ showMore ? '−' : '+' }} Contenu du colis, express, message au livreur</span>
-        <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-500">{{ extrasSummary }}</span>
+        <span v-if="!showMore && extrasSummary" class="truncate pl-2 text-xs font-normal text-slate-600">{{ extrasSummary }}</span>
       </button>
       <div v-show="showMore" class="space-y-4 pt-1 pb-4">
         <div>
@@ -226,16 +226,16 @@
       <div class="mx-auto max-w-lg px-4 py-3 space-y-2">
         <div v-if="quote" class="flex items-end justify-between gap-3 text-sm">
           <div class="min-w-0">
-            <p class="text-slate-500">Livraison {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
-            <p class="text-slate-500">Le livreur encaisse <b class="text-slate-800">{{ money(codAmount) }}</b></p>
+            <p class="text-slate-600">Livraison {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
+            <p class="text-slate-600">Le livreur encaisse <b class="text-slate-800">{{ money(codAmount) }}</b></p>
           </div>
           <p :class="['shrink-0 text-right font-bold', merchantNet < 0 ? 'text-slate-700' : 'text-emerald-700']">
-            <span class="block text-xs font-medium text-slate-500">{{ merchantNet < 0 ? 'À votre charge' : 'Pour vous' }}</span>
+            <span class="block text-xs font-medium text-slate-600">{{ merchantNet < 0 ? 'À votre charge' : 'Pour vous' }}</span>
             <span class="text-lg">{{ quote.is_shipping ? '≈ ' : '' }}{{ money(Math.abs(merchantNet)) }}</span>
           </p>
         </div>
         <p v-else-if="quoteError" class="text-sm text-red-600">{{ quoteError }}</p>
-        <p v-else class="text-sm text-slate-500">{{ form.delivery_zone_id ? 'Calcul du prix…' : 'Choisissez la commune pour voir le prix.' }}</p>
+        <p v-else class="text-sm text-slate-600">{{ form.delivery_zone_id ? 'Calcul du prix…' : 'Choisissez la commune pour voir le prix.' }}</p>
         <!-- Ce qui manque : seulement après un premier essai d'envoi -->
         <p v-if="tried && stillMissing.length" class="text-sm font-semibold text-amber-700">Il manque : {{ stillMissing.join(', ') }}</p>
         <button type="submit" :class="['m-btn-primary', tried && stillMissing.length ? 'opacity-60' : '']" :disabled="saving">{{ saving ? 'Envoi…' : 'Envoyer la course' }}</button>

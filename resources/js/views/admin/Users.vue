@@ -8,24 +8,24 @@
     <!-- Compteurs -->
     <div v-if="summary" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <button type="button" class="card p-3 text-left" @click="setTab('team')">
-        <p class="text-xs text-gray-500">Équipe</p>
+        <p class="text-xs text-slate-600">Équipe</p>
         <p class="text-2xl font-bold">{{ summary.team }}</p>
-        <p class="text-xs text-gray-500">{{ teamBreakdown || '—' }}</p>
+        <p class="text-xs text-slate-600">{{ teamBreakdown || '—' }}</p>
       </button>
       <button type="button" class="card p-3 text-left" @click="setTab('couriers')">
-        <p class="text-xs text-gray-500">Livreurs</p>
+        <p class="text-xs text-slate-600">Livreurs</p>
         <p class="text-2xl font-bold">{{ summary.couriers }}</p>
-        <p class="text-xs text-gray-500">{{ roleCount('courier', 'active') }} actif{{ roleCount('courier', 'active') > 1 ? 's' : '' }} · {{ roleCount('courier', 'suspended') }} suspendu{{ roleCount('courier', 'suspended') > 1 ? 's' : '' }}</p>
+        <p class="text-xs text-slate-600">{{ roleCount('courier', 'active') }} actif{{ roleCount('courier', 'active') > 1 ? 's' : '' }} · {{ roleCount('courier', 'suspended') }} suspendu{{ roleCount('courier', 'suspended') > 1 ? 's' : '' }}</p>
       </button>
       <button type="button" class="card p-3 text-left" @click="setTab('merchants')">
-        <p class="text-xs text-gray-500">Comptes e-commerçants</p>
+        <p class="text-xs text-slate-600">Comptes e-commerçants</p>
         <p class="text-2xl font-bold">{{ summary.merchants }}</p>
-        <p class="text-xs text-gray-500">{{ roleCount('merchant_owner') }} propriétaire{{ roleCount('merchant_owner') > 1 ? 's' : '' }} · {{ roleCount('merchant_staff') }} employé{{ roleCount('merchant_staff') > 1 ? 's' : '' }}</p>
+        <p class="text-xs text-slate-600">{{ roleCount('merchant_owner') }} propriétaire{{ roleCount('merchant_owner') > 1 ? 's' : '' }} · {{ roleCount('merchant_staff') }} employé{{ roleCount('merchant_staff') > 1 ? 's' : '' }}</p>
       </button>
       <button type="button" :class="['card p-3 text-left', summary.inactive ? 'border-amber-300 bg-amber-50' : '']" @click="setTab('inactive')">
-        <p :class="['text-xs', summary.inactive ? 'text-amber-800' : 'text-gray-500']">{{ summary.inactive ? '⚠️ ' : '' }}À vérifier</p>
+        <p :class="['text-xs', summary.inactive ? 'text-amber-800' : 'text-slate-600']">{{ summary.inactive ? '⚠️ ' : '' }}À vérifier</p>
         <p :class="['text-2xl font-bold', summary.inactive ? 'text-amber-800' : '']">{{ summary.inactive }}</p>
-        <p :class="['text-xs', summary.inactive ? 'text-amber-800' : 'text-gray-500']">équipe et livreurs jamais connectés ou inactifs depuis {{ summary.inactive_days }} j</p>
+        <p :class="['text-xs', summary.inactive ? 'text-amber-800' : 'text-slate-600']">équipe et livreurs jamais connectés ou inactifs depuis {{ summary.inactive_days }} j</p>
       </button>
     </div>
 
@@ -52,11 +52,11 @@
     <!-- Comptes dont la suppression a été demandée depuis le profil : annulable avant l'effacement -->
     <section v-if="deletions.length" class="card space-y-2 border-red-200 p-4">
       <h2 class="font-semibold text-red-800">Demandes de suppression de compte ({{ deletions.length }})</h2>
-      <p class="text-xs text-gray-600">Comptes fermés à la demande de leur titulaire. Les données personnelles sont effacées à la date indiquée ; les courses et la comptabilité restent, sous un nom anonyme.</p>
+      <p class="text-xs text-slate-600">Comptes fermés à la demande de leur titulaire. Les données personnelles sont effacées à la date indiquée ; les courses et la comptabilité restent, sous un nom anonyme.</p>
       <ul class="divide-y text-sm">
         <li v-for="d in deletions" :key="d.id" class="flex flex-wrap items-center gap-3 py-2">
           <span class="min-w-0 flex-1 font-medium">{{ d.name }}</span>
-          <span class="text-gray-500">Effacement le {{ date(d.erase_after) }}</span>
+          <span class="text-slate-600">Effacement le {{ date(d.erase_after) }}</span>
           <button v-if="auth.can('users.manage')" class="text-emerald-700" :disabled="cancelling === d.id" @click="cancelDeletion(d)">Annuler et rouvrir le compte</button>
         </li>
       </ul>
@@ -69,7 +69,7 @@
 
     <div v-else class="card">
       <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-left text-xs text-gray-500">
+        <thead class="bg-slate-50 text-left text-xs text-slate-600">
           <tr>
             <th class="p-3">Nom</th>
             <th class="hidden p-3 md:table-cell">Téléphone</th>
@@ -80,19 +80,19 @@
           </tr>
         </thead>
         <tbody class="divide-y">
-          <tr v-for="u in users" :key="u.id" :class="u.status === 'suspended' ? 'bg-slate-50 text-gray-500' : ''">
+          <tr v-for="u in users" :key="u.id" :class="u.status === 'suspended' ? 'bg-slate-50 text-slate-600' : ''">
             <td class="p-3">
               <p class="font-medium">
                 <RouterLink v-if="ficheLink(u)" :to="ficheLink(u)" class="hover:underline">{{ u.name }}</RouterLink>
                 <template v-else>{{ u.name }}</template>
-                <span v-if="u.id === auth.user.id" class="text-xs text-gray-400"> (vous)</span>
+                <span v-if="u.id === auth.user.id" class="text-xs text-slate-600"> (vous)</span>
               </p>
-              <p v-if="u.merchant" class="text-xs text-gray-500">{{ u.merchant.business_name }}</p>
-              <p class="text-xs text-gray-500 sm:hidden">{{ u.role_label }}<template v-if="isProtected(u)"> · 🔒 protégé</template></p>
-              <p class="text-xs text-gray-500 md:hidden">{{ u.phone }}</p>
+              <p v-if="u.merchant" class="text-xs text-slate-600">{{ u.merchant.business_name }}</p>
+              <p class="text-xs text-slate-600 sm:hidden">{{ u.role_label }}<template v-if="isProtected(u)"> · 🔒 protégé</template></p>
+              <p class="text-xs text-slate-600 md:hidden">{{ u.phone }}</p>
               <p class="flex flex-wrap gap-1 md:hidden"><span v-for="b in badges(u)" :key="b.text" :class="['rounded px-1.5 py-0.5 text-xs', b.cls]">{{ b.text }}</span></p>
             </td>
-            <td class="hidden p-3 md:table-cell">{{ u.phone }}<p v-if="u.email" class="text-xs text-gray-500">{{ u.email }}</p></td>
+            <td class="hidden p-3 md:table-cell">{{ u.phone }}<p v-if="u.email" class="text-xs text-slate-600">{{ u.email }}</p></td>
             <td class="hidden p-3 sm:table-cell">
               {{ u.role_label }}
               <span v-if="isProtected(u)" class="ml-1 whitespace-nowrap rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600" title="Ses accès ne peuvent être changés que par elle-même ou par le propriétaire de la plateforme">🔒 protégé</span>
@@ -100,7 +100,7 @@
             <td class="hidden p-3 md:table-cell">
               <span class="flex flex-wrap gap-1"><span v-for="b in badges(u)" :key="b.text" :class="['rounded px-1.5 py-0.5 text-xs', b.cls]">{{ b.text }}</span></span>
             </td>
-            <td class="hidden p-3 text-xs text-gray-500 lg:table-cell">{{ u.last_login_at ? ago(u.last_login_at) : `créé le ${date(u.created_at)}` }}</td>
+            <td class="hidden p-3 text-xs text-slate-600 lg:table-cell">{{ u.last_login_at ? ago(u.last_login_at) : `créé le ${date(u.created_at)}` }}</td>
             <td class="whitespace-nowrap p-3 text-right">
               <button v-if="u.status === 'suspended' && u.abilities?.access" type="button" class="mr-2 rounded-lg border border-emerald-500 px-2 py-1 text-emerald-700" @click="ask('reactivate', u)">Réactiver</button>
               <span v-if="actions(u).length" class="relative inline-block">
@@ -114,17 +114,17 @@
               </span>
             </td>
           </tr>
-          <tr v-if="!users.length && !loading"><td colspan="6" class="p-6 text-center text-gray-500">{{ search ? 'Personne ne correspond à cette recherche.' : 'Personne dans cet onglet.' }}</td></tr>
+          <tr v-if="!users.length && !loading"><td colspan="6" class="p-6 text-center text-slate-600">{{ search ? 'Personne ne correspond à cette recherche.' : 'Personne dans cet onglet.' }}</td></tr>
         </tbody>
       </table>
-      <div v-if="meta && meta.total > meta.per_page" class="flex items-center justify-between border-t p-3 text-sm text-gray-500">
+      <div v-if="meta && meta.total > meta.per_page" class="flex items-center justify-between border-t p-3 text-sm text-slate-600">
         <span>{{ meta.from }} à {{ meta.to }} sur {{ meta.total }}</span>
         <span class="flex gap-1">
           <button type="button" class="rounded border px-2 py-0.5 disabled:opacity-40" :disabled="meta.current_page <= 1" aria-label="Page précédente" @click="go(-1)">‹</button>
           <button type="button" class="rounded border px-2 py-0.5 disabled:opacity-40" :disabled="meta.current_page >= meta.last_page" aria-label="Page suivante" @click="go(1)">›</button>
         </span>
       </div>
-      <p v-else-if="meta && meta.total" class="border-t p-3 text-sm text-gray-500">{{ meta.total }} compte{{ meta.total > 1 ? 's' : '' }}</p>
+      <p v-else-if="meta && meta.total" class="border-t p-3 text-sm text-slate-600">{{ meta.total }} compte{{ meta.total > 1 ? 's' : '' }}</p>
     </div>
 
     <!-- Créer / modifier -->
@@ -136,36 +136,36 @@
         </p>
         <div><label class="label">Nom *</label><input v-model="form.data.name" class="input" required></div>
         <div class="grid grid-cols-2 gap-3">
-          <div><label class="label">Téléphone *</label><input v-model="form.data.phone" class="input disabled:bg-slate-50 disabled:text-gray-500" required inputmode="tel" :disabled="!form.credentials"></div>
-          <div><label class="label">E-mail</label><input v-model="form.data.email" type="email" class="input disabled:bg-slate-50 disabled:text-gray-500" :disabled="!form.credentials"></div>
+          <div><label class="label">Téléphone *</label><input v-model="form.data.phone" class="input disabled:bg-slate-50 disabled:text-slate-500" required inputmode="tel" :disabled="!form.credentials"></div>
+          <div><label class="label">E-mail</label><input v-model="form.data.email" type="email" class="input disabled:bg-slate-50 disabled:text-slate-500" :disabled="!form.credentials"></div>
         </div>
         <div v-if="form.access">
           <p class="label">Rôle *</p>
           <div class="space-y-1.5">
             <label v-for="r in assignable" :key="r.value" :class="['flex cursor-pointer gap-2 rounded-lg border px-3 py-2', form.data.role === r.value ? 'border-2 border-emerald-500 bg-emerald-50' : '']">
               <input v-model="form.data.role" type="radio" name="role" :value="r.value" class="mt-1">
-              <span><b>{{ r.label }}</b><br><span class="text-xs text-gray-500">{{ ROLE_HELP[r.value] }}</span></span>
+              <span><b>{{ r.label }}</b><br><span class="text-xs text-slate-600">{{ ROLE_HELP[r.value] }}</span></span>
             </label>
           </div>
         </div>
-        <div v-else-if="form.id"><p class="label">Rôle</p><p class="input bg-slate-50 text-gray-500">{{ form.original.role_label }}</p></div>
+        <div v-else-if="form.id"><p class="label">Rôle</p><p class="input bg-slate-50 text-slate-600">{{ form.original.role_label }}</p></div>
         <div v-if="form.credentials">
           <label class="label">{{ form.id ? 'Nouveau mot de passe (laisser vide pour ne pas changer)' : 'Mot de passe (facultatif, 8 caractères min.)' }}</label>
           <div class="flex">
             <input v-model="form.data.password" :type="showPassword ? 'text' : 'password'" class="input rounded-r-none" autocomplete="new-password" :placeholder="form.id ? '' : 'Vide : un lien d\'invitation à envoyer par WhatsApp'">
             <button type="button" class="rounded-r-lg border border-l-0 border-slate-300 px-3" :aria-label="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'" @click="showPassword = !showPassword">{{ showPassword ? '🙈' : '👁️' }}</button>
           </div>
-          <p v-if="!form.id" class="mt-1 text-xs text-gray-500">Sans mot de passe, vous recevez un lien personnel à envoyer par WhatsApp : la personne arrive connectée et choisit son mot de passe si elle veut.</p>
+          <p v-if="!form.id" class="mt-1 text-xs text-slate-600">Sans mot de passe, vous recevez un lien personnel à envoyer par WhatsApp : la personne arrive connectée et choisit son mot de passe si elle veut.</p>
         </div>
         <button class="btn-primary w-full" :disabled="form.saving">{{ !form.id ? (form.data.password ? 'Créer' : 'Créer et préparer l\'invitation') : form.credentials ? 'Enregistrer' : 'Enregistrer le nom' }}</button>
-        <p v-if="form.id" class="text-center text-xs text-gray-500">Le statut se change depuis le menu ⋯ (Suspendre ou Réactiver).</p>
+        <p v-if="form.id" class="text-center text-xs text-slate-600">Le statut se change depuis le menu ⋯ (Suspendre ou Réactiver).</p>
       </form>
     </Modal>
 
     <!-- Confirmation : suspendre, réactiver, déconnecter -->
     <Modal :open="!!confirm" :title="confirm?.title || ''" @close="confirm = null">
       <div v-if="confirm" class="space-y-3 text-sm">
-        <p class="text-gray-600">{{ confirm.text }}</p>
+        <p class="text-slate-600">{{ confirm.text }}</p>
         <div class="flex gap-2">
           <button type="button" :class="['flex-1', confirm.danger ? 'btn-danger' : 'btn-primary']" :disabled="busy" @click="confirm.run()">{{ confirm.button }}</button>
           <button type="button" class="btn-secondary flex-1" @click="confirm = null">Annuler</button>
@@ -176,14 +176,14 @@
     <!-- Historique du compte -->
     <Modal :open="!!history" :title="history ? `Historique : ${history.user.name}` : ''" @close="history = null">
       <div v-if="history" class="text-sm">
-        <p v-if="history.loading" class="text-gray-500">Chargement…</p>
+        <p v-if="history.loading" class="text-slate-600">Chargement…</p>
         <ul v-else-if="history.events.length" class="space-y-2">
           <li v-for="e in history.events" :key="e.id" class="flex gap-3">
-            <span class="w-28 shrink-0 text-xs text-gray-400">{{ dateTime(e.at) }}</span>
+            <span class="w-28 shrink-0 text-xs text-slate-600">{{ dateTime(e.at) }}</span>
             <span>{{ e.text }}<template v-if="e.by">, par <b>{{ e.by }}</b></template></span>
           </li>
         </ul>
-        <p v-else class="text-gray-500">Rien d'enregistré pour ce compte (l'historique commence avec cette version de la page).</p>
+        <p v-else class="text-slate-600">Rien d'enregistré pour ce compte (l'historique commence avec cette version de la page).</p>
       </div>
     </Modal>
 
@@ -198,7 +198,7 @@
           <input :value="invitation.url" readonly class="input flex-1 text-xs" @focus="$event.target.select()">
           <button type="button" class="btn-secondary" @click="copy(invitation.url)">Copier</button>
         </div>
-        <p class="text-xs text-gray-500">Pas de WhatsApp ? Donnez-lui le lien autrement, ou renseignez un mot de passe dans « Modifier ».</p>
+        <p class="text-xs text-slate-600">Pas de WhatsApp ? Donnez-lui le lien autrement, ou renseignez un mot de passe dans « Modifier ».</p>
       </div>
     </Modal>
   </div>

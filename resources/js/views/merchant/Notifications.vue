@@ -11,7 +11,7 @@
     </div>
 
     <template v-for="section in sections" :key="section.label">
-      <h2 class="px-1 pt-1 text-[12.5px] font-bold uppercase tracking-wider text-slate-400">{{ section.label }}</h2>
+      <h2 class="px-1 pt-1 text-[12.5px] font-bold uppercase tracking-wider text-slate-600">{{ section.label }}</h2>
       <div class="rounded-[22px] bg-white shadow-soft divide-y divide-slate-100">
         <div v-for="item in section.items" :key="item.key" class="flex gap-3 p-3.5">
           <ColorIcon :name="item.look.color" :size="42" />
@@ -19,7 +19,7 @@
             <button type="button" class="block w-full text-left" @click="open(item)">
               <b class="block text-[14.5px]">{{ item.title }}</b>
               <span class="text-slate-600">{{ item.body }}</span>
-              <span class="text-xs text-slate-400"> · {{ item.when }}</span>
+              <span class="text-xs text-slate-600"> · {{ item.when }}</span>
             </button>
             <!-- Colis à régler : le choix le plus courant en un toucher -->
             <div v-if="item.decide" class="mt-2 flex gap-2">

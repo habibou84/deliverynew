@@ -3,7 +3,7 @@
     <div>
       <RouterLink to="/admin/reglages/reprise/controles" class="text-sm font-medium text-emerald-700">‹ Contrôles et ménage</RouterLink>
       <h1 class="text-xl font-bold">Argent chez les livreurs : point de départ</h1>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Dans l'ancienne application, les encaissements des livreurs n'étaient pas toujours mis à jour. Choisissez une
         date : avant elle, l'argent est considéré comme remis, sauf ce que chaque livreur a vraiment en main.
       </p>
@@ -23,26 +23,26 @@
           <input v-model="cutoff" type="date" class="input mt-1 block" :max="todayIso" @change="load">
         </label>
       </div>
-      <p class="text-sm text-gray-600">Les courses livrées à partir de cette date restent chez le livreur tant qu'il ne les a pas versées à la caisse.</p>
+      <p class="text-sm text-slate-600">Les courses livrées à partir de cette date restent chez le livreur tant qu'il ne les a pas versées à la caisse.</p>
     </section>
 
     <section v-if="state" class="card p-4 space-y-3">
       <h2 class="font-semibold">2. Livreur par livreur</h2>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Comptez l'argent avec chaque livreur. S'il a tout remis, laissez « Tout remis ». Sinon, tapez le montant qu'il a
         vraiment : Jibiat garde les courses les plus récentes qui font ce montant.
       </p>
-      <p v-if="!state.couriers.length" class="text-sm text-gray-600">Aucun argent de l'ancienne application n'est compté chez les livreurs.</p>
+      <p v-if="!state.couriers.length" class="text-sm text-slate-600">Aucun argent de l'ancienne application n'est compté chez les livreurs.</p>
       <div v-else class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-left text-xs text-gray-500">
+          <thead class="bg-slate-50 text-left text-xs text-slate-600">
             <tr><th class="px-3 py-2">Livreur</th><th class="px-3">Compté aujourd'hui</th><th class="px-3">Depuis la date</th><th class="px-3">Ce qu'il a vraiment</th><th class="px-3 text-right">Après</th></tr>
           </thead>
           <tbody>
             <tr v-for="c in state.couriers" :key="c.courier_id ?? 0" class="border-t">
               <td class="px-3 py-2 font-medium">{{ c.name }}</td>
-              <td class="px-3 whitespace-nowrap">{{ money(c.total) }}<span class="block text-xs text-gray-500">{{ c.count }} course(s)<template v-if="c.oldest">, depuis le {{ date(c.oldest) }}</template></span></td>
-              <td class="px-3 whitespace-nowrap">{{ money(c.since_total) }}<span class="block text-xs text-gray-500">{{ c.since_count }} course(s)</span></td>
+              <td class="px-3 whitespace-nowrap">{{ money(c.total) }}<span class="block text-xs text-slate-600">{{ c.count }} course(s)<template v-if="c.oldest">, depuis le {{ date(c.oldest) }}</template></span></td>
+              <td class="px-3 whitespace-nowrap">{{ money(c.since_total) }}<span class="block text-xs text-slate-600">{{ c.since_count }} course(s)</span></td>
               <td class="px-3 py-2">
                 <div class="flex flex-wrap items-center gap-2">
                   <button type="button" :class="pill(!hasAmount(c))" @click="clearAmount(c)">Tout remis</button>
@@ -62,13 +62,13 @@
           </tfoot>
         </table>
       </div>
-      <p class="text-xs text-gray-500">« Après » est une estimation : avec un montant, Jibiat garde les courses les plus récentes tant qu'elles tiennent dans ce montant.</p>
+      <p class="text-xs text-slate-600">« Après » est une estimation : avec un montant, Jibiat garde les courses les plus récentes tant qu'elles tiennent dans ce montant.</p>
     </section>
 
     <section v-if="state?.couriers.length" class="card p-4 flex flex-wrap items-end gap-3">
       <div class="flex-1 min-w-[16rem]">
         <h2 class="font-semibold">3. {{ money(state.totals.total - totalAfter) }} seront marqués « remis dans l'ancienne application »</h2>
-        <p class="text-sm text-gray-600">Rien ne bouge dans la caisse : pas de versement, pas de message aux livreurs ni aux e-commerçants. Ce qui est dû aux e-commerçants ne change pas. Annulable pendant 7 jours.</p>
+        <p class="text-sm text-slate-600">Rien ne bouge dans la caisse : pas de versement, pas de message aux livreurs ni aux e-commerçants. Ce qui est dû aux e-commerçants ne change pas. Annulable pendant 7 jours.</p>
       </div>
       <label class="text-sm font-medium">Tapez VALIDER pour confirmer
         <input v-model="confirm" type="text" class="input mt-1 block" autocomplete="off">
@@ -84,7 +84,7 @@
       <button v-if="last.can_undo" type="button" class="btn-secondary" :disabled="busy" @click="undo">Annuler (jusqu'au {{ date(last.undo_until) }})</button>
     </div>
 
-    <p class="text-sm text-gray-600">Une course réglée ici ne revient plus chez le livreur, même quand l'ancienne application est recopiée. Elle garde la note « Argent remis dans l'ancienne application (point de départ) ».</p>
+    <p class="text-sm text-slate-600">Une course réglée ici ne revient plus chez le livreur, même quand l'ancienne application est recopiée. Elle garde la note « Argent remis dans l'ancienne application (point de départ) ».</p>
   </div>
 </template>
 

@@ -6,7 +6,7 @@
       <p class="text-lg font-semibold">{{ error }}</p>
     </div>
 
-    <p v-else-if="!live" class="py-24 text-center text-slate-500">Chargement…</p>
+    <p v-else-if="!live" class="py-24 text-center text-slate-600">Chargement…</p>
 
     <!-- Commande envoyée -->
     <div v-else-if="done" class="mx-auto max-w-md space-y-4 px-4 py-12 text-center">
@@ -43,7 +43,7 @@
             <button type="button" :class="['m-card flex w-full flex-col overflow-hidden text-left', picked?.code === i.code ? 'ring-4 ring-[var(--app-color)]' : '']" :disabled="live.status !== 'live'" @click="pick(i)">
               <span class="relative grid aspect-square w-full place-items-center bg-slate-100">
                 <img v-if="i.photo_url" :src="thumb(i.photo_url, 640)" :alt="i.name" class="h-full w-full object-cover" loading="lazy">
-                <span v-else class="text-4xl font-extrabold text-slate-500">{{ i.code }}</span>
+                <span v-else class="text-4xl font-extrabold text-slate-600">{{ i.code }}</span>
                 <span v-if="i.photo_url" class="absolute left-2 top-2 rounded-lg bg-slate-900 px-2 py-0.5 text-[15px] font-extrabold text-white">{{ i.code }}</span>
               </span>
               <span class="flex flex-col gap-0.5 p-3">
@@ -88,7 +88,7 @@
           <!-- Piège à robots : invisible pour les personnes -->
           <input v-model="form.website" type="text" name="website" tabindex="-1" autocomplete="off" class="absolute -left-[9999px] h-0 w-0 opacity-0" aria-hidden="true">
           <button type="submit" class="m-btn-primary w-full" :disabled="sending || !form.zone_id">{{ sending ? 'Envoi…' : 'Commander' }}</button>
-          <p class="text-center text-[13px] text-slate-500">Vous payez à la livraison.</p>
+          <p class="text-center text-[13px] text-slate-600">Vous payez à la livraison.</p>
         </form>
       </main>
     </template>

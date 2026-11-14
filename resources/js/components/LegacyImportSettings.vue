@@ -3,10 +3,10 @@
   <section v-if="state && part === 'connect'" class="card p-4 space-y-3">
     <div>
       <h2 class="font-semibold">Envoi des comptes et des zones</h2>
-      <p class="text-sm text-gray-600">C'est l'ancienne application qui envoie ses zones, ses e-commerçants et ses livreurs, avec un bouton.</p>
+      <p class="text-sm text-slate-600">C'est l'ancienne application qui envoie ses zones, ses e-commerçants et ses livreurs, avec un bouton.</p>
     </div>
 
-    <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+    <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
       <li>
         Copiez le module dans l'ancienne application, en suivant les explications en tête du fichier :
         <button type="button" class="text-blue-600" @click="downloadModule">télécharger JibiatMigrationController.php</button>.
@@ -18,11 +18,11 @@
     <div v-if="key" class="space-y-2 rounded-lg bg-amber-50 p-3 text-sm">
       <p class="font-medium">Copiez la clé maintenant : elle ne sera plus affichée.</p>
       <div class="flex flex-wrap items-center gap-2">
-        <span class="text-gray-600">Adresse :</span><code class="break-all">{{ origin }}</code>
+        <span class="text-slate-600">Adresse :</span><code class="break-all">{{ origin }}</code>
         <button type="button" class="text-xs text-blue-600" @click="copy(origin)">Copier</button>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <span class="text-gray-600">Clé :</span><code class="break-all">{{ key }}</code>
+        <span class="text-slate-600">Clé :</span><code class="break-all">{{ key }}</code>
         <button type="button" class="text-xs text-blue-600" @click="copy(key)">Copier</button>
       </div>
     </div>
@@ -36,20 +36,20 @@
       <button type="button" class="btn-primary" :disabled="busy" @click="createKey">{{ state.active ? 'Créer une nouvelle clé' : 'Créer une clé de reprise' }}</button>
       <button v-if="state.active" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="revoke">Désactiver la clé</button>
     </div>
-    <p class="text-xs text-gray-500">La clé est valable 7 jours ; une nouvelle clé remplace la précédente. Désactivez-la une fois les comptes repris.</p>
+    <p class="text-xs text-slate-600">La clé est valable 7 jours ; une nouvelle clé remplace la précédente. Désactivez-la une fois les comptes repris.</p>
   </section>
 
   <!-- Étape « Comptes et zones » : ce qui est repris, et comment lancer l'envoi -->
   <section v-else-if="state" class="card p-4 space-y-3">
     <div>
       <h2 class="font-semibold">Comptes et zones</h2>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Les noms de vos zones (table « fees »), puis vos e-commerçants et livreurs arrivent depuis l'ancienne application ;
         chacun garde son numéro et son mot de passe. Les prix des zones ne sont pas repris : fixez vos tarifs dans Tarifs.
         Les comptes de l'équipe ne sont pas repris : recréez-les dans Utilisateurs.
       </p>
     </div>
-    <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+    <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
       <li>Dans l'ancienne application, ouvrez la page « Migration vers Jibiat ».</li>
       <li>Cliquez sur « Simuler », vérifiez le résultat, puis sur « Envoyer ». Relancer ne crée pas de doublon.</li>
     </ol>
@@ -61,7 +61,7 @@
       Pas de clé de reprise active : créez-la d'abord dans
       <RouterLink to="/admin/reglages/reprise/brancher" class="font-semibold underline">Brancher l'ancienne application</RouterLink>.
     </p>
-    <p class="text-xs text-gray-500">Les zones sont envoyées en premier : la commune de chaque e-commerçant sert à choisir sa zone de ramassage.</p>
+    <p class="text-xs text-slate-600">Les zones sont envoyées en premier : la commune de chaque e-commerçant sert à choisir sa zone de ramassage.</p>
   </section>
 </template>
 

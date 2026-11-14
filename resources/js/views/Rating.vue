@@ -5,7 +5,7 @@
     </header>
 
     <main class="mx-auto max-w-md px-5 py-6 space-y-6">
-      <p v-if="loading" class="py-16 text-center text-slate-500">Chargement…</p>
+      <p v-if="loading" class="py-16 text-center text-slate-600">Chargement…</p>
       <p v-else-if="notFound" class="py-16 text-center text-slate-600">Ce lien d'avis n'existe pas ou n'est plus valable.</p>
 
       <template v-else-if="info">
@@ -13,7 +13,7 @@
           <span class="h-12 w-12 shrink-0 rounded-full bg-emerald-100 text-emerald-800 grid place-items-center text-lg font-bold" aria-hidden="true">{{ initial }}</span>
           <div class="min-w-0">
             <p class="text-lg font-bold">{{ info.courier_first_name ? `${info.courier_first_name} vous a livré` : 'Votre colis a été livré' }}</p>
-            <p class="text-sm text-slate-500">{{ deliveredText }}<template v-if="info.merchant_name"> · {{ info.merchant_name }}</template></p>
+            <p class="text-sm text-slate-600">{{ deliveredText }}<template v-if="info.merchant_name"> · {{ info.merchant_name }}</template></p>
           </div>
         </div>
 
@@ -57,7 +57,7 @@
           <button class="w-full rounded-xl bg-emerald-700 py-3.5 font-semibold text-white disabled:opacity-50" :disabled="!score || sending">
             {{ sending ? 'Envoi…' : 'Envoyer mon avis' }}
           </button>
-          <p class="text-center text-xs text-slate-500">Votre avis est anonyme : le livreur ne voit ni votre nom ni votre numéro.</p>
+          <p class="text-center text-xs text-slate-600">Votre avis est anonyme : le livreur ne voit ni votre nom ni votre numéro.</p>
         </form>
       </template>
     </main>

@@ -2,15 +2,15 @@
   <section v-if="state" class="card p-4 space-y-4">
     <div v-if="part === 'connect'">
       <h2 class="font-semibold">Lecture des commandes</h2>
-      <p class="text-sm text-gray-600">C'est Jibiat qui va lire les commandes dans l'ancienne application, sans rien y modifier.</p>
+      <p class="text-sm text-slate-600">C'est Jibiat qui va lire les commandes dans l'ancienne application, sans rien y modifier.</p>
     </div>
     <div v-else-if="part === 'balances'">
       <h2 class="font-semibold">Contrôle des soldes</h2>
-      <p class="text-sm text-gray-600">Ce que l'ancienne application doit aux e-commerçants et l'argent encore chez les livreurs, comparés avec Jibiat.</p>
+      <p class="text-sm text-slate-600">Ce que l'ancienne application doit aux e-commerçants et l'argent encore chez les livreurs, comparés avec Jibiat.</p>
     </div>
     <div v-else>
       <h2 class="font-semibold">Commandes de l'ancienne application</h2>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Jibiat va chercher les commandes dans l'ancienne application (lecture seule, rien n'y est modifié) : les
         {{ state.months }} derniers mois, toutes celles en cours et celles dont l'argent n'est pas encore soldé. Ensuite,
         chaque minute, les commandes créées ou modifiées là-bas (par les e-commerçants ou l'administration) arrivent ici.
@@ -20,7 +20,7 @@
 
     <!-- Branchement -->
     <div v-if="part === 'connect'" class="space-y-2">
-      <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+      <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
         <li>Copiez le module dans l'ancienne application (explications en tête du fichier) :
           <button type="button" class="text-blue-600" @click="downloadModule">télécharger JibiatSyncController.php</button>.</li>
         <li>Créez la clé de lecture et mettez la ligne affichée dans le fichier .env de l'ancienne application.</li>
@@ -59,7 +59,7 @@
       <div v-if="running" class="space-y-1">
         <p class="text-sm">{{ job.mode === 'simulate' ? '🔍 Simulation' : '📥 Reprise' }} en cours : {{ job.done }} / {{ job.total || '…' }}</p>
         <div class="h-2 rounded bg-slate-200"><div class="h-2 rounded bg-blue-600" :style="{ width: `${job.total ? Math.round(job.done * 100 / job.total) : 3}%` }" /></div>
-        <p class="text-xs text-gray-500">Des plus récentes aux plus anciennes (jour de livraison). Vous pouvez quitter la page : la reprise continue sur le serveur.</p>
+        <p class="text-xs text-slate-600">Des plus récentes aux plus anciennes (jour de livraison). Vous pouvez quitter la page : la reprise continue sur le serveur.</p>
         <p v-if="job.status === 'stalled'" class="text-xs text-amber-700">⏸️ Interrompue (redémarrage du serveur) : elle repart toute seule d'ici une minute, là où elle s'était arrêtée.</p>
         <p v-else-if="job.error" class="text-xs text-amber-700">⚠️ L'ancienne application n'a pas répondu ({{ job.error }}) : nouvel essai dans quelques minutes.</p>
       </div>
@@ -75,7 +75,7 @@
           <StatCard title="À vérifier" :value="report.actions.skipped + report.warnings.length" icon="⚠️" />
         </div>
         <table class="w-full text-sm">
-          <thead><tr class="text-left text-gray-500"><th class="py-1">Ancien état</th><th class="text-right">Nombre</th><th class="pl-4">Dans Jibiat</th></tr></thead>
+          <thead><tr class="text-left text-slate-600"><th class="py-1">Ancien état</th><th class="text-right">Nombre</th><th class="pl-4">Dans Jibiat</th></tr></thead>
           <tbody>
             <tr v-for="(row, etat) in report.by_etat" :key="etat" class="border-t">
               <td class="py-1.5">{{ etat }}</td>
@@ -93,7 +93,7 @@
             <li v-for="(w, i) in report.warnings" :key="`w${i}`"><b>n° {{ w.id }}</b> {{ w.name }} — {{ w.reason }}</li>
           </ul>
         </details>
-        <p v-if="report.products" class="text-sm text-gray-600">🛍️ {{ report.products.products }} produit(s) repris avec leur stock actuel<template v-if="report.products.skipped">, {{ report.products.skipped }} ignoré(s) (e-commerçant non repris)</template>.</p>
+        <p v-if="report.products" class="text-sm text-slate-600">🛍️ {{ report.products.products }} produit(s) repris avec leur stock actuel<template v-if="report.products.skipped">, {{ report.products.skipped }} ignoré(s) (e-commerçant non repris)</template>.</p>
       </template>
 
       <p class="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
@@ -108,34 +108,34 @@
     </div>
 
     <!-- Soldes -->
-    <p v-if="part === 'balances' && !state.imported_at" class="text-sm text-gray-600">À faire une fois les commandes reprises.</p>
+    <p v-if="part === 'balances' && !state.imported_at" class="text-sm text-slate-600">À faire une fois les commandes reprises.</p>
     <div v-if="part === 'balances' && state.imported_at" class="space-y-3">
       <!-- Soldé dans l'ancienne application : recopié ici tout seul, sans compter dans la caisse du jour -->
       <div v-if="state.settled" class="rounded-lg bg-slate-50 p-3 text-sm space-y-2">
         <p class="font-medium">💸 Soldé dans l'ancienne application, recopié ici</p>
         <div class="grid gap-2 sm:grid-cols-2">
           <p>
-            <span class="text-gray-600">Aujourd'hui :</span>
+            <span class="text-slate-600">Aujourd'hui :</span>
             {{ state.settled.today.merchant_orders }} course(s) payée(s) aux e-commerçants ({{ money(state.settled.today.merchant_amount) }}) ·
             {{ state.settled.today.courier_orders }} course(s) plus chez les livreurs ({{ money(state.settled.today.courier_amount) }})
           </p>
           <p>
-            <span class="text-gray-600">En tout :</span>
+            <span class="text-slate-600">En tout :</span>
             {{ state.settled.total.merchant_orders }} course(s) ({{ money(state.settled.total.merchant_amount) }}) ·
             {{ state.settled.total.courier_orders }} course(s) ({{ money(state.settled.total.courier_amount) }})<template v-if="state.settled.total.courier_paid_orders">, dont {{ state.settled.total.courier_paid_orders }} par un paiement terminé</template>
           </p>
         </div>
-        <p class="text-xs text-gray-500">Ces sommes ne comptent pas dans la clôture de caisse du jour : elles ont été réglées dans l'ancienne application.</p>
+        <p class="text-xs text-slate-600">Ces sommes ne comptent pas dans la clôture de caisse du jour : elles ont été réglées dans l'ancienne application.</p>
         <label class="flex items-start gap-2">
           <input type="checkbox" class="mt-1" :checked="state.paid_settles_courier" :disabled="busy" @change="savePaymentRule($event.target.checked)">
           <span>
             Un paiement « terminé » à l'e-commerçant vaut remise de l'argent par le livreur
-            <span class="block text-xs text-gray-500">À décocher si l'entreprise paie parfois l'e-commerçant avant que le livreur ait rendu l'argent. S'applique aux copies suivantes.</span>
+            <span class="block text-xs text-slate-600">À décocher si l'entreprise paie parfois l'e-commerçant avant que le livreur ait rendu l'argent. S'applique aux copies suivantes.</span>
           </span>
         </label>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <p class="flex-1 text-sm text-gray-600">{{ state.balances_validated_at ? '' : 'Pas encore validés.' }}</p>
+        <p class="flex-1 text-sm text-slate-600">{{ state.balances_validated_at ? '' : 'Pas encore validés.' }}</p>
         <span v-if="state.balances_validated_at" class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">✓ Validés le {{ dateTime(state.balances_validated_at) }}</span>
         <button type="button" class="btn-secondary" :disabled="busy" @click="loadBalances">{{ balances ? 'Recalculer' : 'Comparer les soldes' }}</button>
       </div>
@@ -164,7 +164,7 @@
         <StatCard title="Signalées après la bascule" :value="state.conflicts" icon="⚠️" />
       </div>
       <p v-if="state.last_error" class="field-error">⚠️ {{ state.last_error }}</p>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         <template v-if="state.switch_at && new Date(state.switch_at) <= new Date()">Bascule faite : Jibiat fait foi. Une commande encore saisie dans l'ancienne application arrive comme nouvelle course (l'équipe est prévenue) ; une modification là-bas d'une course déjà ici est signalée, sans rien écraser.</template>
         <template v-else>Avant la bascule, l'ancienne application fait foi : ses changements remplacent ceux de la copie. Chaque nuit, les courses en cours sont relues.</template>
       </p>
@@ -196,7 +196,7 @@ const BalanceTable = defineComponent({
     return () => h('div', { class: 'rounded-lg border' }, [
       h('p', { class: 'border-b px-3 py-2 text-sm font-medium' }, props.title),
       h('div', { class: 'max-h-72 overflow-auto' }, h('table', { class: 'w-full text-sm' }, [
-        h('thead', h('tr', { class: 'text-left text-xs text-gray-500' }, [h('th', { class: 'px-3 py-1' }, ''), h('th', { class: 'text-right font-normal' }, props.oldLabel), h('th', { class: 'px-3 text-right font-normal' }, 'Jibiat')])),
+        h('thead', h('tr', { class: 'text-left text-xs text-slate-600' }, [h('th', { class: 'px-3 py-1' }, ''), h('th', { class: 'text-right font-normal' }, props.oldLabel), h('th', { class: 'px-3 text-right font-normal' }, 'Jibiat')])),
         h('tbody', props.rows.map((r) => h('tr', { key: r.legacy_id, class: ['border-t', r.gap ? 'bg-amber-50 text-amber-900' : ''] }, [
           h('td', { class: 'px-3 py-1' }, r.name),
           h('td', { class: 'text-right tabular-nums whitespace-nowrap' }, money(r.old)),

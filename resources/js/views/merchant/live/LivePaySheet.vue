@@ -11,7 +11,7 @@
       <p class="mt-1 text-[14.5px] text-slate-600">Vous payez à la fin de chaque live, selon le nombre de commandes :</p>
       <LiveTiers :tiers="offer.tiers" class="mt-2" />
 
-      <p class="mt-4 text-[15px] font-bold">Recharger mon crédit live <span class="font-normal text-slate-500">· en ce moment {{ money(offer.credit) }}</span></p>
+      <p class="mt-4 text-[15px] font-bold">Recharger mon crédit live <span class="font-normal text-slate-600">· en ce moment {{ money(offer.credit) }}</span></p>
       <div class="mt-2 grid grid-cols-3 gap-2">
         <button v-for="a in offer.recharges" :key="a" type="button" :class="['rounded-2xl border-[2.5px] py-3 text-[17px] font-black', choice === a ? 'border-[var(--app-color)] bg-slate-50' : 'border-slate-200']" @click="choice = a">{{ money(a) }}</button>
       </div>
@@ -21,9 +21,9 @@
 
       <button v-if="Number(offer.prices?.month) > 0" type="button" class="mt-3 block w-full rounded-2xl bg-slate-50 px-4 py-3 text-left disabled:opacity-60" :disabled="!!busy" @click="monthly">
         <b class="block text-[15.5px]">📅 Ou le forfait du mois : {{ money(offer.prices.month) }}</b>
-        <span class="text-[13.5px] text-slate-500">{{ busy === 'monthly' ? 'Ouverture du paiement…' : 'Lives sans limite pendant 30 jours, sans compter les commandes ›' }}</span>
+        <span class="text-[13.5px] text-slate-600">{{ busy === 'monthly' ? 'Ouverture du paiement…' : 'Lives sans limite pendant 30 jours, sans compter les commandes ›' }}</span>
       </button>
-      <p class="mt-3 text-center text-[12.5px] text-slate-500">Orange Money · MTN · Moov · Wave · carte, sur la page sécurisée PayDunya.</p>
+      <p class="mt-3 text-center text-[12.5px] text-slate-600">Orange Money · MTN · Moov · Wave · carte, sur la page sécurisée PayDunya.</p>
     </div>
   </div>
   </Teleport>

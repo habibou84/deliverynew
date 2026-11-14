@@ -83,7 +83,7 @@
         <details :open="!s.embedded_signup" class="group">
           <summary v-if="s.embedded_signup" class="cursor-pointer text-sm text-slate-600 hover:text-slate-900">Saisie manuelle (avancé)</summary>
           <form class="mt-3 space-y-4" @submit.prevent="saveAccount">
-            <p class="text-sm text-gray-500">
+            <p class="text-sm text-slate-600">
               Ces informations se trouvent dans Meta for Developers, rubrique WhatsApp &gt; Configuration de l'API.
               Utilisez un jeton d'accès permanent (utilisateur système), pas le jeton temporaire de 24 h.
               À l'enregistrement, nous vérifions le numéro auprès de Meta et branchons les messages reçus.
@@ -119,12 +119,12 @@
         <label v-else class="flex items-start gap-2 text-sm">
           <input :checked="s.whatsapp_orders" type="checkbox" class="mt-1" @change="saveOption('whatsapp_orders', $event.target.checked)">
           <span>Les e-commerçants peuvent créer des courses en écrivant à ce numéro
-            <span class="block text-gray-500">
+            <span class="block text-slate-600">
               Ils envoient les informations de la course (ou transfèrent la commande de leur client) ; le bot demande ce qui manque,
               affiche un récapitulatif avec le prix et crée la course après confirmation. Menu : nouvelle course, point du jour, suivi d'un colis.
             </span></span>
         </label>
-        <p class="text-sm" :class="s.ai_parser ? 'text-emerald-700' : 'text-gray-500'">
+        <p class="text-sm" :class="s.ai_parser ? 'text-emerald-700' : 'text-slate-600'">
           {{ s.ai_parser
             ? '✨ Analyse des messages libres par Claude activée.'
             : 'Analyse par règles (numéros, montants, communes, format « Nom : … »). Ajoutez ANTHROPIC_API_KEY dans .env pour que Claude comprenne aussi les messages sans format.' }}
@@ -137,12 +137,12 @@
         <label class="flex items-start gap-2 text-sm">
           <input :checked="s.notify_recipients" type="checkbox" class="mt-1" @change="saveOption('notify_recipients', $event.target.checked)">
           <span>Prévenir le destinataire quand son colis part en livraison
-            <span class="block text-gray-500">Message avec le montant à payer, le code de livraison et le lien de suivi.</span></span>
+            <span class="block text-slate-600">Message avec le montant à payer, le code de livraison et le lien de suivi.</span></span>
         </label>
         <label class="flex items-start gap-2 text-sm">
           <input :checked="s.sms_fallback" type="checkbox" class="mt-1" @change="saveOption('sms_fallback', $event.target.checked)">
           <span>Envoyer un SMS si le message WhatsApp n'arrive pas
-            <span class="block text-gray-500">
+            <span class="block text-slate-600">
               Numéro sans WhatsApp ou échec définitif.
               <template v-if="s.sms_driver === 'none'">Les SMS sont désactivés sur ce serveur (<code>SMS_DRIVER=none</code>).</template>
               <template v-else-if="s.sms_driver === 'log'">SMS simulés sur ce serveur (<code>SMS_DRIVER=log</code>).</template>
@@ -151,7 +151,7 @@
         <label class="flex items-start gap-2 text-sm">
           <input :checked="s.merchant_push_first" type="checkbox" class="mt-1" :disabled="!s.push_enabled" @change="saveOption('merchant_push_first', $event.target.checked)">
           <span>Prévenir les e-commerçants par notification sur leur téléphone plutôt que par WhatsApp
-            <span class="block text-gray-500">
+            <span class="block text-slate-600">
               Gratuit. WhatsApp ne sert que pour les e-commerçants qui n'ont pas activé les notifications dans leur application,
               ou si la notification n'arrive pas.
               <template v-if="!s.push_enabled">Notifications push non configurées sur ce serveur (<code>php artisan webpush:vapid</code>).</template>
@@ -160,13 +160,13 @@
               </template>
             </span></span>
         </label>
-        <p class="text-sm text-gray-500">Quels messages envoyer aux e-commerçants, étape par étape : <RouterLink to="/admin/reglages/messages-e-commercants" class="text-blue-600">Messages aux e-commerçants</RouterLink>.</p>
+        <p class="text-sm text-slate-600">Quels messages envoyer aux e-commerçants, étape par étape : <RouterLink to="/admin/reglages/messages-e-commercants" class="text-blue-600">Messages aux e-commerçants</RouterLink>.</p>
       </div>
 
       <!-- Test -->
       <form class="card p-4 space-y-3" @submit.prevent="sendTest">
         <h2 class="font-semibold">Message de test</h2>
-        <p class="text-sm text-gray-500">Envoie le modèle « hello_world » de Meta, disponible sans approbation.</p>
+        <p class="text-sm text-slate-600">Envoie le modèle « hello_world » de Meta, disponible sans approbation.</p>
         <div class="flex flex-wrap gap-2">
           <input v-model="testPhone" class="input w-56" placeholder="07 00 00 00 00" aria-label="Numéro de test" required>
           <button class="btn-secondary" :disabled="testing">Envoyer</button>
@@ -180,7 +180,7 @@
       <!-- Webhook -->
       <div class="card p-4 space-y-2 text-sm">
         <h2 class="font-semibold">Accusés de réception (webhook)</h2>
-        <p class="text-gray-500">Dans l'application Meta, rubrique WhatsApp &gt; Configuration, abonnez ce lien au champ <code>messages</code> :</p>
+        <p class="text-slate-600">Dans l'application Meta, rubrique WhatsApp &gt; Configuration, abonnez ce lien au champ <code>messages</code> :</p>
         <div class="flex gap-2">
           <input :value="s.webhook_url" readonly class="input font-mono text-xs" aria-label="Adresse du webhook">
           <button type="button" class="btn-secondary" @click="copy(s.webhook_url)">Copier</button>
@@ -201,7 +201,7 @@
             <button class="btn-secondary" :disabled="syncing" @click="sync">Vérifier l'approbation chez Meta</button>
           </div>
         </div>
-        <p class="text-sm text-gray-500">
+        <p class="text-sm text-slate-600">
           Hors conversation ouverte par le client, WhatsApp n'accepte que des modèles approuvés par Meta.
           Une fois le numéro connecté, « Soumettre les modèles à Meta » les crée tous pour vous (catégorie Utilitaire, Français).
           L'approbation prend de quelques minutes à 48 h ; revenez ensuite vérifier leur état.
@@ -214,12 +214,12 @@
                 {{ TEMPLATE_STATUS[t.status]?.[0] || t.status }}<template v-if="s.mode !== 'live' && t.status !== 'unknown'"> (simulation)</template>
               </span>
             </div>
-            <p class="text-gray-500">{{ t.description }}</p>
+            <p class="text-slate-600">{{ t.description }}</p>
             <div class="flex gap-2 items-start">
               <p class="flex-1 rounded bg-slate-50 p-2 font-mono text-xs">{{ t.body }}</p>
               <button type="button" class="btn-secondary text-xs" @click="copy(t.body)">Copier</button>
             </div>
-            <p class="text-xs text-gray-500">Exemples : {{ t.example.join(' · ') }}</p>
+            <p class="text-xs text-slate-600">Exemples : {{ t.example.join(' · ') }}</p>
             <p v-if="t.rejected_reason" class="text-xs text-red-700">Motif du refus : {{ t.rejected_reason }}</p>
           </li>
         </ul>

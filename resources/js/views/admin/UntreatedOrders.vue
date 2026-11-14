@@ -4,13 +4,13 @@
       <div>
         <RouterLink to="/admin/courses" class="text-sm text-blue-600">‹ Courses</RouterLink>
         <h1 class="text-xl font-bold">⏳ Courses non traitées</h1>
-        <p class="text-sm text-gray-600">Date de livraison dépassée, et pas encore livrées, retournées ni annulées. Toutes les dates, jusqu'à ce qu'elles soient réglées.</p>
+        <p class="text-sm text-slate-600">Date de livraison dépassée, et pas encore livrées, retournées ni annulées. Toutes les dates, jusqu'à ce qu'elles soient réglées.</p>
       </div>
       <p v-if="data" class="rounded-full bg-red-100 px-3 py-1 text-sm font-semibold text-red-800">{{ data.total }} course{{ data.total > 1 ? 's' : '' }}</p>
     </div>
 
     <div class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Regrouper">
-      <span class="text-gray-600">Regrouper :</span>
+      <span class="text-slate-600">Regrouper :</span>
       <button
         v-for="g in GROUPINGS" :key="g.value" type="button"
         :class="['rounded-full px-3 py-1 ring-1', by === g.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
@@ -21,7 +21,7 @@
     </div>
 
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
-    <p v-else-if="data && !data.total" class="card p-6 text-center text-gray-500">✅ Aucune course non traitée : tout est à jour.</p>
+    <p v-else-if="data && !data.total" class="card p-6 text-center text-slate-600">✅ Aucune course non traitée : tout est à jour.</p>
 
     <div v-else-if="data" class="grid gap-4 lg:grid-cols-[18rem_1fr]">
       <!-- Groupes : date, livreur ou e-commerçant -->
@@ -40,7 +40,7 @@
         >
           <span class="min-w-0">
             <span class="block truncate first-letter:uppercase">{{ g.label }}</span>
-            <span class="block text-xs font-normal text-gray-500">{{ money(g.amount) }} à encaisser<template v-if="g.oldest"> · depuis le {{ date(g.oldest) }}</template></span>
+            <span class="block text-xs font-normal text-slate-600">{{ money(g.amount) }} à encaisser<template v-if="g.oldest"> · depuis le {{ date(g.oldest) }}</template></span>
           </span>
           <span class="shrink-0 rounded-full bg-red-100 px-2 text-xs font-semibold text-red-800">{{ g.count }}</span>
         </button>
@@ -60,18 +60,18 @@
           </select>
           <button type="button" class="btn-secondary !py-1" :disabled="busy || !bulkCourier" @click="assignMany">🛵 Confier</button>
           <button type="button" class="btn-secondary !py-1" :disabled="busy || !returnable.length" @click="returnMany">↩️ Retour ({{ returnable.length }})</button>
-          <button type="button" class="ml-auto text-gray-600" @click="checked = []">Annuler</button>
+          <button type="button" class="ml-auto text-slate-600" @click="checked = []">Annuler</button>
         </div>
 
-        <p v-if="loading" class="card p-6 text-center text-gray-500">Chargement…</p>
-        <p v-else-if="!orders.length" class="card p-6 text-center text-gray-500">Aucune course.</p>
+        <p v-if="loading" class="card p-6 text-center text-slate-600">Chargement…</p>
+        <p v-else-if="!orders.length" class="card p-6 text-center text-slate-600">Aucune course.</p>
         <div v-else class="card divide-y">
           <div v-for="o in orders" :key="o.id" class="flex flex-wrap items-start gap-x-3 gap-y-2 px-3 py-2 text-sm hover:bg-slate-50">
             <input v-model="checked" type="checkbox" :value="o.id" class="mt-1" :aria-label="`Choisir ${o.tracking_code}`">
             <RouterLink :to="`/admin/courses/${o.id}`" class="min-w-[12rem] flex-1">
               <span class="font-mono text-xs font-semibold text-blue-700">{{ o.tracking_code }}</span>
               <span class="ml-1">{{ o.merchant?.business_name }} → {{ o.recipient.name }}</span>
-              <span class="block text-xs text-gray-500">{{ o.delivery.zone_name || o.delivery.address }} · {{ money(o.amounts.cod_amount) }}</span>
+              <span class="block text-xs text-slate-600">{{ o.delivery.zone_name || o.delivery.address }} · {{ money(o.amounts.cod_amount) }}</span>
             </RouterLink>
             <div class="w-36">
               <StatusBadge :status="o.status" :label="o.status_label" />

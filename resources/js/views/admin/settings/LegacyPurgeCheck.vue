@@ -3,29 +3,29 @@
     <div>
       <RouterLink to="/admin/reglages/reprise/controles" class="text-sm font-medium text-emerald-700">‹ Contrôles et ménage</RouterLink>
       <h1 class="text-xl font-bold">En chemin depuis plus de {{ days }} jours : à vérifier</h1>
-      <p class="text-sm text-gray-600">Pour chaque colis, demandez au livreur s'il l'a livré ou s'il l'a encore. Rien n'est envoyé aux clients.</p>
+      <p class="text-sm text-slate-600">Pour chaque colis, demandez au livreur s'il l'a livré ou s'il l'a encore. Rien n'est envoyé aux clients.</p>
     </div>
 
-    <p v-if="loaded && !couriers.length" class="card p-4 text-sm text-gray-600">Plus aucune ancienne course en chemin à vérifier.</p>
+    <p v-if="loaded && !couriers.length" class="card p-4 text-sm text-slate-600">Plus aucune ancienne course en chemin à vérifier.</p>
 
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <button v-for="c in couriers" :key="c.courier_id ?? 'none'" type="button"
         :class="['card p-3 text-left', selected === (c.courier_id ?? 0) ? 'ring-2 ring-emerald-600' : '']" @click="pick(c.courier_id ?? 0)">
         <span class="block font-semibold">{{ c.name }}</span>
-        <span class="block text-sm text-gray-600">{{ c.count }} colis<template v-if="c.oldest"> · le plus ancien : {{ date(c.oldest) }}</template></span>
+        <span class="block text-sm text-slate-600">{{ c.count }} colis<template v-if="c.oldest"> · le plus ancien : {{ date(c.oldest) }}</template></span>
       </button>
     </div>
 
     <div v-if="orders" class="card overflow-hidden">
       <div class="flex flex-wrap items-center gap-2 border-b p-3">
         <label class="flex items-center gap-2 text-sm font-medium"><input type="checkbox" :checked="allChecked" @change="toggleAll"> Tout cocher</label>
-        <span class="flex-1 text-sm text-gray-600">{{ checked.length }} coché(s) · {{ total }} colis</span>
+        <span class="flex-1 text-sm text-slate-600">{{ checked.length }} coché(s) · {{ total }} colis</span>
         <button type="button" class="btn-secondary" :disabled="busy || !checked.length" @click="resolve('delivered')">Livrées (argent à remettre)</button>
         <button type="button" class="btn-primary" :disabled="busy || !checked.length" @click="resolve('returned')">Retournées à l'e-commerçant</button>
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-left text-xs text-gray-500">
+          <thead class="bg-slate-50 text-left text-xs text-slate-600">
             <tr><th class="w-10 px-3 py-2"></th><th class="px-3">Ancien n°</th><th class="px-3">Destinataire</th><th class="px-3">E-commerçant</th><th class="px-3">Jour prévu</th><th class="px-3 text-right">À encaisser</th></tr>
           </thead>
           <tbody>
@@ -47,10 +47,10 @@
           </tbody>
         </table>
       </div>
-      <p v-if="total > orders.length" class="border-t p-3 text-sm text-gray-600">… et {{ total - orders.length }} autres : traitez ces {{ orders.length }}-ci, la suite s'affiche ensuite.</p>
+      <p v-if="total > orders.length" class="border-t p-3 text-sm text-slate-600">… et {{ total - orders.length }} autres : traitez ces {{ orders.length }}-ci, la suite s'affiche ensuite.</p>
     </div>
 
-    <p class="text-sm text-gray-600">« Livrées » : la course passe livrée et l'argent s'ajoute au point de caisse du livreur. « Retournées » : le colis est à rendre à l'e-commerçant.</p>
+    <p class="text-sm text-slate-600">« Livrées » : la course passe livrée et l'argent s'ajoute au point de caisse du livreur. « Retournées » : le colis est à rendre à l'e-commerçant.</p>
   </div>
 </template>
 

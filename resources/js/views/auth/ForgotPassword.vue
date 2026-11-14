@@ -9,7 +9,7 @@
           <div class="text-center space-y-1">
             <p class="text-3xl" aria-hidden="true">✅</p>
             <h1 class="text-xl font-bold">Numéro vérifié</h1>
-            <p class="text-sm text-slate-500">Choisissez votre nouveau mot de passe. Vos autres appareils seront déconnectés.</p>
+            <p class="text-sm text-slate-600">Choisissez votre nouveau mot de passe. Vos autres appareils seront déconnectés.</p>
           </div>
           <p v-if="error" class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2" role="alert">{{ error }}</p>
           <label class="block">
@@ -32,7 +32,7 @@
         <form v-else class="space-y-4" @submit.prevent="start">
           <div class="text-center space-y-1">
             <h1 class="text-xl font-bold">Mot de passe oublié</h1>
-            <p class="text-sm text-slate-500">Indiquez le numéro de votre compte : vous le vérifierez par WhatsApp, puis vous choisirez un nouveau mot de passe.</p>
+            <p class="text-sm text-slate-600">Indiquez le numéro de votre compte : vous le vérifierez par WhatsApp, puis vous choisirez un nouveau mot de passe.</p>
           </div>
           <p v-if="error" class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2" role="alert">{{ error }}</p>
           <label class="block">
@@ -62,7 +62,7 @@ import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
 const THEMES = {
-  merchant: { page: 'bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600', ring: 'focus:ring-emerald-500', button: 'bg-emerald-600 hover:bg-emerald-700', login: '/' },
+  merchant: { page: 'bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-600', ring: 'focus:ring-emerald-500', button: 'bg-emerald-700 hover:bg-emerald-800', login: '/' },
   staff: { page: 'bg-slate-900', ring: 'focus:ring-slate-500', button: 'bg-slate-900 hover:bg-slate-700', login: '/admin/connexion' },
   courier: { page: 'bg-gradient-to-b from-blue-800 to-blue-600', ring: 'focus:ring-blue-500', button: 'bg-blue-700 hover:bg-blue-800', login: '/livreur/connexion' },
 }

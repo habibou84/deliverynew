@@ -18,7 +18,7 @@
         <template v-if="signupOpen === null">…</template>
         <template v-else-if="signupOpen">
           ouverte sur <a :href="signupUrl" target="_blank" rel="noopener" class="text-blue-600">{{ host(signupUrl) }}</a>
-          <span v-if="meta.totals?.signups_month" class="text-gray-500"> · {{ meta.totals.signups_month }} ce mois</span>
+          <span v-if="meta.totals?.signups_month" class="text-slate-600"> · {{ meta.totals.signups_month }} ce mois</span>
         </template>
         <template v-else>fermée (les entreprises sont créées ici)</template>
       </p>
@@ -40,7 +40,7 @@
 
     <div class="card overflow-x-auto">
       <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-left text-gray-600">
+        <thead class="bg-slate-50 text-left text-slate-600">
           <tr>
             <th class="p-2">Entreprise</th><th class="p-2">Adresse</th><th class="p-2 text-right">Marchands</th><th class="p-2 text-right">Livreurs</th>
             <th class="p-2 text-right">Courses du mois</th><th class="p-2">Dernière course</th><th class="p-2">Mise en route</th><th class="p-2">Formule</th><th class="p-2">Statut</th>
@@ -59,13 +59,13 @@
             <td class="p-2 text-right">{{ c.merchants_count }}</td>
             <td class="p-2 text-right">{{ c.couriers_count }}</td>
             <td class="p-2 text-right font-semibold">{{ c.orders_month_count }}</td>
-            <td class="p-2 text-gray-600">{{ c.last_order_at ? dateTime(c.last_order_at) : '—' }}</td>
+            <td class="p-2 text-slate-600">{{ c.last_order_at ? dateTime(c.last_order_at) : '—' }}</td>
             <td class="p-2 whitespace-nowrap">
               <span :class="c.setup?.ready ? 'text-emerald-700' : 'text-amber-800'">{{ c.setup?.ready ? '✅ prête' : `${c.setup?.done ?? 0}/${c.setup?.total ?? 0}` }}</span>
               <span v-if="c.setup?.alerts" class="ml-1 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-700" :title="'Points à corriger au bilan de santé'">{{ c.setup.alerts }} alerte(s)</span>
             </td>
             <td class="p-2">
-              <span v-if="c.plan">{{ c.plan.name }}</span><span v-else class="text-gray-400">Sans formule</span>
+              <span v-if="c.plan">{{ c.plan.name }}</span><span v-else class="text-slate-600">Sans formule</span>
               <span v-if="c.on_trial" class="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">essai → {{ date(c.trial_ends_at) }}</span>
             </td>
             <td class="p-2">
@@ -74,7 +74,7 @@
               </span>
             </td>
           </tr>
-          <tr v-if="loaded && !companies.length"><td colspan="9" class="p-6 text-center text-gray-500">Aucune entreprise.</td></tr>
+          <tr v-if="loaded && !companies.length"><td colspan="9" class="p-6 text-center text-slate-600">Aucune entreprise.</td></tr>
         </tbody>
       </table>
     </div>
@@ -89,9 +89,9 @@
           <label class="label" for="c-slug">Adresse *</label>
           <div class="flex items-center rounded-lg border border-slate-300 focus-within:ring-2 focus-within:ring-blue-500">
             <input id="c-slug" v-model.trim="form.slug" class="flex-1 min-w-0 bg-transparent px-3 py-2 focus:outline-none" required minlength="3" maxlength="40" @input="form.slugTouched = true">
-            <span class="pr-3 text-sm text-gray-500 whitespace-nowrap">.{{ meta.domain || 'votre-domaine' }}</span>
+            <span class="pr-3 text-sm text-slate-600 whitespace-nowrap">.{{ meta.domain || 'votre-domaine' }}</span>
           </div>
-          <p class="text-xs text-gray-500 mt-1">Minuscules, chiffres et tirets. C'est l'adresse de l'entreprise, de ses marchands et de ses livreurs.</p>
+          <p class="text-xs text-slate-600 mt-1">Minuscules, chiffres et tirets. C'est l'adresse de l'entreprise, de ses marchands et de ses livreurs.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="label" for="c-phone">Téléphone</label><input id="c-phone" v-model.trim="form.phone" class="input"></div>
@@ -108,8 +108,8 @@
             <option :value="null">Sans formule (aucune limite)</option>
             <option v-for="p in plans" :key="p.id" :value="p.id">{{ p.name }} · {{ money(p.price_monthly) }} / mois</option>
           </select>
-          <p v-if="form.plan_id && trialDays" class="text-xs text-gray-500 mt-1">Essai gratuit de {{ trialDays }} jours, puis facturation mensuelle.</p>
-          <p v-if="!plans.length" class="text-xs text-gray-500 mt-1"><RouterLink to="/console/formules" class="text-blue-600">Créer les formules</RouterLink> pour les proposer ici.</p>
+          <p v-if="form.plan_id && trialDays" class="text-xs text-slate-600 mt-1">Essai gratuit de {{ trialDays }} jours, puis facturation mensuelle.</p>
+          <p v-if="!plans.length" class="text-xs text-slate-600 mt-1"><RouterLink to="/console/formules" class="text-blue-600">Créer les formules</RouterLink> pour les proposer ici.</p>
         </div>
         <fieldset class="border rounded p-3 space-y-2">
           <legend class="text-sm font-medium px-1">Premier administrateur</legend>
@@ -118,7 +118,7 @@
             <div><label class="label" for="a-phone">Téléphone *</label><input id="a-phone" v-model.trim="form.admin.phone" class="input" required></div>
             <div class="col-span-2"><label class="label" for="a-pass">Mot de passe provisoire * (8 caractères min.)</label><input id="a-pass" v-model="form.admin.password" class="input" required minlength="8" autocomplete="new-password"></div>
           </div>
-          <p class="text-xs text-gray-500">Communiquez-le à l'entreprise ; elle pourra le changer (« Mot de passe oublié »).</p>
+          <p class="text-xs text-slate-600">Communiquez-le à l'entreprise ; elle pourra le changer (« Mot de passe oublié »).</p>
         </fieldset>
         <p v-if="form.error" class="field-error">{{ form.error }}</p>
         <button class="btn-primary w-full" :disabled="form.saving">{{ form.saving ? 'Création…' : 'Créer l\'entreprise' }}</button>

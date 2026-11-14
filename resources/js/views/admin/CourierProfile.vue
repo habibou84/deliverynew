@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <RouterLink to="/admin/livreurs" class="text-sm text-blue-600">← Livreurs</RouterLink>
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
-    <p v-if="!p && !error" class="card p-6 text-center text-gray-500">Chargement…</p>
+    <p v-if="!p && !error" class="card p-6 text-center text-slate-600">Chargement…</p>
 
     <template v-if="p">
       <!-- En-tête : identité, note, actions -->
@@ -14,10 +14,10 @@
             <button type="button" :class="['rounded-full px-2.5 py-0.5 text-sm font-bold', scoreBadge]" :title="ratings ? `${ratings.count} avis sur ${ratings.window_days} jours` : ''" @click="tab = 'notes'">
               ★ {{ scoreText(ratings?.score ?? null) }}
             </button>
-            <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', c.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600']">{{ c.is_available ? 'Disponible' : 'Indisponible' }}</span>
+            <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', c.is_available ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600']">{{ c.is_available ? 'Disponible' : 'Indisponible' }}</span>
             <span v-if="c.status !== 'active'" class="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Compte suspendu</span>
           </h1>
-          <p class="text-sm text-gray-500">
+          <p class="text-sm text-slate-600">
             <a :href="telLink(c.phone)" class="text-blue-600">{{ c.phone }}</a>
             · {{ c.vehicle?.label || VEHICLES[c.vehicle_type] || 'Véhicule non précisé' }}
             · {{ c.zones.map((z) => z.name).join(', ') || 'aucune zone' }}
@@ -36,7 +36,7 @@
       <div class="flex gap-1 overflow-x-auto border-b" role="tablist">
         <button
           v-for="t in TABS" :key="t.key" type="button" role="tab" :aria-selected="tab === t.key"
-          :class="['whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold', tab === t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-800']"
+          :class="['whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold', tab === t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-600 hover:text-slate-800']"
           @click="tab = t.key"
         >
           {{ t.label }}<span v-if="t.key === 'notes' && toHandle" class="ml-1 rounded-full bg-red-600 px-1.5 text-xs text-white">{{ toHandle }}</span>
@@ -47,8 +47,8 @@
       <section v-show="tab === 'activite'" class="space-y-4">
         <div v-if="p.today" class="card p-4">
           <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Aujourd'hui</h2>
-            <span class="text-xs text-gray-500">{{ STATES[p.today.state] || p.today.state }}<template v-if="p.today.estimated_end"> · fin estimée {{ time(p.today.estimated_end) }}</template></span>
+            <h2 class="text-xs font-bold uppercase tracking-wide text-slate-600">Aujourd'hui</h2>
+            <span class="text-xs text-slate-600">{{ STATES[p.today.state] || p.today.state }}<template v-if="p.today.estimated_end"> · fin estimée {{ time(p.today.estimated_end) }}</template></span>
           </div>
           <div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3 lg:grid-cols-6">
             <div><b class="block text-xl">{{ p.today.deliveries.done }}/{{ p.today.deliveries.total }}</b>livraisons</div>
@@ -62,7 +62,7 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <span class="text-sm text-gray-500">Période :</span>
+          <span class="text-sm text-slate-600">Période :</span>
           <button
             v-for="d in [7, 30, 90]" :key="d" type="button"
             :class="['rounded-full border px-3 py-1 text-sm font-semibold', days === d ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white text-slate-700']"
@@ -74,16 +74,16 @@
 
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <div v-for="k in kpis" :key="k.label" class="card px-4 py-3">
-            <p class="text-sm text-gray-500">{{ k.label }}</p>
+            <p class="text-sm text-slate-600">{{ k.label }}</p>
             <p :class="['text-xl font-bold', k.cls || '']">{{ k.value }}</p>
-            <p v-if="k.hint" class="text-xs text-gray-400">{{ k.hint }}</p>
+            <p v-if="k.hint" class="text-xs text-slate-600">{{ k.hint }}</p>
           </div>
         </div>
 
         <div class="card p-4">
-          <h2 class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Livraisons par jour</h2>
+          <h2 class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600">Livraisons par jour</h2>
           <ColumnChart :labels="p.series.map((d) => d.day)" :values="p.series.map((d) => d.delivered)" label="Livraisons" aria-label="Livraisons par jour" :height="180" />
-          <p v-if="failedDays" class="mt-1 text-xs text-gray-500">Échecs sur la période : {{ failedDays }} jour{{ failedDays > 1 ? 's' : '' }} avec au moins un échec.</p>
+          <p v-if="failedDays" class="mt-1 text-xs text-slate-600">Échecs sur la période : {{ failedDays }} jour{{ failedDays > 1 ? 's' : '' }} avec au moins un échec.</p>
         </div>
       </section>
 
@@ -96,7 +96,7 @@
       <section v-show="tab === 'infos'" class="grid gap-4 lg:grid-cols-2">
         <div class="card divide-y text-sm">
           <div v-for="r in infos" :key="r.label" class="flex justify-between gap-4 px-4 py-2.5">
-            <span class="text-gray-500">{{ r.label }}</span>
+            <span class="text-slate-600">{{ r.label }}</span>
             <span class="text-right font-medium">
               <RouterLink v-if="r.to" :to="r.to" class="text-blue-600">{{ r.value }}</RouterLink>
               <a v-else-if="r.href" :href="r.href" target="_blank" rel="noopener" class="text-blue-600">{{ r.value }}</a>
@@ -106,11 +106,11 @@
         </div>
         <div class="space-y-4">
           <div v-if="c.vehicle_warnings?.length" class="card space-y-1 p-4">
-            <h2 class="text-xs font-bold uppercase tracking-wide text-gray-500">Véhicule</h2>
+            <h2 class="text-xs font-bold uppercase tracking-wide text-slate-600">Véhicule</h2>
             <p v-for="w in c.vehicle_warnings" :key="w.text" :class="['text-sm font-semibold', w.level === 'alert' ? 'text-red-700' : 'text-amber-700']">{{ w.level === 'alert' ? '🚨' : '⚠️' }} {{ w.text }}</p>
           </div>
           <div class="card p-4">
-            <h2 class="mb-1 text-xs font-bold uppercase tracking-wide text-gray-500">Notes internes</h2>
+            <h2 class="mb-1 text-xs font-bold uppercase tracking-wide text-slate-600">Notes internes</h2>
             <p class="whitespace-pre-line text-sm">{{ c.notes || 'Aucune note.' }}</p>
           </div>
           <div class="card flex flex-wrap gap-3 p-4 text-sm">
@@ -159,7 +159,7 @@ const c = computed(() => p.value?.courier)
 const initials = computed(() => (c.value?.name || '?').split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase())
 const scoreBadge = computed(() => {
   const s = ratings.value?.score
-  if (s === null || s === undefined) return 'bg-slate-100 text-slate-500'
+  if (s === null || s === undefined) return 'bg-slate-100 text-slate-600'
   return s >= 4 ? 'bg-emerald-100 text-emerald-800' : s >= 3.5 ? 'bg-amber-100 text-amber-800' : 'bg-orange-100 text-orange-800'
 })
 const duration = (m) => (m === null || m === undefined ? '—' : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`)

@@ -5,7 +5,7 @@
       <div class="min-w-0">
         <p class="label mb-0">E-commerçant *</p>
         <p class="font-semibold truncate">{{ selected.business_name }}</p>
-        <p class="text-sm text-gray-600">{{ phone(selected.phone) }}<span v-if="selected.pickup_zone"> · {{ selected.pickup_zone.name }}</span></p>
+        <p class="text-sm text-slate-600">{{ phone(selected.phone) }}<span v-if="selected.pickup_zone"> · {{ selected.pickup_zone.name }}</span></p>
       </div>
       <button type="button" class="btn-secondary" @click="change">Changer</button>
     </div>
@@ -45,10 +45,10 @@
           <input v-model="draft.send_access" type="checkbox" class="mt-0.5 h-4 w-4" @change="emitDraft">
           <span>
             Envoyer ses accès par WhatsApp
-            <span class="block text-xs text-gray-600">Un seul message : bienvenue, code de la course et lien pour ouvrir son espace.</span>
+            <span class="block text-xs text-slate-600">Un seul message : bienvenue, code de la course et lien pour ouvrir son espace.</span>
           </span>
         </label>
-        <p class="text-xs text-gray-600">Compte créé à l'enregistrement de la course, avec les tarifs par défaut. Connexion par WhatsApp, sans mot de passe.</p>
+        <p class="text-xs text-slate-600">Compte créé à l'enregistrement de la course, avec les tarifs par défaut. Connexion par WhatsApp, sans mot de passe.</p>
       </div>
       <div v-if="known" class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
         <span class="text-sm text-amber-900">Ce numéro est déjà <strong>{{ known.business_name }}</strong>.</span>
@@ -60,14 +60,14 @@
     <div v-else class="space-y-2">
       <label class="label mb-0" for="merchant-search">E-commerçant *</label>
       <div class="relative">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
         <input
           id="merchant-search" ref="searchEl" v-model="term" class="input pl-9" placeholder="Nom de la boutique ou téléphone" autocomplete="off"
           @input="search" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter.prevent="chooseActive"
         >
       </div>
       <div class="rounded-lg border divide-y overflow-hidden">
-        <p class="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-slate-50">
+        <p class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-50">
           {{ loading ? 'Recherche…' : term.trim() ? `${results.length} résultat${results.length > 1 ? 's' : ''}` : 'Dernières courses' }}
         </p>
         <button
@@ -77,11 +77,11 @@
         >
           <span class="min-w-0">
             <span class="block font-medium truncate">{{ m.business_name }}</span>
-            <span class="block text-sm text-gray-600">{{ phone(m.phone) }}<span v-if="m.pickup_zone"> · {{ m.pickup_zone.name }}</span></span>
+            <span class="block text-sm text-slate-600">{{ phone(m.phone) }}<span v-if="m.pickup_zone"> · {{ m.pickup_zone.name }}</span></span>
           </span>
           <span v-if="m.last_order_at" class="text-xs text-emerald-700 font-medium shrink-0">{{ ago(m.last_order_at) }}</span>
         </button>
-        <p v-if="!loading && term.trim() && !results.length" class="px-3 py-2.5 text-sm text-gray-600">Aucun e-commerçant ne correspond.</p>
+        <p v-if="!loading && term.trim() && !results.length" class="px-3 py-2.5 text-sm text-slate-600">Aucun e-commerçant ne correspond.</p>
         <button v-if="canCreate" type="button" class="w-full text-left px-3 py-3 flex items-center gap-2 font-semibold text-emerald-700 hover:bg-emerald-50" @click="startNew">
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           Nouvel e-commerçant{{ term.trim() ? ` « ${term.trim()} »` : '' }}

@@ -4,12 +4,12 @@
       <RouterLink to="/" class="flex justify-center"><BrandLogo size="md" /></RouterLink>
 
       <div class="mt-6 rounded-3xl bg-white text-slate-900 ring-1 ring-[#efe9df] shadow-sm p-6 md:p-8">
-        <div v-if="!options" class="py-10 text-center text-slate-500">Chargement…</div>
+        <div v-if="!options" class="py-10 text-center text-slate-600">Chargement…</div>
 
         <div v-else-if="!options.open" class="space-y-4 text-center">
           <h1 class="text-2xl font-bold">Ouverture de compte</h1>
           <p class="text-slate-600">Les inscriptions en ligne sont fermées pour le moment. Contactez-nous pour ouvrir votre compte.</p>
-          <a v-if="contactLink" :href="contactLink" target="_blank" rel="noopener" class="inline-block rounded-xl bg-emerald-600 px-6 py-3 font-semibold text-white">💬 Nous écrire sur WhatsApp</a>
+          <a v-if="contactLink" :href="contactLink" target="_blank" rel="noopener" class="inline-block rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white">💬 Nous écrire sur WhatsApp</a>
         </div>
 
         <!-- Étape 2 : vérification du numéro -->
@@ -19,7 +19,7 @@
         <form v-else class="space-y-4" novalidate @submit.prevent="submit">
           <div class="text-center space-y-1">
             <h1 class="text-2xl font-bold">Créer mon compte e&#8209;commerçant</h1>
-            <p class="text-sm text-slate-500">Gratuit, en 2 minutes. Votre numéro sera vérifié par WhatsApp : un message à envoyer, rien à recopier.</p>
+            <p class="text-sm text-slate-600">Gratuit, en 2 minutes. Votre numéro sera vérifié par WhatsApp : un message à envoyer, rien à recopier.</p>
           </div>
 
           <p v-if="error" class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2" role="alert">{{ error }}</p>
@@ -60,7 +60,7 @@
               <input v-model="withPassword" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
               <span class="text-sm">
                 <span class="font-semibold text-slate-700">Définir un mot de passe maintenant (facultatif)</span>
-                <span class="block text-slate-500">Sans mot de passe, vous vous connecterez par WhatsApp, en un message. Vous pourrez en définir un plus tard dans votre profil.</span>
+                <span class="block text-slate-600">Sans mot de passe, vous vous connecterez par WhatsApp, en un message. Vous pourrez en définir un plus tard dans votre profil.</span>
               </span>
             </label>
             <template v-if="withPassword">
@@ -73,10 +73,10 @@
             </template>
           </div>
 
-          <button type="submit" :disabled="busy" class="w-full rounded-xl bg-emerald-600 hover:bg-emerald-700 py-3 font-semibold text-white shadow-sm disabled:opacity-60">
+          <button type="submit" :disabled="busy" class="w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 py-3 font-semibold text-white shadow-sm disabled:opacity-60">
             {{ busy ? 'Un instant…' : 'Continuer' }}
           </button>
-          <p class="text-center text-xs text-slate-500">
+          <p class="text-center text-xs text-slate-600">
             En continuant, vous acceptez les <a href="/conditions" target="_blank" rel="noopener" class="underline">conditions générales</a>
             et la <a href="/confidentialite" target="_blank" rel="noopener" class="underline">politique de confidentialité</a>.
           </p>

@@ -20,7 +20,7 @@
       <div class="flex flex-wrap items-center gap-4">
         <div class="h-20 w-40 rounded-lg border border-dashed border-slate-300 grid place-items-center bg-slate-50 overflow-hidden">
           <img v-if="logoUrl" :src="logoUrl" alt="Logo actuel" class="max-h-20 max-w-40 object-contain">
-          <span v-else class="text-xs text-gray-500">Aucun logo</span>
+          <span v-else class="text-xs text-slate-600">Aucun logo</span>
         </div>
         <div class="space-y-2">
           <label class="btn-secondary cursor-pointer inline-block">
@@ -28,7 +28,7 @@
             <input type="file" accept="image/png,image/jpeg,image/webp" class="sr-only" :disabled="uploading" @change="uploadLogo">
           </label>
           <button v-if="logoUrl" type="button" class="btn-secondary text-red-700 ml-2" @click="removeLogo">Retirer</button>
-          <p class="text-xs text-gray-500">PNG, JPEG ou WebP, 2 Mo au plus. Fond transparent conseillé (PNG).</p>
+          <p class="text-xs text-slate-600">PNG, JPEG ou WebP, 2 Mo au plus. Fond transparent conseillé (PNG).</p>
         </div>
       </div>
       <MoreHelp>Affiché sur la page d'accueil des e-commerçants (adresse du site), les pages de connexion, l'en-tête de chaque espace et l'icône des applications.</MoreHelp>

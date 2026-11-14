@@ -10,7 +10,7 @@
         {{ challenge.channel === 'whatsapp' ? 'Un code à 6 chiffres vient d\'être envoyé par WhatsApp au' : 'Un code à 6 chiffres vient d\'être envoyé à' }}
         <b>{{ challenge.to }}</b>. Il est valable 10 minutes.
       </p>
-      <p v-if="challenge.channel === 'mail'" class="text-xs text-slate-500">Regardez aussi dans les spams.</p>
+      <p v-if="challenge.channel === 'mail'" class="text-xs text-slate-600">Regardez aussi dans les spams.</p>
     </div>
 
     <p v-if="error" class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
@@ -31,7 +31,7 @@
 
     <label class="flex items-start gap-2 text-sm text-slate-700">
       <input v-model="remember" type="checkbox" class="mt-1">
-      <span>Retenir cet appareil 30 jours <span class="block text-xs text-slate-500">Seulement sur votre propre ordinateur ou téléphone.</span></span>
+      <span>Retenir cet appareil 30 jours <span class="block text-xs text-slate-600">Seulement sur votre propre ordinateur ou téléphone.</span></span>
     </label>
 
     <button type="submit" :disabled="loading || code.replace(/\D/g, '').length < 6" class="w-full rounded-xl bg-[var(--app-color)] py-3 font-semibold text-white shadow-sm transition hover:brightness-110 disabled:opacity-60">

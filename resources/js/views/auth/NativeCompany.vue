@@ -11,7 +11,7 @@
       <div v-if="found" class="space-y-5 text-center">
         <img v-if="found.logo_url" :src="found.logo_url" :alt="`Logo ${found.name}`" class="mx-auto h-16 max-w-40 object-contain">
         <div>
-          <p class="text-sm text-slate-500">Votre entreprise de livraison</p>
+          <p class="text-sm text-slate-600">Votre entreprise de livraison</p>
           <p class="text-xl font-bold text-slate-900">{{ found.name }}</p>
         </div>
         <button type="button" :class="['w-full rounded-xl py-3 font-semibold text-white shadow-sm', theme.button]" @click="confirm">Continuer</button>
@@ -34,7 +34,7 @@
             :class="['mt-1 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:border-transparent', theme.ring]"
           >
         </label>
-        <p class="text-sm text-slate-500">Demandez-le à votre entreprise de livraison : c'est le début de son adresse, <strong>code</strong>.jibiat.com.</p>
+        <p class="text-sm text-slate-600">Demandez-le à votre entreprise de livraison : c'est le début de son adresse, <strong>code</strong>.jibiat.com.</p>
         <button type="submit" :disabled="loading" :class="['w-full rounded-xl py-3 font-semibold text-white shadow-sm disabled:opacity-60', theme.button]">
           {{ loading ? 'Recherche…' : 'Continuer' }}
         </button>
@@ -52,7 +52,7 @@ import { findCompany, nativeApp, nativeCompany, nativeConfig, setNativeCompany }
 
 const THEMES = {
   livreur: { bg: 'from-blue-800 to-blue-600', muted: 'text-blue-100', button: 'bg-blue-700 hover:bg-blue-800', ring: 'focus:ring-blue-500' },
-  ecommercant: { bg: 'from-emerald-800 to-emerald-600', muted: 'text-emerald-100', button: 'bg-emerald-600 hover:bg-emerald-700', ring: 'focus:ring-emerald-500' },
+  ecommercant: { bg: 'from-emerald-800 to-emerald-600', muted: 'text-emerald-100', button: 'bg-emerald-700 hover:bg-emerald-800', ring: 'focus:ring-emerald-500' },
 }
 const theme = computed(() => THEMES[nativeApp] || THEMES.ecommercant)
 const title = nativeApp === 'livreur' ? 'Jibiat Livreur' : 'Jibiat E-commerçant'

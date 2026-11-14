@@ -11,7 +11,7 @@
     <div v-else-if="art" class="mb-3 flex justify-center"><ColorIcon :name="art" :size="72" /></div>
     <div v-else class="text-5xl mb-3">{{ icon }}</div>
     <p class="text-[17px] font-bold text-slate-800">{{ title }}</p>
-    <p v-if="text" class="text-sm text-slate-500 mt-1">{{ text }}</p>
+    <p v-if="text" class="text-sm text-slate-600 mt-1">{{ text }}</p>
     <div v-if="$slots.default" class="mt-5"><slot /></div>
   </div>
 </template>

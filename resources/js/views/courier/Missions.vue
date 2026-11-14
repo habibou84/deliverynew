@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <!-- Disponibilité -->
     <button
-      :class="['tap w-full rounded-2xl p-4 flex items-center gap-4 text-left transition', available ? 'bg-emerald-600 text-white' : 'bg-white ring-1 ring-slate-200']"
+      :class="['tap w-full rounded-2xl p-4 flex items-center gap-4 text-left transition', available ? 'bg-emerald-700 text-white' : 'bg-white ring-1 ring-slate-200']"
       :aria-pressed="available"
       @click="toggleAvailability"
     >
@@ -11,7 +11,7 @@
       </span>
       <span class="flex-1">
         <span class="block font-semibold text-lg">{{ available ? 'Je suis en service' : 'Je suis hors service' }}</span>
-        <span :class="['block text-sm', available ? 'text-white/80' : 'text-slate-500']">{{ available ? 'Vous recevez des missions' : 'Touchez pour commencer votre journée' }}</span>
+        <span :class="['block text-sm', available ? 'text-white/80' : 'text-slate-600']">{{ available ? 'Vous recevez des missions' : 'Touchez pour commencer votre journée' }}</span>
       </span>
     </button>
 
@@ -65,10 +65,10 @@
       Hors ligne : voici vos missions telles qu'elles étaient à la dernière connexion.
     </p>
 
-    <p v-if="tab === 'pickup' && !error && !loading" class="px-1 text-xs text-slate-500">
+    <p v-if="tab === 'pickup' && !error && !loading" class="px-1 text-xs text-slate-600">
       Ramassages du jour et en avance. Un colis en retard revient ici quand sa nouvelle date est fixée.
     </p>
-    <p v-if="loading" class="text-center text-slate-400 py-8">Chargement…</p>
+    <p v-if="loading" class="text-center text-slate-600 py-8">Chargement…</p>
     <div v-else-if="error && !missions.length" class="text-center py-8 space-y-3">
       <p class="text-slate-600">{{ error }}</p>
       <button class="m-btn m-btn-secondary" @click="load">Réessayer</button>
@@ -87,7 +87,7 @@
           <span class="h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl bg-indigo-100">🏪</span>
           <div class="flex-1 min-w-0">
             <p class="font-semibold truncate">{{ c.first.order.merchant?.business_name || c.first.order.pickup.contact_name }} : {{ c.missions.length }} colis</p>
-            <p class="text-sm text-slate-500 truncate">📍 {{ c.first.order.pickup.zone_name }} · {{ c.first.order.pickup.address }}</p>
+            <p class="text-sm text-slate-600 truncate">📍 {{ c.first.order.pickup.zone_name }} · {{ c.first.order.pickup.address }}</p>
             <div class="flex flex-wrap items-center gap-2 mt-2">
               <span v-if="c.toAccept" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">{{ c.toAccept }} à accepter</span>
               <span v-if="c.started" class="rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">En route</span>
@@ -96,7 +96,7 @@
               <span v-if="c.gain" class="rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold px-2 py-0.5" title="Votre gain prévu">💰 + {{ money(c.gain) }}</span>
             </div>
           </div>
-          <span class="text-slate-400 text-xl">›</span>
+          <span class="text-slate-600 text-xl">›</span>
         </div>
       </RouterLink>
       <RouterLink v-else :to="`/livreur/missions/${c.first.id}`" class="block m-card p-4 active:bg-slate-50">
@@ -111,7 +111,7 @@
               <span v-if="c.missions.some((m) => m.relay_from)" class="ml-1 rounded-full bg-violet-600 px-2 py-0.5 text-xs text-white">🤝 Relais</span>
               <span v-if="c.missions.some((m) => m.last_edit && !m.last_edit.seen)" class="ml-1 rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white">⚠️ Modifiée</span>
             </p>
-            <p class="text-sm text-slate-500 truncate">
+            <p class="text-sm text-slate-600 truncate">
               📍 {{ c.first.type === 'pickup' ? c.first.order.pickup.zone_name : c.first.order.delivery.zone_name }}
               · {{ c.first.type === 'pickup' ? c.first.order.pickup.address : c.first.order.delivery.address }}
             </p>

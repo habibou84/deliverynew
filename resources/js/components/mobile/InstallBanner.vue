@@ -20,7 +20,7 @@
           <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[18px] font-bold text-white">✓</span>
           <span class="text-[16px]">Touchez <b>Ajouter</b>, puis ouvrez l'application depuis son icône.</span>
         </li>
-        <li v-if="!inSafari" class="text-[14px] text-slate-500">Option absente ? Ouvrez cette page dans <b>Safari</b>.</li>
+        <li v-if="!inSafari" class="text-[14px] text-slate-600">Option absente ? Ouvrez cette page dans <b>Safari</b>.</li>
       </ol>
       <p v-else-if="mode === 'in-app'" class="text-[16px] text-slate-700">Cette page est ouverte dans une autre application. Ouvrez-la dans <b>Chrome</b> (menu <b>⋮</b> puis « Ouvrir dans Chrome ») pour l'installer.</p>
       <p v-else-if="mode === 'samsung'" class="text-[16px] text-slate-700">Touchez le menu <b>≡</b> en bas, puis <b>« Ajouter page à »</b> et <b>« Écran d'accueil »</b>.</p>
@@ -45,7 +45,7 @@
           <li>Faites défiler et touchez <strong>« Sur l'écran d'accueil »</strong>.</li>
           <li>Touchez <strong>Ajouter</strong>, puis ouvrez l'application depuis son icône.</li>
         </ol>
-        <p v-if="!inSafari" class="mt-1 text-xs text-slate-500">Option absente ? Ouvrez cette page dans <strong>Safari</strong>.</p>
+        <p v-if="!inSafari" class="mt-1 text-xs text-slate-600">Option absente ? Ouvrez cette page dans <strong>Safari</strong>.</p>
       </template>
 
       <p v-else-if="mode === 'in-app'" class="text-slate-600">

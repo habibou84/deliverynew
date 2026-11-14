@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h1 class="text-xl font-bold">Formules d'abonnement</h1>
-        <p class="text-sm text-gray-500">
+        <p class="text-sm text-slate-600">
           Forfait mensuel avec des courses incluses puis un prix par course en plus, ou formule à la livraison (pourcentage des frais de chaque course). Essai gratuit des nouvelles entreprises :
           {{ trialDays ? `${trialDays} jours` : 'aucun' }} (réglage PLATFORM_TRIAL_DAYS).
         </p>
@@ -12,7 +12,7 @@
     </div>
 
     <div v-if="loaded && !plans.length" class="card p-6 text-center space-y-3">
-      <p class="text-gray-600">Aucune formule pour l'instant. Partez des quatre formules proposées, puis ajustez prix et limites.</p>
+      <p class="text-slate-600">Aucune formule pour l'instant. Partez des quatre formules proposées, puis ajustez prix et limites.</p>
       <button v-if="can('owner')" class="btn-primary" :disabled="creating" @click="createSuggested">Créer À la livraison, Essentiel, Pro et Entreprise</button>
     </div>
 
@@ -21,12 +21,12 @@
         <div class="flex items-start justify-between gap-2">
           <div>
             <h2 class="font-semibold text-lg">{{ p.name }}</h2>
-            <p v-if="p.description" class="text-sm text-gray-500">{{ p.description }}</p>
+            <p v-if="p.description" class="text-sm text-slate-600">{{ p.description }}</p>
           </div>
           <span v-if="!p.is_active" class="rounded-full bg-slate-200 px-2 py-0.5 text-xs">Retirée</span>
         </div>
         <template v-if="p.pricing === 'percent'">
-          <p class="text-2xl font-bold">{{ rate(p.percent_rate) }} <span class="text-sm font-normal text-gray-500">des frais de chaque course</span></p>
+          <p class="text-2xl font-bold">{{ rate(p.percent_rate) }} <span class="text-sm font-normal text-slate-600">des frais de chaque course</span></p>
           <ul class="text-sm space-y-1">
             <li>↕️ {{ money(p.percent_min) }} au moins{{ p.percent_max !== null ? `, ${money(p.percent_max)} au plus` : '' }} par course</li>
             <li v-if="p.volume_threshold">📉 {{ rate(p.volume_rate) }} au-delà de {{ p.volume_threshold }} courses par mois</li>
@@ -35,7 +35,7 @@
             <li>🛵 {{ couriersText(p) }}</li>
           </ul>
         </template>
-        <p v-else class="text-2xl font-bold">{{ money(p.price_monthly) }} <span class="text-sm font-normal text-gray-500">/ mois</span></p>
+        <p v-else class="text-2xl font-bold">{{ money(p.price_monthly) }} <span class="text-sm font-normal text-slate-600">/ mois</span></p>
         <ul v-if="p.pricing !== 'percent'" class="text-sm space-y-1">
           <li>📦 {{ p.included_orders === null ? 'Courses illimitées' : `${p.included_orders} courses incluses` }}</li>
           <li v-if="p.included_orders !== null">➕ {{ money(p.overage_per_order) }} par course en plus</li>
@@ -43,18 +43,18 @@
           <li v-if="p.min_invoice">🧾 Facture reportée sous {{ money(p.min_invoice) }}</li>
         </ul>
         <ul class="text-sm space-y-1 border-t pt-2">
-          <li v-for="f in features" :key="f.key" :class="p.features.includes(f.key) ? 'text-gray-800' : 'text-gray-400 line-through'">
+          <li v-for="f in features" :key="f.key" :class="p.features.includes(f.key) ? 'text-slate-800' : 'text-slate-600 line-through'">
             {{ p.features.includes(f.key) ? '✓' : '✗' }} {{ f.label }}
           </li>
         </ul>
         <ul class="text-sm space-y-1 border-t pt-2">
-          <li v-for="ap in appPlatforms" :key="ap.key" :class="p.apps[ap.key] === 'none' ? 'text-gray-400' : 'text-gray-800'">
+          <li v-for="ap in appPlatforms" :key="ap.key" :class="p.apps[ap.key] === 'none' ? 'text-slate-600' : 'text-slate-800'">
             📱 Applications {{ ap.label }} à son nom : {{ appText(p, ap.key) }}
-            <span v-if="ap.soon" class="ml-1 rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800">bientôt</span>
+            <span v-if="ap.soon" class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800">bientôt</span>
           </li>
         </ul>
         <div class="flex items-center justify-between border-t pt-2">
-          <span class="text-sm text-gray-500">{{ p.companies_count }} entreprise{{ p.companies_count > 1 ? 's' : '' }}</span>
+          <span class="text-sm text-slate-600">{{ p.companies_count }} entreprise{{ p.companies_count > 1 ? 's' : '' }}</span>
           <button v-if="can('owner')" class="btn-secondary" @click="edit(p)">Modifier</button>
         </div>
       </div>
@@ -66,17 +66,17 @@
         <h2 class="font-semibold">Demandes d'option : applications à leur nom</h2>
         <span v-if="pendingCount" class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">{{ pendingCount }} à traiter</span>
       </div>
-      <p v-if="!options.length" class="text-sm text-gray-500">Aucune demande pour l'instant. Les entreprises demandent l'option depuis Réglages › Abonnement.</p>
+      <p v-if="!options.length" class="text-sm text-slate-600">Aucune demande pour l'instant. Les entreprises demandent l'option depuis Réglages › Abonnement.</p>
       <div v-else class="overflow-x-auto">
         <table class="w-full text-sm">
-          <thead class="text-left text-gray-500"><tr><th class="py-1 pr-3">Entreprise</th><th class="pr-3">Formule</th><th class="pr-3">Option</th><th class="pr-3">Prix</th><th class="pr-3">Date</th><th /></tr></thead>
+          <thead class="text-left text-slate-600"><tr><th class="py-1 pr-3">Entreprise</th><th class="pr-3">Formule</th><th class="pr-3">Option</th><th class="pr-3">Prix</th><th class="pr-3">Date</th><th /></tr></thead>
           <tbody>
             <tr v-for="o in options" :key="o.id" class="border-t">
               <td class="py-2 pr-3 font-medium">{{ o.company.name }}</td>
               <td class="pr-3">{{ o.plan || '—' }}</td>
               <td class="pr-3">{{ o.label }}</td>
               <td class="pr-3">{{ o.price ? `${money(o.price)} / mois` : '—' }}</td>
-              <td class="pr-3 text-gray-500">{{ shortDate(o.started_at || o.requested_at) }}</td>
+              <td class="pr-3 text-slate-600">{{ shortDate(o.started_at || o.requested_at) }}</td>
               <td class="py-2 text-right whitespace-nowrap">
                 <template v-if="o.status === 'pending'">
                   <template v-if="can('owner')">
@@ -97,7 +97,7 @@
           </tbody>
         </table>
       </div>
-      <p class="text-xs text-gray-500">Acceptée : l'option est facturée au prorata à partir d'aujourd'hui et la fabrication est permise (Console › Applications). Arrêtée : l'application installée continue de marcher, sans nouvelle version.</p>
+      <p class="text-xs text-slate-600">Acceptée : l'option est facturée au prorata à partir d'aujourd'hui et la fabrication est permise (Console › Applications). Arrêtée : l'application installée continue de marcher, sans nouvelle version.</p>
     </section>
 
     <Modal :open="form.open" :title="form.id ? `Formule ${form.name}` : 'Nouvelle formule'" @close="form.open = false">
@@ -107,7 +107,7 @@
         <div class="grid grid-cols-2 gap-2">
           <label v-for="m in PRICINGS" :key="m.value" :class="['flex cursor-pointer gap-2 rounded-lg border p-2 text-sm', form.pricing === m.value ? 'border-emerald-600 bg-emerald-50' : 'border-slate-200']">
             <input v-model="form.pricing" type="radio" :value="m.value" class="mt-1 accent-emerald-700">
-            <span><span class="block font-medium">{{ m.label }}</span><span class="block text-xs text-gray-500">{{ m.help }}</span></span>
+            <span><span class="block font-medium">{{ m.label }}</span><span class="block text-xs text-slate-600">{{ m.help }}</span></span>
           </label>
         </div>
         <div v-if="form.pricing === 'percent'" class="grid grid-cols-2 gap-3">
@@ -126,9 +126,9 @@
           <div class="col-span-2">
             <label class="label" for="p-cap">Plafond par mois (F)</label>
             <input id="p-cap" v-model.number="form.cap_amount" type="number" min="0" class="input" placeholder="Aucun plafond">
-            <p class="text-xs text-gray-500 mt-1">L'entreprise ne paie jamais plus que ce montant sur un mois (ramené à la semaine si elle paie chaque semaine).</p>
+            <p class="text-xs text-slate-600 mt-1">L'entreprise ne paie jamais plus que ce montant sur un mois (ramené à la semaine si elle paie chaque semaine).</p>
           </div>
-          <p class="col-span-2 text-xs text-gray-500">
+          <p class="col-span-2 text-xs text-slate-600">
             Exemple : course à 1 500 F → {{ money(example(1500)) }} ; course à 10 000 F → {{ money(example(10000)) }}. Les frais comptés sont ceux de la course et ses suppléments.
           </p>
         </div>
@@ -150,25 +150,25 @@
         <div>
           <label class="label" for="p-extra">Prix d'un livreur en plus (F par mois)</label>
           <input id="p-extra" v-model.number="form.extra_courier_price" type="number" min="0" class="input" placeholder="Pas de livreur en plus" :disabled="orNull(form.max_couriers) === null">
-          <p class="text-xs text-gray-500 mt-1">Au-delà des livreurs de la formule, l'entreprise peut en ajouter : chacun est facturé ce prix par mois, au prorata des jours où il est actif. Vide : elle ne peut pas dépasser la limite.</p>
+          <p class="text-xs text-slate-600 mt-1">Au-delà des livreurs de la formule, l'entreprise peut en ajouter : chacun est facturé ce prix par mois, au prorata des jours où il est actif. Vide : elle ne peut pas dépasser la limite.</p>
         </div>
         <div>
           <label class="label" for="p-mininv">Montant minimum d'une facture (F)</label>
           <input id="p-mininv" v-model.number="form.min_invoice" type="number" min="0" class="input" placeholder="Aucun">
-          <p class="text-xs text-gray-500 mt-1">En dessous, la facture n'est pas à payer : son montant est ajouté à la suivante.</p>
+          <p class="text-xs text-slate-600 mt-1">En dessous, la facture n'est pas à payer : son montant est ajouté à la suivante.</p>
         </div>
         <fieldset class="border rounded p-3 space-y-2">
           <legend class="text-sm font-medium px-1">Modules inclus</legend>
           <label v-for="f in features" :key="f.key" class="flex items-start gap-2 text-sm">
             <input v-model="form.features" type="checkbox" :value="f.key" class="mt-1">
-            <span>{{ f.label }}<span class="block text-gray-500">{{ f.description }}</span></span>
+            <span>{{ f.label }}<span class="block text-slate-600">{{ f.description }}</span></span>
           </label>
-          <p class="text-xs text-gray-500">Courses, livreurs, caisse, suivi, notifications et import Excel sont inclus dans toutes les formules.</p>
+          <p class="text-xs text-slate-600">Courses, livreurs, caisse, suivi, notifications et import Excel sont inclus dans toutes les formules.</p>
         </fieldset>
         <fieldset class="border rounded p-3 space-y-3">
           <legend class="text-sm font-medium px-1">📱 Applications à son nom (e-commerçant et livreur)</legend>
           <div v-for="ap in appPlatforms" :key="ap.key" class="space-y-1">
-            <p class="text-sm font-medium">{{ ap.label }} <span v-if="ap.soon" class="ml-1 rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-800">bientôt</span></p>
+            <p class="text-sm font-medium">{{ ap.label }} <span v-if="ap.soon" class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800">bientôt</span></p>
             <div class="grid grid-cols-3 overflow-hidden rounded-lg border text-sm">
               <button v-for="m in APP_MODES" :key="m.value" type="button" :class="['py-1.5', form.apps[ap.key] === m.value ? 'bg-slate-900 text-white font-semibold' : 'text-slate-600']" @click="form.apps[ap.key] = m.value">{{ m.label }}</button>
             </div>
@@ -178,11 +178,11 @@
               <span>F / mois</span>
             </div>
           </div>
-          <p class="text-xs text-gray-500">Option : l'entreprise la demande dans Réglages › Abonnement, vous l'acceptez dans « Demandes d'option » en bas de cette page, puis elle est facturée au prorata. Le prix retenu est celui du jour de l'acceptation.</p>
+          <p class="text-xs text-slate-600">Option : l'entreprise la demande dans Réglages › Abonnement, vous l'acceptez dans « Demandes d'option » en bas de cette page, puis elle est facturée au prorata. Le prix retenu est celui du jour de l'acceptation.</p>
         </fieldset>
         <label v-if="form.id" class="flex items-start gap-2 text-sm">
           <input v-model="form.is_active" type="checkbox" class="mt-1">
-          <span>Proposée aux nouvelles entreprises<span class="block text-gray-500">Décochée : la formule est retirée, les entreprises qui l'ont la gardent.</span></span>
+          <span>Proposée aux nouvelles entreprises<span class="block text-slate-600">Décochée : la formule est retirée, les entreprises qui l'ont la gardent.</span></span>
         </label>
         <p v-if="form.error" class="field-error">{{ form.error }}</p>
         <button class="btn-primary w-full" :disabled="form.saving">{{ form.saving ? 'Enregistrement…' : 'Enregistrer' }}</button>

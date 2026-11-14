@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-2">
     <p class="text-sm font-semibold">Pourquoi annulez-vous ? <span class="text-red-600">*</span></p>
-    <p v-if="loading" class="text-sm text-gray-500">Chargement…</p>
+    <p v-if="loading" class="text-sm text-slate-600">Chargement…</p>
     <div v-else class="space-y-1.5" role="radiogroup">
       <label
         v-for="r in quota?.reasons || []"
@@ -20,7 +20,7 @@
       <p v-if="quota.needs_approval" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
         ⚠️ Vous avez déjà annulé <b>{{ quota.count }} course{{ quota.count > 1 ? 's' : '' }} aujourd'hui</b>. Au-delà de {{ quota.limit }}, un administrateur doit valider : la course reste active jusqu'à sa décision.
       </p>
-      <p v-else class="text-xs text-gray-500">Vos annulations aujourd'hui : {{ quota.count }} sur {{ quota.limit }} sans validation.</p>
+      <p v-else class="text-xs text-slate-600">Vos annulations aujourd'hui : {{ quota.count }} sur {{ quota.limit }} sans validation.</p>
     </template>
     <p v-if="quota && !merchant" class="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-900">📣 L'e-commerçant est prévenu avec ce motif et votre nom.</p>
   </div>

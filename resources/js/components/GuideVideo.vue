@@ -9,7 +9,7 @@
     </span>
     <span class="min-w-0 flex-1 p-3">
       <span class="block font-semibold">🎬 {{ title }}</span>
-      <span class="block text-sm text-gray-600">{{ text }}</span>
+      <span class="block text-sm text-slate-600">{{ text }}</span>
       <span class="mt-1 block text-sm font-medium text-blue-600">Regarder · {{ duration }}</span>
     </span>
   </button>

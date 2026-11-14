@@ -22,12 +22,12 @@
         </p>
       </div>
       <slot v-if="pending" name="actions" />
-      <p v-else-if="hasPoint" class="text-xs text-slate-500">Déplacez le repère ou touchez la carte pour corriger.</p>
+      <p v-else-if="hasPoint" class="text-xs text-slate-600">Déplacez le repère ou touchez la carte pour corriger.</p>
     </div>
 
     <!-- Lien Google Maps : en petit, sous la carte -->
     <template v-if="allowLink">
-      <button v-if="!linkOpen" type="button" class="text-[13.5px] font-semibold text-slate-500 underline" @click="linkOpen = true">Coller un lien Google Maps</button>
+      <button v-if="!linkOpen" type="button" class="text-[13.5px] font-semibold text-slate-600 underline" @click="linkOpen = true">Coller un lien Google Maps</button>
       <form v-else class="flex gap-2" @submit.prevent="useLink">
         <input v-model.trim="link" class="input min-w-0 flex-1" placeholder="Lien Google Maps ou « 5.36, -3.97 »" aria-label="Lien Google Maps">
         <button type="submit" class="btn-secondary" :disabled="!link || resolving">{{ resolving ? '…' : 'Placer' }}</button>

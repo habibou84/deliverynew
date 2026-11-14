@@ -2,7 +2,7 @@
   <section v-if="look" class="card p-4 space-y-4">
     <div>
       <h2 class="font-semibold">Apparence des espaces</h2>
-      <p class="text-sm text-gray-600">Couleurs de l'espace e-commerçant, de l'espace livreur et de l'espace équipe, nom et icône des applications installées sur les téléphones. Le logo ci-dessus s'affiche dans chaque espace.</p>
+      <p class="text-sm text-slate-600">Couleurs de l'espace e-commerçant, de l'espace livreur et de l'espace équipe, nom et icône des applications installées sur les téléphones. Le logo ci-dessus s'affiche dans chaque espace.</p>
     </div>
 
     <!-- Couleur principale du logo appliquée à l'envoi du logo -->
@@ -16,7 +16,7 @@
       <div class="flex flex-wrap items-start gap-3">
         <div class="flex-1 min-w-48">
           <h3 class="font-semibold">Couleurs de votre logo</h3>
-          <p class="text-xs text-gray-500">Le fond, le blanc, le noir et les gris sont ignorés.</p>
+          <p class="text-xs text-slate-600">Le fond, le blanc, le noir et les gris sont ignorés.</p>
         </div>
         <button v-if="!logo" type="button" class="btn-secondary text-xs" :disabled="loadingLogo" @click="loadLogoColors">
           {{ loadingLogo ? 'Analyse du logo…' : 'Proposer des couleurs depuis mon logo' }}
@@ -24,39 +24,39 @@
       </div>
 
       <template v-if="logo">
-        <p v-if="!logo.palettes.length" class="text-sm text-gray-600">
+        <p v-if="!logo.palettes.length" class="text-sm text-slate-600">
           Votre logo est en noir et blanc (ou en gris) : aucune couleur à proposer. Vos couleurs actuelles sont gardées ; choisissez-en une plus bas si vous voulez.
         </p>
         <template v-else>
           <div class="flex flex-wrap gap-3">
-            <div v-for="c in logo.colors" :key="c.hex" class="flex flex-col items-center text-[11px] text-slate-600">
+            <div v-for="c in logo.colors" :key="c.hex" class="flex flex-col items-center text-xs text-slate-600">
               <span class="h-9 w-9 rounded-lg border" :style="{ backgroundColor: c.hex }" />
               <span>{{ c.name }}</span>
               <span>{{ c.share }} %</span>
             </div>
           </div>
-          <p class="text-xs text-gray-500">Chaque palette : couleur principale (barre, boutons), version foncée (textes), version claire (fonds). Le texte blanc reste toujours lisible.</p>
+          <p class="text-xs text-slate-600">Chaque palette : couleur principale (barre, boutons), version foncée (textes), version claire (fonds). Le texte blanc reste toujours lisible.</p>
           <div class="grid gap-3 sm:grid-cols-3">
             <div v-for="p in logo.palettes" :key="p.key" :class="['rounded-lg border p-2 space-y-2', isApplied(p) ? 'border-emerald-500 ring-1 ring-emerald-500' : '']">
               <p class="flex items-center gap-2 text-sm font-semibold">
                 {{ p.label }}
-                <span v-if="isApplied(p)" class="rounded-full bg-emerald-100 px-2 text-[11px] font-semibold text-emerald-800">Appliquée</span>
+                <span v-if="isApplied(p)" class="rounded-full bg-emerald-100 px-2 text-xs font-semibold text-emerald-800">Appliquée</span>
               </p>
               <div class="grid grid-cols-3 gap-1">
                 <span v-for="t in [p.color, p.dark, p.light]" :key="t" class="h-5 rounded border" :style="{ backgroundColor: t }" />
               </div>
-              <p :class="['text-[11px]', p.adjusted ? 'text-amber-700' : 'text-emerald-700']">
+              <p :class="['text-xs', p.adjusted ? 'text-amber-700' : 'text-emerald-700']">
                 {{ p.adjusted ? `${p.from} du logo, assombri pour que le texte blanc reste lisible` : (p.from ? `${p.from} du logo · texte blanc lisible` : 'Plus calme · texte blanc lisible') }}
               </p>
               <!-- Aperçu : haut de l'accueil de l'e-commerçant -->
               <div class="rounded-lg overflow-hidden border bg-slate-50">
                 <div class="px-2 py-1.5 text-white" :style="{ backgroundColor: p.color }">
-                  <p class="text-[10px] opacity-90">Ma journée</p>
+                  <p class="text-xs opacity-90">Ma journée</p>
                   <p class="text-sm font-bold">8 courses</p>
                 </div>
                 <div class="p-2 space-y-1.5">
-                  <span class="inline-block rounded-full px-2 text-[10px] font-semibold" :style="{ backgroundColor: p.light, color: p.dark }">Toutes 8</span>
-                  <div class="rounded-md py-1 text-center text-[11px] font-semibold text-white" :style="{ backgroundColor: p.color }">+ Nouvelle course</div>
+                  <span class="inline-block rounded-full px-2 text-xs font-semibold" :style="{ backgroundColor: p.light, color: p.dark }">Toutes 8</span>
+                  <div class="rounded-md py-1 text-center text-xs font-semibold text-white" :style="{ backgroundColor: p.color }">+ Nouvelle course</div>
                 </div>
               </div>
               <p v-if="isApplied(p)" class="rounded-md bg-emerald-50 py-1.5 text-center text-sm font-semibold text-emerald-800">Appliquée ✓</p>
@@ -91,7 +91,7 @@
             <div v-if="s.app" class="flex flex-col items-center ml-auto">
               <img v-if="iconPreview(s.key)" :src="iconPreview(s.key)" alt="" class="h-11 w-11 rounded-xl object-cover shadow">
               <span v-else class="h-11 w-11 rounded-xl grid place-items-center text-white shadow" :style="{ backgroundColor: colorOf(s.key) }">{{ s.emoji }}</span>
-              <span class="text-[10px] text-slate-700 mt-0.5 max-w-16 truncate">{{ look.spaces[s.key].app_name || look.spaces[s.key].default_app_name || s.defaultName }}</span>
+              <span class="text-xs text-slate-700 mt-0.5 max-w-16 truncate">{{ look.spaces[s.key].app_name || look.spaces[s.key].default_app_name || s.defaultName }}</span>
             </div>
           </div>
         </div>
@@ -119,7 +119,7 @@
           </div>
           <fieldset :disabled="look.same && s.key !== 'marchand'" class="space-y-1">
             <p class="label">Icône de l'application</p>
-            <p class="text-xs text-gray-500">{{ look.spaces[s.key].custom_icon ? 'Image carrée envoyée.' : (branding.logo_url ? 'Logo sur la couleur de l\'espace.' : 'Icône standard (envoyez un logo ou une image).') }}</p>
+            <p class="text-xs text-slate-600">{{ look.spaces[s.key].custom_icon ? 'Image carrée envoyée.' : (branding.logo_url ? 'Logo sur la couleur de l\'espace.' : 'Icône standard (envoyez un logo ou une image).') }}</p>
             <div class="flex flex-wrap gap-2">
               <label class="btn-secondary cursor-pointer text-xs">
                 Envoyer une image carrée
@@ -132,7 +132,7 @@
       </div>
     </div>
 
-    <p class="text-xs text-gray-500">
+    <p class="text-xs text-slate-600">
       Téléphones où l'application est déjà installée : le nom et l'icône se mettent à jour d'eux-mêmes sous 24 à 48 h sur Android ; sur iPhone, supprimez puis réinstallez l'application.
       Les applications Android téléchargées (APK) gardent leur icône, mais leurs écrans prennent la couleur et le logo.
     </p>

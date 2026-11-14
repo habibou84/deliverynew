@@ -3,7 +3,7 @@
     <div class="flex items-start justify-between gap-3">
       <div>
         <p class="font-medium">🔑 {{ hasPassword ? 'Mon mot de passe' : 'Définir un mot de passe' }}</p>
-        <p class="text-sm text-slate-500">
+        <p class="text-sm text-slate-600">
           {{ hasPassword
             ? 'Vous pouvez aussi vous connecter par WhatsApp, sans mot de passe.'
             : 'Votre compte s\'ouvre par WhatsApp. Un mot de passe est utile pour vous connecter sans votre téléphone.' }}

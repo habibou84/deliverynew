@@ -17,38 +17,38 @@
         <ul v-if="growing.length" class="divide-y text-sm">
           <li v-for="m in growing" :key="m.id" class="flex justify-between py-1.5"><span>{{ m.name }}</span><b class="text-emerald-700">{{ m.evolution === null ? 'nouveau' : `+${m.evolution} %` }}</b></li>
         </ul>
-        <p v-else class="text-sm text-slate-500">Personne ne monte fortement sur la période.</p>
+        <p v-else class="text-sm text-slate-600">Personne ne monte fortement sur la période.</p>
       </section>
       <section class="card space-y-2 p-4">
-        <h2 class="font-semibold">📉 Qui baissent <span class="text-sm font-normal text-slate-500">· à appeler</span></h2>
+        <h2 class="font-semibold">📉 Qui baissent <span class="text-sm font-normal text-slate-600">· à appeler</span></h2>
         <ul v-if="declining.length" class="divide-y text-sm">
           <li v-for="m in declining" :key="m.id" class="flex items-center justify-between gap-2 py-1.5">
             <span>{{ m.name }} <b class="text-red-600">{{ m.evolution }} %</b></span>
             <a v-if="phoneOf(m)" :href="whatsappLink(phoneOf(m))" target="_blank" rel="noopener" class="whitespace-nowrap rounded-lg bg-emerald-50 px-3 py-1 text-emerald-800 hover:bg-emerald-100">💬 Écrire</a>
           </li>
         </ul>
-        <p v-else class="text-sm text-slate-500">Personne ne baisse fortement. 👏</p>
+        <p v-else class="text-sm text-slate-600">Personne ne baisse fortement. 👏</p>
       </section>
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
       <section class="card p-4 space-y-3">
-        <h2 class="font-semibold">Top e-commerçants <span class="text-sm font-normal text-slate-500">· courses créées</span></h2>
+        <h2 class="font-semibold">Top e-commerçants <span class="text-sm font-normal text-slate-600">· courses créées</span></h2>
         <BarList :items="top" empty="Aucune course sur la période." />
       </section>
 
       <section class="card p-4 space-y-3">
-        <h2 class="font-semibold">À relancer <span class="text-sm font-normal text-slate-500">· plus de course depuis {{ data.inactive_days }} jours</span></h2>
+        <h2 class="font-semibold">À relancer <span class="text-sm font-normal text-slate-600">· plus de course depuis {{ data.inactive_days }} jours</span></h2>
         <ul v-if="data.inactive.length" class="max-h-72 divide-y overflow-y-auto text-sm">
           <li v-for="m in data.inactive" :key="m.id" class="flex items-center justify-between gap-2 py-2">
             <div>
               <p class="font-medium">{{ m.name }}</p>
-              <p class="text-xs text-slate-500">{{ m.contact_name }} · dernière course il y a {{ m.days }} jours</p>
+              <p class="text-xs text-slate-600">{{ m.contact_name }} · dernière course il y a {{ m.days }} jours</p>
             </div>
             <a v-if="m.phone" :href="whatsappLink(m.phone)" target="_blank" rel="noopener" class="whitespace-nowrap rounded-lg bg-emerald-50 px-3 py-1.5 text-emerald-800 hover:bg-emerald-100">💬 Écrire</a>
           </li>
         </ul>
-        <p v-else class="text-sm text-slate-500">Tous vos e-commerçants commandent régulièrement. 👏</p>
+        <p v-else class="text-sm text-slate-600">Tous vos e-commerçants commandent régulièrement. 👏</p>
       </section>
     </div>
 
@@ -64,7 +64,7 @@
         <span v-else>—</span>
       </template>
     </SortableTable>
-    <p class="text-xs text-slate-500">Évolution : courses créées face à la période précédente. Réussite : livrées parmi les courses terminées (livrées, retournées, perdues). Rentabilité : frais de livraison moins la paie des livreurs et les frais pris en charge par l'agence (la paie fixe est répartie selon les courses livrées) ; en rouge, l'agence perd de l'argent. À reverser : solde actuel, tous mois confondus.</p>
+    <p class="text-xs text-slate-600">Évolution : courses créées face à la période précédente. Réussite : livrées parmi les courses terminées (livrées, retournées, perdues). Rentabilité : frais de livraison moins la paie des livreurs et les frais pris en charge par l'agence (la paie fixe est répartie selon les courses livrées) ; en rouge, l'agence perd de l'argent. À reverser : solde actuel, tous mois confondus.</p>
   </div>
 </template>
 

@@ -8,7 +8,7 @@
       <div class="text-center space-y-1">
         <p class="text-3xl" aria-hidden="true">💬</p>
         <h2 class="text-xl font-bold">Me connecter par WhatsApp</h2>
-        <p class="text-sm text-slate-500">Sans mot de passe : vous envoyez un message WhatsApp déjà écrit, et vous êtes connecté.</p>
+        <p class="text-sm text-slate-600">Sans mot de passe : vous envoyez un message WhatsApp déjà écrit, et vous êtes connecté.</p>
       </div>
       <div v-if="error" class="rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 space-y-2" role="alert">
         <p>{{ error }}</p>

@@ -16,7 +16,7 @@
 
     <!-- Jour affiché : aujourd'hui par défaut (retards à part), gardé d'un onglet à l'autre -->
     <div v-if="isStaff" class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Jour affiché">
-      <span class="text-gray-600">📅 Jour :</span>
+      <span class="text-slate-600">📅 Jour :</span>
       <button
         v-for="d in DAY_CHOICES" :key="d.label" type="button"
         :class="['rounded-full px-3 py-1 ring-1', filters.day === d.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
@@ -31,7 +31,7 @@
         aria-label="Autre jour" title="Autre jour"
         @change="$event.target.value && setDay($event.target.value)"
       >
-      <span v-if="filters.day" class="hidden sm:inline text-gray-500">· seulement les courses prévues ce jour (jours passés dans « Courses non traitées »)</span>
+      <span v-if="filters.day" class="hidden sm:inline text-slate-600">· seulement les courses prévues ce jour (jours passés dans « Courses non traitées »)</span>
     </div>
 
     <!-- Point du jour : livrées, recette, encaissé, à reverser -->
@@ -90,7 +90,7 @@
 
     <!-- Sans livreur : ramassage, livraison ou les deux ; de la plus ancienne attente à la plus récente -->
     <div v-if="filters.queue === 'unassigned'" class="flex flex-wrap items-center gap-2 text-sm">
-      <span class="text-gray-600">Afficher :</span>
+      <span class="text-slate-600">Afficher :</span>
       <button
         v-for="a in AWAITING" :key="a.value" type="button"
         :class="['rounded-full px-3 py-1 ring-1', filters.awaiting === a.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
@@ -98,7 +98,7 @@
       >
         {{ a.label }}
       </button>
-      <span class="text-gray-500">· de la plus ancienne attente à la plus récente</span>
+      <span class="text-slate-600">· de la plus ancienne attente à la plus récente</span>
     </div>
 
     <!-- Jour choisi : courses prévues plus tard hors de la file, à ajouter pour un ramassage en avance -->
@@ -112,7 +112,7 @@
         · <button type="button" class="font-medium underline" @click="toggleLater">Masquer</button>
       </template>
     </p>
-    <p v-else-if="filters.day && ['change_requests', 'code_to_verify'].includes(filters.queue)" class="text-xs text-gray-500">
+    <p v-else-if="filters.day && ['change_requests', 'code_to_verify'].includes(filters.queue)" class="text-xs text-slate-600">
       Cette file montre toutes les dates : chaque cas reste visible jusqu'à ce qu'il soit réglé.
     </p>
 
@@ -145,7 +145,7 @@
             />
           </div>
           <div>
-            <p class="label">Période <span class="font-normal text-gray-500">(remplace le jour)</span></p>
+            <p class="label">Période <span class="font-normal text-slate-600">(remplace le jour)</span></p>
             <select v-if="isStaff" v-model="filters.date_basis" class="input mb-2" aria-label="Dates selon" @change="filters.from || filters.to ? onPeriod() : null">
               <option value="delivery">📅 Selon la livraison</option>
               <option value="created">🆕 Selon la création</option>
@@ -216,8 +216,8 @@
 
       <!-- Téléphone : une carte par course -->
       <div class="md:hidden space-y-2">
-        <p v-if="loading" class="card p-6 text-center text-gray-500">Chargement…</p>
-        <p v-else-if="!orders.length" class="card p-6 text-center text-gray-500">Aucune course.</p>
+        <p v-if="loading" class="card p-6 text-center text-slate-600">Chargement…</p>
+        <p v-else-if="!orders.length" class="card p-6 text-center text-slate-600">Aucune course.</p>
         <article
           v-for="o in orders"
           v-else
@@ -236,14 +236,14 @@
           <div class="flex items-center justify-between gap-2">
             <div class="min-w-0">
               <div class="font-medium truncate">{{ o.recipient.name || '—' }}</div>
-              <div class="text-xs text-gray-500">{{ o.recipient.phone }}</div>
+              <div class="text-xs text-slate-600">{{ o.recipient.phone }}</div>
             </div>
             <a v-if="o.recipient.phone" :href="`tel:${o.recipient.phone}`" class="tap shrink-0 grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-lg" :aria-label="`Appeler ${o.recipient.name || 'le destinataire'}`" @click.stop>📞</a>
           </div>
-          <div class="text-xs text-gray-600">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}<span v-if="isStaff && o.merchant"> · {{ o.merchant.business_name }}</span></div>
+          <div class="text-xs text-slate-600">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}<span v-if="isStaff && o.merchant"> · {{ o.merchant.business_name }}</span></div>
           <OrderStatusCell :order="o" :late="isLate(o)" :late-day="deliveryDay(o)" @decide="deciding = $event" />
-          <CourierCell v-if="o.pickup_courier || o.delivery_courier || o.held_by || (isDispatch && o.awaiting_courier)" :order="o" :couriers="couriers" :can-dispatch="isDispatch" class="text-gray-700" @updated="replaceOrder" />
-          <div class="text-xs text-gray-400">Livraison {{ date(o.delivery.scheduled_date || o.created_at) }} · créée {{ dateTime(o.created_at) }}</div>
+          <CourierCell v-if="o.pickup_courier || o.delivery_courier || o.held_by || (isDispatch && o.awaiting_courier)" :order="o" :couriers="couriers" :can-dispatch="isDispatch" class="text-slate-700" @updated="replaceOrder" />
+          <div class="text-xs text-slate-600">Livraison {{ date(o.delivery.scheduled_date || o.created_at) }} · créée {{ dateTime(o.created_at) }}</div>
           <div v-if="o.pending_change && isDispatch" class="flex gap-2 pt-1" @click.stop>
             <span class="flex-1 text-xs text-amber-800">✏️ {{ changeSummary(o) }}</span>
             <button class="btn-primary !py-1 text-xs" @click="decideChange(o, 'approve')">Valider</button>
@@ -252,13 +252,13 @@
           <button v-else-if="canEdit(o)" type="button" class="btn-secondary w-full !py-1.5 text-sm" @click.stop="editing = o">
             ✏️ {{ o.edit_scope === 'all' ? 'Modifier' : 'Modifier la livraison' }}
           </button>
-          <p v-else-if="o.status === 'out_for_delivery'" class="text-xs text-gray-400">🔒 En route vers le client, plus modifiable</p>
+          <p v-else-if="o.status === 'out_for_delivery'" class="text-xs text-slate-600">🔒 En route vers le client, plus modifiable</p>
         </article>
       </div>
 
       <div class="card overflow-x-auto hidden md:block">
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-left text-gray-600">
+          <thead class="bg-slate-50 text-left text-slate-600">
             <tr>
               <th v-if="isStaff" class="p-2 w-8"><input type="checkbox" :checked="allSelected" aria-label="Tout sélectionner" @change="toggleAll"></th>
               <th class="p-2">Code</th>
@@ -273,8 +273,8 @@
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr v-if="loading"><td colspan="10" class="p-6 text-center text-gray-500">Chargement…</td></tr>
-            <tr v-else-if="!orders.length"><td colspan="10" class="p-6 text-center text-gray-500">Aucune course.</td></tr>
+            <tr v-if="loading"><td colspan="10" class="p-6 text-center text-slate-600">Chargement…</td></tr>
+            <tr v-else-if="!orders.length"><td colspan="10" class="p-6 text-center text-slate-600">Aucune course.</td></tr>
             <tr
               v-for="o in orders"
               v-else
@@ -283,11 +283,11 @@
               @click="open(o)"
             >
               <td v-if="isStaff" class="p-2" @click.stop><input v-model="selected" type="checkbox" :value="o.id" :aria-label="`Sélectionner ${o.tracking_code}`"></td>
-              <td class="p-2 font-mono text-xs">{{ o.tracking_code }}<span v-if="o.legacy_id" class="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 font-sans text-[10px] font-semibold text-violet-800" :title="`Reprise de l'ancienne application, n° ${o.legacy_id}`">anc. {{ o.legacy_id }}</span></td>
+              <td class="p-2 font-mono text-xs">{{ o.tracking_code }}<span v-if="o.legacy_id" class="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 font-sans text-xs font-semibold text-violet-800" :title="`Reprise de l'ancienne application, n° ${o.legacy_id}`">anc. {{ o.legacy_id }}</span></td>
               <td v-if="isStaff" class="p-2">{{ o.merchant?.business_name }}</td>
               <td :class="['p-2', canEdit(o) && 'editable-cell']" :title="canEdit(o) ? 'Modifier le client' : null" @click="editField(o, 'recipient', $event)">
                 <div>{{ o.recipient.name || '—' }}</div>
-                <div class="text-xs text-gray-500">{{ o.recipient.phone }}</div>
+                <div class="text-xs text-slate-600">{{ o.recipient.phone }}</div>
               </td>
               <td :class="['p-2 whitespace-nowrap', canEdit(o) && 'editable-cell']" :title="canEdit(o) ? 'Modifier la commune de livraison' : null" @click="editField(o, 'zone', $event)">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}</td>
               <td class="p-2">
@@ -299,8 +299,8 @@
               <td :class="['p-2 text-right whitespace-nowrap', canEdit(o) && o.edit_scope === 'all' && 'editable-cell']" :title="canEdit(o) && o.edit_scope === 'all' ? 'Modifier le montant' : null" @click="o.edit_scope === 'all' ? editField(o, 'amount', $event) : null">{{ money(o.amounts.cod_amount) }}</td>
               <td :class="['p-2 text-xs whitespace-nowrap', canEdit(o) && 'editable-cell']" :title="canEdit(o) ? 'Modifier le jour de livraison' : null" @click="editField(o, 'date', $event)">
                 <!-- Jour de livraison : la date prévue, sinon le jour de création -->
-                <div class="font-medium text-gray-800">{{ date(o.delivery.scheduled_date || o.created_at) }}</div>
-                <div class="text-gray-500">créée {{ dateTime(o.created_at) }}</div>
+                <div class="font-medium text-slate-800">{{ date(o.delivery.scheduled_date || o.created_at) }}</div>
+                <div class="text-slate-600">créée {{ dateTime(o.created_at) }}</div>
               </td>
               <td class="p-2 text-right whitespace-nowrap" @click.stop>
                 <!-- Modification de l'e-commerçant à valider -->
@@ -314,7 +314,7 @@
                   :title="o.edit_scope === 'all' ? 'Modifier la course' : 'Modifier la livraison (colis déjà récupéré)'" :aria-label="`Modifier ${o.tracking_code}`"
                   @click="editing = o"
                 >✏️</button>
-                <span v-else-if="o.status === 'out_for_delivery'" class="text-xs text-gray-400" title="Le livreur est en route vers le client">🔒</span>
+                <span v-else-if="o.status === 'out_for_delivery'" class="text-xs text-slate-600" title="Le livreur est en route vers le client">🔒</span>
               </td>
             </tr>
           </tbody>
