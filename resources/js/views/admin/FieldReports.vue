@@ -7,7 +7,7 @@
       </div>
       <!-- Place réservée : la page ne bouge pas quand le son s'active au premier clic -->
       <p :class="['text-xs rounded bg-amber-50 text-amber-900 px-2 py-1', alertSound.unlocked || !alertSound.enabled ? 'invisible' : '']" :aria-hidden="alertSound.unlocked">
-        🔊 Cliquez n'importe où dans la page pour activer le son des alertes.
+        Cliquez n'importe où dans la page pour activer le son des alertes.
       </p>
     </div>
 
@@ -31,7 +31,7 @@
         <label class="label" for="fr-kind">Type</label>
         <select id="fr-kind" v-model="filters.kind" class="input" @change="load(1)">
           <option value="">Tous</option>
-          <option v-for="(k, value) in KINDS" :key="value" :value="value">{{ k.icon }} {{ k.label }}{{ store.open[value] ? ` (${store.open[value]} à traiter)` : '' }}</option>
+          <option v-for="(k, value) in KINDS" :key="value" :value="value">{{ k.label }}{{ store.open[value] ? ` (${store.open[value]} à traiter)` : '' }}</option>
         </select>
       </div>
       <div>
@@ -60,29 +60,29 @@
       <article
         v-for="r in reports"
         :key="r.id"
-        :class="['card p-4 border-l-4', r.review ? 'border-l-slate-300 opacity-80' : KINDS[r.kind].border, highlighted.has(r.id) ? 'ring-2 ring-amber-300' : '']"
+        :class="['card p-4', r.review ? 'opacity-80' : '', highlighted.has(r.id) ? 'ring-2 ring-amber-300' : '']"
       >
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0 space-y-1">
             <p class="text-sm">
-              <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', KINDS[r.kind].badge]">{{ KINDS[r.kind].icon }} {{ title(r) }}</span>
+              <span :class="['inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1', toneClass(KINDS[r.kind].tone)]"><Icone :nom="KINDS[r.kind].icon" taille="petite" /> {{ title(r) }}</span>
               <span class="ml-2 text-slate-600">{{ dateTime(r.created_at) }}</span>
               <span v-if="!r.visible_to_merchant && r.kind === 'note'" class="ml-2 text-xs text-slate-600">· note interne</span>
             </p>
             <p v-if="r.note" class="font-medium">« {{ r.note }} »</p>
-            <p v-if="r.rescheduled_to" class="text-sm">📅 Reportée au {{ date(r.rescheduled_to) }}</p>
-            <p v-if="r.expense" class="text-sm">💸 {{ money(r.expense) }}</p>
+            <p v-if="r.rescheduled_to" class="text-sm">Reportée au {{ date(r.rescheduled_to) }}</p>
+            <p v-if="r.expense" class="text-sm">Frais : {{ money(r.expense) }}</p>
             <p class="text-sm text-slate-600">
-              🛵 <strong>{{ r.courier.name }}</strong>
+              <strong>{{ r.courier.name }}</strong>
               <a v-if="r.courier.phone" :href="telLink(r.courier.phone)" class="text-blue-600"> · {{ r.courier.phone }}</a>
             </p>
             <p v-if="r.order" class="text-sm text-slate-600">
-              📦 <RouterLink :to="`/admin/courses/${r.order.id}`" class="font-mono text-blue-700">{{ r.order.tracking_code }}</RouterLink>
+              <RouterLink :to="`/admin/courses/${r.order.id}`" class="font-mono text-blue-700">{{ r.order.tracking_code }}</RouterLink>
               · {{ r.order.merchant }} → {{ r.order.zone }} · {{ r.order.recipient_name || 'Client' }}
               <a :href="telLink(r.order.recipient_phone)" class="text-blue-600">{{ r.order.recipient_phone }}</a>
               · <span class="text-slate-600">{{ r.order.status_label }}</span>
             </p>
-            <p v-if="r.photos" class="text-xs text-slate-600">📷 {{ r.photos }} photo(s) sur la fiche de la course</p>
+            <p v-if="r.photos" class="text-xs text-slate-600">{{ r.photos }} photo(s) sur la fiche de la course</p>
             <CourierMessageThread
               v-if="r.replies?.length || replying === r.id"
               class="pt-1"
@@ -95,15 +95,15 @@
               @cancel="replying = null"
             />
             <p v-if="r.review" class="text-sm text-emerald-700">
-              ✓ Traité par {{ r.review.handled_by || '—' }} le {{ dateTime(r.review.handled_at) }}<span v-if="r.review.comment"> : {{ r.review.comment }}</span>
+              Traité par {{ r.review.handled_by || '—' }} le {{ dateTime(r.review.handled_at) }}<span v-if="r.review.comment"> : {{ r.review.comment }}</span>
             </p>
           </div>
 
           <div class="flex flex-col gap-2 shrink-0 w-full sm:w-64">
-            <button v-if="r.order && replying !== r.id" type="button" class="btn-primary" @click="replying = r.id">💬 Répondre au livreur</button>
+            <button v-if="r.order && replying !== r.id" type="button" class="btn-primary" @click="replying = r.id"><Icone nom="message" /> Répondre au livreur</button>
             <template v-if="!r.review">
               <input v-model="comments[r.id]" class="input text-sm" placeholder="Ce qui a été fait (facultatif)" :aria-label="`Commentaire sur la remontée ${r.id}`" @keydown.enter="handle(r)">
-              <button type="button" class="btn-success" @click="handle(r)">✓ Marquer comme traité</button>
+              <button type="button" class="btn-success" @click="handle(r)"><Icone nom="valider" /> Marquer comme traité</button>
             </template>
             <button v-else type="button" class="btn-secondary text-xs" @click="reopen(r)">Remettre à traiter</button>
             <RouterLink v-if="r.order" :to="`/admin/courses/${r.order.id}`" class="btn-secondary text-center text-xs">Ouvrir la course</RouterLink>
@@ -112,7 +112,7 @@
       </article>
 
       <div v-if="loaded && !reports.length" class="card p-8 text-center text-slate-600">
-        {{ filters.state === 'open' ? '🎉 Rien à traiter pour le moment.' : 'Aucune remontée pour ces critères.' }}
+        {{ filters.state === 'open' ? 'Rien à traiter pour le moment.' : 'Aucune remontée pour ces critères.' }}
       </div>
     </div>
 
@@ -127,6 +127,7 @@
 </template>
 
 <script setup>
+import Icone from '../../components/ui/Icone.vue'
 import SearchSelect from '../../components/SearchSelect.vue'
 // Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
 defineProps({ embedded: { type: Boolean, default: false } })
@@ -137,13 +138,13 @@ import { alertSound } from '../../composables/useAlertSound'
 import CourierMessageThread from '../../components/CourierMessageThread.vue'
 import { useFieldReportStore } from '../../stores/fieldReports'
 import { useToastStore } from '../../stores/toasts'
-import { date, dateTime, money, telLink } from '../../utils/format'
+import { date, dateTime, money, telLink, toneClass } from '../../utils/format'
 
 const KINDS = {
-  incident: { label: 'Problème', icon: '⚠️', border: 'border-l-red-500', badge: 'bg-red-100 text-red-800' },
-  note: { label: 'Note', icon: '📝', border: 'border-l-sky-500', badge: 'bg-sky-100 text-sky-800' },
-  refusal: { label: 'Mission refusée', icon: '🚫', border: 'border-l-amber-500', badge: 'bg-amber-100 text-amber-800' },
-  expense: { label: 'Frais déclarés', icon: '💸', border: 'border-l-violet-500', badge: 'bg-violet-100 text-violet-800' },
+  incident: { label: 'Problème', icon: 'urgent', tone: 'critique' },
+  note: { label: 'Note', icon: 'document', tone: 'info' },
+  refusal: { label: 'Mission refusée', icon: 'annulation', tone: 'attention' },
+  expense: { label: 'Frais déclarés', icon: 'argent', tone: 'info' },
 }
 const states = [
   { value: 'open', label: 'À traiter' },

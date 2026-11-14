@@ -1,11 +1,11 @@
 <template>
   <div class="relative">
     <button
-      class="relative p-2 rounded hover:bg-black/5"
+      class="relative grid h-10 w-10 place-items-center rounded-lg text-slate-700 hover:bg-black/5"
       aria-label="Notifications"
       @click="toggle"
     >
-      <span class="text-xl">🔔</span>
+      <Icone nom="notifications" />
       <span
         v-if="store.unread"
         class="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-xs flex items-center justify-center"
@@ -47,6 +47,7 @@
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useNotificationStore } from '../stores/notifications'
+import Icone from './ui/Icone.vue'
 import { useToastStore } from '../stores/toasts'
 import { useAuthStore } from '../stores/auth'
 import { dateTime } from '../utils/format'

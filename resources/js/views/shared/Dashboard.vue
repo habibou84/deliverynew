@@ -12,26 +12,26 @@
 
     <!-- Livraisons de la période : courses à livrer ces jours-là (date prévue, sinon jour de création) -->
     <div v-if="summary" class="flex flex-wrap items-baseline justify-between gap-2">
-      <h2 class="font-semibold">🚚 {{ isOneDay ? (period.from === today() ? 'Livraisons du jour' : `Livraisons du ${date(period.from)}`) : 'Livraisons de la période' }}</h2>
+      <h2 class="font-semibold">{{ isOneDay ? (period.from === today() ? 'Livraisons du jour' : `Livraisons du ${date(period.from)}`) : 'Livraisons de la période' }}</h2>
       <p class="text-xs text-slate-600">Selon la date de livraison prévue (une course reportée compte le jour de sa nouvelle date)</p>
     </div>
     <div v-if="summary" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-      <StatCard title="Total" :value="summary.counts.total" icon="📦" />
-      <StatCard title="Livrés" :value="summary.counts.delivered" icon="✅" />
-      <StatCard title="En cours" :value="summary.counts.in_progress" icon="🚚" />
-      <StatCard title="Non livrés" :value="summary.counts.failed" icon="⚠️" />
-      <StatCard title="Reportés" :value="summary.counts.rescheduled" icon="📅" />
-      <StatCard title="Retournés" :value="summary.counts.returned + summary.counts.returning" icon="↩️" />
-      <StatCard title="Annulés" :value="summary.counts.cancelled" icon="✖️" />
+      <StatCard title="Total" :value="summary.counts.total" />
+      <StatCard title="Livrés" :value="summary.counts.delivered" />
+      <StatCard title="En cours" :value="summary.counts.in_progress" />
+      <StatCard title="Non livrés" :value="summary.counts.failed" />
+      <StatCard title="Reportés" :value="summary.counts.rescheduled" />
+      <StatCard title="Retournés" :value="summary.counts.returned + summary.counts.returning" />
+      <StatCard title="Annulés" :value="summary.counts.cancelled" />
     </div>
 
     <div v-if="summary" class="grid md:grid-cols-4 xl:grid-cols-5 gap-3">
-      <StatCard title="Montant encaissé" :value="money(summary.amounts.collected)" icon="💰" />
-      <StatCard title="Frais de livraison retenus" :value="money(summary.amounts.fees)" icon="🧾" />
-      <StatCard v-if="summary.amounts.shipping_fees" title="Frais d'expédition" :value="money(summary.amounts.shipping_fees)" icon="🚌" />
-      <StatCard v-if="summary.amounts.other_fees" title="Autres frais" :value="money(summary.amounts.other_fees)" icon="💸" />
-      <StatCard :title="isMerchant ? 'Net à recevoir' : 'Net à reverser'" :value="money(summary.amounts.net_to_merchant)" icon="🏦" />
-      <StatCard title="Taux de livraison" :value="summary.delivery_rate === null ? '—' : `${summary.delivery_rate} %`" icon="📈" />
+      <StatCard title="Montant encaissé" :value="money(summary.amounts.collected)" />
+      <StatCard title="Frais de livraison retenus" :value="money(summary.amounts.fees)" />
+      <StatCard v-if="summary.amounts.shipping_fees" title="Frais d'expédition" :value="money(summary.amounts.shipping_fees)" />
+      <StatCard v-if="summary.amounts.other_fees" title="Autres frais" :value="money(summary.amounts.other_fees)" />
+      <StatCard :title="isMerchant ? 'Net à recevoir' : 'Net à reverser'" :value="money(summary.amounts.net_to_merchant)" />
+      <StatCard title="Taux de livraison" :value="summary.delivery_rate === null ? '—' : `${summary.delivery_rate} %`" />
     </div>
 
     <!-- Nouvelles courses : l'activité des e-commerçants, selon le jour de création -->

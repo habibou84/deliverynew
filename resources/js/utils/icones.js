@@ -1,0 +1,97 @@
+/**
+ * Dictionnaire des icônes de l'interface (charte Jibiat livraison, rubrique Icônes) : une idée = une icône Lucide,
+ * partout. Une idée nouvelle s'ajoute ici avant d'entrer dans un écran. Les emojis restent réservés au contenu des
+ * messages WhatsApp envoyés aux clients.
+ */
+import {
+  ArrowLeft, Award, Backpack, Ban, Banknote, Bell, Bike, Building2, Bus, Calendar, CalendarClock, CalendarDays, Camera,
+  ChartColumn, Check, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
+  House, Info, Landmark, LayoutDashboard, LifeBuoy, Lock, Map, MapPin, Megaphone, Menu, MessageCircle, Monitor, Moon,
+  Package, PackageOpen, Pause, Pencil, Phone, Plus, Printer, Receipt, RefreshCw, Repeat, Route, Search, Settings,
+  ShieldAlert, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
+  Volume2, VolumeX, Wallet, Warehouse, X, Zap,
+} from 'lucide-vue-next'
+
+export const ICONES = {
+  // Navigation
+  pilotage: LayoutDashboard,
+  accueil: House,
+  statistiques: ChartColumn,
+  course: Package,
+  retard: CalendarClock,
+  activite: Route,
+  retour: Undo2,
+  caisse: Wallet,
+  paie: Banknote,
+  encaissement: HandCoins,
+  marchand: Store,
+  premium: Award,
+  stock: Warehouse,
+  depot: Warehouse,
+  message: MessageCircle,
+  livreur: Bike,
+  vehicule: Truck,
+  utilisateurs: Users,
+  client: UserRound,
+  reglages: Settings,
+  ia: Sparkles,
+  assistance: LifeBuoy,
+  'mise-en-route': Compass,
+  menu: Menu,
+
+  // États
+  livre: CircleCheck,
+  echec: CircleX,
+  urgent: TriangleAlert,
+  attente: Clock,
+  info: Info,
+  remontee: Megaphone,
+  document: FileText,
+  'en-main': Backpack,
+  'a-preparer': PackageOpen,
+  annulation: Ban,
+  'code-a-verifier': ShieldAlert,
+  'jour-ouvert': Sun,
+  'jour-ferme': Moon,
+  planning: CalendarDays,
+  date: Calendar,
+  nouveau: CirclePlus,
+  verrou: Lock,
+  prioritaire: Star,
+  rapide: Zap,
+  pause: Pause,
+  repeter: Repeat,
+  tendance: TrendingUp,
+
+  // Argent
+  argent: Banknote,
+  recette: Receipt,
+  reverser: Landmark,
+  expedition: Bus,
+
+  // Lieux
+  carte: Map,
+  adresse: MapPin,
+  entreprise: Building2,
+  ecran: Monitor,
+
+  // Actions
+  ajouter: Plus,
+  chercher: Search,
+  filtres: Filter,
+  modifier: Pencil,
+  supprimer: Trash2,
+  imprimer: Printer,
+  exporter: Download,
+  importer: Upload,
+  actualiser: RefreshCw,
+  appeler: Phone,
+  photo: Camera,
+  son: Volume2,
+  muet: VolumeX,
+  valider: Check,
+  notifications: Bell,
+  ouvrir: ChevronRight,
+  fermer: X,
+  precedent: ArrowLeft,
+}
