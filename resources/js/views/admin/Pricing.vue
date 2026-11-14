@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Tarifs</h1>
-      <div class="flex gap-2">
+      <div class="flex flex-wrap gap-2">
         <select v-model="gridId" class="input w-auto" @change="switchGrid">
           <option v-for="g in grids" :key="g.id" :value="g.id">{{ g.name }}{{ g.is_default ? ' (par défaut)' : '' }}</option>
         </select>
