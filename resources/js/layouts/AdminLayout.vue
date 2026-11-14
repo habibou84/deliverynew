@@ -354,7 +354,7 @@ const menu = computed(() => {
 
   return {
     top: [
-      { to: '/admin', icon: 'pilotage', label: 'Tableau de bord' },
+      { to: '/admin', icon: 'pilotage', label: isDispatch.value ? 'Poste de pilotage' : 'Tableau de bord' },
       { to: '/admin/statistiques', icon: 'statistiques', label: 'Statistiques', permission: 'orders.view' },
     ].filter(visible),
     groups: groups.map((g) => ({ ...g, items: g.items.filter(visible) })).filter((g) => g.items.length),

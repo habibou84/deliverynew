@@ -409,7 +409,8 @@ const untreatedCount = computed(() => (isDispatch.value ? dispatchCounts.counts.
 const filters = reactive({
   queue: route.query.queue || '',
   search: route.query.search || '',
-  status: '',
+  // Statut demandé par un lien (poste de pilotage : en livraison, livrées)
+  status: route.query.status || '',
   merchant_id: route.query.merchant_id || '',
   courier_id: route.query.courier_id || '',
   // File « Sans livreur » : pickup, delivery ou les deux
