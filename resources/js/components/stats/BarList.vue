@@ -3,13 +3,13 @@
     <li v-for="item in items" :key="item.label" class="text-sm" :title="`${item.label} : ${item.count} (${share(item.count)} %)`">
       <div class="flex justify-between gap-2">
         <span class="text-slate-700">{{ item.label }}</span>
-        <span class="font-semibold text-slate-900 whitespace-nowrap">{{ item.count.toLocaleString('fr-FR') }} <span class="font-normal text-slate-400">· {{ share(item.count) }} %</span></span>
+        <span class="font-semibold text-slate-900 whitespace-nowrap">{{ item.count.toLocaleString('fr-FR') }} <span class="font-normal text-slate-600">· {{ share(item.count) }} %</span></span>
       </div>
       <div class="mt-1 h-2 rounded bg-slate-100">
         <div class="h-2 rounded" :style="{ width: `${(item.count / max) * 100}%`, background: color }" />
       </div>
     </li>
-    <li v-if="!items.length" class="text-sm text-slate-500">{{ empty }}</li>
+    <li v-if="!items.length" class="text-sm text-slate-600">{{ empty }}</li>
   </ul>
 </template>
 

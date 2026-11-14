@@ -35,7 +35,7 @@ const IntroBody = defineComponent({
   props: { offer: { type: Object, required: true } },
   setup(props) {
     const card = (cls, children) => h('section', { class: `rounded-[22px] bg-white p-4 shadow-soft ${cls}` }, children)
-    const tag = (cls, text) => h('span', { class: `mb-2 inline-block rounded-full px-2.5 py-1 text-[12px] font-extrabold ${cls}` }, text)
+    const tag = (cls, text) => h('span', { class: `mb-2 inline-block rounded-full px-2.5 py-1 text-xs font-extrabold ${cls}` }, text)
     const row = (bg, icon, title, text) => h('div', { class: 'my-2.5 flex items-start gap-2.5' }, [
       h('span', { class: `grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-[22px] ${bg}`, 'aria-hidden': 'true' }, icon),
       h('div', [h('b', { class: 'block text-[16px]' }, title), h('p', { class: 'mt-0.5 text-[15px] text-slate-600' }, text)]),
@@ -58,7 +58,7 @@ const IntroBody = defineComponent({
       return [
         // 1. Titre
         h('div', { class: 'rounded-[24px] bg-gradient-to-br from-rose-700 to-violet-600 p-5 text-white' }, [
-          h('p', { class: 'text-[12px] font-extrabold uppercase tracking-wider text-rose-100' }, `🛵 ${agency} · Comment ça marche`),
+          h('p', { class: 'text-xs font-extrabold uppercase tracking-wider text-rose-100' }, `🛵 ${agency} · Comment ça marche`),
           h('h1', { class: 'my-1.5 text-[26px] font-extrabold leading-tight' }, 'Vendez plus en live, sans perdre une seule commande'),
           h('p', { class: 'text-[16px] text-rose-50' }, ['Vous montrez vos produits. Les clients commandent par WhatsApp et ', h('b', agency), ' reçoit les commandes.']),
           h('p', { class: 'mt-3 rounded-2xl bg-white px-3.5 py-2.5 text-[18px] font-extrabold leading-normal text-rose-700 underline decoration-[3px] underline-offset-4' }, ['✅ Vous n\'avez rien à répondre.', h('br'), '✅ Vous n\'avez rien à enregistrer.']),
@@ -79,11 +79,11 @@ const IntroBody = defineComponent({
         card('', [
           tag('bg-indigo-50 text-indigo-800', '✅ LA SOLUTION EN 4 ÉTAPES'),
           h('h2', { class: 'text-[19px] font-extrabold' }, `${agency} fait le travail pour vous`),
-          step('1', h('div', { class: 'h-full rounded-2xl border border-slate-200 bg-white p-2 text-[12px] leading-[1.7]' }, ['☑️ Robe wax', h('br'), '☑️ Sac cuir', h('br'), '☐ Parfum']),
+          step('1', h('div', { class: 'h-full rounded-2xl border border-slate-200 bg-white p-2 text-xs leading-[1.7]' }, ['☑️ Robe wax', h('br'), '☑️ Sac cuir', h('br'), '☐ Parfum']),
             'Choisissez les produits du live', 'Dans votre catalogue, ou en photo : l\'IA écrit le nom.'),
-          step('2', h('div', { class: 'grid h-full grid-cols-3 gap-1 bg-slate-900 p-1.5' }, ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'].map((c) => h('div', { class: 'relative rounded bg-white' }, [h('em', { class: 'absolute left-0.5 top-0.5 rounded-sm bg-slate-900 px-0.5 text-[9px] font-extrabold not-italic text-white' }, c)]))),
+          step('2', h('div', { class: 'grid h-full grid-cols-3 gap-1 bg-slate-900 p-1.5' }, ['A1', 'A2', 'A3', 'A4', 'A5', 'A6'].map((c) => h('div', { class: 'relative rounded bg-white' }, [h('em', { class: 'absolute left-0.5 top-0.5 rounded-sm bg-slate-900 px-0.5 text-xs font-extrabold not-italic text-white' }, c)]))),
             'La photo à épingler est prête', 'Préparée automatiquement : produits, codes A1, A2…, prix, votre numéro.'),
-          step('3', h('div', { class: 'h-full bg-[#e7f8ee] p-2 text-[12px]' }, [h('div', { class: 'w-3/4 rounded-lg bg-white px-2 py-1' }, 'A2'), h('div', { class: 'ml-auto mt-1.5 whitespace-nowrap rounded-lg bg-[#25d366] px-2 py-1 text-[10px] text-white' }, '✅ Commande notée !')]),
+          step('3', h('div', { class: 'h-full bg-[#e7f8ee] p-2 text-xs' }, [h('div', { class: 'w-3/4 rounded-lg bg-white px-2 py-1' }, 'A2'), h('div', { class: 'ml-auto mt-1.5 whitespace-nowrap rounded-lg bg-[#25d366] px-2 py-1 text-xs text-white' }, '✅ Commande notée !')]),
             'Les clients commandent par WhatsApp', ['Ils envoient le code. La réponse part toute seule : ', bold('vous n\'avez rien à répondre.')]),
           step('4', h('div', { class: 'grid h-full place-items-center bg-emerald-50 text-[40px]' }, '🛵'),
             `${agency} reçoit les commandes`, ['Directement, avec le nom, le numéro et le quartier. ', bold('Vous n\'enregistrez rien'), ' : tout se fait seul.']),
@@ -120,7 +120,7 @@ const IntroBody = defineComponent({
                 o.prices.welcome_cards ? h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `${o.prices.welcome_cards} fiches IA (photo + IA)`), h('b', { class: 'text-emerald-700' }, 'Offertes')]) : null,
                 h('div', { class: 'flex justify-between border-b border-slate-100 py-2.5 text-[15px]' }, [h('span', `Ensuite, ${o.prices.pack_cards} fiches IA`), h('b', money(o.prices.pack))]),
                 h('div', { class: 'flex justify-between py-2.5 text-[15px]' }, [h('span', 'Ajouter un produit à la main'), h('b', { class: 'text-emerald-700' }, 'Toujours gratuit')]),
-                h('p', { class: 'text-center text-[13px] text-slate-500' }, o.pay_online
+                h('p', { class: 'text-center text-[13px] text-slate-600' }, o.pay_online
                   ? 'Crédit live rechargé par Orange Money, MTN, Moov, Wave ou carte : le prix y est pris à la fin du live.'
                   : 'Retenu sur votre prochain reversement : rien à payer avant.'),
               ],

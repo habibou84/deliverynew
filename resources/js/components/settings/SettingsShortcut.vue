@@ -6,7 +6,7 @@
       class="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 ring-1 ring-slate-200 hover:ring-slate-400"
       :title="`Régler : ${label}`" @click="open = true"
     >
-      <span class="text-gray-500">{{ label }}</span> <strong>{{ value }}</strong>
+      <span class="text-slate-600">{{ label }}</span> <strong>{{ value }}</strong>
     </button>
     <button type="button" :class="['btn-secondary !py-1.5', compact ? '' : 'ml-auto']" :aria-expanded="open" @click="open = true">⚙️ Réglages</button>
 
@@ -17,11 +17,11 @@
           <div class="mx-auto mt-2 h-1.5 w-10 rounded-full bg-slate-300 md:hidden" />
           <div class="flex items-start justify-between gap-2 border-b px-5 py-4">
             <div>
-              <p class="text-xs font-medium uppercase tracking-wide text-gray-400">⚙️ Réglages de la page</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-600">⚙️ Réglages de la page</p>
               <h2 class="text-lg font-bold">{{ title }}</h2>
-              <p v-if="intro" class="text-xs text-gray-500">{{ intro }}</p>
+              <p v-if="intro" class="text-xs text-slate-600">{{ intro }}</p>
             </div>
-            <button ref="closeButton" type="button" class="rounded-lg px-2 py-1 text-gray-400 hover:bg-slate-100" aria-label="Fermer" @click="close">✕</button>
+            <button ref="closeButton" type="button" class="rounded-lg px-2 py-1 text-slate-600 hover:bg-slate-100" aria-label="Fermer" @click="close">✕</button>
           </div>
           <SettingsPanelBody :blocks="blocks" :more="more" @dirty="dirty = $event" @saved="saved" @close="open = false" />
         </aside>

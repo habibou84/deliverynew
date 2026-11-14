@@ -61,7 +61,7 @@ async function copy() {
     <a v-else :href="link" target="_blank" rel="noopener" class="flex w-full items-center justify-center gap-2 rounded-xl bg-[#25D366] py-3 font-semibold text-white shadow-sm hover:bg-[#1ebe5b]">
       <span aria-hidden="true">💬</span> Envoyer le message WhatsApp
     </a>
-    <button v-if="text" type="button" class="mx-auto block text-xs text-slate-500 underline" @click="copy">
+    <button v-if="text" type="button" class="mx-auto block text-xs text-slate-600 underline" @click="copy">
       {{ copied ? 'Message copié ✓' : 'Copier le message' }}
     </button>
   </div>

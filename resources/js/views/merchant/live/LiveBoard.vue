@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3 pb-6">
     <p v-if="error" class="rounded-2xl bg-red-50 px-4 py-3 text-[15px] text-red-700" role="alert">{{ error }}</p>
-    <p v-if="!b && !error" class="m-card p-6 text-center text-slate-500">Chargement…</p>
+    <p v-if="!b && !error" class="m-card p-6 text-center text-slate-600">Chargement…</p>
 
     <template v-if="b">
       <!-- En-tête : en direct, ce que le live a rapporté -->
@@ -45,14 +45,14 @@
       <section v-if="isLive && shown" class="overflow-hidden rounded-[22px] bg-white shadow-soft">
         <div class="relative h-44 bg-slate-100">
           <img v-if="shown.photo_url" :src="shown.photo_url" alt="" class="h-full w-full object-cover">
-          <span v-else class="grid h-full place-items-center text-[44px] font-black text-slate-400">{{ shown.code }}</span>
+          <span v-else class="grid h-full place-items-center text-[44px] font-black text-slate-600">{{ shown.code }}</span>
           <span class="absolute left-3 top-3 rounded-xl bg-slate-900 px-2.5 py-1 text-[20px] font-black text-white">{{ shown.code }}</span>
           <span :class="['absolute right-3 top-3 rounded-full px-2.5 py-1 text-[13px] font-extrabold', !shown.remaining ? 'bg-red-600 text-white' : shown.remaining <= 3 ? 'bg-orange-100 text-orange-800' : 'bg-white/95 text-slate-800']">{{ shown.remaining ? `${shown.remaining} ${shown.remaining > 1 ? 'restent' : 'reste'}` : 'ÉPUISÉ' }}</span>
         </div>
         <div class="flex items-center gap-2 px-3.5 py-3">
           <div class="min-w-0 flex-1">
             <b class="block truncate text-[16px]">{{ shown.label || shown.name }} · {{ money(shown.price) }}</b>
-            <span class="text-[13px] text-slate-500">Le produit que vous montrez</span>
+            <span class="text-[13px] text-slate-600">Le produit que vous montrez</span>
           </div>
           <button v-if="productGroups.length > 1" type="button" class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-[18px]" :aria-label="`Carte de ${shown.name} en grand`" @click="productCard(shown)">🖼️</button>
           <button v-if="b.items.length > 1" type="button" class="shrink-0 rounded-xl bg-slate-900 px-3.5 py-2.5 text-[15px] font-black text-white" @click="show(shownIdx + 1)">Suivant ▸</button>
@@ -61,7 +61,7 @@
       <div v-if="isLive && b.items.length > 1" class="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" role="radiogroup" aria-label="Produit que vous montrez">
         <button v-for="(i, k) in b.items" :key="i.id" type="button" role="radio" :aria-checked="k === shownIdx" :aria-label="`${i.code} ${i.name}`" :class="['relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-slate-200', k === shownIdx ? 'ring-[3px] ring-rose-600' : '', i.remaining ? '' : 'opacity-40']" @click="show(k)">
           <img v-if="i.photo_url" :src="thumb(i.photo_url, 160)" alt="" class="h-full w-full object-cover">
-          <span class="absolute left-0.5 top-0.5 rounded-md bg-slate-900 px-1 text-[10px] font-black text-white">{{ i.code }}</span>
+          <span class="absolute left-0.5 top-0.5 rounded-md bg-slate-900 px-1 text-xs font-black text-white">{{ i.code }}</span>
         </button>
       </div>
 
@@ -79,47 +79,47 @@
 
       <!-- Messages : clients en train de commander par WhatsApp -->
       <section v-if="tab === 'messages'" class="m-card divide-y divide-slate-100">
-        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">EN TRAIN DE COMMANDER · {{ b.chats?.length || 0 }}</p>
+        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-600">EN TRAIN DE COMMANDER · {{ b.chats?.length || 0 }}</p>
         <button v-for="c in b.chats || []" :key="c.id" type="button" :class="['block w-full space-y-1.5 px-4 py-3 text-left active:bg-slate-50', c.stuck ? 'bg-red-50/60' : '']" @click="chatOpen = c">
           <span class="flex items-start justify-between gap-2">
             <span class="min-w-0 text-[15px]"><b>{{ c.name || localPhone(c.phone) }}</b><template v-if="c.item"> · {{ c.item }}</template>
-              <span class="block text-[13px] text-slate-500">{{ localPhone(c.phone) }} · {{ STEP_TEXT[c.step] || 'en cours' }}</span>
+              <span class="block text-[13px] text-slate-600">{{ localPhone(c.phone) }} · {{ STEP_TEXT[c.step] || 'en cours' }}</span>
             </span>
-            <span v-if="c.stuck" class="shrink-0 rounded-md bg-red-100 px-1.5 py-0.5 text-[11px] font-extrabold text-red-800">QUARTIER ?</span>
-            <span v-else class="shrink-0 text-[18px] text-slate-400" aria-hidden="true">›</span>
+            <span v-if="c.stuck" class="shrink-0 rounded-md bg-red-100 px-1.5 py-0.5 text-xs font-extrabold text-red-800">QUARTIER ?</span>
+            <span v-else class="shrink-0 text-[18px] text-slate-600" aria-hidden="true">›</span>
           </span>
           <span v-if="c.last_text" class="block truncate rounded-xl bg-white px-3 py-2 text-[14px] text-slate-700 ring-1 ring-slate-200">« {{ c.last_text }} »</span>
         </button>
-        <p v-if="!b.chats?.length" class="p-5 text-center text-[15px] text-slate-500">Les clients qui commandent par WhatsApp apparaissent ici pendant qu'ils écrivent.</p>
+        <p v-if="!b.chats?.length" class="p-5 text-center text-[15px] text-slate-600">Les clients qui commandent par WhatsApp apparaissent ici pendant qu'ils écrivent.</p>
       </section>
 
       <!-- Commandes -->
       <section v-if="tab === 'orders'" class="m-card divide-y divide-slate-100">
-        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">COMMANDES · {{ b.orders.length }}</p>
+        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-600">COMMANDES · {{ b.orders.length }}</p>
         <button v-for="o in b.orders" :key="o.id" type="button" class="block w-full px-4 py-2.5 text-left text-[15px] active:bg-slate-50" @click="orderOpen = o">
           <span class="flex items-start gap-2">
-            <span :class="['mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-extrabold', statusBadge(o).cls]">{{ statusBadge(o).text }}</span>
-            <span v-if="o.source === 'link'" class="mt-0.5 shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-extrabold text-indigo-700" title="Commande passée par le client sur le lien du live">🔗 LIEN</span>
-            <span v-if="o.source === 'whatsapp'" class="mt-0.5 shrink-0 rounded-md bg-[#dcfce7] px-1.5 py-0.5 text-[11px] font-extrabold text-[#128c4b]" title="Commande reçue par WhatsApp, enregistrée toute seule">💬 AUTO</span>
+            <span :class="['mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 text-xs font-extrabold', statusBadge(o).cls]">{{ statusBadge(o).text }}</span>
+            <span v-if="o.source === 'link'" class="mt-0.5 shrink-0 rounded-md bg-indigo-50 px-1.5 py-0.5 text-xs font-extrabold text-indigo-700" title="Commande passée par le client sur le lien du live">🔗 LIEN</span>
+            <span v-if="o.source === 'whatsapp'" class="mt-0.5 shrink-0 rounded-md bg-[#dcfce7] px-1.5 py-0.5 text-xs font-extrabold text-[#128c4b]" title="Commande reçue par WhatsApp, enregistrée toute seule">💬 AUTO</span>
             <span class="min-w-0 flex-1">
               <b>{{ o.customer_name }}</b> · {{ o.code }} {{ o.name }}<template v-if="o.quantity > 1"> × {{ o.quantity }}</template>
-              <span class="block text-[13px] text-slate-500">{{ localPhone(o.customer_phone) }} · {{ time(o.created_at) }}<template v-if="o.course?.zone"> · {{ o.course.zone }}</template></span>
+              <span class="block text-[13px] text-slate-600">{{ localPhone(o.customer_phone) }} · {{ time(o.created_at) }}<template v-if="o.course?.zone"> · {{ o.course.zone }}</template></span>
               <span v-if="o.refusals" class="mt-1 block rounded-lg bg-red-50 px-2 py-1 text-[13px] text-red-800"><b>Attention :</b> {{ o.refusals }} colis refusés. Demandez un acompte.</span>
             </span>
-            <span class="shrink-0 text-[18px] text-slate-400" aria-hidden="true">›</span>
+            <span class="shrink-0 text-[18px] text-slate-600" aria-hidden="true">›</span>
           </span>
         </button>
-        <p v-if="!b.orders.length" class="p-5 text-center text-[15px] text-slate-500">Les commandes apparaîtront ici.</p>
+        <p v-if="!b.orders.length" class="p-5 text-center text-[15px] text-slate-600">Les commandes apparaîtront ici.</p>
       </section>
 
       <!-- Produits -->
       <section v-if="tab === 'products'" class="m-card divide-y divide-slate-100">
-        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">MES PRODUITS</p>
+        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-600">MES PRODUITS</p>
         <p v-if="productGroups.length > 1" class="px-4 py-2 text-[14px] text-slate-600">Vous présentez un produit ? Touchez 🖼️ pour sa carte en grand.</p>
         <div v-for="i in b.items" :key="i.id" :class="['flex items-center gap-3 px-4 py-2.5', i.remaining ? '' : 'opacity-60']">
           <span class="grid h-9 min-w-[44px] place-items-center rounded-lg bg-slate-900 px-1.5 text-[14px] font-extrabold text-white">{{ i.code }}</span>
           <div class="min-w-0 flex-1">
-            <p :class="['truncate text-[15px] font-bold', i.remaining ? '' : 'line-through']">{{ i.label || i.name }} <span class="font-normal text-slate-500">· {{ money(i.price) }}</span></p>
+            <p :class="['truncate text-[15px] font-bold', i.remaining ? '' : 'line-through']">{{ i.label || i.name }} <span class="font-normal text-slate-600">· {{ money(i.price) }}</span></p>
             <div class="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100"><i class="block h-full bg-rose-600" :style="{ width: `${Math.min(100, (i.sold / Math.max(1, i.quantity)) * 100)}%` }" /></div>
           </div>
           <span :class="['shrink-0 text-[14px] font-bold', !i.remaining ? 'text-red-700' : i.remaining <= 3 ? 'text-orange-700' : 'text-slate-600']">{{ i.remaining ? `${i.remaining} ${i.remaining > 1 ? 'restent' : 'reste'}` : 'ÉPUISÉ' }}</span>
@@ -143,7 +143,7 @@
             @click="form.code = i.code"
           >
             <b class="block text-[17px]">{{ i.code }}</b>
-            <span class="block truncate text-[12px]">{{ i.variant || i.name }}{{ i.remaining ? '' : ' · épuisé' }}</span>
+            <span class="block truncate text-xs">{{ i.variant || i.name }}{{ i.remaining ? '' : ' · épuisé' }}</span>
           </button>
         </div>
         <label class="block w-28 text-[14px] font-semibold text-slate-600">Quantité
@@ -160,7 +160,7 @@
         <label class="block text-[14px] font-semibold text-slate-600" for="live-zone">Quartier</label>
         <ZoneSelect id="live-zone" v-model="form.delivery_zone_id" :zones="zones" mobile input-class="m-input" required />
         <button class="m-btn-primary w-full" :disabled="saving || !form.code">{{ saving ? 'Enregistrement…' : 'Ajouter la commande' }}</button>
-        <p class="text-[13px] text-slate-500">La course part à votre agence. Produit épuisé : le client passe en liste d'attente.</p>
+        <p class="text-[13px] text-slate-600">La course part à votre agence. Produit épuisé : le client passe en liste d'attente.</p>
       </form>
 
       <RouterLink v-if="!isLive" :to="`/marchand/live/${b.live.id}/bilan`" class="m-btn-primary w-full">Voir le bilan</RouterLink>
@@ -175,14 +175,14 @@
         <div class="divide-y divide-slate-100 rounded-2xl bg-slate-50 px-3">
           <p v-for="l in orderLines" :key="l.id" class="flex justify-between gap-2 py-2.5 text-[15px]">
             <span><b>{{ l.code }}</b> {{ l.name }}<template v-if="l.quantity > 1"> × {{ l.quantity }}</template></span>
-            <span :class="['shrink-0 text-[13px] font-bold', statusBadge(l).text === 'ATTENTE' ? 'text-orange-700' : 'text-slate-500']">{{ statusBadge(l).text === 'ATTENTE' ? 'liste d\'attente' : '' }}</span>
+            <span :class="['shrink-0 text-[13px] font-bold', statusBadge(l).text === 'ATTENTE' ? 'text-orange-700' : 'text-slate-600']">{{ statusBadge(l).text === 'ATTENTE' ? 'liste d\'attente' : '' }}</span>
           </p>
         </div>
         <div v-if="orderOpen.course" class="space-y-1 rounded-2xl border border-slate-200 p-3 text-[15px]">
-          <p class="flex justify-between gap-2"><span class="text-slate-500">Course</span><b>{{ orderOpen.course.tracking_code }}</b></p>
-          <p class="flex justify-between gap-2"><span class="text-slate-500">État</span><b>{{ orderOpen.course.status_label }}</b></p>
-          <p v-if="orderOpen.course.zone" class="flex justify-between gap-2"><span class="text-slate-500">Quartier</span><b class="text-right">{{ orderOpen.course.zone }}<template v-if="orderOpen.course.address"> · {{ orderOpen.course.address }}</template></b></p>
-          <p class="flex justify-between gap-2"><span class="text-slate-500">À encaisser</span><b>{{ money(orderOpen.course.cod_amount) }}</b></p>
+          <p class="flex justify-between gap-2"><span class="text-slate-600">Course</span><b>{{ orderOpen.course.tracking_code }}</b></p>
+          <p class="flex justify-between gap-2"><span class="text-slate-600">État</span><b>{{ orderOpen.course.status_label }}</b></p>
+          <p v-if="orderOpen.course.zone" class="flex justify-between gap-2"><span class="text-slate-600">Quartier</span><b class="text-right">{{ orderOpen.course.zone }}<template v-if="orderOpen.course.address"> · {{ orderOpen.course.address }}</template></b></p>
+          <p class="flex justify-between gap-2"><span class="text-slate-600">À encaisser</span><b>{{ money(orderOpen.course.cod_amount) }}</b></p>
         </div>
         <p v-else class="rounded-2xl bg-orange-50 px-3 py-2.5 text-[15px] text-orange-900">Produit épuisé : le client est sur la liste d'attente, aucune course n'est partie.</p>
         <p v-if="orderOpen.refusals" class="rounded-2xl bg-red-50 px-3 py-2.5 text-[15px] text-red-800"><b>Attention :</b> {{ orderOpen.refusals }} colis refusés par ce client. Demandez un acompte.</p>
@@ -196,7 +196,7 @@
           <a :href="`tel:${chatOpen.phone}`" class="rounded-2xl bg-slate-100 py-3 text-center text-[16px] font-bold">📞 Appeler</a>
           <a :href="waLink(chatOpen.phone)" target="_blank" rel="noopener" class="rounded-2xl bg-[#dcfce7] py-3 text-center text-[16px] font-bold text-[#128c4b]">💬 WhatsApp</a>
         </div>
-        <p v-if="chatOpen.item" class="rounded-2xl bg-slate-50 px-3 py-2.5 text-[15px]"><span class="text-slate-500">Panier :</span> <b>{{ chatOpen.item }}</b><template v-if="chatOpen.zone"> · {{ chatOpen.zone }}</template></p>
+        <p v-if="chatOpen.item" class="rounded-2xl bg-slate-50 px-3 py-2.5 text-[15px]"><span class="text-slate-600">Panier :</span> <b>{{ chatOpen.item }}</b><template v-if="chatOpen.zone"> · {{ chatOpen.zone }}</template></p>
         <p v-if="chatOpen.last_text" class="rounded-2xl bg-white px-3 py-2.5 text-[15px] text-slate-700 ring-1 ring-slate-200">Dernier message : « {{ chatOpen.last_text }} »</p>
         <!-- Avant la commande : la vendeuse choisit le quartier (et le nom), la commande part et le client reçoit la confirmation -->
         <form v-if="isLive && !chatOpen.after_order" class="space-y-2" @submit.prevent="completeChat(chatOpen)">

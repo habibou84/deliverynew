@@ -4,8 +4,8 @@
 
     <div class="card p-4 text-sm">
       <h2 class="mb-1 font-semibold">Paiements à valider</h2>
-      <p class="mb-3 text-gray-600">Vérifiez dans Wave que le montant est arrivé depuis ce numéro, puis confirmez : le paiement est enregistré sur la facture. Vous êtes connecté : pas besoin du code.</p>
-      <p v-if="loaded && !pending.length" class="text-gray-500">Aucun paiement en attente.</p>
+      <p class="mb-3 text-slate-600">Vérifiez dans Wave que le montant est arrivé depuis ce numéro, puis confirmez : le paiement est enregistré sur la facture. Vous êtes connecté : pas besoin du code.</p>
+      <p v-if="loaded && !pending.length" class="text-slate-600">Aucun paiement en attente.</p>
       <ul class="divide-y">
         <li v-for="p in pending" :key="p.id" class="flex flex-wrap items-center gap-3 py-3">
           <div class="min-w-0 flex-1">
@@ -13,12 +13,12 @@
               {{ money(p.amount) }} · {{ p.payer_phone }}
               <span v-if="p.claimed_at" class="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">Déclaré payé {{ dateTime(p.claimed_at) }}</span>
             </p>
-            <p class="text-gray-600">
+            <p class="text-slate-600">
               <RouterLink :to="`/console/entreprises/${p.company.id}`" class="text-blue-600 hover:underline">{{ p.company.name }}</RouterLink>
               <template v-if="p.payer_name"> · {{ p.payer_name }}</template> ·
               <RouterLink :to="`/console/factures/${p.invoice.id}`" class="text-blue-600 hover:underline">{{ p.invoice.number }}</RouterLink> ({{ p.invoice.period_label }})
             </p>
-            <p class="text-xs text-gray-500">Annoncé {{ dateTime(p.created_at) }}<template v-if="p.alerts.length"> · alerte {{ p.alerts.map((a) => CHANNELS[a.channel] ?? 'non envoyée').join(', ') }}</template></p>
+            <p class="text-xs text-slate-600">Annoncé {{ dateTime(p.created_at) }}<template v-if="p.alerts.length"> · alerte {{ p.alerts.map((a) => CHANNELS[a.channel] ?? 'non envoyée').join(', ') }}</template></p>
           </div>
           <button class="btn-primary" :disabled="busy === p.id" @click="decide(p, 'received')">Reçu : enregistrer</button>
           <button class="btn-secondary" :disabled="busy === p.id" @click="decide(p, 'missing')">Non reçu</button>
@@ -28,15 +28,15 @@
 
     <form v-if="settings" class="card space-y-3 p-4 text-sm" @submit.prevent="save">
       <h2 class="font-semibold">Lien marchand Wave</h2>
-      <p class="text-gray-600">Avec un lien ou un QR code, les entreprises voient « Payer avec Wave » sur leurs factures (Mon abonnement).</p>
+      <p class="text-slate-600">Avec un lien ou un QR code, les entreprises voient « Payer avec Wave » sur leurs factures (Mon abonnement).</p>
       <div>
         <label class="label" for="w-link">Lien de paiement marchand Wave</label>
         <input id="w-link" v-model.trim="form.link" class="input" placeholder="https://pay.wave.com/m/…">
-        <p class="mt-1 text-xs text-gray-500">Le montant est ajouté au lien. Mettez {montant} dans le lien pour choisir sa place.</p>
+        <p class="mt-1 text-xs text-slate-600">Le montant est ajouté au lien. Mettez {montant} dans le lien pour choisir sa place.</p>
       </div>
       <div class="space-y-2">
         <p class="label">QR code Wave</p>
-        <p class="text-xs text-gray-500">Affiché aux entreprises sur ordinateur : elles le scannent avec Wave sur leur téléphone.</p>
+        <p class="text-xs text-slate-600">Affiché aux entreprises sur ordinateur : elles le scannent avec Wave sur leur téléphone.</p>
         <div class="flex flex-wrap items-center gap-4">
           <img v-if="settings.qr_url" :src="settings.qr_url" alt="QR code Wave" class="h-32 w-32 rounded object-contain ring-1 ring-slate-200">
           <label class="btn-secondary cursor-pointer">{{ qrBusy ? 'Envoi…' : (settings.qr_url ? 'Remplacer' : 'Ajouter le QR code') }}<input type="file" accept="image/*" class="hidden" :disabled="qrBusy" @change="uploadQr"></label>
@@ -50,19 +50,19 @@
       <div class="max-w-xs">
         <label class="label" for="w-pin">Code de validation</label>
         <input id="w-pin" v-model="form.validator_pin" type="password" inputmode="numeric" autocomplete="new-password" class="input" :placeholder="settings.pin_set ? 'Déjà défini : laisser vide pour le garder' : 'Au moins 6 chiffres'">
-        <p class="mt-1 text-xs text-gray-500">Demandé quand vous validez depuis le lien reçu par WhatsApp, e-mail ou SMS.</p>
+        <p class="mt-1 text-xs text-slate-600">Demandé quand vous validez depuis le lien reçu par WhatsApp, e-mail ou SMS.</p>
       </div>
       <div class="max-w-xs">
         <label class="label" for="w-current">Votre mot de passe</label>
         <input id="w-current" v-model="form.current_password" type="password" autocomplete="current-password" class="input" required>
-        <p class="mt-1 text-xs text-gray-500">Demandé à chaque changement : ces réglages décident où arrive l'argent.</p>
+        <p class="mt-1 text-xs text-slate-600">Demandé à chaque changement : ces réglages décident où arrive l'argent.</p>
       </div>
       <button class="btn-primary">Enregistrer</button>
     </form>
 
     <div v-if="settings" class="card space-y-3 p-4 text-sm">
       <h2 class="font-semibold">Envoi des alertes</h2>
-      <p class="text-gray-600">
+      <p class="text-slate-600">
         À chaque paiement, le validateur reçoit un message <b>WhatsApp depuis le numéro de Jibiat</b>, avec le lien pour confirmer.
         S'il ne part pas : un e-mail, puis un SMS. Le paiement apparaît aussi dans la cloche et sur cette page.
       </p>
@@ -92,7 +92,7 @@
           <button type="button" class="btn-secondary" @click="disconnectGmail">Déconnecter Gmail</button>
         </template>
         <template v-else-if="settings.mail.gmail.available">
-          <p class="text-xs text-gray-600">
+          <p class="text-xs text-slate-600">
             Vous choisissez votre compte Gmail et Google demande d'autoriser Jibiat à <b>envoyer</b> des e-mails (Jibiat ne peut pas lire votre boîte).
             Aucun mot de passe n'est enregistré. Si Google affiche « application non vérifiée », touchez « Paramètres avancés » puis « Accéder à Jibiat ».
           </p>
@@ -106,7 +106,7 @@
         <details class="rounded-lg bg-white p-3 ring-1 ring-slate-200" :open="!settings.mail.gmail.available">
           <summary class="cursor-pointer font-medium">Application Google {{ settings.mail.gmail.available ? '✓' : '(à régler)' }}</summary>
           <form class="mt-3 space-y-3" @submit.prevent="saveGmailClient">
-            <p class="text-xs text-gray-600">
+            <p class="text-xs text-slate-600">
               Mêmes identifiants que dans la console de Jibiat Marchand (Google Cloud › Identifiants › ID client OAuth).
               Dans ce client Google, ajoutez aussi cette adresse aux « URI de redirection autorisés » :
             </p>
@@ -120,7 +120,7 @@
       <details class="rounded-lg bg-slate-50 p-3" :open="settings.mail.source === 'console'">
       <summary class="cursor-pointer font-medium">Autre serveur d'e-mail (SMTP, facultatif)</summary>
       <form class="mt-3 space-y-3" @submit.prevent="saveMail">
-        <p class="text-xs text-gray-600">
+        <p class="text-xs text-slate-600">
           Seulement si vous n'utilisez pas Gmail ci-dessus : boîte mail de votre domaine ou service d'envoi (serveur, port, identifiant, mot de passe).
         </p>
         <div class="grid gap-3 sm:grid-cols-[1fr_6rem]">

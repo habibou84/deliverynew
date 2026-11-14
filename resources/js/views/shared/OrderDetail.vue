@@ -29,7 +29,7 @@
     <div v-if="order.pending_change" class="card border-amber-300 bg-amber-50 p-4 space-y-2 text-sm text-amber-900">
       <p class="font-semibold">⏳ Modification demandée par {{ order.pending_change.requested_by || 'l\'e-commerçant' }}, à valider</p>
       <ul class="space-y-0.5">
-        <li v-for="c in order.pending_change.changes" :key="c.field">{{ c.label }} : <span class="text-gray-500 line-through">{{ c.from || '—' }}</span> → <b>{{ c.to || '—' }}</b></li>
+        <li v-for="c in order.pending_change.changes" :key="c.field">{{ c.label }} : <span class="text-slate-600 line-through">{{ c.from || '—' }}</span> → <b>{{ c.to || '—' }}</b></li>
       </ul>
       <p v-if="order.pending_change.fees.from !== order.pending_change.fees.to || order.pending_change.cod.from !== order.pending_change.cod.to">
         💰 Livraison {{ money(order.pending_change.fees.from) }} → <b>{{ money(order.pending_change.fees.to) }}</b> · à encaisser {{ money(order.pending_change.cod.from) }} → <b>{{ money(order.pending_change.cod.to) }}</b>
@@ -54,7 +54,7 @@
           <div v-if="order.from_warehouse" class="card p-4 text-sm space-y-1">
             <h2 class="font-semibold mb-2">🏬 Départ de l'entrepôt · {{ order.pickup.hub_name }}</h2>
             <p>{{ order.pickup.zone_name }} · {{ order.pickup.address || '—' }}</p>
-            <p v-if="order.pickup.landmark" class="text-gray-600">Repère : {{ order.pickup.landmark }}</p>
+            <p v-if="order.pickup.landmark" class="text-slate-600">Repère : {{ order.pickup.landmark }}</p>
             <p :class="order.prepared_at ? 'text-emerald-700' : 'text-amber-700'">
               {{ order.prepared_at ? `Préparée le ${dateTime(order.prepared_at)}` : 'À préparer : pas de ramassage chez le marchand' }}
             </p>
@@ -63,7 +63,7 @@
             <h2 class="font-semibold mb-2">Ramassage · {{ order.pickup.zone_name }}</h2>
             <p>{{ order.pickup.contact_name }} · <a :href="telLink(order.pickup.phone)" class="text-blue-600">{{ order.pickup.phone }}</a></p>
             <p>{{ order.pickup.address || '—' }}</p>
-            <p v-if="order.pickup.landmark" class="text-gray-600">Repère : {{ order.pickup.landmark }}</p>
+            <p v-if="order.pickup.landmark" class="text-slate-600">Repère : {{ order.pickup.landmark }}</p>
             <p v-if="order.pickup_courier" class="pt-1">Ramasseur : <strong>{{ order.pickup_courier.name }}</strong></p>
           </div>
           <div class="card p-4 text-sm space-y-1">
@@ -71,10 +71,10 @@
             <p>{{ order.recipient.name || '—' }} · <a :href="telLink(order.recipient.phone)" class="text-blue-600">{{ order.recipient.phone }}</a></p>
             <p v-if="order.recipient.phone2">2e numéro : <a :href="telLink(order.recipient.phone2)" class="text-blue-600">{{ order.recipient.phone2 }}</a></p>
             <p>{{ order.delivery.address || '—' }}</p>
-            <p v-if="order.delivery.landmark" class="text-gray-600">Repère : {{ order.delivery.landmark }}</p>
+            <p v-if="order.delivery.landmark" class="text-slate-600">Repère : {{ order.delivery.landmark }}</p>
             <p v-if="order.delivery.scheduled_date">
               {{ order.status === 'delivered' ? 'Livrée le' : 'Date de livraison :' }} {{ date(order.delivery.scheduled_date) }} {{ order.delivery.time_slot && order.status !== 'delivered' ? `(${order.delivery.time_slot}h)` : '' }}
-              <span v-if="order.delivery.first_date && order.delivery.first_date !== order.delivery.scheduled_date" class="block text-xs text-gray-500">Prévue d'abord le {{ date(order.delivery.first_date) }}</span>
+              <span v-if="order.delivery.first_date && order.delivery.first_date !== order.delivery.scheduled_date" class="block text-xs text-slate-600">Prévue d'abord le {{ date(order.delivery.first_date) }}</span>
             </p>
             <p v-if="order.delivery_courier" class="pt-1">Livreur : <strong>{{ order.delivery_courier.name }}</strong></p>
             <button v-if="canEditDelivery" class="text-blue-600 text-xs underline pt-1" @click="editModal = true">{{ order.edit_scope === 'all' ? 'Modifier la course' : 'Modifier la livraison' }}</button>
@@ -92,7 +92,7 @@
             par {{ order.cancellation.by === 'merchant' ? `l'e-commerçant${order.cancellation.name ? ` (${order.cancellation.name})` : ''}` : (order.cancellation.name || 'l\'entreprise') + (order.cancellation.role ? ` (${order.cancellation.role})` : '') }}
           </p>
           <p v-if="order.cancellation.reason_label">Motif : {{ order.cancellation.reason_label }}</p>
-          <p v-if="order.cancellation.note" class="text-gray-600">« {{ order.cancellation.note }} »</p>
+          <p v-if="order.cancellation.note" class="text-slate-600">« {{ order.cancellation.note }} »</p>
         </div>
 
         <!-- Livrée hors connexion avec un code client incorrect -->
@@ -108,13 +108,13 @@
         </p>
 
         <div class="card p-4 text-sm grid sm:grid-cols-4 gap-3">
-          <div><p class="text-gray-500">Articles</p><p class="font-semibold">{{ money(order.amounts.items_amount) }}</p></div>
+          <div><p class="text-slate-600">Articles</p><p class="font-semibold">{{ money(order.amounts.items_amount) }}</p></div>
           <div>
-            <p class="text-gray-500">Frais ({{ order.amounts.fee_payer === 'recipient' ? 'client' : 'marchand' }})</p>
+            <p class="text-slate-600">Frais ({{ order.amounts.fee_payer === 'recipient' ? 'client' : 'marchand' }})</p>
             <p class="font-semibold">{{ money(order.amounts.total_fees) }}</p>
           </div>
-          <div><p class="text-gray-500">À encaisser</p><p class="font-semibold text-lg">{{ money(order.amounts.cod_amount) }}</p></div>
-          <div><p class="text-gray-500">Encaissé</p><p class="font-semibold">{{ money(order.amounts.collected_amount) }}</p></div>
+          <div><p class="text-slate-600">À encaisser</p><p class="font-semibold text-lg">{{ money(order.amounts.cod_amount) }}</p></div>
+          <div><p class="text-slate-600">Encaissé</p><p class="font-semibold">{{ money(order.amounts.collected_amount) }}</p></div>
           <div v-if="order.is_shipping" class="sm:col-span-4 rounded bg-indigo-50 text-indigo-900 p-2">
             🚌 <strong>Expédition</strong> ·
             <template v-if="order.shipping.carrier">
@@ -124,16 +124,16 @@
             <template v-else>frais du transporteur facturés au marchand au réel<span v-if="order.shipping.fee_estimate"> (≈ {{ money(order.shipping.fee_estimate) }})</span></template>
           </div>
           <div v-if="order.delivery_code" class="sm:col-span-2">
-            <p class="text-gray-500">Code de livraison (à transmettre au client)</p>
+            <p class="text-slate-600">Code de livraison (à transmettre au client)</p>
             <p class="font-mono text-lg tracking-widest">{{ order.delivery_code }}</p>
           </div>
           <div class="sm:col-span-2">
-            <p class="text-gray-500">Colis</p>
+            <p class="text-slate-600">Colis</p>
             <p>{{ order.package.description || '—' }}<span v-if="order.package.is_express"> · Express</span><span v-if="order.package.is_fragile"> · Fragile</span><span v-if="order.package.weight_kg"> · {{ order.package.weight_kg }} kg</span></p>
-            <p v-if="order.package.merchant_note" class="text-gray-600">Instruction : {{ order.package.merchant_note }}</p>
+            <p v-if="order.package.merchant_note" class="text-slate-600">Instruction : {{ order.package.merchant_note }}</p>
           </div>
-          <div><p class="text-gray-500">Tentatives</p><p>{{ order.attempts_count }} / {{ order.max_attempts }}</p></div>
-          <div v-if="order.merchant"><p class="text-gray-500">Marchand</p><p>{{ order.merchant.business_name }}</p></div>
+          <div><p class="text-slate-600">Tentatives</p><p>{{ order.attempts_count }} / {{ order.max_attempts }}</p></div>
+          <div v-if="order.merchant"><p class="text-slate-600">Marchand</p><p>{{ order.merchant.business_name }}</p></div>
         </div>
 
         <div v-if="order.items?.length" class="card p-4 text-sm">
@@ -144,7 +144,7 @@
                 <strong>{{ item.quantity }} ×</strong> {{ item.label }}
                 <span v-if="item.stock_state" :class="['ml-1 text-xs rounded-full px-2 py-0.5', STOCK_STATES[item.stock_state].class]">{{ STOCK_STATES[item.stock_state].label }}</span>
               </span>
-              <span class="text-gray-600">{{ item.unit_price ? money(item.unit_price * item.quantity) : '' }}</span>
+              <span class="text-slate-600">{{ item.unit_price ? money(item.unit_price * item.quantity) : '' }}</span>
             </li>
           </ul>
         </div>
@@ -171,7 +171,7 @@
           </div>
           <!-- Livreurs actuels : retirables (erreur d'assignation, livreur indisponible) -->
           <div v-for="a in activeAssignments" :key="a.id" class="flex items-center justify-between gap-2 rounded bg-slate-50 px-3 py-2 text-sm">
-            <span>{{ a.type_label }} : <strong>{{ a.courier_name }}</strong> <span class="text-gray-500">· {{ ASSIGNMENT_STATUS[a.status] }}</span></span>
+            <span>{{ a.type_label }} : <strong>{{ a.courier_name }}</strong> <span class="text-slate-600">· {{ ASSIGNMENT_STATUS[a.status] }}</span></span>
             <button v-if="canUnassign(a)" class="text-red-700 font-medium whitespace-nowrap" @click="unassign(a)">Retirer</button>
           </div>
           <div v-for="type in assignableTypes" :key="type" class="space-y-1">
@@ -224,7 +224,7 @@
           <ul class="space-y-2">
             <li v-for="a in order.assignments" :key="a.id" class="flex justify-between gap-2">
               <span>{{ a.type_label }} · {{ a.courier_name }}</span>
-              <span class="text-gray-500">{{ ASSIGNMENT_STATUS[a.status] }}</span>
+              <span class="text-slate-600">{{ ASSIGNMENT_STATUS[a.status] }}</span>
             </li>
           </ul>
         </div>
@@ -241,7 +241,7 @@
     <OrderDecision :open="deciding" :order="order" :couriers="couriers" @close="deciding = false" @decided="decided" />
   </div>
   <p v-else-if="error" class="text-red-600">{{ error }}</p>
-  <p v-else class="text-gray-500">Chargement…</p>
+  <p v-else class="text-slate-600">Chargement…</p>
 </template>
 
 <script setup>

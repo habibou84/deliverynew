@@ -20,7 +20,7 @@
       <section class="card p-4 flex flex-wrap items-center gap-3">
         <div class="flex-1 min-w-[16rem]">
           <h2 class="font-semibold">Zones et tarifs</h2>
-          <p class="text-sm text-gray-600">Rattacher les zones reprises aux lieux de la liste commune, reclasser les courses « À préciser », puis valider les prix de l'ancienne application.</p>
+          <p class="text-sm text-slate-600">Rattacher les zones reprises aux lieux de la liste commune, reclasser les courses « À préciser », puis valider les prix de l'ancienne application.</p>
         </div>
         <RouterLink to="/admin/reglages/reprise/zones" class="btn-secondary">Rattacher les zones ›</RouterLink>
         <RouterLink to="/admin/reglages/reprise/tarifs" class="btn-secondary">Tarifs proposés ›</RouterLink>
@@ -30,7 +30,7 @@
       <section class="card p-4 flex flex-wrap items-center gap-3">
         <div class="flex-1 min-w-[16rem]">
           <h2 class="font-semibold">Argent chez les livreurs : point de départ</h2>
-          <p class="text-sm text-gray-600">L'ancienne application n'enregistrait pas toujours l'argent remis par les livreurs. Faites le point avec chacun : avant la date choisie, l'argent est compté comme remis.</p>
+          <p class="text-sm text-slate-600">L'ancienne application n'enregistrait pas toujours l'argent remis par les livreurs. Faites le point avec chacun : avant la date choisie, l'argent est compté comme remis.</p>
         </div>
         <RouterLink to="/admin/reglages/reprise/argent-livreurs" class="btn-secondary">Faire le point ›</RouterLink>
       </section>

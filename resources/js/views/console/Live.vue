@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div>
       <h1 class="text-xl font-bold">Outil live</h1>
-      <p class="text-sm text-gray-500">L'outil « Préparer mon live » des e-commerçants : prix, fiches produit par l'IA, règles du live, et ce que ça rapporte ce mois-ci.</p>
+      <p class="text-sm text-slate-600">L'outil « Préparer mon live » des e-commerçants : prix, fiches produit par l'IA, règles du live, et ce que ça rapporte ce mois-ci.</p>
     </div>
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
 
@@ -10,9 +10,9 @@
       <!-- Suivi du mois -->
       <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <div v-for="k in kpis" :key="k.label" class="card p-4">
-          <p class="text-sm text-gray-500">{{ k.label }}</p>
+          <p class="text-sm text-slate-600">{{ k.label }}</p>
           <p :class="['text-xl font-bold', k.cls || '']">{{ k.value }}</p>
-          <p v-if="k.hint" class="text-xs text-gray-500">{{ k.hint }}</p>
+          <p v-if="k.hint" class="text-xs text-slate-600">{{ k.hint }}</p>
         </div>
       </div>
 
@@ -24,20 +24,20 @@
             {{ pay.configured ? (pay.mode === 'live' ? 'Réel' : 'Mode test') : 'Non configuré : frais retenus sur les reversements' }}
           </span>
         </div>
-        <p class="text-sm text-gray-600">Ce mois-ci : <b>{{ money(pay.month.paid) }}</b> reçus ({{ pay.month.count }} paiement(s)). La part de chaque agence va sur son crédit, déduit de ses factures.</p>
+        <p class="text-sm text-slate-600">Ce mois-ci : <b>{{ money(pay.month.paid) }}</b> reçus ({{ pay.month.count }} paiement(s)). La part de chaque agence va sur son crédit, déduit de ses factures.</p>
         <!-- Ventes du mois par type, et lives comptés au palier -->
         <div class="grid gap-2 sm:grid-cols-4">
           <div v-for="k in monthKinds" :key="k.label" class="rounded-lg bg-slate-50 p-3">
-            <p class="text-xs text-gray-500">{{ k.label }}</p>
+            <p class="text-xs text-slate-600">{{ k.label }}</p>
             <p class="font-bold tabular-nums">{{ k.value }}</p>
-            <p class="text-xs text-gray-500">{{ k.hint }}</p>
+            <p class="text-xs text-slate-600">{{ k.hint }}</p>
           </div>
         </div>
 
         <div v-if="pay.credits.length" class="overflow-x-auto">
           <p class="mb-1 text-sm font-medium">Crédit des agences</p>
           <table class="w-full text-sm">
-            <thead class="text-left text-gray-500"><tr><th class="py-1">Agence</th><th class="py-1 text-right">Gagné</th><th class="py-1 text-right">Solde</th><th /></tr></thead>
+            <thead class="text-left text-slate-600"><tr><th class="py-1">Agence</th><th class="py-1 text-right">Gagné</th><th class="py-1 text-right">Solde</th><th /></tr></thead>
             <tbody>
               <tr v-for="c in pay.credits" :key="c.company_id" class="border-t">
                 <td class="py-2">{{ c.company }}</td>
@@ -55,8 +55,8 @@
             <table class="w-full text-sm">
               <tbody>
                 <tr v-for="p in pay.payments" :key="p.id" class="border-t">
-                  <td class="py-1.5 whitespace-nowrap text-gray-500">{{ new Date(p.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }}</td>
-                  <td class="py-1.5">{{ p.merchant }} <span class="text-gray-500">· {{ p.company }}</span></td>
+                  <td class="py-1.5 whitespace-nowrap text-slate-600">{{ new Date(p.date).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) }}</td>
+                  <td class="py-1.5">{{ p.merchant }} <span class="text-slate-600">· {{ p.company }}</span></td>
                   <td class="py-1.5">{{ ({ credit: 'Crédit live', live: 'Live', monthly: 'Forfait', pack: 'Fiches IA' })[p.kind] }}</td>
                   <td class="py-1.5 text-right tabular-nums">{{ money(p.amount) }}</td>
                   <td class="py-1.5 text-right"><span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', statusClass(p.status)]" :title="p.error || ''">{{ statusLabel(p.status) }}{{ p.error ? ' ⚠️' : '' }}</span></td>
@@ -70,12 +70,12 @@
       <!-- Offrir à un e-commerçant : commandes en live, crédit live, 30 jours -->
       <section class="card space-y-3 p-4">
         <h2 class="font-semibold">Offrir à un e-commerçant</h2>
-        <p class="text-sm text-gray-500">Des commandes en live (en plus de celles du départ), du crédit live, ou 30 jours de lives sans limite. Rien n'est encaissé ; l'action est notée dans le journal.</p>
+        <p class="text-sm text-slate-600">Des commandes en live (en plus de celles du départ), du crédit live, ou 30 jours de lives sans limite. Rien n'est encaissé ; l'action est notée dans le journal.</p>
         <input v-model="giftSearch" type="search" class="input w-full" placeholder="Nom de la boutique ou numéro" @input="searchMerchants">
         <div v-for="m in giftMerchants" :key="m.id" class="space-y-2 rounded-lg border p-3 text-sm">
           <div class="flex flex-wrap items-baseline justify-between gap-2">
-            <span><b>{{ m.name }}</b> <span class="text-gray-500">· {{ m.company }}</span></span>
-            <span class="text-gray-600">{{ m.free_left }} commandes offertes · crédit {{ money(m.credit) }}<template v-if="m.monthly_until"> · forfait jusqu'au {{ new Date(m.monthly_until).toLocaleDateString('fr-FR') }}</template></span>
+            <span><b>{{ m.name }}</b> <span class="text-slate-600">· {{ m.company }}</span></span>
+            <span class="text-slate-600">{{ m.free_left }} commandes offertes · crédit {{ money(m.credit) }}<template v-if="m.monthly_until"> · forfait jusqu'au {{ new Date(m.monthly_until).toLocaleDateString('fr-FR') }}</template></span>
           </div>
           <div v-if="isOwner" class="flex flex-wrap gap-2">
             <button type="button" class="btn-secondary" @click="gift(m, 'orders')">Offrir des commandes…</button>
@@ -83,7 +83,7 @@
             <button type="button" class="btn-secondary" @click="gift(m, 'month')">Offrir 30 jours</button>
           </div>
         </div>
-        <p v-if="giftSearch.trim().length >= 2 && !giftMerchants.length && !giftLoading" class="text-sm text-gray-500">Aucun e-commerçant trouvé.</p>
+        <p v-if="giftSearch.trim().length >= 2 && !giftMerchants.length && !giftLoading" class="text-sm text-slate-600">Aucun e-commerçant trouvé.</p>
       </section>
 
       <section v-if="data.overview.by_company.length" class="card overflow-x-auto p-4">
@@ -107,26 +107,26 @@
 
         <section class="card space-y-2 p-4">
           <h2 class="font-semibold">Commandes WhatsApp automatiques</h2>
-          <p class="text-sm text-gray-600">Par défaut, l'e-commerçant relie son numéro WhatsApp Business par la <b>connexion officielle de WhatsApp</b> (fenêtre Facebook) : il garde son application, sans risque de blocage.</p>
+          <p class="text-sm text-slate-600">Par défaut, l'e-commerçant relie son numéro WhatsApp Business par la <b>connexion officielle de WhatsApp</b> (fenêtre Facebook) : il garde son application, sans risque de blocage.</p>
           <label class="flex items-start gap-2 text-sm"><input v-model="form.qr_whatsapp" type="checkbox" class="mt-0.5" :disabled="!isOwner"> <span>Proposer aussi la connexion par <b>code d'association ou QR code</b>, à côté de la connexion officielle<br><span class="text-amber-700">Connexion non officielle : WhatsApp peut suspendre un numéro qui répond automatiquement.</span></span></label>
         </section>
 
         <section v-for="g in GROUPS" :key="g.title" class="card space-y-3 p-4">
           <h2 class="font-semibold">{{ g.title }}</h2>
-          <p v-if="g.help" class="text-sm text-gray-500">{{ g.help }}</p>
+          <p v-if="g.help" class="text-sm text-slate-600">{{ g.help }}</p>
           <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label v-for="f in g.fields" :key="f.key" class="block text-sm">
               <span class="label">{{ f.label }}</span>
               <span class="flex items-center gap-2">
                 <input v-model.number="form[f.key]" type="number" min="0" class="input" :disabled="!isOwner">
-                <span v-if="f.unit" class="shrink-0 text-gray-500">{{ f.unit }}</span>
+                <span v-if="f.unit" class="shrink-0 text-slate-600">{{ f.unit }}</span>
               </span>
             </label>
           </div>
         </section>
 
         <button v-if="isOwner" class="btn-primary" :disabled="saving">{{ saving ? 'Enregistrement…' : 'Enregistrer' }}</button>
-        <p v-else class="text-sm text-gray-500">Seul le Propriétaire peut changer ces réglages.</p>
+        <p v-else class="text-sm text-slate-600">Seul le Propriétaire peut changer ces réglages.</p>
       </form>
     </template>
   </div>

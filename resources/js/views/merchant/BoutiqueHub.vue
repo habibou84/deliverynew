@@ -9,9 +9,9 @@
     <template v-if="part === 'stock'">
       <div v-if="places.length" class="grid grid-cols-2 gap-2.5">
         <div v-for="pl in places" :key="pl.key" class="m-card p-3">
-          <p class="text-[12.5px] text-slate-500">{{ pl.hub ? '🏬' : '🏠' }} {{ pl.label }}</p>
+          <p class="text-[12.5px] text-slate-600">{{ pl.hub ? '🏬' : '🏠' }} {{ pl.label }}</p>
           <p class="text-[20px] font-extrabold">{{ pl.qty }}</p>
-          <p class="text-[12.5px] text-slate-500">article{{ pl.qty > 1 ? 's' : '' }} en stock</p>
+          <p class="text-[12.5px] text-slate-600">article{{ pl.qty > 1 ? 's' : '' }} en stock</p>
         </div>
       </div>
       <Stock @loaded="summarize" />

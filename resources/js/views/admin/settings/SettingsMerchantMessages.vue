@@ -3,14 +3,14 @@
     <div>
       <RouterLink to="/admin/reglages" class="text-sm text-blue-600">‹ Réglages</RouterLink>
       <h1 class="text-xl font-bold">💬 Messages aux e-commerçants</h1>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Pour chaque étape d'une course : la notification dans l'application est toujours envoyée (gratuite).
         Choisissez si l'e-commerçant reçoit aussi un message WhatsApp (ou une notification sur son téléphone quand il l'a activée).
       </p>
     </div>
 
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
-    <p v-if="!data && !error" class="card p-6 text-center text-gray-500">Chargement…</p>
+    <p v-if="!data && !error" class="card p-6 text-center text-slate-600">Chargement…</p>
 
     <template v-if="data">
       <div class="card overflow-x-auto">
@@ -27,39 +27,39 @@
             <tr v-for="e in data.events" :key="e.event">
               <td class="px-3 py-2.5">
                 <b>{{ e.label }}</b>
-                <span v-if="HINTS[e.event]" class="block text-xs text-gray-500">{{ HINTS[e.event] }}</span>
+                <span v-if="HINTS[e.event]" class="block text-xs text-slate-600">{{ HINTS[e.event] }}</span>
               </td>
               <td class="px-3 py-2.5"><span class="text-xs font-semibold text-emerald-700">✓ toujours</span></td>
               <td class="px-3 py-2.5">
                 <button
                   type="button" role="switch" :aria-checked="e.whatsapp" :aria-label="`WhatsApp : ${e.label}`" :disabled="busy"
-                  :class="['inline-flex h-6 w-11 items-center rounded-full p-0.5 transition', e.whatsapp ? 'bg-emerald-600' : 'bg-slate-300']"
+                  :class="['inline-flex h-6 w-11 items-center rounded-full p-0.5 transition', e.whatsapp ? 'bg-emerald-700' : 'bg-slate-300']"
                   @click="toggle(e)"
                 >
                   <span :class="['block h-5 w-5 rounded-full bg-white shadow transition', e.whatsapp ? 'translate-x-5' : '']" />
                 </button>
-                <span class="ml-1 text-xs text-gray-500">{{ e.whatsapp ? 'oui' : 'non' }}</span>
+                <span class="ml-1 text-xs text-slate-600">{{ e.whatsapp ? 'oui' : 'non' }}</span>
               </td>
-              <td class="hidden px-3 py-2.5 text-xs text-gray-600 md:table-cell">{{ e.example ? `« ${e.example} »` : '—' }}</td>
+              <td class="hidden px-3 py-2.5 text-xs text-slate-600 md:table-cell">{{ e.example ? `« ${e.example} »` : '—' }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <p class="text-sm text-gray-500">Vos choix s'appliquent à tous vos e-commerçants : ils ne peuvent pas les changer.</p>
+      <p class="text-sm text-slate-600">Vos choix s'appliquent à tous vos e-commerçants : ils ne peuvent pas les changer.</p>
       <div v-if="live?.enabled" class="card space-y-2 p-4 text-sm">
         <label class="flex items-start gap-2">
           <input type="checkbox" class="mt-1" :checked="live.live_offered" :disabled="busy" @change="saveLive($event.target.checked)">
           <span>
             <b>Offrir l'outil live à mes e-commerçants</b>
-            <span class="block text-xs text-gray-500">
+            <span class="block text-xs text-slate-600">
               Sinon, ils paient eux-mêmes leurs lives à Jibiat selon les commandes du live (gratuit jusqu'à {{ live.tiers?.[0]?.to }} commandes, puis à partir de {{ live.tiers?.[1]?.price }} F), ou {{ live.price_month }} F pour 30 jours.
               Offert : c'est votre entreprise qui paie, sur votre facture Jibiat. Plus de lives, plus de livraisons.
             </span>
           </span>
         </label>
       </div>
-      <p class="text-xs text-gray-500">
+      <p class="text-xs text-slate-600">
         Les courses envoyées par Jibiat Marchand ne reçoivent rien d'ici : Jibiat Marchand prévient lui-même la boutique.
         Numéro WhatsApp, modèles et envois : <RouterLink to="/admin/whatsapp" class="text-blue-600">page WhatsApp</RouterLink>.
       </p>

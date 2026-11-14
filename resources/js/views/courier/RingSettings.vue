@@ -30,7 +30,7 @@
       </section>
 
       <button type="button" class="m-btn-primary" :disabled="!status.available" @click="test">Tester la sonnerie</button>
-      <p class="text-center text-xs text-slate-500">La sonnerie de test s'arrête toute seule au bout de quelques secondes.</p>
+      <p class="text-center text-xs text-slate-600">La sonnerie de test s'arrête toute seule au bout de quelques secondes.</p>
     </template>
   </div>
 </template>

@@ -6,7 +6,7 @@
     <p class="select-all break-all rounded-xl bg-slate-100 px-3 py-2.5 font-mono text-[15px] font-semibold text-slate-900">{{ url }}</p>
     <button type="button" class="m-btn-primary w-full" @click="copy">{{ copied ? 'Lien copié ✓' : 'Copier le lien' }}</button>
     <p class="text-[14px] text-slate-600">Mettez-le dans votre <b>bio</b> et en <b>commentaire épinglé</b> pendant le live.</p>
-    <button v-if="!compact" type="button" class="text-[14px] font-semibold text-slate-500 underline" @click="$emit('whatsapp')">Relier plutôt mon WhatsApp</button>
+    <button v-if="!compact" type="button" class="text-[14px] font-semibold text-slate-600 underline" @click="$emit('whatsapp')">Relier plutôt mon WhatsApp</button>
   </section>
 </template>
 

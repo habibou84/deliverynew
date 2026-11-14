@@ -25,7 +25,7 @@
 
     <div class="card overflow-x-auto">
       <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-left text-gray-500">
+        <thead class="bg-slate-50 text-left text-slate-600">
           <tr>
             <th class="p-3">Date</th>
             <th class="p-3">Pour</th>
@@ -37,10 +37,10 @@
         </thead>
         <tbody class="divide-y">
           <tr v-for="m in messages" :key="m.id" class="align-top">
-            <td class="p-3 whitespace-nowrap text-gray-500">{{ dateTime(m.created_at) }}</td>
+            <td class="p-3 whitespace-nowrap text-slate-600">{{ dateTime(m.created_at) }}</td>
             <td class="p-3 whitespace-nowrap">
               <div>{{ m.to }}</div>
-              <div class="text-gray-500 text-xs">{{ WHO[m.recipient_type] }}<template v-if="m.merchant"> · {{ m.merchant.business_name }}</template></div>
+              <div class="text-slate-600 text-xs">{{ WHO[m.recipient_type] }}<template v-if="m.merchant"> · {{ m.merchant.business_name }}</template></div>
             </td>
             <td class="p-3 whitespace-nowrap">
               <RouterLink v-if="m.order" :to="`/admin/courses/${m.order.id}`" class="text-blue-700 hover:underline">{{ m.order.tracking_code }}</RouterLink>
@@ -55,7 +55,7 @@
             </td>
           </tr>
           <tr v-if="!loading && !messages.length">
-            <td colspan="6" class="p-6 text-center text-gray-500">Aucun message.</td>
+            <td colspan="6" class="p-6 text-center text-slate-600">Aucun message.</td>
           </tr>
         </tbody>
       </table>

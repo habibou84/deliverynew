@@ -28,7 +28,7 @@
         <p class="font-semibold text-slate-900">WhatsApp est connecté</p>
         <p class="text-sm text-slate-600">{{ result.verified_name }} · {{ result.display_phone }}</p>
         <p v-if="result.warning" class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ result.warning }}</p>
-        <p class="text-sm text-slate-500">{{ session.merchant ? 'Les commandes de vos lives arriveront sur ce numéro. Retour au live…' : 'Les modèles de messages sont envoyés à Meta pour approbation. Retour à votre espace…' }}</p>
+        <p class="text-sm text-slate-600">{{ session.merchant ? 'Les commandes de vos lives arriveront sur ce numéro. Retour au live…' : 'Les modèles de messages sont envoyés à Meta pour approbation. Retour à votre espace…' }}</p>
         <button type="button" class="btn-success w-full py-3" @click="goBack({ whatsapp: 'connecte' })">Revenir à mon espace</button>
       </div>
 
@@ -58,7 +58,7 @@
           <li>Choisissez ou créez votre entreprise et son compte WhatsApp Business.</li>
           <li>Ajoutez le numéro de l'entreprise et saisissez le code reçu par SMS.</li>
         </ol>
-        <p class="text-xs text-slate-500">
+        <p class="text-xs text-slate-600">
           Le numéro ne doit pas être utilisé dans l'application WhatsApp d'un téléphone.
           Les messages sont facturés par Meta sur votre compte : ajoutez-y un moyen de paiement.
           Vous revenez ensuite automatiquement dans votre espace.
@@ -69,7 +69,7 @@
         <button type="button" class="btn-secondary w-full" :disabled="working" @click="cancel">Revenir à mon espace</button>
       </div>
 
-      <p v-else-if="!error && !finishing" class="text-center text-sm text-slate-500">Chargement…</p>
+      <p v-else-if="!error && !finishing" class="text-center text-sm text-slate-600">Chargement…</p>
       <!-- Lien invalide ou expiré : on ne connaît pas l'espace, on revient à la page précédente -->
       <button v-else-if="!finishing" type="button" class="btn-secondary w-full" @click="historyBack">Revenir à mon espace</button>
     </div>

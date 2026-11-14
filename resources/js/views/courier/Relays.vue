@@ -7,9 +7,9 @@
       </button>
     </div>
 
-    <p v-if="loading" class="text-center text-slate-400 py-10">Chargement…</p>
+    <p v-if="loading" class="text-center text-slate-600 py-10">Chargement…</p>
     <p v-else-if="error" class="text-center text-red-600 py-8">{{ error }}</p>
-    <div v-else-if="!groups.length" class="text-center text-slate-500 py-12 space-y-1">
+    <div v-else-if="!groups.length" class="text-center text-slate-600 py-12 space-y-1">
       <p class="text-4xl">🤝</p>
       <p>{{ tab === 'receive' ? 'Aucun colis à recevoir d\'un autre livreur.' : 'Aucun colis à remettre à un autre livreur.' }}</p>
     </div>
@@ -20,7 +20,7 @@
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">À recevoir de</p>
           <p class="text-lg font-bold">{{ g.name }}</p>
-          <p class="text-sm text-slate-500">{{ g.parcels.length }} colis · {{ g.relay ? 'code prêt chez lui' : 'demandez-lui d\'afficher le code' }}</p>
+          <p class="text-sm text-slate-600">{{ g.parcels.length }} colis · {{ g.relay ? 'code prêt chez lui' : 'demandez-lui d\'afficher le code' }}</p>
         </div>
         <ContactButtons :courier="g" />
 
@@ -29,7 +29,7 @@
             <input v-model="checked[g.courier_id]" type="checkbox" :value="o.id" class="h-5 w-5">
             <span class="flex-1 min-w-0">
               <span class="block font-medium truncate">{{ o.recipient_name || o.tracking_code }}</span>
-              <span class="block text-xs text-slate-500">{{ o.tracking_code }} · {{ o.is_return ? `↩️ retour à ${o.merchant}` : `${o.zone} · ${money(o.cod_amount)}` }}</span>
+              <span class="block text-xs text-slate-600">{{ o.tracking_code }} · {{ o.is_return ? `↩️ retour à ${o.merchant}` : `${o.zone} · ${money(o.cod_amount)}` }}</span>
             </span>
           </label>
         </div>
@@ -53,7 +53,7 @@
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">À remettre à</p>
           <p class="text-lg font-bold">{{ g.name }}</p>
-          <p class="text-sm text-slate-500">{{ g.parcels.length }} colis : c'est ce livreur qui part avec</p>
+          <p class="text-sm text-slate-600">{{ g.parcels.length }} colis : c'est ce livreur qui part avec</p>
         </div>
         <ContactButtons :courier="g" />
 
@@ -68,7 +68,7 @@
             <input v-model="checked[g.courier_id]" type="checkbox" :value="o.id" class="h-5 w-5">
             <span class="flex-1 min-w-0">
               <span class="block font-medium truncate">{{ o.recipient_name || o.tracking_code }}</span>
-              <span class="block text-xs text-slate-500">{{ o.tracking_code }} · {{ o.is_return ? `↩️ retour à ${o.merchant}` : `${o.merchant} · ${o.zone}` }}</span>
+              <span class="block text-xs text-slate-600">{{ o.tracking_code }} · {{ o.is_return ? `↩️ retour à ${o.merchant}` : `${o.merchant} · ${o.zone}` }}</span>
             </span>
           </label>
         </div>

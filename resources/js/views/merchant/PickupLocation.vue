@@ -5,7 +5,7 @@
       <p class="text-sm opacity-90 mt-1">Nos livreurs trouvent votre boutique du premier coup, et le bon livreur, le plus proche, est envoyé plus vite.</p>
     </section>
 
-    <p v-if="!loaded" class="text-slate-500">Chargement…</p>
+    <p v-if="!loaded" class="text-slate-600">Chargement…</p>
 
     <template v-else>
       <section class="m-card p-4 space-y-3">
@@ -16,7 +16,7 @@
 
         <!-- Position déjà enregistrée (et pas changée) -->
         <div v-if="saved && !changed" :class="['flex items-center gap-3 rounded-2xl px-3.5 py-3', current.pickup_location_source === 'courier' ? 'bg-amber-50' : 'bg-emerald-50']">
-          <span :class="['grid h-9 w-9 shrink-0 place-items-center rounded-full font-black text-white', current.pickup_location_source === 'courier' ? 'bg-amber-500' : 'bg-emerald-600']">{{ current.pickup_location_source === 'courier' ? '?' : '✓' }}</span>
+          <span :class="['grid h-9 w-9 shrink-0 place-items-center rounded-full font-black text-white', current.pickup_location_source === 'courier' ? 'bg-amber-500' : 'bg-emerald-700']">{{ current.pickup_location_source === 'courier' ? '?' : '✓' }}</span>
           <span class="min-w-0 text-sm">
             <b class="block text-[15.5px]">{{ current.pickup_location_source === 'courier' ? 'Position estimée par nos livreurs' : 'Position enregistrée' }}</b>
             <span :class="current.pickup_location_source === 'courier' ? 'text-amber-800' : 'text-emerald-800'">{{ [place?.name, current.pickup_located_at ? `le ${date(current.pickup_located_at)}` : '', current.pickup_location_source === 'staff' ? 'par l\'agence' : ''].filter(Boolean).join(' · ') }}</span>
@@ -42,7 +42,7 @@
 
       <!-- Facultatif : l'adresse et le repère, pour le livreur -->
       <section v-if="saved" class="m-card p-4 space-y-3">
-        <h2 class="font-semibold">🏠 Pour aider le livreur <span class="text-[13px] font-normal text-slate-400">(facultatif)</span></h2>
+        <h2 class="font-semibold">🏠 Pour aider le livreur <span class="text-[13px] font-normal text-slate-600">(facultatif)</span></h2>
         <div>
           <label class="m-label" for="pl-address">Adresse</label>
           <input id="pl-address" v-model.trim="address" class="m-input" maxlength="255" placeholder="Ex. : Riviera 2, rue des Jardins">
@@ -53,7 +53,7 @@
         </div>
         <button type="button" class="m-btn-secondary" :disabled="!addressChanged || saving" @click="save">{{ saving ? 'Enregistrement…' : addressChanged ? 'Enregistrer l\'adresse' : 'Adresse enregistrée ✓' }}</button>
       </section>
-      <RouterLink v-if="welcome" to="/marchand" class="block text-center text-sm text-slate-500 underline">Plus tard</RouterLink>
+      <RouterLink v-if="welcome" to="/marchand" class="block text-center text-sm text-slate-600 underline">Plus tard</RouterLink>
     </template>
   </div>
 </template>

@@ -14,14 +14,14 @@
         <BarList :items="data.reasons" :color="SERIES[1]" empty="Aucun échec sur la période. 👏" />
       </section>
       <section class="card space-y-3 p-4">
-        <h2 class="font-semibold">Clients qui refusent souvent <span class="text-sm font-normal text-slate-500">· 3 colis revenus ou plus</span></h2>
+        <h2 class="font-semibold">Clients qui refusent souvent <span class="text-sm font-normal text-slate-600">· 3 colis revenus ou plus</span></h2>
         <ul v-if="data.customers.length" class="divide-y text-sm">
           <li v-for="c in data.customers" :key="c.phone" class="flex items-center justify-between gap-2 py-2">
             <span><b>{{ c.name || 'Sans nom' }}</b> · {{ localPhone(c.phone) }}</span>
             <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', c.refusals >= 5 ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800']">{{ c.refusals }} refus · {{ c.refusals >= 5 ? 'acompte conseillé' : 'à surveiller' }}</span>
           </li>
         </ul>
-        <p v-else class="text-sm text-slate-500">Aucun client à surveiller sur la période.</p>
+        <p v-else class="text-sm text-slate-600">Aucun client à surveiller sur la période.</p>
       </section>
     </div>
 

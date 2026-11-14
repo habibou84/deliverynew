@@ -7,7 +7,7 @@
         <div class="min-w-0">
           <span :class="['inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold', stage.badge]">{{ groupLabel }}</span>
           <p class="mt-1 text-[20px] font-extrabold leading-tight text-slate-900">{{ headline }}</p>
-          <p v-if="subline" class="mt-0.5 text-[13.5px] text-slate-500">{{ subline }}</p>
+          <p v-if="subline" class="mt-0.5 text-[13.5px] text-slate-600">{{ subline }}</p>
         </div>
       </div>
       <ol class="relative mt-4 flex" :aria-label="`Étape ${stage.step} sur 4`">
@@ -19,7 +19,7 @@
             <AppIcon v-if="n + 1 < stage.step || (n + 1 === stage.step && stage.step === 4)" name="check" class="h-3.5 w-3.5" :stroke="3.2" />
             <i v-else :class="['block h-2 w-2 rounded-full', n + 1 === stage.step ? 'bg-white' : 'bg-slate-400']" />
           </span>
-          <span :class="['text-[11.5px] font-semibold', n + 1 === stage.step ? 'text-[#1D5BC7]' : n + 1 < stage.step ? 'text-slate-700' : 'text-slate-400']">{{ label }}</span>
+          <span :class="['text-[11.5px] font-semibold', n + 1 === stage.step ? 'text-[#1D5BC7]' : n + 1 < stage.step ? 'text-slate-700' : 'text-slate-600']">{{ label }}</span>
         </li>
       </ol>
       <p v-if="plannedDay" class="mt-3 flex items-center gap-2 rounded-xl bg-[#FFF6F7] px-3 py-2 text-sm text-slate-700"><ColorIcon name="calendrier" :size="22" :tile="false" />Livraison prévue le <strong>{{ plannedDay }}</strong></p>
@@ -35,7 +35,7 @@
         </p>
         <div v-if="order.cancellation.reason_label || order.cancellation.note" class="mt-2 rounded-xl bg-slate-50 p-3 text-sm">
           <p v-if="order.cancellation.reason_label" class="font-medium">{{ order.cancellation.reason_label }}</p>
-          <p v-if="order.cancellation.note" class="text-gray-600">« {{ order.cancellation.note }} »</p>
+          <p v-if="order.cancellation.note" class="text-slate-600">« {{ order.cancellation.note }} »</p>
         </div>
       </section>
 
@@ -69,7 +69,7 @@
       <!-- Code à donner au livreur (tant que la course n'est pas terminée) -->
       <section v-if="!isFinal" class="flex items-center justify-between rounded-[22px] bg-white p-4 shadow-soft">
         <div>
-          <p class="text-sm text-slate-500">Code de livraison du client</p>
+          <p class="text-sm text-slate-600">Code de livraison du client</p>
           <p class="font-mono text-2xl font-extrabold tracking-[0.3em]">{{ order.delivery_code }}</p>
         </div>
         <button class="tap rounded-xl bg-white px-3 py-2 text-sm font-bold ring-1 ring-slate-300" @click="copy(order.delivery_code)">Copier</button>
@@ -78,19 +78,19 @@
       <RouterLink v-if="!isFinal" :to="`/etiquette/${order.id}`" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3 shadow-soft active:scale-[.99] transition">
         <ColorIcon name="etiquette" :size="40" />
         <span class="flex-1 text-[14.5px] font-bold">Imprimer l'étiquette du colis</span>
-        <AppIcon name="right" class="h-5 w-5 text-slate-400" />
+        <AppIcon name="right" class="h-5 w-5 text-slate-600" />
       </RouterLink>
 
       <!-- L'argent de la course -->
       <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-1.5 text-sm">
         <p class="flex items-center gap-2 pb-1 text-[15px] font-bold"><ColorIcon name="billets" :size="30" />L'argent de la course</p>
-        <div class="flex justify-between"><span class="text-slate-500">{{ collected !== null ? 'Encaissé chez le client' : 'À encaisser chez le client' }}</span><b>{{ money(collected ?? order.amounts.cod_amount) }}</b></div>
-        <div class="flex justify-between"><span class="text-slate-500">Livraison, payée par {{ order.amounts.fee_payer === 'recipient' ? 'le client' : 'vous' }}</span><b>− {{ money(order.amounts.total_fees) }}</b></div>
+        <div class="flex justify-between"><span class="text-slate-600">{{ collected !== null ? 'Encaissé chez le client' : 'À encaisser chez le client' }}</span><b>{{ money(collected ?? order.amounts.cod_amount) }}</b></div>
+        <div class="flex justify-between"><span class="text-slate-600">Livraison, payée par {{ order.amounts.fee_payer === 'recipient' ? 'le client' : 'vous' }}</span><b>− {{ money(order.amounts.total_fees) }}</b></div>
         <div v-if="order.is_shipping" class="flex justify-between">
-          <span class="text-slate-500">Expédition</span>
+          <span class="text-slate-600">Expédition</span>
           <b>− {{ order.shipping.fee !== null ? money(order.shipping.fee) : (order.shipping.fee_estimate ? '≈ ' + money(order.shipping.fee_estimate) : 'au réel') }}</b>
         </div>
-        <div v-if="expensesTotal" class="flex justify-between"><span class="text-slate-500">Autres frais</span><b>− {{ money(expensesTotal) }}</b></div>
+        <div v-if="expensesTotal" class="flex justify-between"><span class="text-slate-600">Autres frais</span><b>− {{ money(expensesTotal) }}</b></div>
         <div v-if="showNet" class="flex justify-between items-baseline border-t border-slate-100 pt-2">
           <span class="font-bold">{{ order.status === 'delivered' ? 'Pour vous' : 'Pour vous une fois livrée' }}</span>
           <span :class="['text-xl font-extrabold', net < 0 ? 'text-red-600' : 'text-emerald-700']">{{ money(net) }}</span>
@@ -102,7 +102,7 @@
         <div v-if="order.ratings.can_rate || order.ratings.merchant" class="space-y-2">
           <div class="flex items-center gap-3">
             <span class="h-10 w-10 shrink-0 rounded-full bg-emerald-100 text-emerald-800 grid place-items-center font-bold">{{ (courierName || '?')[0] }}</span>
-            <span class="min-w-0"><b class="block truncate">{{ courierName || 'Le livreur' }}</b><span class="text-sm text-slate-500">a livré ce colis</span></span>
+            <span class="min-w-0"><b class="block truncate">{{ courierName || 'Le livreur' }}</b><span class="text-sm text-slate-600">a livré ce colis</span></span>
           </div>
           <template v-if="order.ratings.merchant">
             <p class="flex items-center gap-2 text-sm"><StarRating :model-value="order.ratings.merchant.score" readonly size="sm" /><b>Votre note</b></p>
@@ -111,11 +111,11 @@
           <template v-else>
             <p class="font-bold">Notez le livreur</p>
             <StarRating :model-value="0" label="Note du livreur" @update:model-value="openRating" />
-            <p class="text-[13px] text-slate-500">Touchez une étoile. Votre note reste anonyme pour le livreur.</p>
+            <p class="text-[13px] text-slate-600">Touchez une étoile. Votre note reste anonyme pour le livreur.</p>
           </template>
         </div>
         <div v-if="order.ratings.recipient" :class="order.ratings.can_rate || order.ratings.merchant ? 'border-t border-slate-100 pt-3' : ''">
-          <p class="text-[13px] font-extrabold uppercase tracking-wider text-slate-500">Note du client</p>
+          <p class="text-[13px] font-extrabold uppercase tracking-wider text-slate-600">Note du client</p>
           <p class="mt-1 flex flex-wrap items-center gap-2 text-sm">
             <StarRating :model-value="order.ratings.recipient.score" readonly size="sm" /><b>{{ order.ratings.recipient.score }}/5</b>
             <span v-if="order.ratings.recipient.comment" class="text-slate-600">« {{ order.ratings.recipient.comment }} »</span>
@@ -135,33 +135,33 @@
           <a v-if="order.recipient.phone2" :href="telLink(order.recipient.phone2)" class="text-[var(--app-color)]">{{ localPhone(order.recipient.phone2) }}</a>
         </div>
         <p class="pt-1 text-sm">{{ order.delivery.zone_name }}<span v-if="order.delivery.address"> · {{ order.delivery.address }}</span></p>
-        <p v-if="order.delivery.landmark" class="text-sm text-slate-500">Repère : {{ order.delivery.landmark }}</p>
+        <p v-if="order.delivery.landmark" class="text-sm text-slate-600">Repère : {{ order.delivery.landmark }}</p>
       </section>
 
       <!-- Articles -->
       <section v-if="order.items?.length || order.from_warehouse" class="rounded-[22px] bg-white p-4 shadow-soft space-y-1 text-sm">
-        <p class="text-slate-500">{{ order.from_warehouse ? `Préparée à ${order.pickup.hub_name}` : 'Articles' }}</p>
+        <p class="text-slate-600">{{ order.from_warehouse ? `Préparée à ${order.pickup.hub_name}` : 'Articles' }}</p>
         <p v-for="item in order.items" :key="item.id">
           <strong>{{ item.quantity }} ×</strong> {{ item.label }}
           <span v-if="item.stock_state === 'reserved'" class="text-xs text-amber-700">· réservé</span>
-          <span v-else-if="item.stock_state === 'released'" class="text-xs text-slate-500">· remis en stock</span>
+          <span v-else-if="item.stock_state === 'released'" class="text-xs text-slate-600">· remis en stock</span>
         </p>
       </section>
 
       <!-- Frais facturés au marchand -->
       <section v-if="order.expenses?.length" class="rounded-[22px] bg-white p-4 shadow-soft space-y-2 text-sm">
         <h2 class="font-bold">Frais de la course</h2>
-        <div v-for="e in order.expenses" :key="e.id" :class="['flex justify-between gap-3', e.cancelled_at ? 'line-through text-slate-400' : '']">
+        <div v-for="e in order.expenses" :key="e.id" :class="['flex justify-between gap-3', e.cancelled_at ? 'line-through text-slate-600' : '']">
           <span class="text-slate-600">{{ e.description }}</span><span class="whitespace-nowrap">− {{ money(e.amount) }}</span>
         </div>
-        <p class="text-slate-500 text-xs">Déduits de votre point.</p>
+        <p class="text-slate-600 text-xs">Déduits de votre point.</p>
       </section>
 
       <!-- Expédition -->
       <section v-if="order.is_shipping && order.shipping.carrier" class="rounded-[22px] bg-white p-4 shadow-soft space-y-1 text-sm">
         <h2 class="font-bold">Colis expédié</h2>
         <p>Par <strong>{{ order.shipping.carrier }}</strong><span v-if="order.shipping.reference"> · ticket {{ order.shipping.reference }}</span></p>
-        <p class="text-slate-500">Frais d'expédition de {{ money(order.shipping.fee) }} déduits de votre point.</p>
+        <p class="text-slate-600">Frais d'expédition de {{ money(order.shipping.fee) }} déduits de votre point.</p>
       </section>
 
       <!-- L'histoire du colis -->
@@ -208,13 +208,13 @@
           @click="choose(c.value)"
         >
           <span :class="['h-9 w-9 shrink-0 rounded-xl grid place-items-center', choice === c.value ? 'bg-[var(--app-color)] text-white' : 'bg-slate-100 text-slate-700']"><AppIcon :name="c.icon" class="h-[19px] w-[19px]" /></span>
-          <span class="min-w-0 flex-1"><b class="block">{{ c.label }}</b><span class="text-[13px] text-slate-500">{{ c.text }}</span></span>
+          <span class="min-w-0 flex-1"><b class="block">{{ c.label }}</b><span class="text-[13px] text-slate-600">{{ c.text }}</span></span>
           <AppIcon v-if="choice === c.value" name="check" class="h-5 w-5 text-[var(--app-color)]" />
         </button>
 
         <div v-if="choice === 'other'" class="space-y-2 pt-1">
           <ChoiceChips v-model="when" :options="deliveryOptions" :columns="3" label="Jour de la nouvelle livraison" />
-          <p v-if="closed" class="text-xs text-slate-500">{{ closedReason }}.</p>
+          <p v-if="closed" class="text-xs text-slate-600">{{ closedReason }}.</p>
           <input v-if="when === 'other'" v-model="reschedule.delivery_scheduled_date" type="date" :min="minDate" class="m-input" aria-label="Jour de la nouvelle livraison">
         </div>
 
@@ -256,7 +256,7 @@
     <BottomSheet :open="sheet === 'cancel'" title="Annuler la course ?" @close="sheet = null">
       <div class="space-y-3">
         <CancelReasonPicker v-if="sheet === 'cancel'" v-model="cancelCode" v-model:note="noteText" mobile />
-        <p class="text-xs text-gray-500">Possible tant que le colis n'est pas ramassé.</p>
+        <p class="text-xs text-slate-600">Possible tant que le colis n'est pas ramassé.</p>
         <button class="m-btn-danger" :disabled="busy || !cancelCode || (cancelCode === 'other' && !noteText.trim())" @click="doCancel">Oui, annuler la course</button>
         <button class="m-btn-secondary" @click="sheet = null">Non, garder</button>
       </div>
@@ -265,7 +265,7 @@
     <BottomSheet :open="sheet === 'reschedule'" title="Nouvelle date de livraison" @close="sheet = null">
       <form class="space-y-3" @submit.prevent="doReschedule(newDate)">
         <input v-model="newDate" type="date" class="m-input" :min="todayIso" :max="maxRescheduleDate" required aria-label="Nouvelle date de livraison">
-        <p class="text-xs text-slate-500">Jusqu'au {{ new Date(`${maxRescheduleDate}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) }}. Le livreur passera ce jour-là.</p>
+        <p class="text-xs text-slate-600">Jusqu'au {{ new Date(`${maxRescheduleDate}T12:00:00`).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) }}. Le livreur passera ce jour-là.</p>
         <button class="m-btn-primary" :disabled="busy || !newDate">Valider</button>
       </form>
     </BottomSheet>
@@ -279,7 +279,7 @@
 
     <EditOrderSheet :open="sheet === 'edit'" :order="order" @close="sheet = null" @saved="edited" />
   </div>
-  <p v-else class="text-center text-slate-400 py-10">{{ error || 'Chargement…' }}</p>
+  <p v-else class="text-center text-slate-600 py-10">{{ error || 'Chargement…' }}</p>
 </template>
 
 <script setup>

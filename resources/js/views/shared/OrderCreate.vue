@@ -18,7 +18,7 @@
             <a :href="welcome.merchant.welcome.whatsapp_link" target="_blank" rel="noopener" class="btn-success">Envoyer par WhatsApp</a>
             <button type="button" class="btn-secondary" @click="copy">Copier le lien</button>
           </div>
-          <p class="text-xs text-gray-600">« Envoyer par WhatsApp » ouvre WhatsApp avec le message déjà écrit. Le lien est valable 7 jours.</p>
+          <p class="text-xs text-slate-600">« Envoyer par WhatsApp » ouvre WhatsApp avec le message déjà écrit. Le lien est valable 7 jours.</p>
         </template>
       </div>
       <div class="flex flex-wrap gap-2">

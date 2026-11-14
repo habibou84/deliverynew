@@ -13,7 +13,7 @@
         <h2 class="font-semibold">Connexion officielle (Meta)</h2>
         <span v-if="state.official" :class="['rounded-full px-2 py-0.5 text-xs font-medium', OFFICIAL[state.official.status]?.[1] || 'bg-slate-100 text-slate-700']">{{ OFFICIAL[state.official.status]?.[0] || state.official.status }}</span>
       </div>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Le numéro de Jibiat sur l'API WhatsApp Business de Meta. Une fois vérifiée, elle est utilisée en priorité pour la messagerie
         de la console et les codes de vérification ; le QR code reste en secours.
       </p>
@@ -46,7 +46,7 @@
           <button v-if="state.official" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="removeOfficial">Retirer</button>
         </div>
       </form>
-      <details class="text-xs text-gray-600">
+      <details class="text-xs text-slate-600">
         <summary class="cursor-pointer font-medium">Où trouver ces informations ?</summary>
         <ol class="mt-2 list-decimal space-y-1 pl-5">
           <li>Meta Business Suite › WhatsApp Manager : l'identifiant du numéro et celui du compte WhatsApp Business.</li>
@@ -64,7 +64,7 @@
             <button type="button" class="btn-secondary text-sm" :disabled="busy || !state.official.live" @click="templatesCall('sync')">Actualiser l'état</button>
           </div>
         </div>
-        <p class="text-xs text-gray-600">
+        <p class="text-xs text-slate-600">
           Au-delà de 24 heures après le dernier message d'une personne, WhatsApp n'accepte que des modèles approuvés par Meta.
           Ils partent d'eux-mêmes chez Meta à la vérification du numéro ; sans modèle approuvé, Jibiat envoie le texte libre.
         </p>
@@ -72,8 +72,8 @@
           <li v-for="t in state.templates" :key="t.name" class="flex flex-wrap items-start justify-between gap-2 p-3">
             <div class="min-w-0 flex-1">
               <p class="text-sm font-medium">{{ t.description }}</p>
-              <p class="mt-0.5 text-xs text-gray-500"><code>{{ t.name }}</code> · {{ t.category === 'authentication' ? 'authentification' : 'utilitaire' }}</p>
-              <p class="mt-1 text-xs text-gray-600">{{ t.body }}</p>
+              <p class="mt-0.5 text-xs text-slate-600"><code>{{ t.name }}</code> · {{ t.category === 'authentication' ? 'authentification' : 'utilitaire' }}</p>
+              <p class="mt-1 text-xs text-slate-600">{{ t.body }}</p>
               <p v-if="t.rejected_reason" class="mt-1 text-xs text-red-700">Refusé : {{ t.rejected_reason }}</p>
             </div>
             <span :class="['shrink-0 rounded-full px-2 py-0.5 text-xs font-medium', TEMPLATE[t.status]?.[1] || 'bg-slate-100 text-slate-700']">{{ TEMPLATE[t.status]?.[0] || t.status }}</span>
@@ -84,8 +84,8 @@
 
     <!-- Connexion du numéro de Jibiat par QR code (secours de la connexion officielle) -->
     <section v-if="state && can('owner') && state.qr_state.status !== 'connected'" class="card p-4 space-y-3">
-      <h2 class="font-semibold">Connexion par QR code<span v-if="state.channel === 'official'" class="font-normal text-gray-500"> (secours)</span></h2>
-      <p class="text-sm text-gray-600">
+      <h2 class="font-semibold">Connexion par QR code<span v-if="state.channel === 'official'" class="font-normal text-slate-600"> (secours)</span></h2>
+      <p class="text-sm text-slate-600">
         Reliez le numéro WhatsApp de Jibiat comme WhatsApp Web : les messages des entreprises et des prospects arrivent ici,
         et vous leur répondez depuis la console, avec ce numéro.
       </p>
@@ -94,7 +94,7 @@
       </p>
       <div v-if="state.qr" class="flex flex-wrap items-start gap-4">
         <img :src="state.qr" alt="QR code WhatsApp à scanner" class="h-64 w-64 rounded-lg border bg-white p-2">
-        <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+        <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
           <li>Sur le téléphone du numéro de Jibiat, ouvrez WhatsApp.</li>
           <li>Touchez ⋮ (ou Réglages), puis « Appareils connectés ».</li>
           <li>Touchez « Connecter un appareil » et scannez ce QR code.</li>
@@ -104,10 +104,10 @@
       <button v-if="!state.qr" type="button" class="btn-success" :disabled="busy || !state.available" @click="connect">
         {{ state.qr_state.status === 'disconnected' ? 'Reconnecter par QR code' : 'Afficher le QR code' }}
       </button>
-      <p v-if="!state.available" class="text-xs text-gray-500">Le service WhatsApp n'est pas encore installé sur le serveur.</p>
+      <p v-if="!state.available" class="text-xs text-slate-600">Le service WhatsApp n'est pas encore installé sur le serveur.</p>
     </section>
 
-    <p v-else-if="state && state.qr_state.status === 'connected'" class="text-sm text-gray-600">
+    <p v-else-if="state && state.qr_state.status === 'connected'" class="text-sm text-slate-600">
       ✅ Numéro <strong>{{ state.qr_state.phone }}</strong><span v-if="state.qr_state.name"> ({{ state.qr_state.name }})</span> relié par QR code<span v-if="state.channel === 'official'"> (secours)</span>.
       <button v-if="can('owner')" type="button" class="ml-2 text-red-700 underline" :disabled="busy" @click="disconnect">Déconnecter</button>
     </p>
@@ -116,7 +116,7 @@
     <section v-if="state?.sms && can('owner')" class="card flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
       <div>
         <p class="font-semibold">SMS envoyés (payants)</p>
-        <p class="text-gray-600">
+        <p class="text-slate-600">
           Ce mois : <strong>{{ state.sms.month }}</strong> · mois dernier : {{ state.sms.last_month }}.
           <span v-if="!state.sms.ready" class="text-amber-700">Les SMS sont simulés sur ce serveur (aucun envoi réel).</span>
           <span v-else-if="state.status === 'connected'">Avec le numéro relié, les inscriptions et connexions passent par WhatsApp : aucun SMS, sauf si le secours est activé.</span>
@@ -124,7 +124,7 @@
         </p>
       </div>
       <label class="flex items-center gap-2">
-        <input type="checkbox" class="h-4 w-4 rounded border-gray-300" :checked="state.sms.fallback" :disabled="busy" @change="setSmsFallback($event.target.checked)">
+        <input type="checkbox" class="h-4 w-4 rounded border-slate-300" :checked="state.sms.fallback" :disabled="busy" @change="setSmsFallback($event.target.checked)">
         <span>Proposer aussi le SMS quand WhatsApp est possible</span>
       </label>
     </section>
@@ -144,12 +144,12 @@
             <button type="button" :class="['w-full px-3 py-2 text-left hover:bg-slate-50', currentId === c.id ? 'bg-slate-100' : '']" @click="openConversation(c.id)">
               <span class="flex items-center justify-between gap-2">
                 <span class="truncate font-medium">{{ c.company?.name || c.name || c.phone }}</span>
-                <span v-if="c.unread" class="rounded-full bg-emerald-600 px-1.5 text-xs text-white">{{ c.unread }}</span>
+                <span v-if="c.unread" class="rounded-full bg-emerald-700 px-1.5 text-xs text-white">{{ c.unread }}</span>
               </span>
-              <span class="block truncate text-xs text-gray-500">{{ c.last_message || c.phone }}</span>
+              <span class="block truncate text-xs text-slate-600">{{ c.last_message || c.phone }}</span>
             </button>
           </li>
-          <li v-if="!conversations.length" class="p-3 text-sm text-gray-500">Aucune conversation pour l'instant.</li>
+          <li v-if="!conversations.length" class="p-3 text-sm text-slate-600">Aucune conversation pour l'instant.</li>
         </ul>
       </aside>
 
@@ -157,7 +157,7 @@
         <template v-if="thread">
           <header class="border-b p-3">
             <p class="font-medium">{{ thread.conversation.company?.name || thread.conversation.name || thread.conversation.phone }}</p>
-            <p class="text-xs text-gray-500">
+            <p class="text-xs text-slate-600">
               {{ thread.conversation.phone }}
               <RouterLink v-if="thread.conversation.company" :to="`/console/entreprises/${thread.conversation.company.id}`" class="ml-2 underline">fiche de l'entreprise</RouterLink>
               <a :href="`https://wa.me/${thread.conversation.phone.replace(/\D/g, '')}`" target="_blank" rel="noopener" class="ml-2 underline">ouvrir dans WhatsApp</a>
@@ -167,10 +167,10 @@
             <div v-for="m in thread.messages" :key="m.id" :class="['flex', m.direction === 'out' ? 'justify-end' : 'justify-start']">
               <div :class="['max-w-[80%] whitespace-pre-wrap rounded-lg px-3 py-2 text-sm shadow-sm', m.direction === 'out' ? 'bg-emerald-100' : 'bg-white']">
                 {{ m.body }}
-                <span class="mt-1 block text-right text-[11px] text-gray-500">
+                <span class="mt-1 block text-right text-xs text-slate-600">
                   {{ m.by ? m.by + ' · ' : '' }}{{ dateTime(m.at) }}{{ m.direction === 'out' ? ' · ' + (SENT[m.status] || m.status) : '' }}
                 </span>
-                <span v-if="m.error" class="block text-[11px] text-red-700">{{ m.error }}</span>
+                <span v-if="m.error" class="block text-xs text-red-700">{{ m.error }}</span>
               </div>
             </div>
           </div>
@@ -179,7 +179,7 @@
             <button class="btn-primary" :disabled="sending || !reply.trim() || state?.status !== 'connected'">Envoyer</button>
           </form>
         </template>
-        <p v-else class="p-6 text-sm text-gray-500">Choisissez une conversation.</p>
+        <p v-else class="p-6 text-sm text-slate-600">Choisissez une conversation.</p>
       </section>
     </div>
   </div>

@@ -3,12 +3,12 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Facturation</h1>
       <form class="flex items-center gap-2" @submit.prevent="generate">
-        <label class="text-sm text-gray-600" for="g-period">Factures du mois</label>
+        <label class="text-sm text-slate-600" for="g-period">Factures du mois</label>
         <input id="g-period" v-model="period" type="month" class="input w-auto" required>
         <button class="btn-secondary" :disabled="generating">{{ generating ? 'Génération…' : 'Générer' }}</button>
       </form>
       <form class="flex items-center gap-2" @submit.prevent="generateWeek">
-        <label class="text-sm text-gray-600" for="g-week">Factures de la semaine</label>
+        <label class="text-sm text-slate-600" for="g-week">Factures de la semaine</label>
         <input id="g-week" v-model="week" type="week" class="input w-auto" required>
         <button class="btn-secondary" :disabled="generating">Générer</button>
       </form>
@@ -34,7 +34,7 @@
 
     <div class="card overflow-x-auto">
       <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-left text-gray-600">
+        <thead class="bg-slate-50 text-left text-slate-600">
           <tr>
             <th class="p-2">Facture</th><th class="p-2">Entreprise</th><th class="p-2">Période</th>
             <th class="p-2 text-right">Total</th><th class="p-2 text-right">Reste</th><th class="p-2">Échéance</th><th class="p-2">Statut</th><th class="p-2" />
@@ -54,7 +54,7 @@
               <button v-if="i.status === 'open' && !i.amount_paid" class="ml-1 text-xs text-red-600" @click="voidInvoice(i)">Annuler</button>
             </td>
           </tr>
-          <tr v-if="loaded && !invoices.length"><td colspan="8" class="p-6 text-center text-gray-500">Aucune facture.</td></tr>
+          <tr v-if="loaded && !invoices.length"><td colspan="8" class="p-6 text-center text-slate-600">Aucune facture.</td></tr>
         </tbody>
       </table>
     </div>
@@ -74,7 +74,7 @@
 
     <Modal :open="pay.open" :title="`Encaisser ${pay.invoice?.number}`" @close="pay.open = false">
       <form class="space-y-3" @submit.prevent="savePayment">
-        <p class="text-sm text-gray-600">{{ pay.invoice?.company?.name }} · reste à payer {{ money(pay.invoice?.balance) }}</p>
+        <p class="text-sm text-slate-600">{{ pay.invoice?.company?.name }} · reste à payer {{ money(pay.invoice?.balance) }}</p>
         <div class="grid grid-cols-2 gap-3">
           <div><label class="label" for="p-amount">Montant (F) *</label><input id="p-amount" v-model.number="pay.amount" type="number" min="1" :max="pay.invoice?.balance" class="input" required></div>
           <div><label class="label" for="p-date">Date *</label><input id="p-date" v-model="pay.paid_on" type="date" class="input" required></div>

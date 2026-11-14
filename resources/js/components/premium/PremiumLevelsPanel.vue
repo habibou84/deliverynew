@@ -9,13 +9,13 @@
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 class="font-semibold">🏅 Niveaux</h2>
-            <p class="text-sm text-gray-500">Un bilan le 1er de chaque mois : chaque e-commerçant passe au plus haut niveau dont il remplit les conditions (sur {{ data.limits.window_days }} jours). Vous pouvez garder un seul niveau.</p>
+            <p class="text-sm text-slate-600">Un bilan le 1er de chaque mois : chaque e-commerçant passe au plus haut niveau dont il remplit les conditions (sur {{ data.limits.window_days }} jours). Vous pouvez garder un seul niveau.</p>
           </div>
           <div class="flex gap-2">
             <button v-if="canEdit && levels.length < data.limits.max_levels" type="button" class="btn-secondary" @click="addLevel">+ Ajouter un niveau</button>
           </div>
         </div>
-        <p v-if="!levels.length" class="mt-3 text-sm text-gray-500">Aucun niveau pour le moment. Ajoutez-en un pour récompenser vos meilleurs clients.</p>
+        <p v-if="!levels.length" class="mt-3 text-sm text-slate-600">Aucun niveau pour le moment. Ajoutez-en un pour récompenser vos meilleurs clients.</p>
         <div class="mt-3 grid gap-3" :class="{ 2: 'md:grid-cols-2', 3: 'md:grid-cols-3' }[levels.length]">
           <button v-for="(l, i) in levels" :key="i" type="button" class="flex flex-col justify-start rounded-xl border p-3 text-left transition" :class="i === current ? 'border-violet-500 ring-2 ring-violet-200' : 'border-slate-200 hover:border-violet-300'" @click="current = i">
             <div class="flex items-center justify-between gap-2">
@@ -24,9 +24,9 @@
             </div>
             <ul class="mt-2 space-y-0.5 text-xs text-slate-700">
               <li v-for="a in advantages(l)" :key="a">✓ {{ a }}</li>
-              <li v-if="!advantages(l).length" class="text-gray-400">Aucun avantage coché</li>
+              <li v-if="!advantages(l).length" class="text-slate-600">Aucun avantage coché</li>
             </ul>
-            <p class="mt-2 border-t border-dashed pt-1.5 text-xs text-gray-500">{{ l.min_delivered }} courses · {{ Math.round(l.min_success_rate * 100) }} % de réussite<template v-if="l.min_client_days"> · client depuis {{ l.min_client_days }} j</template></p>
+            <p class="mt-2 border-t border-dashed pt-1.5 text-xs text-slate-600">{{ l.min_delivered }} courses · {{ Math.round(l.min_success_rate * 100) }} % de réussite<template v-if="l.min_client_days"> · client depuis {{ l.min_client_days }} j</template></p>
           </button>
         </div>
       </section>
@@ -45,34 +45,34 @@
             <label class="block text-sm">Client depuis (jours)<input v-model.number="level.min_client_days" type="number" min="0" class="input mt-1 w-full" :disabled="!canEdit"></label>
           </div>
 
-          <h3 class="mt-4 text-sm font-semibold text-gray-700">Avantages livraison</h3>
+          <h3 class="mt-4 text-sm font-semibold text-slate-700">Avantages livraison</h3>
           <div class="mt-1 divide-y">
             <div class="flex flex-wrap items-center gap-3 py-2.5">
               <input id="adv-discount" v-model="on.discount" type="checkbox" class="h-5 w-5 accent-violet-600" :disabled="!canEdit">
-              <label for="adv-discount" class="min-w-0 flex-1"><b class="block text-sm">Réduction sur les frais de livraison</b><span class="text-xs text-gray-500">Sur chaque course, retirée du tarif (au plus {{ data.limits.max_delivery_discount }} %)</span></label>
+              <label for="adv-discount" class="min-w-0 flex-1"><b class="block text-sm">Réduction sur les frais de livraison</b><span class="text-xs text-slate-600">Sur chaque course, retirée du tarif (au plus {{ data.limits.max_delivery_discount }} %)</span></label>
               <span class="flex items-center gap-1"><input v-model.number="level.delivery_discount_percent" type="number" min="0" :max="data.limits.max_delivery_discount" class="input w-20 text-right" :disabled="!canEdit || !on.discount"> %</span>
             </div>
             <div class="flex flex-wrap items-center gap-3 py-2.5">
               <input id="adv-payout" v-model="on.payout" type="checkbox" class="h-5 w-5 accent-violet-600" :disabled="!canEdit">
-              <label for="adv-payout" class="min-w-0 flex-1"><b class="block text-sm">Paiement plus rapide</b><span class="text-xs text-gray-500">Ces e-commerçants passent en tête des paiements de la caisse</span></label>
+              <label for="adv-payout" class="min-w-0 flex-1"><b class="block text-sm">Paiement plus rapide</b><span class="text-xs text-slate-600">Ces e-commerçants passent en tête des paiements de la caisse</span></label>
               <select v-model="level.payout_frequency" class="input w-44" :disabled="!canEdit || !on.payout">
                 <option v-for="(label, key) in data.limits.payout_frequencies" :key="key" :value="key">{{ label }}</option>
               </select>
             </div>
             <div class="flex flex-wrap items-center gap-3 py-2.5">
               <input id="adv-pickup" v-model="level.priority_pickup" type="checkbox" class="h-5 w-5 accent-violet-600" :disabled="!canEdit">
-              <label for="adv-pickup" class="min-w-0 flex-1"><b class="block text-sm">Ramassage prioritaire</b><span class="text-xs text-gray-500">Ses colis passent en tête des ramassages à prévoir</span></label>
+              <label for="adv-pickup" class="min-w-0 flex-1"><b class="block text-sm">Ramassage prioritaire</b><span class="text-xs text-slate-600">Ses colis passent en tête des ramassages à prévoir</span></label>
             </div>
             <div class="flex flex-wrap items-center gap-3 py-2.5">
               <input id="adv-cutoff" v-model="on.cutoff" type="checkbox" class="h-5 w-5 accent-violet-600" :disabled="!canEdit">
-              <label for="adv-cutoff" class="min-w-0 flex-1"><b class="block text-sm">Heure limite plus tardive</b><span class="text-xs text-gray-500">Pour la livraison du jour même</span></label>
+              <label for="adv-cutoff" class="min-w-0 flex-1"><b class="block text-sm">Heure limite plus tardive</b><span class="text-xs text-slate-600">Pour la livraison du jour même</span></label>
               <select v-model.number="level.cutoff_extra_minutes" class="input w-32" :disabled="!canEdit || !on.cutoff">
                 <option :value="30">+30 min</option><option :value="60">+1 h</option><option :value="90">+1 h 30</option><option :value="120">+2 h</option>
               </select>
             </div>
             <div class="flex flex-wrap items-center gap-3 py-2.5">
               <input id="adv-return" v-model="on.returns" type="checkbox" class="h-5 w-5 accent-violet-600" :disabled="!canEdit">
-              <label for="adv-return" class="min-w-0 flex-1"><b class="block text-sm">Retours moins chers</b><span class="text-xs text-gray-500">100 % : retours gratuits</span></label>
+              <label for="adv-return" class="min-w-0 flex-1"><b class="block text-sm">Retours moins chers</b><span class="text-xs text-slate-600">100 % : retours gratuits</span></label>
               <span class="flex items-center gap-1">−<input v-model.number="level.return_discount_percent" type="number" min="0" max="100" class="input w-20 text-right" :disabled="!canEdit || !on.returns"> %</span>
             </div>
           </div>
@@ -82,17 +82,17 @@
         <!-- Jibiat Marchand offert -->
         <section class="card p-4 lg:col-span-2">
           <h2 class="font-semibold">📱 Jibiat Marchand offert</h2>
-          <p class="text-sm text-gray-500">L'application de boutique offerte aux e-commerçants de ce niveau, dans les limites fixées par Jibiat.</p>
+          <p class="text-sm text-slate-600">L'application de boutique offerte aux e-commerçants de ce niveau, dans les limites fixées par Jibiat.</p>
           <div class="mt-3 grid grid-cols-3 gap-2">
-            <button type="button" class="rounded-xl border p-2 text-center" :class="!level.jm_plan ? 'border-violet-500 bg-violet-50' : 'border-slate-200'" :disabled="!canEdit" @click="level.jm_plan = null"><b class="block text-sm">Aucun</b><span class="text-xs text-gray-500">—</span></button>
+            <button type="button" class="rounded-xl border p-2 text-center" :class="!level.jm_plan ? 'border-violet-500 bg-violet-50' : 'border-slate-200'" :disabled="!canEdit" @click="level.jm_plan = null"><b class="block text-sm">Aucun</b><span class="text-xs text-slate-600">—</span></button>
             <button v-for="(p, code) in data.limits.plans" :key="code" type="button" class="rounded-xl border p-2 text-center" :class="level.jm_plan === code ? 'border-violet-500 bg-violet-50' : 'border-slate-200'" :disabled="!canEdit" @click="pickPlan(code)">
-              <b class="block text-sm">{{ p.name }}</b><span class="text-xs text-gray-500">{{ money(p.monthly_price) }} / mois</span>
+              <b class="block text-sm">{{ p.name }}</b><span class="text-xs text-slate-600">{{ money(p.monthly_price) }} / mois</span>
             </button>
           </div>
           <template v-if="plan">
-            <label class="mt-3 flex items-center justify-between gap-2 text-sm"><span><b>Mois offerts</b><span class="block text-xs text-gray-500">Autorisé par Jibiat : 0 à {{ plan.max_months }}</span></span>
+            <label class="mt-3 flex items-center justify-between gap-2 text-sm"><span><b>Mois offerts</b><span class="block text-xs text-slate-600">Autorisé par Jibiat : 0 à {{ plan.max_months }}</span></span>
               <input v-model.number="level.jm_free_months" type="number" min="0" :max="plan.max_months" class="input w-20 text-right" :disabled="!canEdit"></label>
-            <label class="mt-2 flex items-center justify-between gap-2 text-sm"><span><b>Réduction ensuite (%)</b><span class="block text-xs text-gray-500">Tant qu'il livre avec vous · autorisé : 0 à {{ plan.max_discount }} %</span></span>
+            <label class="mt-2 flex items-center justify-between gap-2 text-sm"><span><b>Réduction ensuite (%)</b><span class="block text-xs text-slate-600">Tant qu'il livre avec vous · autorisé : 0 à {{ plan.max_discount }} %</span></span>
               <input v-model.number="level.jm_discount_percent" type="number" min="0" :max="plan.max_discount" class="input w-20 text-right" :disabled="!canEdit"></label>
             <div class="mt-3 rounded-xl border-2 border-violet-500 bg-violet-50 p-3">
               <p class="text-xs font-bold text-violet-800">CE QUE REÇOIT LE MARCHAND</p>
@@ -105,7 +105,7 @@
       </div>
 
       <div v-if="canEdit" class="card flex flex-wrap items-center justify-between gap-3 p-3">
-        <p class="text-sm text-gray-600">Dernier bilan : <b>{{ data.reviewed_at ? date(data.reviewed_at) : 'pas encore fait' }}</b>. Le marchand qui monte de niveau est prévenu par WhatsApp.</p>
+        <p class="text-sm text-slate-600">Dernier bilan : <b>{{ data.reviewed_at ? date(data.reviewed_at) : 'pas encore fait' }}</b>. Le marchand qui monte de niveau est prévenu par WhatsApp.</p>
         <div class="flex gap-2">
           <button type="button" class="btn-secondary" :disabled="busy || dirty" :title="dirty ? 'Enregistrez d\'abord' : ''" @click="review">Faire le bilan maintenant</button>
           <button type="button" class="btn-primary" :disabled="busy" @click="save">Enregistrer</button>

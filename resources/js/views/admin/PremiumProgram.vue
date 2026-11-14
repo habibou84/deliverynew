@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0">
         <h1 class="text-xl font-bold">Programme Premium Jibiat Marchand</h1>
-        <p class="text-sm text-gray-500">Offrez à vos meilleurs e-commerçants leur carte Membre Premium : ils vendent plus, vous livrez plus.</p>
+        <p class="text-sm text-slate-600">Offrez à vos meilleurs e-commerçants leur carte Membre Premium : ils vendent plus, vous livrez plus.</p>
       </div>
       <button v-if="canOffer && data && tab === 'cards'" type="button" class="btn-primary" :disabled="!canOfferMore" @click="pickerOpen = true">Offrir une carte</button>
     </div>
@@ -23,24 +23,24 @@
     <template v-if="data">
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Cartes offertes</p>
+          <p class="text-sm text-slate-600">Cartes offertes</p>
           <p class="text-2xl font-bold text-amber-700 tabular-nums">{{ data.used }} / {{ data.quota }}</p>
-          <p class="text-xs text-gray-500">{{ data.program.price ? `${money(data.program.price)} la carte, sur votre facture` : 'offertes par Jibiat' }}</p>
+          <p class="text-xs text-slate-600">{{ data.program.price ? `${money(data.program.price)} la carte, sur votre facture` : 'offertes par Jibiat' }}</p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Actives</p>
+          <p class="text-sm text-slate-600">Actives</p>
           <p class="text-2xl font-bold text-emerald-700 tabular-nums">{{ data.active }}</p>
-          <p class="text-xs text-gray-500">{{ waiting }} pas encore activée{{ waiting > 1 ? 's' : '' }}</p>
+          <p class="text-xs text-slate-600">{{ waiting }} pas encore activée{{ waiting > 1 ? 's' : '' }}</p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Boutiques parrainées</p>
+          <p class="text-sm text-slate-600">Boutiques parrainées</p>
           <p class="text-2xl font-bold text-blue-700 tabular-nums">{{ data.referrals.stores }}</p>
-          <p class="text-xs text-gray-500">{{ data.referrals.paying }} avec un abonnement payé</p>
+          <p class="text-xs text-slate-600">{{ data.referrals.paying }} avec un abonnement payé</p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Vos parts gagnées</p>
+          <p class="text-sm text-slate-600">Vos parts gagnées</p>
           <p class="text-2xl font-bold text-violet-700 tabular-nums">{{ money(data.referrals.earned_total) }}</p>
-          <p class="text-xs text-gray-500">{{ pct(data.referrals.rate) }} des abonnements pendant {{ data.referrals.months }} mois</p>
+          <p class="text-xs text-slate-600">{{ pct(data.referrals.rate) }} des abonnements pendant {{ data.referrals.months }} mois</p>
         </div>
       </div>
 
@@ -49,15 +49,15 @@
         <section class="card overflow-hidden lg:col-span-2" aria-labelledby="best-title">
           <div class="flex items-center justify-between gap-2 px-4 py-3">
             <h2 id="best-title" class="font-semibold">Vos meilleurs e-commerçants</h2>
-            <span class="text-xs text-gray-500">classés sur {{ data.program.conditions.window_days }} jours</span>
+            <span class="text-xs text-slate-600">classés sur {{ data.program.conditions.window_days }} jours</span>
           </div>
-          <p v-if="!data.ranking.length" class="px-4 pb-4 text-sm text-gray-500">Pas encore de courses livrées sur la période.</p>
+          <p v-if="!data.ranking.length" class="px-4 pb-4 text-sm text-slate-600">Pas encore de courses livrées sur la période.</p>
           <ul v-else class="divide-y">
             <li v-for="row in data.ranking" :key="row.merchant_id" class="flex flex-wrap items-center gap-3 px-4 py-3">
               <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-sm font-bold text-white" :style="{ background: avatar(row.name) }" aria-hidden="true">{{ initials(row.name) }}</span>
               <div class="min-w-0 flex-1">
                 <p class="truncate font-semibold">{{ row.name }}</p>
-                <p class="text-xs text-gray-500">{{ row.delivered }} livrée{{ row.delivered > 1 ? 's' : '' }} · {{ row.success_rate === null ? '—' : pct(row.success_rate) }} de réussite · client depuis {{ months(row.client_days) }}</p>
+                <p class="text-xs text-slate-600">{{ row.delivered }} livrée{{ row.delivered > 1 ? 's' : '' }} · {{ row.success_rate === null ? '—' : pct(row.success_rate) }} de réussite · client depuis {{ months(row.client_days) }}</p>
               </div>
               <div class="flex w-28 items-center gap-2" :aria-label="`Score ${row.score} sur 100`">
                 <span class="h-2 flex-1 overflow-hidden rounded-full bg-slate-100"><span class="block h-full rounded-full bg-emerald-500" :style="{ width: `${row.score}%` }" /></span>
@@ -80,26 +80,26 @@
             <input v-model="auto" type="checkbox" class="h-5 w-5 accent-emerald-600" :disabled="!auth.can('settings.manage') || busy" @change="saveAuto">
           </label>
           <dl class="divide-y text-sm">
-            <div class="flex justify-between gap-2 py-2"><dt class="text-gray-500">Courses livrées</dt><dd class="font-semibold">{{ data.program.conditions.min_delivered }} sur {{ data.program.conditions.window_days }} jours</dd></div>
-            <div class="flex justify-between gap-2 py-2"><dt class="text-gray-500">Taux de réussite</dt><dd class="font-semibold">{{ pct(data.program.conditions.min_success_rate) }} au moins</dd></div>
-            <div class="flex justify-between gap-2 py-2"><dt class="text-gray-500">Argent dû à l'agence</dt><dd class="font-semibold">aucun retard</dd></div>
-            <div class="flex justify-between gap-2 py-2"><dt class="text-gray-500">Client depuis</dt><dd class="font-semibold">{{ months(data.program.conditions.min_client_days) }} au moins</dd></div>
-            <div class="flex justify-between gap-2 py-2"><dt class="text-gray-500">Cartes</dt><dd class="font-semibold">{{ data.quota }} au total</dd></div>
+            <div class="flex justify-between gap-2 py-2"><dt class="text-slate-600">Courses livrées</dt><dd class="font-semibold">{{ data.program.conditions.min_delivered }} sur {{ data.program.conditions.window_days }} jours</dd></div>
+            <div class="flex justify-between gap-2 py-2"><dt class="text-slate-600">Taux de réussite</dt><dd class="font-semibold">{{ pct(data.program.conditions.min_success_rate) }} au moins</dd></div>
+            <div class="flex justify-between gap-2 py-2"><dt class="text-slate-600">Argent dû à l'agence</dt><dd class="font-semibold">aucun retard</dd></div>
+            <div class="flex justify-between gap-2 py-2"><dt class="text-slate-600">Client depuis</dt><dd class="font-semibold">{{ months(data.program.conditions.min_client_days) }} au moins</dd></div>
+            <div class="flex justify-between gap-2 py-2"><dt class="text-slate-600">Cartes</dt><dd class="font-semibold">{{ data.quota }} au total</dd></div>
           </dl>
-          <p class="text-xs text-gray-500">La progression s'affiche dans l'application de vos e-commerçants : « Plus que 12 courses livrées pour gagner votre carte ».</p>
+          <p class="text-xs text-slate-600">La progression s'affiche dans l'application de vos e-commerçants : « Plus que 12 courses livrées pour gagner votre carte ».</p>
         </section>
       </div>
 
       <!-- Cartes offertes -->
       <section class="card overflow-hidden" aria-labelledby="cards-title">
         <h2 id="cards-title" class="px-4 py-3 font-semibold">Cartes offertes</h2>
-        <p v-if="!data.cards.length" class="px-4 pb-4 text-sm text-gray-500">Aucune carte offerte pour l'instant.</p>
+        <p v-if="!data.cards.length" class="px-4 pb-4 text-sm text-slate-600">Aucune carte offerte pour l'instant.</p>
         <ul v-else class="divide-y">
           <li v-for="c in data.cards" :key="c.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-            <span class="grid h-10 w-14 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-slate-900 to-slate-700 text-[10px] font-bold text-amber-300" aria-hidden="true">PREMIUM</span>
+            <span class="grid h-10 w-14 shrink-0 place-items-center rounded-lg bg-gradient-to-br from-slate-900 to-slate-700 text-xs font-bold text-amber-300" aria-hidden="true">PREMIUM</span>
             <div class="min-w-0 flex-1">
-              <p class="truncate font-semibold">{{ c.merchant }} <span class="font-normal text-gray-500">· {{ c.label }}</span></p>
-              <p class="text-xs text-gray-500">
+              <p class="truncate font-semibold">{{ c.merchant }} <span class="font-normal text-slate-600">· {{ c.label }}</span></p>
+              <p class="text-xs text-slate-600">
                 {{ c.reason === 'automatic' ? 'Gagnée' : `Offerte${c.offered_by ? ` par ${c.offered_by}` : ''}` }} le {{ date(c.offered_at) }}
                 <template v-if="c.store_name"> · boutique {{ c.store_name }}</template>
                 <template v-if="c.free_until && c.state === 'free'"> · offerte jusqu'au {{ date(c.free_until) }}</template>
@@ -117,7 +117,7 @@
       <!-- Argumentaire -->
       <section class="card bg-amber-50/60 p-4 text-sm">
         <h2 class="font-semibold">Pourquoi offrir la carte ?</h2>
-        <ul class="mt-2 grid gap-1.5 sm:grid-cols-2 text-gray-700">
+        <ul class="mt-2 grid gap-1.5 sm:grid-cols-2 text-slate-700">
           <li>📈 Avec leur boutique en ligne, vos e-commerçants vendent plus : vous livrez plus.</li>
           <li>🤝 Une carte offerte par vous : ils restent chez vous.</li>
           <li>📋 Leurs commandes arrivent propres : bonne adresse, bon numéro.</li>
@@ -125,7 +125,7 @@
         </ul>
       </section>
     </template>
-    <p v-else-if="!error" class="text-sm text-gray-500">Chargement…</p>
+    <p v-else-if="!error" class="text-sm text-slate-600">Chargement…</p>
     </template>
 
     <!-- Choisir un e-commerçant -->
@@ -133,10 +133,10 @@
       <input v-model="search" type="search" class="input w-full" placeholder="Nom de l'e-commerçant" aria-label="Rechercher un e-commerçant">
       <ul class="mt-3 max-h-80 divide-y overflow-y-auto">
         <li v-for="row in pickable" :key="row.merchant_id" class="flex items-center justify-between gap-2 py-2 text-sm">
-          <span class="min-w-0 truncate">{{ row.name }} <span class="text-gray-500">· {{ row.delivered }} livrées</span></span>
+          <span class="min-w-0 truncate">{{ row.name }} <span class="text-slate-600">· {{ row.delivered }} livrées</span></span>
           <button type="button" class="btn-primary !py-1" :disabled="busy" @click="confirmOffer(row)">Offrir</button>
         </li>
-        <li v-if="!pickable.length" class="py-2 text-sm text-gray-500">Aucun e-commerçant à qui offrir une carte.</li>
+        <li v-if="!pickable.length" class="py-2 text-sm text-slate-600">Aucun e-commerçant à qui offrir une carte.</li>
       </ul>
     </Modal>
 

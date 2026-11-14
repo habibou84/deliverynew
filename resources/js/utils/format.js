@@ -29,25 +29,25 @@ export function today() {
 const STATUS_COLORS = {
   pending: 'bg-amber-100 text-amber-800',
   confirmed: 'bg-sky-100 text-sky-800',
-  rejected: 'bg-gray-200 text-gray-700',
+  rejected: 'bg-slate-200 text-slate-700',
   pickup_assigned: 'bg-indigo-100 text-indigo-800',
   pickup_in_progress: 'bg-indigo-100 text-indigo-800',
   picked_up: 'bg-violet-100 text-violet-800',
   at_hub: 'bg-violet-100 text-violet-800',
   delivery_assigned: 'bg-blue-100 text-blue-800',
   out_for_delivery: 'bg-blue-600 text-white',
-  delivered: 'bg-emerald-600 text-white',
+  delivered: 'bg-emerald-700 text-white',
   delivery_failed: 'bg-red-100 text-red-800',
   rescheduled: 'bg-orange-100 text-orange-800',
   return_assigned: 'bg-rose-100 text-rose-800',
   returning: 'bg-rose-100 text-rose-800',
-  returned: 'bg-gray-200 text-gray-700',
-  cancelled: 'bg-gray-200 text-gray-700',
+  returned: 'bg-slate-200 text-slate-700',
+  cancelled: 'bg-slate-200 text-slate-700',
   lost: 'bg-red-200 text-red-900',
 }
 
 export function statusClass(status) {
-  return STATUS_COLORS[status] ?? 'bg-gray-100 text-gray-700'
+  return STATUS_COLORS[status] ?? 'bg-slate-100 text-slate-700'
 }
 
 export const STATUS_LABELS = {
@@ -135,7 +135,7 @@ export const DELIVERY_PAYMENT_METHODS = ['cash', 'wave', 'orange_money', 'mtn_mo
 
 // Montant signé : vert si crédit, rouge si débit
 export function signedClass(value) {
-  if (!value) return 'text-gray-500'
+  if (!value) return 'text-slate-600'
   return value > 0 ? 'text-emerald-700' : 'text-red-600'
 }
 

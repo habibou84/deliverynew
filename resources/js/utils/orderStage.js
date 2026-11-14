@@ -11,7 +11,7 @@ import { money } from './format'
 export const TONES = {
   orange: { badge: 'bg-orange-100 text-orange-700', color: 'text-orange-700', bar: 'bg-orange-500', dot: 'bg-orange-500', soft: 'bg-orange-50' },
   blue: { badge: 'bg-blue-100 text-blue-700', color: 'text-blue-700', bar: 'bg-blue-600', dot: 'bg-blue-600', soft: 'bg-blue-50' },
-  gray: { badge: 'bg-slate-100 text-slate-500', color: 'text-slate-600', bar: 'bg-slate-500', dot: 'bg-slate-400', soft: 'bg-slate-50' },
+  gray: { badge: 'bg-slate-100 text-slate-600', color: 'text-slate-600', bar: 'bg-slate-500', dot: 'bg-slate-400', soft: 'bg-slate-50' },
   green: { badge: 'bg-emerald-100 text-emerald-700', color: 'text-emerald-700', bar: 'bg-emerald-700', dot: 'bg-emerald-700', soft: 'bg-emerald-50' },
   violet: { badge: 'bg-violet-100 text-violet-700', color: 'text-violet-700', bar: 'bg-violet-600', dot: 'bg-violet-600', soft: 'bg-violet-50' },
   red: { badge: 'bg-red-100 text-red-700', color: 'text-red-700', bar: 'bg-red-600', dot: 'bg-red-600', soft: 'bg-red-50' },

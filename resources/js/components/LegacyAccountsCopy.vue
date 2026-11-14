@@ -4,7 +4,7 @@
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-[16rem] flex-1">
         <h2 class="font-semibold">Copie des comptes chaque minute</h2>
-        <p class="text-sm text-gray-600">
+        <p class="text-sm text-slate-600">
           Les nouveaux e-commerçants et livreurs de l'ancienne application arrivent seuls dans Jibiat, avec leur numéro et leur mot de passe.
           Jusqu'à la bascule, une fiche modifiée là-bas est aussi mise à jour ici ; après, c'est Jibiat qui fait foi.
         </p>
@@ -27,27 +27,27 @@
     </p>
 
     <div class="space-y-2 border-t pt-3">
-      <h3 class="font-semibold">Commandes en attente d'un compte <span class="text-sm font-normal text-gray-500">({{ state.pending.total }})</span></h3>
-      <p v-if="!state.pending.total" class="text-sm text-gray-500">Aucune : toutes les commandes ont trouvé leur e-commerçant.</p>
+      <h3 class="font-semibold">Commandes en attente d'un compte <span class="text-sm font-normal text-slate-600">({{ state.pending.total }})</span></h3>
+      <p v-if="!state.pending.total" class="text-sm text-slate-600">Aucune : toutes les commandes ont trouvé leur e-commerçant.</p>
       <template v-else>
-        <p class="text-sm text-gray-600">
+        <p class="text-sm text-slate-600">
           Leur e-commerçant n'a pas pu être repris (souvent un numéro absent ou déjà pris). Corrigez sa fiche dans l'ancienne application :
           la commande est reprise seule à la copie suivante.
         </p>
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead><tr class="text-left text-xs uppercase text-gray-500"><th class="py-1.5 pr-2">Commande</th><th class="px-2">E-commerçant</th><th class="px-2">Raison</th><th class="px-2">Essais</th></tr></thead>
+            <thead><tr class="text-left text-xs uppercase text-slate-600"><th class="py-1.5 pr-2">Commande</th><th class="px-2">E-commerçant</th><th class="px-2">Raison</th><th class="px-2">Essais</th></tr></thead>
             <tbody>
               <tr v-for="p in state.pending.items" :key="p.legacy_id" class="border-t">
                 <td class="py-2 pr-2 font-medium">n° {{ p.legacy_id }}</td>
-                <td class="px-2">{{ p.client_name || '—' }}<span v-if="p.client_legacy_id" class="block text-xs text-gray-500">client n° {{ p.client_legacy_id }}</span></td>
-                <td class="px-2 text-gray-700">{{ p.reason }}</td>
-                <td class="px-2 tabular-nums">{{ p.attempts }}<span v-if="p.last_tried_at" class="block text-xs text-gray-500">{{ dateTime(p.last_tried_at) }}</span></td>
+                <td class="px-2">{{ p.client_name || '—' }}<span v-if="p.client_legacy_id" class="block text-xs text-slate-600">client n° {{ p.client_legacy_id }}</span></td>
+                <td class="px-2 text-slate-700">{{ p.reason }}</td>
+                <td class="px-2 tabular-nums">{{ p.attempts }}<span v-if="p.last_tried_at" class="block text-xs text-slate-600">{{ dateTime(p.last_tried_at) }}</span></td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p v-if="state.pending.total > state.pending.items.length" class="text-xs text-gray-500">Les {{ state.pending.items.length }} plus récentes sont affichées.</p>
+        <p v-if="state.pending.total > state.pending.items.length" class="text-xs text-slate-600">Les {{ state.pending.items.length }} plus récentes sont affichées.</p>
       </template>
     </div>
   </section>

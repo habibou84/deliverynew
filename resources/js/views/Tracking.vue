@@ -15,10 +15,10 @@
 
       <div v-if="tracking" class="card p-5 space-y-4">
         <div class="text-center space-y-2">
-          <p class="font-mono text-sm text-gray-500">{{ tracking.tracking_code }}</p>
+          <p class="font-mono text-sm text-slate-600">{{ tracking.tracking_code }}</p>
           <StatusBadge :status="tracking.status" :label="tracking.status_label" class="text-base px-3 py-1" />
           <p v-if="tracking.merchant_name" class="text-sm">Envoyé par <strong>{{ tracking.merchant_name }}</strong></p>
-          <p v-if="tracking.delivery_zone" class="text-sm text-gray-600">Livraison à {{ tracking.delivery_zone }}</p>
+          <p v-if="tracking.delivery_zone" class="text-sm text-slate-600">Livraison à {{ tracking.delivery_zone }}</p>
           <p v-if="tracking.courier_first_name" class="text-sm">Votre livreur : <strong>{{ tracking.courier_first_name }}</strong></p>
           <p v-if="tracking.scheduled_date && !['delivered', 'returned', 'cancelled'].includes(tracking.status)" class="text-sm">
             Livraison prévue le <strong>{{ date(tracking.scheduled_date) }}</strong>
@@ -29,7 +29,7 @@
           <li v-for="(step, i) in tracking.timeline" :key="i" class="ml-4 relative">
             <span class="absolute -left-[23px] top-1.5 h-3 w-3 rounded-full bg-slate-400" />
             <p class="text-sm font-medium">{{ step.label }}<span v-if="step.rescheduled_to"> au {{ date(step.rescheduled_to) }}</span></p>
-            <p class="text-xs text-gray-500">{{ dateTime(step.at) }}</p>
+            <p class="text-xs text-slate-600">{{ dateTime(step.at) }}</p>
           </li>
         </ol>
       </div>
