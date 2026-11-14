@@ -25,29 +25,40 @@ export function today() {
   return d.toISOString().slice(0, 10)
 }
 
-// Couleur du badge par statut de course
-const STATUS_COLORS = {
-  pending: 'bg-amber-100 text-amber-800',
-  confirmed: 'bg-sky-100 text-sky-800',
-  rejected: 'bg-slate-200 text-slate-700',
-  pickup_assigned: 'bg-indigo-100 text-indigo-800',
-  pickup_in_progress: 'bg-indigo-100 text-indigo-800',
-  picked_up: 'bg-violet-100 text-violet-800',
-  at_hub: 'bg-violet-100 text-violet-800',
-  delivery_assigned: 'bg-blue-100 text-blue-800',
-  out_for_delivery: 'bg-blue-600 text-white',
-  delivered: 'bg-emerald-700 text-white',
-  delivery_failed: 'bg-red-100 text-red-800',
-  rescheduled: 'bg-orange-100 text-orange-800',
-  return_assigned: 'bg-rose-100 text-rose-800',
-  returning: 'bg-rose-100 text-rose-800',
-  returned: 'bg-slate-200 text-slate-700',
-  cancelled: 'bg-slate-200 text-slate-700',
-  lost: 'bg-red-200 text-red-900',
+// Charte : cinq tons d'état, chacun un seul sens (succès, attention, critique, info, neutre)
+const TONES = {
+  succes: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  attention: 'bg-amber-50 text-amber-800 ring-amber-200',
+  critique: 'bg-red-50 text-red-700 ring-red-200',
+  info: 'bg-blue-50 text-blue-800 ring-blue-200',
+  neutre: 'bg-slate-100 text-slate-700 ring-slate-300',
+}
+export const STATUS_TONES = {
+  pending: 'attention',
+  confirmed: 'neutre',
+  rejected: 'neutre',
+  pickup_assigned: 'info',
+  pickup_in_progress: 'info',
+  picked_up: 'info',
+  at_hub: 'info',
+  delivery_assigned: 'info',
+  out_for_delivery: 'info',
+  delivered: 'succes',
+  delivery_failed: 'critique',
+  rescheduled: 'attention',
+  return_assigned: 'info',
+  returning: 'info',
+  returned: 'neutre',
+  cancelled: 'neutre',
+  lost: 'critique',
+}
+
+export function toneClass(tone) {
+  return TONES[tone] ?? TONES.neutre
 }
 
 export function statusClass(status) {
-  return STATUS_COLORS[status] ?? 'bg-slate-100 text-slate-700'
+  return toneClass(STATUS_TONES[status])
 }
 
 export const STATUS_LABELS = {

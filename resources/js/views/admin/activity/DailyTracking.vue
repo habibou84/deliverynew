@@ -34,9 +34,9 @@
         <p class="text-sm text-slate-600">Échecs</p>
         <p :class="['text-2xl font-bold', totals.failed ? 'text-red-700' : '']">{{ totals.failed ?? '—' }}</p>
       </div>
-      <div v-if="isToday" :class="['card p-3', totals.late_end ? 'bg-orange-50 border-orange-200' : '']">
-        <p :class="['text-sm', totals.late_end ? 'text-orange-800' : 'text-slate-600']">{{ closesAt ? `Risquent de finir après ${closesAt}` : 'Colis en main' }}</p>
-        <p :class="['text-2xl font-bold', totals.late_end ? 'text-orange-800' : '']">{{ closesAt ? `${totals.late_end || 0} livreur${totals.late_end > 1 ? 's' : ''}` : (totals.in_hand ?? '—') }}</p>
+      <div v-if="isToday" :class="['card p-3', totals.late_end ? 'bg-amber-50 border-amber-200' : '']">
+        <p :class="['text-sm', totals.late_end ? 'text-amber-800' : 'text-slate-600']">{{ closesAt ? `Risquent de finir après ${closesAt}` : 'Colis en main' }}</p>
+        <p :class="['text-2xl font-bold', totals.late_end ? 'text-amber-800' : '']">{{ closesAt ? `${totals.late_end || 0} livreur${totals.late_end > 1 ? 's' : ''}` : (totals.in_hand ?? '—') }}</p>
       </div>
       <div v-if="isToday" class="card p-3">
         <p class="text-sm text-slate-600">Fin de journée estimée</p>
@@ -48,7 +48,7 @@
     </div>
 
     <!-- Colis des jours précédents encore à faire : à part, hors avancement du jour -->
-    <div v-if="isToday && totals.late_before" class="flex flex-wrap items-center gap-3 rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900" role="status">
+    <div v-if="isToday && totals.late_before" class="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
       <span class="flex-1"><b>{{ totals.late_before }} colis en retard d'avant</b> : prévus les jours précédents, encore chez les livreurs. Ils ne comptent pas dans l'avancement du jour.</span>
       <button type="button" class="btn-secondary" @click="f.state = f.state === 'late' ? '' : 'late'">{{ f.state === 'late' ? 'Voir tous les livreurs' : 'Voir les livreurs concernés' }}</button>
     </div>
@@ -113,7 +113,7 @@
           <tbody class="divide-y">
             <tr
               v-for="c in visible" :key="c.id"
-              :class="['cursor-pointer hover:bg-slate-50', c.flags.length ? 'bg-orange-50/70' : '', selected?.id === c.id ? '!bg-emerald-50 shadow-[inset_4px_0_0_#047857]' : '']"
+              :class="['cursor-pointer hover:bg-slate-50', c.flags.length ? 'bg-amber-50/70' : '', selected?.id === c.id ? '!bg-emerald-50 shadow-[inset_4px_0_0_#047857]' : '']"
               :aria-selected="selected?.id === c.id" @click="select(c)"
             >
               <td data-label="Livreur" class="p-2">
@@ -126,11 +126,11 @@
                   <template v-if="c.last_location_at"> · vu {{ ago(c.last_location_at) }}</template>
                   <template v-if="c.zones.length"> · {{ c.zones.slice(0, 2).join(', ') }}</template>
                 </div>
-                <p v-if="c.flags.length" class="mt-0.5 text-xs font-semibold text-orange-800">⚠ {{ c.flags.join(' · ') }}</p>
+                <p v-if="c.flags.length" class="mt-0.5 text-xs font-semibold text-amber-800"><Icone nom="urgent" taille="petite" class="inline align-[-3px]" /> {{ c.flags.join(' · ') }}</p>
               </td>
               <td data-label="Livraisons" class="p-2">
                 <template v-if="c.deliveries.total">
-                  <div class="flex items-baseline justify-between gap-2 text-xs"><b class="text-sm">{{ c.deliveries.done }} / {{ c.deliveries.total }}</b><span v-if="c.late_before" class="text-orange-700">+{{ c.late_before }} d'avant</span></div>
+                  <div class="flex items-baseline justify-between gap-2 text-xs"><b class="text-sm">{{ c.deliveries.done }} / {{ c.deliveries.total }}</b><span v-if="c.late_before" class="text-amber-700">+{{ c.late_before }} d'avant</span></div>
                   <div class="mt-1 h-1.5 rounded-full bg-slate-200"><div :class="['h-1.5 rounded-full', barColor(c)]" :style="{ width: `${share(c.deliveries)}%` }" /></div>
                 </template>
                 <span v-else class="text-xs text-slate-600">—</span>
@@ -142,13 +142,13 @@
                 <span v-else class="text-slate-600">—</span>
               </td>
               <td v-if="!isFuture" data-label="Fin" class="p-2 whitespace-nowrap text-xs">
-                <template v-if="c.remaining && c.estimated_end"><b :class="c.late_end ? 'text-orange-800' : ''">{{ time(c.estimated_end) }}</b><span v-if="c.late_end" class="block text-orange-800">après {{ closesAt }}</span></template>
-                <template v-else-if="!c.remaining && c.estimated_end"><span class="text-emerald-700">✓ {{ time(c.estimated_end) }}</span></template>
+                <template v-if="c.remaining && c.estimated_end"><b :class="c.late_end ? 'text-amber-800' : ''">{{ time(c.estimated_end) }}</b><span v-if="c.late_end" class="block text-amber-800">après {{ closesAt }}</span></template>
+                <template v-else-if="!c.remaining && c.estimated_end"><span class="inline-flex items-center gap-1 text-emerald-700"><Icone nom="livre" taille="petite" /> {{ time(c.estimated_end) }}</span></template>
                 <template v-else>—</template>
               </td>
               <td class="p-2 whitespace-nowrap text-right" @click.stop>
-                <a v-if="c.phone" :href="telLink(c.phone)" class="inline-grid h-8 w-8 place-items-center rounded-lg border border-slate-300 hover:bg-slate-100" :title="`Appeler ${c.name}`">📞</a>
-                <RouterLink :to="{ path: '/admin/activite/carte', query: { livreur: c.id, date: day } }" class="ml-1 inline-grid h-8 w-8 place-items-center rounded-lg border border-slate-300 hover:bg-slate-100" :title="`${c.name} sur la carte`">🗺️</RouterLink>
+                <a v-if="c.phone" :href="telLink(c.phone)" class="inline-grid h-8 w-8 place-items-center rounded-lg border border-slate-300 hover:bg-slate-100" :title="`Appeler ${c.name}`" :aria-label="`Appeler ${c.name}`"><Icone nom="appeler" taille="petite" /></a>
+                <RouterLink :to="{ path: '/admin/activite/carte', query: { livreur: c.id, date: day } }" class="ml-1 inline-grid h-8 w-8 place-items-center rounded-lg border border-slate-300 hover:bg-slate-100" :title="`${c.name} sur la carte`" :aria-label="`${c.name} sur la carte`"><Icone nom="carte" taille="petite" /></RouterLink>
                 <RouterLink v-if="isToday && !c.remaining && (c.cash_in_hand > 0 || c.parcels_in_hand > 0) && auth.can('finance.manage')" :to="{ path: '/admin/caisse', query: { verser: c.id } }" class="ml-1 text-xs font-semibold text-emerald-700 hover:underline">Faire le point</RouterLink>
               </td>
             </tr>
@@ -165,12 +165,12 @@
               <h2 class="text-lg font-bold">{{ selected.name }}</h2>
               <p class="text-sm text-slate-600">{{ STATE[selected.state].label }}<template v-if="selected.zones.length"> · {{ selected.zones.join(', ') }}</template><template v-if="selected.vehicle_type"> · {{ selected.vehicle_type }}</template></p>
             </div>
-            <button type="button" class="btn-secondary" aria-label="Fermer le détail" @click="unselect">✕</button>
+            <button type="button" class="btn-secondary" aria-label="Fermer le détail" @click="unselect"><Icone nom="fermer" /></button>
           </div>
           <div class="flex flex-wrap gap-2">
             <a v-if="selected.phone" :href="telLink(selected.phone)" class="btn-primary">Appeler</a>
             <a v-if="selected.phone" :href="whatsappLink(selected.phone)" target="_blank" rel="noopener" class="btn-secondary">WhatsApp</a>
-            <RouterLink :to="{ path: '/admin/activite/carte', query: { livreur: selected.id, date: day } }" class="btn-secondary">🗺️ Voir sur la carte</RouterLink>
+            <RouterLink :to="{ path: '/admin/activite/carte', query: { livreur: selected.id, date: day } }" class="btn-secondary"><Icone nom="carte" /> Voir sur la carte</RouterLink>
             <button v-if="isToday && activeMissions.length" type="button" class="btn-secondary" @click="openConsigne">Envoyer une consigne</button>
             <RouterLink v-if="isToday && (selected.cash_in_hand > 0 || selected.parcels_in_hand > 0) && auth.can('finance.manage')" :to="{ path: '/admin/caisse', query: { verser: selected.id } }" class="btn-secondary">Faire le point</RouterLink>
           </div>
@@ -180,7 +180,7 @@
             <div class="rounded-lg bg-slate-50 p-2"><p class="text-slate-600">{{ isToday ? 'Colis en main' : 'Échecs' }}</p><p class="text-lg font-bold">{{ isToday ? selected.parcels_in_hand : selected.failed }}</p></div>
             <div class="rounded-lg bg-slate-50 p-2"><p class="text-slate-600">{{ isToday ? 'Argent en main' : 'Réussite' }}</p><p class="text-lg font-bold">{{ isToday ? money(selected.cash_in_hand) : pct(selected.success_rate) }}</p></div>
           </div>
-          <p v-if="selected.flags.length" class="rounded-lg bg-orange-50 px-3 py-2 text-sm text-orange-900">⚠ {{ selected.flags.join(' · ') }}</p>
+          <p v-if="selected.flags.length" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">{{ selected.flags.join(' · ') }}</p>
 
           <!-- Consigne au livreur, rattachée à une de ses missions en cours -->
           <form v-if="consigne.open" class="rounded-lg bg-slate-50 p-3 space-y-2" @submit.prevent="sendConsigne">
@@ -215,7 +215,7 @@
                   </td>
                   <td data-label="Course" class="p-2">
                     <RouterLink :to="`/admin/courses/${m.order_id}`" class="font-mono text-xs text-blue-700 hover:underline">{{ m.tracking_code }}</RouterLink>
-                    <span v-if="m.from_before" class="mr-1 rounded-full bg-orange-100 px-1.5 text-xs font-semibold text-orange-900">prévu le {{ shortDay(m.delivery_day) }}</span>
+                    <span v-if="m.from_before" class="mr-1 rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-900">prévu le {{ shortDay(m.delivery_day) }}</span>
                     {{ m.type_label }} · {{ m.merchant }}<template v-if="m.zone"> · {{ m.zone }}</template><template v-if="m.recipient"> · {{ m.recipient }}</template>
                   </td>
                   <td data-label="État" :class="['p-2 font-medium', MISSION[m.status]?.cls]">{{ MISSION[m.status]?.label || m.status }}</td>
@@ -261,6 +261,7 @@
 </template>
 
 <script setup>
+import Icone from '../../../components/ui/Icone.vue'
 import { refreshWhenVisible, visible as screenVisible } from '../../../composables/useVisibleRefresh'
 import SearchSelect from '../../../components/SearchSelect.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
@@ -288,7 +289,7 @@ const STATE = {
   offline: { label: 'Hors service', dot: 'bg-slate-400', chip: 'bg-slate-200 text-slate-700', color: '#94a3b8' },
   done: { label: 'A travaillé', dot: 'bg-emerald-700', chip: 'bg-emerald-100 text-emerald-900', color: '#047857' },
   idle: { label: 'Rien de prévu', dot: 'bg-slate-400', chip: 'bg-slate-200 text-slate-700', color: '#94a3b8' },
-  planned: { label: 'Missions prévues', dot: 'bg-indigo-600', chip: 'bg-indigo-100 text-indigo-900', color: '#4f46e5' },
+  planned: { label: 'Missions prévues', dot: 'bg-blue-600', chip: 'bg-blue-100 text-blue-900', color: '#4f46e5' },
 }
 const MISSION = {
   completed: { label: 'Faite', cls: 'text-emerald-700' },
@@ -320,7 +321,7 @@ const detailEl = ref(null)
 let timer = null
 // Barre d'avancement des livraisons
 const share = (p) => (p.total ? Math.round((100 * p.done) / p.total) : 0)
-const barColor = (c) => (share(c.deliveries) === 100 ? 'bg-emerald-700' : c.flags.length ? 'bg-orange-600' : 'bg-emerald-700')
+const barColor = (c) => (share(c.deliveries) === 100 ? 'bg-emerald-700' : c.flags.length ? 'bg-amber-600' : 'bg-emerald-700')
 
 const norm = (v) => (v || '').toString().normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 const pct = (v) => (v === null || v === undefined ? '—' : `${v} %`)
