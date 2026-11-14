@@ -3,7 +3,7 @@
     <div v-if="!embedded" class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <RouterLink to="/admin/courses" class="text-sm text-blue-600">‹ Courses</RouterLink>
-        <h1 class="text-xl font-bold">⏳ Courses non traitées</h1>
+        <h1 class="text-xl font-bold">Courses en retard</h1>
         <p class="text-sm text-slate-600">Date de livraison dépassée, et pas encore livrées, retournées ni annulées. Toutes les dates, jusqu'à ce qu'elles soient réglées.</p>
       </div>
       <p v-if="data" class="rounded-full bg-red-100 px-3 py-1 text-sm font-semibold text-red-800">{{ data.total }} course{{ data.total > 1 ? 's' : '' }}</p>
@@ -13,7 +13,7 @@
       <span class="text-slate-600">Regrouper :</span>
       <button
         v-for="g in GROUPINGS" :key="g.value" type="button"
-        :class="['rounded-full px-3 py-1 ring-1', by === g.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
+        :class="['rounded-full px-3 py-1 ring-1', by === g.value ? 'bg-[var(--admin-color,#0f172a)] text-white ring-transparent font-semibold' : 'bg-white ring-slate-400 hover:bg-slate-50']"
         :aria-pressed="by === g.value" @click="setBy(g.value)"
       >
         {{ g.label }}
@@ -21,7 +21,7 @@
     </div>
 
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
-    <p v-else-if="data && !data.total" class="card p-6 text-center text-slate-600">✅ Aucune course non traitée : tout est à jour.</p>
+    <p v-else-if="data && !data.total" class="card p-6 text-center text-slate-600">Aucune course en retard : tout est à jour.</p>
 
     <div v-else-if="data" class="grid gap-4 lg:grid-cols-[18rem_1fr]">
       <!-- Groupes : date, livreur ou e-commerçant -->
@@ -53,13 +53,13 @@
         <div v-if="checked.length" class="card sticky top-2 z-10 flex flex-wrap items-center gap-2 border-blue-200 bg-blue-50 p-2 text-sm">
           <span class="font-medium">{{ checked.length }} cochée{{ checked.length > 1 ? 's' : '' }}</span>
           <input v-model="bulkDate" type="date" class="input w-auto !py-1" :min="todayIso" aria-label="Nouvelle date">
-          <button type="button" class="btn-primary !py-1" :disabled="busy || !bulkDate" @click="rescheduleMany(checkedOrders, bulkDate)">📅 Reporter</button>
+          <button type="button" class="btn-primary !py-1" :disabled="busy || !bulkDate" @click="rescheduleMany(checkedOrders, bulkDate)">Reporter</button>
           <select v-model="bulkCourier" class="input w-auto !py-1" aria-label="Livreur">
             <option :value="null">Livreur…</option>
             <option v-for="c in couriers" :key="c.id" :value="c.id">{{ c.name }}</option>
           </select>
-          <button type="button" class="btn-secondary !py-1" :disabled="busy || !bulkCourier" @click="assignMany">🛵 Confier</button>
-          <button type="button" class="btn-secondary !py-1" :disabled="busy || !returnable.length" @click="returnMany">↩️ Retour ({{ returnable.length }})</button>
+          <button type="button" class="btn-secondary !py-1" :disabled="busy || !bulkCourier" @click="assignMany">Confier</button>
+          <button type="button" class="btn-secondary !py-1" :disabled="busy || !returnable.length" @click="returnMany"><Icone nom="retour" taille="petite" /> Retour ({{ returnable.length }})</button>
           <button type="button" class="ml-auto text-slate-600" @click="checked = []">Annuler</button>
         </div>
 
@@ -85,9 +85,9 @@
                 <button type="button" class="btn-secondary !px-2 !py-1 text-xs" :disabled="busy" title="Livrer aujourd'hui" @click="rescheduleMany([o], todayIso)">Aujourd'hui</button>
                 <button type="button" class="btn-secondary !px-2 !py-1 text-xs" :disabled="busy" title="Livrer demain" @click="rescheduleMany([o], tomorrowIso)">Demain</button>
               </template>
-              <button v-if="canReturn(o)" type="button" class="btn-secondary !px-2 !py-1 text-xs" :disabled="busy" @click="returnMany([o])">↩️ Retour</button>
-              <a v-if="o.recipient.phone" :href="`tel:${o.recipient.phone}`" class="btn-secondary !px-2 !py-1 text-xs" :title="`Appeler ${o.recipient.name || 'le client'}`">📞</a>
-              <button v-if="o.edit_scope" type="button" class="btn-secondary !px-2 !py-1 text-xs" title="Modifier la course" @click="editing = o">✏️</button>
+              <button v-if="canReturn(o)" type="button" class="btn-secondary !px-2 !py-1 text-xs" :disabled="busy" @click="returnMany([o])"><Icone nom="retour" taille="petite" /> Retour</button>
+              <a v-if="o.recipient.phone" :href="`tel:${o.recipient.phone}`" class="btn-secondary !px-2 !py-1 text-xs" :title="`Appeler ${o.recipient.name || 'le client'}`" :aria-label="`Appeler ${o.recipient.name || 'le client'}`"><Icone nom="appeler" taille="petite" /></a>
+              <button v-if="o.edit_scope" type="button" class="btn-secondary !px-2 !py-1 text-xs" title="Modifier la course" aria-label="Modifier la course" @click="editing = o"><Icone nom="modifier" taille="petite" /></button>
             </div>
           </div>
         </div>
@@ -101,6 +101,7 @@
 </template>
 
 <script setup>
+import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
@@ -118,9 +119,9 @@ import { confirmDialog } from '../../composables/useDialog'
  * e-commerçant ; un groupe choisi affiche ses courses.
  */
 const GROUPINGS = [
-  { value: 'date', label: '📅 Par date' },
-  { value: 'courier', label: '🛵 Par livreur' },
-  { value: 'merchant', label: '🏪 Par e-commerçant' },
+  { value: 'date', label: 'Par date' },
+  { value: 'courier', label: 'Par livreur' },
+  { value: 'merchant', label: 'Par e-commerçant' },
 ]
 const props = defineProps({ embedded: Boolean, stage: { type: String, default: 'all' } })
 const route = useRoute()

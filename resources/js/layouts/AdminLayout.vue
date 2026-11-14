@@ -9,16 +9,16 @@
     >
       <div class="p-4 text-lg font-bold border-b border-white/15 flex items-center gap-2 min-w-0">
         <img v-if="branding.logo_url" :src="branding.logo_url" alt="" class="h-8 w-8 object-contain shrink-0 rounded bg-white p-0.5">
-        <span v-else aria-hidden="true">🚚</span>
+        <Icone v-else nom="vehicule" taille="grande" />
         <span class="truncate">{{ auth.user?.company?.name || 'Administration' }}</span>
       </div>
       <nav class="p-3 space-y-1 flex-1 overflow-y-auto" @click="sidebarOpen = false">
         <RouterLink
           v-if="auth.can('orders.create')"
           to="/admin/courses/nouvelle"
-          class="mb-3 flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 font-semibold hover:bg-emerald-600"
+          class="mb-3 flex min-h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 font-semibold hover:bg-emerald-600"
         >
-          ➕ Nouvelle course
+          <Icone nom="ajouter" /> Nouvelle course
         </RouterLink>
         <SidebarItem v-for="item in menu.top" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" :prefix="!!item.prefix" />
         <SidebarGroup
@@ -45,14 +45,14 @@
     <div class="flex-1 flex flex-col min-w-0">
       <header class="flex items-center justify-between bg-white shadow px-4 py-2 gap-2 print:hidden">
         <div class="flex items-center gap-2">
-          <button class="md:hidden p-2 rounded bg-[var(--admin-color,#0f172a)] text-white" aria-label="Menu" @click="sidebarOpen = true">☰</button>
+          <button class="md:hidden grid h-11 w-11 place-items-center rounded-lg bg-[var(--admin-color,#0f172a)] text-white" aria-label="Menu" @click="sidebarOpen = true"><Icone nom="menu" /></button>
           <button
             v-if="auth.can('orders.view')"
             class="md:hidden p-2 rounded hover:bg-black/5 text-lg"
             aria-label="Rechercher une course"
             :aria-expanded="searchOpen"
             @click="searchOpen = !searchOpen"
-          >🔍</button>
+          ><Icone nom="chercher" /></button>
           <form class="hidden md:block" @submit.prevent="quickSearch">
             <input v-model="search" type="search" placeholder="Code, téléphone…" class="input w-64" aria-label="Rechercher une course">
           </form>
@@ -74,7 +74,7 @@
 
       <div v-if="auth.user?.support_session" class="bg-red-600 text-white text-sm px-4 py-2 flex flex-wrap items-center justify-between gap-2" role="status">
         <span>
-          🛟 Session d'assistance ouverte par {{ auth.user.support_session.opened_by || 'le super administrateur' }}
+          <Icone nom="assistance" taille="petite" class="inline align-[-3px]" /> Session d'assistance ouverte par {{ auth.user.support_session.opened_by || 'le super administrateur' }}
           avec le compte de {{ auth.user.name }}<template v-if="auth.user.support_session.expires_at"> · fin à {{ new Date(auth.user.support_session.expires_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }}</template>
         </span>
         <button class="rounded bg-white/20 px-3 py-1 font-medium hover:bg-white/30" @click="logout">Terminer la session</button>
@@ -84,10 +84,10 @@
       <RouterLink
         v-if="supportActive && !auth.user?.support_session"
         to="/admin/reglages/assistance"
-        class="block bg-sky-600 px-4 py-2 text-sm text-white print:hidden"
+        class="block bg-blue-600 px-4 py-2 text-sm text-white print:hidden"
         role="status"
       >
-        🛟 L'assistance Jibiat ({{ supportActive.opened_by }}) a accès à votre espace jusqu'à
+        <Icone nom="assistance" taille="petite" class="inline align-[-3px]" /> L'assistance Jibiat ({{ supportActive.opened_by }}) a accès à votre espace jusqu'à
         {{ new Date(supportActive.expires_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }}<template v-if="supportActive.reason"> · {{ supportActive.reason }}</template>.
         <span class="font-medium underline">Voir l'historique</span>
       </RouterLink>
@@ -102,11 +102,11 @@
       </RouterLink>
 
       <!-- WhatsApp en mode sans carte : les messages automatiques (payants chez Meta) ne partent plus ; bandeau calme, masquable -->
-      <div v-if="auth.user?.company?.whatsapp_without_card && !cardHidden" class="flex items-center gap-3 bg-sky-50 px-4 py-2 text-sm text-sky-900 print:hidden">
+      <div v-if="auth.user?.company?.whatsapp_without_card && !cardHidden" class="flex items-center gap-3 bg-blue-50 px-4 py-2 text-sm text-blue-900 print:hidden">
         <RouterLink to="/admin/whatsapp" class="min-w-0 flex-1">
           WhatsApp sans carte chez Meta : les réponses marchent, mais les messages automatiques (colis en route, course reçue) ne partent plus par WhatsApp. <span class="font-medium underline">Ajouter une carte</span>
         </RouterLink>
-        <button type="button" class="shrink-0 rounded px-2 py-1 text-sky-700 hover:bg-sky-100" aria-label="Masquer pour aujourd'hui" @click="hideCard">✕</button>
+        <button type="button" class="shrink-0 rounded px-2 py-1 text-blue-700 hover:bg-blue-100" aria-label="Masquer pour aujourd'hui" @click="hideCard"><Icone nom="fermer" taille="petite" /></button>
       </div>
 
       <!-- Mise en route : étapes essentielles qui restent (tableau de bord) -->
@@ -116,7 +116,7 @@
         class="flex flex-wrap items-center justify-between gap-2 bg-amber-50 px-4 py-2 text-sm text-amber-900 print:hidden"
       >
         <span>
-          🧭 Mise en route : {{ setup.essentials.done }} étape(s) essentielle(s) sur {{ setup.essentials.total }}.
+          <Icone nom="mise-en-route" taille="petite" class="inline align-[-3px]" /> Mise en route : {{ setup.essentials.done }} étape(s) essentielle(s) sur {{ setup.essentials.total }}.
           <template v-if="setupNext">Prochaine : {{ setupNext.title }}.</template>
         </span>
         <span class="font-medium underline">Continuer la mise en route</span>
@@ -125,7 +125,7 @@
       <!-- Réglage ouvert depuis la mise en route : y revenir en un geste -->
       <div v-if="setupReturn" class="flex items-center justify-between gap-2 bg-slate-800 px-4 py-2 text-sm text-white print:hidden">
         <RouterLink to="/admin/mise-en-route" class="font-medium underline">← Revenir à la mise en route</RouterLink>
-        <button type="button" class="rounded px-2 hover:bg-white/20" aria-label="Fermer" @click="closeSetupReturn">✕</button>
+        <button type="button" class="rounded px-2 hover:bg-white/20" aria-label="Fermer" @click="closeSetupReturn"><Icone nom="fermer" taille="petite" /></button>
       </div>
 
       <main :class="['flex-1 overflow-y-auto p-4 md:p-6 print:overflow-visible', tabs.length ? 'pb-20 md:pb-6' : '']">
@@ -151,13 +151,13 @@
           :class="['tap relative flex flex-col items-center gap-0.5 py-2 text-xs font-medium', isActive(t) ? 'text-slate-900' : 'text-slate-600']"
           :aria-current="isActive(t) ? 'page' : undefined"
         >
-          <span class="text-xl leading-none" aria-hidden="true">{{ t.icon }}</span>
+          <Icone :nom="t.icon" taille="grande" />
           <span class="truncate max-w-full">{{ t.label }}</span>
           <span v-if="t.badge" class="absolute top-1 left-1/2 ml-2 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-xs grid place-items-center">{{ t.badge > 99 ? '99+' : t.badge }}</span>
           <span v-if="isActive(t)" class="absolute inset-x-4 top-0 h-0.5 rounded-full bg-[var(--admin-color,#0f172a)]" aria-hidden="true" />
         </RouterLink>
         <button class="tap flex flex-col items-center gap-0.5 py-2 text-xs font-medium text-slate-600" aria-label="Menu complet" @click="sidebarOpen = true">
-          <span class="text-xl leading-none" aria-hidden="true">☰</span>
+          <Icone nom="menu" taille="grande" />
           <span>Menu</span>
         </button>
       </div>
@@ -175,6 +175,7 @@ import { useAuthStore } from '../stores/auth'
 import { useRealtime } from '../composables/useRealtime'
 import SidebarGroup from '../components/SidebarGroup.vue'
 import SidebarItem from '../components/SidebarItem.vue'
+import Icone from '../components/ui/Icone.vue'
 import NotificationBell from '../components/NotificationBell.vue'
 import Toasts from '../components/Toasts.vue'
 import AlertSoundToggle from '../components/AlertSoundToggle.vue'
@@ -304,39 +305,39 @@ const menu = computed(() => {
       id: 'operations',
       label: 'Opérations',
       items: [
-        { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
+        { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
         // Jour de livraison dépassé, course pas terminée : pas ramassées (à reporter), ramassées, toutes
-        { to: '/admin/courses/en-retard', icon: '⏳', label: 'Courses en retard', permission: 'orders.dispatch', badge: dispatchCounts.counts.exceptions?.untreated || 0 },
+        { to: '/admin/courses/en-retard', icon: 'retard', label: 'Courses en retard', permission: 'orders.dispatch', badge: dispatchCounts.counts.exceptions?.untreated || 0 },
         // Carte, disponibles, colis en main, remontées terrain et planning : onglets de cette page
-        { to: '/admin/activite', icon: '🛵', label: 'Activité des livreurs', permission: 'orders.dispatch', prefix: true, badge: fieldReports.open.total + heldParcels.counts.overdue },
-        { to: '/admin/retours', icon: '📮', label: 'Retours marchands', permission: 'orders.dispatch' },
+        { to: '/admin/activite', icon: 'activite', label: 'Activité des livreurs', permission: 'orders.dispatch', prefix: true, badge: fieldReports.open.total + heldParcels.counts.overdue },
+        { to: '/admin/retours', icon: 'retour', label: 'Retours marchands', permission: 'orders.dispatch' },
       ],
     },
     {
       id: 'finances',
       label: 'Finances',
       items: [
-        { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
-        { to: '/admin/paie-livreurs', icon: '🧾', label: 'Règles de paie', permission: 'settings.manage' },
+        { to: '/admin/caisse', icon: 'caisse', label: 'Caisse', permission: 'finance.view' },
+        { to: '/admin/paie-livreurs', icon: 'paie', label: 'Règles de paie', permission: 'settings.manage' },
       ],
     },
     {
       id: 'clients',
       label: 'Clients',
       items: [
-        { to: '/admin/marchands', icon: '🏪', label: 'E-commerçants', permission: 'merchants.view' },
-        { to: '/admin/premium', icon: '💎', label: 'Programme Premium', permission: 'merchants.view' },
-        { to: '/admin/stock', icon: '🏬', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
-        { to: '/admin/messages', icon: '💬', label: 'Messages', permission: 'orders.dispatch' },
+        { to: '/admin/marchands', icon: 'marchand', label: 'E-commerçants', permission: 'merchants.view' },
+        { to: '/admin/premium', icon: 'premium', label: 'Programme Premium', permission: 'merchants.view' },
+        { to: '/admin/stock', icon: 'stock', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
+        { to: '/admin/messages', icon: 'message', label: 'Messages', permission: 'orders.dispatch' },
       ],
     },
     {
       id: 'equipe',
       label: 'Équipe',
       items: [
-        { to: '/admin/livreurs', icon: '🛵', label: 'Livreurs', permission: 'orders.dispatch' },
-        { to: '/admin/vehicules', icon: '🏍️', label: 'Véhicules', permission: 'orders.dispatch' },
-        { to: '/admin/utilisateurs', icon: '👥', label: 'Utilisateurs', permission: 'users.view' },
+        { to: '/admin/livreurs', icon: 'livreur', label: 'Livreurs', permission: 'orders.dispatch' },
+        { to: '/admin/vehicules', icon: 'vehicule', label: 'Véhicules', permission: 'orders.dispatch' },
+        { to: '/admin/utilisateurs', icon: 'utilisateurs', label: 'Utilisateurs', permission: 'users.view' },
       ],
     },
     {
@@ -345,16 +346,16 @@ const menu = computed(() => {
       // Zones, tarifs, WhatsApp, intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
       items: [
         // Point rouge : alertes du bilan de santé
-        { to: '/admin/reglages', icon: '⚙️', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },
-        { to: '/admin/jibiat-ia', icon: '✨', label: 'Jibiat IA', permission: 'settings.manage' },
+        { to: '/admin/reglages', icon: 'reglages', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },
+        { to: '/admin/jibiat-ia', icon: 'ia', label: 'Jibiat IA', permission: 'settings.manage' },
       ],
     },
   ]
 
   return {
     top: [
-      { to: '/admin', icon: '🏠', label: 'Tableau de bord' },
-      { to: '/admin/statistiques', icon: '📊', label: 'Statistiques', permission: 'orders.view' },
+      { to: '/admin', icon: 'pilotage', label: 'Tableau de bord' },
+      { to: '/admin/statistiques', icon: 'statistiques', label: 'Statistiques', permission: 'orders.view' },
     ].filter(visible),
     groups: groups.map((g) => ({ ...g, items: g.items.filter(visible) })).filter((g) => g.items.length),
   }
@@ -362,18 +363,18 @@ const menu = computed(() => {
 
 // Barre d'onglets du téléphone : dispatch (courses, carte, alertes) ou, sans dispatch, les écrans de ses droits
 const tabs = computed(() => {
-  const home = { to: '/admin', icon: '🏠', label: 'Accueil', exact: true }
+  const home = { to: '/admin', icon: 'accueil', label: 'Accueil', exact: true }
   const candidates = isDispatch.value
     ? [
-        { to: '/admin/courses', icon: '📦', label: 'Courses', badge: dispatchCounts.counts.late.total },
-        { to: '/admin/activite', icon: '🛵', label: 'Livreurs', badge: heldParcels.counts.overdue },
-        { to: '/admin/activite/remontees', icon: '📣', label: 'Alertes', badge: fieldReports.open.total },
+        { to: '/admin/courses', icon: 'course', label: 'Courses', badge: dispatchCounts.counts.late.total },
+        { to: '/admin/activite', icon: 'livreur', label: 'Livreurs', badge: heldParcels.counts.overdue },
+        { to: '/admin/activite/remontees', icon: 'remontee', label: 'Alertes', badge: fieldReports.open.total },
       ]
     : [
-        { to: '/admin/courses', icon: '📦', label: 'Courses', permission: 'orders.view' },
-        { to: '/admin/caisse', icon: '💰', label: 'Caisse', permission: 'finance.view' },
-        { to: '/admin/marchands', icon: '🏪', label: 'Clients', permission: 'merchants.view' },
-        { to: '/admin/statistiques', icon: '📊', label: 'Stats', permission: 'orders.view' },
+        { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view' },
+        { to: '/admin/caisse', icon: 'caisse', label: 'Caisse', permission: 'finance.view' },
+        { to: '/admin/marchands', icon: 'marchand', label: 'Clients', permission: 'merchants.view' },
+        { to: '/admin/statistiques', icon: 'statistiques', label: 'Stats', permission: 'orders.view' },
       ].filter(visible)
   return [home, ...candidates.slice(0, 3)]
 })

@@ -3,8 +3,8 @@
        Courses dont la date de livraison est le jour (ou la période) choisi : les mêmes que la liste. -->
   <section v-if="report" class="card space-y-3 p-3 sm:p-4" aria-label="Point du jour">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h2 class="font-semibold">📊 Point {{ dayLabel }}</h2>
-      <div class="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+      <h2 class="text-lg font-semibold">Point {{ dayLabel }}</h2>
+      <div class="flex flex-wrap items-center gap-3 text-sm text-slate-600">
         <span v-if="detailed && c.created">🆕 {{ c.created }} nouvelle{{ c.created > 1 ? 's' : '' }} course{{ c.created > 1 ? 's' : '' }}<template v-if="c.created_later">, dont {{ c.created_later }} pour plus tard</template></span>
         <span>mis à jour à {{ updatedAt }}</span>
         <button type="button" class="font-medium text-blue-600 hover:underline" @click="share">Envoyer sur WhatsApp</button>
@@ -13,32 +13,32 @@
     </div>
 
     <div v-if="open" :class="['grid gap-2 sm:gap-3', m ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-2']">
-      <button type="button" class="rounded-xl bg-emerald-50 p-3 text-left hover:ring-2 hover:ring-emerald-300" @click="emit('delivered')">
-        <p class="text-xs text-emerald-800">✅ Livrées</p>
-        <p class="text-2xl font-bold text-emerald-900">{{ c.delivered }} <span v-if="c.planned" class="text-base font-normal">/ {{ c.planned }} course{{ c.planned > 1 ? 's' : '' }}</span></p>
-        <div v-if="c.planned" class="mt-1 h-2 rounded-full bg-emerald-100" role="progressbar" :aria-valuenow="rate" aria-valuemin="0" aria-valuemax="100">
-          <div class="h-2 rounded-full bg-emerald-500" :style="{ width: `${Math.min(rate, 100)}%` }" />
+      <button type="button" class="rounded-xl border border-slate-200 p-3 text-left hover:bg-slate-50" @click="emit('delivered')">
+        <p class="text-sm text-slate-600">Livrées</p>
+        <p class="text-2xl font-bold tabular-nums">{{ c.delivered }} <span v-if="c.planned" class="text-base font-normal text-slate-600">/ {{ c.planned }} course{{ c.planned > 1 ? 's' : '' }}</span></p>
+        <div v-if="c.planned" class="mt-1 h-1.5 rounded-full bg-slate-200" role="progressbar" :aria-valuenow="rate" aria-valuemin="0" aria-valuemax="100">
+          <div class="h-1.5 rounded-full bg-emerald-700" :style="{ width: `${Math.min(rate, 100)}%` }" />
         </div>
-        <p class="mt-1 text-xs text-emerald-800">{{ detail }}</p>
+        <p class="mt-1 text-sm text-slate-600">{{ detail }}</p>
       </button>
 
       <template v-if="m">
-        <button type="button" class="rounded-xl bg-blue-50 p-3 text-left hover:ring-2 hover:ring-blue-300" @click="emit('delivered')">
-          <p class="text-xs text-blue-800">🧾 Recette livraison</p>
-          <p class="text-2xl font-bold text-blue-900">{{ money(m.fees) }}</p>
-          <p class="mt-1 text-xs text-blue-800">frais des {{ c.delivered }} livrée(s)<template v-if="m.shipping_fees"> · + {{ money(m.shipping_fees) }} de frais d'expédition</template></p>
+        <button type="button" class="rounded-xl border border-slate-200 p-3 text-left hover:bg-slate-50" @click="emit('delivered')">
+          <p class="text-sm text-slate-600">Recette livraison</p>
+          <p class="text-2xl font-bold tabular-nums">{{ money(m.fees) }}</p>
+          <p class="mt-1 text-sm text-slate-600">frais des {{ c.delivered }} livrée(s)<template v-if="m.shipping_fees"> · + {{ money(m.shipping_fees) }} de frais d'expédition</template></p>
         </button>
-        <RouterLink to="/admin/caisse?tab=cash" class="block rounded-xl bg-amber-50 p-3 hover:ring-2 hover:ring-amber-300">
-          <p class="text-xs text-amber-800">💵 Encaissé chez les clients</p>
-          <p class="text-2xl font-bold text-amber-900">{{ money(m.collected) }}</p>
-          <p class="mt-1 text-xs text-amber-800">
-            {{ money(m.at_desk) }} déjà à la caisse<template v-if="m.with_couriers"> · <b>{{ money(m.with_couriers) }} chez {{ m.couriers_holding }} livreur(s)</b></template>
+        <RouterLink to="/admin/caisse?tab=cash" class="block rounded-xl border border-slate-200 p-3 hover:bg-slate-50">
+          <p class="text-sm text-slate-600">Encaissé chez les clients</p>
+          <p class="text-2xl font-bold tabular-nums">{{ money(m.collected) }}</p>
+          <p class="mt-1 text-sm text-slate-600">
+            {{ money(m.at_desk) }} déjà à la caisse<template v-if="m.with_couriers"> · <b class="text-amber-800">{{ money(m.with_couriers) }} chez {{ m.couriers_holding }} livreur(s)</b></template>
           </p>
         </RouterLink>
-        <RouterLink to="/admin/caisse?tab=merchants" class="block rounded-xl bg-violet-50 p-3 hover:ring-2 hover:ring-violet-300">
-          <p class="text-xs text-violet-800">🏦 À reverser aux e-commerçants</p>
-          <p class="text-2xl font-bold text-violet-900">{{ money(m.net_to_merchants) }}</p>
-          <p class="mt-1 text-xs text-violet-800">encaissé moins les frais · {{ m.merchants }} e-commerçant(s)</p>
+        <RouterLink to="/admin/caisse?tab=merchants" class="block rounded-xl border border-slate-200 p-3 hover:bg-slate-50">
+          <p class="text-sm text-slate-600">À reverser aux e-commerçants</p>
+          <p class="text-2xl font-bold tabular-nums">{{ money(m.net_to_merchants) }}</p>
+          <p class="mt-1 text-sm text-slate-600">encaissé moins les frais · {{ m.merchants }} e-commerçant(s)</p>
         </RouterLink>
       </template>
     </div>

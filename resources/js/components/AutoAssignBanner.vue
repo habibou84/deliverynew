@@ -1,27 +1,27 @@
 <template>
   <!-- Réglages qui manquent pour que les courses soient assignées automatiquement : bandeau qui appelle à l'action -->
-  <section v-if="items.length && !hidden" class="card border-l-4 border-orange-300 border-l-orange-500 bg-orange-50 p-3 sm:p-4" role="region" aria-label="Réglages à faire">
+  <section v-if="items.length && !hidden" class="card border-amber-200 bg-amber-50 p-3 sm:p-4" role="region" aria-label="Réglages à faire">
     <div class="flex flex-wrap items-start gap-3">
-      <span class="text-2xl" aria-hidden="true">⚠️</span>
+      <Icone nom="urgent" class="mt-0.5 text-amber-800" />
       <div class="min-w-[14rem] flex-1">
-        <p class="font-semibold text-orange-900">
+        <p class="font-semibold text-amber-900">
           {{ items.length }} réglage{{ items.length > 1 ? 's' : '' }} à faire pour que les courses soient assignées automatiquement aux livreurs
         </p>
-        <p v-if="!expanded" class="text-sm text-orange-800"><b>{{ items[0].text }}</b> : {{ items[0].why }}</p>
+        <p v-if="!expanded" class="text-sm text-amber-900"><b>{{ items[0].text }}</b> : {{ items[0].why }}</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <button type="button" class="rounded-lg bg-orange-600 px-3 py-2 text-sm font-semibold text-white hover:bg-orange-700" @click="act(items[0])">{{ items[0].action }}</button>
-        <button v-if="items.length > 1" type="button" class="rounded-lg border border-orange-300 bg-white px-3 py-2 text-sm text-orange-900" :aria-expanded="expanded" @click="expanded = !expanded">
+        <button type="button" class="btn-primary" @click="act(items[0])">{{ items[0].action }}</button>
+        <button v-if="items.length > 1" type="button" class="btn-secondary" :aria-expanded="expanded" @click="expanded = !expanded">
           {{ expanded ? 'Masquer' : `Voir les ${items.length} réglages` }}
         </button>
-        <button type="button" class="px-1 text-sm text-orange-500 hover:text-orange-700" title="Cacher jusqu'à demain" @click="later">Plus tard ✕</button>
+        <button type="button" class="inline-flex min-h-10 items-center gap-1 px-1 text-sm font-medium text-amber-900 hover:underline" title="Cacher jusqu'à demain" @click="later">Plus tard <Icone nom="fermer" taille="petite" /></button>
       </div>
     </div>
 
     <ul v-if="expanded" class="mt-3 space-y-2">
-      <li v-for="i in items" :key="i.key" class="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-orange-200">
-        <span class="min-w-[12rem] flex-1"><b class="text-orange-900">{{ i.text }}</b><span class="block text-slate-600">{{ i.why }}</span></span>
-        <button type="button" class="rounded-lg border border-orange-300 px-3 py-1.5 font-medium text-orange-900 hover:bg-orange-100" @click="act(i)">{{ i.action }}</button>
+      <li v-for="i in items" :key="i.key" class="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-amber-200">
+        <span class="min-w-[12rem] flex-1"><b class="text-slate-900">{{ i.text }}</b><span class="block text-slate-600">{{ i.why }}</span></span>
+        <button type="button" class="btn-secondary" @click="act(i)">{{ i.action }}</button>
       </li>
     </ul>
 
@@ -31,10 +31,10 @@
         <aside class="absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col rounded-t-3xl bg-white shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[440px] md:rounded-none">
           <div class="flex items-start justify-between gap-2 border-b px-5 py-4">
             <div>
-              <p class="text-xs font-medium uppercase tracking-wide text-slate-600">⚙️ Assignation automatique</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-600">Assignation automatique</p>
               <h2 class="text-lg font-bold">{{ current?.text }}</h2>
             </div>
-            <button type="button" class="rounded-lg px-2 py-1 text-slate-600 hover:bg-slate-100" aria-label="Fermer" @click="block = null">✕</button>
+            <button type="button" class="grid h-10 w-10 place-items-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Fermer" @click="block = null"><Icone nom="fermer" /></button>
           </div>
           <SettingsPanelBody :blocks="[block]" more="/admin/reglages/courses" @saved="saved" @close="block = null" />
         </aside>
@@ -44,6 +44,7 @@
 </template>
 
 <script setup>
+import Icone from './ui/Icone.vue'
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http from '../bootstrap/axios'

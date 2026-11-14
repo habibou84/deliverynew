@@ -9,15 +9,15 @@
     <p v-else-if="!zones.length" class="card p-6 text-center text-slate-600">Aucun ramassage à assigner{{ day ? ' pour ce jour' : '' }}.</p>
 
     <section v-for="zone in zones" v-else :key="zone.name" class="space-y-2">
-      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">📍 {{ zone.name }} · {{ zone.count }} colis</h2>
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600"><Icone nom="adresse" taille="petite" class="inline align-[-2px]" /> {{ zone.name }} · {{ zone.count }} colis</h2>
 
       <div v-for="g in zone.groups" :key="g.key" class="card p-3 space-y-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <button type="button" class="text-left flex-1 min-w-0" :aria-expanded="!!open[g.key]" @click="open[g.key] = !open[g.key]">
             <span class="block font-semibold">
               {{ open[g.key] ? '▾' : '▸' }} {{ g.merchant?.business_name || g.pickup.contact_name || 'Client' }}
-              <span v-if="g.premium" class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800" :title="g.premium.priority ? 'Ramassage prioritaire' : ''">⭐ {{ g.premium.name }}<template v-if="g.premium.priority"> · prioritaire</template></span>
-              <span class="ml-1 rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">{{ visible(g).length }} colis</span>
+              <span v-if="g.premium" class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800" :title="g.premium.priority ? 'Ramassage prioritaire' : ''"><Icone nom="prioritaire" taille="petite" class="inline align-[-2px]" /> {{ g.premium.name }}<template v-if="g.premium.priority"> · prioritaire</template></span>
+              <span class="ml-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-0.5">{{ visible(g).length }} colis</span>
             </span>
             <span class="block text-sm text-slate-600 truncate">{{ g.pickup.address || '—' }}<span v-if="g.pickup.phone"> · {{ g.pickup.phone }}</span></span>
             <span class="block text-xs text-slate-600">
@@ -54,8 +54,8 @@
               </td>
               <td class="p-2">{{ o.recipient_name || '—' }}</td>
               <td class="p-2 whitespace-nowrap">
-                → {{ o.delivery_zone_name }}<span v-if="o.is_express" class="ml-1 text-red-600">⚡</span>
-                <span v-if="o.later" class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs text-amber-800">📅 livraison le {{ date(o.delivery_day) }}</span>
+                → {{ o.delivery_zone_name }}<span v-if="o.is_express" class="ml-1 inline-flex items-center gap-0.5 text-red-700"><Icone nom="rapide" taille="petite" /> express</span>
+                <span v-if="o.later" class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs text-amber-800">livraison le {{ date(o.delivery_day) }}</span>
               </td>
               <td class="p-2 text-right whitespace-nowrap">{{ money(o.cod_amount) }}</td>
             </tr>
@@ -68,6 +68,7 @@
 </template>
 
 <script setup>
+import Icone from './ui/Icone.vue'
 import SearchSelect from './SearchSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
@@ -136,7 +137,7 @@ async function assign(g) {
   try {
     const { data } = await http.post('/orders/bulk-assign', { order_ids: chosen(g), type: 'pickup', courier_id: courier[g.key] })
     if (data.data.assigned.length) toasts.success(`${data.data.assigned.length} colis confié(s) pour ${g.merchant?.business_name || 'ce client'}.`)
-    ;[...new Set(Object.values(data.data.warnings || {}))].forEach((w) => toasts.push(`⚠️ ${w}`, 'info', { timeout: 9000 }))
+    ;[...new Set(Object.values(data.data.warnings || {}))].forEach((w) => toasts.push(w, 'info', { timeout: 9000 }))
     Object.entries(data.data.errors).forEach(([id, message]) => {
       const code = g.orders.find((o) => o.id === Number(id))?.tracking_code || id
       toasts.error(`${code} : ${message}`)

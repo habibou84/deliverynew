@@ -1,5 +1,5 @@
 <template>
-  <!-- Réglages de la page : résumé en étiquettes et bouton ⚙️ qui ouvre le panneau (à droite sur ordinateur, en bas sur téléphone) -->
+  <!-- Réglages de la page : résumé en étiquettes et bouton « Réglages » qui ouvre le panneau (à droite sur ordinateur, en bas sur téléphone) -->
   <div v-if="allowed" class="flex flex-wrap items-center gap-2 text-xs">
     <button
       v-for="[label, value] in compact ? [] : summary" :key="label" type="button"
@@ -8,7 +8,7 @@
     >
       <span class="text-slate-600">{{ label }}</span> <strong>{{ value }}</strong>
     </button>
-    <button type="button" :class="['btn-secondary !py-1.5', compact ? '' : 'ml-auto']" :aria-expanded="open" @click="open = true">⚙️ Réglages</button>
+    <button type="button" :class="['btn-secondary !py-1.5', compact ? '' : 'ml-auto']" :aria-expanded="open" @click="open = true"><Icone nom="reglages" taille="petite" /> Réglages</button>
 
     <Teleport to="body">
       <div v-if="open" class="fixed inset-0 z-50" role="dialog" aria-modal="true" :aria-label="`Réglages : ${title}`" @keydown.esc="close">
@@ -17,11 +17,11 @@
           <div class="mx-auto mt-2 h-1.5 w-10 rounded-full bg-slate-300 md:hidden" />
           <div class="flex items-start justify-between gap-2 border-b px-5 py-4">
             <div>
-              <p class="text-xs font-medium uppercase tracking-wide text-slate-600">⚙️ Réglages de la page</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-600">Réglages de la page</p>
               <h2 class="text-lg font-bold">{{ title }}</h2>
               <p v-if="intro" class="text-xs text-slate-600">{{ intro }}</p>
             </div>
-            <button ref="closeButton" type="button" class="rounded-lg px-2 py-1 text-slate-600 hover:bg-slate-100" aria-label="Fermer" @click="close">✕</button>
+            <button ref="closeButton" type="button" class="grid h-10 w-10 place-items-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Fermer" @click="close"><Icone nom="fermer" /></button>
           </div>
           <SettingsPanelBody :blocks="blocks" :more="more" @dirty="dirty = $event" @saved="saved" @close="open = false" />
         </aside>
@@ -31,6 +31,7 @@
 </template>
 
 <script setup>
+import Icone from '../ui/Icone.vue'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import http from '../../bootstrap/axios'
 import { useAuthStore } from '../../stores/auth'
@@ -43,7 +44,7 @@ const props = defineProps({
   title: { type: String, required: true },
   intro: { type: String, default: '' },
   more: { type: String, default: '/admin/reglages' },
-  // Seulement le bouton ⚙️, sans les étiquettes de résumé
+  // Seulement le bouton « Réglages », sans les étiquettes de résumé
   compact: { type: Boolean, default: false },
 })
 
@@ -84,7 +85,7 @@ onMounted(async () => {
     const { data } = await http.get(`/companies/${auth.user.company_id}`)
     values.value = Object.fromEntries(fieldsOf(props.blocks).map((f) => [f, data.data[f]]))
   } catch {
-    // Résumé indisponible : le bouton ⚙️ reste utilisable
+    // Résumé indisponible : le bouton « Réglages » reste utilisable
   }
 })
 </script>

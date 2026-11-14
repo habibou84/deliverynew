@@ -11,9 +11,9 @@
     <SettingsShortcut :blocks="['unassignedAlerts']" title="Livreurs disponibles" intro="Quand prévenir le dispatch des courses sans livreur." more="/admin/reglages/alertes" />
 
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      <StatCard title="Livreurs libres" :value="counts.free" icon="🟢" />
-      <StatCard :title="`Bientôt libres (≤ ${soon} missions)`" :value="counts.soon" icon="🟡" />
-      <StatCard title="Avec des colis à ramasser près d'eux" :value="counts.withPickups" icon="📦" />
+      <StatCard title="Livreurs libres" :value="counts.free" />
+      <StatCard :title="`Bientôt libres (≤ ${soon} missions)`" :value="counts.soon" />
+      <StatCard title="Avec des colis à ramasser près d'eux" :value="counts.withPickups" />
     </div>
 
     <div class="flex flex-wrap gap-2 items-center">
@@ -25,7 +25,7 @@
     <section v-for="c in visible" :key="c.id" class="card p-4 flex flex-wrap items-center gap-4">
       <div class="min-w-0 flex-1">
         <p class="font-semibold">
-          🛵 {{ c.name }}
+          {{ c.name }}
           <span :class="['ml-1 rounded-full px-2 py-0.5 text-xs font-medium', STATES[c.state].class]">{{ STATES[c.state].label }}</span>
         </p>
         <p class="text-sm text-slate-600">
@@ -33,8 +33,8 @@
           <span v-if="c.zones.length"> · Zones : {{ c.zones.join(', ') }}</span>
         </p>
         <p class="text-sm mt-1">
-          <template v-if="c.arrival_zone">📍 Dernier arrêt à <strong>{{ c.arrival_zone.name }}</strong> à {{ time(c.last_stop_at) }}</template>
-          <template v-else>📍 Pas encore d'arrêt aujourd'hui</template>
+          <template v-if="c.arrival_zone">Dernier arrêt à <strong>{{ c.arrival_zone.name }}</strong> à {{ time(c.last_stop_at) }}</template>
+          <template v-else>Pas encore d'arrêt aujourd'hui</template>
           <span v-if="c.position" class="text-slate-600"> · position GPS il y a {{ ago(c.position.at) }}</span>
         </p>
         <p class="text-sm text-slate-600">
@@ -48,7 +48,7 @@
           <span class="text-slate-600">({{ c.nearby.stops }} boutique{{ c.nearby.stops > 1 ? 's' : '' }}<template v-if="c.nearby.for_tomorrow">, {{ c.nearby.for_tomorrow }} pour demain ou plus tard</template>)</span>
         </p>
         <p v-else class="text-sm text-slate-600">Rien à ramasser près de lui</p>
-        <button v-if="c.nearby.count && c.state !== 'off'" type="button" class="btn-primary mt-2" @click="openMission(c)">📦 Mission ramassage</button>
+        <button v-if="c.nearby.count && c.state !== 'off'" type="button" class="btn-primary mt-2" @click="openMission(c)"><Icone nom="course" /> Mission ramassage</button>
       </div>
     </section>
 
@@ -95,9 +95,9 @@
               <span>garde les colis jusqu'à leur livraison, qui lui sera confiée le jour prévu</span>
             </label>
           </template>
-          <p v-else-if="custodySetting === 'depot' && !depotClosed">🏢 Le livreur rapporte les colis au dépôt (réglage de l'entreprise).</p>
-          <p v-else-if="custodySetting === 'depot'">🌙 Dépôt fermé depuis {{ depotClosesAt }} : le livreur gardera les colis jusqu'au matin.</p>
-          <p v-else>🌙 Le livreur garde les colis jusqu'à leur livraison, qui lui sera confiée le jour prévu (réglage de l'entreprise).</p>
+          <p v-else-if="custodySetting === 'depot' && !depotClosed">Le livreur rapporte les colis au dépôt (réglage de l'entreprise).</p>
+          <p v-else-if="custodySetting === 'depot'">Dépôt fermé depuis {{ depotClosesAt }} : le livreur gardera les colis jusqu'au matin.</p>
+          <p v-else>Le livreur garde les colis jusqu'à leur livraison, qui lui sera confiée le jour prévu (réglage de l'entreprise).</p>
         </div>
         <div class="flex justify-end gap-2 pt-1">
           <button type="button" class="btn-secondary" @click="mission = null">Annuler</button>
@@ -109,6 +109,7 @@
 </template>
 
 <script setup>
+import Icone from '../../components/ui/Icone.vue'
 // Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
 defineProps({ embedded: { type: Boolean, default: false } })
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
@@ -165,7 +166,7 @@ function missionsDetail(c) {
   return [r.pickup && `${r.pickup} ramassage${r.pickup > 1 ? 's' : ''}`, r.delivery && `${r.delivery} livraison${r.delivery > 1 ? 's' : ''}`, r.return && `${r.return} retour${r.return > 1 ? 's' : ''}`].filter(Boolean).join(', ')
 }
 function reason(s) {
-  if (s.reason === 'near') return `📍 à ${String(s.km).replace('.', ',')} km`
+  if (s.reason === 'near') return `à ${String(s.km).replace('.', ',')} km`
   return s.reason === 'arrival_zone' ? 'Zone de son dernier arrêt' : 'Une de ses zones'
 }
 

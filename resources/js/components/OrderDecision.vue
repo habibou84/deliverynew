@@ -11,7 +11,7 @@
           {{ order.recipient?.name || 'Client' }} · {{ order.recipient?.phone }} · {{ order.delivery?.zone_name }}
           · tentative{{ order.attempts_count > 1 ? 's' : '' }} {{ order.attempts_count }} / {{ order.max_attempts }}
         </p>
-        <p v-if="order.held_by" class="text-amber-800">🎒 Colis encore chez {{ order.held_by.name }}</p>
+        <p v-if="order.held_by" class="text-amber-800">Colis encore chez {{ order.held_by.name }}</p>
       </div>
 
       <!-- Choix -->
@@ -23,7 +23,7 @@
         >
           <input v-model="form.decision" type="radio" :value="c.value" :disabled="!!c.disabled" class="mt-1">
           <span>
-            <span class="block font-medium">{{ c.icon }} {{ c.label }}</span>
+            <span class="flex items-center gap-1.5 font-medium"><Icone :nom="c.icon" taille="petite" /> {{ c.label }}</span>
             <span class="block text-xs text-slate-600">{{ c.disabled || c.help }}</span>
           </span>
         </label>
@@ -61,6 +61,7 @@
 </template>
 
 <script setup>
+import Icone from './ui/Icone.vue'
 import SearchSelect from './SearchSelect.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
@@ -92,19 +93,19 @@ const choices = computed(() => {
   const maxReached = o.attempts_count >= o.max_attempts
   return [
     {
-      value: 'redeliver', icon: '🛵', label: 'Relivrer',
+      value: 'redeliver', icon: 'livreur', label: 'Relivrer',
       help: 'Nouvelle tentative à la date choisie. Le marchand est prévenu de la date.',
       disabled: o.return_requested ? 'Le retour de ce colis est déjà demandé.' : (maxReached ? `Nombre maximal de tentatives atteint (${o.max_attempts}).` : null),
     },
     o.from_warehouse
-      ? { value: 'restock', icon: '🏬', label: 'Remettre en stock', help: 'Le colis revient dans le stock de l\'entrepôt.', disabled: o.held_by ? `Le colis est encore chez ${o.held_by.name} : recevez-le d'abord.` : null }
-      : { value: 'return', icon: '↩️', label: 'Retourner au marchand', help: 'Le colis part dans la file « À retourner ». Le marchand est prévenu.' },
+      ? { value: 'restock', icon: 'stock', label: 'Remettre en stock', help: 'Le colis revient dans le stock de l\'entrepôt.', disabled: o.held_by ? `Le colis est encore chez ${o.held_by.name} : recevez-le d'abord.` : null }
+      : { value: 'return', icon: 'retour', label: 'Retourner au marchand', help: 'Le colis part dans la file « À retourner ». Le marchand est prévenu.' },
   ]
 })
 
 const merchantInfo = computed(() => ({
-  redeliver: '📱 Le marchand reçoit un WhatsApp avec la nouvelle date.',
-  return: '📱 Le marchand reçoit un WhatsApp : son colis lui sera retourné.',
+  redeliver: 'Le marchand reçoit un WhatsApp avec la nouvelle date.',
+  return: 'Le marchand reçoit un WhatsApp : son colis lui sera retourné.',
   restock: 'Le stock est remis à jour.',
 }[form.decision] || ''))
 

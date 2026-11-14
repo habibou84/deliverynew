@@ -11,9 +11,9 @@
     <SettingsShortcut :blocks="['holdAlert']" title="Colis chez les livreurs" more="/admin/reglages/alertes" @saved="alertSaved" />
 
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      <StatCard title="Colis chez les livreurs" :value="store.counts.total" icon="📦" />
-      <StatCard :title="alertHours ? `Depuis plus de ${alertHours} h` : 'En retard'" :value="store.counts.overdue" icon="⏰" />
-      <StatCard title="Livreurs concernés" :value="couriers.length" icon="🛵" />
+      <StatCard title="Colis chez les livreurs" :value="store.counts.total" />
+      <StatCard :title="alertHours ? `Depuis plus de ${alertHours} h` : 'En retard'" :value="store.counts.overdue" />
+      <StatCard title="Livreurs concernés" :value="couriers.length" />
     </div>
 
     <RelaysPanel ref="relaysPanel" @changed="load" />
@@ -32,7 +32,7 @@
           <span class="text-lg text-slate-600" aria-hidden="true">{{ open[c.courier_id] ? '▾' : '▸' }}</span>
           <span class="min-w-0">
             <span class="block font-semibold">
-              🛵 {{ c.name }}
+              {{ c.name }}
               <span :class="['ml-1 rounded-full px-2 py-0.5 text-xs', c.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600']">{{ c.is_available ? 'en service' : 'hors service' }}</span>
             </span>
             <span class="block text-sm text-slate-600">
@@ -44,7 +44,7 @@
         <a v-if="c.phone" :href="telLink(c.phone)" class="text-sm text-blue-600">{{ c.phone }}</a>
         <div v-if="canReceive && open[c.courier_id]" class="flex gap-2">
           <button type="button" class="btn-secondary text-xs" @click="toggleAll(c)">{{ allSelected(c) ? 'Tout décocher' : 'Tout cocher' }}</button>
-          <button type="button" class="btn-success" :disabled="!selectedOf(c).length" @click="receive(c)">✓ Rendus au dépôt ({{ selectedOf(c).length }})</button>
+          <button type="button" class="btn-success" :disabled="!selectedOf(c).length" @click="receive(c)"><Icone nom="valider" /> Rendus au dépôt ({{ selectedOf(c).length }})</button>
         </div>
       </header>
       <template v-if="open[c.courier_id]">
@@ -65,18 +65,18 @@
                 </td>
                 <td class="p-2">{{ p.recipient_name || 'Client' }} <a :href="telLink(p.recipient_phone)" class="text-blue-600 text-xs">{{ p.recipient_phone }}</a><div class="text-xs text-slate-600">{{ p.zone }}</div></td>
                 <td class="p-2">
-                  <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', p.on_the_road ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-900']">{{ p.status_label }}</span>
+                  <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', p.on_the_road ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-900']">{{ p.status_label }}</span>
                   <div v-if="p.incident" class="text-xs text-slate-600 mt-0.5">{{ p.incident }}</div>
-                  <div v-if="p.rescheduled_to" class="text-xs text-slate-600">📅 {{ date(p.rescheduled_to) }}</div>
-                  <div v-if="p.return_requested" class="text-xs text-rose-700 font-medium">↩️ Retour au marchand à organiser</div>
-                  <div v-if="p.kept_for" class="text-xs text-indigo-700 font-medium">🌙 Gardé pour sa livraison du {{ date(p.kept_for) }}</div>
-                  <div v-else-if="p.custody_plan === 'depot' && p.status === 'picked_up'" class="text-xs text-slate-700 font-medium">🏢 À rapporter au dépôt (mission ramassage)</div>
+                  <div v-if="p.rescheduled_to" class="text-xs text-slate-600">Reportée au {{ date(p.rescheduled_to) }}</div>
+                  <div v-if="p.return_requested" class="text-xs text-amber-800 font-medium">Retour au marchand à organiser</div>
+                  <div v-if="p.kept_for" class="text-xs text-blue-800 font-medium">Gardé pour sa livraison du {{ date(p.kept_for) }}</div>
+                  <div v-else-if="p.custody_plan === 'depot' && p.status === 'picked_up'" class="text-xs text-slate-700 font-medium">À rapporter au dépôt (mission ramassage)</div>
                 </td>
                 <td class="p-2 text-right">{{ p.cod_amount ? money(p.cod_amount) : '—' }}</td>
                 <td :class="['p-2 whitespace-nowrap', isOverdue(p) ? 'text-red-700 font-semibold' : 'text-slate-600']">
                   {{ heldFor(p.held_since) }}
                   <div class="text-xs font-normal text-slate-600">{{ dateTime(p.held_since) }}</div>
-                  <RouterLink v-if="maybeLost(p)" :to="`/admin/courses/${p.id}`" class="text-xs font-semibold text-red-700 underline">🚨 Peut-être perdu : vérifier</RouterLink>
+                  <RouterLink v-if="maybeLost(p)" :to="`/admin/courses/${p.id}`" class="inline-flex items-center gap-1 text-xs font-semibold text-red-700 underline"><Icone nom="urgent" taille="petite" /> Peut-être perdu : vérifier</RouterLink>
                 </td>
               </tr>
             </tbody>
@@ -91,12 +91,13 @@
     </section>
 
     <div v-if="loaded && !couriers.length" class="card p-8 text-center text-slate-600">
-      {{ search.trim() ? 'Aucun colis ne correspond à la recherche.' : overdueOnly ? '🎉 Aucun colis en retard.' : '🎉 Aucun colis chez les livreurs : tout est livré ou au dépôt.' }}
+      {{ search.trim() ? 'Aucun colis ne correspond à la recherche.' : overdueOnly ? 'Aucun colis en retard.' : 'Aucun colis chez les livreurs : tout est livré ou au dépôt.' }}
     </div>
   </div>
 </template>
 
 <script setup>
+import Icone from '../../components/ui/Icone.vue'
 // Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
 defineProps({ embedded: { type: Boolean, default: false } })
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
@@ -115,13 +116,13 @@ const store = useHeldParcelStore()
 const toasts = useToastStore()
 const couriers = ref([])
 const alertHours = ref(24)
-// Délai changé depuis le panneau ⚙️ : la page suit tout de suite
+// Délai changé depuis le panneau des réglages : la page suit tout de suite
 const alertSaved = (form) => { alertHours.value = form.parcel_hold_alert_hours }
 const loaded = ref(false)
 const overdueOnly = ref(false)
 const search = ref('')
 const selected = ref([])
-const filters = [{ value: false, label: 'Tous les colis' }, { value: true, label: '⏰ En retard' }]
+const filters = [{ value: false, label: 'Tous les colis' }, { value: true, label: 'En retard' }]
 const canReceive = computed(() => auth.can('orders.dispatch') || auth.can('finance.manage'))
 
 // Livreurs ouverts : leurs colis déjà chargés, page par page

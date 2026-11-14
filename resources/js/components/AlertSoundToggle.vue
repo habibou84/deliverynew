@@ -2,12 +2,12 @@
   <div class="relative">
     <button
       type="button"
-      :class="['relative p-2 rounded hover:bg-black/5', needsUnlock ? 'animate-pulse' : '']"
+      :class="['relative grid h-10 w-10 place-items-center rounded-lg text-slate-700 hover:bg-black/5', needsUnlock ? 'animate-pulse' : '']"
       :aria-label="alertSound.enabled ? 'Alertes sonores activées' : 'Alertes sonores coupées'"
       :title="needsUnlock ? 'Cliquez pour activer le son des alertes' : 'Alertes sonores'"
       @click="open = !open"
     >
-      <span class="text-xl">{{ alertSound.enabled ? '🔊' : '🔇' }}</span>
+      <Icone :nom="alertSound.enabled ? 'son' : 'muet'" />
     </button>
 
     <div v-if="open" class="absolute right-0 mt-2 w-72 bg-white text-slate-800 rounded-lg shadow-xl border z-50 p-3 space-y-3 text-sm">
@@ -39,6 +39,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { alertSound, enableDesktopNotifications, playAlertSound, setAlertSound } from '../composables/useAlertSound'
+import Icone from './ui/Icone.vue'
 
 const open = ref(false)
 const needsUnlock = computed(() => alertSound.enabled && !alertSound.unlocked)

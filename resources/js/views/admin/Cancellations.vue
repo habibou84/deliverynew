@@ -5,8 +5,8 @@
         <RouterLink :to="section === 'rules' ? '/admin/reglages' : '/admin'" class="text-sm text-blue-600">‹ {{ section === 'rules' ? 'Réglages' : 'Tableau de bord' }}</RouterLink>
         <h1 class="text-xl font-bold">{{ TITLES[section] }}</h1>
       </div>
-      <RouterLink v-if="section === 'requests'" to="/admin/statistiques?onglet=cancellations" class="text-sm text-blue-600">📊 Point des annulations</RouterLink>
-      <RouterLink v-if="section === 'requests' && report?.is_admin" to="/admin/reglages/annulations" class="text-sm text-blue-600">⚙️ Règles</RouterLink>
+      <RouterLink v-if="section === 'requests'" to="/admin/statistiques?onglet=cancellations" class="inline-flex items-center gap-1 text-sm text-blue-700"><Icone nom="statistiques" taille="petite" /> Point des annulations</RouterLink>
+      <RouterLink v-if="section === 'requests' && report?.is_admin" to="/admin/reglages/annulations" class="inline-flex items-center gap-1 text-sm text-blue-700"><Icone nom="reglages" taille="petite" /> Règles</RouterLink>
     </div>
 
     <div v-if="shows('report') && !from" class="flex flex-wrap items-center gap-2 text-sm">
@@ -19,9 +19,9 @@
     </div>
 
     <!-- Demandes à valider (au-delà de la limite du jour) -->
-    <p v-if="section === 'requests' && report && !report.requests?.length" class="card p-6 text-center text-slate-600">✅ Aucune demande d'annulation à valider.</p>
+    <p v-if="section === 'requests' && report && !report.requests?.length" class="card p-6 text-center text-slate-600">Aucune demande d'annulation à valider.</p>
     <section v-if="shows('requests') && report?.requests?.length" class="card space-y-2 border-amber-300 bg-amber-50 p-4">
-      <h2 class="font-semibold text-amber-900">⏳ {{ report.requests.length }} demande{{ report.requests.length > 1 ? 's' : '' }} d'annulation à valider</h2>
+      <h2 class="font-semibold text-amber-900">{{ report.requests.length }} demande{{ report.requests.length > 1 ? 's' : '' }} d'annulation à valider</h2>
       <div v-for="r in report.requests" :key="r.id" class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-amber-200 pt-2 text-sm">
         <RouterLink :to="`/admin/courses/${r.order_id}`" class="font-mono text-emerald-700">{{ r.tracking_code }}</RouterLink>
         <span>{{ r.merchant }}</span>
@@ -38,7 +38,7 @@
     <!-- Règles (administrateurs) -->
     <p v-if="section === 'rules' && report && !report.is_admin" class="card p-4 text-sm text-slate-600">Seul un administrateur peut changer les règles d'annulation.</p>
     <section v-if="shows('rules') && report?.is_admin && rules" class="card space-y-3 p-4 text-sm">
-      <h2 v-if="section !== 'rules'" class="font-semibold">⚙️ Règles d'annulation</h2>
+      <h2 v-if="section !== 'rules'" class="font-semibold">Règles d'annulation</h2>
       <p class="text-slate-600">Les administrateurs annulent sans limite. Les autres membres de l'équipe (dispatch) ont une limite par jour : au-delà, un administrateur valide.</p>
       <label class="flex flex-wrap items-center gap-2">
         <input v-model="limits.staff" type="checkbox"> Dispatch : jusqu'à
@@ -72,7 +72,7 @@
             <thead class="text-left text-xs text-slate-600"><tr><th class="py-1">E-commerçant</th><th>Annulées</th><th>Taux</th><th>Motif principal</th></tr></thead>
             <tbody class="divide-y">
               <tr v-for="m in report.merchants" :key="m.merchant_id" :class="m.flagged ? 'bg-red-50' : ''">
-                <td class="py-2">{{ m.flagged ? '🔴 ' : '' }}{{ m.name }}</td>
+                <td class="py-2">{{ m.name }}<span v-if="m.flagged" class="ml-1.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-200">à surveiller</span></td>
                 <td>{{ m.cancelled }}</td>
                 <td :class="m.flagged ? 'font-semibold text-red-700' : ''">{{ pct(m.rate) }}</td>
                 <td>{{ m.top_reason }}</td>
@@ -87,7 +87,7 @@
             <thead class="text-left text-xs text-slate-600"><tr><th class="py-1">Personne</th><th>Annulées</th><th>Refusées</th><th>Motif principal</th></tr></thead>
             <tbody class="divide-y">
               <tr v-for="s in report.staff" :key="s.user_id" :class="s.flagged ? 'bg-red-50' : ''">
-                <td class="py-2">{{ s.flagged ? '🔴 ' : '' }}{{ s.name }}<span v-if="s.role" class="text-xs text-slate-600"> ({{ s.role }})</span></td>
+                <td class="py-2">{{ s.name }}<span v-if="s.flagged" class="ml-1.5 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700 ring-1 ring-red-200">à surveiller</span><span v-if="s.role" class="text-xs text-slate-600"> ({{ s.role }})</span></td>
                 <td>{{ s.cancelled }}</td>
                 <td>{{ s.rejected }}</td>
                 <td>{{ s.top_reason }}</td>
@@ -113,6 +113,7 @@
 </template>
 
 <script setup>
+import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
