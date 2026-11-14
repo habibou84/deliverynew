@@ -1,6 +1,6 @@
 <template>
-  <!-- Équipe du dispatch : à faire maintenant, point du jour, livreurs -->
-  <StaffDashboard v-if="isDispatchStaff" />
+  <!-- Équipe du dispatch : poste de pilotage (état du jour, à régler, livreurs, parcours du jour) -->
+  <PostePilotage v-if="isDispatchStaff" />
   <div v-else class="space-y-6">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <h1 class="text-xl font-bold">{{ isMerchant ? 'Mon point de livraisons' : 'Tableau de bord' }}</h1>
@@ -69,7 +69,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http from '../../bootstrap/axios'
-import StaffDashboard from '../../components/StaffDashboard.vue'
+import PostePilotage from '../../components/PostePilotage.vue'
 import StatCard from '../../components/StatCard.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
@@ -79,7 +79,7 @@ import { date, money, today } from '../../utils/format'
 const auth = useAuthStore()
 const isMerchant = computed(() => !!auth.user?.merchant_id)
 
-// Équipe du dispatch : tableau de bord à part (à faire maintenant, point du jour, livreurs)
+// Équipe du dispatch : poste de pilotage à part
 const isDispatchStaff = computed(() => !isMerchant.value && auth.can('orders.dispatch'))
 
 const period = reactive({ from: isMerchantStart(), to: today() })
