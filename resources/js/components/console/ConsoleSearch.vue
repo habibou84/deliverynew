@@ -6,23 +6,23 @@
       @input="debounced" @focus="open = !!results" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter.prevent="go(flat[active])" @keydown.esc="open = false"
     >
     <div v-if="open && results" class="absolute left-0 right-0 z-50 mt-2 sm:left-auto sm:w-[30rem] sm:max-w-[90vw] rounded-xl bg-white p-2 text-sm text-slate-900 shadow-2xl ring-1 ring-slate-200">
-      <p v-if="!flat.length" class="p-3 text-slate-500">Aucun résultat pour « {{ q }} ».</p>
+      <p v-if="!flat.length" class="p-3 text-slate-600">Aucun résultat pour « {{ q }} ».</p>
       <template v-for="group in GROUPS" :key="group.key">
         <template v-if="results[group.key]?.length">
-          <p class="px-2 pt-2 pb-1 text-xs font-semibold uppercase text-slate-400">{{ group.label }}</p>
+          <p class="px-2 pt-2 pb-1 text-xs font-semibold uppercase text-slate-600">{{ group.label }}</p>
           <button
             v-for="item in results[group.key]" :key="group.key + item.id" type="button"
             :class="['block w-full rounded-lg px-2 py-2 text-left hover:bg-sky-50', flat[active] === item ? 'bg-sky-50' : '']"
             @click="go(item)"
           >
-            <template v-if="group.key === 'users'"><b>{{ item.name }}</b> · {{ item.phone }} <span class="text-slate-500">— {{ item.role }}{{ item.company ? ` chez ${item.company.name}` : '' }}{{ item.status !== 'active' ? ' (suspendu)' : '' }}</span></template>
-            <template v-else-if="group.key === 'companies'"><b>{{ item.name }}</b> <span class="text-slate-500">— {{ host(item.url) }}{{ item.phone ? ` · ${item.phone}` : '' }}</span></template>
-            <template v-else-if="group.key === 'orders'"><b>{{ item.tracking_code }}</b> <span class="text-slate-500">— {{ item.company?.name }} · {{ item.status_label }}{{ item.recipient_phone ? ` · ${item.recipient_phone}` : '' }}</span></template>
-            <template v-else><b>{{ item.number }}</b> <span class="text-slate-500">— {{ item.company?.name }} · {{ money(item.total) }}</span></template>
+            <template v-if="group.key === 'users'"><b>{{ item.name }}</b> · {{ item.phone }} <span class="text-slate-600">— {{ item.role }}{{ item.company ? ` chez ${item.company.name}` : '' }}{{ item.status !== 'active' ? ' (suspendu)' : '' }}</span></template>
+            <template v-else-if="group.key === 'companies'"><b>{{ item.name }}</b> <span class="text-slate-600">— {{ host(item.url) }}{{ item.phone ? ` · ${item.phone}` : '' }}</span></template>
+            <template v-else-if="group.key === 'orders'"><b>{{ item.tracking_code }}</b> <span class="text-slate-600">— {{ item.company?.name }} · {{ item.status_label }}{{ item.recipient_phone ? ` · ${item.recipient_phone}` : '' }}</span></template>
+            <template v-else><b>{{ item.number }}</b> <span class="text-slate-600">— {{ item.company?.name }} · {{ money(item.total) }}</span></template>
           </button>
         </template>
       </template>
-      <p class="mt-2 border-t px-2 pt-2 text-xs text-slate-400">Entrée pour ouvrir · ↑↓ pour choisir · chaque recherche est notée au journal</p>
+      <p class="mt-2 border-t px-2 pt-2 text-xs text-slate-600">Entrée pour ouvrir · ↑↓ pour choisir · chaque recherche est notée au journal</p>
     </div>
   </div>
 </template>

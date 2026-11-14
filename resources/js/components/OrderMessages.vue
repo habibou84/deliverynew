@@ -7,11 +7,11 @@
           <span class="font-medium">{{ m.recipient_type === 'recipient' ? 'Destinataire' : 'Marchand' }} · {{ m.to }}</span>
           <MessageStatus :message="m" />
         </div>
-        <p class="text-gray-600">{{ m.body }}</p>
+        <p class="text-slate-600">{{ m.body }}</p>
         <p v-if="m.error" class="text-red-700 text-xs">{{ m.error }}</p>
         <!-- WhatsApp pas parti (sans carte chez Meta, numéro refusé…) : le même texte, envoyé depuis le WhatsApp de l'agence -->
         <a v-if="m.channel === 'whatsapp' && m.status === 'failed' && m.to" :href="waLink(m)" target="_blank" rel="noopener" class="inline-flex items-center gap-1 rounded-md bg-[#25d366] px-2.5 py-1 text-xs font-semibold text-white">Envoyer depuis mon WhatsApp</a>
-        <p class="text-gray-400 text-xs">{{ dateTime(m.created_at) }}</p>
+        <p class="text-slate-600 text-xs">{{ dateTime(m.created_at) }}</p>
       </li>
     </ul>
   </div>

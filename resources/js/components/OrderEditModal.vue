@@ -1,7 +1,7 @@
 <template>
   <Modal :open="open" :title="`Modifier la course ${order?.tracking_code ?? ''}`" @close="$emit('close')">
     <form v-if="order" ref="formEl" class="space-y-3" @submit.prevent="save">
-      <p class="text-xs text-gray-500">{{ order.status_label }}<template v-if="courierName"> · {{ courierName }}</template></p>
+      <p class="text-xs text-slate-600">{{ order.status_label }}<template v-if="courierName"> · {{ courierName }}</template></p>
 
       <!-- Livraison : modifiable tant que le livreur n'est pas en route vers le client -->
       <fieldset class="rounded-lg border p-3 space-y-2">
@@ -16,7 +16,7 @@
               id="edit-zone" v-model="form.delivery_zone_id" :input-class="['input', changed('delivery_zone_id') && 'ring-2 ring-amber-400 bg-amber-50']" search-placeholder="Commune, quartier…"
               :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
             />
-            <p v-if="changed('delivery_zone_id')" class="text-xs text-gray-400 line-through">{{ zoneName(initial.delivery_zone_id) }}</p>
+            <p v-if="changed('delivery_zone_id')" class="text-xs text-slate-600 line-through">{{ zoneName(initial.delivery_zone_id) }}</p>
           </div>
           <EditField v-model="form.delivery_address" data-field="address" label="Adresse" :before="initial.delivery_address" />
           <EditField v-model="form.delivery_landmark" label="Repère" :before="initial.delivery_landmark" />
@@ -26,7 +26,7 @@
       </fieldset>
 
       <!-- Colis, argent et ramassage : seulement avant le ramassage -->
-      <fieldset :class="['rounded-lg border p-3 space-y-2', !beforePickup && 'bg-slate-50 text-gray-400']" :disabled="!beforePickup">
+      <fieldset :class="['rounded-lg border p-3 space-y-2', !beforePickup && 'bg-slate-50 text-slate-600']" :disabled="!beforePickup">
         <legend class="px-1 text-sm font-semibold">📦 Colis et argent <span v-if="!beforePickup" class="ml-1 text-xs font-medium">🔒 colis déjà récupéré</span></legend>
         <div v-if="beforePickup" class="grid gap-2 sm:grid-cols-2">
           <EditField v-model.number="form.items_amount" data-field="amount" type="number" min="0" label="Montant des articles (F)" :before="initial.items_amount" />
@@ -51,7 +51,7 @@
         </div>
       </fieldset>
 
-      <fieldset v-if="!order.from_warehouse" :class="['rounded-lg border p-3 space-y-2', !beforePickup && 'bg-slate-50 text-gray-400']" :disabled="!beforePickup">
+      <fieldset v-if="!order.from_warehouse" :class="['rounded-lg border p-3 space-y-2', !beforePickup && 'bg-slate-50 text-slate-600']" :disabled="!beforePickup">
         <legend class="px-1 text-sm font-semibold">🏪 Ramassage <span v-if="!beforePickup" class="ml-1 text-xs font-medium">🔒 colis déjà récupéré</span></legend>
         <div v-if="beforePickup" class="grid gap-2 sm:grid-cols-2">
           <div>

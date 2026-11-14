@@ -37,7 +37,7 @@
           <label class="label" for="e-slug">Adresse</label>
           <div class="flex items-center rounded-lg border border-slate-300 focus-within:ring-2 focus-within:ring-blue-500">
             <input id="e-slug" v-model.trim="edit.slug" class="flex-1 min-w-0 bg-transparent px-3 py-2 focus:outline-none" required minlength="3" maxlength="40">
-            <span v-if="domain" class="pr-3 text-sm text-gray-500 whitespace-nowrap">.{{ domain }}</span>
+            <span v-if="domain" class="pr-3 text-sm text-slate-600 whitespace-nowrap">.{{ domain }}</span>
           </div>
           <p v-if="edit.slug !== company.slug" class="text-xs text-amber-700 mt-1">
             ⚠ L'ancienne adresse cessera de fonctionner : liens de suivi déjà envoyés, boutiques partagées et applications installées.
@@ -81,7 +81,7 @@
             <div>
               <label class="label" for="s-trial">Fin de l'essai gratuit</label>
               <input id="s-trial" v-model="sub.trial_ends_at" type="date" class="input">
-              <p class="text-xs text-gray-500 mt-1">Vide : pas d'essai. Date incluse ; la facturation commence le lendemain.</p>
+              <p class="text-xs text-slate-600 mt-1">Vide : pas d'essai. Date incluse ; la facturation commence le lendemain.</p>
             </div>
             <p v-if="subError" class="field-error">{{ subError }}</p>
             <button class="btn-primary" :disabled="subSaving">Enregistrer</button>
@@ -106,7 +106,7 @@
               </tr>
             </tbody>
           </table>
-          <p v-else class="text-sm text-gray-500">Aucune facture. Les factures sont créées le 1er de chaque mois pour le mois écoulé (Facturation).</p>
+          <p v-else class="text-sm text-slate-600">Aucune facture. Les factures sont créées le 1er de chaque mois pour le mois écoulé (Facturation).</p>
         </div>
       </div>
 
@@ -117,7 +117,7 @@
         <label v-if="can('owner')" class="flex flex-wrap items-center gap-2 text-sm">Nombre de cartes de cette entreprise
           <input v-model="premiumQuota" type="number" min="0" class="input w-24" placeholder="Console">
           <button type="button" class="btn-secondary" @click="savePremiumQuota">Enregistrer</button>
-          <span class="w-full text-xs text-gray-500">Vide : le nombre réglé dans Cartes Premium.</span>
+          <span class="w-full text-xs text-slate-600">Vide : le nombre réglé dans Cartes Premium.</span>
         </label>
       </div>
 
@@ -128,12 +128,12 @@
           <input type="checkbox" class="mt-0.5 h-4 w-4" :checked="company.whatsapp_qr.enabled" :disabled="!can('support') || qrSaving" @change="toggleQr($event.target.checked)">
           <span>
             Autoriser la connexion par QR code
-            <span class="block text-xs text-gray-500">
+            <span class="block text-xs text-slate-600">
               Connexion non officielle, comme WhatsApp Web. Éteinte : l'entreprise ne voit que le bouton officiel « Connecter WhatsApp ».
             </span>
           </span>
         </label>
-        <p v-if="company.whatsapp_qr.status === 'connected'" class="text-xs text-gray-600">Numéro relié par QR code : {{ company.whatsapp_qr.phone }}</p>
+        <p v-if="company.whatsapp_qr.status === 'connected'" class="text-xs text-slate-600">Numéro relié par QR code : {{ company.whatsapp_qr.phone }}</p>
       </div>
 
       <!-- Mise en route de l'entreprise : pour l'accompagner au démarrage -->
@@ -144,9 +144,9 @@
           Conseillées : {{ company.setup.recommended.done }} sur {{ company.setup.recommended.total }}.
         </p>
         <ul class="text-sm space-y-1">
-          <li v-for="st in company.setup.steps" :key="st.key" :class="st.status === 'done' ? 'text-gray-500' : ''">
-            {{ st.status === 'done' ? '✅' : (st.status === 'partial' ? '🟠' : '⭕') }} {{ st.title }}<span v-if="!st.essential" class="text-xs text-gray-400"> · conseillée</span>
-            <span v-if="st.status !== 'done'" class="block pl-6 text-xs text-gray-600">{{ st.lines.join(' ') }}</span>
+          <li v-for="st in company.setup.steps" :key="st.key" :class="st.status === 'done' ? 'text-slate-600' : ''">
+            {{ st.status === 'done' ? '✅' : (st.status === 'partial' ? '🟠' : '⭕') }} {{ st.title }}<span v-if="!st.essential" class="text-xs text-slate-600"> · conseillée</span>
+            <span v-if="st.status !== 'done'" class="block pl-6 text-xs text-slate-600">{{ st.lines.join(' ') }}</span>
           </li>
         </ul>
         <div v-if="company.setup.health.length" class="border-t pt-3 space-y-1">
@@ -158,7 +158,7 @@
       <!-- Assistance : Propriétaire et Support -->
       <div v-if="can('support')" class="card p-4 space-y-3">
         <h2 class="font-semibold">🛟 Assistance</h2>
-        <p class="text-sm text-gray-600">
+        <p class="text-sm text-slate-600">
           Ouvre l'espace de l'entreprise avec le compte d'un membre de son équipe, pour une heure. Un bandeau rouge le signale
           pendant toute la session, et chaque ouverture est enregistrée ci-dessous.
         </p>
@@ -175,7 +175,7 @@
 
         <div v-if="company.support_sessions.length" class="border-t pt-3">
           <h3 class="text-sm font-medium mb-1">Dernières sessions</h3>
-          <ul class="text-xs text-gray-600 space-y-1">
+          <ul class="text-xs text-slate-600 space-y-1">
             <li v-for="s in company.support_sessions" :key="s.id">
               {{ dateTime(s.created_at) }} · {{ s.opened_by }} → {{ s.user }}<span v-if="s.reason"> · {{ s.reason }}</span>
               <button v-if="s.open" type="button" class="ml-1 text-red-600 underline" @click="closeSupport(s)">Fermer maintenant</button>
@@ -185,7 +185,7 @@
       </div>
     </div>
   </div>
-  <p v-else class="text-gray-500">Chargement…</p>
+  <p v-else class="text-slate-600">Chargement…</p>
 </template>
 
 <script setup>

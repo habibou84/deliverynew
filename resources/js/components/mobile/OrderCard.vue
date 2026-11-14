@@ -18,14 +18,14 @@
             <p class="font-bold text-[15.5px] truncate">{{ order.recipient.name || localPhone(order.recipient.phone) }}</p>
             <p class="shrink-0 font-extrabold text-[15.5px]">{{ money(order.amounts.cod_amount) }}</p>
           </div>
-          <p class="text-[13px] text-slate-500 truncate">{{ place }}</p>
+          <p class="text-[13px] text-slate-600 truncate">{{ place }}</p>
           <div class="mt-2 flex gap-[3px]" :aria-label="`Étape ${stage.step} sur 4`">
             <i v-for="n in 4" :key="n" :class="['block h-[5px] flex-1 rounded', n <= stage.step ? stage.bar : 'bg-slate-200']" />
           </div>
           <div class="mt-2 flex items-center justify-between gap-2 text-[13px] font-bold">
             <span :class="['truncate', stage.color]">{{ stage.text }}</span>
-            <span v-if="later" class="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-[11px] text-sky-700">{{ later }}</span>
-            <span v-else-if="stage.aside" class="shrink-0 font-semibold text-slate-500">{{ stage.aside }}</span>
+            <span v-if="later" class="shrink-0 rounded-full bg-sky-50 px-2 py-0.5 text-xs text-sky-700">{{ later }}</span>
+            <span v-else-if="stage.aside" class="shrink-0 font-semibold text-slate-600">{{ stage.aside }}</span>
             <AppIcon v-else-if="order.status === 'delivered'" name="check" class="h-4 w-4 shrink-0 text-emerald-700" />
           </div>
         </div>

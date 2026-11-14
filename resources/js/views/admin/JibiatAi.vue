@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div>
       <h1 class="text-xl font-bold">✨ Jibiat IA</h1>
-      <p class="text-sm text-gray-600">L'intelligence artificielle de Jibiat, en plus de votre formule.</p>
+      <p class="text-sm text-slate-600">L'intelligence artificielle de Jibiat, en plus de votre formule.</p>
     </div>
     <p v-if="error" class="field-error" role="alert">{{ error }}</p>
 
@@ -10,18 +10,18 @@
       <!-- Résumé -->
       <div class="grid gap-3 sm:grid-cols-3">
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Votre formule</p>
+          <p class="text-sm text-slate-600">Votre formule</p>
           <p class="font-bold">{{ data.plan ? `${data.plan.name} · ${money(data.plan.price)} / mois` : '—' }}
             <span class="ml-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">inchangée</span></p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Jibiat IA</p>
+          <p class="text-sm text-slate-600">Jibiat IA</p>
           <p class="font-bold">{{ statusLine }}
             <span v-if="!sub.on && !sub.trial_used" class="ml-1 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">{{ data.settings.trial_days }} jours d'essai gratuit</span></p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Vos courses ce mois-ci</p>
-          <p class="font-bold">{{ data.usage.orders }} <span class="font-normal text-gray-500">· niveau conseillé : <b>{{ tierName(data.recommended) }}</b></span></p>
+          <p class="text-sm text-slate-600">Vos courses ce mois-ci</p>
+          <p class="font-bold">{{ data.usage.orders }} <span class="font-normal text-slate-600">· niveau conseillé : <b>{{ tierName(data.recommended) }}</b></span></p>
         </div>
       </div>
 
@@ -40,10 +40,10 @@
             <b class="block text-xl">{{ f.calls }}</b><span class="text-xs text-violet-800">{{ f.label }}</span>
           </div>
         </div>
-        <p v-else class="text-sm text-gray-600">Rien encore ce mois-ci : l'IA travaille dès qu'un e-commerçant envoie un message WhatsApp.</p>
+        <p v-else class="text-sm text-slate-600">Rien encore ce mois-ci : l'IA travaille dès qu'un e-commerçant envoie un message WhatsApp.</p>
         <Meter label="Courses traitées ce mois-ci" :value="data.usage.orders" :max="data.usage.included_orders" />
         <Meter v-if="data.usage.voice_included" label="Notes vocales (minutes)" :value="data.usage.voice_minutes" :max="data.usage.voice_included" />
-        <p class="text-xs text-gray-500">Au-delà du volume : {{ money(data.settings.overage_per_order) }} par course, sur la facture du mois.<template v-if="data.usage.recharges"> Recharges ce mois-ci : {{ money(data.usage.recharges) }}.</template></p>
+        <p class="text-xs text-slate-600">Au-delà du volume : {{ money(data.settings.overage_per_order) }} par course, sur la facture du mois.<template v-if="data.usage.recharges"> Recharges ce mois-ci : {{ money(data.usage.recharges) }}.</template></p>
         <div class="flex flex-wrap gap-2">
           <button v-if="sub.status === 'trial'" type="button" class="btn-primary" :disabled="busy" @click="subscribe(sub.tier)">Passer à l'abonnement {{ sub.tier_name }}</button>
           <template v-if="sub.status === 'active'">
@@ -69,8 +69,8 @@
           <div v-for="t in data.tiers" :key="t.key" :class="['relative card p-4', t.key === data.recommended ? 'border-2 border-violet-600' : '']">
             <span v-if="t.key === data.recommended" class="absolute -top-3 right-4 rounded-full bg-violet-600 px-2 py-0.5 text-xs font-bold text-white">Conseillé pour vous</span>
             <h3 class="text-lg font-bold">{{ t.name }}</h3>
-            <p class="text-sm text-gray-500">jusqu'à {{ t.orders.toLocaleString('fr-FR') }} courses / mois · ≈ {{ Math.round(t.orders / 30) }} par jour</p>
-            <p class="mt-3 text-3xl font-extrabold">{{ money(period === 'yearly' ? t.yearly_price : t.price) }} <span class="text-sm font-semibold text-gray-500">/ {{ period === 'yearly' ? 'an' : 'mois' }}</span></p>
+            <p class="text-sm text-slate-600">jusqu'à {{ t.orders.toLocaleString('fr-FR') }} courses / mois · ≈ {{ Math.round(t.orders / 30) }} par jour</p>
+            <p class="mt-3 text-3xl font-extrabold">{{ money(period === 'yearly' ? t.yearly_price : t.price) }} <span class="text-sm font-semibold text-slate-600">/ {{ period === 'yearly' ? 'an' : 'mois' }}</span></p>
             <p class="text-sm font-semibold text-emerald-700">{{ period === 'yearly' ? `soit ${money(Math.round(t.yearly_price / 12))} par mois` : `${money(t.yearly_price)} à l'année` }}</p>
             <ul class="my-3 space-y-1.5 text-sm">
               <li v-for="f in t.features" :key="f.key" class="flex gap-2">
@@ -87,7 +87,7 @@
             </template>
           </div>
         </div>
-        <p class="text-xs text-gray-500">
+        <p class="text-xs text-slate-600">
           Au-delà du volume prévu : {{ money(data.settings.overage_per_order) }} par course, ou des recharges. Sans engagement : un abonnement au mois s'arrête à la fin du mois ; votre formule continue.
           Les fonctions marquées « bientôt » arrivent au fil des semaines, sans changer le prix.
           <template v-if="lockedYearly"> Abonnement payé à l'année : pour changer de niveau, contactez l'équipe Jibiat.</template>

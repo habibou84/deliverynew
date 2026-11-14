@@ -10,7 +10,7 @@
         <ColorIcon name="calendrier" :size="22" :tile="false" />{{ period.label }}
       </button>
     </div>
-    <p v-if="search" class="text-xs text-slate-500">Recherche sur toutes les dates.</p>
+    <p v-if="search" class="text-xs text-slate-600">Recherche sur toutes les dates.</p>
 
     <!-- Toutes par défaut ; les onglets ne font que réduire la liste -->
     <div class="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar" role="radiogroup" aria-label="Catégorie">
@@ -24,15 +24,15 @@
         @click="setFilter(f.value)"
       >
         {{ f.label }}
-        <span v-if="counts[f.value] !== undefined" class="min-w-[22px] h-[22px] px-1.5 rounded-full grid place-items-center text-[12px] font-bold tabular-nums" :style="filter === f.value ? { background: 'rgba(255,255,255,.18)', color: '#fff' } : TAB_TONES[f.value]">{{ counts[f.value] }}</span>
+        <span v-if="counts[f.value] !== undefined" class="min-w-[22px] h-[22px] px-1.5 rounded-full grid place-items-center text-xs font-bold tabular-nums" :style="filter === f.value ? { background: 'rgba(255,255,255,.18)', color: '#fff' } : TAB_TONES[f.value]">{{ counts[f.value] }}</span>
       </button>
     </div>
 
     <!-- Étiquettes des colis que le livreur n'a pas encore récupérés (courses affichées) -->
     <RouterLink v-if="toLabel.length" :to="{ path: '/etiquettes', query: { ids: toLabel.join(',') } }" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3 text-sm shadow-soft active:scale-[.99] transition">
       <ColorIcon name="etiquette" :size="40" />
-      <span class="flex-1"><strong class="block text-[14.5px]">{{ toLabel.length }} étiquette{{ toLabel.length > 1 ? 's' : '' }} à coller</strong><span class="text-slate-500">Pour les colis pas encore récupérés</span></span>
-      <AppIcon name="right" class="h-5 w-5 text-slate-400" />
+      <span class="flex-1"><strong class="block text-[14.5px]">{{ toLabel.length }} étiquette{{ toLabel.length > 1 ? 's' : '' }} à coller</strong><span class="text-slate-600">Pour les colis pas encore récupérés</span></span>
+      <AppIcon name="right" class="h-5 w-5 text-slate-600" />
     </RouterLink>
 
     <!-- Courses rangées par étape, de la plus urgente à la plus avancée -->

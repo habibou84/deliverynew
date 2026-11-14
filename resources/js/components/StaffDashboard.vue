@@ -21,7 +21,7 @@
     <section class="card space-y-3 p-3 sm:p-4" aria-label="À faire maintenant">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="font-semibold">⚡ À faire maintenant</h2>
-        <span class="text-xs text-gray-500">courses d'aujourd'hui · un clic ouvre l'onglet</span>
+        <span class="text-xs text-slate-600">courses d'aujourd'hui · un clic ouvre l'onglet</span>
       </div>
       <RouterLink
         v-if="cutoff?.passed && cutoff.count" :to="tab('unassigned')"
@@ -58,7 +58,7 @@
       <div class="flex flex-wrap gap-2 text-sm">
         <RouterLink
           v-for="t in chips" :key="t.queue" :to="t.to"
-          :class="['rounded-full px-3 py-1 ring-1', t.count ? t.class : 'bg-white text-gray-500 ring-slate-300']"
+          :class="['rounded-full px-3 py-1 ring-1', t.count ? t.class : 'bg-white text-slate-600 ring-slate-300']"
         >
           {{ t.icon }} {{ t.count }} {{ t.count > 1 ? t.plural : t.label }}
         </RouterLink>
@@ -75,11 +75,11 @@
           <h2 class="font-semibold">🛵 Livreurs {{ range.from === range.to ? 'du jour' : 'de la période' }}</h2>
           <RouterLink to="/admin/activite" class="text-sm text-blue-600">Activité</RouterLink>
         </div>
-        <p v-if="!report?.couriers?.length" class="text-sm text-gray-500">Aucune livraison sur la période.</p>
+        <p v-if="!report?.couriers?.length" class="text-sm text-slate-600">Aucune livraison sur la période.</p>
         <ul v-else class="divide-y text-sm">
           <li v-for="c in report.couriers" :key="c.id" class="flex flex-wrap items-center justify-between gap-x-3 py-1.5">
             <span class="font-medium">{{ c.name || 'Livreur' }}</span>
-            <span class="text-gray-600">
+            <span class="text-slate-600">
               {{ c.delivered }} livrée{{ c.delivered > 1 ? 's' : '' }}<template v-if="c.in_hand"> · 🎒 {{ c.in_hand }} en main</template><template v-if="c.collected !== null"> · {{ money(c.collected) }}</template>
             </span>
           </li>
@@ -92,7 +92,7 @@
           <h2 class="font-semibold">🕘 Dernières courses</h2>
           <RouterLink to="/admin/courses" class="text-sm text-blue-600">Tout voir</RouterLink>
         </div>
-        <p v-if="!recent.length" class="text-sm text-gray-500">Aucune course pour le moment.</p>
+        <p v-if="!recent.length" class="text-sm text-slate-600">Aucune course pour le moment.</p>
         <ul v-else class="divide-y text-sm">
           <li v-for="o in recent" :key="o.id">
             <RouterLink :to="`/admin/courses/${o.id}`" class="flex items-center gap-3 py-1.5 hover:bg-slate-50">

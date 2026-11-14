@@ -19,13 +19,13 @@
     </div>
 
     <!-- Demandes à valider (au-delà de la limite du jour) -->
-    <p v-if="section === 'requests' && report && !report.requests?.length" class="card p-6 text-center text-gray-500">✅ Aucune demande d'annulation à valider.</p>
+    <p v-if="section === 'requests' && report && !report.requests?.length" class="card p-6 text-center text-slate-600">✅ Aucune demande d'annulation à valider.</p>
     <section v-if="shows('requests') && report?.requests?.length" class="card space-y-2 border-amber-300 bg-amber-50 p-4">
       <h2 class="font-semibold text-amber-900">⏳ {{ report.requests.length }} demande{{ report.requests.length > 1 ? 's' : '' }} d'annulation à valider</h2>
       <div v-for="r in report.requests" :key="r.id" class="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-amber-200 pt-2 text-sm">
         <RouterLink :to="`/admin/courses/${r.order_id}`" class="font-mono text-emerald-700">{{ r.tracking_code }}</RouterLink>
         <span>{{ r.merchant }}</span>
-        <span class="text-gray-700">{{ r.to_status === 'rejected' ? 'Refus' : 'Annulation' }} demandé{{ r.to_status === 'rejected' ? '' : 'e' }} par <b>{{ r.requested_by }}</b>, {{ ago(r.created_at) }}</span>
+        <span class="text-slate-700">{{ r.to_status === 'rejected' ? 'Refus' : 'Annulation' }} demandé{{ r.to_status === 'rejected' ? '' : 'e' }} par <b>{{ r.requested_by }}</b>, {{ ago(r.created_at) }}</span>
         <span class="flex-1">{{ r.reason }}<template v-if="r.note"> · « {{ r.note }} »</template></span>
         <span v-if="report.is_admin" class="flex gap-2">
           <button type="button" class="btn-primary" :disabled="busy" @click="decide(r, true)">Valider</button>
@@ -36,10 +36,10 @@
     </section>
 
     <!-- Règles (administrateurs) -->
-    <p v-if="section === 'rules' && report && !report.is_admin" class="card p-4 text-sm text-gray-600">Seul un administrateur peut changer les règles d'annulation.</p>
+    <p v-if="section === 'rules' && report && !report.is_admin" class="card p-4 text-sm text-slate-600">Seul un administrateur peut changer les règles d'annulation.</p>
     <section v-if="shows('rules') && report?.is_admin && rules" class="card space-y-3 p-4 text-sm">
       <h2 v-if="section !== 'rules'" class="font-semibold">⚙️ Règles d'annulation</h2>
-      <p class="text-gray-600">Les administrateurs annulent sans limite. Les autres membres de l'équipe (dispatch) ont une limite par jour : au-delà, un administrateur valide.</p>
+      <p class="text-slate-600">Les administrateurs annulent sans limite. Les autres membres de l'équipe (dispatch) ont une limite par jour : au-delà, un administrateur valide.</p>
       <label class="flex flex-wrap items-center gap-2">
         <input v-model="limits.staff" type="checkbox"> Dispatch : jusqu'à
         <input v-model.number="rules.staff_daily_limit" type="number" min="0" class="input !w-20" :disabled="!limits.staff"> annulations par jour, ensuite validation d'un administrateur
@@ -59,17 +59,17 @@
 
     <template v-if="report && shows('report')">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div class="card p-4"><p class="text-xs text-gray-500">Courses annulées</p><p class="text-2xl font-bold">{{ report.totals.cancelled }}</p><p class="text-xs text-gray-500">sur {{ report.totals.created }} créées<template v-if="report.totals.rate !== null"> · {{ pct(report.totals.rate) }}</template></p></div>
-        <div class="card p-4"><p class="text-xs text-gray-500">Par les e-commerçants</p><p class="text-2xl font-bold">{{ report.totals.by_merchants }}</p><p class="text-xs text-gray-500">{{ share(report.totals.by_merchants) }}</p></div>
-        <div class="card p-4"><p class="text-xs text-gray-500">Par l'équipe</p><p class="text-2xl font-bold">{{ report.totals.by_company }}</p><p class="text-xs text-gray-500">dont {{ report.totals.rejected }} refusée{{ report.totals.rejected > 1 ? 's' : '' }} à la création</p></div>
-        <div :class="['card p-4', report.totals.flagged ? 'border-red-300' : '']"><p :class="['text-xs', report.totals.flagged ? 'text-red-700' : 'text-gray-500']">À surveiller</p><p :class="['text-2xl font-bold', report.totals.flagged ? 'text-red-700' : '']">{{ report.totals.flagged }}</p><p class="text-xs text-gray-500">taux ou volume anormal</p></div>
+        <div class="card p-4"><p class="text-xs text-slate-600">Courses annulées</p><p class="text-2xl font-bold">{{ report.totals.cancelled }}</p><p class="text-xs text-slate-600">sur {{ report.totals.created }} créées<template v-if="report.totals.rate !== null"> · {{ pct(report.totals.rate) }}</template></p></div>
+        <div class="card p-4"><p class="text-xs text-slate-600">Par les e-commerçants</p><p class="text-2xl font-bold">{{ report.totals.by_merchants }}</p><p class="text-xs text-slate-600">{{ share(report.totals.by_merchants) }}</p></div>
+        <div class="card p-4"><p class="text-xs text-slate-600">Par l'équipe</p><p class="text-2xl font-bold">{{ report.totals.by_company }}</p><p class="text-xs text-slate-600">dont {{ report.totals.rejected }} refusée{{ report.totals.rejected > 1 ? 's' : '' }} à la création</p></div>
+        <div :class="['card p-4', report.totals.flagged ? 'border-red-300' : '']"><p :class="['text-xs', report.totals.flagged ? 'text-red-700' : 'text-slate-600']">À surveiller</p><p :class="['text-2xl font-bold', report.totals.flagged ? 'text-red-700' : '']">{{ report.totals.flagged }}</p><p class="text-xs text-slate-600">taux ou volume anormal</p></div>
       </div>
 
       <div class="grid gap-4 lg:grid-cols-2">
         <section class="card overflow-x-auto p-4">
           <h2 class="mb-2 font-semibold">Par e-commerçant</h2>
           <table class="w-full text-sm">
-            <thead class="text-left text-xs text-gray-500"><tr><th class="py-1">E-commerçant</th><th>Annulées</th><th>Taux</th><th>Motif principal</th></tr></thead>
+            <thead class="text-left text-xs text-slate-600"><tr><th class="py-1">E-commerçant</th><th>Annulées</th><th>Taux</th><th>Motif principal</th></tr></thead>
             <tbody class="divide-y">
               <tr v-for="m in report.merchants" :key="m.merchant_id" :class="m.flagged ? 'bg-red-50' : ''">
                 <td class="py-2">{{ m.flagged ? '🔴 ' : '' }}{{ m.name }}</td>
@@ -77,22 +77,22 @@
                 <td :class="m.flagged ? 'font-semibold text-red-700' : ''">{{ pct(m.rate) }}</td>
                 <td>{{ m.top_reason }}</td>
               </tr>
-              <tr v-if="!report.merchants.length"><td colspan="4" class="py-3 text-center text-gray-500">Aucune annulation par les e-commerçants.</td></tr>
+              <tr v-if="!report.merchants.length"><td colspan="4" class="py-3 text-center text-slate-600">Aucune annulation par les e-commerçants.</td></tr>
             </tbody>
           </table>
         </section>
         <section class="card overflow-x-auto p-4">
           <h2 class="mb-2 font-semibold">Par membre de l'équipe</h2>
           <table class="w-full text-sm">
-            <thead class="text-left text-xs text-gray-500"><tr><th class="py-1">Personne</th><th>Annulées</th><th>Refusées</th><th>Motif principal</th></tr></thead>
+            <thead class="text-left text-xs text-slate-600"><tr><th class="py-1">Personne</th><th>Annulées</th><th>Refusées</th><th>Motif principal</th></tr></thead>
             <tbody class="divide-y">
               <tr v-for="s in report.staff" :key="s.user_id" :class="s.flagged ? 'bg-red-50' : ''">
-                <td class="py-2">{{ s.flagged ? '🔴 ' : '' }}{{ s.name }}<span v-if="s.role" class="text-xs text-gray-500"> ({{ s.role }})</span></td>
+                <td class="py-2">{{ s.flagged ? '🔴 ' : '' }}{{ s.name }}<span v-if="s.role" class="text-xs text-slate-600"> ({{ s.role }})</span></td>
                 <td>{{ s.cancelled }}</td>
                 <td>{{ s.rejected }}</td>
                 <td>{{ s.top_reason }}</td>
               </tr>
-              <tr v-if="!report.staff.length"><td colspan="4" class="py-3 text-center text-gray-500">Aucune annulation par l'équipe.</td></tr>
+              <tr v-if="!report.staff.length"><td colspan="4" class="py-3 text-center text-slate-600">Aucune annulation par l'équipe.</td></tr>
             </tbody>
           </table>
         </section>
@@ -102,11 +102,11 @@
         <h2 class="mb-2 font-semibold">Motifs</h2>
         <div v-if="report.reasons.length" class="space-y-2 text-sm">
           <div v-for="r in report.reasons" :key="`${r.by}-${r.code}`">
-            <div class="flex justify-between gap-2"><span>{{ r.label }} <span class="text-xs text-gray-500">· {{ r.by === 'merchant' ? 'e-commerçants' : 'équipe' }}</span></span><span>{{ r.count }}</span></div>
+            <div class="flex justify-between gap-2"><span>{{ r.label }} <span class="text-xs text-slate-600">· {{ r.by === 'merchant' ? 'e-commerçants' : 'équipe' }}</span></span><span>{{ r.count }}</span></div>
             <div class="h-2 rounded bg-slate-100"><div class="h-2 rounded bg-slate-700" :style="{ width: `${Math.round(r.count * 100 / maxReason)}%` }" /></div>
           </div>
         </div>
-        <p v-else class="text-sm text-gray-500">Aucune annulation sur la période.</p>
+        <p v-else class="text-sm text-slate-600">Aucune annulation sur la période.</p>
       </section>
     </template>
   </div>

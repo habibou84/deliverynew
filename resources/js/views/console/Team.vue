@@ -2,13 +2,13 @@
   <div class="mx-auto max-w-5xl space-y-4">
     <div>
       <h1 class="text-xl font-bold">Équipe de la console</h1>
-      <p class="text-sm text-gray-600">Chaque personne a son propre compte et ne voit que ce que son rôle permet. Toutes leurs actions sont au journal.</p>
+      <p class="text-sm text-slate-600">Chaque personne a son propre compte et ne voit que ce que son rôle permet. Toutes leurs actions sont au journal.</p>
     </div>
 
     <div class="grid gap-3 text-sm sm:grid-cols-3">
       <div v-for="r in ROLES" :key="r.value" class="card p-3">
         <p class="font-semibold">{{ r.icon }} {{ r.label }}</p>
-        <p class="text-gray-600">{{ r.text }}</p>
+        <p class="text-slate-600">{{ r.text }}</p>
       </div>
     </div>
 
@@ -28,7 +28,7 @@
           <div><label class="label" for="t-phone">Téléphone</label><input id="t-phone" v-model.trim="form.phone" type="tel" class="input" required></div>
           <div><label class="label" for="t-email">E-mail (reçoit le code de connexion)</label><input id="t-email" v-model.trim="form.email" type="email" class="input" required></div>
         </div>
-        <p class="text-xs text-gray-600">La personne reçoit un lien personnel (valable 7 jours) pour choisir son mot de passe. Ensuite, un code lui est envoyé par e-mail à chaque connexion.</p>
+        <p class="text-xs text-slate-600">La personne reçoit un lien personnel (valable 7 jours) pour choisir son mot de passe. Ensuite, un code lui est envoyé par e-mail à chaque connexion.</p>
         <p v-if="error" class="field-error">{{ error }}</p>
         <button class="btn-primary" :disabled="busy">{{ busy ? 'Invitation…' : 'Inviter' }}</button>
       </form>
@@ -44,10 +44,10 @@
 
       <div class="overflow-x-auto">
         <table class="w-full min-w-[40rem] text-sm">
-          <thead class="text-left text-gray-500"><tr><th class="py-1">Nom</th><th>Rôle</th><th>État</th><th>Dernière connexion</th><th></th></tr></thead>
+          <thead class="text-left text-slate-600"><tr><th class="py-1">Nom</th><th>Rôle</th><th>État</th><th>Dernière connexion</th><th></th></tr></thead>
           <tbody class="divide-y">
             <tr v-for="m in members" :key="m.id">
-              <td class="py-2"><span class="font-medium">{{ m.name }}</span><span v-if="m.me" class="text-gray-500"> (vous)</span><span class="block text-xs text-gray-500">{{ m.phone }} · {{ m.email || 'sans e-mail' }}</span></td>
+              <td class="py-2"><span class="font-medium">{{ m.name }}</span><span v-if="m.me" class="text-slate-600"> (vous)</span><span class="block text-xs text-slate-600">{{ m.phone }} · {{ m.email || 'sans e-mail' }}</span></td>
               <td>
                 <span v-if="m.me">{{ roleOf(m.role)?.icon }} {{ roleOf(m.role)?.label }}</span>
                 <select v-else :value="m.role" class="input !w-auto !py-1" :aria-label="`Rôle de ${m.name}`" @change="changeRole(m, $event.target.value)">
@@ -71,7 +71,7 @@
           </tbody>
         </table>
       </div>
-      <p class="mt-3 text-xs text-gray-500">Seul un Propriétaire peut changer un rôle. Il reste toujours au moins un Propriétaire actif. Un rôle changé ou un compte suspendu est déconnecté partout.</p>
+      <p class="mt-3 text-xs text-slate-600">Seul un Propriétaire peut changer un rôle. Il reste toujours au moins un Propriétaire actif. Un rôle changé ou un compte suspendu est déconnecté partout.</p>
     </div>
   </div>
 </template>

@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div>
       <h1 class="text-xl font-bold">Journal des actions</h1>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Chaque modification faite par l'équipe de la console (console, fiches entreprises, sessions d'assistance).
         Les mots de passe, codes et jetons ne sont jamais enregistrés.
       </p>
@@ -18,8 +18,8 @@
       <button v-if="filters.company_id" type="button" class="btn-secondary" @click="filters.company_id = ''; load(1)">✕ {{ companyName || 'Entreprise' }}</button>
     </div>
 
-    <p v-if="loading" class="text-gray-500">Chargement…</p>
-    <p v-else-if="!logs.length" class="card p-4 text-gray-500">Aucune action pour ces filtres.</p>
+    <p v-if="loading" class="text-slate-600">Chargement…</p>
+    <p v-else-if="!logs.length" class="card p-4 text-slate-600">Aucune action pour ces filtres.</p>
 
     <ul v-else class="card divide-y">
       <li v-for="log in logs" :key="log.id" class="p-3 text-sm">
@@ -29,15 +29,15 @@
             <span v-if="log.status >= 400" class="ml-1 rounded bg-red-100 px-1.5 text-xs text-red-700">refusé ({{ log.status }})</span>
             <span v-if="log.data?.support_as" class="ml-1 rounded bg-amber-100 px-1.5 text-xs text-amber-800">assistance, en tant que {{ log.data.support_as.name }}</span>
           </p>
-          <span class="text-xs text-gray-500">{{ dateTime(log.created_at) }}</span>
+          <span class="text-xs text-slate-600">{{ dateTime(log.created_at) }}</span>
         </div>
-        <p class="text-gray-600">
+        <p class="text-slate-600">
           {{ log.user?.name || 'Compte supprimé' }}
           <template v-if="log.company"> · <button type="button" class="text-blue-600 hover:underline" @click="byCompany(log.company)">{{ log.company.name }}</button></template>
           · <span class="text-xs">{{ log.ip }}</span>
         </p>
         <details v-if="hasDetails(log)" class="mt-1">
-          <summary class="cursor-pointer text-xs text-gray-500">Détail</summary>
+          <summary class="cursor-pointer text-xs text-slate-600">Détail</summary>
           <pre class="mt-1 overflow-x-auto rounded bg-slate-50 p-2 text-xs">{{ JSON.stringify(log.data, null, 2) }}</pre>
         </details>
       </li>

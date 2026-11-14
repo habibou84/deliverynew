@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-3.5 pb-6">
     <p v-if="error" class="rounded-2xl bg-red-50 px-4 py-3 text-[15px] text-red-700" role="alert">{{ error }}</p>
-    <p v-if="!s && !error" class="m-card p-6 text-center text-slate-500">Chargement…</p>
+    <p v-if="!s && !error" class="m-card p-6 text-center text-slate-600">Chargement…</p>
 
     <template v-if="s">
       <div class="guide">
@@ -28,7 +28,7 @@
       </section>
 
       <section class="m-card divide-y divide-slate-100">
-        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">PAR PRODUIT</p>
+        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-600">PAR PRODUIT</p>
         <div v-for="i in s.items" :key="i.id" class="flex items-center gap-3 px-4 py-2.5 text-[15px]">
           <span class="grid h-9 min-w-[44px] place-items-center rounded-lg bg-slate-900 px-1.5 text-[14px] font-extrabold text-white">{{ i.code }}</span>
           <span class="min-w-0 flex-1 truncate"><b>{{ i.label || i.name }}</b> · {{ i.sold }} sur {{ i.quantity }}</span>
@@ -37,10 +37,10 @@
       </section>
 
       <section v-if="waiting.length" class="m-card divide-y divide-slate-100">
-        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-500">LISTE D'ATTENTE · {{ waiting.length }}</p>
+        <p class="px-4 py-2.5 text-[13px] font-semibold text-slate-600">LISTE D'ATTENTE · {{ waiting.length }}</p>
         <div v-for="o in waiting" :key="o.id" class="flex items-center gap-3 px-4 py-2.5 text-[15px]">
           <span class="min-w-0 flex-1"><b>{{ o.customer_name }}</b> · {{ o.code }} {{ o.name }}</span>
-          <a :href="whatsappLink(o.customer_phone)" target="_blank" rel="noopener" class="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-[14px] font-bold text-white">Écrire</a>
+          <a :href="whatsappLink(o.customer_phone)" target="_blank" rel="noopener" class="shrink-0 rounded-xl bg-emerald-700 px-3 py-2 text-[14px] font-bold text-white">Écrire</a>
         </div>
       </section>
 

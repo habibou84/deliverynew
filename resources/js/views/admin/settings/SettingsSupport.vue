@@ -4,11 +4,11 @@
       <p v-if="active" class="rounded-lg bg-sky-50 p-3 text-sm text-sky-900">
         🛟 <strong>{{ active.opened_by }}</strong> (assistance Jibiat) a accès à votre espace jusqu'à {{ time(active.expires_at) }}<span v-if="active.reason"> · {{ active.reason }}</span>.
       </p>
-      <p v-if="loading" class="text-sm text-gray-500">Chargement…</p>
-      <p v-else-if="!sessions.length" class="text-sm text-gray-500">L'assistance Jibiat n'a jamais ouvert votre espace.</p>
+      <p v-if="loading" class="text-sm text-slate-600">Chargement…</p>
+      <p v-else-if="!sessions.length" class="text-sm text-slate-600">L'assistance Jibiat n'a jamais ouvert votre espace.</p>
       <div v-else class="overflow-x-auto">
         <table class="w-full min-w-[32rem] text-sm">
-          <thead class="text-left text-gray-500"><tr><th class="py-1">Date</th><th>Personne</th><th>Motif</th><th>Durée</th><th>Actions</th></tr></thead>
+          <thead class="text-left text-slate-600"><tr><th class="py-1">Date</th><th>Personne</th><th>Motif</th><th>Durée</th><th>Actions</th></tr></thead>
           <tbody class="divide-y">
             <tr v-for="s in sessions" :key="s.id">
               <td class="py-2 whitespace-nowrap">{{ dateTime(s.created_at) }}</td>
@@ -23,7 +23,7 @@
           </tbody>
         </table>
       </div>
-      <p class="text-xs text-gray-500">
+      <p class="text-xs text-slate-600">
         Un accès dure au plus une heure. Il se ferme tout seul, et chaque action faite pendant l'accès est enregistrée.
         Une question sur un accès ? Contactez Jibiat.
       </p>

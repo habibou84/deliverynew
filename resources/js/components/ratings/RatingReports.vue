@@ -12,7 +12,7 @@
         <span class="h-9 w-9 shrink-0 rounded-lg bg-red-100 text-red-700 grid place-items-center" aria-hidden="true">⚠️</span>
         <div class="min-w-0 flex-1">
           <p class="font-semibold"><RouterLink :to="`/admin/livreurs/${r.courier_id}?onglet=notes`" class="hover:underline">{{ r.courier_name }}</RouterLink> — {{ problem(r) }}</p>
-          <p class="text-sm text-gray-500">
+          <p class="text-sm text-slate-600">
             <StarRating :model-value="r.score" readonly size="sm" class="align-[-2px]" />
             Client<template v-if="r.merchant_name"> de {{ r.merchant_name }}</template> · course {{ r.tracking_code }} · {{ dateTime(r.created_at) }}
             <template v-if="r.comment"> · « {{ r.comment }} »</template>
@@ -31,7 +31,7 @@
 
     <Modal :open="!!cancelling" title="Annuler cet avis" @close="cancelling = null">
       <form class="space-y-3" @submit.prevent="cancel">
-        <p class="text-sm text-gray-600">L'avis ne comptera plus dans la note du livreur. Il reste visible, barré, dans sa fiche.</p>
+        <p class="text-sm text-slate-600">L'avis ne comptera plus dans la note du livreur. Il reste visible, barré, dans sa fiche.</p>
         <div><label class="label" for="cancel-reason">Raison</label><input id="cancel-reason" v-model="cancelReason" class="input" placeholder="Ex. : client absent, pas la faute du livreur"></div>
         <button class="btn-primary w-full">Annuler l'avis</button>
       </form>
@@ -39,18 +39,18 @@
 
     <Modal :open="settingsOpen" title="Réglages des notes" @close="settingsOpen = false">
       <form class="space-y-4" @submit.prevent="saveSettings">
-        <p class="text-sm text-gray-500">
+        <p class="text-sm text-slate-600">
           Note sur les {{ settings.window_days || 90 }} derniers jours : clients {{ pct(settings.weights?.recipient) }}, e-commerçants {{ pct(settings.weights?.merchant) }}, responsables {{ pct(settings.weights?.manager) }}.
           Elle est lissée : un livreur avec peu d'avis reste proche de 4.
         </p>
         <label class="flex gap-3 text-sm">
           <input v-model="draft.ask_recipient_rating" type="checkbox" class="mt-1">
-          <span><b>Demander l'avis du client après la livraison</b><br><span class="text-gray-500">Un message WhatsApp : répondre de 1 à 5, ou noter en détail par un lien.</span></span>
+          <span><b>Demander l'avis du client après la livraison</b><br><span class="text-slate-600">Un message WhatsApp : répondre de 1 à 5, ou noter en détail par un lien.</span></span>
         </label>
         <div>
           <label class="label" for="rating-threshold">Seuil d'alerte</label>
           <input id="rating-threshold" v-model.number="draft.rating_alert_threshold" type="number" min="1" max="5" step="0.1" class="input">
-          <p class="mt-1 text-xs text-gray-500">Un livreur dont la note passe sous ce seuil est signalé dans la liste.</p>
+          <p class="mt-1 text-xs text-slate-600">Un livreur dont la note passe sous ce seuil est signalé dans la liste.</p>
         </div>
         <button class="btn-primary w-full">Enregistrer</button>
       </form>

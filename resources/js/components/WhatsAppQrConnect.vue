@@ -4,7 +4,7 @@
       <h2 class="font-semibold">Connexion par QR code</h2>
       <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', STATUS[qr.status][1]]">{{ STATUS[qr.status][0] }}</span>
     </div>
-    <p class="text-sm text-gray-600">
+    <p class="text-sm text-slate-600">
       En attendant que Meta valide votre numéro, reliez-le comme WhatsApp Web : scannez le QR code depuis votre téléphone.
       Les messages partent alors de ce numéro, et vos e-commerçants peuvent créer leurs courses en vous écrivant.
     </p>
@@ -17,7 +17,7 @@
     <div v-if="qr.status === 'connected'" class="space-y-2">
       <p class="text-sm">
         ✅ Relié au numéro <strong>{{ qr.phone }}</strong><span v-if="qr.name"> ({{ qr.name }})</span>
-        <span v-if="qr.connected_at" class="text-gray-500"> depuis le {{ dateTime(qr.connected_at) }}</span>.
+        <span v-if="qr.connected_at" class="text-slate-600"> depuis le {{ dateTime(qr.connected_at) }}</span>.
       </p>
       <button type="button" class="btn-secondary text-red-700" :disabled="busy" @click="disconnect">Déconnecter ce numéro</button>
     </div>
@@ -25,7 +25,7 @@
     <!-- QR code à scanner -->
     <div v-else-if="qr.qr" class="flex flex-wrap items-start gap-4">
       <img :src="qr.qr" alt="QR code WhatsApp à scanner" class="h-64 w-64 rounded-lg border bg-white p-2">
-      <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+      <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
         <li>Ouvrez WhatsApp sur le téléphone du numéro à relier.</li>
         <li>Touchez ⋮ (ou Réglages), puis « Appareils connectés ».</li>
         <li>Touchez « Connecter un appareil » et scannez ce QR code.</li>
@@ -35,11 +35,11 @@
 
     <div v-else class="space-y-2">
       <p v-if="qr.last_error" class="text-sm text-amber-700">{{ qr.last_error }}</p>
-      <p v-if="qr.status === 'pending' && qr.service" class="text-sm text-gray-500">Préparation du QR code…</p>
+      <p v-if="qr.status === 'pending' && qr.service" class="text-sm text-slate-600">Préparation du QR code…</p>
       <button type="button" class="btn-success" :disabled="busy || !qr.available" @click="start">
         {{ qr.status === 'disconnected' ? 'Reconnecter par QR code' : 'Afficher le QR code' }}
       </button>
-      <p v-if="!qr.available" class="text-xs text-gray-500">Le service WhatsApp n'est pas encore installé sur le serveur.</p>
+      <p v-if="!qr.available" class="text-xs text-slate-600">Le service WhatsApp n'est pas encore installé sur le serveur.</p>
     </div>
   </section>
 </template>

@@ -11,7 +11,7 @@
       </div>
     </div>
     <label class="mt-2 flex items-center gap-2 text-sm"><input v-model="form.cash_alert_courier" type="checkbox"> Rappel au livreur par WhatsApp</label>
-    <p class="text-xs text-gray-500 mt-1">
+    <p class="text-xs text-slate-600 mt-1">
       Alerte aux administrateurs et caissiers dans l'application, une fois par livreur et par jour ; le livreur apparaît
       « à surveiller » dans la caisse. 0 heure et plafond vide = pas d'alerte.
     </p>
@@ -21,7 +21,7 @@
       <input :id="`cash-close${uid}`" v-model="form.cash_close_reminder_at" type="time" class="input w-32">
     </div>
     <label class="mt-2 flex items-center gap-2 text-sm"><input v-model="form.cash_close_summary" type="checkbox"> Envoyer le résumé de la clôture aux administrateurs par WhatsApp</label>
-    <p class="text-xs text-gray-500 mt-1">
+    <p class="text-xs text-slate-600 mt-1">
       Rappel dans l'application aux administrateurs et caissiers si la journée n'est pas clôturée (une fois par jour).
       Heure vide = pas de rappel. Le résumé arrive aussi dans la cloche.
     </p>

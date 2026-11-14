@@ -2,7 +2,7 @@
   <div>
     <label class="label" :for="id">{{ label }}</label>
     <input :id="id" v-bind="$attrs" :value="modelValue" :class="['input', isChanged && 'ring-2 ring-amber-400 bg-amber-50']" @input="update($event.target.value)">
-    <p v-if="isChanged && before !== '' && before !== null && before !== undefined" class="text-xs text-gray-400 line-through">{{ before }}</p>
+    <p v-if="isChanged && before !== '' && before !== null && before !== undefined" class="text-xs text-slate-600 line-through">{{ before }}</p>
   </div>
 </template>
 

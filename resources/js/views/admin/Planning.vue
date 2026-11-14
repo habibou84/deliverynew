@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h1 v-if="!embedded" class="text-xl font-bold">📅 Planning des livreurs</h1>
-        <p class="text-sm text-gray-600">Qui ramasse et qui livre où et quand. Livreur absent ou en pause : son remplaçant prend le relais.</p>
+        <p class="text-sm text-slate-600">Qui ramasse et qui livre où et quand. Livreur absent ou en pause : son remplaçant prend le relais.</p>
       </div>
       <button class="btn-primary" @click="openRule()">+ Nouvelle règle</button>
     </div>
@@ -32,19 +32,19 @@
       <input v-model="date" type="date" class="input w-auto" aria-label="Jour" @change="load">
       <button class="btn-secondary" aria-label="Jour suivant" @click="shift(1)">→</button>
       <button v-if="date !== today" class="btn-secondary" @click="date = today; load()">Aujourd'hui</button>
-      <span class="text-gray-600">{{ longDay(date) }}</span>
+      <span class="text-slate-600">{{ longDay(date) }}</span>
     </div>
 
     <template v-if="board">
       <!-- Ce jour-là : qui couvre quoi -->
       <section v-for="type in dayTypes" :key="type" class="card p-4 space-y-3">
         <h2 class="font-semibold">{{ TYPES[type] }}s ce jour-là</h2>
-        <p v-if="!rulesOfDay(type).length" class="text-sm text-gray-500">Aucune règle ne s'applique ce jour-là.</p>
+        <p v-if="!rulesOfDay(type).length" class="text-sm text-slate-600">Aucune règle ne s'applique ce jour-là.</p>
         <ul class="divide-y">
           <li v-for="r in rulesOfDay(type)" :key="r.id" class="py-2 flex flex-wrap items-center justify-between gap-2">
             <span class="min-w-0">
               <span class="block font-medium">{{ r.label.split(' · ')[0] }}</span>
-              <span class="block text-xs text-gray-500">{{ r.when }}</span>
+              <span class="block text-xs text-slate-600">{{ r.when }}</span>
             </span>
             <span v-if="r.covering === 'courier'" class="rounded-full bg-emerald-50 px-2 py-0.5 text-sm font-medium text-emerald-800">🛵 {{ r.courier.name }}</span>
             <span v-else-if="r.covering === 'backup'" class="rounded-full bg-amber-50 px-2 py-0.5 text-sm font-medium text-amber-800" :title="`${r.courier.name} absent ou en pause`">🔁 {{ r.backup.name }} (remplace {{ r.courier.name }})</span>
@@ -63,17 +63,17 @@
             </p>
             <input v-model="gapSearch" type="search" class="input sm:w-56" placeholder="Chercher un client" aria-label="Chercher un client sans ramasseur">
           </div>
-          <p v-if="!gapZones.length" class="text-sm text-gray-600">Aucun client ne correspond.</p>
+          <p v-if="!gapZones.length" class="text-sm text-slate-600">Aucun client ne correspond.</p>
           <details v-for="g in gapZones" :key="g.zone?.id || 0" class="rounded-lg border border-slate-200 bg-white" :open="g.waiting > 0">
             <summary class="flex cursor-pointer flex-wrap items-center gap-2 px-3 py-2">
               <span class="font-semibold">{{ g.zone?.name || 'Sans zone' }}</span>
               <span v-if="g.waiting" class="rounded-full bg-red-600 px-2 text-xs font-semibold text-white">{{ g.waiting }} colis</span>
-              <span class="text-xs text-gray-600"><template v-if="g.merchants.length">{{ g.merchants.length }} client{{ g.merchants.length > 1 ? 's' : '' }} à ramasser</template><template v-if="g.merchants.length && g.others.length"> · </template><template v-if="g.others.length">{{ g.others.length }} habituel{{ g.others.length > 1 ? 's' : '' }} sans colis</template></span>
+              <span class="text-xs text-slate-600"><template v-if="g.merchants.length">{{ g.merchants.length }} client{{ g.merchants.length > 1 ? 's' : '' }} à ramasser</template><template v-if="g.merchants.length && g.others.length"> · </template><template v-if="g.others.length">{{ g.others.length }} habituel{{ g.others.length > 1 ? 's' : '' }} sans colis</template></span>
               <span class="flex-1" />
               <button v-if="g.zone" type="button" class="text-sm font-medium text-red-800 underline" @click.prevent="openGapRule({ zone: g.zone })">Règle pour la zone</button>
             </summary>
             <table v-if="g.merchants.length" class="w-full text-sm stack-table">
-              <thead class="bg-slate-50 text-left text-gray-600">
+              <thead class="bg-slate-50 text-left text-slate-600">
                 <tr><th class="p-2">Client</th><th class="p-2 text-right">Colis à ramasser</th><th class="p-2">Ramasse d'habitude</th><th class="p-2" /></tr>
               </thead>
               <tbody class="divide-y">
@@ -85,7 +85,7 @@
                 </tr>
               </tbody>
             </table>
-            <p v-if="g.others.length" class="border-t px-3 py-2 text-xs text-gray-600">
+            <p v-if="g.others.length" class="border-t px-3 py-2 text-xs text-slate-600">
               Habituels sans colis pour l'instant : {{ g.others.map((m) => m.name).join(', ') }}
             </p>
           </details>
@@ -95,16 +95,16 @@
       <!-- Toutes les règles -->
       <section class="card p-4 space-y-3">
         <h2 class="font-semibold">Règles</h2>
-        <p v-if="!board.rules.length" class="text-sm text-gray-500">Aucune règle. Exemple : « Awa ramasse à Cocody, tous les jours », « Yacouba ramasse chez Boutique Chic, le lundi et le jeudi ».</p>
+        <p v-if="!board.rules.length" class="text-sm text-slate-600">Aucune règle. Exemple : « Awa ramasse à Cocody, tous les jours », « Yacouba ramasse chez Boutique Chic, le lundi et le jeudi ».</p>
         <ul class="divide-y">
           <li v-for="r in board.rules" :key="r.id" :class="['py-2 flex flex-wrap items-center justify-between gap-2', r.is_active ? '' : 'opacity-50']">
             <span class="min-w-0">
-              <span class="block font-medium">🛵 {{ r.courier.name }}<span v-if="r.backup" class="font-normal text-gray-600"> · remplaçant {{ r.backup.name }}</span></span>
-              <span class="block text-sm text-gray-700">{{ TYPES[r.type] }} : {{ r.label }}</span>
-              <span v-if="r.note" class="block text-xs text-gray-500">{{ r.note }}</span>
+              <span class="block font-medium">🛵 {{ r.courier.name }}<span v-if="r.backup" class="font-normal text-slate-600"> · remplaçant {{ r.backup.name }}</span></span>
+              <span class="block text-sm text-slate-700">{{ TYPES[r.type] }} : {{ r.label }}</span>
+              <span v-if="r.note" class="block text-xs text-slate-600">{{ r.note }}</span>
             </span>
             <span class="flex gap-2 text-sm">
-              <span v-if="!r.is_active" class="text-gray-500">en pause</span>
+              <span v-if="!r.is_active" class="text-slate-600">en pause</span>
               <button class="text-blue-600" @click="openRule(r)">Modifier</button>
               <button class="text-red-700" @click="removeRule(r)">Supprimer</button>
             </span>
@@ -130,7 +130,7 @@
         </form>
         <ul v-if="board.absences.length" class="divide-y text-sm">
           <li v-for="a in board.absences" :key="a.id" class="py-2 flex flex-wrap items-center justify-between gap-2">
-            <span>{{ a.courier.name }} · du {{ shortDate(a.starts_on) }} au {{ shortDate(a.ends_on) }}<span v-if="a.reason" class="text-gray-500"> · {{ a.reason }}</span>
+            <span>{{ a.courier.name }} · du {{ shortDate(a.starts_on) }} au {{ shortDate(a.ends_on) }}<span v-if="a.reason" class="text-slate-600"> · {{ a.reason }}</span>
               <span v-if="a.current" class="ml-1 rounded-full bg-amber-100 px-1.5 text-xs text-amber-800">ce jour-là</span></span>
             <button class="text-red-700" @click="removeAbsence(a)">Retirer</button>
           </li>
@@ -145,7 +145,7 @@
           <div class="flex gap-2">
             <button v-for="(label, value) in TYPES" :key="value" type="button" :class="['rounded-full px-3 py-1 text-sm ring-1', form.type === value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" @click="setType(value)">{{ label }}s</button>
           </div>
-          <p v-if="form.type === 'delivery'" class="text-xs text-gray-500 mt-1">Utilisé par la livraison du jour même automatique : il livre ces zones avant les autres livreurs.</p>
+          <p v-if="form.type === 'delivery'" class="text-xs text-slate-600 mt-1">Utilisé par la livraison du jour même automatique : il livre ces zones avant les autres livreurs.</p>
         </fieldset>
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
@@ -156,7 +156,7 @@
             />
           </div>
           <div>
-            <label class="label" for="r-backup">Remplaçant <span class="font-normal text-gray-500">(facultatif)</span></label>
+            <label class="label" for="r-backup">Remplaçant <span class="font-normal text-slate-600">(facultatif)</span></label>
             <SearchSelect
               id="r-backup" v-model="form.backup_courier_id" placeholder="Aucun" :empty-value="null"
               :options="couriers.filter((c) => c.id !== form.courier_id).map((c) => ({ value: c.id, label: c.name, search: c.phone }))"
@@ -174,9 +174,9 @@
             <label v-for="o in options" :key="o.id" class="flex items-center gap-2 text-sm">
               <input v-model="form[form.target === 'zones' ? 'zone_ids' : 'merchant_ids']" type="checkbox" :value="o.id"> {{ o.name }}
             </label>
-            <p v-if="!options.length" class="text-sm text-gray-500">Aucun résultat.</p>
+            <p v-if="!options.length" class="text-sm text-slate-600">Aucun résultat.</p>
           </div>
-          <p v-if="form.target === 'zones'" class="text-xs text-gray-500">Une commune couvre tous ses quartiers. Une règle pour un client passe avant celle de sa zone.</p>
+          <p v-if="form.target === 'zones'" class="text-xs text-slate-600">Une commune couvre tous ses quartiers. Une règle pour un client passe avant celle de sa zone.</p>
         </fieldset>
 
         <fieldset class="space-y-2">
@@ -194,10 +194,10 @@
             du <input v-model="form.starts_on" type="date" class="input w-auto" aria-label="Du" required>
             au <input v-model="form.ends_on" type="date" class="input w-auto" aria-label="Au" required>
           </div>
-          <p class="text-xs text-gray-500">Une date précise passe avant une période, avant certains jours, avant « tous les jours » : pratique pour un remplacement.</p>
+          <p class="text-xs text-slate-600">Une date précise passe avant une période, avant certains jours, avant « tous les jours » : pratique pour un remplacement.</p>
         </fieldset>
 
-        <div><label class="label" for="r-note">Note <span class="font-normal text-gray-500">(facultatif)</span></label><input id="r-note" v-model="form.note" class="input" maxlength="160"></div>
+        <div><label class="label" for="r-note">Note <span class="font-normal text-slate-600">(facultatif)</span></label><input id="r-note" v-model="form.note" class="input" maxlength="160"></div>
         <label class="flex items-center gap-2 text-sm"><input v-model="form.is_active" type="checkbox"> Règle en service</label>
 
         <p v-if="form.error" class="field-error">{{ form.error }}</p>

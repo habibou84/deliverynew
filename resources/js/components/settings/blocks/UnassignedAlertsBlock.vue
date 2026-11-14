@@ -1,6 +1,6 @@
 <template>
   <SettingsBlock title="Courses sans livreur" :panel="panel">
-    <p v-if="panel" class="text-xs text-gray-500">0 = pas d'alerte.</p>
+    <p v-if="panel" class="text-xs text-slate-600">0 = pas d'alerte.</p>
     <div :class="['grid gap-3', panel ? '' : 'sm:grid-cols-2']">
       <div>
         <label class="label" :for="`pickup-alert${uid}`">Sans livreur de ramassage depuis plus de (minutes)</label>

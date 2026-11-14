@@ -14,7 +14,7 @@
         <template #delivered_rate="{ row }"><span :class="row.delivered_rate !== null && row.delivered_rate < 75 ? 'text-red-600' : ''">{{ row.delivered_rate === null ? '—' : `${row.delivered_rate} %` }}</span></template>
       </SortableTable>
       <section class="card space-y-3 p-4">
-        <h2 class="font-semibold">Meilleurs moments du live <span class="text-sm font-normal text-slate-500">· commandes par tranche de 5 minutes</span></h2>
+        <h2 class="font-semibold">Meilleurs moments du live <span class="text-sm font-normal text-slate-600">· commandes par tranche de 5 minutes</span></h2>
         <BarList :items="moments" :color="SERIES[2] || SERIES[0]" empty="Pas encore de commande en live." />
       </section>
     </div>

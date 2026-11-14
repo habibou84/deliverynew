@@ -13,7 +13,7 @@
         <RouterLink :to="`${base}/notifications`" class="relative h-11 w-11 grid place-items-center rounded-full active:bg-white/15" aria-label="Notifications">
           <span v-if="colorful" class="text-2xl leading-none" aria-hidden="true">🔔</span>
           <svg v-else viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 003.4 0" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          <span v-if="notifications.unread" class="absolute top-1.5 right-1.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-[11px] font-bold grid place-items-center">{{ notifications.unread > 9 ? '9+' : notifications.unread }}</span>
+          <span v-if="notifications.unread" class="absolute top-1.5 right-1.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-xs font-bold grid place-items-center">{{ notifications.unread > 9 ? '9+' : notifications.unread }}</span>
         </RouterLink>
       </div>
       <div v-if="!pwa.online" class="bg-amber-500 text-amber-950 text-center text-sm font-medium py-1.5">
@@ -44,15 +44,15 @@
           <RouterLink
             v-else
             :to="tab.to"
-            class="flex-1 h-full flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium"
+            class="flex-1 h-full flex flex-col items-center justify-center gap-0.5 text-xs font-medium"
             :style="isActive(tab) ? { color } : {}"
-            :class="isActive(tab) ? '' : 'text-slate-500'"
+            :class="isActive(tab) ? '' : 'text-slate-600'"
           >
             <span class="relative">
               <!-- Icône en couleur (application marchand), plus pâle quand l'onglet n'est pas ouvert -->
               <span v-if="tab.emoji" :class="['block text-2xl leading-6 transition', isActive(tab) ? 'scale-110' : 'opacity-70 grayscale-[35%]']" aria-hidden="true">{{ tab.emoji }}</span>
               <component :is="tab.icon" v-else class="h-6 w-6" />
-              <span v-if="tab.badge" class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold grid place-items-center">{{ tab.badge }}</span>
+              <span v-if="tab.badge" class="absolute -top-1 -right-2 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-xs font-bold grid place-items-center">{{ tab.badge }}</span>
             </span>
             {{ tab.label }}
           </RouterLink>
@@ -72,7 +72,7 @@
           @click="menuOpen = false"
         >
           <span class="text-2xl" aria-hidden="true">{{ item.icon }}</span>
-          <span><span class="block font-semibold">{{ item.label }}</span><span :class="['text-sm', i === 0 ? 'opacity-85' : 'text-slate-500']">{{ item.text }}</span></span>
+          <span><span class="block font-semibold">{{ item.label }}</span><span :class="['text-sm', i === 0 ? 'opacity-85' : 'text-slate-600']">{{ item.text }}</span></span>
         </RouterLink>
       </div>
     </BottomSheet>

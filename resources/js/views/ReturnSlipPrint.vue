@@ -3,7 +3,7 @@
     <div class="no-print mb-4 flex flex-wrap gap-2 items-center">
       <button class="btn-primary" @click="print">🖨️ Imprimer</button>
       <button class="btn-secondary" @click="$router.back()">← Retour</button>
-      <span class="text-sm text-gray-500">Format A4 · à faire signer par le marchand à la remise</span>
+      <span class="text-sm text-slate-600">Format A4 · à faire signer par le marchand à la remise</span>
     </div>
 
     <div class="bg-white text-black border border-black p-6 space-y-4">

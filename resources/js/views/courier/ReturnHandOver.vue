@@ -1,7 +1,7 @@
 <template>
   <div v-if="slip" class="space-y-4">
     <section class="m-card p-4 space-y-1">
-      <p class="text-xs text-slate-500">Bon de retour {{ slip.reference }}</p>
+      <p class="text-xs text-slate-600">Bon de retour {{ slip.reference }}</p>
       <p class="text-lg font-semibold">🏪 {{ slip.merchant.business_name }}</p>
       <a :href="telLink(slip.merchant.phone)" class="text-blue-600">{{ slip.merchant.phone }}</a>
       <p class="text-sm text-slate-600">{{ [slip.merchant.zone, slip.merchant.address].filter(Boolean).join(' · ') }}</p>
@@ -19,7 +19,7 @@
             <input v-model="selected" type="checkbox" :value="o.id" class="h-5 w-5">
             <span class="flex-1 min-w-0">
               <span class="block font-medium truncate">{{ o.recipient_name || o.recipient_phone }}</span>
-              <span class="block text-xs text-slate-500">{{ o.tracking_code }} · {{ o.incident || o.status_label }}</span>
+              <span class="block text-xs text-slate-600">{{ o.tracking_code }} · {{ o.incident || o.status_label }}</span>
             </span>
           </label>
         </div>
@@ -48,7 +48,7 @@
     </form>
   </div>
   <p v-else-if="error" class="text-center text-red-600 py-8">{{ error }}</p>
-  <p v-else class="text-center text-slate-400 py-10">Chargement…</p>
+  <p v-else class="text-center text-slate-600 py-10">Chargement…</p>
 </template>
 
 <script setup>

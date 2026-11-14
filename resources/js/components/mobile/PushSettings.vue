@@ -5,7 +5,7 @@
         <ColorIcon name="cloche" :size="40" />
         <div class="min-w-0">
           <p class="font-medium">Notifications sur ce téléphone</p>
-          <p class="text-sm text-slate-500">{{ status }}</p>
+          <p class="text-sm text-slate-600">{{ status }}</p>
         </div>
       </div>
       <button

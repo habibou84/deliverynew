@@ -13,7 +13,7 @@
       >
         <ColorIcon :name="t.icon" :size="46" />
         <span class="text-[14.5px] font-bold text-slate-900">{{ t.label }}</span>
-        <span v-if="t.text" class="text-[12px] leading-tight text-slate-500">{{ t.text }}</span>
+        <span v-if="t.text" class="text-xs leading-tight text-slate-600">{{ t.text }}</span>
         <span v-if="t.warn" class="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-orange-500" aria-label="À compléter" />
       </component>
     </div>

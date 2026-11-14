@@ -4,7 +4,7 @@
       <div class="flex justify-center"><BrandLogo size="md" dark /></div>
 
       <div class="mt-6 rounded-3xl bg-white text-slate-900 shadow-2xl p-6 md:p-8 space-y-5">
-        <p v-if="loading" class="text-center text-slate-500">Un instant…</p>
+        <p v-if="loading" class="text-center text-slate-600">Un instant…</p>
 
         <div v-else-if="invalid" class="text-center space-y-3">
           <p class="text-3xl" aria-hidden="true">⌛</p>
@@ -40,7 +40,7 @@
               <input v-model="withPassword" type="checkbox" class="mt-1 h-4 w-4 rounded border-slate-300">
               <span class="text-sm">
                 <span class="font-semibold text-slate-700">Choisir un mot de passe maintenant (facultatif)</span>
-                <span class="block text-slate-500">Sans mot de passe, vous vous connecterez par WhatsApp. Vous pourrez en définir un plus tard.</span>
+                <span class="block text-slate-600">Sans mot de passe, vous vous connecterez par WhatsApp. Vous pourrez en définir un plus tard.</span>
               </span>
             </label>
             <template v-if="withPassword">

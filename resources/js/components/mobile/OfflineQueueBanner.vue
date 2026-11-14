@@ -14,7 +14,7 @@
       <li v-for="a in offlineQueue.rejected" :key="a.id" class="m-card p-3 space-y-1">
         <p class="font-medium">{{ a.tracking_code || `Course n° ${a.order_id}` }} · {{ describe(a) }}</p>
         <p class="text-sm text-red-700">{{ a.message }}</p>
-        <p class="text-xs text-slate-400">Faite le {{ new Date(a.occurred_at).toLocaleString('fr-FR') }}</p>
+        <p class="text-xs text-slate-600">Faite le {{ new Date(a.occurred_at).toLocaleString('fr-FR') }}</p>
         <button type="button" class="text-sm font-medium text-slate-600 underline" @click="dismissRejected(a.id)">J'ai compris</button>
       </li>
     </ul>

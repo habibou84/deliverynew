@@ -2,7 +2,7 @@
   <section v-if="state" class="card p-4 space-y-3">
     <div>
       <h2 class="font-semibold">Recomparaison avec l'ancienne application</h2>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Demande à l'ancienne application les commandes créées ou modifiées depuis la date choisie (les nouvelles arrivent
         dans Jibiat), puis relit les courses déjà là, des plus récentes aux plus anciennes : les modifiées sont mises à jour, les commandes
         supprimées là-bas sont annulées sans message quand aucun argent n'est en jeu, sinon mises de côté pour que vous
@@ -13,26 +13,26 @@
     <div v-if="running" class="space-y-1">
       <template v-if="last.phase === 'pull'">
         <p class="text-sm">🔎 1/2 · Commandes créées ou modifiées dans l'ancienne application : {{ last.counts.pulled }} lues ({{ last.counts.created }} nouvelles, {{ last.counts.updated }} mises à jour)</p>
-        <div class="h-2 rounded bg-slate-200"><div class="h-2 w-1/12 animate-pulse rounded bg-emerald-600" /></div>
+        <div class="h-2 rounded bg-slate-200"><div class="h-2 w-1/12 animate-pulse rounded bg-emerald-700" /></div>
       </template>
       <template v-else>
         <p class="text-sm">🔎 2/2 · Courses déjà dans Jibiat, des plus récentes aux plus anciennes : {{ last.done }} / {{ last.total }} relues</p>
-        <div class="h-2 rounded bg-slate-200"><div class="h-2 rounded bg-emerald-600" :style="{ width: `${last.total ? Math.round(last.done * 100 / last.total) : 3}%` }" /></div>
+        <div class="h-2 rounded bg-slate-200"><div class="h-2 rounded bg-emerald-700" :style="{ width: `${last.total ? Math.round(last.done * 100 / last.total) : 3}%` }" /></div>
       </template>
-      <p class="text-xs text-gray-500">Vous pouvez quitter la page : la recomparaison continue sur le serveur.</p>
+      <p class="text-xs text-slate-600">Vous pouvez quitter la page : la recomparaison continue sur le serveur.</p>
     </div>
     <div v-else class="flex flex-wrap items-end gap-3">
       <label class="text-sm font-medium">Comparer les commandes à partir du
         <input v-model="since" type="date" class="input mt-1 block" :max="todayIso" @change="load">
-        <span v-if="state.default_since" class="mt-1 block text-xs font-normal text-gray-500">
+        <span v-if="state.default_since" class="mt-1 block text-xs font-normal text-slate-600">
           Par défaut : {{ date(state.default_since) }} (premier lancement de la reprise)
           <button v-if="since !== state.default_since" type="button" class="underline" @click="since = state.default_since; load()">remettre</button>
         </span>
       </label>
-      <p class="basis-full text-sm text-gray-600">D'abord les commandes créées ou modifiées là-bas{{ since ? ` depuis le ${date(since)}` : '' }}, puis {{ state.count }} course(s) déjà dans Jibiat relues.</p>
+      <p class="basis-full text-sm text-slate-600">D'abord les commandes créées ou modifiées là-bas{{ since ? ` depuis le ${date(since)}` : '' }}, puis {{ state.count }} course(s) déjà dans Jibiat relues.</p>
       <button type="button" class="btn-secondary" :disabled="busy" @click="start">Lancer la recomparaison</button>
     </div>
-    <p v-if="!running" class="text-xs text-gray-500">Date de création de la commande dans l'ancienne application. Les commandes plus anciennes déjà terminées ne sont pas relues ; celles encore en cours le sont chaque nuit.</p>
+    <p v-if="!running" class="text-xs text-slate-600">Date de création de la commande dans l'ancienne application. Les commandes plus anciennes déjà terminées ne sont pas relues ; celles encore en cours le sont chaque nuit.</p>
 
     <div v-if="last && !running" class="rounded-lg bg-slate-50 p-3 text-sm space-y-1">
       <p v-if="last.status === 'failed'" class="font-medium text-red-700">Recomparaison arrêtée : {{ last.error }}</p>
@@ -41,7 +41,7 @@
           {{ last.source === 'nightly' ? 'Relecture de la nuit' : 'Recomparaison' }}<template v-if="last.since"> depuis le {{ date(last.since) }}</template>, faite le {{ dateTime(last.finished_at || last.started_at) }}<template v-if="last.by"> par {{ last.by }}</template>
           <template v-if="last.status === 'undone'"> (annulations défaites le {{ dateTime(last.undone_at) }})</template>
         </p>
-        <ul class="list-disc pl-5 text-gray-700">
+        <ul class="list-disc pl-5 text-slate-700">
           <li v-if="last.source !== 'nightly'">{{ last.counts.created }} nouvelle(s) commande(s) ajoutée(s) depuis l'ancienne application</li>
           <li>{{ last.counts.updated }} modifiée(s) mises à jour · {{ last.counts.unchanged }} sans changement<template v-if="last.counts.conflict"> · {{ last.counts.conflict }} modifiée(s) après la bascule (non recopiées)</template></li>
           <li>{{ last.counts.deleted_cancelled }} supprimée(s) annulée(s) · {{ last.counts.deleted_to_check }} à vérifier · {{ last.counts.deleted_closed }} déjà terminée(s)</li>

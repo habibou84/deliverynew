@@ -3,14 +3,14 @@
     <div>
       <RouterLink to="/admin/reglages/reprise/controles" class="text-sm font-medium text-emerald-700">‹ Contrôles et ménage</RouterLink>
       <h1 class="text-xl font-bold">Tarifs proposés</h1>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Les prix de l'ancienne application (un prix par destination), placés sur les lieux standard. Rien ne s'applique
         tant que vous n'avez pas validé ; les courses déjà créées gardent leur prix. Valider crée un groupe « depuis
         partout » dans Tarifs, modifiable ensuite.
       </p>
     </div>
 
-    <p v-if="!state" class="text-gray-500">Chargement…</p>
+    <p v-if="!state" class="text-slate-600">Chargement…</p>
     <template v-else>
       <div class="card flex flex-wrap items-center gap-3 p-4">
         <label class="flex items-center gap-2 text-sm font-medium">Grille
@@ -22,7 +22,7 @@
         <button v-if="state.groups.length > 1" type="button" class="btn-primary" :disabled="busy" @click="applyAll">Tout valider ({{ state.groups.length }} groupes)</button>
       </div>
 
-      <p v-if="!state.groups.length && !state.unlinked.length" class="card p-4 text-sm text-gray-600">
+      <p v-if="!state.groups.length && !state.unlinked.length" class="card p-4 text-sm text-slate-600">
         Aucun prix de l'ancienne application à proposer. Les prix arrivent avec l'envoi des zones depuis l'ancienne
         application (page « Migration vers Jibiat », Envoyer) : relancer l'envoi ne crée pas de doublon.
       </p>
@@ -30,8 +30,8 @@
       <div v-if="state.groups.length" class="card divide-y">
         <div v-for="g in state.groups" :key="g.price" class="flex flex-wrap items-center gap-3 p-3">
           <div class="w-28 font-semibold">À {{ money(g.price) }}</div>
-          <div class="min-w-[14rem] flex-1 text-sm text-gray-700">
-            <span v-for="(z, i) in g.zones" :key="z.id">{{ i ? ' · ' : '' }}{{ z.old_name !== z.label ? `${z.old_name} → ` : '' }}{{ z.label }}<span v-if="z.in_group" class="text-xs text-gray-500"> (déjà dans un groupe)</span></span>
+          <div class="min-w-[14rem] flex-1 text-sm text-slate-700">
+            <span v-for="(z, i) in g.zones" :key="z.id">{{ i ? ' · ' : '' }}{{ z.old_name !== z.label ? `${z.old_name} → ` : '' }}{{ z.label }}<span v-if="z.in_group" class="text-xs text-slate-600"> (déjà dans un groupe)</span></span>
           </div>
           <label class="flex items-center gap-1 rounded border px-2 text-sm">
             <input v-model.number="prices[g.price]" type="number" min="0" inputmode="numeric" :aria-label="`Prix Jibiat des lieux à ${g.price} F`" class="w-20 border-0 py-2 text-right font-bold">F

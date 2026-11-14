@@ -50,7 +50,7 @@
         v-for="t in tabs"
         :key="t.key"
         :data-tab="t.key"
-        :class="['-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium', tab === t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-800']"
+        :class="['-mb-px whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium', tab === t.key ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-600 hover:text-slate-800']"
         @click="selectTab(t.key)"
       >{{ t.label }}<span v-if="t.locked" class="ml-1" aria-label="non inclus dans votre formule">🔒</span></button>
     </nav>
@@ -68,7 +68,7 @@
 
     <p v-if="error" class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">{{ error }}</p>
     <Highlights v-if="!current?.locked" :items="data[tab]?.highlights" />
-    <p v-if="loading && ENDPOINTS[tab] && !data[tab]" class="text-slate-500">Chargement…</p>
+    <p v-if="loading && ENDPOINTS[tab] && !data[tab]" class="text-slate-600">Chargement…</p>
 
     <!-- Vue d'ensemble -->
     <template v-if="tab === 'overview' && data.overview">
@@ -84,7 +84,7 @@
         </template>
         <KpiTile title="Retours et annulations" :value="ov.kpis.returned + ov.kpis.cancelled" :previous="ov.previous_kpis.returned + ov.previous_kpis.cancelled" :higher-is-better="false" />
       </div>
-      <p class="text-xs text-slate-500">Comparaison avec le {{ date(ov.previous_period.from) }} – {{ date(ov.previous_period.to) }}.</p>
+      <p class="text-xs text-slate-600">Comparaison avec le {{ date(ov.previous_period.from) }} – {{ date(ov.previous_period.to) }}.</p>
 
       <section class="card p-4 space-y-2">
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -119,7 +119,7 @@
           <ColumnChart :labels="ov.series.map((d) => d.date)" :values="ov.series.map((d) => d.revenue)" label="Chiffre d'affaires" :format="(v, full) => (full ? money(v) : compact(v))" aria-label="Chiffre d'affaires par jour" />
         </section>
         <section class="card p-4 space-y-2">
-          <h2 class="font-semibold">Heures de pointe <span class="text-sm font-normal text-slate-500">· courses créées</span></h2>
+          <h2 class="font-semibold">Heures de pointe <span class="text-sm font-normal text-slate-600">· courses créées</span></h2>
           <Heatmap :data="ov.heatmap" aria-label="Courses créées par jour de la semaine et par heure" />
         </section>
       </div>
@@ -141,13 +141,13 @@
         </section>
 
         <section class="card p-4 space-y-3">
-          <h2 class="font-semibold">Délais habituels <span class="text-sm font-normal text-slate-500">· médiane des courses livrées</span></h2>
+          <h2 class="font-semibold">Délais habituels <span class="text-sm font-normal text-slate-600">· médiane des courses livrées</span></h2>
           <dl class="grid grid-cols-3 gap-3 text-center">
-            <div class="rounded bg-slate-50 p-3"><dt class="text-xs text-slate-500">Création → ramassage</dt><dd class="text-lg font-bold">{{ duration(dl.delays.to_pickup) }}</dd></div>
-            <div class="rounded bg-slate-50 p-3"><dt class="text-xs text-slate-500">Ramassage → livraison</dt><dd class="text-lg font-bold">{{ duration(dl.delays.pickup_to_delivery) }}</dd></div>
-            <div class="rounded bg-slate-50 p-3"><dt class="text-xs text-slate-500">Délai total</dt><dd class="text-lg font-bold">{{ duration(dl.delays.total) }}</dd></div>
+            <div class="rounded bg-slate-50 p-3"><dt class="text-xs text-slate-600">Création → ramassage</dt><dd class="text-lg font-bold">{{ duration(dl.delays.to_pickup) }}</dd></div>
+            <div class="rounded bg-slate-50 p-3"><dt class="text-xs text-slate-600">Ramassage → livraison</dt><dd class="text-lg font-bold">{{ duration(dl.delays.pickup_to_delivery) }}</dd></div>
+            <div class="rounded bg-slate-50 p-3"><dt class="text-xs text-slate-600">Délai total</dt><dd class="text-lg font-bold">{{ duration(dl.delays.total) }}</dd></div>
           </dl>
-          <p class="text-xs text-slate-500">La médiane : la moitié des courses va plus vite, l'autre moitié plus lentement. Elle n'est pas faussée par quelques courses reportées.</p>
+          <p class="text-xs text-slate-600">La médiane : la moitié des courses va plus vite, l'autre moitié plus lentement. Elle n'est pas faussée par quelques courses reportées.</p>
 
           <h3 class="pt-2 text-sm font-semibold">Issues sur la période</h3>
           <ul class="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
@@ -182,7 +182,7 @@
             </tr>
           </thead>
           <tbody class="divide-y">
-            <tr v-for="r in sortedCouriers" :key="r.id" :class="r.active ? '' : 'text-slate-400'">
+            <tr v-for="r in sortedCouriers" :key="r.id" :class="r.active ? '' : 'text-slate-600'">
               <td class="p-2 font-medium">{{ r.name }}<span v-if="!r.active" class="ml-1 text-xs">(inactif)</span></td>
               <td class="p-2 text-right font-semibold">{{ r.delivered }}</td>
               <td class="p-2 text-right">{{ r.pickups }}</td>
@@ -198,20 +198,20 @@
               <td class="p-2 text-right">{{ r.per_day === null ? '—' : r.per_day.toLocaleString('fr-FR') }}</td>
               <template v-if="withAmounts">
                 <td class="p-2 text-right">{{ money(r.collected) }}</td>
-                <td :class="['p-2 text-right', r.cash_gap < 0 ? 'text-red-600' : 'text-slate-400']">{{ r.cash_gap ? money(r.cash_gap) : '—' }}</td>
+                <td :class="['p-2 text-right', r.cash_gap < 0 ? 'text-red-600' : 'text-slate-600']">{{ r.cash_gap ? money(r.cash_gap) : '—' }}</td>
                 <td class="p-2 text-right">{{ money(r.earnings) }}</td>
               </template>
             </tr>
-            <tr v-if="!cr.couriers.length"><td :colspan="courierColumns.length" class="p-6 text-center text-slate-500">Aucun livreur.</td></tr>
+            <tr v-if="!cr.couriers.length"><td :colspan="courierColumns.length" class="p-6 text-center text-slate-600">Aucun livreur.</td></tr>
           </tbody>
         </table>
       </section>
-      <p class="text-xs text-slate-500">Délai : médiane entre le ramassage et la livraison. ▲ ▼ : réussite face à la période précédente. Écart de caisse : manques constatés aux versements de la période. Gains : paie enregistrée sur la période.</p>
+      <p class="text-xs text-slate-600">Délai : médiane entre le ramassage et la livraison. ▲ ▼ : réussite face à la période précédente. Écart de caisse : manques constatés aux versements de la période. Gains : paie enregistrée sur la période.</p>
 
       <section class="card space-y-2 p-4">
-        <h2 class="font-semibold">Charge de travail <span class="text-sm font-normal text-slate-500">· livraisons par jour et par heure</span></h2>
+        <h2 class="font-semibold">Charge de travail <span class="text-sm font-normal text-slate-600">· livraisons par jour et par heure</span></h2>
         <Heatmap :data="cr.workload" aria-label="Livraisons par jour de la semaine et par heure" />
-        <p class="text-xs text-slate-500">Les cases les plus foncées sont les moments où l'équipe est la plus chargée : prévoir des livreurs en renfort.</p>
+        <p class="text-xs text-slate-600">Les cases les plus foncées sont les moments où l'équipe est la plus chargée : prévoir des livreurs en renfort.</p>
       </section>
     </template>
 
@@ -334,7 +334,7 @@ function printPage() {
 function trendOf(r) {
   if (r.success_rate === null || r.previous_success_rate === null || r.previous_success_rate === undefined) return null
   const diff = r.success_rate - r.previous_success_rate
-  if (Math.abs(diff) < 3) return { icon: '=', cls: 'text-slate-400', title: 'Stable' }
+  if (Math.abs(diff) < 3) return { icon: '=', cls: 'text-slate-600', title: 'Stable' }
   return diff > 0
     ? { icon: '▲', cls: 'text-emerald-700', title: `+${Math.round(diff)} pt` }
     : { icon: '▼', cls: 'text-red-600', title: `${Math.round(diff)} pt` }

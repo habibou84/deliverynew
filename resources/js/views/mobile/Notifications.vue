@@ -14,7 +14,7 @@
       <span class="flex-1">
         <span class="block font-semibold">{{ n.title }}</span>
         <span class="block text-sm text-slate-600">{{ n.body }}</span>
-        <span class="block text-xs text-slate-400 mt-1">{{ dateTime(n.created_at) }}</span>
+        <span class="block text-xs text-slate-600 mt-1">{{ dateTime(n.created_at) }}</span>
       </span>
     </button>
   </div>

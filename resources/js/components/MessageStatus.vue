@@ -13,7 +13,7 @@ const CLASSES = {
   queued: 'bg-slate-100 text-slate-700',
   sent: 'bg-sky-100 text-sky-800',
   delivered: 'bg-emerald-100 text-emerald-800',
-  read: 'bg-emerald-600 text-white',
+  read: 'bg-emerald-700 text-white',
   failed: 'bg-red-100 text-red-800',
 }
 </script>

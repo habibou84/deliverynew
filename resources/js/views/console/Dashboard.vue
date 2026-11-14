@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-end justify-between gap-2">
       <div>
         <h1 class="text-xl font-bold">Tableau de bord de la plateforme</h1>
-        <p class="text-sm text-gray-600">{{ PERIODS.find((p) => p.value === period)?.hint }} · mis à jour {{ updatedAt ? dateTime(updatedAt) : '…' }}</p>
+        <p class="text-sm text-slate-600">{{ PERIODS.find((p) => p.value === period)?.hint }} · mis à jour {{ updatedAt ? dateTime(updatedAt) : '…' }}</p>
       </div>
       <div class="flex gap-1 text-sm">
         <button
@@ -14,29 +14,29 @@
       </div>
     </div>
 
-    <p v-if="loading && !data" class="text-gray-500">Chargement…</p>
+    <p v-if="loading && !data" class="text-slate-600">Chargement…</p>
 
     <template v-if="data">
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Revenu facturé</p>
+          <p class="text-sm text-slate-600">Revenu facturé</p>
           <p class="text-2xl font-bold">{{ money(data.kpis.revenue.value) }}</p>
           <p class="text-xs"><Change :value="data.kpis.revenue.change" /> · encaissé {{ money(data.kpis.collected) }}</p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Reste à encaisser</p>
+          <p class="text-sm text-slate-600">Reste à encaisser</p>
           <p :class="['text-2xl font-bold', data.kpis.receivable.late ? 'text-amber-700' : '']">{{ money(data.kpis.receivable.value) }}</p>
-          <p class="text-xs text-gray-500">{{ data.kpis.receivable.invoices }} facture(s) · {{ data.kpis.receivable.late }} en retard</p>
+          <p class="text-xs text-slate-600">{{ data.kpis.receivable.invoices }} facture(s) · {{ data.kpis.receivable.late }} en retard</p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Courses</p>
+          <p class="text-sm text-slate-600">Courses</p>
           <p class="text-2xl font-bold">{{ data.kpis.orders.value.toLocaleString('fr-FR') }}</p>
           <p class="text-xs"><Change :value="data.kpis.orders.change" /> · {{ data.kpis.orders.today }} aujourd'hui</p>
         </div>
         <div class="card p-4">
-          <p class="text-sm text-gray-500">Entreprises actives</p>
+          <p class="text-sm text-slate-600">Entreprises actives</p>
           <p class="text-2xl font-bold">{{ data.kpis.companies.active }}</p>
-          <p class="text-xs text-gray-500">+{{ data.kpis.companies.new }} sur la période · {{ data.kpis.companies.on_trial }} en essai</p>
+          <p class="text-xs text-slate-600">+{{ data.kpis.companies.new }} sur la période · {{ data.kpis.companies.on_trial }} en essai</p>
         </div>
       </div>
 
@@ -49,7 +49,7 @@
               :style="{ height: `${Math.max(2, (point.orders / maxOrders) * 100)}%` }" :title="`${label(point.date)} : ${point.orders} course(s)`"
             ></div>
           </div>
-          <div v-if="data.series.length" class="mt-1 flex justify-between text-xs text-gray-400">
+          <div v-if="data.series.length" class="mt-1 flex justify-between text-xs text-slate-600">
             <span>{{ label(data.series[0].date) }}</span><span>{{ label(data.series.at(-1).date) }}</span>
           </div>
         </div>
@@ -74,9 +74,9 @@
 
       <div class="card overflow-x-auto p-4">
         <p class="mb-2 font-semibold">Entreprises les plus actives</p>
-        <p v-if="!data.top.length" class="text-sm text-gray-500">Aucune course sur la période.</p>
+        <p v-if="!data.top.length" class="text-sm text-slate-600">Aucune course sur la période.</p>
         <table v-else class="w-full min-w-[36rem] text-sm">
-          <thead class="text-left text-gray-500"><tr><th class="py-1">Entreprise</th><th>Courses</th><th>Évolution</th><th>Livreurs actifs</th><th>Formule</th><th>Facture</th></tr></thead>
+          <thead class="text-left text-slate-600"><tr><th class="py-1">Entreprise</th><th>Courses</th><th>Évolution</th><th>Livreurs actifs</th><th>Formule</th><th>Facture</th></tr></thead>
           <tbody class="divide-y">
             <tr v-for="c in data.top" :key="c.id">
               <td class="py-2 font-medium"><RouterLink :to="`/console/entreprises/${c.id}`" class="hover:underline">{{ c.name }}</RouterLink></td>
@@ -114,7 +114,7 @@ const INVOICE = {
 
 // Évolution par rapport à la période précédente de même durée
 const Change = (props) => props.value === null || props.value === undefined
-  ? h('span', { class: 'text-gray-400' }, '—')
+  ? h('span', { class: 'text-slate-600' }, '—')
   : h('span', { class: props.value >= 0 ? 'text-emerald-700' : 'text-red-600' }, `${props.value >= 0 ? '▲ +' : '▼ '}${props.value} %`)
 Change.props = ['value']
 

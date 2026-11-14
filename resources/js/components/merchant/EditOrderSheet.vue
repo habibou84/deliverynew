@@ -33,7 +33,7 @@
         <label class="m-label" for="me-amount">Montant des articles (F)</label>
         <input id="me-amount" v-model.number="form.items_amount" type="number" min="0" inputmode="numeric" :class="['m-input', changed('items_amount') && hl]">
       </div>
-      <p v-else class="text-[12.5px] text-slate-500">🔒 Colis déjà récupéré : seule la livraison se modifie.</p>
+      <p v-else class="text-[12.5px] text-slate-600">🔒 Colis déjà récupéré : seule la livraison se modifie.</p>
 
       <div v-if="preview && (preview.fees.from !== preview.fees.to || preview.cod.from !== preview.cod.to)" class="rounded-2xl bg-[#EEF4FF] p-3 text-[13px] text-[#1E3A8A]">
         💰 <template v-if="preview.fees.from !== preview.fees.to">Livraison : {{ money(preview.fees.from) }} → <b>{{ money(preview.fees.to) }}</b><br></template>

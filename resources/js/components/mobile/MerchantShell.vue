@@ -9,7 +9,7 @@
         <RouterLink v-else :to="`${base}/profil`" class="h-10 w-10 shrink-0 rounded-2xl bg-brand-grad grid place-items-center text-[13px] font-extrabold text-white" aria-label="Mon profil">{{ initials }}</RouterLink>
         <div class="min-w-0 flex-1 pl-1">
           <h1 class="truncate text-[17px] font-bold leading-tight text-slate-900">{{ title }}</h1>
-          <p v-if="subtitle" class="truncate text-[12.5px] leading-tight text-slate-500 first-letter:uppercase">{{ subtitle }}</p>
+          <p v-if="subtitle" class="truncate text-[12.5px] leading-tight text-slate-600 first-letter:uppercase">{{ subtitle }}</p>
         </div>
         <RouterLink v-if="!route.meta.back" :to="`${base}/courses?chercher=1`" class="h-10 w-10 shrink-0 grid place-items-center rounded-full bg-white shadow-soft text-slate-600 active:scale-95 transition" aria-label="Rechercher une course">
           <AppIcon name="search" class="h-5 w-5" :stroke="2.2" />
@@ -51,12 +51,12 @@
           :to="tab.to"
           class="flex-1 flex flex-col items-center justify-center gap-0.5 text-[11.5px] font-semibold"
           :style="isActive(tab) ? { color } : {}"
-          :class="isActive(tab) ? '' : 'text-slate-500'"
+          :class="isActive(tab) ? '' : 'text-slate-600'"
         >
           <span :class="['relative h-8 w-14 grid place-items-center rounded-full transition-colors', isActive(tab) ? 'bg-brand-soft' : '']">
             <ColorIcon v-if="isActive(tab) && tab.color" :name="tab.color" :size="26" :tile="false" />
             <AppIcon v-else :name="tab.icon" class="h-6 w-6" :stroke="1.9" />
-            <span v-if="tab.badge" class="absolute -top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-[#E54A6E] text-white text-[10px] font-bold grid place-items-center">{{ tab.badge }}</span>
+            <span v-if="tab.badge" class="absolute -top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-[#E54A6E] text-white text-xs font-bold grid place-items-center">{{ tab.badge }}</span>
           </span>
           {{ tab.label }}
         </RouterLink>
@@ -74,7 +74,7 @@
           @click="menuOpen = false"
         >
           <ColorIcon :name="item.color" :size="52" />
-          <span class="min-w-0"><span class="block text-[15.5px] font-bold text-slate-900">{{ item.label }}</span><span class="text-[13px] text-slate-500">{{ item.text }}</span></span>
+          <span class="min-w-0"><span class="block text-[15.5px] font-bold text-slate-900">{{ item.label }}</span><span class="text-[13px] text-slate-600">{{ item.text }}</span></span>
         </RouterLink>
       </div>
     </BottomSheet>

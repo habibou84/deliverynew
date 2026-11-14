@@ -15,7 +15,7 @@
           <BrandLogo v-if="nativeApp" size="lg" :with-name="false" />
           <div>
             <h1 class="text-[28px] md:text-3xl font-extrabold tracking-tight">Bienvenue 👋</h1>
-            <p class="mt-1 text-slate-500">Connectez-vous à votre espace e&#8209;commerçant.</p>
+            <p class="mt-1 text-slate-600">Connectez-vous à votre espace e&#8209;commerçant.</p>
           </div>
           <LoginForm tone="merchant" />
           <div v-if="branding.signup_open" class="text-center text-sm text-slate-600">
@@ -46,7 +46,7 @@
               <span :class="['h-9 w-9 shrink-0 rounded-xl grid place-items-center', b.tone]"><AppIcon :name="b.icon" class="h-[18px] w-[18px]" /></span>
               <span>
                 <span class="block text-sm font-bold">{{ b.title }}</span>
-                <span class="block text-[13px] text-slate-500">{{ b.text }}</span>
+                <span class="block text-[13px] text-slate-600">{{ b.text }}</span>
               </span>
             </li>
           </ul>
@@ -94,7 +94,7 @@
         </div>
         <div class="space-y-2 text-sm md:text-right">
           <p>Application mobile : ouvrez ce site sur votre téléphone ; la page vous guide pour l'installer.</p>
-          <p class="text-slate-500">© {{ year }} {{ branding.name }}</p>
+          <p class="text-slate-400">© {{ year }} {{ branding.name }}</p>
         </div>
       </div>
     </footer>
