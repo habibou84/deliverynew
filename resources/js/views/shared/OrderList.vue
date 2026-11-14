@@ -4,8 +4,8 @@
       <h1 class="text-xl font-bold">Courses</h1>
       <div class="flex items-center gap-2">
         <SettingsShortcut v-if="isStaff" compact :blocks="['validation', 'editApproval', 'day', 'autoPickup', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/reglages/courses" />
-        <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/import`" class="btn-secondary">📥 Importer</RouterLink>
-        <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/nouvelle`" :class="['btn-primary', isStaff ? 'hidden md:inline-flex' : '']">+ Nouvelle course</RouterLink>
+        <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/import`" class="btn-secondary"><Icone nom="importer" /> Importer</RouterLink>
+        <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/nouvelle`" :class="['btn-primary', isStaff ? 'hidden md:inline-flex' : '']"><Icone nom="ajouter" /> Nouvelle course</RouterLink>
       </div>
     </div>
 
@@ -16,10 +16,10 @@
 
     <!-- Jour affiché : aujourd'hui par défaut (retards à part), gardé d'un onglet à l'autre -->
     <div v-if="isStaff" class="flex flex-wrap items-center gap-2 text-sm" role="group" aria-label="Jour affiché">
-      <span class="text-slate-600">📅 Jour :</span>
+      <span class="font-medium text-slate-700">Jour :</span>
       <button
         v-for="d in DAY_CHOICES" :key="d.label" type="button"
-        :class="['rounded-full px-3 py-1 ring-1', filters.day === d.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
+        :class="['rounded-full px-3 py-1 ring-1', filters.day === d.value ? 'bg-[var(--admin-color,#0f172a)] text-white ring-transparent font-semibold' : 'bg-white ring-slate-400 hover:bg-slate-50']"
         :aria-pressed="filters.day === d.value"
         @click="setDay(d.value)"
       >
@@ -31,7 +31,7 @@
         aria-label="Autre jour" title="Autre jour"
         @change="$event.target.value && setDay($event.target.value)"
       >
-      <span v-if="filters.day" class="hidden sm:inline text-slate-600">· seulement les courses prévues ce jour (jours passés dans « Courses non traitées »)</span>
+      <span v-if="filters.day" class="hidden sm:inline text-slate-600">· seulement les courses prévues ce jour (jours passés dans « Courses en retard »)</span>
     </div>
 
     <!-- Point du jour : livrées, recette, encaissé, à reverser -->
@@ -42,7 +42,7 @@
       v-if="isStaff && untreatedCount" to="/admin/courses/en-retard"
       class="card flex items-center gap-3 border-red-300 bg-red-50 px-3 py-2 text-red-900 hover:bg-red-100"
     >
-      <span class="text-2xl" aria-hidden="true">⏳</span>
+      <Icone nom="retard" class="text-red-700" />
       <span class="min-w-0 flex-1 text-sm"><b>{{ untreatedCount }} course{{ untreatedCount > 1 ? 's' : '' }} non traitée{{ untreatedCount > 1 ? 's' : '' }}</b> : date de livraison dépassée, pas encore livrée{{ untreatedCount > 1 ? 's' : '' }}, retournée{{ untreatedCount > 1 ? 's' : '' }} ni annulée{{ untreatedCount > 1 ? 's' : '' }}</span>
       <span class="text-sm font-semibold underline">Voir</span>
     </RouterLink>
@@ -52,7 +52,7 @@
       v-if="isStaff && rescheduleCount" to="/admin/courses/en-retard?onglet=pas-ramassees"
       class="card flex items-center gap-3 border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 hover:bg-amber-100"
     >
-      <span class="text-2xl" aria-hidden="true">⏰</span>
+      <Icone nom="attente" class="text-amber-800" />
       <span class="min-w-0 flex-1 text-sm"><b>{{ rescheduleCount }} colis à reporter</b> : pas ramassé{{ rescheduleCount > 1 ? 's' : '' }} à la date prévue, caché{{ rescheduleCount > 1 ? 's' : '' }} chez les livreurs jusqu'à la nouvelle date</span>
       <span class="text-sm font-semibold underline">Voir</span>
     </RouterLink>
@@ -65,28 +65,17 @@
         :aria-pressed="filters.queue === e.value"
         @click="setQueue(filters.queue === e.value ? '' : e.value)"
       >
-        <b>{{ e.icon }} {{ e.count }} {{ e.count > 1 ? e.plural : e.label }}</b>
-        <span class="block text-xs opacity-90">{{ e.hint }}</span>
+        <b class="flex items-center gap-1.5"><Icone :nom="e.icon" taille="petite" /> {{ e.count }} {{ e.count > 1 ? e.plural : e.label }}</b>
+        <span class="block text-sm">{{ e.hint }}</span>
       </button>
     </div>
 
     <!-- Onglets : les courses du jour choisi (toutes les dates si « Toutes les dates ») -->
-    <div v-if="isStaff" class="flex gap-2 overflow-x-auto no-scrollbar pb-1 md:flex-wrap md:overflow-visible">
-      <button
-        v-for="q in mainQueues"
-        :key="q.value"
-        :class="['btn whitespace-nowrap', isActiveTab(q.value) ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300']"
-        @click="setQueue(q.value)"
-      >
-        {{ q.label }}
-        <span v-if="tabCount(q.value)" :class="['ml-1 rounded-full px-1.5 text-xs font-semibold', isActiveTab(q.value) ? 'bg-white/20' : 'bg-slate-100 text-slate-700']">{{ tabCount(q.value) }}</span>
-        <span
-          v-if="tabLate(q.value)"
-          class="ml-1 rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white"
-          :title="`${tabLate(q.value)} course(s) sans livreur depuis trop longtemps`"
-        >⏰ {{ tabLate(q.value) }}</span>
-      </button>
-    </div>
+    <Onglets
+      v-if="isStaff" label="Files de courses" :model-value="filters.queue"
+      :items="mainQueues.map((q) => ({ value: q.value, label: q.label, count: tabCount(q.value), late: tabLate(q.value), lateTitle: 'en attente de livreur depuis trop longtemps' }))"
+      @update:model-value="setQueue"
+    />
 
     <!-- Sans livreur : ramassage, livraison ou les deux ; de la plus ancienne attente à la plus récente -->
     <div v-if="filters.queue === 'unassigned'" class="flex flex-wrap items-center gap-2 text-sm">
@@ -108,7 +97,7 @@
         · <button type="button" class="font-medium underline" @click="toggleLater">Afficher</button>
       </template>
       <template v-else>
-        Courses prévues plus tard affichées (étiquette 📅)
+        Courses prévues plus tard affichées (étiquette « plus tard »)
         · <button type="button" class="font-medium underline" @click="toggleLater">Masquer</button>
       </template>
     </p>
@@ -147,7 +136,7 @@
           <div>
             <p class="label">Période <span class="font-normal text-slate-600">(remplace le jour)</span></p>
             <select v-if="isStaff" v-model="filters.date_basis" class="input mb-2" aria-label="Dates selon" @change="filters.from || filters.to ? onPeriod() : null">
-              <option value="delivery">📅 Selon la livraison</option>
+              <option value="delivery">Selon la livraison</option>
               <option value="created">🆕 Selon la création</option>
             </select>
             <div class="grid grid-cols-2 gap-2">
@@ -175,7 +164,7 @@
         />
         <!-- Dates : jour de livraison prévu (par défaut) ou jour de création ; l'e-commerçant voit toujours le jour de livraison -->
         <select v-if="isStaff" v-model="filters.date_basis" class="input" aria-label="Dates selon" title="Dates : jour de livraison prévu ou jour de création" @change="filters.from || filters.to ? onPeriod() : null">
-          <option value="delivery">📅 Livraison</option>
+          <option value="delivery">Livraison</option>
           <option value="created">🆕 Création</option>
         </select>
         <input v-model="filters.from" type="date" class="input" :aria-label="filters.date_basis === 'created' ? 'Créées à partir du' : 'À livrer à partir du'" :title="filters.date_basis === 'created' ? 'Créées à partir du' : 'À livrer à partir du'" @change="onPeriod">
@@ -192,7 +181,7 @@
         <span class="text-sm font-medium">{{ selected.length }} sélectionnée(s)</span>
         <template v-if="auth.can('orders.dispatch') && pendingSelected.length">
           <button class="btn-success" :disabled="confirming" @click="bulkConfirm">
-            {{ confirming ? 'Validation…' : `✅ Valider (${pendingSelected.length})` }}
+            {{ confirming ? 'Validation…' : `Valider (${pendingSelected.length})` }}
           </button>
           <span class="mx-1 h-6 w-px bg-blue-200" aria-hidden="true" />
         </template>
@@ -204,13 +193,13 @@
         </select>
         <SearchSelect
           v-model="bulk.courier_id" input-class="input w-auto min-w-[14rem]" placeholder="Livreur…" :allow-empty="false" :empty-value="null" aria-label="Livreur"
-          :options="couriers.map((c) => ({ value: c.id, label: c.name, hint: `${c.active_assignments_count} en cours${c.is_available ? '' : ' · indisponible'}${(c.vehicle_warnings || []).some((w) => w.level === 'alert') ? ' · 🚨 ' + c.vehicle_warnings.filter((w) => w.level === 'alert').map((w) => w.text).join(', ') : ''}`, search: c.phone }))"
+          :options="couriers.map((c) => ({ value: c.id, label: c.name, hint: `${c.active_assignments_count} en cours${c.is_available ? '' : ' · indisponible'}${(c.vehicle_warnings || []).some((w) => w.level === 'alert') ? ' · alerte : ' + c.vehicle_warnings.filter((w) => w.level === 'alert').map((w) => w.text).join(', ') : ''}`, search: c.phone }))"
         />
         <button class="btn-primary" :disabled="!bulk.courier_id || assigning" @click="bulkAssign">Assigner</button>
         <button v-if="auth.can('orders.dispatch') && withCourierSelected.length" class="btn-secondary text-red-700" :disabled="assigning" @click="bulkUnassign">
           Retirer le livreur ({{ withCourierSelected.length }})
         </button>
-        <button class="btn-secondary" title="Imprimer les étiquettes des courses sélectionnées" @click="printLabels(selected)">🖨️ Étiquettes</button>
+        <button class="btn-secondary" title="Imprimer les étiquettes des courses sélectionnées" @click="printLabels(selected)"><Icone nom="imprimer" /> Étiquettes</button>
         <button class="btn-secondary" @click="selected = []">Annuler</button>
       </div>
 
@@ -222,7 +211,7 @@
           v-for="o in orders"
           v-else
           :key="o.id"
-          :class="['card p-3 space-y-1.5 cursor-pointer', returnPending(o) ? 'border-l-4 border-l-rose-500' : '', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : returnPending(o) ? 'bg-rose-50/60' : '']"
+          :class="['card p-3 space-y-1.5 cursor-pointer', returnPending(o) ? 'border-l-4 border-l-red-500' : '', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : returnPending(o) ? 'bg-red-50/60' : '']"
           @click="open(o)"
         >
           <div class="flex items-center justify-between gap-2">
@@ -238,21 +227,21 @@
               <div class="font-medium truncate">{{ o.recipient.name || '—' }}</div>
               <div class="text-xs text-slate-600">{{ o.recipient.phone }}</div>
             </div>
-            <a v-if="o.recipient.phone" :href="`tel:${o.recipient.phone}`" class="tap shrink-0 grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-lg" :aria-label="`Appeler ${o.recipient.name || 'le destinataire'}`" @click.stop>📞</a>
+            <a v-if="o.recipient.phone" :href="`tel:${o.recipient.phone}`" class="tap shrink-0 grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-lg" :aria-label="`Appeler ${o.recipient.name || 'le destinataire'}`" @click.stop><Icone nom="appeler" /></a>
           </div>
           <div class="text-xs text-slate-600">{{ o.pickup.zone_name }} → {{ o.delivery.zone_name }}<span v-if="isStaff && o.merchant"> · {{ o.merchant.business_name }}</span></div>
           <OrderStatusCell :order="o" :late="isLate(o)" :late-day="deliveryDay(o)" @decide="deciding = $event" />
           <CourierCell v-if="o.pickup_courier || o.delivery_courier || o.held_by || (isDispatch && o.awaiting_courier)" :order="o" :couriers="couriers" :can-dispatch="isDispatch" class="text-slate-700" @updated="replaceOrder" />
           <div class="text-xs text-slate-600">Livraison {{ date(o.delivery.scheduled_date || o.created_at) }} · créée {{ dateTime(o.created_at) }}</div>
           <div v-if="o.pending_change && isDispatch" class="flex gap-2 pt-1" @click.stop>
-            <span class="flex-1 text-xs text-amber-800">✏️ {{ changeSummary(o) }}</span>
+            <span class="flex-1 text-xs text-amber-800">Modification demandée : {{ changeSummary(o) }}</span>
             <button class="btn-primary !py-1 text-xs" @click="decideChange(o, 'approve')">Valider</button>
             <button class="btn-secondary !py-1 text-xs" @click="decideChange(o, 'refuse')">Refuser</button>
           </div>
           <button v-else-if="canEdit(o)" type="button" class="btn-secondary w-full !py-1.5 text-sm" @click.stop="editing = o">
-            ✏️ {{ o.edit_scope === 'all' ? 'Modifier' : 'Modifier la livraison' }}
+            <Icone nom="modifier" taille="petite" /> {{ o.edit_scope === 'all' ? 'Modifier' : 'Modifier la livraison' }}
           </button>
-          <p v-else-if="o.status === 'out_for_delivery'" class="text-xs text-slate-600">🔒 En route vers le client, plus modifiable</p>
+          <p v-else-if="o.status === 'out_for_delivery'" class="flex items-center gap-1 text-xs text-slate-600"><Icone nom="verrou" taille="petite" /> En route vers le client, plus modifiable</p>
         </article>
       </div>
 
@@ -279,11 +268,11 @@
               v-for="o in orders"
               v-else
               :key="o.id"
-              :class="['hover:bg-slate-50 cursor-pointer', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : returnPending(o) ? 'bg-rose-50/60 shadow-[inset_4px_0_0_#f43f5e]' : '']"
+              :class="['hover:bg-slate-50 cursor-pointer', highlighted === o.id ? 'bg-yellow-50' : o.awaiting_courier?.late ? 'bg-red-50/70' : returnPending(o) ? 'bg-red-50/60 shadow-[inset_4px_0_0_#f43f5e]' : '']"
               @click="open(o)"
             >
               <td v-if="isStaff" class="p-2" @click.stop><input v-model="selected" type="checkbox" :value="o.id" :aria-label="`Sélectionner ${o.tracking_code}`"></td>
-              <td class="p-2 font-mono text-xs">{{ o.tracking_code }}<span v-if="o.legacy_id" class="ml-1 rounded-full bg-violet-100 px-1.5 py-0.5 font-sans text-xs font-semibold text-violet-800" :title="`Reprise de l'ancienne application, n° ${o.legacy_id}`">anc. {{ o.legacy_id }}</span></td>
+              <td class="p-2 font-mono text-xs">{{ o.tracking_code }}<span v-if="o.legacy_id" class="ml-1 rounded-full bg-blue-100 px-1.5 py-0.5 font-sans text-xs font-semibold text-blue-800" :title="`Reprise de l'ancienne application, n° ${o.legacy_id}`">anc. {{ o.legacy_id }}</span></td>
               <td v-if="isStaff" class="p-2">{{ o.merchant?.business_name }}</td>
               <td :class="['p-2', canEdit(o) && 'editable-cell']" :title="canEdit(o) ? 'Modifier le client' : null" @click="editField(o, 'recipient', $event)">
                 <div>{{ o.recipient.name || '—' }}</div>
@@ -313,8 +302,8 @@
                   class="inline-grid h-8 w-8 place-items-center rounded-lg border border-slate-300 bg-white hover:bg-slate-900 hover:text-white"
                   :title="o.edit_scope === 'all' ? 'Modifier la course' : 'Modifier la livraison (colis déjà récupéré)'" :aria-label="`Modifier ${o.tracking_code}`"
                   @click="editing = o"
-                >✏️</button>
-                <span v-else-if="o.status === 'out_for_delivery'" class="text-xs text-slate-600" title="Le livreur est en route vers le client">🔒</span>
+                ><Icone nom="modifier" taille="petite" /></button>
+                <span v-else-if="o.status === 'out_for_delivery'" class="text-xs text-slate-600" title="Le livreur est en route vers le client"><Icone nom="verrou" taille="petite" class="inline" /><span class="sr-only">En route vers le client, plus modifiable</span></span>
               </td>
             </tr>
           </tbody>
@@ -350,6 +339,8 @@ import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
 import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
 import { confirmDialog, promptDialog } from '../../composables/useDialog'
+import Icone from '../../components/ui/Icone.vue'
+import Onglets from '../../components/ui/Onglets.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -375,35 +366,35 @@ const initialDay = () => {
 const WORK_QUEUES = ['to_pickup', 'by_client', 'to_prepare', 'to_deliver', 'unassigned']
 const LATER_QUEUES = { to_pickup: 'à ramasser', by_client: 'à ramasser', to_prepare: 'à préparer', unassigned: 'à ramasser' }
 
+// Onglets dans l'ordre du travail (le parcours du colis), « Toutes » en dernier (charte, composant Onglets)
 const queues = [
-  { value: '', label: 'Toutes' },
-  // Retours demandés par les e-commerçants
-  { value: 'to_return', label: '↩️ À retourner' },
   { value: 'to_confirm', label: 'À valider' },
+  { value: 'unassigned', label: 'Sans livreur' },
   { value: 'to_pickup', label: 'À ramasser' },
-  { value: 'by_client', label: '🏪 Ramassages par client' },
+  { value: 'by_client', label: 'Ramassages par client' },
   // Commandes à préparer au dépôt de l'entreprise
-  { value: 'to_prepare', label: '📦 À préparer' },
-  { value: 'unassigned', label: '🛵 Sans livreur' },
-  { value: 'failed', label: '❌ Échec' },
-  // Files hors onglets : cartes « à régler » et liens directs
-  { value: 'late', label: '⏳ En retard' },
+  { value: 'to_prepare', label: 'À préparer' },
+  { value: 'failed', label: 'Échecs' },
+  // Retours demandés par les e-commerçants
+  { value: 'to_return', label: 'À retourner' },
+  { value: '', label: 'Toutes' },
+  // Files hors onglets : cartes « à régler » et liens directs ; « late » = attente de livreur trop longue
+  { value: 'late', label: 'Attente trop longue' },
   { value: 'to_deliver', label: 'À livrer' },
   { value: 'to_decide', label: 'À décider' },
   { value: 'scheduled', label: 'Prévues plus tard' },
   { value: 'incidents', label: 'Incidents' },
-  { value: 'code_to_verify', label: '⚠️ Codes à vérifier' },
-  { value: 'change_requests', label: '✏️ Modifications à valider' },
+  { value: 'code_to_verify', label: 'Codes à vérifier' },
+  { value: 'change_requests', label: 'Modifications à valider' },
 ]
 
-// Onglets : les courses du jour choisi ; les jours passés sont dans « Courses non traitées » (page à part)
+// Onglets : les courses du jour choisi ; les jours passés sont dans « Courses en retard » (page à part)
 const MAIN_QUEUES = ['', 'to_return', 'to_confirm', 'to_pickup', 'by_client', 'to_prepare', 'unassigned', 'failed']
 const mainQueues = computed(() => queues.filter((q) => MAIN_QUEUES.includes(q.value) && (q.value !== 'by_client' || isDispatch.value)))
-const isActiveTab = (value) => filters.queue === value
 // Cas à régler, toutes dates : en cartes de couleur au-dessus des onglets, seulement quand il y en a
 const EXCEPTIONS = [
-  { value: 'change_requests', icon: '✏️', label: 'modification à valider', plural: 'modifications à valider', hint: 'prix changé par l\'e-commerçant', class: 'border-amber-300 bg-amber-50 text-amber-900' },
-  { value: 'code_to_verify', icon: '⚠️', label: 'code à vérifier', plural: 'codes à vérifier', hint: 'livrées hors connexion avec un code faux', class: 'border-red-300 bg-red-50 text-red-900' },
+  { value: 'change_requests', icon: 'modifier', label: 'modification à valider', plural: 'modifications à valider', hint: 'prix changé par l\'e-commerçant', class: 'border-amber-200 bg-amber-50 text-amber-900' },
+  { value: 'code_to_verify', icon: 'code-a-verifier', label: 'code à vérifier', plural: 'codes à vérifier', hint: 'livrées hors connexion avec un code faux', class: 'border-red-200 bg-red-50 text-red-900' },
 ]
 const exceptionCount = (queue) => {
   if (!isDispatch.value) return 0
@@ -619,7 +610,7 @@ function open(order) {
   router.push(`${auth.homeRoute}/courses/${order.id}`)
 }
 
-// ✏️ Modifier depuis la liste : tant que la course se modifie (pas en route vers le client, pas terminée)
+// Modifier depuis la liste : tant que la course se modifie (pas en route vers le client, pas terminée)
 const editing = ref(null)
 const canEdit = (o) => !!o.edit_scope && (isStaff.value ? auth.can('orders.dispatch') : auth.can('orders.create'))
 // Clic sur une cellule modifiable (client, commune, montant, jour) : fenêtre de modification sur ce champ, sans ouvrir la fiche
@@ -690,7 +681,7 @@ async function bulkAssign() {
       Object.assign(result.warnings, data.data.warnings || {})
     }
     // Livreur absent ou hors service, colis chez un autre livreur : une fois chaque message
-    ;[...new Set(Object.values(result.warnings).flatMap((w) => w.split(/(?<=\.) /)))].forEach((w) => toasts.push(`⚠️ ${w}`, 'info', { timeout: 9000 }))
+    ;[...new Set(Object.values(result.warnings).flatMap((w) => w.split(/(?<=\.) /)))].forEach((w) => toasts.push(w, 'info', { timeout: 9000 }))
     const data = { data: result }
     const errors = Object.entries(data.data.errors)
     if (data.data.assigned.length) toasts.success(`${data.data.assigned.length} course(s) assignée(s).`)

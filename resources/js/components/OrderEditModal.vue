@@ -5,7 +5,7 @@
 
       <!-- Livraison : modifiable tant que le livreur n'est pas en route vers le client -->
       <fieldset class="rounded-lg border p-3 space-y-2">
-        <legend class="px-1 text-sm font-semibold">📍 Livraison</legend>
+        <legend class="px-1 text-sm font-semibold">Livraison</legend>
         <div class="grid gap-2 sm:grid-cols-2">
           <EditField v-model="form.recipient_name" data-field="recipient" label="Nom du client" :before="initial.recipient_name" />
           <EditField v-model="form.recipient_phone" label="Téléphone du client" :before="initial.recipient_phone" required />
@@ -14,7 +14,7 @@
             <label class="label" for="edit-zone">Commune / quartier</label>
             <SearchSelect
               id="edit-zone" v-model="form.delivery_zone_id" :input-class="['input', changed('delivery_zone_id') && 'ring-2 ring-amber-400 bg-amber-50']" search-placeholder="Commune, quartier…"
-              :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+              :options="zones.map((z) => ({ value: z.id, label: `${z.full_name}${z.is_shipping ? ' (expédition)' : ''}`, search: z.name }))"
             />
             <p v-if="changed('delivery_zone_id')" class="text-xs text-slate-600 line-through">{{ zoneName(initial.delivery_zone_id) }}</p>
           </div>
@@ -27,7 +27,7 @@
 
       <!-- Colis, argent et ramassage : seulement avant le ramassage -->
       <fieldset :class="['rounded-lg border p-3 space-y-2', !beforePickup && 'bg-slate-50 text-slate-600']" :disabled="!beforePickup">
-        <legend class="px-1 text-sm font-semibold">📦 Colis et argent <span v-if="!beforePickup" class="ml-1 text-xs font-medium">🔒 colis déjà récupéré</span></legend>
+        <legend class="px-1 text-sm font-semibold">Colis et argent <span v-if="!beforePickup" class="ml-1 text-xs font-medium text-slate-600">· colis déjà récupéré</span></legend>
         <div v-if="beforePickup" class="grid gap-2 sm:grid-cols-2">
           <EditField v-model.number="form.items_amount" data-field="amount" type="number" min="0" label="Montant des articles (F)" :before="initial.items_amount" />
           <div>
@@ -52,13 +52,13 @@
       </fieldset>
 
       <fieldset v-if="!order.from_warehouse" :class="['rounded-lg border p-3 space-y-2', !beforePickup && 'bg-slate-50 text-slate-600']" :disabled="!beforePickup">
-        <legend class="px-1 text-sm font-semibold">🏪 Ramassage <span v-if="!beforePickup" class="ml-1 text-xs font-medium">🔒 colis déjà récupéré</span></legend>
+        <legend class="px-1 text-sm font-semibold">Ramassage <span v-if="!beforePickup" class="ml-1 text-xs font-medium text-slate-600">· colis déjà récupéré</span></legend>
         <div v-if="beforePickup" class="grid gap-2 sm:grid-cols-2">
           <div>
             <label class="label" for="edit-pzone">Zone</label>
             <SearchSelect
               id="edit-pzone" v-model="form.pickup_zone_id" :input-class="['input', changed('pickup_zone_id') && 'ring-2 ring-amber-400 bg-amber-50']" search-placeholder="Commune, quartier…"
-              :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+              :options="zones.map((z) => ({ value: z.id, label: `${z.full_name}${z.is_shipping ? ' (expédition)' : ''}`, search: z.name }))"
             />
           </div>
           <EditField v-model="form.pickup_address" label="Adresse" :before="initial.pickup_address" />
@@ -69,10 +69,10 @@
 
       <!-- Nouveau prix avant d'enregistrer -->
       <div v-if="preview && (preview.fees.from !== preview.fees.to || preview.cod.from !== preview.cod.to)" class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-        💰 <template v-if="preview.fees.from !== preview.fees.to">Livraison : <b>{{ money(preview.fees.from) }} → {{ money(preview.fees.to) }}</b>. </template>
+        <template v-if="preview.fees.from !== preview.fees.to">Livraison : <b>{{ money(preview.fees.from) }} → {{ money(preview.fees.to) }}</b>. </template>
         Le livreur encaissera <b>{{ money(preview.cod.to) }}</b><template v-if="preview.cod.from !== preview.cod.to"> au lieu de {{ money(preview.cod.from) }}</template>.
       </div>
-      <p v-if="preview?.needs_approval" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">⏳ Votre agence valide cette modification avant qu'elle s'applique. Vous serez prévenu.</p>
+      <p v-if="preview?.needs_approval" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Votre agence valide cette modification avant qu'elle s'applique. Vous serez prévenu.</p>
 
       <label v-if="isStaff && courierName" class="flex items-center gap-2 text-sm">
         <input v-model="notifyCourier" type="checkbox"> Prévenir le livreur {{ courierName }} (notification sur son téléphone)
