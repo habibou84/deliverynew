@@ -2,8 +2,8 @@
   <section v-if="state" class="card p-4 space-y-3">
     <div>
       <h2 class="font-semibold">{{ part === 'connect' ? 'Module de bascule' : 'Date de la bascule' }}</h2>
-      <p v-if="part === 'connect'" class="text-sm text-gray-600">Le jour de la bascule, il envoie sur Jibiat, déjà connectés, les comptes qui ouvrent l'ancienne application.</p>
-      <p v-else class="text-sm text-gray-600">
+      <p v-if="part === 'connect'" class="text-sm text-slate-600">Le jour de la bascule, il envoie sur Jibiat, déjà connectés, les comptes qui ouvrent l'ancienne application.</p>
+      <p v-else class="text-sm text-slate-600">
         Le jour choisi, vos e-commerçants et vos livreurs qui ouvrent l'ancienne application arrivent directement sur Jibiat,
         déjà connectés à leur espace : pas de nouveau compte, pas de mot de passe à retaper. Avant cette date, rien ne change,
         sauf le bandeau ci-dessous si vous l'activez.
@@ -12,7 +12,7 @@
     </div>
 
     <template v-if="part === 'connect'">
-    <ol class="list-decimal space-y-1 pl-5 text-sm text-gray-700">
+    <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
       <li>
         Copiez le module dans l'ancienne application, en suivant les explications en tête du fichier :
         <button type="button" class="text-blue-600" @click="downloadModule">télécharger JibiatSwitch.php</button>.
@@ -37,21 +37,21 @@
       <template v-if="state.module.version >= state.module.latest">✅ Module à jour (version {{ state.module.version }}), vu le {{ dateTime(state.module.at) }}.</template>
       <template v-else>⚠️ Le module installé est ancien (version {{ state.module.version }}, vu le {{ dateTime(state.module.at) }}) : il ne sait pas afficher le bandeau. Téléchargez la nouvelle version et remplacez le fichier.</template>
     </p>
-    <p v-else-if="state.key_active" class="text-xs text-gray-500">Le module ne s'est pas encore manifesté : il le fait à la première page ouverte dans l'ancienne application.</p>
+    <p v-else-if="state.key_active" class="text-xs text-slate-600">Le module ne s'est pas encore manifesté : il le fait à la première page ouverte dans l'ancienne application.</p>
 
     </template>
 
     <template v-else>
-    <p class="text-sm text-gray-600">Choisissez le jour et l'heure de la bascule. Vous pouvez la déplacer ou l'annuler tant qu'elle n'a pas commencé.</p>
+    <p class="text-sm text-slate-600">Choisissez le jour et l'heure de la bascule. Vous pouvez la déplacer ou l'annuler tant qu'elle n'a pas commencé.</p>
     <div class="space-y-2 rounded-lg border p-3">
       <p v-if="state.started" class="text-sm font-medium text-emerald-700">
         🚀 Bascule commencée le {{ dateTime(state.switch_at) }} : les comptes qui ouvrent l'ancienne application arrivent sur Jibiat.
       </p>
-      <p v-if="state.started && state.ends_at" class="text-xs text-gray-600">
+      <p v-if="state.started && state.ends_at" class="text-xs text-slate-600">
         Par sécurité, la bascule s'arrête le {{ dateTime(state.ends_at) }} : ensuite, la clé ne sert plus et chacun se connecte directement sur Jibiat. Retirez alors le module de l'ancienne application.
       </p>
       <p v-else-if="state.switch_at" class="text-sm font-medium">📅 Bascule prévue le {{ dateTime(state.switch_at) }}.</p>
-      <p v-else class="text-sm text-gray-600">Aucune bascule prévue.</p>
+      <p v-else class="text-sm text-slate-600">Aucune bascule prévue.</p>
 
       <div class="flex flex-wrap items-end gap-2">
         <div>
@@ -71,7 +71,7 @@
     <!-- Avant la bascule : bandeau dans l'ancienne application -->
     <div class="space-y-2 rounded-lg border p-3">
       <h3 class="text-sm font-semibold">Montrer Jibiat dans l'ancienne application</h3>
-      <p class="text-xs text-gray-600">
+      <p class="text-xs text-slate-600">
         Un bandeau s'affiche en bas des pages de l'ancienne application. L'équipe peut ouvrir Jibiat et travailler sur
         les deux en même temps. Les e-commerçants et les livreurs ouvrent leur espace Jibiat déjà connectés, dans un
         nouvel onglet, sans quitter l'ancienne application. Le module doit être en version {{ state.module?.latest || 2 }}.
@@ -83,9 +83,9 @@
         <label class="label" for="preview-message">Message pour les e-commerçants et les livreurs (facultatif)</label>
         <input id="preview-message" v-model="preview.message" type="text" maxlength="200" class="input w-full" placeholder="Découvrez notre nouvelle application : vos courses, votre argent et vos notifications au même endroit.">
       </div>
-      <p v-if="state.started" class="text-xs text-gray-500">La bascule a commencé : les e-commerçants et les livreurs sont envoyés sur Jibiat, seul le bandeau de l'équipe reste.</p>
+      <p v-if="state.started" class="text-xs text-slate-600">La bascule a commencé : les e-commerçants et les livreurs sont envoyés sur Jibiat, seul le bandeau de l'équipe reste.</p>
       <button type="button" class="btn-primary" :disabled="busy" @click="savePreview">Enregistrer le bandeau</button>
-      <p class="text-xs text-gray-500">Le changement apparaît dans l'ancienne application en 5 minutes au plus.</p>
+      <p class="text-xs text-slate-600">Le changement apparaît dans l'ancienne application en 5 minutes au plus.</p>
     </div>
 
     <p class="text-sm">

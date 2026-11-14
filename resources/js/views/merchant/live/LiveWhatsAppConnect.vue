@@ -8,13 +8,13 @@
       <p class="mt-1.5 text-[15px] text-emerald-800">Pendant le live, les commandes arrivent toutes seules. Vous n'avez rien à faire.</p>
     </div>
     <button v-if="!compact" type="button" class="m-btn-secondary w-full !ring-0 shadow-soft" @click="$emit('next')">Étape suivante : vos produits ›</button>
-    <button v-if="!compact" type="button" class="block w-full text-center text-[14px] font-semibold text-slate-500" @click="logout">Changer de numéro</button>
+    <button v-if="!compact" type="button" class="block w-full text-center text-[14px] font-semibold text-slate-600" @click="logout">Changer de numéro</button>
   </section>
 
   <!-- À relier : 3 étapes courtes, un seul bouton (connexion officielle de WhatsApp, par Facebook) -->
   <section v-else-if="state.official?.available" class="space-y-3">
     <div class="m-card px-4 pb-1 pt-3.5">
-      <p class="text-[14px] font-extrabold uppercase tracking-wide text-slate-500">Ce qu'il vous faut</p>
+      <p class="text-[14px] font-extrabold uppercase tracking-wide text-slate-600">Ce qu'il vous faut</p>
       <ol class="divide-y divide-slate-100">
         <li v-for="(st, i) in STEPS" :key="st.title" class="flex items-start gap-3 py-3.5">
           <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[17px] font-black text-white">{{ i + 1 }}</span>

@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h1 class="text-xl font-bold">Véhicules</h1>
-        <p class="text-sm text-gray-500">Le parc, à qui chaque véhicule est confié, et les papiers à renouveler.</p>
+        <p class="text-sm text-slate-600">Le parc, à qui chaque véhicule est confié, et les papiers à renouveler.</p>
       </div>
       <button v-if="canManage" class="btn-primary" @click="openForm()">+ Ajouter un véhicule</button>
     </div>
@@ -11,22 +11,22 @@
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <div class="card p-4"><p class="text-sm text-gray-500">En service</p><p class="text-2xl font-bold">{{ counts.active }}</p></div>
-      <div class="card p-4"><p class="text-sm text-gray-500">Pas confiés</p><p class="text-2xl font-bold">{{ counts.free }}</p></div>
+      <div class="card p-4"><p class="text-sm text-slate-600">En service</p><p class="text-2xl font-bold">{{ counts.active }}</p></div>
+      <div class="card p-4"><p class="text-sm text-slate-600">Pas confiés</p><p class="text-2xl font-bold">{{ counts.free }}</p></div>
       <div :class="['card p-4', counts.expired ? 'border-red-200 bg-red-50' : '']">
-        <p :class="['text-sm', counts.expired ? 'text-red-800' : 'text-gray-500']">Papiers expirés</p>
+        <p :class="['text-sm', counts.expired ? 'text-red-800' : 'text-slate-600']">Papiers expirés</p>
         <p :class="['text-2xl font-bold', counts.expired ? 'text-red-700' : '']">{{ counts.expired }}</p>
       </div>
       <div :class="['card p-4', counts.soon ? 'border-amber-200 bg-amber-50' : '']">
-        <p :class="['text-sm', counts.soon ? 'text-amber-800' : 'text-gray-500']">À renouveler sous {{ options.warn_days || 15 }} jours</p>
+        <p :class="['text-sm', counts.soon ? 'text-amber-800' : 'text-slate-600']">À renouveler sous {{ options.warn_days || 15 }} jours</p>
         <p :class="['text-2xl font-bold', counts.soon ? 'text-amber-700' : '']">{{ counts.soon }}</p>
       </div>
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
       <div class="inline-flex rounded-lg bg-slate-100 p-1 text-sm" role="tablist">
-        <button type="button" role="tab" :aria-selected="tab === 'vehicles'" :class="['rounded-md px-3 py-1.5 font-medium', tab === 'vehicles' ? 'bg-white shadow-sm' : 'text-gray-600']" @click="tab = 'vehicles'">Véhicules ({{ vehicles.length }})</button>
-        <button type="button" role="tab" :aria-selected="tab === 'licenses'" :class="['rounded-md px-3 py-1.5 font-medium', tab === 'licenses' ? 'bg-white shadow-sm' : 'text-gray-600']" @click="tab = 'licenses'">Permis des livreurs</button>
+        <button type="button" role="tab" :aria-selected="tab === 'vehicles'" :class="['rounded-md px-3 py-1.5 font-medium', tab === 'vehicles' ? 'bg-white shadow-sm' : 'text-slate-600']" @click="tab = 'vehicles'">Véhicules ({{ vehicles.length }})</button>
+        <button type="button" role="tab" :aria-selected="tab === 'licenses'" :class="['rounded-md px-3 py-1.5 font-medium', tab === 'licenses' ? 'bg-white shadow-sm' : 'text-slate-600']" @click="tab = 'licenses'">Permis des livreurs</button>
       </div>
       <template v-if="tab === 'vehicles'">
         <input v-model.trim="filters.q" type="search" class="input w-auto flex-1 min-w-[10rem]" placeholder="Plaque, marque, livreur…" aria-label="Rechercher un véhicule">
@@ -47,8 +47,8 @@
           </AuthImage>
           <div class="min-w-0 flex-1">
             <p class="font-semibold truncate">{{ v.plate || 'Sans plaque' }}</p>
-            <p class="text-sm text-gray-600 truncate">{{ [v.type_label, v.brand, v.model, v.color].filter(Boolean).join(' · ') }}</p>
-            <p class="text-sm" :class="v.courier ? 'text-gray-800' : 'text-gray-400'">{{ v.courier ? `🛵 ${v.courier.name}` : 'Pas confié' }}</p>
+            <p class="text-sm text-slate-600 truncate">{{ [v.type_label, v.brand, v.model, v.color].filter(Boolean).join(' · ') }}</p>
+            <p class="text-sm" :class="v.courier ? 'text-slate-800' : 'text-slate-600'">{{ v.courier ? `🛵 ${v.courier.name}` : 'Pas confié' }}</p>
           </div>
           <span :class="['text-xs rounded-full px-2 py-0.5 shrink-0', STATUS_CLASS[v.status]]">{{ v.status_label }}</span>
         </div>
@@ -57,7 +57,7 @@
           <span v-for="d in v.documents" :key="d.id" :class="['text-xs rounded-full px-2 py-0.5', STATE_CLASS[d.state]]">{{ d.label }} {{ stateText(d) }}</span>
         </div>
       </button>
-      <p v-if="!shown.length" class="text-gray-500">{{ vehicles.length ? 'Aucun véhicule ne correspond.' : 'Aucun véhicule. Ajoutez le premier.' }}</p>
+      <p v-if="!shown.length" class="text-slate-600">{{ vehicles.length ? 'Aucun véhicule ne correspond.' : 'Aucun véhicule. Ajoutez le premier.' }}</p>
     </div>
 
     <!-- Permis des livreurs -->
@@ -65,14 +65,14 @@
       <div v-for="c in couriers" :key="c.id" class="flex flex-wrap items-center gap-3 p-3">
         <div class="min-w-0 flex-1">
           <p class="font-semibold">{{ c.name }}</p>
-          <p class="text-sm text-gray-500">{{ vehicleOf(c)?.label || 'Pas de véhicule confié' }}</p>
+          <p class="text-sm text-slate-600">{{ vehicleOf(c)?.label || 'Pas de véhicule confié' }}</p>
         </div>
         <span v-if="license(c)" :class="['text-xs rounded-full px-2 py-0.5', STATE_CLASS[license(c).state]]">Permis {{ stateText(license(c)) }}</span>
-        <span v-else class="text-xs rounded-full px-2 py-0.5 bg-slate-100 text-gray-600">Permis non renseigné</span>
+        <span v-else class="text-xs rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">Permis non renseigné</span>
         <button v-if="license(c)?.file_url" class="text-sm text-blue-600" @click="openFile(license(c))">Voir</button>
         <button v-if="canManage" class="btn-secondary" @click="openDocument({ courier_id: c.id }, license(c))">{{ license(c) ? 'Renouveler' : 'Ajouter' }}</button>
       </div>
-      <p v-if="!couriers.length" class="p-3 text-gray-500">Aucun livreur actif.</p>
+      <p v-if="!couriers.length" class="p-3 text-slate-600">Aucun livreur actif.</p>
     </div>
 
     <!-- Fiche du véhicule -->
@@ -86,7 +86,7 @@
             <p>{{ [detail.type_label, detail.brand, detail.model, detail.color].filter(Boolean).join(' · ') }}</p>
             <p>Propriétaire : {{ detail.owner_label }}<template v-if="detail.owner_name"> ({{ detail.owner_name }})</template></p>
             <p>État : <span :class="['rounded-full px-2 py-0.5 text-xs', STATUS_CLASS[detail.status]]">{{ detail.status_label }}</span></p>
-            <p v-if="detail.notes" class="text-gray-600">{{ detail.notes }}</p>
+            <p v-if="detail.notes" class="text-slate-600">{{ detail.notes }}</p>
             <div v-if="canManage" class="flex flex-wrap gap-3 pt-1">
               <button class="text-blue-600" @click="openForm(detail)">Modifier</button>
               <label class="text-blue-600 cursor-pointer">
@@ -107,7 +107,7 @@
             <button class="btn-primary" :disabled="busy || assignTo === (detail.courier?.id ?? null)" @click="assign">OK</button>
           </div>
           <p v-else class="text-sm">{{ detail.courier?.name || 'Personne' }}</p>
-          <p v-if="assignNote" class="text-xs text-gray-500">{{ assignNote }}</p>
+          <p v-if="assignNote" class="text-xs text-slate-600">{{ assignNote }}</p>
         </section>
 
         <section class="space-y-2">
@@ -118,20 +118,20 @@
           <p v-if="detail.insurance_state === 'missing'" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">Aucune assurance enregistrée : le dispatch le voit en orange.</p>
           <div v-for="d in (detail.all_documents || detail.documents)" :key="d.id" class="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-sm">
             <div class="min-w-0 flex-1">
-              <p class="font-medium">{{ d.label }}<span v-if="d.number" class="text-gray-500"> · n° {{ d.number }}</span></p>
-              <p class="text-xs text-gray-500">{{ d.expires_at ? `Fin le ${date(d.expires_at)}` : 'Sans date de fin' }}<template v-if="d.notes"> · {{ d.notes }}</template></p>
+              <p class="font-medium">{{ d.label }}<span v-if="d.number" class="text-slate-600"> · n° {{ d.number }}</span></p>
+              <p class="text-xs text-slate-600">{{ d.expires_at ? `Fin le ${date(d.expires_at)}` : 'Sans date de fin' }}<template v-if="d.notes"> · {{ d.notes }}</template></p>
             </div>
             <span v-if="d.state !== 'none'" :class="['text-xs rounded-full px-2 py-0.5', STATE_CLASS[d.state]]">{{ stateText(d) }}</span>
             <button v-if="d.file_url" class="text-blue-600" @click="openFile(d)">Voir</button>
             <button v-if="canManage" class="text-blue-600" @click="openDocument({ vehicle_id: detail.id }, d, true)">Modifier</button>
             <button v-if="canManage" class="text-red-600" @click="removeDocument(d)">Supprimer</button>
           </div>
-          <p v-if="!(detail.all_documents || detail.documents)?.length" class="text-sm text-gray-500">Aucun papier enregistré.</p>
+          <p v-if="!(detail.all_documents || detail.documents)?.length" class="text-sm text-slate-600">Aucun papier enregistré.</p>
         </section>
 
         <section v-if="detail.history?.length" class="space-y-1">
           <h3 class="font-semibold">Historique</h3>
-          <p v-for="(h, i) in detail.history" :key="i" class="text-sm text-gray-600">
+          <p v-for="(h, i) in detail.history" :key="i" class="text-sm text-slate-600">
             {{ h.courier || 'Livreur supprimé' }} : du {{ date(h.started_at) }} {{ h.ended_at ? `au ${date(h.ended_at)}` : 'à aujourd’hui' }}
           </p>
         </section>
@@ -169,7 +169,7 @@
           <select id="v-status" v-model="form.data.status" class="input">
             <option v-for="(label, value) in options.statuses" :key="value" :value="value">{{ label }}</option>
           </select>
-          <p v-if="form.data.status === 'retired'" class="text-xs text-gray-500 mt-1">Retiré du parc : il ne sera plus confié à personne.</p>
+          <p v-if="form.data.status === 'retired'" class="text-xs text-slate-600 mt-1">Retiré du parc : il ne sera plus confié à personne.</p>
         </div>
         <div v-else>
           <label class="label" for="v-courier">Confié à</label>
@@ -200,10 +200,10 @@
         <div>
           <label class="label" for="d-file">Photo ou PDF du papier</label>
           <input id="d-file" type="file" accept="image/*,application/pdf" class="input" @change="doc.file = $event.target.files[0] || null">
-          <p v-if="doc.id && doc.hasFile" class="text-xs text-gray-500 mt-1">Une photo est déjà enregistrée : choisissez-en une seulement pour la remplacer.</p>
+          <p v-if="doc.id && doc.hasFile" class="text-xs text-slate-600 mt-1">Une photo est déjà enregistrée : choisissez-en une seulement pour la remplacer.</p>
         </div>
         <div><label class="label" for="d-notes">Notes</label><input id="d-notes" v-model="doc.data.notes" class="input" placeholder="Assureur, agence…"></div>
-        <p class="text-xs text-gray-500">Les responsables sont prévenus {{ options.warn_days || 15 }} jours avant la date de fin, puis le jour même.</p>
+        <p class="text-xs text-slate-600">Les responsables sont prévenus {{ options.warn_days || 15 }} jours avant la date de fin, puis le jour même.</p>
         <p v-if="doc.error" class="field-error">{{ doc.error }}</p>
         <button class="btn-primary w-full" :disabled="busy">{{ busy ? 'Enregistrement…' : 'Enregistrer' }}</button>
       </form>
@@ -223,8 +223,8 @@ import { date } from '../../utils/format'
 import { confirmDialog } from '../../composables/useDialog'
 
 const ICONS = { moto: '🛵', velo: '🚲', voiture: '🚗', tricycle: '🛺' }
-const STATUS_CLASS = { active: 'bg-emerald-100 text-emerald-700', repair: 'bg-amber-100 text-amber-800', retired: 'bg-slate-100 text-gray-600' }
-const STATE_CLASS = { valid: 'bg-emerald-100 text-emerald-700', soon: 'bg-amber-100 text-amber-800', expired: 'bg-red-100 text-red-700', none: 'bg-slate-100 text-gray-600' }
+const STATUS_CLASS = { active: 'bg-emerald-100 text-emerald-700', repair: 'bg-amber-100 text-amber-800', retired: 'bg-slate-100 text-slate-600' }
+const STATE_CLASS = { valid: 'bg-emerald-100 text-emerald-700', soon: 'bg-amber-100 text-amber-800', expired: 'bg-red-100 text-red-700', none: 'bg-slate-100 text-slate-600' }
 
 const auth = useAuthStore()
 const route = useRoute()

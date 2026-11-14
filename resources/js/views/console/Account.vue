@@ -4,7 +4,7 @@
 
     <form v-if="account" class="card space-y-3 p-4" @submit.prevent="save">
       <h2 class="font-semibold">Identité et identifiants</h2>
-      <p class="text-sm text-gray-600">Vous vous connectez avec le téléphone ou l'e-mail. Le <b>code de connexion</b> arrive à cet e-mail.</p>
+      <p class="text-sm text-slate-600">Vous vous connectez avec le téléphone ou l'e-mail. Le <b>code de connexion</b> arrive à cet e-mail.</p>
       <div><label class="label" for="a-name">Nom</label><input id="a-name" v-model.trim="form.name" class="input" required></div>
       <div class="grid gap-3 sm:grid-cols-2">
         <div><label class="label" for="a-phone">Téléphone</label><input id="a-phone" v-model.trim="form.phone" type="tel" class="input" required></div>
@@ -14,7 +14,7 @@
       <div v-if="credentialsChanged" class="max-w-xs">
         <label class="label" for="a-current">Votre mot de passe actuel</label>
         <input id="a-current" v-model="form.current_password" type="password" autocomplete="current-password" class="input" required>
-        <p class="mt-1 text-xs text-gray-500">Demandé pour changer le téléphone ou l'e-mail.</p>
+        <p class="mt-1 text-xs text-slate-600">Demandé pour changer le téléphone ou l'e-mail.</p>
       </div>
       <p v-if="formError" class="field-error">{{ formError }}</p>
       <button class="btn-primary" :disabled="saving">{{ saving ? 'Enregistrement…' : 'Enregistrer' }}</button>
@@ -22,7 +22,7 @@
 
     <form class="card space-y-3 p-4" @submit.prevent="changePassword">
       <h2 class="font-semibold">Mot de passe</h2>
-      <p class="text-sm text-gray-600">Au moins 12 caractères. Vos autres appareils seront déconnectés et le code de connexion leur sera redemandé.</p>
+      <p class="text-sm text-slate-600">Au moins 12 caractères. Vos autres appareils seront déconnectés et le code de connexion leur sera redemandé.</p>
       <div class="max-w-xs"><label class="label" for="p-current">Mot de passe actuel</label><input id="p-current" v-model="pwd.current_password" type="password" autocomplete="current-password" class="input" required></div>
       <div class="grid gap-3 sm:grid-cols-2">
         <div><label class="label" for="p-new">Nouveau mot de passe</label><input id="p-new" v-model="pwd.password" type="password" autocomplete="new-password" minlength="12" class="input" required></div>
@@ -34,13 +34,13 @@
 
     <div v-if="account" class="card space-y-3 p-4">
       <h2 class="font-semibold">Appareils retenus</h2>
-      <p class="text-sm text-gray-600">Sur ces appareils, le code de connexion n'est pas redemandé pendant 30 jours.</p>
-      <p v-if="!account.devices.length" class="text-sm text-gray-500">Aucun appareil retenu.</p>
+      <p class="text-sm text-slate-600">Sur ces appareils, le code de connexion n'est pas redemandé pendant 30 jours.</p>
+      <p v-if="!account.devices.length" class="text-sm text-slate-600">Aucun appareil retenu.</p>
       <ul v-else class="divide-y text-sm">
         <li v-for="d in account.devices" :key="d.id" class="flex flex-wrap items-center justify-between gap-2 py-2">
           <span class="min-w-0">
             <span class="block truncate">{{ deviceName(d.label) }}</span>
-            <span class="text-xs text-gray-500">Retenu le {{ dateTime(d.created_at) }} · {{ d.ip }}<template v-if="d.last_used_at"> · dernière fois le {{ dateTime(d.last_used_at) }}</template></span>
+            <span class="text-xs text-slate-600">Retenu le {{ dateTime(d.created_at) }} · {{ d.ip }}<template v-if="d.last_used_at"> · dernière fois le {{ dateTime(d.last_used_at) }}</template></span>
           </span>
           <button type="button" class="text-red-600 underline" @click="forget(d.id)">Oublier</button>
         </li>

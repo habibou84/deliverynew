@@ -11,7 +11,7 @@
     </div>
 
     <div v-if="grid" class="flex flex-wrap items-center gap-3 text-sm">
-      <span class="text-gray-600">
+      <span class="text-slate-600">
         Grille « {{ grid.name }} »{{ grid.is_default ? ' : appliquée à tous les e-commerçants sans grille négociée' : ` : ${grid.merchants_count ?? 0} e-commerçant(s)` }}
       </span>
       <button class="text-blue-600" @click="renameGrid">Renommer</button>
@@ -24,7 +24,7 @@
       <h2 class="flex-1 font-semibold">Trajets particuliers (facultatif)</h2>
       <label class="flex items-center gap-2 text-sm"><input v-model="showNeighborhoods" type="checkbox"> Afficher les quartiers</label>
     </div>
-    <p class="text-sm text-gray-600">
+    <p class="text-sm text-slate-600">
       Un prix précis d'un départ vers une arrivée : il passe avant le prix par destination.
       Prix en francs CFA. Ligne = départ, colonne = arrivée. Les cases grisées reprennent le tarif du sens inverse (tarif symétrique) ;
       saisissez une valeur pour définir un tarif différent dans ce sens. Case vide = trajet non desservi.
@@ -32,7 +32,7 @@
       se supprime depuis la case où il a été saisi, dans les deux sens à la fois). Puis « Enregistrer les tarifs ».
     </p>
 
-    <p v-if="!loaded" class="text-gray-500">Chargement de la grille…</p>
+    <p v-if="!loaded" class="text-slate-600">Chargement de la grille…</p>
 
     <div v-if="loaded" class="card overflow-auto max-h-[70vh]">
       <table class="text-xs border-collapse">

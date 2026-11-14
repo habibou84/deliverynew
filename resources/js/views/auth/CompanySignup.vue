@@ -7,7 +7,7 @@
       </p>
 
       <div class="mt-6 rounded-3xl bg-white text-slate-900 shadow-2xl p-6 md:p-8">
-        <div v-if="!options" class="py-10 text-center text-slate-500">Chargement…</div>
+        <div v-if="!options" class="py-10 text-center text-slate-600">Chargement…</div>
 
         <div v-else-if="done" class="space-y-4 text-center py-4">
           <p class="text-5xl">🎉</p>
@@ -16,7 +16,7 @@
             Adresse de votre entreprise : <strong class="break-all">{{ host(done.url) }}</strong><br>
             Gardez-la : c'est aussi celle de vos marchands et de vos livreurs.
           </p>
-          <p v-if="done.company.trial_ends_at" class="text-sm text-slate-500">Essai gratuit jusqu'au {{ date(done.company.trial_ends_at) }}.</p>
+          <p v-if="done.company.trial_ends_at" class="text-sm text-slate-600">Essai gratuit jusqu'au {{ date(done.company.trial_ends_at) }}.</p>
           <a :href="done.login_url" class="inline-block rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white">Ouvrir mon espace →</a>
         </div>
 
@@ -28,7 +28,7 @@
         <form v-else class="space-y-5" novalidate @submit.prevent="submit">
           <div class="text-center space-y-1">
             <h1 class="text-2xl font-bold">Créer mon entreprise de livraison</h1>
-            <p class="text-sm text-slate-500">
+            <p class="text-sm text-slate-600">
               <template v-if="options.trial_days">{{ options.trial_days }} jours d'essai gratuit, sans engagement.</template>
               Votre espace est prêt en 2 minutes.
             </p>
@@ -43,10 +43,10 @@
           <Field id="cs-slug" label="Adresse de votre espace" :error="errors.slug || (slugState && !slugState.available ? slugState.message : '')">
             <div class="flex items-center rounded-xl border border-slate-300 bg-white focus-within:ring-2 focus-within:ring-blue-500">
               <input id="cs-slug" v-model.trim="form.slug" class="flex-1 min-w-0 bg-transparent px-4 py-3 text-base focus:outline-none" required minlength="3" maxlength="40" autocapitalize="none" spellcheck="false" @input="slugTouched = true; checkSlug()">
-              <span class="pr-4 text-slate-500 whitespace-nowrap">.{{ options.domain }}</span>
+              <span class="pr-4 text-slate-600 whitespace-nowrap">.{{ options.domain }}</span>
             </div>
             <p v-if="slugState?.available" class="mt-1 text-sm text-emerald-700">✓ Adresse libre</p>
-            <p v-else-if="!slugState" class="mt-1 text-xs text-slate-500">Minuscules, chiffres et tirets.</p>
+            <p v-else-if="!slugState" class="mt-1 text-xs text-slate-600">Minuscules, chiffres et tirets.</p>
           </Field>
 
           <fieldset class="space-y-2">
@@ -62,10 +62,10 @@
                   <div class="flex flex-wrap items-baseline justify-between gap-2">
                     <span class="font-semibold">{{ p.name }}</span>
                     <span v-if="p.percent_summary" class="font-bold">À la livraison</span>
-                    <span v-else class="font-bold">{{ money(p.price_monthly) }} <span class="text-sm font-normal text-slate-500">/ mois</span></span>
+                    <span v-else class="font-bold">{{ money(p.price_monthly) }} <span class="text-sm font-normal text-slate-600">/ mois</span></span>
                   </div>
                   <p v-if="p.description" class="text-sm text-slate-600">{{ p.description }}</p>
-                  <p class="text-xs text-slate-500 mt-1">
+                  <p class="text-xs text-slate-600 mt-1">
                     <template v-if="p.percent_summary">{{ p.percent_summary }}</template>
                     <template v-else>{{ p.included_orders ? `${p.included_orders} courses incluses` : 'Courses illimitées' }}</template><template v-if="!p.percent_summary && p.included_orders && p.overage_per_order">, puis {{ money(p.overage_per_order) }} la course</template>
                     · {{ p.max_couriers ? `${p.max_couriers} livreurs` : 'livreurs illimités' }}
@@ -113,7 +113,7 @@
           <button class="w-full rounded-xl bg-blue-600 px-6 py-3.5 text-lg font-semibold text-white disabled:opacity-60" :disabled="saving">
             {{ saving ? 'Création de votre espace…' : 'Créer mon entreprise' }}
           </button>
-          <p class="text-center text-sm text-slate-500">Déjà inscrit ? Connectez-vous à l'adresse de votre entreprise.</p>
+          <p class="text-center text-sm text-slate-600">Déjà inscrit ? Connectez-vous à l'adresse de votre entreprise.</p>
         </form>
       </div>
     </div>

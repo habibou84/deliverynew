@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div>
       <h1 class="text-xl font-bold">Applications à leur nom</h1>
-      <p class="text-sm text-gray-500">Les applications Android E-commerçant et Livreur au nom de l'entreprise, publiées sur son compte Google Play. Option de la formule la plus haute.</p>
+      <p class="text-sm text-slate-600">Les applications Android E-commerçant et Livreur au nom de l'entreprise, publiées sur son compte Google Play. Option de la formule la plus haute.</p>
     </div>
 
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
@@ -15,7 +15,7 @@
         </span>
       </div>
       <p v-if="!github.ready" class="text-sm text-amber-800">Sans jeton, les versions ne peuvent pas être fabriquées.</p>
-      <p v-else class="text-sm text-gray-700">
+      <p v-else class="text-sm text-slate-700">
         Jeton {{ github.source === 'env' ? 'réglé dans le fichier .env du serveur' : 'enregistré' }}, se termine par <code>…{{ github.last4 }}</code>
         <template v-if="github.expires_at"> · valable jusqu'au {{ date(github.expires_at) }}</template>
         <template v-if="github.checked_at"> · vérifié le {{ date(github.checked_at) }}</template>.
@@ -31,7 +31,7 @@
         <button v-if="github.ready" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="tokenCall('remove')">Retirer</button>
       </form>
       <button v-else-if="owner" type="button" class="btn-secondary" :disabled="busy" @click="tokenCall('check')">Vérifier</button>
-      <details class="text-xs text-gray-600">
+      <details class="text-xs text-slate-600">
         <summary class="cursor-pointer font-medium">Créer le jeton sur GitHub</summary>
         <ol class="mt-2 list-decimal space-y-1 pl-5">
           <li>GitHub › Settings › Developer settings › Personal access tokens › Fine-grained tokens › Generate new token.</li>
@@ -46,14 +46,14 @@
       <!-- Entreprises qui ont l'option -->
       <section class="card p-4 space-y-2 self-start">
         <h2 class="font-semibold">Entreprises ({{ apps.length }})</h2>
-        <p v-if="!apps.length" class="text-sm text-gray-500">Aucune entreprise pour l'instant.</p>
+        <p v-if="!apps.length" class="text-sm text-slate-600">Aucune entreprise pour l'instant.</p>
         <button v-for="a in apps" :key="a.company.id" type="button"
           :class="['flex w-full items-center gap-3 rounded-lg border p-2.5 text-left', selectedId === a.company.id ? 'border-emerald-200 bg-emerald-50' : 'border-transparent hover:bg-slate-50']"
           @click="select(a.company.id)">
           <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-slate-800 text-xs font-bold text-white">{{ initials(a.company.name) }}</span>
           <span class="min-w-0 flex-1">
             <span class="block truncate font-semibold">{{ a.company.name }}</span>
-            <span class="block truncate text-xs text-gray-500">{{ a.last_version ? `Version ${a.last_version}` : 'Aucune version' }}</span>
+            <span class="block truncate text-xs text-slate-600">{{ a.last_version ? `Version ${a.last_version}` : 'Aucune version' }}</span>
           </span>
           <span :class="['shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold', STATE[a.state] || STATE.todo]">{{ a.state_label }}</span>
         </button>
@@ -72,7 +72,7 @@
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold">{{ detail.company.name }}</h2>
-              <p class="text-xs text-gray-500">Icônes et couleurs prises dans l'apparence de l'entreprise (Paramètres › Apparence des espaces)</p>
+              <p class="text-xs text-slate-600">Icônes et couleurs prises dans l'apparence de l'entreprise (Paramètres › Apparence des espaces)</p>
               <p v-if="detail.access" :class="['mt-1 text-xs', detail.access.allowed ? 'text-emerald-700' : 'text-amber-700']">
                 📱 {{ detail.access.label }}<template v-if="!detail.access.allowed"> · <RouterLink to="/console/formules" class="underline">Formules</RouterLink></template>
               </p>
@@ -90,10 +90,10 @@
               <p class="mt-1.5 text-xs font-semibold">{{ a.name }}</p>
             </div>
             <dl class="min-w-0 flex-1 divide-y text-sm">
-              <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Application e-commerçant</dt><dd class="truncate font-mono text-xs">{{ detail.apps.ecommercant.app_id }}</dd></div>
-              <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Application livreur</dt><dd class="truncate font-mono text-xs">{{ detail.apps.livreur.app_id }}</dd></div>
-              <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Adresse</dt><dd class="truncate font-mono text-xs">{{ detail.url }}</dd></div>
-              <div class="flex justify-between gap-3 py-2"><dt class="text-gray-500">Clé de signature</dt><dd>🔒 gardée par Jibiat<span v-if="detail.key_created_at"> · créée le {{ date(detail.key_created_at) }}</span></dd></div>
+              <div class="flex justify-between gap-3 py-2"><dt class="text-slate-600">Application e-commerçant</dt><dd class="truncate font-mono text-xs">{{ detail.apps.ecommercant.app_id }}</dd></div>
+              <div class="flex justify-between gap-3 py-2"><dt class="text-slate-600">Application livreur</dt><dd class="truncate font-mono text-xs">{{ detail.apps.livreur.app_id }}</dd></div>
+              <div class="flex justify-between gap-3 py-2"><dt class="text-slate-600">Adresse</dt><dd class="truncate font-mono text-xs">{{ detail.url }}</dd></div>
+              <div class="flex justify-between gap-3 py-2"><dt class="text-slate-600">Clé de signature</dt><dd>🔒 gardée par Jibiat<span v-if="detail.key_created_at"> · créée le {{ date(detail.key_created_at) }}</span></dd></div>
             </dl>
           </div>
         </section>
@@ -104,19 +104,19 @@
             <ul class="space-y-1.5 text-sm">
               <li v-for="c in detail.checklist" :key="c.key" class="flex gap-2">
                 <span :class="c.ok ? 'font-bold text-emerald-600' : 'font-bold text-amber-600'">{{ c.ok ? '✓' : '!' }}</span>
-                <span class="min-w-0">{{ c.label }}<span v-if="c.hint" class="block truncate text-xs text-gray-500">{{ c.hint }}</span></span>
+                <span class="min-w-0">{{ c.label }}<span v-if="c.hint" class="block truncate text-xs text-slate-600">{{ c.hint }}</span></span>
               </li>
             </ul>
           </section>
 
           <section class="card p-4 space-y-3">
             <h2 class="font-semibold">Versions fabriquées</h2>
-            <p v-if="!detail.builds.length" class="text-sm text-gray-500">Aucune version pour l'instant.</p>
+            <p v-if="!detail.builds.length" class="text-sm text-slate-600">Aucune version pour l'instant.</p>
             <ul v-else class="divide-y text-sm">
               <li v-for="b in detail.builds" :key="b.id" class="py-2 space-y-1">
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="font-semibold">{{ b.version_name }}</span>
-                  <span class="text-xs text-gray-500">{{ date(b.created_at) }}<span v-if="b.by"> · {{ b.by }}</span></span>
+                  <span class="text-xs text-slate-600">{{ date(b.created_at) }}<span v-if="b.by"> · {{ b.by }}</span></span>
                   <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', BUILD[b.status]]">{{ b.status_label }}</span>
                   <a v-if="b.run_url" :href="b.run_url" target="_blank" rel="noopener" class="text-xs text-blue-700 hover:underline">GitHub</a>
                   <button v-if="owner && b.status === 'ready'" class="ml-auto text-xs text-emerald-700" @click="markPublished(b)">Marquer publiée</button>
@@ -130,8 +130,8 @@
               </li>
             </ul>
             <div class="flex flex-wrap gap-2 pt-1">
-              <span class="cursor-not-allowed rounded-lg border border-dashed px-3 py-1.5 text-xs text-gray-400" title="Étape 4">Envoyer au Play Store (bientôt)</span>
-              <span class="cursor-not-allowed rounded-lg border border-dashed px-3 py-1.5 text-xs text-gray-400" title="Étape 3">iPhone (bientôt)</span>
+              <span class="cursor-not-allowed rounded-lg border border-dashed px-3 py-1.5 text-xs text-slate-600" title="Étape 4">Envoyer au Play Store (bientôt)</span>
+              <span class="cursor-not-allowed rounded-lg border border-dashed px-3 py-1.5 text-xs text-slate-600" title="Étape 3">iPhone (bientôt)</span>
             </div>
           </section>
         </div>
@@ -157,7 +157,7 @@
               <input v-model="form.courier_app_id" class="input mt-1 w-full font-mono" :disabled="!owner || locked">
             </label>
           </div>
-          <p v-if="locked" class="text-xs text-gray-500">Les identifiants ne changent plus après la première version : Google Play les garde pour toujours.</p>
+          <p v-if="locked" class="text-xs text-slate-600">Les identifiants ne changent plus après la première version : Google Play les garde pour toujours.</p>
           <label class="block text-sm">Description courte (Play Store, 80 caractères)
             <input v-model="form.short_description" maxlength="80" class="input mt-1 w-full" :disabled="!owner">
           </label>
@@ -194,7 +194,7 @@ const STATE = {
   link: 'bg-amber-100 text-amber-800',
   failed: 'bg-red-100 text-red-700',
   todo: 'bg-slate-100 text-slate-700',
-  off: 'bg-slate-100 text-slate-500',
+  off: 'bg-slate-100 text-slate-600',
 }
 const BUILD = {
   queued: 'bg-blue-100 text-blue-800',

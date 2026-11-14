@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <div class="flex-1 min-w-[16rem]">
         <h2 class="font-semibold">Prix par destination (depuis partout)</h2>
-        <p class="text-sm text-gray-600">
+        <p class="text-sm text-slate-600">
           Regroupez des lieux et donnez un prix au groupe : c'est le prix d'une livraison vers ces lieux, d'où que parte le
           colis. Une commune ajoutée entière couvre ses quartiers ; un quartier placé dans un autre groupe prend le prix de ce groupe.
         </p>
@@ -36,12 +36,12 @@
           <ul v-if="query && matches.length" class="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded border bg-white shadow">
             <li v-for="z in matches" :key="z.id">
               <button type="button" class="w-full px-3 py-2 text-left text-sm hover:bg-slate-50" @click="add(z)">
-                {{ z.full_name }}<span v-if="ownerOf(z.id)" class="text-xs text-gray-500"> · déjà dans « {{ ownerOf(z.id) }} »</span>
+                {{ z.full_name }}<span v-if="ownerOf(z.id)" class="text-xs text-slate-600"> · déjà dans « {{ ownerOf(z.id) }} »</span>
               </button>
             </li>
           </ul>
         </div>
-        <p class="mt-1 text-xs text-gray-500">Un lieu déjà dans un autre groupe y est retiré pour venir ici.</p>
+        <p class="mt-1 text-xs text-slate-600">Un lieu déjà dans un autre groupe y est retiré pour venir ici.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" class="btn-primary" :disabled="busy || !editing.name || editing.price === '' || !picked.length" @click="save">Enregistrer le groupe</button>
@@ -50,8 +50,8 @@
       </div>
     </div>
 
-    <p v-if="!state" class="text-sm text-gray-500">Chargement…</p>
-    <p v-else-if="!state.groups.length && !editing" class="rounded-lg bg-slate-50 p-3 text-sm text-gray-600">
+    <p v-if="!state" class="text-sm text-slate-600">Chargement…</p>
+    <p v-else-if="!state.groups.length && !editing" class="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
       Aucun groupe pour l'instant : les prix viennent seulement des trajets particuliers ci-dessous.
     </p>
     <div v-else-if="state.groups.length" class="divide-y rounded-lg border">
@@ -65,10 +65,10 @@
       </div>
     </div>
 
-    <p v-if="state?.missing.length" class="text-sm text-gray-700">
+    <p v-if="state?.missing.length" class="text-sm text-slate-700">
       <strong>Sans prix par destination :</strong>
       {{ state.missing.map((m) => m.quartiers ? `${m.name} (et ses ${m.quartiers} quartiers)` : m.name).join(', ') }}.
-      <span class="text-gray-500">Un trajet particulier peut quand même leur donner un prix.</span>
+      <span class="text-slate-600">Un trajet particulier peut quand même leur donner un prix.</span>
     </p>
 
     <!-- Vérifier un prix -->
@@ -89,7 +89,7 @@
         <span class="block">{{ checked.source === 'group' ? `Prix par destination : groupe « ${checked.group} »` : `Trajet particulier : ${checked.rule?.join(' → ')}` }}</span>
       </p>
       <p v-else-if="checkError" class="text-sm text-red-700">{{ checkError }}</p>
-      <p class="text-xs text-gray-500">Ordre : trajet particulier (quartier, puis commune), puis prix par destination (quartier, puis commune), puis suppléments.</p>
+      <p class="text-xs text-slate-600">Ordre : trajet particulier (quartier, puis commune), puis prix par destination (quartier, puis commune), puis suppléments.</p>
     </div>
   </section>
 </template>

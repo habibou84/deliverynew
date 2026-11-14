@@ -4,14 +4,14 @@
     <li v-if="next" class="relative flex gap-3 pb-4">
       <span class="absolute left-[9px] top-6 bottom-0 w-0.5 bg-slate-200" />
       <span class="relative mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-slate-300 bg-white" />
-      <p class="text-sm text-slate-500">{{ next }}<span class="block text-xs">à venir</span></p>
+      <p class="text-sm text-slate-600">{{ next }}<span class="block text-xs">à venir</span></p>
     </li>
     <li v-for="(item, i) in items" :key="item.id" class="relative flex gap-3 pb-4 last:pb-0">
       <span v-if="i < items.length - 1" class="absolute left-[9px] top-6 bottom-0 w-0.5 bg-slate-200" />
       <span :class="['relative mt-0.5 h-5 w-5 shrink-0 rounded-full ring-[3px] ring-white', item.dot, i === 0 ? 'shadow-[0_0_0_2px_currentColor]' : '']" />
       <div class="min-w-0 text-sm">
         <p :class="i === 0 ? 'font-bold' : 'font-medium'">{{ item.text }}</p>
-        <p class="text-xs text-slate-500">{{ item.when }}</p>
+        <p class="text-xs text-slate-600">{{ item.when }}</p>
         <p v-if="item.detail" class="mt-0.5 text-slate-600">{{ item.detail }}</p>
       </div>
     </li>
@@ -68,7 +68,7 @@ function describe(event) {
   if (event.type === 'incident') return { text: 'Problème signalé', detail: [event.incident_reason?.label, event.note].filter(Boolean).join(' · ') || null, dot: 'bg-orange-500 text-orange-500' }
   if (event.type === 'return_requested') return { text: 'Retour demandé', detail: event.note, dot: 'bg-violet-600 text-violet-600' }
   if (event.type === 'note' && event.note) return { text: 'Message', detail: event.note, dot: 'bg-sky-400 text-sky-400' }
-  if (event.type === 'edited') return { text: 'Livraison modifiée', dot: 'bg-slate-400 text-slate-400' }
+  if (event.type === 'edited') return { text: 'Livraison modifiée', dot: 'bg-slate-400 text-slate-600' }
   return null
 }
 

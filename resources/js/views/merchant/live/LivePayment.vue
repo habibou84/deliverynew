@@ -5,7 +5,7 @@
         <p class="text-[44px]" aria-hidden="true">⏳</p>
         <h1 class="text-[20px] font-extrabold">Paiement en attente</h1>
         <p class="text-[15px] text-slate-600">Validez le paiement sur votre téléphone (Orange Money, MTN, Moov, Wave ou carte). Cette page se met à jour toute seule.</p>
-        <p class="flex items-center justify-center gap-2 text-[14px] text-slate-500"><i class="block h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> Vérification auprès de PayDunya…</p>
+        <p class="flex items-center justify-center gap-2 text-[14px] text-slate-600"><i class="block h-2 w-2 animate-pulse rounded-full bg-emerald-500" /> Vérification auprès de PayDunya…</p>
       </template>
       <template v-else-if="p.status === 'paid'">
         <p class="text-[44px]" aria-hidden="true">✅</p>

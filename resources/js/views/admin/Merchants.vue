@@ -17,7 +17,7 @@
 
     <div class="card overflow-x-auto">
       <table class="w-full text-sm stack-table">
-        <thead class="bg-slate-50 text-left text-gray-600">
+        <thead class="bg-slate-50 text-left text-slate-600">
           <tr><th class="p-2">Nom</th><th class="p-2">Contact</th><th class="p-2">Ramassage</th><th class="p-2">Frais payés par</th><th class="p-2">Courses</th><th class="p-2">Statut</th><th /></tr>
         </thead>
         <tbody class="divide-y">
@@ -28,9 +28,9 @@
                 {{ isNew(m) ? 'Nouveau · ' : '' }}inscrit en ligne
               </span>
             </td>
-            <td data-label="Contact" class="p-2">{{ m.contact_name }}<div class="text-xs text-gray-500">{{ m.phone }}</div></td>
+            <td data-label="Contact" class="p-2">{{ m.contact_name }}<div class="text-xs text-slate-600">{{ m.phone }}</div></td>
             <td data-label="Ramassage" class="p-2">
-              {{ m.pickup_zone?.name || '—' }}<div class="text-xs text-gray-500">{{ m.pickup_address }}</div>
+              {{ m.pickup_zone?.name || '—' }}<div class="text-xs text-slate-600">{{ m.pickup_address }}</div>
               <div :class="['text-xs', m.pickup_lat == null ? 'text-amber-700' : m.pickup_location_source === 'courier' ? 'text-sky-700' : 'text-emerald-700']">
                 {{ m.pickup_lat == null ? '⚠ sans position' : `📍 ${SOURCES[m.pickup_location_source] || 'localisé'}` }}
               </div>
@@ -44,7 +44,7 @@
               <button v-if="auth.can('merchants.manage')" class="text-blue-600" @click="openForm(m)">Modifier</button>
             </td>
           </tr>
-          <tr v-if="!merchants.length"><td colspan="7" class="p-6 text-center text-gray-500">Aucun e-commerçant.</td></tr>
+          <tr v-if="!merchants.length"><td colspan="7" class="p-6 text-center text-slate-600">Aucun e-commerçant.</td></tr>
         </tbody>
       </table>
     </div>
@@ -70,10 +70,10 @@
         <div><label class="label">Repère</label><input v-model="form.data.pickup_landmark" class="input"></div>
         <fieldset class="border rounded p-3 space-y-2">
           <legend class="text-sm font-medium px-1">Position de ramassage (carte des livreurs)</legend>
-          <p v-if="form.source && !locationChanged" class="text-xs text-gray-600">
+          <p v-if="form.source && !locationChanged" class="text-xs text-slate-600">
             {{ form.source === 'courier' ? 'Estimée d\'après les ramassages des livreurs' : form.source === 'merchant' ? 'Indiquée par le marchand depuis sa boutique' : 'Saisie par l\'agence' }}
           </p>
-          <p class="text-xs text-gray-500">Collez le lien Google Maps envoyé par le marchand (« Partager » → « Copier le lien »), ou placez le repère sur la carte.</p>
+          <p class="text-xs text-slate-600">Collez le lien Google Maps envoyé par le marchand (« Partager » → « Copier le lien »), ou placez le repère sur la carte.</p>
           <LocationPicker v-model="form.location" allow-link height="h-56" gps-label="📍 Ma position (sur place)" />
           <button v-if="form.location" type="button" class="text-xs text-red-600" @click="form.location = null">Retirer la position</button>
         </fieldset>

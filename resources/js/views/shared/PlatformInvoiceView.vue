@@ -1,6 +1,6 @@
 <template>
   <InvoiceDocument v-if="invoice" :invoice="invoice" :back="back" />
-  <p v-else class="text-gray-500">Chargement…</p>
+  <p v-else class="text-slate-600">Chargement…</p>
 </template>
 
 <script setup>

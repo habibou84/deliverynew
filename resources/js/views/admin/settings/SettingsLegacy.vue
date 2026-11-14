@@ -23,10 +23,10 @@
       <ol class="space-y-2">
         <li v-for="(s, i) in steps" :key="s.to">
           <RouterLink :to="s.to" :class="['card flex items-center gap-3 p-4 hover:bg-slate-50', s.state === 'done' ? 'py-3' : '']">
-            <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold', s.state === 'done' ? 'bg-emerald-600 text-white' : s.state === 'running' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700']">{{ s.state === 'done' ? '✓' : i + 1 }}</span>
+            <span :class="['flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold', s.state === 'done' ? 'bg-emerald-700 text-white' : s.state === 'running' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-700']">{{ s.state === 'done' ? '✓' : i + 1 }}</span>
             <span class="min-w-0 flex-1">
               <span class="block font-semibold">{{ s.title }}</span>
-              <span class="block text-sm text-gray-600">{{ s.detail }}</span>
+              <span class="block text-sm text-slate-600">{{ s.detail }}</span>
             </span>
             <span :class="['shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold', BADGES[s.state].class]">{{ BADGES[s.state].label }}</span>
           </RouterLink>

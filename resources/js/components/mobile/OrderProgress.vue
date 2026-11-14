@@ -7,7 +7,7 @@
             <span v-if="i < current || (i === current && done)">✓</span>
             <span v-else>{{ step.icon }}</span>
           </div>
-          <span :class="['text-[11px] text-center leading-tight', i <= current ? 'text-slate-800 font-medium' : 'text-slate-400']">{{ step.label }}</span>
+          <span :class="['text-xs text-center leading-tight', i <= current ? 'text-slate-800 font-medium' : 'text-slate-600']">{{ step.label }}</span>
         </div>
         <div v-if="i < steps.length - 1" :class="['flex-1 h-1 rounded -mt-5', i < current ? 'bg-[var(--app-color)]' : 'bg-slate-200']" />
       </template>
@@ -59,6 +59,6 @@ function dotClass(i) {
   if (failed.value && i === current.value + 1) return 'bg-red-100 text-red-600 ring-2 ring-red-300'
   if (i < current.value || (i === current.value && done.value)) return 'bg-[var(--app-color)] text-white'
   if (i === current.value) return 'bg-white ring-2 ring-[var(--app-color)] text-[var(--app-color)]'
-  return 'bg-slate-100 text-slate-400'
+  return 'bg-slate-100 text-slate-600'
 }
 </script>

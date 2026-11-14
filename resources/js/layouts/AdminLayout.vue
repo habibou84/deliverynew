@@ -1,5 +1,5 @@
 <template>
-  <div class="flex h-screen bg-gray-100">
+  <div class="flex h-screen bg-slate-100">
     <aside
       :class="[
         'fixed md:relative z-40 w-64 h-full text-white transition-all duration-300 flex flex-col print:hidden',
@@ -16,7 +16,7 @@
         <RouterLink
           v-if="auth.can('orders.create')"
           to="/admin/courses/nouvelle"
-          class="mb-3 flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 font-semibold hover:bg-emerald-500"
+          class="mb-3 flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 font-semibold hover:bg-emerald-600"
         >
           ➕ Nouvelle course
         </RouterLink>
@@ -60,8 +60,8 @@
         <div class="flex items-center gap-3">
           <AlertSoundToggle v-if="isDispatch" />
           <NotificationBell />
-          <RouterLink to="/admin/mot-de-passe" class="hidden md:inline text-sm text-gray-600 hover:underline" title="Mon compte : mot de passe">
-            {{ auth.user?.name }} <span class="text-gray-400">· {{ auth.user?.role_label }}</span>
+          <RouterLink to="/admin/mot-de-passe" class="hidden md:inline text-sm text-slate-600 hover:underline" title="Mon compte : mot de passe">
+            {{ auth.user?.name }} <span class="text-slate-600">· {{ auth.user?.role_label }}</span>
           </RouterLink>
           <button class="btn-danger hidden md:inline-flex" @click="logout">Déconnexion</button>
         </div>
@@ -137,7 +137,7 @@
     <RouterLink
       v-if="auth.can('orders.create') && route.path !== '/admin/courses/nouvelle' && !route.path.startsWith('/admin/reglages')"
       to="/admin/courses/nouvelle"
-      class="md:hidden fixed right-4 bottom-20 z-20 grid h-14 w-14 place-items-center rounded-full bg-emerald-600 text-3xl leading-none text-white shadow-lg print:hidden"
+      class="md:hidden fixed right-4 bottom-20 z-20 grid h-14 w-14 place-items-center rounded-full bg-emerald-700 text-3xl leading-none text-white shadow-lg print:hidden"
       aria-label="Nouvelle course"
     >+</RouterLink>
 
@@ -148,15 +148,15 @@
           v-for="t in tabs"
           :key="t.to"
           :to="t.to"
-          :class="['tap relative flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium', isActive(t) ? 'text-slate-900' : 'text-slate-500']"
+          :class="['tap relative flex flex-col items-center gap-0.5 py-2 text-xs font-medium', isActive(t) ? 'text-slate-900' : 'text-slate-600']"
           :aria-current="isActive(t) ? 'page' : undefined"
         >
           <span class="text-xl leading-none" aria-hidden="true">{{ t.icon }}</span>
           <span class="truncate max-w-full">{{ t.label }}</span>
-          <span v-if="t.badge" class="absolute top-1 left-1/2 ml-2 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-[10px] grid place-items-center">{{ t.badge > 99 ? '99+' : t.badge }}</span>
+          <span v-if="t.badge" class="absolute top-1 left-1/2 ml-2 min-w-5 h-5 px-1 rounded-full bg-red-600 text-white text-xs grid place-items-center">{{ t.badge > 99 ? '99+' : t.badge }}</span>
           <span v-if="isActive(t)" class="absolute inset-x-4 top-0 h-0.5 rounded-full bg-[var(--admin-color,#0f172a)]" aria-hidden="true" />
         </RouterLink>
-        <button class="tap flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium text-slate-500" aria-label="Menu complet" @click="sidebarOpen = true">
+        <button class="tap flex flex-col items-center gap-0.5 py-2 text-xs font-medium text-slate-600" aria-label="Menu complet" @click="sidebarOpen = true">
           <span class="text-xl leading-none" aria-hidden="true">☰</span>
           <span>Menu</span>
         </button>

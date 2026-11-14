@@ -20,7 +20,7 @@
 
     <ul v-if="expanded" class="mt-3 space-y-2">
       <li v-for="i in items" :key="i.key" class="flex flex-wrap items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-orange-200">
-        <span class="min-w-[12rem] flex-1"><b class="text-orange-900">{{ i.text }}</b><span class="block text-gray-600">{{ i.why }}</span></span>
+        <span class="min-w-[12rem] flex-1"><b class="text-orange-900">{{ i.text }}</b><span class="block text-slate-600">{{ i.why }}</span></span>
         <button type="button" class="rounded-lg border border-orange-300 px-3 py-1.5 font-medium text-orange-900 hover:bg-orange-100" @click="act(i)">{{ i.action }}</button>
       </li>
     </ul>
@@ -31,10 +31,10 @@
         <aside class="absolute inset-x-0 bottom-0 flex max-h-[88vh] flex-col rounded-t-3xl bg-white shadow-2xl md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[440px] md:rounded-none">
           <div class="flex items-start justify-between gap-2 border-b px-5 py-4">
             <div>
-              <p class="text-xs font-medium uppercase tracking-wide text-gray-400">⚙️ Assignation automatique</p>
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-600">⚙️ Assignation automatique</p>
               <h2 class="text-lg font-bold">{{ current?.text }}</h2>
             </div>
-            <button type="button" class="rounded-lg px-2 py-1 text-gray-400 hover:bg-slate-100" aria-label="Fermer" @click="block = null">✕</button>
+            <button type="button" class="rounded-lg px-2 py-1 text-slate-600 hover:bg-slate-100" aria-label="Fermer" @click="block = null">✕</button>
           </div>
           <SettingsPanelBody :blocks="[block]" more="/admin/reglages/courses" @saved="saved" @close="block = null" />
         </aside>

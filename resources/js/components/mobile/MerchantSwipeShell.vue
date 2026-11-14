@@ -16,7 +16,7 @@
             {{ p.emoji }} {{ p.label }}
             <span
               v-if="p.badge?.()"
-              :class="['absolute -right-1.5 -top-2 min-w-[19px] rounded-full border-2 border-[#F4F6F8] px-1 text-center text-[11px] font-black leading-[15px] text-white', p.badge().level === 'red' ? 'swipe-urgent bg-rose-600' : 'bg-amber-500']"
+              :class="['absolute -right-1.5 -top-2 min-w-[19px] rounded-full border-2 border-[#F4F6F8] px-1 text-center text-xs font-black leading-[15px] text-white', p.badge().level === 'red' ? 'swipe-urgent bg-rose-600' : 'bg-amber-500']"
             >{{ p.badge().n }}</span>
           </button>
         </nav>
@@ -80,7 +80,7 @@
                 <AppIcon name="left" class="h-5 w-5" :stroke="2.4" />
               </button>
               <p class="min-w-0 flex-1 truncate px-1 text-[16.5px] font-bold">{{ screenTitle }}</p>
-              <button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-500" aria-label="Fermer" @click="close">✕</button>
+              <button type="button" class="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-600" aria-label="Fermer" @click="close">✕</button>
             </div>
           </div>
           <div ref="screenBody" class="flex-1 overflow-y-auto overscroll-contain px-4 pb-10 pt-3" @touchstart.passive="full ? null : bodyDragStart($event)" @touchmove.passive="dragMove" @touchend="dragEnd">

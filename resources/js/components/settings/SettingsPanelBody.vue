@@ -1,7 +1,7 @@
 <template>
   <div class="flex min-h-0 flex-1 flex-col">
     <div class="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-      <p v-if="!form" class="text-sm text-gray-500">Chargement…</p>
+      <p v-if="!form" class="text-sm text-slate-600">Chargement…</p>
       <template v-else>
         <component :is="BLOCKS[key].component" v-for="key in blocks" :key="key" :form="form" panel />
       </template>

@@ -1,15 +1,15 @@
 <template>
   <div class="space-y-4">
-    <p class="text-sm text-gray-600">
+    <p class="text-sm text-slate-600">
       Colis validés à aller chercher, regroupés par client et adresse de ramassage, par zone.
       Un colis validé plus tard chez un client déjà confié à un livreur lui est ajouté automatiquement.
     </p>
 
-    <p v-if="loading" class="card p-6 text-center text-gray-500">Chargement…</p>
-    <p v-else-if="!zones.length" class="card p-6 text-center text-gray-500">Aucun ramassage à assigner{{ day ? ' pour ce jour' : '' }}.</p>
+    <p v-if="loading" class="card p-6 text-center text-slate-600">Chargement…</p>
+    <p v-else-if="!zones.length" class="card p-6 text-center text-slate-600">Aucun ramassage à assigner{{ day ? ' pour ce jour' : '' }}.</p>
 
     <section v-for="zone in zones" v-else :key="zone.name" class="space-y-2">
-      <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">📍 {{ zone.name }} · {{ zone.count }} colis</h2>
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">📍 {{ zone.name }} · {{ zone.count }} colis</h2>
 
       <div v-for="g in zone.groups" :key="g.key" class="card p-3 space-y-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
@@ -19,8 +19,8 @@
               <span v-if="g.premium" class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800" :title="g.premium.priority ? 'Ramassage prioritaire' : ''">⭐ {{ g.premium.name }}<template v-if="g.premium.priority"> · prioritaire</template></span>
               <span class="ml-1 rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">{{ visible(g).length }} colis</span>
             </span>
-            <span class="block text-sm text-gray-600 truncate">{{ g.pickup.address || '—' }}<span v-if="g.pickup.phone"> · {{ g.pickup.phone }}</span></span>
-            <span class="block text-xs text-gray-500">
+            <span class="block text-sm text-slate-600 truncate">{{ g.pickup.address || '—' }}<span v-if="g.pickup.phone"> · {{ g.pickup.phone }}</span></span>
+            <span class="block text-xs text-slate-600">
               En attente depuis {{ dateTime(g.waiting_since) }}<span v-if="codTotal(g)"> · {{ money(codTotal(g)) }} à encaisser</span>
             </span>
           </button>

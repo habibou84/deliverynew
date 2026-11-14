@@ -1,5 +1,7 @@
 // En premier : le jeton d'une session d'assistance est retiré de l'adresse avant le routeur
 import './bootstrap/supportSession'
+// Police de la charte, livrée avec l'application (marche hors connexion et dans les applications Android / iOS)
+import '@fontsource-variable/inter'
 import { createApp, watch } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'

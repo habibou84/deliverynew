@@ -25,10 +25,10 @@
           <li>Revenez ici : la page continue toute seule.</li>
         </ol>
         <WhatsAppSendButton :link="state.whatsapp.link" :text="state.whatsapp.text" />
-        <p class="flex items-center justify-center gap-2 text-sm text-slate-500" aria-live="polite">
+        <p class="flex items-center justify-center gap-2 text-sm text-slate-600" aria-live="polite">
           <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true"></span> En attente de votre message…
         </p>
-        <p class="text-xs text-slate-500 text-center">
+        <p class="text-xs text-slate-600 text-center">
           Le bouton ne marche pas ? Envoyez « {{ state.whatsapp.text }} » au {{ state.whatsapp.number }} sur WhatsApp.
         </p>
         <button v-if="state.sms.available" type="button" class="block mx-auto text-sm text-slate-600 underline" @click="mode = 'sms'">
@@ -37,7 +37,7 @@
         <button v-else-if="state.email?.available" type="button" class="block mx-auto text-sm text-slate-600 underline" @click="mode = 'email'">
           Pas de WhatsApp sur ce numéro ? Recevoir le code par e-mail ({{ state.email.hint }})
         </button>
-        <p v-else class="text-xs text-slate-500 text-center">
+        <p v-else class="text-xs text-slate-600 text-center">
           Pas de WhatsApp sur ce numéro ? <button type="button" class="underline" @click="$emit('restart')">Utilisez un numéro qui a WhatsApp</button>, ou contactez-nous.
         </p>
       </div>
@@ -109,7 +109,7 @@ const now = ref(Date.now())
 const smsSentAt = ref(props.initial.sms.wait_seconds ? Date.now() - (60 - props.initial.sms.wait_seconds) * 1000 : null)
 const emailSentAt = ref(null)
 
-const buttonClass = computed(() => (props.tone === 'merchant' ? 'bg-emerald-600 hover:bg-emerald-700' : props.tone === 'courier' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-slate-900 hover:bg-slate-700'))
+const buttonClass = computed(() => (props.tone === 'merchant' ? 'bg-emerald-700 hover:bg-emerald-800' : props.tone === 'courier' ? 'bg-blue-700 hover:bg-blue-800' : 'bg-slate-900 hover:bg-slate-700'))
 const wait = computed(() => {
   const at = mode.value === 'email' ? emailSentAt.value : smsSentAt.value
   return at ? Math.max(0, 60 - Math.floor((now.value - at) / 1000)) : 0

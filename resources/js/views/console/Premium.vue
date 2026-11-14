@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div>
       <h1 class="text-xl font-bold">Cartes Membre Premium Jibiat Marchand</h1>
-      <p class="text-sm text-gray-500">Les entreprises offrent la carte à leurs meilleurs e-commerçants, à la main ou toute seule (carte automatique). Jibiat Marchand applique l'offre.</p>
+      <p class="text-sm text-slate-600">Les entreprises offrent la carte à leurs meilleurs e-commerçants, à la main ou toute seule (carte automatique). Jibiat Marchand applique l'offre.</p>
     </div>
 
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
@@ -22,7 +22,7 @@
         </label>
         <label class="block text-sm">Prix d'une carte (F)
           <input v-model.number="form.price" type="number" min="0" class="input mt-1 w-full" :disabled="!owner || form.funded_by !== 'company'">
-          <span class="text-xs text-gray-500">Sur la facture du mois de l'entreprise</span>
+          <span class="text-xs text-slate-600">Sur la facture du mois de l'entreprise</span>
         </label>
         <label class="block text-sm">Cartes par entreprise
           <input v-model.number="form.quota" type="number" min="0" class="input mt-1 w-full" :disabled="!owner">
@@ -46,10 +46,10 @@
         </div>
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead><tr class="text-left text-gray-500"><th class="py-1.5 pr-2 font-medium">Formule Jibiat Marchand</th><th class="px-2 font-medium">Permise</th><th class="px-2 font-medium">Mois offerts au plus</th><th class="px-2 font-medium">Réduction ensuite au plus (%)</th><th class="px-2 font-medium">Prix d'une carte (F)</th></tr></thead>
+            <thead><tr class="text-left text-slate-600"><th class="py-1.5 pr-2 font-medium">Formule Jibiat Marchand</th><th class="px-2 font-medium">Permise</th><th class="px-2 font-medium">Mois offerts au plus</th><th class="px-2 font-medium">Réduction ensuite au plus (%)</th><th class="px-2 font-medium">Prix d'une carte (F)</th></tr></thead>
             <tbody>
               <tr v-for="(p, code) in plans" :key="code" class="border-t">
-                <td class="py-2 pr-2"><b>{{ features[code]?.name || code }}</b><span class="block text-xs text-gray-500">{{ (features[code]?.features || []).join(' · ') }}</span></td>
+                <td class="py-2 pr-2"><b>{{ features[code]?.name || code }}</b><span class="block text-xs text-slate-600">{{ (features[code]?.features || []).join(' · ') }}</span></td>
                 <td class="px-2"><input v-model="p.allowed" type="checkbox" class="h-4 w-4" :disabled="!owner" :aria-label="`${code} permise`"></td>
                 <td class="px-2"><input v-model.number="p.max_months" type="number" min="0" max="36" class="input w-20" :disabled="!owner || !p.allowed"></td>
                 <td class="px-2"><input v-model.number="p.max_discount" type="number" min="0" max="90" class="input w-20" :disabled="!owner || !p.allowed"></td>
@@ -58,7 +58,7 @@
             </tbody>
           </table>
         </div>
-        <p class="text-xs text-gray-500">Le prix d'une carte s'applique quand l'entreprise paie ses cartes ; il va sur sa facture du mois.</p>
+        <p class="text-xs text-slate-600">Le prix d'une carte s'applique quand l'entreprise paie ses cartes ; il va sur sa facture du mois.</p>
       </fieldset>
       <div v-if="owner" class="flex justify-end">
         <button type="submit" class="btn-primary" :disabled="saving">Enregistrer</button>
@@ -70,10 +70,10 @@
       <ul class="divide-y">
         <li v-for="c in companies" :key="c.id" class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
           <RouterLink :to="`/console/entreprises/${c.id}`" class="min-w-0 flex-1 truncate font-semibold hover:underline">{{ c.name }}</RouterLink>
-          <span class="text-gray-500">{{ c.used }} / {{ c.effective_quota }} offertes · {{ c.active }} active{{ c.active > 1 ? 's' : '' }}</span>
+          <span class="text-slate-600">{{ c.used }} / {{ c.effective_quota }} offertes · {{ c.active }} active{{ c.active > 1 ? 's' : '' }}</span>
           <span :class="['rounded-full px-2 py-0.5 text-xs', c.auto ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600']">{{ c.auto ? 'Carte automatique' : 'À la main' }}</span>
-          <span v-if="c.levels.length" class="w-full text-xs text-gray-500 sm:w-auto">⭐ {{ c.levels.map((l) => `${l.name} (${l.merchants}${l.delivery_discount_percent ? `, −${l.delivery_discount_percent} %` : ''}${l.jm_plan ? `, ${features[l.jm_plan]?.name} ${l.jm_free_months} mois` : ''})`).join(' · ') }}</span>
-          <label v-if="owner" class="flex items-center gap-1 text-xs text-gray-500">Cartes
+          <span v-if="c.levels.length" class="w-full text-xs text-slate-600 sm:w-auto">⭐ {{ c.levels.map((l) => `${l.name} (${l.merchants}${l.delivery_discount_percent ? `, −${l.delivery_discount_percent} %` : ''}${l.jm_plan ? `, ${features[l.jm_plan]?.name} ${l.jm_free_months} mois` : ''})`).join(' · ') }}</span>
+          <label v-if="owner" class="flex items-center gap-1 text-xs text-slate-600">Cartes
             <input v-model.number="c.quota" type="number" min="0" class="input w-20 !py-1" :placeholder="String(form.quota)" @change="saveCompany(c)">
           </label>
         </li>

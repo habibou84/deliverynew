@@ -16,8 +16,8 @@
         </div>
         <div v-if="summary.payment_instructions" class="rounded bg-slate-50 p-3 text-sm">
           <p class="font-medium mb-1">Comment payer</p>
-          <p class="whitespace-pre-line text-gray-700">{{ summary.payment_instructions }}</p>
-          <p class="mt-1 text-gray-500">Indiquez le numéro de la facture avec votre paiement.</p>
+          <p class="whitespace-pre-line text-slate-700">{{ summary.payment_instructions }}</p>
+          <p class="mt-1 text-slate-600">Indiquez le numéro de la facture avec votre paiement.</p>
         </div>
       </div>
 
@@ -29,7 +29,7 @@
       <div v-if="summary.plan && summary.apps?.length" class="card p-4 space-y-3 text-sm">
         <div>
           <h2 class="font-semibold">📱 Applications à votre nom</h2>
-          <p class="text-gray-600">Vos e-commerçants et vos livreurs installent une application à votre nom, avec votre logo et vos couleurs.</p>
+          <p class="text-slate-600">Vos e-commerçants et vos livreurs installent une application à votre nom, avec votre logo et vos couleurs.</p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2">
           <div v-for="a in summary.apps" :key="a.platform" class="flex gap-3 rounded-lg border p-3">
@@ -40,7 +40,7 @@
                 <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', APP_STATUS[a.status].cls]">{{ APP_STATUS[a.status].label }}</span>
                 <span v-if="a.soon" class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Bientôt</span>
               </p>
-              <p class="text-gray-600">{{ appHelp(a) }}</p>
+              <p class="text-slate-600">{{ appHelp(a) }}</p>
               <div class="flex flex-wrap gap-2 pt-1">
                 <button v-if="a.status === 'available' && !a.soon" class="btn-primary !py-1" :disabled="appBusy" @click="requestApps(a)">Demander l'option</button>
                 <button v-if="a.status === 'pending'" class="btn-secondary !py-1" :disabled="appBusy" @click="stopApps(a, 'Retirer votre demande ?')">Retirer la demande</button>
@@ -49,17 +49,17 @@
             </div>
           </div>
         </div>
-        <p class="text-xs text-gray-500">L'option est facturée au prorata des jours, à partir de son acceptation par Jibiat. Si vous l'arrêtez, vos applications installées continuent de marcher, sans nouvelle version.</p>
+        <p class="text-xs text-slate-600">L'option est facturée au prorata des jours, à partir de son acceptation par Jibiat. Si vous l'arrêtez, vos applications installées continuent de marcher, sans nouvelle version.</p>
       </div>
 
       <!-- Crédit chez Jibiat : part des lives payés en ligne par les e-commerçants -->
       <div v-if="summary.live_credit && (summary.live_credit.balance || summary.live_credit.lines.length)" class="card p-4 space-y-2 text-sm">
         <h2 class="font-semibold">Votre crédit chez Jibiat : {{ money(summary.live_credit.balance) }}</h2>
-        <p class="text-gray-600">Vos e-commerçants paient leurs lives en ligne à Jibiat ; votre part est déduite de vos prochaines factures. Le reste est reporté d'un mois sur l'autre. Pour recevoir un versement, contactez Jibiat.</p>
+        <p class="text-slate-600">Vos e-commerçants paient leurs lives en ligne à Jibiat ; votre part est déduite de vos prochaines factures. Le reste est reporté d'un mois sur l'autre. Pour recevoir un versement, contactez Jibiat.</p>
         <ul class="divide-y">
           <li v-for="(c, i) in summary.live_credit.lines" :key="i" class="flex justify-between gap-2 py-1.5">
-            <span>{{ c.label }} <span class="text-xs text-gray-500">· {{ c.date }}</span></span>
-            <span :class="c.amount > 0 ? 'text-emerald-700' : 'text-gray-600'">{{ c.amount > 0 ? '+' : '−' }}{{ money(Math.abs(c.amount)) }}</span>
+            <span>{{ c.label }} <span class="text-xs text-slate-600">· {{ c.date }}</span></span>
+            <span :class="c.amount > 0 ? 'text-emerald-700' : 'text-slate-600'">{{ c.amount > 0 ? '+' : '−' }}{{ money(Math.abs(c.amount)) }}</span>
           </li>
         </ul>
       </div>
@@ -67,7 +67,7 @@
       <!-- Comparaison des formules sur les 30 derniers jours -->
       <div v-if="summary.comparison?.length > 1" class="card p-4 space-y-2 text-sm">
         <h2 class="font-semibold">Combien vous auriez payé avec chaque formule</h2>
-        <p class="text-gray-600">Calcul sur vos courses prises en charge des 30 derniers jours.</p>
+        <p class="text-slate-600">Calcul sur vos courses prises en charge des 30 derniers jours.</p>
         <ul class="divide-y">
           <li v-for="c in summary.comparison" :key="c.plan_id" class="flex items-center justify-between gap-2 py-2">
             <span>
@@ -88,22 +88,22 @@
             <input type="radio" :value="c.value" :checked="chosenCycle === c.value" :disabled="savingCycle" class="mt-1 accent-emerald-700" @change="changeCycle(c.value)">
             <span>
               <span class="block font-medium">{{ c.label }}</span>
-              <span v-if="summary.plan.pricing === 'percent'" class="block text-gray-600">Facture des courses {{ c.value === 'weekly' ? 'de la semaine' : 'du mois' }}</span>
-              <span v-else class="block text-gray-600">{{ c.value === 'weekly' ? `${money(summary.plan.price_weekly)} par semaine` : `${money(summary.plan.price_monthly)} par mois` }}{{ (c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders) !== null ? `, ${c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders} courses incluses` : '' }}</span>
-              <span class="block text-xs text-gray-500">{{ c.help }}</span>
+              <span v-if="summary.plan.pricing === 'percent'" class="block text-slate-600">Facture des courses {{ c.value === 'weekly' ? 'de la semaine' : 'du mois' }}</span>
+              <span v-else class="block text-slate-600">{{ c.value === 'weekly' ? `${money(summary.plan.price_weekly)} par semaine` : `${money(summary.plan.price_monthly)} par mois` }}{{ (c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders) !== null ? `, ${c.value === 'weekly' ? summary.plan.included_orders_weekly : summary.plan.included_orders} courses incluses` : '' }}</span>
+              <span class="block text-xs text-slate-600">{{ c.help }}</span>
             </span>
           </label>
         </div>
         <p v-if="summary.billing_period.next_cycle" class="rounded bg-amber-50 p-2 text-amber-900">
           Passage {{ summary.billing_period.next_cycle === 'weekly' ? 'à la semaine' : 'au mois' }} le lundi {{ date(summary.billing_period.next_cycle_from) }}. D'ici là, la facturation continue {{ summary.billing_period.cycle === 'weekly' ? 'à la semaine' : 'au mois' }}.
         </p>
-        <p class="text-xs text-gray-500">Seules les courses prises en charge sont facturées : ramassées par un livreur ou préparées à l'entrepôt. Une course annulée, refusée ou jamais traitée n'est pas comptée.</p>
+        <p class="text-xs text-slate-600">Seules les courses prises en charge sont facturées : ramassées par un livreur ou préparées à l'entrepôt. Une course annulée, refusée ou jamais traitée n'est pas comptée.</p>
       </div>
 
       <div class="card overflow-x-auto">
         <h2 class="font-semibold p-4 pb-2">Factures</h2>
         <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-left text-gray-600">
+          <thead class="bg-slate-50 text-left text-slate-600">
             <tr><th class="p-2">Facture</th><th class="p-2">Période</th><th class="p-2 text-right">Total</th><th class="p-2 text-right">Reste</th><th class="p-2">Échéance</th><th class="p-2">Statut</th><th class="p-2" /></tr>
           </thead>
           <tbody class="divide-y">
@@ -116,21 +116,21 @@
               <td class="p-2"><InvoiceStatus :invoice="i" /></td>
               <td class="p-2 text-right whitespace-nowrap">
                 <template v-if="summary.wave && i.status === 'open' && i.balance > 0">
-                  <span v-if="pendingFor(i)?.claimed_at" class="text-xs text-gray-500">Paiement Wave en vérification</span>
+                  <span v-if="pendingFor(i)?.claimed_at" class="text-xs text-slate-600">Paiement Wave en vérification</span>
                   <button v-else class="btn-primary !py-1" @click="openWave(i)">Payer avec Wave</button>
                 </template>
               </td>
             </tr>
-            <tr v-if="!summary.invoices.length"><td colspan="7" class="p-4 text-center text-gray-500">Aucune facture pour l'instant.</td></tr>
+            <tr v-if="!summary.invoices.length"><td colspan="7" class="p-4 text-center text-slate-600">Aucune facture pour l'instant.</td></tr>
           </tbody>
         </table>
       </div>
     </template>
-    <p v-else class="text-gray-500">Chargement…</p>
+    <p v-else class="text-slate-600">Chargement…</p>
 
     <Modal :open="wave.open" title="Payer avec Wave" @close="wave.open = false">
       <form v-if="!wave.payment" class="space-y-3" @submit.prevent="startWave">
-        <p class="text-sm text-gray-600">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period_label }}</p>
+        <p class="text-sm text-slate-600">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period_label }}</p>
         <div>
           <label class="label" for="w-phone">Numéro Wave qui va payer *</label>
           <input id="w-phone" v-model.trim="wave.phone" type="tel" class="input" placeholder="07 00 00 00 00" required>
@@ -141,8 +141,8 @@
       <div v-else class="space-y-5 text-sm">
         <div class="rounded-lg bg-slate-50 p-4 text-center">
           <p class="text-2xl font-bold">{{ money(wave.payment.amount) }} à payer</p>
-          <p class="mt-1 text-gray-600">Depuis le numéro Wave {{ wave.payment.payer_phone }}</p>
-          <p class="mt-1 text-xs text-gray-500">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period_label }}</p>
+          <p class="mt-1 text-slate-600">Depuis le numéro Wave {{ wave.payment.payer_phone }}</p>
+          <p class="mt-1 text-xs text-slate-600">Facture {{ wave.invoice?.number }} · {{ wave.invoice?.period_label }}</p>
         </div>
 
         <section class="space-y-3">
@@ -151,7 +151,7 @@
           <div class="flex flex-col gap-3">
             <a v-if="wave.payment.link" :href="wave.payment.link" target="_blank" rel="noopener" class="order-1 flex w-full justify-center rounded-lg bg-sky-600 px-4 py-3 font-semibold text-white hover:bg-sky-700 md:order-2">Cliquez ici pour payer avec Wave</a>
             <div v-if="summary?.wave?.qr_url" class="order-2 flex flex-col items-center gap-2 md:order-1">
-              <p class="text-gray-600">{{ wave.payment.link ? 'ou scannez ce code QR avec l\'application Wave' : 'Scannez ce code QR avec l\'application Wave' }}</p>
+              <p class="text-slate-600">{{ wave.payment.link ? 'ou scannez ce code QR avec l\'application Wave' : 'Scannez ce code QR avec l\'application Wave' }}</p>
               <img :src="summary.wave.qr_url" alt="Code QR Wave de Jibiat" class="h-52 w-52 rounded bg-white object-contain ring-1 ring-slate-200">
             </div>
           </div>
@@ -159,15 +159,15 @@
 
         <section class="space-y-2 border-t pt-4">
           <h3 class="flex items-center gap-2 font-semibold"><span class="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-700 text-xs text-white">2</span>Confirmez votre paiement</h3>
-          <p class="text-gray-600">Une fois le paiement fait dans Wave :</p>
+          <p class="text-slate-600">Une fois le paiement fait dans Wave :</p>
           <p v-if="wave.error" class="field-error">{{ wave.error }}</p>
           <button class="w-full rounded-lg bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60" :disabled="wave.busy" @click="claimWave">{{ wave.busy ? 'Envoi…' : 'Cliquez ici pour confirmer votre paiement' }}</button>
-          <p class="text-xs text-gray-500">Nous vérifions la réception, puis le paiement est enregistré sur la facture.</p>
+          <p class="text-xs text-slate-600">Nous vérifions la réception, puis le paiement est enregistré sur la facture.</p>
         </section>
       </div>
     </Modal>
 
-    <p class="text-sm text-gray-500">
+    <p class="text-sm text-slate-600">
       Pour changer de formule, ajouter des livreurs au-delà de la limite ou activer un module, contactez-nous.
     </p>
   </div>

@@ -13,7 +13,7 @@
     <!-- Livraisons de la période : courses à livrer ces jours-là (date prévue, sinon jour de création) -->
     <div v-if="summary" class="flex flex-wrap items-baseline justify-between gap-2">
       <h2 class="font-semibold">🚚 {{ isOneDay ? (period.from === today() ? 'Livraisons du jour' : `Livraisons du ${date(period.from)}`) : 'Livraisons de la période' }}</h2>
-      <p class="text-xs text-gray-500">Selon la date de livraison prévue (une course reportée compte le jour de sa nouvelle date)</p>
+      <p class="text-xs text-slate-600">Selon la date de livraison prévue (une course reportée compte le jour de sa nouvelle date)</p>
     </div>
     <div v-if="summary" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
       <StatCard title="Total" :value="summary.counts.total" icon="📦" />
@@ -40,8 +40,8 @@
         <h2 class="font-semibold">🆕 Nouvelles courses {{ isOneDay ? (period.from === today() ? 'du jour' : `du ${date(period.from)}`) : 'de la période' }}</h2>
         <RouterLink :to="{ path: '/admin/courses', query: { date_basis: 'created' } }" class="text-sm text-blue-600">Voir par date de création</RouterLink>
       </div>
-      <p class="mt-2 text-sm text-gray-700">
-        <strong class="text-2xl text-gray-900 align-middle">{{ created.counts.total }}</strong>
+      <p class="mt-2 text-sm text-slate-700">
+        <strong class="text-2xl text-slate-900 align-middle">{{ created.counts.total }}</strong>
         course{{ created.counts.total > 1 ? 's' : '' }} créée{{ created.counts.total > 1 ? 's' : '' }}<template v-if="createdLater">,
           dont <strong>{{ createdLater }}</strong> à livrer plus tard</template>.
       </p>
@@ -60,7 +60,7 @@
             <StatusBadge :status="o.status" :label="o.status_label" />
           </RouterLink>
         </li>
-        <li v-if="!recent.length" class="p-4 text-sm text-gray-500">Aucune course pour le moment.</li>
+        <li v-if="!recent.length" class="p-4 text-sm text-slate-600">Aucune course pour le moment.</li>
       </ul>
     </div>
   </div>

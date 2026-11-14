@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4 max-w-3xl">
     <h1 class="text-xl font-bold">Zones de livraison</h1>
-    <p class="text-sm text-gray-600">
+    <p class="text-sm text-slate-600">
       Les communes et quartiers viennent de la liste commune de Jibiat, la même que dans Jibiat Marchand : masquez ceux où
       vous ne livrez pas. Un quartier sans prix propre prend celui de sa commune (Tarifs). Ajoutez ici seulement vos zones
       à vous : une zone d'expédition, ou un lieu absent de la liste.
@@ -29,7 +29,7 @@
       <label class="flex items-start gap-2 text-sm">
         <input v-model="draft.is_shipping" type="checkbox" class="mt-1" @change="draft.parent_id = null">
         <span>Zone d'expédition
-          <span class="block text-gray-500">
+          <span class="block text-slate-600">
             Le livreur dépose le colis à une gare ou chez un transporteur et paie l'envoi. Ces frais, saisis au réel par le livreur,
             sont facturés au marchand et déduits de son point. Fixez le prix de la course jusqu'à la gare dans Tarifs.
           </span>
@@ -62,7 +62,7 @@
           <label v-if="!hasChildren(z)" class="flex items-center gap-2">
             <input v-model="edit.is_shipping" type="checkbox" @change="edit.parent_id = null"> Zone d'expédition
           </label>
-          <p v-if="hasChildren(z)" class="text-xs text-gray-500">Cette commune a des quartiers : elle reste une commune.</p>
+          <p v-if="hasChildren(z)" class="text-xs text-slate-600">Cette commune a des quartiers : elle reste une commune.</p>
           <div class="flex gap-2">
             <button class="btn-primary" :disabled="edit.saving">Enregistrer</button>
             <button type="button" class="btn-secondary" @click="edit.id = null">Annuler</button>
@@ -70,13 +70,13 @@
         </form>
 
         <div v-else class="flex items-center justify-between gap-2">
-          <span :class="z.is_active ? '' : 'line-through text-gray-400'">
+          <span :class="z.is_active ? '' : 'line-through text-slate-600'">
             {{ z.parent_id ? '↳ ' : '' }}{{ z.name }}
             <span v-if="z.is_shipping" class="ml-2 rounded-full bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5">🚌 Expédition</span>
             <span v-else-if="!z.place" class="ml-2 rounded-full bg-amber-100 text-amber-900 text-xs font-medium px-2 py-0.5">Zone de l'entreprise</span>
           </span>
           <span class="flex flex-wrap items-center justify-end gap-3">
-            <label v-if="z.is_shipping" class="flex items-center gap-1 text-xs text-gray-500 font-normal">
+            <label v-if="z.is_shipping" class="flex items-center gap-1 text-xs text-slate-600 font-normal">
               Frais habituels
               <input :value="z.shipping_fee_estimate" type="number" min="0" class="input w-24 py-1 text-xs" aria-label="Frais d'expédition habituels" @change="setEstimate(z, $event.target.value)">
             </label>
@@ -88,7 +88,7 @@
       </div>
     </div>
 
-    <p class="text-xs text-gray-500">
+    <p class="text-xs text-slate-600">
       Supprimer n'est possible que pour une zone jamais utilisée (ni course, ni e-commerçant, ni entrepôt, ni quartier) :
       ses tarifs sont supprimés avec elle. Une zone déjà utilisée se désactive : elle n'est plus proposée, l'historique est conservé.
     </p>

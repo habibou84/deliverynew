@@ -10,7 +10,7 @@
     <a :href="suggest.page_url" target="_blank" rel="noopener" class="flex-1">
       <strong class="block">Installez l'application Jibiat Livreur</strong>Le téléphone sonne comme un appel à chaque nouvelle mission.
     </a>
-    <button type="button" class="h-10 w-10 shrink-0 rounded-full text-slate-500 active:bg-slate-100" aria-label="Masquer" @click="dismiss">✕</button>
+    <button type="button" class="h-10 w-10 shrink-0 rounded-full text-slate-600 active:bg-slate-100" aria-label="Masquer" @click="dismiss">✕</button>
   </div>
 </template>
 

@@ -3,14 +3,14 @@
     <div>
       <RouterLink to="/admin/reglages/reprise/controles" class="text-sm font-medium text-emerald-700">‹ Contrôles et ménage</RouterLink>
       <h1 class="text-xl font-bold">Rattacher les zones reprises</h1>
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-slate-600">
         Les zones venues de l'ancienne application sont rapprochées de la liste commune des lieux. Validez chaque
         correspondance : les courses, les prix, les e-commerçants, les destinataires et le planning passent sur le lieu
         standard. Rien n'est envoyé à personne ; annulable pendant 7 jours.
       </p>
     </div>
 
-    <p v-if="!state" class="text-gray-500">Chargement…</p>
+    <p v-if="!state" class="text-slate-600">Chargement…</p>
     <template v-else>
       <div class="flex flex-wrap items-center gap-2">
         <span class="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-900">{{ counts.sure }} sûre(s)</span>
@@ -25,8 +25,8 @@
       <div v-else class="card divide-y">
         <div v-for="p in state.proposals" :key="p.id" :class="['flex flex-wrap items-center gap-3 p-3', p.confidence === 'confirm' ? 'bg-amber-50' : '']">
           <div class="min-w-[10rem] flex-1">
-            <p class="font-semibold">{{ p.name }}<span v-if="p.parent" class="font-normal text-gray-500"> · {{ p.parent }}</span></p>
-            <p class="text-xs text-gray-500">{{ p.orders }} course(s)<template v-if="p.legacy_price"> · ancien prix {{ money(p.legacy_price) }}</template></p>
+            <p class="font-semibold">{{ p.name }}<span v-if="p.parent" class="font-normal text-slate-600"> · {{ p.parent }}</span></p>
+            <p class="text-xs text-slate-600">{{ p.orders }} course(s)<template v-if="p.legacy_price"> · ancien prix {{ money(p.legacy_price) }}</template></p>
           </div>
           <div class="min-w-[12rem] flex-1 text-sm">
             <template v-if="p.place">
@@ -35,7 +35,7 @@
                 {{ p.confidence === 'sure' ? 'Sûr' : 'À confirmer' }}{{ p.merge_into ? ` · fusion avec la zone « ${p.merge_into.name} »` : '' }}
               </span>
             </template>
-            <span v-else class="text-gray-500">Aucun lieu trouvé</span>
+            <span v-else class="text-slate-600">Aucun lieu trouvé</span>
           </div>
           <div class="flex flex-wrap gap-2">
             <button v-if="p.place" type="button" class="btn-primary" :disabled="busy" @click="link(p, p.place.code)">{{ p.merge_into ? 'Fusionner' : 'Valider' }}</button>
@@ -57,7 +57,7 @@
       <section class="card flex flex-wrap items-center gap-3 p-4">
         <div class="flex-1 min-w-[16rem]">
           <h2 class="font-semibold">{{ state.unknown_orders }} course(s) « À préciser »</h2>
-          <p class="text-sm text-gray-600">La commune écrite dans l'ancienne application est relue et cherchée de nouveau (noms, anciens noms retenus, liste commune). Seule la zone change : ni prix, ni message.</p>
+          <p class="text-sm text-slate-600">La commune écrite dans l'ancienne application est relue et cherchée de nouveau (noms, anciens noms retenus, liste commune). Seule la zone change : ni prix, ni message.</p>
           <p v-if="reclassed" class="mt-1 text-sm text-emerald-800">{{ reclassed.reclassed }} reclassée(s) sur {{ reclassed.checked }} relue(s) · encore {{ reclassed.left }}.</p>
         </div>
         <button type="button" class="btn-secondary" :disabled="busy || !state.unknown_orders || !state.can_reclass" @click="reclass">Reclasser</button>
@@ -66,7 +66,7 @@
       <section v-if="state.recent.length" class="card p-4 space-y-2">
         <h2 class="font-semibold">Derniers rattachements</h2>
         <div v-for="l in state.recent" :key="l.id" class="flex flex-wrap items-center gap-2 text-sm">
-          <span class="flex-1">{{ l.zone }} → {{ l.place }} <span class="text-gray-500">({{ l.action === 'merge' ? 'fusion' : 'rattachement' }}, {{ dateTime(l.created_at) }})</span></span>
+          <span class="flex-1">{{ l.zone }} → {{ l.place }} <span class="text-slate-600">({{ l.action === 'merge' ? 'fusion' : 'rattachement' }}, {{ dateTime(l.created_at) }})</span></span>
           <button type="button" class="btn-secondary" :disabled="busy" @click="undo(l)">Annuler</button>
         </div>
       </section>

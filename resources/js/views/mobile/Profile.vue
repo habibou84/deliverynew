@@ -6,8 +6,8 @@
       </div>
       <div class="min-w-0">
         <p class="font-semibold text-lg truncate">{{ auth.user?.name }}</p>
-        <p class="text-sm text-slate-500">{{ localPhone(auth.user?.phone) }}</p>
-        <p class="text-sm text-slate-500">{{ auth.user?.merchant?.business_name || auth.user?.company?.name }}</p>
+        <p class="text-sm text-slate-600">{{ localPhone(auth.user?.phone) }}</p>
+        <p class="text-sm text-slate-600">{{ auth.user?.merchant?.business_name || auth.user?.company?.name }}</p>
       </div>
     </div>
 
@@ -17,20 +17,20 @@
     <RouterLink v-if="auth.user?.role === 'courier'" to="/livreur/sonnerie" class="m-card tap p-4 flex items-center justify-between gap-3 active:bg-slate-50">
       <span>
         <span class="block font-semibold">🔔 Sonnerie des missions</span>
-        <span class="block text-sm text-slate-500">Le téléphone sonne comme un appel pour chaque nouvelle mission</span>
+        <span class="block text-sm text-slate-600">Le téléphone sonne comme un appel pour chaque nouvelle mission</span>
       </span>
-      <span class="text-slate-400" aria-hidden="true">›</span>
+      <span class="text-slate-600" aria-hidden="true">›</span>
     </RouterLink>
 
     <!-- E-commerçant : sa boutique et ses notifications -->
     <template v-if="auth.user?.merchant_id">
-      <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-400 uppercase tracking-wider">Ma boutique</h2>
+      <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-600 uppercase tracking-wider">Ma boutique</h2>
       <section class="rounded-[22px] bg-white shadow-soft divide-y divide-slate-100">
         <RouterLink v-for="row in shopRows" :key="row.to" :to="row.to" class="tap flex items-center gap-3 px-3.5 py-3 active:bg-slate-50 first:rounded-t-[22px] last:rounded-b-[22px]">
           <ColorIcon :name="row.icon" :size="40" />
-          <span class="min-w-0 flex-1"><span class="block text-[14.5px] font-semibold">{{ row.label }}</span><span :class="['text-[12.5px]', row.warn ? 'text-amber-700' : 'text-slate-500']">{{ row.text }}</span></span>
-          <span v-if="row.warn" class="shrink-0 rounded-full bg-[#FFECEF] px-2.5 py-0.5 text-[12px] font-semibold text-[#C02A4E]">À faire</span>
-          <AppIcon name="right" class="h-4 w-4 shrink-0 text-slate-400" />
+          <span class="min-w-0 flex-1"><span class="block text-[14.5px] font-semibold">{{ row.label }}</span><span :class="['text-[12.5px]', row.warn ? 'text-amber-700' : 'text-slate-600']">{{ row.text }}</span></span>
+          <span v-if="row.warn" class="shrink-0 rounded-full bg-[#FFECEF] px-2.5 py-0.5 text-xs font-semibold text-[#C02A4E]">À faire</span>
+          <AppIcon name="right" class="h-4 w-4 shrink-0 text-slate-600" />
         </RouterLink>
       </section>
     </template>
@@ -40,15 +40,15 @@
     <WhatsAppPreferences v-if="auth.user?.merchant_id" />
 
 
-    <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-400 uppercase tracking-wider">Mon compte</h2>
+    <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-600 uppercase tracking-wider">Mon compte</h2>
     <PasswordForm class="m-card p-4" />
 
-    <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-400 uppercase tracking-wider">Aide</h2>
+    <h2 class="px-1 pt-1 text-[12.5px] font-bold text-slate-600 uppercase tracking-wider">Aide</h2>
     <div class="m-card divide-y">
-      <div class="p-4 flex justify-between text-sm"><span class="text-slate-500">Entreprise de livraison</span><span class="font-medium">{{ auth.user?.company?.name }}</span></div>
-      <div class="p-4 flex justify-between text-sm"><span class="text-slate-500">Rôle</span><span class="font-medium">{{ auth.user?.role_label }}</span></div>
+      <div class="p-4 flex justify-between text-sm"><span class="text-slate-600">Entreprise de livraison</span><span class="font-medium">{{ auth.user?.company?.name }}</span></div>
+      <div class="p-4 flex justify-between text-sm"><span class="text-slate-600">Rôle</span><span class="font-medium">{{ auth.user?.role_label }}</span></div>
       <a v-if="companyPhone" :href="telLink(companyPhone)" class="p-4 flex justify-between text-sm active:bg-slate-50">
-        <span class="text-slate-500">Contacter l'entreprise</span><span class="font-medium text-[var(--app-color)]">{{ companyPhone }}</span>
+        <span class="text-slate-600">Contacter l'entreprise</span><span class="font-medium text-[var(--app-color)]">{{ companyPhone }}</span>
       </a>
     </div>
 
@@ -73,10 +73,10 @@
           <button type="button" class="m-btn-secondary" :disabled="sending" @click="deleting = false; understood = false">Annuler</button>
           <button type="button" class="m-btn-danger" :disabled="!understood || sending" @click="deleteAccount">{{ sending ? '…' : 'Supprimer' }}</button>
         </div>
-        <a :href="siteUrl('/suppression-du-compte')" target="_blank" rel="noopener" class="block text-center text-xs text-slate-500 underline">En savoir plus</a>
+        <a :href="siteUrl('/suppression-du-compte')" target="_blank" rel="noopener" class="block text-center text-xs text-slate-600 underline">En savoir plus</a>
       </template>
     </section>
-    <p class="text-center text-xs text-slate-400">Version {{ installedLabel }}</p>
+    <p class="text-center text-xs text-slate-600">Version {{ installedLabel }}</p>
   </div>
 </template>
 

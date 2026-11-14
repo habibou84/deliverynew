@@ -13,9 +13,9 @@
     <RouterLink to="/marchand/moyens-de-paiement" class="tap flex items-center gap-3 rounded-[22px] bg-white p-3.5 shadow-soft active:scale-[.99] transition">
       <ColorIcon name="paiement" :size="44" />
       <span class="min-w-0 flex-1 text-[14.5px] font-bold">Comment être payé
-        <span :class="['block text-[12.5px] font-normal', methodsCount === 0 ? 'text-amber-700' : 'text-slate-500']">{{ methodsCount === 0 ? 'Indiquez votre Wave, Orange Money, MTN, Moov ou banque' : `${methodsCount} moyen${methodsCount > 1 ? 's' : ''} de paiement` }}</span>
+        <span :class="['block text-[12.5px] font-normal', methodsCount === 0 ? 'text-amber-700' : 'text-slate-600']">{{ methodsCount === 0 ? 'Indiquez votre Wave, Orange Money, MTN, Moov ou banque' : `${methodsCount} moyen${methodsCount > 1 ? 's' : ''} de paiement` }}</span>
       </span>
-      <AppIcon name="right" class="h-5 w-5 text-slate-400" />
+      <AppIcon name="right" class="h-5 w-5 text-slate-600" />
     </RouterLink>
 
     <!-- Le chemin de l'argent -->
@@ -24,7 +24,7 @@
       <section class="rounded-[22px] bg-white shadow-soft px-4 divide-y divide-slate-100">
         <div v-for="row in flow" :key="row.label" class="flex items-center gap-3 py-3">
           <ColorIcon :name="row.icon" :size="42" />
-          <span class="min-w-0 flex-1 text-sm">{{ row.label }}<span class="block text-[12.5px] text-slate-500">{{ row.text }}</span></span>
+          <span class="min-w-0 flex-1 text-sm">{{ row.label }}<span class="block text-[12.5px] text-slate-600">{{ row.text }}</span></span>
           <b :class="['text-base whitespace-nowrap', row.amountClass]">{{ money(row.amount) }}</b>
         </div>
       </section>
@@ -37,9 +37,9 @@
         <span class="h-10 w-10 shrink-0 rounded-xl grid place-items-center text-[11.5px] font-extrabold text-white" :style="{ background: methodLook(p).color }">{{ methodLook(p).short }}</span>
         <span class="min-w-0 flex-1 text-sm">
           <b class="block first-letter:uppercase">{{ p.paid_at ? longDate(p.paid_at) : `Du ${date(p.period_start)} au ${date(p.period_end)}` }}</b>
-          <span class="text-[12.5px] text-slate-500">{{ p.status === 'paid' ? (p.method_label || 'Payé') : p.status_label }}</span>
+          <span class="text-[12.5px] text-slate-600">{{ p.status === 'paid' ? (p.method_label || 'Payé') : p.status_label }}</span>
         </span>
-        <b :class="['whitespace-nowrap', p.status === 'cancelled' ? 'text-slate-400 line-through' : p.net_amount < 0 ? 'text-red-600' : 'text-emerald-700']">{{ p.net_amount > 0 ? '+ ' : '' }}{{ money(p.net_amount) }}</b>
+        <b :class="['whitespace-nowrap', p.status === 'cancelled' ? 'text-slate-600 line-through' : p.net_amount < 0 ? 'text-red-600' : 'text-emerald-700']">{{ p.net_amount > 0 ? '+ ' : '' }}{{ money(p.net_amount) }}</b>
       </RouterLink>
     </section>
     <EmptyState v-else-if="loaded" art="billets" title="Aucun paiement pour le moment" text="Vos paiements apparaîtront ici dès que l'agence vous paiera l'argent encaissé." />
@@ -52,7 +52,7 @@
       <div v-for="e in entries" :key="e.id" class="px-4 py-3 flex justify-between gap-3">
         <div class="min-w-0">
           <p class="font-medium text-sm">{{ e.type_label }}</p>
-          <p class="text-xs text-slate-500 truncate">{{ e.order?.recipient_name || e.order?.tracking_code || e.description }} · {{ dateTime(e.created_at) }}</p>
+          <p class="text-xs text-slate-600 truncate">{{ e.order?.recipient_name || e.order?.tracking_code || e.description }} · {{ dateTime(e.created_at) }}</p>
         </div>
         <p :class="['font-semibold whitespace-nowrap text-sm', signedClass(e.amount)]">{{ e.amount > 0 ? '+' : '' }}{{ money(e.amount) }}</p>
       </div>

@@ -37,7 +37,7 @@
           required
           :class="['w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-12 text-base focus:outline-none focus:ring-2 focus:border-transparent', ring]"
         >
-        <button type="button" class="absolute inset-y-0 right-0 px-3 text-slate-500" :aria-label="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'" @click="showPassword = !showPassword">
+        <button type="button" class="absolute inset-y-0 right-0 px-3 text-slate-600" :aria-label="showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'" @click="showPassword = !showPassword">
           {{ showPassword ? '🙈' : '👁️' }}
         </button>
       </span>
@@ -51,7 +51,7 @@
       {{ loading ? 'Connexion…' : 'Se connecter' }}
     </button>
 
-    <p class="flex items-center gap-3 text-xs text-slate-400"><span class="h-px flex-1 bg-slate-200"></span>ou<span class="h-px flex-1 bg-slate-200"></span></p>
+    <p class="flex items-center gap-3 text-xs text-slate-600"><span class="h-px flex-1 bg-slate-200"></span>ou<span class="h-px flex-1 bg-slate-200"></span></p>
     <button type="button" class="w-full rounded-xl border-2 border-[#25D366] py-3 font-semibold text-emerald-700 hover:bg-emerald-50" @click="whatsappMode = true">
       💬 Me connecter par WhatsApp
     </button>
@@ -63,7 +63,7 @@
       <ul class="space-y-1">
         <li v-for="a in demoAccounts" :key="a.login">
           <button type="button" class="w-full flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-left ring-1 ring-amber-200 hover:ring-amber-400" @click="useDemo(a)">
-            <span class="min-w-0"><span class="block truncate font-medium text-slate-800">{{ a.name }}</span><span class="text-xs text-slate-500">{{ a.role_label }}</span></span>
+            <span class="min-w-0"><span class="block truncate font-medium text-slate-800">{{ a.name }}</span><span class="text-xs text-slate-600">{{ a.role_label }}</span></span>
             <span class="shrink-0 font-mono text-xs text-slate-600">{{ a.login }}</span>
           </button>
         </li>

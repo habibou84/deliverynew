@@ -8,11 +8,11 @@
       <template v-if="total">
         <div class="mt-3 grid grid-cols-2 gap-2">
           <div class="rounded-2xl bg-white/15 px-3 py-2.5">
-            <p class="text-[12px] font-semibold opacity-90">Encaissé · {{ day.delivered }} livrée{{ day.delivered > 1 ? 's' : '' }}</p>
+            <p class="text-xs font-semibold opacity-90">Encaissé · {{ day.delivered }} livrée{{ day.delivered > 1 ? 's' : '' }}</p>
             <p class="text-[18px] font-extrabold tabular-nums">{{ money(day.collected) }}</p>
           </div>
           <div class="rounded-2xl bg-white/15 px-3 py-2.5">
-            <p class="text-[12px] font-semibold opacity-90">À encaisser · {{ day.pending }} en cours</p>
+            <p class="text-xs font-semibold opacity-90">À encaisser · {{ day.pending }} en cours</p>
             <p class="text-[18px] font-extrabold tabular-nums">{{ money(day.toCollect) }}</p>
           </div>
         </div>
@@ -32,7 +32,7 @@
     <section v-if="auth.can('orders.create')" :class="['grid gap-2', quickActions.length > 2 ? 'grid-cols-3' : 'grid-cols-2']">
       <RouterLink v-for="a in quickActions" :key="a.label" :to="a.to" class="tap flex flex-col items-center gap-1.5 rounded-[20px] bg-white py-3 px-1 text-center shadow-soft active:scale-95 transition">
         <ColorIcon :name="a.icon" :size="46" />
-        <span class="text-[12px] font-semibold leading-tight text-slate-700">{{ a.label }}</span>
+        <span class="text-xs font-semibold leading-tight text-slate-700">{{ a.label }}</span>
       </RouterLink>
     </section>
 
@@ -88,10 +88,10 @@
     <RouterLink v-if="balance && !isPhone" to="/marchand/paiements" class="tap flex items-center gap-3.5 rounded-[22px] bg-white p-4 shadow-soft active:scale-[.99] transition">
       <ColorIcon name="argent" :size="52" />
       <div class="min-w-0 flex-1">
-        <p class="text-[13px] font-medium text-slate-500">{{ balance.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'L\'agence vous doit' }}</p>
+        <p class="text-[13px] font-medium text-slate-600">{{ balance.unpaid_total < 0 ? 'Vous devez à l\'agence' : 'L\'agence vous doit' }}</p>
         <p class="text-[24px] font-extrabold leading-tight tabular-nums">{{ money(Math.abs(balance.unpaid_total)) }}</p>
       </div>
-      <AppIcon name="right" class="h-5 w-5 text-slate-400" />
+      <AppIcon name="right" class="h-5 w-5 text-slate-600" />
     </RouterLink>
 
     <!-- Lieu de ramassage à indiquer -->
@@ -104,7 +104,7 @@
     <!-- Les 10 dernières courses du jour, la plus récente en haut ; toutes avec « Voir + » (plein écran) -->
     <section class="space-y-3">
       <div class="flex items-center justify-between">
-        <h2 class="text-[16px] font-bold text-slate-900">Courses du jour<span v-if="total" class="text-slate-400"> · {{ total }}</span></h2>
+        <h2 class="text-[16px] font-bold text-slate-900">Courses du jour<span v-if="total" class="text-slate-600"> · {{ total }}</span></h2>
         <RouterLink to="/marchand/courses?periode=today" class="tap rounded-full bg-[color-mix(in_srgb,var(--app-color)_12%,white)] px-3 py-1 text-sm font-bold text-[var(--app-color)]">Voir +</RouterLink>
       </div>
 
@@ -117,8 +117,8 @@
 
       <RouterLink v-if="laterCount" to="/marchand/courses?periode=later" class="tap flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft text-sm active:scale-[.99] transition">
         <ColorIcon name="calendrier" :size="42" />
-        <span class="flex-1"><strong class="block">Prévues plus tard · {{ laterCount }}</strong><span class="text-slate-500">À livrer les prochains jours</span></span>
-        <AppIcon name="right" class="h-5 w-5 text-slate-400" />
+        <span class="flex-1"><strong class="block">Prévues plus tard · {{ laterCount }}</strong><span class="text-slate-600">À livrer les prochains jours</span></span>
+        <AppIcon name="right" class="h-5 w-5 text-slate-600" />
       </RouterLink>
     </section>
 

@@ -37,7 +37,7 @@
           <label class="label" for="zone">Commune / quartier de livraison * <span v-if="parsed.delivery_zone_id" class="check">à vérifier</span></label>
           <ZoneSelect id="zone" v-model="form.delivery_zone_id" :zones="zones" required :input-class="['input', mark('delivery_zone_id')]" @update:model-value="touched('delivery_zone_id')" />
           <div v-if="zoneChoices.length > 1" class="flex flex-wrap items-center gap-2 mt-1 text-sm">
-            <span class="text-gray-600">Ou peut-être :</span>
+            <span class="text-slate-600">Ou peut-être :</span>
             <button
               v-for="z in zoneChoices" :key="z.id" type="button"
               :class="['rounded-full px-3 py-0.5 ring-1', form.delivery_zone_id === z.id ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']"
@@ -70,7 +70,7 @@
               <option value="16-20">Soir (16h-20h)</option>
             </select>
           </div>
-          <p v-if="closed" class="text-xs text-gray-500 mt-1">🌙 {{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
+          <p v-if="closed" class="text-xs text-slate-600 mt-1">🌙 {{ closedReason }} : le ramassage peut quand même se faire aujourd'hui.</p>
           <p v-if="dateSummary" class="text-sm font-medium mt-1">{{ dateSummary }}</p>
           <p v-if="errors.when" class="field-error">{{ errors.when[0] }}</p>
           <p v-if="errors.delivery_scheduled_date" class="field-error">{{ errors.delivery_scheduled_date[0] }}</p>
@@ -102,7 +102,7 @@
     </section>
 
     <details class="card p-4" :open="moreOpen" @toggle="moreOpen = $event.target.open">
-      <summary class="font-semibold cursor-pointer">Plus d'options <span class="text-sm font-normal text-gray-500">(second numéro, express, fragile, contenu, référence{{ products.length || hubs.length ? ', articles du stock' : '' }}, ramassage)</span></summary>
+      <summary class="font-semibold cursor-pointer">Plus d'options <span class="text-sm font-normal text-slate-600">(second numéro, express, fragile, contenu, référence{{ products.length || hubs.length ? ', articles du stock' : '' }}, ramassage)</span></summary>
       <div class="space-y-4 mt-3">
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
@@ -148,11 +148,11 @@
             <button type="button" class="btn-secondary" :disabled="!products.length" @click="items.push({ product_id: null, quantity: 1, unit_price: 0 })">+ Produit du stock</button>
             <button v-if="!form.pickup_hub_id" type="button" class="btn-secondary" @click="items.push({ label: '', quantity: 1, unit_price: 0 })">+ Article libre</button>
           </div>
-          <p v-if="items.length" class="text-sm text-gray-600">Total des articles : <strong>{{ money(itemsTotal) }}</strong> (reporté dans le montant à encaisser, modifiable)</p>
+          <p v-if="items.length" class="text-sm text-slate-600">Total des articles : <strong>{{ money(itemsTotal) }}</strong> (reporté dans le montant à encaisser, modifiable)</p>
         </div>
 
         <div v-if="!form.pickup_hub_id" class="grid sm:grid-cols-2 gap-3 border-t pt-3">
-          <p class="sm:col-span-2 text-sm text-gray-600">Lieu de ramassage, s'il diffère de l'adresse habituelle du marchand :</p>
+          <p class="sm:col-span-2 text-sm text-slate-600">Lieu de ramassage, s'il diffère de l'adresse habituelle du marchand :</p>
           <div>
             <label class="label" for="pzone">Zone de ramassage</label>
             <SearchSelect
@@ -173,9 +173,9 @@
         <p v-if="quoteError" class="text-red-600">{{ quoteError }}</p>
         <template v-else-if="quote">
           <p>Frais de livraison : <strong>{{ money(quote.total) }}</strong></p>
-          <p class="text-gray-600">À encaisser auprès du client : <strong>{{ money(codAmount) }}</strong></p>
+          <p class="text-slate-600">À encaisser auprès du client : <strong>{{ money(codAmount) }}</strong></p>
         </template>
-        <p v-else class="text-gray-500">Choisissez la zone pour voir le tarif.</p>
+        <p v-else class="text-slate-600">Choisissez la zone pour voir le tarif.</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button type="button" class="btn-secondary" :disabled="saving" title="Garde l'e-commerçant pour enchaîner les saisies" @click="submit(true)">Enregistrer et nouvelle</button>

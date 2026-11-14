@@ -15,7 +15,7 @@
     </div>
 
     <p v-if="error" class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{{ error }}</p>
-    <p v-if="!data && !error" class="py-10 text-center text-slate-500">Chargement…</p>
+    <p v-if="!data && !error" class="py-10 text-center text-slate-600">Chargement…</p>
 
     <template v-if="data">
       <!-- Taux de livraison : le chiffre qui compte -->
@@ -30,9 +30,9 @@
 
       <div class="grid grid-cols-2 gap-3">
         <div v-for="t in tiles" :key="t.label" class="m-card p-4">
-          <p class="text-xs text-slate-500">{{ t.label }}</p>
+          <p class="text-xs text-slate-600">{{ t.label }}</p>
           <p class="text-xl font-bold mt-0.5">{{ t.value }}</p>
-          <p v-if="t.hint" :class="['text-xs mt-0.5', t.hintClass || 'text-slate-400']">{{ t.hint }}</p>
+          <p v-if="t.hint" :class="['text-xs mt-0.5', t.hintClass || 'text-slate-600']">{{ t.hint }}</p>
         </div>
       </div>
 
@@ -52,7 +52,7 @@
       <section class="m-card p-4 space-y-3">
         <h2 class="font-semibold">Pourquoi des livraisons échouent</h2>
         <BarList :items="data.failure_reasons" :color="SERIES[1]" empty="Aucun échec sur la période. 👏" />
-        <p v-if="data.failure_reasons.length" class="text-xs text-slate-500">
+        <p v-if="data.failure_reasons.length" class="text-xs text-slate-600">
           Astuce : un client injoignable ou absent revient souvent à un numéro mal noté. Vérifiez-le avant de créer la course.
         </p>
       </section>
@@ -64,11 +64,11 @@
             <span>{{ z.name }}</span>
             <span class="text-right">
               <strong>{{ z.delivered }}</strong> livrée{{ z.delivered > 1 ? 's' : '' }}
-              <span v-if="z.success_rate !== null" :class="['ml-1 text-xs', z.success_rate < 75 ? 'text-red-600' : 'text-slate-400']">· {{ percent(z.success_rate) }}</span>
+              <span v-if="z.success_rate !== null" :class="['ml-1 text-xs', z.success_rate < 75 ? 'text-red-600' : 'text-slate-600']">· {{ percent(z.success_rate) }}</span>
             </span>
           </li>
         </ul>
-        <p v-else class="text-sm text-slate-500">Aucune livraison sur la période.</p>
+        <p v-else class="text-sm text-slate-600">Aucune livraison sur la période.</p>
       </section>
 
       <section class="m-card p-4 space-y-2 text-sm">

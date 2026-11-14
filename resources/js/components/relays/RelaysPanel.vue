@@ -2,19 +2,19 @@
   <section v-if="loaded && (data.awaiting.length || data.done.length)" class="card">
     <header class="p-4 border-b">
       <h2 class="font-semibold">🤝 Relais entre livreurs</h2>
-      <p class="text-sm text-gray-600">Colis ramassés par un livreur et livrés par un autre : ils se les remettent avec un code à 4 chiffres. Sans relais, le livreur ne peut pas partir livrer.</p>
+      <p class="text-sm text-slate-600">Colis ramassés par un livreur et livrés par un autre : ils se les remettent avec un code à 4 chiffres. Sans relais, le livreur ne peut pas partir livrer.</p>
     </header>
 
     <div v-if="data.awaiting.length" class="divide-y">
       <div v-for="g in data.awaiting" :key="`${g.from.courier_id}-${g.to.courier_id}`" class="p-4 flex flex-wrap items-center justify-between gap-3">
         <div class="min-w-0">
           <p class="font-medium">{{ g.from.name }} → {{ g.to.name }} · {{ g.parcels.length }} colis</p>
-          <p class="text-sm text-gray-600">
+          <p class="text-sm text-slate-600">
             <a v-if="g.from.phone" :href="telLink(g.from.phone)" class="text-blue-600">{{ g.from.phone }}</a>
             <template v-if="g.to.phone"> · <a :href="telLink(g.to.phone)" class="text-blue-600">{{ g.to.phone }}</a></template>
             · <span :class="g.code_given_at ? 'text-emerald-700' : 'text-amber-700'">{{ g.code_given_at ? 'code affiché, en cours' : 'pas encore commencé' }}</span>
           </p>
-          <p class="text-xs text-gray-500 truncate">{{ g.parcels.map((p) => p.tracking_code).join(', ') }}</p>
+          <p class="text-xs text-slate-600 truncate">{{ g.parcels.map((p) => p.tracking_code).join(', ') }}</p>
         </div>
         <button type="button" class="btn-secondary text-xs" @click="open(g)">Valider à leur place</button>
       </div>
@@ -27,7 +27,7 @@
         <li v-for="r in data.done" :key="r.id">
           {{ time(r.confirmed_at) }} · {{ r.from.name }} → {{ r.to.name }} · {{ r.received }} colis
           <span v-if="r.missing" class="text-red-600">· {{ r.missing }} non reçu(s)</span>
-          <span v-if="r.validated_by" class="text-gray-500">· validé par {{ r.validated_by }} ({{ r.reason }})</span>
+          <span v-if="r.validated_by" class="text-slate-600">· validé par {{ r.validated_by }} ({{ r.reason }})</span>
         </li>
       </ul>
     </details>

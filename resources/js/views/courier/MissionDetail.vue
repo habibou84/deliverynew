@@ -40,8 +40,8 @@
       <p v-if="mission.gain" class="text-sm font-semibold text-emerald-700">💰 Votre gain prévu : + {{ money(mission.gain) }}</p>
       <p class="text-xl font-bold">{{ target.name }}</p>
       <p class="text-slate-700">📍 {{ target.zone }}<span v-if="target.address"> · {{ target.address }}</span></p>
-      <p v-if="target.landmark" class="text-slate-500">Repère : {{ target.landmark }}</p>
-      <p v-if="mission.type === 'delivery' && order.delivery.scheduled_date" class="text-sm text-slate-500">Prévue le {{ date(order.delivery.scheduled_date) }} {{ order.delivery.time_slot ? `(${order.delivery.time_slot}h)` : '' }}</p>
+      <p v-if="target.landmark" class="text-slate-600">Repère : {{ target.landmark }}</p>
+      <p v-if="mission.type === 'delivery' && order.delivery.scheduled_date" class="text-sm text-slate-600">Prévue le {{ date(order.delivery.scheduled_date) }} {{ order.delivery.time_slot ? `(${order.delivery.time_slot}h)` : '' }}</p>
 
       <div class="grid grid-cols-3 gap-2 pt-2">
         <a :href="telLink(target.phone)" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
@@ -76,7 +76,7 @@
         <span v-if="order.attempts_count" class="rounded-full bg-slate-100 text-slate-700 text-sm px-3 py-1">Tentative {{ order.attempts_count + 1 }} / {{ order.max_attempts }}</span>
       </div>
       <p v-if="order.package.merchant_note" class="rounded-xl bg-amber-50 p-3 text-amber-900">📝 {{ order.package.merchant_note }}</p>
-      <p class="font-mono text-xs text-slate-400">{{ order.tracking_code }}<span v-if="mission.type === 'pickup'"> · {{ order.merchant?.business_name }}</span></p>
+      <p class="font-mono text-xs text-slate-600">{{ order.tracking_code }}<span v-if="mission.type === 'pickup'"> · {{ order.merchant?.business_name }}</span></p>
     </section>
 
     <!-- Frais déclarés -->
@@ -86,7 +86,7 @@
         <span class="text-slate-600">{{ e.description }}</span>
         <span class="font-semibold whitespace-nowrap">{{ money(e.amount) }}</span>
       </div>
-      <p class="text-xs text-slate-500">Remboursés sur votre prochain versement à la caisse.</p>
+      <p class="text-xs text-slate-600">Remboursés sur votre prochain versement à la caisse.</p>
     </section>
 
     <!-- Actions -->
@@ -110,7 +110,7 @@
             </label>
           </div>
           <!-- Mission confiée d'office, pas encore commencée : le livreur peut la rendre -->
-          <button v-if="mission.can_report_impediment" class="w-full text-center text-sm text-slate-500 underline py-1" @click="sheet = 'refuse'">
+          <button v-if="mission.can_report_impediment" class="w-full text-center text-sm text-slate-600 underline py-1" @click="sheet = 'refuse'">
             Je ne peux pas faire cette mission
           </button>
         </template>
@@ -130,9 +130,9 @@
             <label class="m-label" for="shipfee">Frais d'expédition payés</label>
             <div class="relative">
               <input id="shipfee" v-model.number="delivery.shipping_fee" type="number" min="0" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
-              <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
+              <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 font-semibold">F</span>
             </div>
-            <p class="text-sm text-slate-500 mt-1">Facturés au marchand et déduits de ce que vous versez à la caisse.</p>
+            <p class="text-sm text-slate-600 mt-1">Facturés au marchand et déduits de ce que vous versez à la caisse.</p>
           </div>
           <div>
             <label class="m-label" for="ticket">Numéro du ticket</label>
@@ -147,7 +147,7 @@
           <label class="m-label" for="collected">Montant encaissé</label>
           <div class="relative">
             <input id="collected" v-model.number="delivery.collected_amount" type="number" min="0" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
-            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 font-semibold">F</span>
           </div>
           <p v-if="delivery.collected_amount !== order.amounts.cod_amount" class="text-sm text-amber-700 mt-1">Attendu : {{ money(order.amounts.cod_amount) }}</p>
           <!-- Moins que prévu : l'agence est prévenue, une explication est obligatoire -->
@@ -167,12 +167,12 @@
             label="Paiement reçu"
           />
           <input v-model="delivery.transaction_ref" class="m-input" :placeholder="delivery.received_by_company ? 'Référence de la transaction (obligatoire)' : 'Référence de la transaction (facultatif)'">
-          <p v-if="delivery.received_by_company" class="text-xs text-slate-500">Tant que la caisse ne l'a pas retrouvé sur le relevé, ce montant reste à votre charge.</p>
+          <p v-if="delivery.received_by_company" class="text-xs text-slate-600">Tant que la caisse ne l'a pas retrouvé sur le relevé, ce montant reste à votre charge.</p>
         </template>
         <div v-if="auth.user?.company?.require_delivery_code && !shipping">
           <label class="m-label" for="code">Code donné par le client</label>
           <input id="code" v-model="delivery.delivery_code" class="m-input text-center text-3xl font-bold tracking-[0.5em]" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••">
-          <p v-if="offlineEnabled && !pwa.online" class="text-xs text-slate-500 mt-1">Hors connexion : le code sera vérifié au retour du réseau. S'il est faux, l'agence vérifiera la livraison auprès du client.</p>
+          <p v-if="offlineEnabled && !pwa.online" class="text-xs text-slate-600 mt-1">Hors connexion : le code sera vérifié au retour du réseau. S'il est faux, l'agence vérifiera la livraison auprès du client.</p>
         </div>
         <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
         <button class="m-btn-success text-lg py-5" :disabled="busy" @click="confirmDelivered">{{ shipping ? '✓ Confirmer l\'expédition' : '✓ Confirmer la livraison' }}</button>
@@ -189,7 +189,7 @@
           <input v-if="incident.when === 'other'" v-model="incident.date" type="date" :min="today()" class="m-input mt-2" aria-label="Date">
         </div>
         <textarea v-model="incident.note" rows="2" class="m-input" placeholder="Précisez (facultatif) : ex. téléphone éteint, 3 appels" />
-        <p class="text-xs text-slate-500">L'agence et le marchand sont prévenus immédiatement.</p>
+        <p class="text-xs text-slate-600">L'agence et le marchand sont prévenus immédiatement.</p>
         <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
         <button class="m-btn-danger" :disabled="busy || !incident.reason" @click="confirmIncident">Envoyer</button>
       </div>
@@ -204,10 +204,10 @@
           <label class="m-label" for="expense-amount">Montant payé</label>
           <div class="relative">
             <input id="expense-amount" v-model.number="expense.amount" type="number" min="1" inputmode="numeric" class="m-input text-2xl font-bold pr-12">
-            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 font-semibold">F</span>
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 font-semibold">F</span>
           </div>
         </div>
-        <p class="text-sm text-slate-500">Payé de votre poche ou avec une avance de la caisse : le montant est déduit de votre prochain versement et facturé au marchand.</p>
+        <p class="text-sm text-slate-600">Payé de votre poche ou avec une avance de la caisse : le montant est déduit de votre prochain versement et facturé au marchand.</p>
         <label class="m-btn-secondary cursor-pointer">
           📷 Photographier le reçu
           <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
@@ -234,7 +234,7 @@
       </div>
     </BottomSheet>
   </div>
-  <p v-else class="text-center text-slate-400 py-10">Chargement…</p>
+  <p v-else class="text-center text-slate-600 py-10">Chargement…</p>
 </template>
 
 <script setup>
