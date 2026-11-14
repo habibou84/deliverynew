@@ -384,6 +384,11 @@ async function load() {
   closesAt.value = data.depot_closes_at
   loaded.value = true
   if (selected.value) selected.value = couriers.value.find((c) => c.id === selected.value.id) || null
+  // Livreur demandé par le poste de pilotage (?livreur=) : son détail s'ouvre directement
+  else if (route.query.livreur) {
+    const wanted = couriers.value.find((c) => String(c.id) === String(route.query.livreur))
+    if (wanted) select(wanted)
+  }
 }
 
 function changeDay() {
