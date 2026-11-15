@@ -221,4 +221,33 @@ class PrepaidBillingTest extends TestCase
         $this->artisan('billing:invoice')->assertSuccessful();
         $this->assertSame(0, PlatformInvoice::query()->where('period', '2026-12')->count());
     }
+
+    public function test_the_console_sets_the_grace_days_the_notice_and_the_orders_pack(): void
+    {
+        config(['platform.domain' => 'jibiat.test']);
+        Sanctum::actingAs($this->root);
+        $this->getJson('http://admin.jibiat.test/api/v1/console/settings')->assertOk()
+            ->assertJsonPath('data.prepaid', ['warning_days' => 1, 'grace_days' => 3, 'notice_days' => 5, 'weekly_notice_days' => 2, 'orders_pack' => 100]);
+        $this->putJson('http://admin.jibiat.test/api/v1/console/settings', ['prepaid' => ['grace_days' => 5, 'notice_days' => 7, 'orders_pack' => 50]])->assertOk()
+            ->assertJsonPath('data.prepaid.grace_days', 5)->assertJsonPath('data.prepaid.orders_pack', 50)->assertJsonPath('data.prepaid.warning_days', 1);
+        $this->putJson('http://admin.jibiat.test/api/v1/console/settings', ['prepaid' => ['grace_days' => -1]])->assertJsonValidationErrors('prepaid.grace_days');
+
+        // Préavis de 7 jours : décembre facturé dès le 24
+        $this->travelTo(CarbonImmutable::parse('2026-11-24 01:30', 'Africa/Abidjan'));
+        $this->artisan('billing:invoice')->assertSuccessful();
+        $december = PlatformInvoice::query()->where('period', '2026-12')->sole();
+
+        // Grâce de 5 jours : encore des courses le 5, plus le 6
+        $billing = app(Billing::class);
+        $this->travelTo(CarbonImmutable::parse('2026-12-05 09:00', 'Africa/Abidjan'));
+        $this->assertFalse($billing->isRestricted($this->company->fresh()));
+        $this->travelTo(CarbonImmutable::parse('2026-12-06 09:00', 'Africa/Abidjan'));
+        $this->assertTrue($billing->isRestricted($this->company->fresh()));
+        $this->pay($december);
+
+        // Pack de 50 courses
+        Sanctum::actingAs($this->admin);
+        $orders = collect($this->getJson("http://{$this->company->slug}.jibiat.test/api/v1/subscription")->assertOk()->json('data.prepaid.purchases'))->firstWhere('kind', 'orders');
+        $this->assertSame([50, 1250], [$orders['quantity'], $orders['total']]);
+    }
 }

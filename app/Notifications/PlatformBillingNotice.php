@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\PlatformInvoice;
+use App\Services\Platform\BillingSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\BroadcastMessage;
@@ -33,7 +34,7 @@ class PlatformBillingNotice extends Notification implements ShouldQueue
     {
         $amount = number_format($this->invoice->balance(), 0, ',', ' ').' F';
         $due = $this->invoice->due_at->format('d/m/Y');
-        $days = (int) config('platform.billing.restrict_after_days');
+        $days = BillingSettings::get('grace_days');
 
         [$title, $body] = match ($this->stage) {
             'issued' => ["Facture {$this->invoice->number} : {$amount}", 'Abonnement '.($this->invoice->cycle === 'weekly' ? 'de la semaine' : 'du mois').", à régler avant le {$due}."],
