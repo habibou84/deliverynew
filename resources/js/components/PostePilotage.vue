@@ -78,6 +78,14 @@
             <RouterLink :to="t.to" class="btn-secondary">{{ t.action }}</RouterLink>
           </li>
         </ul>
+        <!-- Date dépassée depuis plus de 2 jours : hors de la file, une mention discrète vers les courses non traitées -->
+        <RouterLink
+          v-if="overdueOld" to="/admin/courses/en-retard?age=old"
+          class="block border-t border-slate-100 px-5 py-3 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        >
+          {{ overdueOld }} course{{ overdueOld > 1 ? 's' : '' }} non traitée{{ overdueOld > 1 ? 's' : '' }} depuis plus de 2 jours
+          <span class="font-medium text-blue-700">· Voir</span>
+        </RouterLink>
       </section>
 
       <!-- Livreurs à surveiller -->
@@ -177,12 +185,10 @@ const todayIso = iso(new Date())
 const shift = (days) => { const d = new Date(); d.setDate(d.getDate() + days); return iso(d) }
 const todayLong = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 const hour = (value) => new Date(value).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', ' h ')
-const shortDay = (d) => new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
 
 const report = ref(null)
 const activity = ref(null)
 const deliveryDay = ref(null)
-const oldestLate = ref(null)
 // Courses du jour en chemin vers le client (étape « En livraison »)
 const onTheWay = ref(0)
 const updatedAt = ref('')
@@ -191,6 +197,8 @@ const counts = computed(() => dispatchCounts.counts)
 const day = computed(() => (dispatchCounts.dayCounts?.date === todayIso ? dispatchCounts.dayCounts : {}))
 const exc = computed(() => counts.value.exceptions || {})
 const rate = computed(() => (report.value?.counts.planned ? Math.round((report.value.counts.delivered_planned / report.value.counts.planned) * 100) : 0))
+// Courses non traitées depuis plus de 2 jours : hors de la file « À régler »
+const overdueOld = computed(() => counts.value.overdue?.old?.untreated || 0)
 const watched = computed(() => (activity.value?.data || []).filter((c) => c.flags?.length))
 const queue = (q) => ({ path: '/admin/courses', query: { queue: q } })
 
@@ -206,13 +214,14 @@ const todos = computed(() => {
   const oldestWait = Math.max(c.waiting?.pickup?.oldest_minutes || 0, c.waiting?.delivery?.oldest_minutes || 0)
   const cutoffCount = c.cutoff?.passed ? c.cutoff.count : 0
   return [
+    // Date dépassée (hier, avant-hier) : reporter ou annuler passe avant toute assignation
+    { key: 'reschedule', level: 'urgent', count: c.overdue?.recent?.untreated || 0, title: 'Courses à reporter ou annuler', sub: 'date de livraison dépassée depuis hier ou avant-hier', action: 'Reporter / annuler', to: '/admin/courses/en-retard?age=recent' },
     { key: 'late', level: 'urgent', count: c.late?.total || 0, title: 'Courses sans livreur depuis trop longtemps', sub: oldestWait ? `la plus ancienne attend depuis ${waitDuration(oldestWait)}` : '', action: 'Assigner', to: queue('unassigned') },
     { key: 'cutoff', level: 'urgent', count: cutoffCount, title: `Courses du jour toujours sans livreur après ${c.cutoff?.time || ''}`, sub: 'risque de ne pas être livrées aujourd\'hui', action: 'Assigner', to: queue('unassigned') },
     { key: 'code', level: 'urgent', count: exc.value.code_to_verify || 0, title: 'Codes à vérifier', sub: 'livrées hors connexion avec un code faux', action: 'Vérifier', to: queue('code_to_verify') },
     { key: 'confirm', level: 'faire', count: day.value.to_confirm || 0, title: 'Nouvelles courses à valider', sub: 'reçues des e-commerçants', action: 'Valider', to: queue('to_confirm') },
     { key: 'cancel', level: 'faire', count: c.cancellation_requests || 0, title: 'Annulations demandées', sub: 'à accepter ou refuser', action: 'Décider', to: '/admin/courses/annulations' },
     { key: 'change', level: 'faire', count: c.change_requests || 0, title: 'Modifications à valider', sub: 'prix ou livraison changés par l\'e-commerçant', action: 'Voir', to: queue('change_requests') },
-    { key: 'untreated', level: 'faire', count: exc.value.untreated || 0, title: 'Courses en retard', sub: `date de livraison dépassée${oldestLate.value ? ` · la plus ancienne : ${shortDay(oldestLate.value)}` : ''}`, action: 'Traiter', to: '/admin/courses/en-retard' },
     { key: 'decide', level: 'faire', count: exc.value.to_decide || 0, title: 'Échecs de livraison sans suite', sub: 'relivrer, retourner ou remettre en stock', action: 'Décider', to: queue('to_decide') },
     { key: 'return', level: 'faire', count: day.value.to_return || 0, title: 'Colis à retourner', sub: 'retour demandé par l\'e-commerçant', action: 'Organiser', to: queue('to_return') },
     { key: 'held', level: 'voir', count: heldParcels.counts.overdue || 0, title: 'Colis gardés trop longtemps par un livreur', sub: 'à faire rapporter ou livrer', action: 'Voir', to: '/admin/activite/colis' },
@@ -270,18 +279,16 @@ async function refresh() {
   dispatchCounts.day = todayIso
   dispatchCounts.fetchCounts().catch(() => {})
   // Colis gardés et remontées terrain : déjà chargés par le menu (AdminLayout), chaque minute
-  const [r, a, d, u, w] = await Promise.allSettled([
+  const [r, a, d, w] = await Promise.allSettled([
     http.get('/reports/day', { params: { day: todayIso } }),
     http.get('/couriers/activity'),
     http.get('/delivery-day'),
-    http.get('/orders/untreated-groups', { params: { by: 'date' } }),
     http.get('/orders', { params: { day: todayIso, status: ['out_for_delivery'], per_page: 1 } }),
   ])
   if (r.status === 'fulfilled') report.value = r.value.data.data
   if (a.status === 'fulfilled') activity.value = a.value.data
   if (d.status === 'fulfilled') deliveryDay.value = d.value.data.data
   if (w.status === 'fulfilled') onTheWay.value = w.value.data.meta?.total ?? 0
-  oldestLate.value = u.status === 'fulfilled' ? u.value.data.data.groups[0]?.key || null : null
   updatedAt.value = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 

@@ -37,6 +37,8 @@ class AwaitingCourier
             // Date de livraison passée : la course attend une nouvelle date (« À reporter »), pas un livreur
             $order->status === OrderStatus::Confirmed && $order->pickup_hub_id === null && ! $order->needsReschedule(today()->toDateString()) => self::PICKUP,
             in_array($order->status, self::DELIVERY_STATUSES, true) && ! $order->return_requested
+                // Date de livraison passée : la course doit être reportée ou annulée avant de chercher un livreur
+                && ($order->delivery_scheduled_date ?? $order->created_at)->toDateString() >= today()->toDateString()
                 // Livraison déjà confiée (avant le ramassage, ou un report) : la course ne l'attend plus, comme dans la file
                 && ! $this->hasDeliveryCourier($order) => self::DELIVERY,
             default => null,
@@ -70,6 +72,8 @@ class AwaitingCourier
                 $q->orWhere(fn (Builder $q) => $q->whereIn('status', OrderStatus::values(self::DELIVERY_STATUSES))
                     ->where('return_requested', false)
                     ->whereDoesntHave('assignments', fn ($a) => $a->active()->where('type', AssignmentType::Delivery->value))
+                    // Date de livraison passée : à reporter ou annuler (« Courses en retard »), pas « sans livreur »
+                    ->whereRaw(Order::DELIVERY_DAY_SQL.' >= ?', [today()->toDateString()])
                     // Livraison prévue un autre jour : pas encore en attente (le ramassage, lui, se fait dès la validation)
                     ->where(fn (Builder $q) => $q->whereNull('delivery_scheduled_date')->orWhereDate('delivery_scheduled_date', '<=', $day)));
             }

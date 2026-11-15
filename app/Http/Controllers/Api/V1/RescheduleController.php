@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Jibiat\Socle\Contract\Contract;
 
 /**
@@ -28,7 +29,9 @@ class RescheduleController extends Controller
         $company = $request->user()->company;
         $today = Reschedules::today($company);
 
-        $orders = Order::query()->toReschedule($today)
+        $age = $request->validate(['age' => ['nullable', Rule::in(['recent', 'old'])]])['age'] ?? null;
+
+        $orders = Order::query()->toReschedule($today)->overdueAge($age)
             ->with(['deliveryZone:id,name', 'rescheduleRequest',
                 'assignments' => fn ($q) => $q->active()->where('type', AssignmentType::Pickup->value)->with('courier.user:id,name')])
             ->orderByRaw(Order::DELIVERY_DAY_SQL)->orderBy('id')
