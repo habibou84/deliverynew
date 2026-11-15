@@ -12,7 +12,7 @@ import { useNotificationStore } from './notifications'
 const readCachedUser = getCachedUser
 const cacheUser = setCachedUser
 
-// Appareil retenu après le code de connexion de la console (jeton propre à ce navigateur)
+// Appareil retenu après la deuxième étape de connexion à la console (jeton propre à ce navigateur)
 const TRUSTED_DEVICE = 'jibiat.trusted-device'
 function readTrustedDevice() {
   try {
@@ -57,22 +57,26 @@ export const useAuthStore = defineStore('auth', {
         device_name: navigator.userAgent.slice(0, 100),
         // Seuls les comptes de l'espace de cette page de connexion y entrent (contrôlé par le serveur)
         space: SERVER_SPACES[currentSpace()],
-        // Console : appareil retenu après un code de connexion (le code n'est pas redemandé)
+        // Console : appareil retenu après la deuxième étape (le code de l'application n'est pas redemandé)
         trusted_device: readTrustedDevice(),
       })
 
-      // Console : un code a été envoyé par e-mail, la session s'ouvrira après ce code
+      // Console : code de l'application d'authentification (ou première configuration), la session s'ouvrira après
       if (data.two_factor) return { twoFactor: data.two_factor }
 
       await this.adoptSession(data)
       return {}
     },
 
-    // Code de connexion de la console ; « remember » : appareil retenu 30 jours
+    // Deuxième étape de la console (code de l'application ou de secours) ; « remember » : appareil retenu 30 jours.
+    // Première configuration : les codes de secours sont à montrer avant d'entrer (finish() ouvre la session).
     async confirmTwoFactor({ challenge, code, remember }) {
       const { data } = await http.post('/auth/two-factor', { challenge, code, remember })
       if (data.trusted_device) saveTrustedDevice(data.trusted_device)
-      await this.adoptSession(data)
+      const finish = () => this.adoptSession(data)
+      if (data.recovery_codes?.length) return { recoveryCodes: data.recovery_codes, finish }
+      await finish()
+      return { recoveryCodesLeft: data.recovery_codes_left }
     },
 
     // Session renvoyée par le serveur (mot de passe ou WhatsApp) : refusée si l'application est limitée à un autre espace
