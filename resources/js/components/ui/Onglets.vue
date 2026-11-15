@@ -1,6 +1,4 @@
 <template>
-  <!-- Onglets de la charte : trait souligné sous l'actif, couleur de l'espace ; compteur facultatif ; défilement sur téléphone -->
-  <!-- Téléphone : une ligne qui défile ; ordinateur : les onglets passent à la ligne s'ils sont nombreux -->
   <!-- Téléphone : une ligne qui défile ; ordinateur : les étapes passent à la ligne d'un seul bloc si elles sont nombreuses -->
   <nav class="flex gap-x-1 overflow-x-auto no-scrollbar border-b border-slate-200 lg:flex-wrap lg:overflow-visible" :aria-label="label">
     <div v-for="(block, b) in blocks" :key="block.group || b" class="flex shrink-0 items-stretch">
