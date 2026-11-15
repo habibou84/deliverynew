@@ -73,9 +73,21 @@
     <!-- Onglets : les courses du jour choisi (toutes les dates si « Toutes les dates ») -->
     <Onglets
       v-if="isStaff" label="Files de courses" :model-value="filters.queue"
-      :items="mainQueues.map((q) => ({ value: q.value, label: q.label, count: tabCount(q.value), late: tabLate(q.value), lateTitle: 'en attente de livreur depuis trop longtemps' }))"
+      :items="mainQueues.map((q) => ({ value: q.value, label: q.label, group: q.group, count: tabCount(q.value), late: tabLate(q.value), lateTitle: 'en attente depuis trop longtemps' }))"
       @update:model-value="setQueue"
     />
+
+    <!-- Sans ramasseur : en liste ou regroupés par client et adresse -->
+    <div v-if="filters.queue === 'pickup_unassigned' && isDispatch" class="flex flex-wrap items-center gap-3 text-sm">
+      <div role="group" aria-label="Affichage" class="inline-flex overflow-hidden rounded-lg border border-slate-400">
+        <button
+          v-for="v in [{ value: 'liste', label: 'Liste' }, { value: 'client', label: 'Par client' }]" :key="v.value" type="button"
+          :class="['min-h-10 px-4', view === v.value ? 'bg-[var(--admin-color,#0f172a)] font-semibold text-white' : 'bg-white text-slate-900 hover:bg-slate-50', v.value === 'client' ? 'border-l border-slate-400' : '']"
+          :aria-pressed="view === v.value" @click="setView(v.value)"
+        >{{ v.label }}</button>
+      </div>
+      <span class="text-slate-600">{{ view === 'client' ? 'un lot par client et adresse, à assigner d\'un coup' : 'de la plus ancienne attente à la plus récente' }}</span>
+    </div>
 
     <!-- Sans livreur : ramassage, livraison ou les deux ; de la plus ancienne attente à la plus récente -->
     <div v-if="filters.queue === 'unassigned'" class="flex flex-wrap items-center gap-2 text-sm">
@@ -363,22 +375,26 @@ const initialDay = () => {
   return /^\d{4}-\d{2}-\d{2}$/.test(q || '') ? q : todayIso
 }
 // Files de travail (limitées au jour) ; on peut y ajouter les courses prévues plus tard
-const WORK_QUEUES = ['to_pickup', 'by_client', 'to_prepare', 'to_deliver', 'unassigned']
-const LATER_QUEUES = { to_pickup: 'à ramasser', by_client: 'à ramasser', to_prepare: 'à préparer', unassigned: 'à ramasser' }
+const WORK_QUEUES = ['to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'pickup_unassigned', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered']
+const LATER_QUEUES = { to_pickup: 'à ramasser', to_prepare: 'à préparer', unassigned: 'à ramasser', pickup_unassigned: 'à ramasser' }
 
-// Onglets dans l'ordre du travail (le parcours du colis), « Toutes » en dernier (charte, composant Onglets)
+// Onglets par étape, dans l'ordre du parcours du colis : validation, ramassage, livraison, retours ; « Toutes » en dernier
 const queues = [
-  { value: 'to_confirm', label: 'À valider' },
-  { value: 'unassigned', label: 'Sans livreur' },
-  { value: 'to_pickup', label: 'À ramasser' },
-  { value: 'by_client', label: 'Ramassages par client' },
-  // Commandes à préparer au dépôt de l'entreprise
-  { value: 'to_prepare', label: 'À préparer' },
-  { value: 'failed', label: 'Échecs' },
+  { value: 'to_confirm', label: 'À valider', group: 'Validation' },
+  { value: 'pickup_unassigned', label: 'Sans ramasseur', group: 'Ramassage' },
+  { value: 'to_pickup', label: 'Ramassage en cours', group: 'Ramassage' },
+  // Commandes stockées à l'entrepôt de l'entreprise : préparées au lieu d'être ramassées
+  { value: 'to_prepare', label: 'À préparer', group: 'Ramassage' },
+  { value: 'delivery_unassigned', label: 'Sans livreur', group: 'Livraison' },
+  { value: 'delivery_assigned', label: 'Livraison assignée', group: 'Livraison' },
+  { value: 'on_the_way', label: 'En chemin', group: 'Livraison' },
+  { value: 'delivered', label: 'Livrées', group: 'Livraison' },
+  { value: 'failed', label: 'Échecs', group: 'Livraison' },
   // Retours demandés par les e-commerçants
-  { value: 'to_return', label: 'À retourner' },
-  { value: '', label: 'Toutes' },
+  { value: 'to_return', label: 'À retourner', group: 'Retours' },
+  { value: '', label: 'Toutes', group: 'Retours' },
   // Files hors onglets : cartes « à régler » et liens directs ; « late » = attente de livreur trop longue
+  { value: 'unassigned', label: 'Sans ramasseur ni livreur' },
   { value: 'late', label: 'Attente trop longue' },
   { value: 'to_deliver', label: 'À livrer' },
   { value: 'to_decide', label: 'À décider' },
@@ -389,8 +405,11 @@ const queues = [
 ]
 
 // Onglets : les courses du jour choisi ; les jours passés sont dans « Courses en retard » (page à part)
-const MAIN_QUEUES = ['', 'to_return', 'to_confirm', 'to_pickup', 'by_client', 'to_prepare', 'unassigned', 'failed']
-const mainQueues = computed(() => queues.filter((q) => MAIN_QUEUES.includes(q.value) && (q.value !== 'by_client' || isDispatch.value)))
+const MAIN_QUEUES = ['to_confirm', 'pickup_unassigned', 'to_pickup', 'to_prepare', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered', 'failed', 'to_return', '']
+// « À préparer » : seulement pour une entreprise qui a un stock (ou s'il reste des commandes à préparer)
+const mainQueues = computed(() => queues.filter((q) => MAIN_QUEUES.includes(q.value) && (q.value !== 'to_prepare' || auth.hasFeature('stock') || tabCount('to_prepare') > 0)))
+// Sans ramasseur : en liste ou regroupés par client et adresse (lot à assigner d'un coup)
+const view = ref(route.query.vue === 'client' || route.query.queue === 'by_client' ? 'client' : 'liste')
 // Cas à régler, toutes dates : en cartes de couleur au-dessus des onglets, seulement quand il y en a
 const EXCEPTIONS = [
   { value: 'change_requests', icon: 'modifier', label: 'modification à valider', plural: 'modifications à valider', hint: 'prix changé par l\'e-commerçant', class: 'border-amber-200 bg-amber-50 text-amber-900' },
@@ -407,7 +426,8 @@ const rescheduleCount = computed(() => (isDispatch.value ? dispatchCounts.counts
 const untreatedCount = computed(() => (isDispatch.value ? dispatchCounts.counts.exceptions?.untreated || 0 : 0))
 
 const filters = reactive({
-  queue: route.query.queue || '',
+  // Ancienne adresse « Ramassages par client » : onglet Sans ramasseur, vue par client
+  queue: route.query.queue === 'by_client' ? 'pickup_unassigned' : (route.query.queue || ''),
   search: route.query.search || '',
   // Statut demandé par un lien (poste de pilotage : en livraison, livrées)
   status: route.query.status || '',
@@ -468,8 +488,9 @@ const allSelected = computed(() => orders.value.length > 0 && selected.value.len
 const dispatchCounts = useDispatchCountStore()
 const isDispatch = computed(() => auth.can('orders.dispatch'))
 const COUNTED = { to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_deliver: 'to_deliver', unassigned: 'unassigned' }
+const STEP_QUEUES = ['pickup_unassigned', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered']
 // Jour choisi : compteurs de ce jour ; sinon compteurs généraux
-const DAY_COUNTED = { '': 'all', late: 'late', to_return: 'to_return', failed: 'failed', to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned' }
+const DAY_COUNTED = { '': 'all', late: 'late', to_return: 'to_return', failed: 'failed', to_confirm: 'to_confirm', to_pickup: 'to_pickup', to_prepare: 'to_prepare', to_deliver: 'to_deliver', unassigned: 'unassigned', ...Object.fromEntries(STEP_QUEUES.map((q) => [q, q])) }
 const dayCounts = computed(() => (filters.day && dispatchCounts.dayCounts?.date === filters.day ? dispatchCounts.dayCounts : null))
 const tabCount = (queue) => {
   if (!isDispatch.value) return 0
@@ -483,7 +504,7 @@ const tabCount = (queue) => {
 // Courses prévues après le jour choisi, hors de la file tant qu'on ne les demande pas
 const laterCount = computed(() => {
   if (!filters.day || !LATER_QUEUES[filters.queue]) return 0
-  return dayCounts.value?.later?.[filters.queue === 'by_client' ? 'unassigned' : filters.queue] || 0
+  return dayCounts.value?.later?.[filters.queue] || 0
 })
 // Retour demandé par l'e-commerçant, pas encore parti
 const returnPending = (o) => o.return_requested && !['returned', 'return_assigned', 'returning'].includes(o.status)
@@ -497,7 +518,7 @@ const DAY_CHOICES = computed(() => [
 ])
 const tabLate = (queue) => {
   if (!isDispatch.value) return 0
-  const late = { unassigned: dispatchCounts.counts.late.total }[queue] || 0
+  const late = { unassigned: dispatchCounts.counts.late.total, pickup_unassigned: dispatchCounts.counts.late.pickup, delivery_unassigned: dispatchCounts.counts.late.delivery }[queue] || 0
   // Jour choisi : pas plus que la file n'en montre (les autres sont dans « prévues plus tard »)
   if (filters.day && !dayCounts.value) return 0
   return dayCounts.value ? Math.min(late, tabCount(queue)) : late
@@ -507,7 +528,7 @@ const tabLate = (queue) => {
 // Alerte « sans livreur » reçue : la liste se met à jour
 watch(() => dispatchCounts.version, () => load(meta.value?.current_page || 1))
 
-const byClient = computed(() => filters.queue === 'by_client')
+const byClient = computed(() => filters.queue === 'pickup_unassigned' && view.value === 'client')
 
 async function load(page = 1) {
   if (byClient.value) {
@@ -543,6 +564,7 @@ function syncQuery() {
   const query = {}
   if (filters.queue) query.queue = filters.queue
   if (filters.queue === 'unassigned' && filters.awaiting) query.awaiting = filters.awaiting
+  if (filters.queue === 'pickup_unassigned' && view.value === 'client') query.vue = 'client'
   if (isStaff.value && filters.day !== todayIso) query.day = filters.day || 'all'
   router.replace({ query })
 }
@@ -551,7 +573,7 @@ function setQueue(value) {
   filters.queue = value
   filters.awaiting = ''
   filters.include_later = false
-  bulk.type = { to_deliver: 'delivery', incidents: 'delivery', failed: 'delivery', to_return: 'return', unassigned: 'auto' }[value] || 'pickup'
+  bulk.type = { to_deliver: 'delivery', delivery_unassigned: 'delivery', delivery_assigned: 'delivery', on_the_way: 'delivery', incidents: 'delivery', failed: 'delivery', to_return: 'return', unassigned: 'auto' }[value] || 'pickup'
   syncQuery()
   load(1)
 }
@@ -560,6 +582,12 @@ function setQueue(value) {
 function showDelivered() {
   filters.status = 'delivered'
   setQueue('')
+}
+
+function setView(value) {
+  view.value = value
+  syncQuery()
+  load(1)
 }
 
 function setAwaiting(value) {
