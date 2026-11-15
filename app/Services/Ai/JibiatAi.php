@@ -62,6 +62,17 @@ class JibiatAi
     /** Prix de Claude en dollars par million de jetons (entrée, sortie), selon la famille du modèle */
     private const MODEL_PRICES = ['haiku' => [0.10, 0.50], 'sonnet' => [2.0, 10.0], 'opus' => [4.0, 20.0], 'fable' => [10.0, 50.0], 'mythos' => [10.0, 50.0]];
 
+    /**
+     * Repli côté serveur quand le modèle décline pour raison de politique (arguments nommés de l'appel à Claude) :
+     * pas proposé sur Haiku.
+     *
+     * @return array<string, mixed>
+     */
+    public static function fallbackArgs(string $model): array
+    {
+        return str_contains($model, 'haiku') ? [] : ['betas' => ['server-side-fallback-2026-07-01'], 'fallbacks' => 'default'];
+    }
+
     /** @return array{enabled: int, points_message: int, points_photo: int, usd_rate: int, yearly_months: int} */
     public function settings(): array
     {

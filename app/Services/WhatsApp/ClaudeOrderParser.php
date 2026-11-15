@@ -96,11 +96,9 @@ class ClaudeOrderParser implements OrderMessageParser
     {
         $client = new Client(apiKey: config('messaging.ai.api_key'));
         $model = (string) config('messaging.ai.model');
-        // Repli côté serveur si le modèle décline pour raison de politique (pas proposé sur Haiku)
-        $fallback = str_contains($model, 'haiku') ? [] : ['betas' => ['server-side-fallback-2026-07-01'], 'fallbacks' => 'default'];
 
         $message = $client->beta->messages->create(
-            ...$fallback,
+            ...JibiatAi::fallbackArgs($model),
             model: $model,
             maxTokens: 2048,
             system: $this->systemPrompt($zones),
