@@ -124,15 +124,14 @@
         <h2 id="parcours" class="text-lg font-semibold">Parcours du jour</h2>
         <span class="text-sm text-slate-600">un clic ouvre les courses de l'étape</span>
       </div>
-      <div class="flex flex-wrap items-stretch gap-1.5">
-        <template v-for="(s, i) in steps" :key="s.label">
-          <div v-if="s.sep" class="mx-1.5 my-1 w-px bg-slate-300" aria-hidden="true" />
-          <RouterLink :to="s.to" class="flex min-h-[4.5rem] min-w-[7rem] flex-1 flex-col justify-center rounded-xl border border-slate-300 px-3.5 py-2 hover:border-slate-500 hover:bg-slate-50">
+      <!-- Étapes en grille régulière : validation et ramassage, livraison, puis issues du jour (fond gris) -->
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-2">
+        <template v-for="s in steps" :key="s.label">
+          <RouterLink :to="s.to" :class="['flex min-h-[4.5rem] flex-col justify-center rounded-xl border border-slate-300 px-3.5 py-2 hover:border-slate-500 hover:bg-slate-50', s.outcome ? 'bg-slate-50' : '']">
             <span class="text-sm font-medium text-slate-600">{{ s.label }}</span>
             <span :class="['text-2xl font-bold tabular-nums', s.tone]">{{ s.count }}</span>
             <span v-if="s.late" class="mt-0.5 self-start rounded-full bg-red-600 px-2 text-xs font-semibold text-white">{{ s.late }} attente longue</span>
           </RouterLink>
-          <span v-if="s.arrow && i < steps.length - 1" class="grid place-items-center text-slate-400" aria-hidden="true"><Icone nom="ouvrir" taille="petite" /></span>
         </template>
       </div>
     </section>
@@ -189,8 +188,6 @@ const hour = (value) => new Date(value).toLocaleTimeString('fr-FR', { hour: '2-d
 const report = ref(null)
 const activity = ref(null)
 const deliveryDay = ref(null)
-// Courses du jour en chemin vers le client (étape « En livraison »)
-const onTheWay = ref(0)
 const updatedAt = ref('')
 
 const counts = computed(() => dispatchCounts.counts)
@@ -211,13 +208,15 @@ const LEVELS = {
 // La file « À régler » : seulement ce qui a un nombre, dans l'ordre de gravité
 const todos = computed(() => {
   const c = counts.value
-  const oldestWait = Math.max(c.waiting?.pickup?.oldest_minutes || 0, c.waiting?.delivery?.oldest_minutes || 0)
+  const pickupWait = c.waiting?.pickup?.oldest_minutes || 0
+  const deliveryWait = c.waiting?.delivery?.oldest_minutes || 0
   const cutoffCount = c.cutoff?.passed ? c.cutoff.count : 0
   return [
     // Date dépassée (hier, avant-hier) : reporter ou annuler passe avant toute assignation
     { key: 'reschedule', level: 'urgent', count: c.overdue?.recent?.untreated || 0, title: 'Courses à reporter ou annuler', sub: 'date de livraison dépassée depuis hier ou avant-hier', action: 'Reporter / annuler', to: '/admin/courses/en-retard?age=recent' },
-    { key: 'late', level: 'urgent', count: c.late?.total || 0, title: 'Courses sans livreur depuis trop longtemps', sub: oldestWait ? `la plus ancienne attend depuis ${waitDuration(oldestWait)}` : '', action: 'Assigner', to: queue('unassigned') },
-    { key: 'cutoff', level: 'urgent', count: cutoffCount, title: `Courses du jour toujours sans livreur après ${c.cutoff?.time || ''}`, sub: 'risque de ne pas être livrées aujourd\'hui', action: 'Assigner', to: queue('unassigned') },
+    { key: 'late-pickup', level: 'urgent', count: c.late?.pickup || 0, title: 'Courses sans ramasseur depuis trop longtemps', sub: pickupWait ? `la plus ancienne attend depuis ${waitDuration(pickupWait)}` : '', action: 'Assigner', to: queue('pickup_unassigned') },
+    { key: 'late-delivery', level: 'urgent', count: c.late?.delivery || 0, title: 'Colis sans livreur depuis trop longtemps', sub: deliveryWait ? `le plus ancien attend depuis ${waitDuration(deliveryWait)}` : '', action: 'Assigner', to: queue('delivery_unassigned') },
+    { key: 'cutoff', level: 'urgent', count: cutoffCount, title: `Courses du jour toujours sans ramasseur ou livreur après ${c.cutoff?.time || ''}`, sub: 'risque de ne pas être livrées aujourd\'hui', action: 'Assigner', to: queue('unassigned') },
     { key: 'code', level: 'urgent', count: exc.value.code_to_verify || 0, title: 'Codes à vérifier', sub: 'livrées hors connexion avec un code faux', action: 'Vérifier', to: queue('code_to_verify') },
     { key: 'confirm', level: 'faire', count: day.value.to_confirm || 0, title: 'Nouvelles courses à valider', sub: 'reçues des e-commerçants', action: 'Valider', to: queue('to_confirm') },
     { key: 'cancel', level: 'faire', count: c.cancellation_requests || 0, title: 'Annulations demandées', sub: 'à accepter ou refuser', action: 'Décider', to: '/admin/courses/annulations' },
@@ -229,22 +228,23 @@ const todos = computed(() => {
   ].filter((t) => t.count > 0)
 })
 
-// Le parcours du colis : étapes de travail, puis issues du jour
+// Le parcours du colis, mêmes étapes que les onglets de Courses : validation, ramassage, livraison, puis issues du jour
 const steps = computed(() => {
   const d = day.value
-  const r = report.value?.counts || {}
+  const late = counts.value.late || {}
   const list = [
     { label: 'À valider', count: d.to_confirm || 0, to: queue('to_confirm'), arrow: true },
-    { label: 'Sans livreur', count: d.unassigned || 0, late: Math.min(counts.value.late?.total || 0, d.unassigned || 0), to: queue('unassigned'), arrow: true },
-    { label: 'À ramasser', count: d.to_pickup || 0, to: queue('to_pickup'), arrow: true },
+    { label: 'Sans ramasseur', count: d.pickup_unassigned || 0, late: Math.min(late.pickup || 0, d.pickup_unassigned || 0), to: queue('pickup_unassigned'), arrow: true },
+    { label: 'Ramassage en cours', count: d.to_pickup || 0, to: queue('to_pickup'), arrow: true },
   ]
   if (d.to_prepare) list.push({ label: 'À préparer', count: d.to_prepare, to: queue('to_prepare'), arrow: true })
   list.push(
-    { label: 'À livrer', count: d.to_deliver || 0, to: queue('to_deliver'), arrow: true },
-    { label: 'En livraison', count: onTheWay.value, to: { path: '/admin/courses', query: { status: 'out_for_delivery' } } },
-    { label: 'Livrées', count: r.delivered || 0, tone: 'text-emerald-700', to: { path: '/admin/courses', query: { status: 'delivered' } }, sep: true },
-    { label: 'Échecs', count: d.failed || 0, tone: (d.failed ? 'text-red-700' : ''), to: queue('failed') },
-    { label: 'À retourner', count: d.to_return || 0, to: queue('to_return') },
+    { label: 'Sans livreur', count: d.delivery_unassigned || 0, late: Math.min(late.delivery || 0, d.delivery_unassigned || 0), to: queue('delivery_unassigned'), arrow: true },
+    { label: 'Livraison assignée', count: d.delivery_assigned || 0, to: queue('delivery_assigned'), arrow: true },
+    { label: 'En chemin', count: d.on_the_way || 0, to: queue('on_the_way') },
+    { label: 'Livrées', count: d.delivered || 0, tone: 'text-emerald-700', to: queue('delivered'), outcome: true },
+    { label: 'Échecs', count: d.failed || 0, tone: (d.failed ? 'text-red-700' : ''), to: queue('failed'), outcome: true },
+    { label: 'À retourner', count: d.to_return || 0, to: queue('to_return'), outcome: true },
   )
   return list
 })
@@ -279,16 +279,14 @@ async function refresh() {
   dispatchCounts.day = todayIso
   dispatchCounts.fetchCounts().catch(() => {})
   // Colis gardés et remontées terrain : déjà chargés par le menu (AdminLayout), chaque minute
-  const [r, a, d, w] = await Promise.allSettled([
+  const [r, a, d] = await Promise.allSettled([
     http.get('/reports/day', { params: { day: todayIso } }),
     http.get('/couriers/activity'),
     http.get('/delivery-day'),
-    http.get('/orders', { params: { day: todayIso, status: ['out_for_delivery'], per_page: 1 } }),
   ])
   if (r.status === 'fulfilled') report.value = r.value.data.data
   if (a.status === 'fulfilled') activity.value = a.value.data
   if (d.status === 'fulfilled') deliveryDay.value = d.value.data.data
-  if (w.status === 'fulfilled') onTheWay.value = w.value.data.meta?.total ?? 0
   updatedAt.value = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 

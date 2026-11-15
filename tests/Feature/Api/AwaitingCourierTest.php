@@ -178,7 +178,7 @@ class AwaitingCourierTest extends TestCase
         $this->travel(15)->minutes();
         $this->artisan('orders:unassigned')->assertSuccessful();
         Notification::assertSentTo($this->dispatcher, OrderAlert::class, fn (OrderAlert $n) => $n->kind === 'unassigned_pickup'
-            && str_contains($n->title, '2 courses toujours sans livreur de ramassage') && $n->extra['href'] === '/admin/courses?queue=unassigned&awaiting=pickup');
+            && str_contains($n->title, '2 courses toujours sans livreur de ramassage') && $n->extra['href'] === '/admin/courses?queue=pickup_unassigned');
         Notification::assertSentTo($this->admin, OrderAlert::class);
         Notification::assertNotSentTo($this->merchantUser, OrderAlert::class);
         // Alertes « sans livreur » reçues par le dispatcher et l'administrateur
