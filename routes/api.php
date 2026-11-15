@@ -300,6 +300,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::prefix('console/account')->name('console.account.')->middleware($team)->controller(ConsoleAccountController::class)->group(function () {
             Route::get('/', 'show')->name('show');
             Route::put('/', 'update')->middleware('throttle:10,1')->name('update');
+            Route::post('two-factor/setup', 'twoFactorSetup')->middleware('throttle:10,1')->name('two-factor.setup');
+            Route::post('two-factor/confirm', 'twoFactorConfirm')->middleware('throttle:10,1')->name('two-factor.confirm');
+            Route::post('two-factor/recovery-codes', 'recoveryCodes')->middleware('throttle:10,1')->name('two-factor.recovery-codes');
             Route::delete('devices/{device?}', 'forgetDevices')->whereNumber('device')->name('devices.forget');
         });
         // Équipe de la console : invitations, rôles, suspension (Propriétaire)

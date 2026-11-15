@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Appareil retenu par un super administrateur après le code de connexion : le code n'est pas redemandé avant
+ * Appareil retenu par un super administrateur après la deuxième étape de connexion (application d'authentification) : le code n'est pas redemandé avant
  * expires_at. Seule l'empreinte (SHA-256) du jeton gardé par le navigateur est enregistrée.
  */
 class TrustedDevice extends Model
