@@ -40,7 +40,7 @@ class JibiatAiNotice extends Notification implements ShouldQueue
             default => ['Jibiat IA', ''],
         };
 
-        return ['kind' => 'jibiat_ai', 'title' => $title, 'body' => $body, 'href' => '/admin/jibiat-ia'];
+        return ['kind' => 'jibiat_ai', 'title' => $title, 'body' => $body, 'href' => '/admin/abonnement#jibiat-ia'];
     }
 
     public function toBroadcast(object $notifiable): BroadcastMessage

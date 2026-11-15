@@ -1,10 +1,6 @@
 <template>
   <div class="max-w-3xl space-y-4">
     <h1 class="text-xl font-bold">Mon abonnement</h1>
-    <RouterLink to="/admin/jibiat-ia" class="card flex items-center justify-between gap-3 border-violet-200 bg-violet-50 p-3 text-sm text-violet-900 hover:bg-violet-100">
-      <span>✨ <b>Jibiat IA</b> : l'IA lit vos messages, répond à vos e-commerçants et conseille votre dispatch. En plus de votre formule.</span>
-      <span aria-hidden="true">›</span>
-    </RouterLink>
 
     <template v-if="summary">
       <!-- À payer -->
@@ -24,6 +20,9 @@
       <div class="card p-4">
         <SubscriptionSummary :summary="summary" />
       </div>
+
+      <!-- Jibiat IA : comprise dans la formule -->
+      <AiInPlan id="jibiat-ia" />
 
       <!-- Applications à votre nom : incluses, en option ou non disponibles -->
       <div v-if="summary.plan && summary.apps?.length" class="card p-4 space-y-3 text-sm">
@@ -180,6 +179,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import InvoiceStatus from '../../components/InvoiceStatus.vue'
 import Modal from '../../components/Modal.vue'
 import { useToastStore } from '../../stores/toasts'
+import AiInPlan from '../../components/AiInPlan.vue'
 import SubscriptionSummary from '../../components/SubscriptionSummary.vue'
 import { date, money } from '../../utils/format'
 import { confirmDialog } from '../../composables/useDialog'
