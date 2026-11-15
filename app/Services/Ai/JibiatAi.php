@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Notification;
  *
  * Chaque formule donne des points d'IA par mois (ce que l'entreprise voit) et un plafond de coût réel (repère interne
  * de Jibiat, jamais montré). Chaque action de l'IA brûle des points : commande WhatsApp écrite (1 point par défaut),
- * photo d'une commande (2 points). Avant chaque appel, on vérifie : IA allumée (console), entreprise pas coupée,
+ * photo d'une commande (2 points par défaut). Avant chaque appel, on vérifie : IA allumée (console), entreprise pas coupée,
  * points restants, plafond de coût pas atteint. Sinon, pas d'IA : Jibiat continue avec ses règles habituelles. Les
  * points repartent à zéro chaque mois. Alertes à 80 % et 100 % des points, et à la pause au plafond.
  *
@@ -47,7 +47,7 @@ class JibiatAi
     /** Fonctions de l'IA ; « points » : réglage du prix en points ; « available » : déjà en service */
     public const FEATURES = [
         'messages' => ['label' => 'Commandes WhatsApp écrites', 'points' => 'points_message', 'available' => true],
-        'photos' => ['label' => 'Photos de commande sur WhatsApp', 'points' => 'points_photo', 'available' => false],
+        'photos' => ['label' => 'Photos de commande sur WhatsApp', 'points' => 'points_photo', 'available' => true],
     ];
 
     /** Anciens niveaux de l'abonnement à part (facturation des abonnements encore en cours) */
