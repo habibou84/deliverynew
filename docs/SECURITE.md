@@ -24,7 +24,7 @@ correction a son test. À rejouer chaque trimestre (voir `docs/MAINTENANCE.md`).
 | Basse | Listes paginées sans plafond (`per_page`). | Plafond : 500 dans l'application, 100 dans l'API publique. |
 | Basse | Export CSV : un nom commençant par `=` était lu comme une formule par Excel. | Neutralisé. |
 | Basse | Connexion par WhatsApp d'un compte de la console : erreur 500. | Refusée proprement (mot de passe seulement). |
-| Haute | Console ouverte avec le seul mot de passe. | Code de connexion à 6 chiffres envoyé par e-mail (WhatsApp en secours), 10 min, 5 essais ; appareil retenu 30 jours au choix, oublié au changement de mot de passe. La page Santé signale un compte qui ne peut pas recevoir le code. |
+| Haute | Console ouverte avec le seul mot de passe. | Connexion en deux étapes : code à 6 chiffres d'une application d'authentification (TOTP : Google Authenticator, Microsoft Authenticator, Authy…), configurée par QR code à la première connexion ; 8 codes de secours à usage unique ; 5 essais par demande, chaque code ne sert qu'une fois ; appareil retenu 30 jours au choix, oublié au changement de mot de passe. La page Santé signale un compte sans application configurée. (Remplace le code envoyé par e-mail.) |
 | Basse | Dépendances JavaScript avec des failles connues (vue, postcss). | Mises à jour (`npm audit` : 0 faille). `composer audit` : 0 faille. |
 
 ## Audit n° 2 (31 octobre 2026), lot 1 corrigé
@@ -49,7 +49,7 @@ correction a son test. À rejouer chaque trimestre (voir `docs/MAINTENANCE.md`).
 | Moyenne | API publique : modification du montant ou de la zone sans la validation demandée par le réglage « Modifications des e-commerçants ». | Même validation que dans l'application. |
 | Moyenne | Versement ou avance annulable après la clôture de caisse du jour. | Annulation refusée après la clôture : faire un mouvement contraire daté du jour. |
 | Moyenne | Un caissier pouvait tout faire seul (ajustement sans plafond, moyen de paiement saisi et vérifié par lui). | Ajustement plafonné à 5 000 000 F, et au-delà de 500 000 F par un administrateur ; moyen de paiement saisi par l'équipe « à vérifier » (sauf administrateur), jamais vérifié par celui qui l'a saisi. |
-| Moyenne | Console : si l'envoi du code échouait, la session s'ouvrait avec le seul mot de passe. | Connexion bloquée ; procédure de secours sur le serveur : `php artisan console:code {identifiant}`. |
+| Moyenne | Console : si l'envoi du code échouait, la session s'ouvrait avec le seul mot de passe. | Connexion bloquée sans le deuxième facteur. Depuis le passage à l'application d'authentification : téléphone perdu et plus de code de secours, la personne qui a accès au serveur retire l'application avec `php artisan console:2fa-reset {identifiant}` (nouvelle configuration à la connexion suivante). |
 | Moyenne | Limite des essais de mot de passe contournable en écrivant le numéro autrement. | Limite sur le numéro normalisé, et par compte toutes adresses IP confondues (10 par minute, 60 par heure). |
 | Moyenne | Session d'assistance : création possible de clés, invitations, comptes ou mots de passe ; jetons gardés après suspension du membre. | Ces actions sont refusées pendant l'assistance ; suspendre un membre de l'équipe Jibiat coupe ses sessions d'assistance. |
 | Moyenne | Adresse de l'ancienne application contrôlée une seule fois (redirection, changement DNS). | Contrôle à chaque appel, adresse IP fixée, sans redirection (comme les webhooks). |
