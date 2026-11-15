@@ -9,7 +9,7 @@ class ReviewJibiatAi extends Command
 {
     protected $signature = 'ai:review';
 
-    protected $description = 'Jibiat IA : fins d\'essai, arrêts demandés, années renouvelées, alertes de volume';
+    protected $description = 'Jibiat IA : anciens abonnements à part (fins d\'essai, arrêts demandés, années renouvelées)';
 
     public function handle(JibiatAi $ai): int
     {

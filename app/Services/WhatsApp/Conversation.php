@@ -132,8 +132,10 @@ class Conversation
             $this->session->reset();
         }
 
-        if (! in_array($type, ['text', 'button'], true)) {
-            $this->reply('Je ne lis que les messages écrits pour le moment. Envoyez les informations de la course en texte 🙏');
+        if ($type === 'image') {
+            $this->photo($merchant, $text, $meta);
+        } elseif (! in_array($type, ['text', 'button'], true)) {
+            $this->reply('Je ne lis que les messages écrits et les photos de commande. Envoyez les informations de la course en texte 🙏');
         } else {
             $this->route($merchant, trim((string) $text), $buttonId);
         }
@@ -182,7 +184,6 @@ class Conversation
         }
 
         $zones = $this->zones();
-        $draft = $this->session->draft ?? [];
         $fields = $this->session->awaiting
             ? $this->answer($this->session->awaiting, $text, $zones)
             : [];
@@ -192,6 +193,52 @@ class Conversation
             $fields = $this->parser->parse($text, $zones, $this->phone);
         }
 
+        $this->useFields($merchant, $fields, $zones);
+    }
+
+    /**
+     * Photo d'une commande : lue par Jibiat IA (points), puis comme un message écrit. Sans IA, la légende seule.
+     *
+     * @param  array<string, mixed>  $meta
+     */
+    private function photo(Merchant $merchant, ?string $caption, array $meta): void
+    {
+        $caption = trim((string) $caption);
+        $writeIt = 'Envoyez les informations de la course en texte 🙏';
+        $fields = null;
+        if ($this->parser instanceof ClaudeOrderParser && isset($meta['media'])) {
+            $file = app(WhatsAppMedia::class)->photo((array) $meta['media'], $meta['whatsapp_account_id'] ?? null);
+            if ($file === null) {
+                $this->reply("Je n'ai pas pu ouvrir cette photo. {$writeIt}");
+
+                return;
+            }
+            $fields = $this->parser->parsePhoto($file[0], $file[1], $caption ?: null, $this->zones(), $this->phone);
+        }
+
+        // Pas d'IA pour les photos (points épuisés, IA arrêtée…) : la légende, sinon une demande d'écrire
+        if ($fields === null) {
+            $caption !== '' ? $this->freeText($merchant, $caption) : $this->reply("Je ne peux pas lire les photos pour le moment. {$writeIt}");
+
+            return;
+        }
+        if ($fields === []) {
+            $this->reply("Je n'ai pas trouvé de commande sur cette photo. {$writeIt}");
+
+            return;
+        }
+        $this->useFields($merchant, $fields, $this->zones());
+    }
+
+    /**
+     * Champs trouvés dans un message ou une photo : ajoutés au brouillon, puis question suivante ou récapitulatif.
+     *
+     * @param  array<string, mixed>  $fields
+     * @param  Collection<int, Zone>  $zones
+     */
+    private function useFields(Merchant $merchant, array $fields, Collection $zones): void
+    {
+        $draft = $this->session->draft ?? [];
         // « De Cocody à Yopougon » : la commune de ramassage du marchand n'est pas la destination
         if (count($fields['zones'] ?? []) > 1 && $merchant->pickup_zone_id) {
             $others = array_values(array_diff($fields['zones'], [$merchant->pickup_zone_id]));

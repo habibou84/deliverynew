@@ -8,8 +8,8 @@ use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Jibiat IA : fin d'essai proche, volume du mois presque atteint ou dépassé, pause au plafond. Cloche et temps réel
- * des administrateurs de l'entreprise.
+ * Jibiat IA : points du mois presque épuisés ou épuisés, pause. Cloche et temps réel des administrateurs de
+ * l'entreprise.
  */
 class JibiatAiNotice extends Notification implements ShouldQueue
 {
@@ -30,13 +30,10 @@ class JibiatAiNotice extends Notification implements ShouldQueue
      */
     public function toArray(object $notifiable): array
     {
-        $tier = $this->data['tier'] ?? 'Jibiat IA';
         [$title, $body] = match ($this->stage) {
-            'trial_ending' => ["Essai Jibiat IA : plus que {$this->data['days']} jour(s)", "Passez à l'abonnement {$tier} pour garder l'IA après l'essai. Votre formule ne change pas."],
-            'trial_ended' => ['Essai Jibiat IA terminé', "L'IA est arrêtée. Jibiat continue comme avant ; vous pouvez souscrire à tout moment."],
-            'volume_80' => ['Jibiat IA : 80 % des courses du mois', "{$this->data['orders']} courses sur {$this->data['included']} prévues dans {$tier}. Au-delà : {$this->data['overage']} F par course."],
-            'volume_100' => ['Jibiat IA : volume du mois atteint', "Les courses en plus sont comptées à {$this->data['overage']} F. Le niveau au-dessus peut revenir moins cher."],
-            'paused' => ['Jibiat IA en pause jusqu\'au mois prochain', "La consommation du mois a atteint la limite de {$tier}. Jibiat continue avec les règles habituelles ; une recharge relance l'IA."],
+            'points_80' => ['Jibiat IA : 80 % de vos points du mois', "{$this->data['used']} points utilisés sur {$this->data['points']}. Ils repartent à zéro le 1er du mois."],
+            'points_100' => ['Jibiat IA : points du mois épuisés', "L'IA s'arrête jusqu'au 1er du mois ; Jibiat continue avec les règles habituelles (envoyez les commandes par écrit)."],
+            'paused' => ['Jibiat IA en pause jusqu\'au mois prochain', "Jibiat continue avec les règles habituelles jusqu'au 1er du mois (envoyez les commandes par écrit)."],
             default => ['Jibiat IA', ''],
         };
 
