@@ -9,6 +9,7 @@ use App\Models\PlatformWavePayment;
 use App\Rules\PhoneNumber as PhoneRule;
 use App\Services\Platform\AppOptions;
 use App\Services\Platform\Billing;
+use App\Services\Platform\BillingSettings;
 use App\Services\Platform\Subscription;
 use App\Services\Platform\WavePayments;
 use App\Services\Platform\WaveSettings;
@@ -40,7 +41,7 @@ class SubscriptionController extends Controller
                 'purchases' => $billing->purchaseOptions($company),
                 'quota' => $billing->orderQuota($company),
                 'extra_couriers' => (int) $company->extra_couriers,
-                'grace_days' => (int) config('platform.billing.restrict_after_days'),
+                'grace_days' => BillingSettings::get('grace_days'),
             ],
             'invoices' => PlatformInvoice::query()->where('company_id', $company->id)->where('status', '!=', PlatformInvoice::VOID)
                 ->orderByDesc('issued_at')->orderByDesc('id')->limit(24)->get()

@@ -312,7 +312,7 @@ class Billing
                 $current = self::currentPeriod($company);
                 $nextStart = $current['end']->addDay();
                 $next = self::cycleOn($company, $nextStart) === PlatformInvoice::WEEKLY ? $nextStart->isoFormat('GGGG-[W]WW') : $nextStart->format('Y-m');
-                $notice = (int) config(self::cycleOn($company, $nextStart) === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_prepaid_notice_days' : 'platform.billing.prepaid_notice_days');
+                $notice = BillingSettings::get(self::cycleOn($company, $nextStart) === PlatformInvoice::WEEKLY ? 'weekly_notice_days' : 'notice_days');
                 $created = [];
                 // Fin d'essai dans la période en cours : le reste de la période, d'avance
                 $trialEnd = $company->trial_ends_at ? CarbonImmutable::parse($company->trial_ends_at->toDateString(), $company->timezone) : null;
@@ -387,7 +387,7 @@ class Billing
                     : 'Compté sur la facture de fin de période, puis repris à chaque renouvellement'];
         }
         if ($prepaid && ! $plan->isPercent() && $plan->included_orders !== null && $plan->overage_per_order > 0) {
-            $size = max(1, (int) config('platform.billing.orders_pack'));
+            $size = BillingSettings::get('orders_pack');
             $options[] = ['kind' => PlatformInvoice::ORDERS, 'label' => "Pack de {$size} courses", 'quantity' => $size, 'unit_price' => (int) $plan->overage_per_order,
                 'total' => $size * (int) $plan->overage_per_order, 'detail' => 'Pour la période en cours (jusqu\'au '.$current['end']->format('d/m').')'];
         }
@@ -698,7 +698,7 @@ class Billing
      */
     public function isRestricted(Company $company): bool
     {
-        $limit = now($company->timezone)->subDays((int) config('platform.billing.restrict_after_days'))->toDateString();
+        $limit = now($company->timezone)->subDays(BillingSettings::get('grace_days'))->toDateString();
 
         return PlatformInvoice::query()->subscriptions()->where('company_id', $company->id)->unpaid()->where('due_at', '<=', $limit)->exists();
     }
@@ -720,8 +720,8 @@ class Billing
 
             $late = (int) $invoice->due_at->diffInDays($today);
             $stage = match (true) {
-                $late >= (int) config('platform.billing.restrict_after_days') => self::RESTRICTED,
-                $late >= (int) config('platform.billing.warning_after_days') => self::WARNING,
+                $late >= BillingSettings::get('grace_days') => self::RESTRICTED,
+                $late >= BillingSettings::get('warning_days') => self::WARNING,
                 default => self::DUE,
             };
             $order = ['issued' => 0, self::DUE => 1, self::WARNING => 2, self::RESTRICTED => 3];
@@ -765,8 +765,8 @@ class Billing
     {
         return match (true) {
             ! $overdue => self::OK,
-            $daysLate >= (int) config('platform.billing.restrict_after_days') => self::RESTRICTED,
-            $daysLate >= (int) config('platform.billing.warning_after_days') => self::WARNING,
+            $daysLate >= BillingSettings::get('grace_days') => self::RESTRICTED,
+            $daysLate >= BillingSettings::get('warning_days') => self::WARNING,
             default => self::DUE,
         };
     }

@@ -60,7 +60,7 @@
     </div>
 
     <form v-if="can('owner')" class="card p-4 space-y-3" @submit.prevent="saveSettings">
-      <h2 class="font-semibold">Mentions des factures</h2>
+      <h2 class="font-semibold">Réglages des factures</h2>
       <div>
         <label class="label" for="s-issuer">Émetteur (première ligne : nom ; puis adresse, téléphone, RCCM…)</label>
         <textarea id="s-issuer" v-model="settings.invoice_issuer" class="input" rows="3" maxlength="1000" placeholder="Jibiat&#10;Abidjan, Cocody&#10;+225 07 00 00 00 00" />
@@ -69,6 +69,19 @@
         <label class="label" for="s-pay">Comment payer (affiché sur les factures et dans « Mon abonnement »)</label>
         <textarea id="s-pay" v-model="settings.payment_instructions" class="input" rows="3" maxlength="2000" placeholder="Orange Money : 07 00 00 00 00 (Jibiat)&#10;Wave : 05 00 00 00 00" />
       </div>
+      <fieldset class="border rounded p-3 space-y-2">
+        <legend class="text-sm font-medium px-1">💳 Tout prépayé</legend>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div><label class="label" for="s-grace">Délai de grâce (jours)</label><input id="s-grace" v-model.number="settings.prepaid.grace_days" type="number" min="0" max="60" class="input" required>
+            <p class="text-xs text-slate-600 mt-1">Après l'échéance d'un abonnement impayé : ensuite, plus de nouvelles courses.</p></div>
+          <div><label class="label" for="s-warn">Bandeau d'alerte (jours)</label><input id="s-warn" v-model.number="settings.prepaid.warning_days" type="number" min="0" max="30" class="input" required>
+            <p class="text-xs text-slate-600 mt-1">Après l'échéance : bandeau rouge dans l'espace de l'entreprise.</p></div>
+          <div><label class="label" for="s-pack">Pack de courses (courses)</label><input id="s-pack" v-model.number="settings.prepaid.orders_pack" type="number" min="1" class="input" required>
+            <p class="text-xs text-slate-600 mt-1">Vendu au prix d'une course en plus de la formule.</p></div>
+          <div><label class="label" for="s-notice">Facture avant le mois (jours)</label><input id="s-notice" v-model.number="settings.prepaid.notice_days" type="number" min="0" max="20" class="input" required></div>
+          <div><label class="label" for="s-wnotice">Facture avant la semaine (jours)</label><input id="s-wnotice" v-model.number="settings.prepaid.weekly_notice_days" type="number" min="0" max="6" class="input" required></div>
+        </div>
+      </fieldset>
       <button class="btn-primary" :disabled="savingSettings">Enregistrer</button>
     </form>
 
@@ -116,7 +129,8 @@ const status = ref('')
 const period = ref('')
 const week = ref('')
 const generating = ref(false)
-const settings = reactive({ invoice_issuer: '', payment_instructions: '' })
+const settings = reactive({ invoice_issuer: '', payment_instructions: '', prepaid: {} })
+const applySettings = (d) => Object.assign(settings, { invoice_issuer: d.invoice_issuer || '', payment_instructions: d.payment_instructions || '', prepaid: { ...d.prepaid } })
 const savingSettings = ref(false)
 const pay = reactive({ open: false })
 
@@ -192,9 +206,9 @@ async function voidInvoice(invoice) {
 async function saveSettings() {
   savingSettings.value = true
   try {
-    const { data } = await http.put('/console/settings', { invoice_issuer: settings.invoice_issuer || null, payment_instructions: settings.payment_instructions || null })
-    Object.assign(settings, { invoice_issuer: data.data.invoice_issuer || '', payment_instructions: data.data.payment_instructions || '' })
-    toasts.success('Mentions enregistrées.')
+    const { data } = await http.put('/console/settings', { invoice_issuer: settings.invoice_issuer || null, payment_instructions: settings.payment_instructions || null, prepaid: settings.prepaid })
+    applySettings(data.data)
+    toasts.success('Réglages enregistrés.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -205,6 +219,6 @@ async function saveSettings() {
 onMounted(async () => {
   await load()
   const { data } = await http.get('/console/settings')
-  Object.assign(settings, { invoice_issuer: data.data.invoice_issuer || '', payment_instructions: data.data.payment_instructions || '' })
+  applySettings(data.data)
 })
 </script>
