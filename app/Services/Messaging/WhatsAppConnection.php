@@ -324,9 +324,15 @@ class WhatsAppConnection
     /**
      * Active le numéro pour l'API Cloud (avec son code PIN de vérification en deux étapes).
      * Renvoie null si c'est fait, sinon le message d'erreur.
+     * Numéro qui reste dans l'application WhatsApp Business (coexistence) : déjà actif, Meta interdit de
+     * l'activer de nouveau avec un code PIN.
      */
     private function register(WhatsAppAccount $account): ?string
     {
+        if ($this->onBusinessApp($account)) {
+            return null;
+        }
+
         try {
             $this->call(fn () => $this->client($account)->post("{$account->phone_number_id}/register", [
                 'messaging_product' => 'whatsapp',
@@ -337,6 +343,23 @@ class WhatsAppConnection
         } catch (MessagingException $e) {
             return $this->explain($e);
         }
+    }
+
+    /**
+     * Le numéro est-il aussi utilisé dans l'application WhatsApp Business (mode coexistence) ?
+     * En cas de doute (Meta ne répond pas), on considère que non : activation par code PIN comme avant.
+     */
+    private function onBusinessApp(WhatsAppAccount $account): bool
+    {
+        try {
+            $info = $this->call(fn () => $this->client($account)->get($account->phone_number_id, [
+                'fields' => 'is_on_biz_app,platform_type',
+            ]));
+        } catch (MessagingException) {
+            return false;
+        }
+
+        return $info?->json('is_on_biz_app') === true;
     }
 
     /**
