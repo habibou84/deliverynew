@@ -63,6 +63,27 @@ class WhatsAppEmbeddedSignupTest extends TestCase
         return $this->postJson('/api/v1/whatsapp-signup/complete', ['ticket' => $ticket, 'code' => 'code-meta', 'phone_number_id' => '555', 'waba_id' => '777', ...$data]);
     }
 
+    public function test_number_kept_in_the_business_app_is_not_registered_again(): void
+    {
+        // Coexistence : le numéro reste dans l'application WhatsApp Business, déjà actif chez Meta
+        Http::fake([
+            '*/oauth/access_token*' => Http::response(['access_token' => 'jeton-entreprise', 'token_type' => 'bearer']),
+            '*/debug_token*' => Http::response(['data' => ['is_valid' => true, 'expires_at' => now()->addDays(60)->timestamp]]),
+            '*/777/assigned_users' => Http::response(['success' => true]),
+            '*/555/register' => Http::response(['error' => ['message' => 'Number is on the WhatsApp Business app', 'code' => 100]], 400),
+            '*/777/subscribed_apps' => Http::response(['success' => true]),
+            '*/777/message_templates' => Http::response(['id' => '1', 'status' => 'PENDING']),
+            '*/555*' => Http::response(['display_phone_number' => '+225 07 00 00 00 01', 'verified_name' => 'Express DS', 'quality_rating' => 'GREEN', 'is_on_biz_app' => true, 'platform_type' => 'CLOUD_API']),
+        ]);
+
+        $this->signup()->assertOk()
+            ->assertJsonPath('data.verified_name', 'Express DS')
+            ->assertJsonPath('data.warning', null);
+
+        $this->assertSame('connected', WhatsAppAccount::forCompanyId($this->company->id)->status);
+        Http::assertNotSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/555/register'));
+    }
+
     public function test_one_click_connection_activates_the_number(): void
     {
         $this->fakeMeta();
@@ -102,7 +123,7 @@ class WhatsAppEmbeddedSignupTest extends TestCase
             && $r['client_id'] === '1111' && $r['client_secret'] === 'app-secret' && $r['code'] === 'code-meta');
         Http::assertSent(fn (HttpRequest $r) => str_ends_with($r->url(), '/555/register')
             && $r['pin'] === $account->registration_pin && $r->hasHeader('Authorization', 'Bearer jeton-entreprise'));
-        Http::assertSentCount(5 + count(WhatsAppTemplate::cases()));
+        Http::assertSentCount(6 + count(WhatsAppTemplate::cases()));
 
         // Jeton de 60 jours (configuration Meta) : date d'expiration affichée, à renouveler
         $this->assertFalse($account->platform_token);
