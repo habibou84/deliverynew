@@ -74,7 +74,7 @@ class MarketingController extends Controller
             'pricing' => $p->pricing ?: Plan::FLAT,
             'percent_summary' => $p->percentSummary(),
             'features' => collect($p->features ?? [])->map(fn (string $f) => PlatformFeature::tryFrom($f)?->label())
-                ->push(app(JibiatAi::class)->planLine($p->ai_tier))->filter()->values()
+                ->push(app(JibiatAi::class)->planLine($p))->filter()->values()
                 ->merge(AppOptions::summaryLines($p)),
         ])->values();
     }

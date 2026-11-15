@@ -2,66 +2,50 @@
   <div class="space-y-4">
     <div>
       <h1 class="text-xl font-bold">Jibiat IA</h1>
-      <p class="text-sm text-slate-600">Jibiat IA est comprise dans les formules (niveau choisi dans Console › Formules). Ici : ce que les entreprises paient en plus (courses au-delà du volume, recharges, anciens abonnements à part) et ce que l'IA coûte vraiment ce mois-ci.</p>
+      <p class="text-sm text-slate-600">L'IA vient en points avec chaque formule (points et plafond réglés dans Console › Formules). Ici : l'interrupteur, le prix de chaque action en points, et ce que l'IA coûte vraiment ce mois-ci.</p>
     </div>
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
 
     <template v-if="data">
-      <div class="grid gap-3 sm:grid-cols-4">
-        <div class="card p-4"><p class="text-sm text-slate-600">Courses du mois</p><p class="text-xl font-bold">{{ data.totals.orders.toLocaleString('fr-FR') }}</p></div>
-        <div class="card p-4"><p class="text-sm text-slate-600">Payé (estimation du mois)</p><p class="text-xl font-bold">{{ money(data.totals.paid) }}</p></div>
-        <div class="card p-4"><p class="text-sm text-slate-600">Coût réel de l'IA</p><p class="text-xl font-bold">{{ money(data.totals.cost) }}</p></div>
-        <div class="card p-4"><p class="text-sm text-slate-600">Marge</p><p :class="['text-xl font-bold', data.totals.margin >= 0 ? 'text-emerald-700' : 'text-red-700']">{{ signed(data.totals.margin) }}</p></div>
+      <form class="card space-y-4 p-4" @submit.prevent="save">
+        <label class="flex items-center gap-2 font-semibold">
+          <input v-model="settings.enabled" type="checkbox" class="h-5 w-5" :disabled="!owner">
+          Jibiat IA allumée pour toutes les entreprises
+        </label>
+        <p v-if="!settings.enabled" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">Éteinte : aucune entreprise n'utilise l'IA ; les commandes WhatsApp sont lues avec les règles habituelles.</p>
+        <div class="grid gap-3 sm:grid-cols-3">
+          <label class="block text-sm">Commande WhatsApp écrite (points)<input v-model.number="settings.points_message" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"></label>
+          <label class="block text-sm">Photo de commande (points)<input v-model.number="settings.points_photo" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"><span class="text-xs text-slate-600">Bientôt en service</span></label>
+          <label class="block text-sm">1 dollar = (F)<input v-model.number="settings.usd_rate" type="number" min="100" max="2000" class="input mt-1 w-full" :disabled="!owner"><span class="text-xs text-slate-600">Pour le coût réel de l'IA</span></label>
+        </div>
+        <p class="text-xs text-slate-600">Modèle utilisé : <b>{{ data.model }}</b> (réglage ANTHROPIC_MODEL du serveur).</p>
+        <button v-if="owner" type="submit" class="btn-primary" :disabled="saving">Enregistrer</button>
+      </form>
+
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div class="card p-4"><p class="text-sm text-slate-600">Points utilisés ce mois-ci</p><p class="text-xl font-bold">{{ data.totals.used.toLocaleString('fr-FR') }}</p></div>
+        <div class="card p-4"><p class="text-sm text-slate-600">Coût réel de l'IA ce mois-ci</p><p class="text-xl font-bold">{{ money(data.totals.cost) }}</p></div>
       </div>
 
       <section class="card overflow-x-auto p-4">
         <h2 class="mb-2 font-semibold">Entreprises</h2>
-        <p v-if="!data.companies.length" class="text-sm text-slate-600">Aucune entreprise n'a encore essayé Jibiat IA.</p>
+        <p v-if="!data.companies.length" class="text-sm text-slate-600">Aucune entreprise n'a encore de points d'IA.</p>
         <table v-else class="w-full text-sm">
-          <thead><tr class="text-left text-xs uppercase text-slate-600"><th class="py-1.5 pr-2">Entreprise</th><th class="px-2">Niveau</th><th class="px-2 text-right">Courses</th><th class="px-2 text-right">Payé</th><th class="px-2 text-right">Coût IA</th><th class="px-2 text-right">Marge</th><th class="px-2"></th></tr></thead>
+          <thead><tr class="text-left text-xs uppercase text-slate-600"><th class="py-1.5 pr-2">Entreprise</th><th class="px-2">Formule</th><th class="px-2 text-right">Points</th><th class="px-2 text-right">Coût réel</th><th class="px-2">État</th><th class="px-2"></th></tr></thead>
           <tbody>
             <tr v-for="c in data.companies" :key="c.id" class="border-t">
               <td class="py-2 pr-2 font-medium">{{ c.name }}</td>
-              <td class="px-2">
-                <span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', badge(c)]">{{ status(c) }}</span>
+              <td class="px-2">{{ c.plan || '—' }}<span v-if="c.legacy" class="block text-xs text-slate-600">ancien abonnement {{ c.legacy }}</span></td>
+              <td class="px-2 text-right tabular-nums">{{ c.used.toLocaleString('fr-FR') }} / {{ c.points.toLocaleString('fr-FR') }}<span v-if="c.percent !== null" class="block text-xs text-slate-600">{{ c.percent }} %</span></td>
+              <td class="px-2 text-right tabular-nums">{{ money(c.cost) }}<span class="block text-xs text-slate-600">plafond {{ c.cost_cap !== null ? money(c.cost_cap) : 'aucun' }}</span></td>
+              <td class="px-2"><span :class="['rounded-full px-2 py-0.5 text-xs font-semibold', badge(c)]">{{ status(c) }}</span></td>
+              <td class="px-2 text-right">
+                <button v-if="owner" type="button" :class="['text-xs font-semibold', c.disabled ? 'text-emerald-700' : 'text-red-700']" @click="toggle(c)">{{ c.disabled ? 'Rallumer' : 'Couper' }}</button>
               </td>
-              <td class="px-2 text-right tabular-nums">{{ c.orders.toLocaleString('fr-FR') }}<span v-if="c.included_orders" class="block text-xs text-slate-600">sur {{ c.included_orders.toLocaleString('fr-FR') }}</span></td>
-              <td class="px-2 text-right tabular-nums">{{ money(c.paid) }}</td>
-              <td class="px-2 text-right tabular-nums">{{ money(c.cost) }}<span v-if="c.cost_cap" class="block text-xs text-slate-600">plafond {{ money(c.cost_cap) }}</span></td>
-              <td :class="['px-2 text-right tabular-nums font-semibold', c.margin >= 0 ? 'text-emerald-700' : 'text-red-700']">{{ signed(c.margin) }}</td>
-              <td class="px-2 text-xs text-amber-800">{{ c.volume_percent >= 80 && c.next ? `${c.volume_percent} % du volume : proposer ${data.tiers[c.next].name}` : '' }}</td>
             </tr>
           </tbody>
         </table>
       </section>
-
-      <form class="card space-y-4 p-4" @submit.prevent="save">
-        <h2 class="font-semibold">Niveaux</h2>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead><tr class="text-left text-slate-600"><th class="py-1.5 pr-2 font-medium">Niveau</th><th class="px-2 font-medium">Proposé</th><th class="px-2 font-medium">Prix / mois (F)<span class="block text-xs font-normal">anciens abonnements</span></th><th class="px-2 font-medium">Courses / mois</th><th class="px-2 font-medium">Dispatch / jour</th><th class="px-2 font-medium">Notes vocales (min)</th><th class="px-2 font-medium">Plafond de coût (F)</th></tr></thead>
-            <tbody>
-              <tr v-for="(t, key) in tiers" :key="key" class="border-t">
-                <td class="py-2 pr-2 font-semibold">{{ t.name }}</td>
-                <td class="px-2"><input v-model="t.active" type="checkbox" class="h-4 w-4" :disabled="!owner" :aria-label="`${t.name} proposé`"></td>
-                <td class="px-2"><input v-model.number="t.price" type="number" min="0" class="input w-28" :disabled="!owner" :aria-label="`Prix de ${t.name}`"></td>
-                <td class="px-2"><input v-model.number="t.orders" type="number" min="1" class="input w-28" :disabled="!owner" :aria-label="`Courses de ${t.name}`"></td>
-                <td class="px-2"><input v-model.number="t.dispatch_per_day" type="number" min="0" max="96" class="input w-20" :disabled="!owner" :aria-label="`Dispatch de ${t.name}`"></td>
-                <td class="px-2"><input v-model.number="t.voice_minutes" type="number" min="0" class="input w-24" :disabled="!owner" :aria-label="`Notes vocales de ${t.name}`"></td>
-                <td class="px-2"><input v-model.number="t.cost_cap" type="number" min="0" class="input w-28" :disabled="!owner" :aria-label="`Plafond de ${t.name}`"></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="text-xs text-slate-600">Plafond de coût atteint : l'IA se met en pause pour l'entreprise jusqu'au mois suivant (ou une recharge), et Jibiat continue avec les règles habituelles.</p>
-        <div class="grid gap-3 sm:grid-cols-4">
-          <label class="block text-sm">Course au-delà du volume (F)<input v-model.number="settings.overage_per_order" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"></label>
-          <label class="block text-sm">Jours d'essai gratuit <span class="text-xs text-slate-600">(ancien)</span><input v-model.number="settings.trial_days" type="number" min="0" max="90" class="input mt-1 w-full" :disabled="!owner"></label>
-          <label class="block text-sm">Mois payés à l'année (sur 12) <span class="text-xs text-slate-600">(ancien)</span><input v-model.number="settings.yearly_months" type="number" min="1" max="12" class="input mt-1 w-full" :disabled="!owner"></label>
-          <label class="block text-sm">1 dollar = (F)<input v-model.number="settings.usd_rate" type="number" min="100" max="2000" class="input mt-1 w-full" :disabled="!owner"><span class="text-xs text-slate-600">Pour le coût réel de l'IA</span></label>
-        </div>
-        <button v-if="owner" type="submit" class="btn-primary" :disabled="saving">Enregistrer</button>
-      </form>
     </template>
   </div>
 </template>
@@ -69,38 +53,33 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import { confirmDialog } from '../../composables/useDialog'
 import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
 
-/** Console › Jibiat IA : entreprises (payé, coût réel, marge), niveaux et réglages */
+/** Console › Jibiat IA : interrupteur, prix des actions en points, entreprises (points, coût réel, plafond, coupure) */
 const auth = useAuthStore()
 const toasts = useToastStore()
 const owner = computed(() => consoleCan(auth.role, 'owner'))
 const data = ref(null)
-const tiers = ref({})
 const settings = ref({})
 const error = ref('')
 const saving = ref(false)
 
-const signed = (n) => `${n >= 0 ? '+' : '−'}${money(Math.abs(n))}`
 function status(c) {
-  const name = c.tier_name || '—'
-  if (c.paused) return `${name} · en pause`
-  if (c.included) return `${name} · formule`
-  if (!c.status) return 'Sans IA'
-  if (c.status === 'trial' && c.on) return `${name} · essai`
-  if (c.status === 'active' && c.stop_at) return `${name} · s'arrête`
-  if (c.status === 'active') return `${name}${c.period === 'yearly' ? ' · à l\'année' : ''}`
-  return c.status === 'expired' ? 'Essai terminé' : 'Arrêtée'
+  if (c.disabled) return 'Coupée'
+  if (!data.value.settings.enabled) return 'Éteinte'
+  if (c.paused) return 'Pause (plafond)'
+  if (c.points && c.used >= c.points) return 'Points épuisés'
+  return c.on ? 'En service' : 'Sans points'
 }
-const badge = (c) => (c.paused || c.volume_percent >= 80 ? 'bg-amber-100 text-amber-800' : c.on ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-600')
+const badge = (c) => (c.disabled || c.paused ? 'bg-red-100 text-red-800' : c.percent >= 80 ? 'bg-amber-100 text-amber-800' : c.on ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-600')
 
 function apply(d) {
   data.value = d
-  tiers.value = JSON.parse(JSON.stringify(d.tiers))
-  settings.value = { ...d.settings }
+  settings.value = { ...d.settings, enabled: !!d.settings.enabled }
 }
 
 async function load() {
@@ -112,14 +91,24 @@ async function load() {
 }
 
 async function save() {
+  if (!settings.value.enabled && data.value.settings.enabled && !await confirmDialog('Éteindre Jibiat IA pour toutes les entreprises ?')) return
   saving.value = true
   try {
-    apply((await http.put('/console/ai', { tiers: tiers.value, settings: settings.value })).data.data)
+    apply((await http.put('/console/ai', { settings: settings.value })).data.data)
     toasts.success('Réglages de Jibiat IA enregistrés.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
     saving.value = false
+  }
+}
+
+async function toggle(c) {
+  if (!c.disabled && !await confirmDialog(`Couper Jibiat IA pour ${c.name} ?`)) return
+  try {
+    apply((await http.put(`/console/ai/companies/${c.id}`, { disabled: !c.disabled })).data.data)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
   }
 }
 

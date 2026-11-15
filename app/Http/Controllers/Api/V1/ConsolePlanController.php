@@ -28,8 +28,8 @@ class ConsolePlanController extends Controller
                 ], PlatformFeature::cases()),
                 'trial_days' => (int) config('platform.trial_days'),
                 'app_platforms' => array_map(fn ($p) => ['key' => $p, 'label' => AppOptions::LABELS[$p], 'soon' => in_array($p, AppOptions::SOON, true)], AppOptions::PLATFORMS),
-                // Niveaux de Jibiat IA à mettre dans une formule (réglés dans la console, page Jibiat IA)
-                'ai_tiers' => collect(app(JibiatAi::class)->tiers())->map(fn (array $t, string $key) => ['key' => $key, 'name' => $t['name'], 'orders' => $t['orders'], 'active' => $t['active']])->values(),
+                // Prix des actions de l'IA en points (réglés dans Console › Jibiat IA)
+                'ai_prices' => app(JibiatAi::class)->prices(),
             ],
         ]);
     }
@@ -89,8 +89,9 @@ class ConsolePlanController extends Controller
             'min_invoice' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000'],
             'features' => ['sometimes', 'array'],
             'features.*' => ['string', Rule::enum(PlatformFeature::class)],
-            // Jibiat IA comprise dans la formule : niveau, ou null (pas d'IA)
-            'ai_tier' => ['sometimes', 'nullable', Rule::in(array_keys(JibiatAi::TIER_DEFAULTS))],
+            // Jibiat IA : points par mois (vus par l'entreprise) et plafond de coût réel (repère interne)
+            'ai_points' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:10000000'],
+            'ai_cost_cap' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100000000'],
             // Applications à leur nom : incluses, en option (prix par mois) ou non disponibles, pour Android et iPhone
             'apps' => ['sometimes', 'array'],
             'apps.android' => ['sometimes', Rule::in([AppOptions::INCLUDED, AppOptions::OPTION, AppOptions::NONE])],
@@ -116,7 +117,8 @@ class ConsolePlanController extends Controller
             'volume_rate' => 'pourcentage au-delà du seuil',
             'cap_amount' => 'plafond mensuel',
             'min_invoice' => 'montant minimum d\'une facture',
-            'ai_tier' => 'niveau de Jibiat IA',
+            'ai_points' => 'points d\'IA',
+            'ai_cost_cap' => 'plafond de coût de l\'IA',
         ]);
 
         if (array_key_exists('apps', $data)) {
@@ -154,7 +156,8 @@ class ConsolePlanController extends Controller
             'cap_amount' => $p->cap_amount,
             'min_invoice' => $p->min_invoice,
             'features' => $p->features ?? [],
-            'ai_tier' => $p->ai_tier,
+            'ai_points' => $p->ai_points,
+            'ai_cost_cap' => $p->ai_cost_cap,
             'apps' => AppOptions::normalize($p->apps ?? []),
             'is_active' => $p->is_active,
             'position' => $p->position,

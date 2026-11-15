@@ -67,7 +67,8 @@ return [
 
     'ai' => [
         'api_key' => env('ANTHROPIC_API_KEY'),
-        'model' => env('ANTHROPIC_MODEL', 'claude-opus-5-5'),
+        // Haiku : assez pour lire une commande, environ 40 fois moins cher qu'Opus
+        'model' => env('ANTHROPIC_MODEL', 'claude-haiku-5-5'),
     ],
 
     // Une conversation sans message depuis 30 minutes repart de zéro

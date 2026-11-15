@@ -42,8 +42,9 @@
           <li>🛵 {{ couriersText(p) }}</li>
           <li v-if="p.min_invoice">🧾 Facture reportée sous {{ money(p.min_invoice) }}</li>
         </ul>
-        <p :class="['text-sm border-t pt-2', p.ai_tier ? 'font-medium text-violet-800' : 'text-slate-600']">
-          ✨ {{ p.ai_tier ? `${aiTierName(p.ai_tier)} comprise` : 'Sans Jibiat IA' }}
+        <p :class="['text-sm border-t pt-2', p.ai_points ? 'font-medium text-violet-800' : 'text-slate-600']">
+          ✨ {{ p.ai_points ? `${p.ai_points.toLocaleString('fr-FR')} points IA / mois` : 'Sans Jibiat IA' }}
+          <span v-if="p.ai_points" class="block text-xs font-normal text-slate-600">Plafond de coût (interne) : {{ p.ai_cost_cap !== null ? money(p.ai_cost_cap) : 'aucun' }}</span>
         </p>
         <ul class="text-sm space-y-1 border-t pt-2">
           <li v-for="f in features" :key="f.key" :class="p.features.includes(f.key) ? 'text-slate-800' : 'text-slate-600 line-through'">
@@ -160,14 +161,20 @@
           <input id="p-mininv" v-model.number="form.min_invoice" type="number" min="0" class="input" placeholder="Aucun">
           <p class="text-xs text-slate-600 mt-1">En dessous, la facture n'est pas à payer : son montant est ajouté à la suivante.</p>
         </div>
-        <div>
-          <label class="label" for="p-ai">✨ Jibiat IA comprise</label>
-          <select id="p-ai" v-model="form.ai_tier" class="input">
-            <option :value="null">Pas d'IA dans cette formule</option>
-            <option v-for="t in aiTiers" :key="t.key" :value="t.key" :disabled="!t.active">{{ t.name }} · jusqu'à {{ t.orders.toLocaleString('fr-FR') }} courses / mois{{ t.active ? '' : ' (retiré)' }}</option>
-          </select>
-          <p class="text-xs text-slate-600 mt-1">L'IA est dans le prix de la formule. Au-delà du volume du niveau : prix par course réglé dans Console › Jibiat IA, sur la facture.</p>
-        </div>
+        <fieldset class="border rounded p-3 space-y-2">
+          <legend class="text-sm font-medium px-1">✨ Jibiat IA</legend>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label" for="p-ai-points">Points IA par mois</label>
+              <input id="p-ai-points" v-model.number="form.ai_points" type="number" min="0" class="input" placeholder="Pas d'IA">
+            </div>
+            <div>
+              <label class="label" for="p-ai-cap">Plafond de coût (F)</label>
+              <input id="p-ai-cap" v-model.number="form.ai_cost_cap" type="number" min="0" class="input" placeholder="Aucun" :disabled="!orNull(form.ai_points)">
+            </div>
+          </div>
+          <p class="text-xs text-slate-600">L'entreprise voit ses points ({{ aiPrices.map((a) => `${a.label.toLowerCase()} : ${a.points} pt`).join(' · ') }}). Le plafond est un repère pour Jibiat, jamais montré : à ce coût réel, l'IA se met en pause jusqu'au mois suivant, même s'il reste des points.</p>
+        </fieldset>
         <fieldset class="border rounded p-3 space-y-2">
           <legend class="text-sm font-medium px-1">Modules inclus</legend>
           <label v-for="f in features" :key="f.key" class="flex items-start gap-2 text-sm">
@@ -228,7 +235,7 @@ const can = (group) => consoleCan(auth.role, group)
 const plans = ref([])
 const features = ref([])
 const appPlatforms = ref([])
-const aiTiers = ref([])
+const aiPrices = ref([])
 const options = ref([])
 const pendingCount = ref(0)
 const trialDays = ref(0)
@@ -240,7 +247,7 @@ function apply(data) {
   plans.value = data.data
   features.value = data.meta.features
   appPlatforms.value = data.meta.app_platforms ?? []
-  aiTiers.value = data.meta.ai_tiers ?? []
+  aiPrices.value = data.meta.ai_prices ?? []
   trialDays.value = data.meta.trial_days
   loaded.value = true
 }
@@ -315,13 +322,12 @@ function edit(plan) {
     cap_amount: plan ? (plan.cap_amount ?? '') : 60000,
     min_invoice: plan ? (plan.min_invoice ?? '') : 1000,
     features: [...(plan?.features ?? [])],
-    ai_tier: plan?.ai_tier ?? null,
+    ai_points: plan?.ai_points ?? '',
+    ai_cost_cap: plan?.ai_cost_cap ?? '',
     apps: { android: 'none', android_price: '', ios: 'none', ios_price: '', ...(plan?.apps ?? {}) },
     is_active: plan?.is_active ?? true,
   })
 }
-
-const aiTierName = (key) => aiTiers.value.find((t) => t.key === key)?.name ?? key
 
 function couriersText(p) {
   if (p.max_couriers === null) return 'Livreurs illimités'
@@ -363,7 +369,8 @@ async function save() {
     cap_amount: percent ? orNull(form.cap_amount) : null,
     min_invoice: orNull(form.min_invoice),
     features: form.features,
-    ai_tier: form.ai_tier,
+    ai_points: orNull(form.ai_points),
+    ai_cost_cap: orNull(form.ai_points) ? orNull(form.ai_cost_cap) : null,
     apps: {
       android: form.apps.android,
       android_price: form.apps.android === 'option' ? orNull(form.apps.android_price) : null,

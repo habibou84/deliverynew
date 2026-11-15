@@ -3,72 +3,75 @@
     <p v-if="error" class="field-error" role="alert">{{ error }}</p>
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="font-semibold">✨ Jibiat IA</h2>
-      <span v-if="sub.included" class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">{{ sub.tier_name }} · comprise dans votre formule</span>
-      <span v-else-if="sub.on" class="rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800">{{ sub.tier_name }} · ancien abonnement</span>
-      <span v-else class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">Pas dans votre formule</span>
+      <span v-if="data.points.monthly" class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">comprise dans votre formule</span>
+      <span v-else class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">pas dans votre formule</span>
     </div>
-    <p class="text-slate-600">L'IA lit les messages WhatsApp de vos e-commerçants et les transforme en courses, et conseille votre dispatch.</p>
+    <p class="text-slate-600">L'IA lit les commandes que vos e-commerçants envoient sur WhatsApp et les transforme en courses.</p>
 
-    <!-- IA en service : consommation du mois -->
-    <template v-if="sub.on">
-      <p v-if="sub.paused" class="rounded-lg bg-amber-50 p-3 text-amber-900">⏸ L'IA est en pause jusqu'au mois prochain : la consommation a atteint la limite de votre niveau. Jibiat continue avec les règles habituelles. Une recharge la relance.</p>
-      <p v-if="!sub.included && sub.stop_at" class="rounded-lg bg-slate-100 p-3">L'IA s'arrêtera le {{ date(sub.stop_at) }}. <button type="button" class="font-semibold text-violet-700" :disabled="busy" @click="act('resume')">Continuer l'IA</button></p>
-      <Meter :label="`Courses traitées en ${monthLabel}`" :value="data.usage.orders" :max="data.usage.included_orders" />
-      <Meter v-if="data.usage.voice_included" label="Notes vocales (minutes)" :value="data.usage.voice_minutes" :max="data.usage.voice_included" />
-      <ul v-if="data.usage.features.length" class="flex flex-wrap gap-2">
-        <li v-for="f in data.usage.features" :key="f.feature" class="rounded-lg bg-violet-50 px-2 py-1 text-violet-900"><b>{{ f.calls }}</b> · {{ f.label }}</li>
-      </ul>
-      <p class="text-xs text-slate-600">Au-delà du volume : {{ money(data.settings.overage_per_order) }} par course, sur votre facture.<template v-if="data.usage.recharges"> Recharges ce mois-ci : {{ money(data.usage.recharges) }}.</template></p>
-      <div class="flex flex-wrap gap-2">
-        <template v-if="sub.included || sub.status === 'active'">
-          <button v-for="amount in data.recharges" :key="amount" type="button" class="btn-secondary" :disabled="busy" @click="recharge(amount)">Recharger {{ money(amount) }}</button>
-        </template>
-        <button v-if="!sub.included && !sub.stop_at" type="button" class="btn-secondary text-red-700" :disabled="busy" @click="stop">Arrêter l'IA</button>
+    <template v-if="data.points.monthly">
+      <!-- Compteur de points du mois -->
+      <div>
+        <div class="mb-1 flex justify-between"><span>Points IA de {{ monthLabel }}</span><b>{{ data.points.left.toLocaleString('fr-FR') }} restants sur {{ data.points.monthly.toLocaleString('fr-FR') }}</b></div>
+        <div class="h-2.5 overflow-hidden rounded-full bg-slate-100"><div :class="['h-full rounded-full', percent >= 80 ? 'bg-amber-500' : 'bg-violet-600']" :style="{ width: `${percent}%` }" /></div>
       </div>
+      <p v-if="stopped" class="rounded-lg bg-amber-50 p-3 text-amber-900">⏸ {{ stopped }} Jibiat continue avec les règles habituelles : les commandes écrites sont toujours reçues.</p>
+      <ul v-if="data.usage.length" class="flex flex-wrap gap-2">
+        <li v-for="u in data.usage" :key="u.feature" class="rounded-lg bg-violet-50 px-2 py-1 text-violet-900"><b>{{ u.calls }}</b> · {{ u.label.toLowerCase() }} ({{ u.points }} pt)</li>
+      </ul>
+      <p class="text-xs text-slate-600">
+        <template v-for="(p, i) in data.prices" :key="p.key">{{ i ? ' · ' : '' }}{{ p.label }} : {{ p.points }} point{{ p.points > 1 ? 's' : '' }}<template v-if="!p.available"> (bientôt)</template></template>.
+        Les points repartent à zéro le 1er du mois.
+      </p>
     </template>
 
-    <!-- Formule sans IA : formules qui la comprennent -->
-    <div v-if="!sub.included" class="rounded-lg bg-violet-50 p-3 text-violet-900">
+    <!-- Ancien abonnement IA à part -->
+    <p v-if="data.legacy" class="rounded-lg bg-slate-100 p-3">
+      Ancien abonnement {{ data.legacy.name }}, facturé à part jusqu'à son arrêt.
+      <template v-if="data.legacy.stop_at"> Il s'arrêtera le {{ date(data.legacy.stop_at) }}. <button type="button" class="font-semibold text-violet-700" :disabled="busy" @click="act('resume')">Le continuer</button></template>
+      <button v-else type="button" class="font-semibold text-red-700" :disabled="busy" @click="stop">L'arrêter</button>
+    </p>
+
+    <!-- Formule sans points : formules qui en ont -->
+    <div v-if="!data.points.monthly" class="rounded-lg bg-violet-50 p-3 text-violet-900">
       <template v-if="data.plans_with_ai.length">
-        <p class="font-medium">Jibiat IA est comprise dans ces formules :</p>
+        <p class="font-medium">Formules avec des points d'IA :</p>
         <ul class="mt-1 space-y-0.5">
-          <li v-for="p in data.plans_with_ai" :key="p.id">✓ <b>{{ p.name }}</b> ({{ money(p.price) }} / mois) : {{ p.tier_name }}</li>
+          <li v-for="p in data.plans_with_ai" :key="p.id">✓ <b>{{ p.name }}</b> ({{ money(p.price) }} / mois) : {{ p.points.toLocaleString('fr-FR') }} points par mois</li>
         </ul>
         <p class="mt-1">Pour changer de formule, écrivez à l'équipe Jibiat.</p>
       </template>
-      <p v-else>Bientôt comprise dans les formules Jibiat.</p>
+      <p v-else>Bientôt dans les formules Jibiat.</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useToastStore } from '../stores/toasts'
 import { date, money } from '../utils/format'
 import { confirmDialog } from '../composables/useDialog'
 
-/** Jibiat IA dans « Mon abonnement » : niveau compris dans la formule, consommation du mois, recharges */
-const Meter = defineComponent({
-  props: { label: String, value: Number, max: Number },
-  setup(props) {
-    return () => {
-      const pct = props.max ? Math.min(100, Math.round(props.value * 100 / props.max)) : 0
-      return h('div', [
-        h('div', { class: 'mb-1 flex justify-between' }, [h('span', props.label), h('b', `${props.value.toLocaleString('fr-FR')} / ${props.max.toLocaleString('fr-FR')}`)]),
-        h('div', { class: 'h-2.5 overflow-hidden rounded-full bg-slate-100' }, h('div', { class: ['h-full rounded-full', pct >= 80 ? 'bg-amber-500' : 'bg-violet-600'], style: { width: `${pct}%` } })),
-      ])
-    }
-  },
-})
-
+/** Jibiat IA dans « Mon abonnement » : points du mois compris dans la formule, consommation, ancien abonnement à part */
 const toasts = useToastStore()
 const data = ref(null)
 const error = ref('')
 const busy = ref(false)
 
-const sub = computed(() => data.value?.subscription ?? {})
-const monthLabel = computed(() => (data.value ? new Date(`${data.value.usage.month}-01T12:00:00`).toLocaleDateString('fr-FR', { month: 'long' }) : ''))
+const monthLabel = computed(() => (data.value ? new Date(`${data.value.month}-01T12:00:00`).toLocaleDateString('fr-FR', { month: 'long' }) : ''))
+const percent = computed(() => {
+  const p = data.value?.points
+  return p?.monthly ? Math.min(100, Math.round(p.used * 100 / p.monthly)) : 0
+})
+// Pourquoi l'IA ne sert pas en ce moment (sans parler du plafond, interne à Jibiat)
+const stopped = computed(() => {
+  const d = data.value
+  if (!d) return ''
+  if (!d.enabled || d.disabled) return 'Jibiat IA est arrêtée pour le moment.'
+  if (d.points.left <= 0) return 'Vos points du mois sont épuisés : l\'IA reprend le 1er du mois.'
+  if (d.paused) return 'L\'IA est en pause jusqu\'au 1er du mois.'
+  return ''
+})
 
 async function run(request, success) {
   busy.value = true
@@ -83,15 +86,10 @@ async function run(request, success) {
   }
 }
 
-const act = (name) => run(() => http.post(`/company/ai/${name}`), name === 'resume' ? 'L\'IA continue.' : null)
+const act = (name) => run(() => http.post(`/company/ai/${name}`), name === 'resume' ? 'L\'abonnement continue.' : null)
 async function stop() {
-  const trialing = sub.value.status === 'trial'
-  if (!await confirmDialog(trialing ? 'Arrêter l\'essai maintenant ?' : 'Arrêter Jibiat IA ? Elle continue jusqu\'à la fin de la période payée.')) return
-  run(() => http.post('/company/ai/stop'), trialing ? 'Essai arrêté.' : 'Arrêt programmé.')
-}
-async function recharge(amount) {
-  if (!await confirmDialog(`Recharger ${money(amount)} ? Ajouté à votre prochaine facture.`)) return
-  run(() => http.post('/company/ai/recharge', { amount }), 'Recharge ajoutée.')
+  if (!await confirmDialog('Arrêter l\'ancien abonnement Jibiat IA ? Il continue jusqu\'à la fin de la période payée.')) return
+  run(() => http.post('/company/ai/stop'), 'Arrêt programmé.')
 }
 
 onMounted(() => run(() => http.get('/company/ai')))

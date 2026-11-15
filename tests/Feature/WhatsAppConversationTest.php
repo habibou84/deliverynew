@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Company;
 use App\Models\InboundMessage;
 use App\Models\Order;
 use App\Models\OutboundMessage;
+use App\Models\Plan;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppSession;
 use App\Models\Zone;
@@ -211,11 +213,18 @@ class WhatsAppConversationTest extends TestCase
         {
             public ?array $answer = null;
 
-            protected function extract(string $text, Collection $zones): ?array
+            public int $calls = 0;
+
+            protected function extract(string $text, Collection $zones, Company $company): ?array
             {
+                $this->calls++;
+
                 return $this->answer;
             }
         };
+        // Points d'IA dans la formule de l'entreprise
+        $plan = Plan::create(['name' => 'Pro', 'price_monthly' => 60000, 'features' => [], 'ai_points' => 100]);
+        $this->company->forceFill(['plan_id' => $plan->id])->save();
 
         $zones = Zone::forCompany($this->company->id)->with('parent')->get();
         $parser->answer = [
@@ -235,6 +244,12 @@ class WhatsAppConversationTest extends TestCase
         // Refus ou indisponibilité : analyse par règles seule
         $parser->answer = null;
         $this->assertSame([$this->angre->id], $parser->parse('07 08 09 10 11 Angré 5000 F', $zones)['zones']);
+        $this->assertSame(2, $parser->calls);
+
+        // Formule sans points d'IA : l'IA n'est pas appelée, analyse par règles
+        $plan->update(['ai_points' => 0]);
+        $this->assertSame([$this->angre->id], $parser->parse('07 08 09 10 11 Angré 5000 F', $zones)['zones']);
+        $this->assertSame(2, $parser->calls);
         $this->assertInstanceOf(HeuristicOrderParser::class, app(OrderMessageParser::class));
     }
 }

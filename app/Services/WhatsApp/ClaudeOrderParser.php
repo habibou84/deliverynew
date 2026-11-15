@@ -35,8 +35,15 @@ class ClaudeOrderParser implements OrderMessageParser
     {
         $rules = $this->fallback->parse($text, $zones, $senderPhone);
 
+        // Jibiat IA : seulement si l'entreprise a encore des points (et que l'IA n'est ni éteinte, ni coupée, ni en
+        // pause au plafond) ; sinon, analyse par règles
+        $company = Company::query()->find($zones->first()?->company_id);
+        if ($company === null || ! app(JibiatAi::class)->allows($company, 'messages')) {
+            return $rules;
+        }
+
         try {
-            $ai = $this->extract($text, $zones);
+            $ai = $this->extract($text, $zones, $company);
         } catch (APIException|JsonException $e) {
             Log::warning('Analyse WhatsApp par Claude indisponible : '.$e->getMessage());
 
@@ -85,12 +92,16 @@ class ClaudeOrderParser implements OrderMessageParser
      *
      * @throws APIException|JsonException
      */
-    protected function extract(string $text, Collection $zones): ?array
+    protected function extract(string $text, Collection $zones, Company $company): ?array
     {
         $client = new Client(apiKey: config('messaging.ai.api_key'));
+        $model = (string) config('messaging.ai.model');
+        // Repli côté serveur si le modèle décline pour raison de politique (pas proposé sur Haiku)
+        $fallback = str_contains($model, 'haiku') ? [] : ['betas' => ['server-side-fallback-2026-07-01'], 'fallbacks' => 'default'];
 
         $message = $client->beta->messages->create(
-            model: config('messaging.ai.model'),
+            ...$fallback,
+            model: $model,
             maxTokens: 2048,
             system: $this->systemPrompt($zones),
             messages: [[
@@ -102,12 +113,9 @@ class ClaudeOrderParser implements OrderMessageParser
                 'effort' => 'low',
                 'format' => ['type' => 'json_schema', 'schema' => $this->schema()],
             ],
-            // Si le modèle décline pour raison de politique, l'API relance sur un modèle de repli
-            betas: ['server-side-fallback-2026-07-01'],
-            fallbacks: 'default',
         );
 
-        $this->recordUsage($zones, (string) config('messaging.ai.model'), $message->usage->inputTokens ?? 0, $message->usage->outputTokens ?? 0);
+        $this->recordUsage($company, $model, $message->usage->inputTokens ?? 0, $message->usage->outputTokens ?? 0);
 
         if ($message->stopReason === 'refusal') {
             return null;
@@ -122,19 +130,11 @@ class ClaudeOrderParser implements OrderMessageParser
         return null;
     }
 
-    /**
-     * Consommation de l'IA comptée pour l'entreprise (Jibiat IA : coût réel, plafond du mois). Les zones sont celles
-     * de l'entreprise du marchand.
-     *
-     * @param  Collection<int, Zone>  $zones
-     */
-    private function recordUsage(Collection $zones, string $model, int $input, int $output): void
+    /** Consommation de l'IA comptée pour l'entreprise (Jibiat IA : points, coût réel, plafond du mois) */
+    private function recordUsage(Company $company, string $model, int $input, int $output): void
     {
         try {
-            $company = Company::query()->find($zones->first()?->company_id);
-            if ($company) {
-                app(JibiatAi::class)->record($company, 'messages', $model, $input, $output);
-            }
+            app(JibiatAi::class)->record($company, 'messages', $model, $input, $output);
         } catch (Throwable $e) {
             report($e);
         }
