@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div>
       <h1 class="text-xl font-bold">Jibiat IA</h1>
-      <p class="text-sm text-slate-600">L'abonnement IA des entreprises, à part de leur formule : ce qu'elles paient et ce que l'IA coûte vraiment ce mois-ci.</p>
+      <p class="text-sm text-slate-600">Jibiat IA est comprise dans les formules (niveau choisi dans Console › Formules). Ici : ce que les entreprises paient en plus (courses au-delà du volume, recharges, anciens abonnements à part) et ce que l'IA coûte vraiment ce mois-ci.</p>
     </div>
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
 
@@ -39,7 +39,7 @@
         <h2 class="font-semibold">Niveaux</h2>
         <div class="overflow-x-auto">
           <table class="w-full text-sm">
-            <thead><tr class="text-left text-slate-600"><th class="py-1.5 pr-2 font-medium">Niveau</th><th class="px-2 font-medium">Proposé</th><th class="px-2 font-medium">Prix / mois (F)</th><th class="px-2 font-medium">Courses / mois</th><th class="px-2 font-medium">Dispatch / jour</th><th class="px-2 font-medium">Notes vocales (min)</th><th class="px-2 font-medium">Plafond de coût (F)</th></tr></thead>
+            <thead><tr class="text-left text-slate-600"><th class="py-1.5 pr-2 font-medium">Niveau</th><th class="px-2 font-medium">Proposé</th><th class="px-2 font-medium">Prix / mois (F)<span class="block text-xs font-normal">anciens abonnements</span></th><th class="px-2 font-medium">Courses / mois</th><th class="px-2 font-medium">Dispatch / jour</th><th class="px-2 font-medium">Notes vocales (min)</th><th class="px-2 font-medium">Plafond de coût (F)</th></tr></thead>
             <tbody>
               <tr v-for="(t, key) in tiers" :key="key" class="border-t">
                 <td class="py-2 pr-2 font-semibold">{{ t.name }}</td>
@@ -56,8 +56,8 @@
         <p class="text-xs text-slate-600">Plafond de coût atteint : l'IA se met en pause pour l'entreprise jusqu'au mois suivant (ou une recharge), et Jibiat continue avec les règles habituelles.</p>
         <div class="grid gap-3 sm:grid-cols-4">
           <label class="block text-sm">Course au-delà du volume (F)<input v-model.number="settings.overage_per_order" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"></label>
-          <label class="block text-sm">Jours d'essai gratuit<input v-model.number="settings.trial_days" type="number" min="0" max="90" class="input mt-1 w-full" :disabled="!owner"></label>
-          <label class="block text-sm">Mois payés à l'année (sur 12)<input v-model.number="settings.yearly_months" type="number" min="1" max="12" class="input mt-1 w-full" :disabled="!owner"></label>
+          <label class="block text-sm">Jours d'essai gratuit <span class="text-xs text-slate-600">(ancien)</span><input v-model.number="settings.trial_days" type="number" min="0" max="90" class="input mt-1 w-full" :disabled="!owner"></label>
+          <label class="block text-sm">Mois payés à l'année (sur 12) <span class="text-xs text-slate-600">(ancien)</span><input v-model.number="settings.yearly_months" type="number" min="1" max="12" class="input mt-1 w-full" :disabled="!owner"></label>
           <label class="block text-sm">1 dollar = (F)<input v-model.number="settings.usd_rate" type="number" min="100" max="2000" class="input mt-1 w-full" :disabled="!owner"><span class="text-xs text-slate-600">Pour le coût réel de l'IA</span></label>
         </div>
         <button v-if="owner" type="submit" class="btn-primary" :disabled="saving">Enregistrer</button>
@@ -87,8 +87,9 @@ const saving = ref(false)
 const signed = (n) => `${n >= 0 ? '+' : '−'}${money(Math.abs(n))}`
 function status(c) {
   const name = c.tier_name || '—'
-  if (!c.status) return 'Sans abonnement'
   if (c.paused) return `${name} · en pause`
+  if (c.included) return `${name} · formule`
+  if (!c.status) return 'Sans IA'
   if (c.status === 'trial' && c.on) return `${name} · essai`
   if (c.status === 'active' && c.stop_at) return `${name} · s'arrête`
   if (c.status === 'active') return `${name}${c.period === 'yearly' ? ' · à l\'année' : ''}`

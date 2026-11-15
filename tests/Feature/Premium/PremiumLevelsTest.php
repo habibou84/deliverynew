@@ -38,6 +38,8 @@ class PremiumLevelsTest extends TestCase
         $this->buildWorld();
         config(['services.jibiat_marchand.premium_secret' => 'secret-de-test', 'services.jibiat_marchand.api_url' => 'https://api.jm.test']);
         $this->merchant->forceFill(['created_at' => now()->subDays(400)])->save();
+        // Programme éteint par défaut : ouvert pour ces tests
+        app(PremiumCards::class)->updateSettings(['enabled' => true]);
         Http::fake(function (HttpRequest $request) {
             $this->calls[] = $request;
             $card = Contract::example('premium-card');

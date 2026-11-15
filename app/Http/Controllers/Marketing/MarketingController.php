@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Marketing;
 use App\Enums\PlatformFeature;
 use App\Http\Controllers\Controller;
 use App\Models\Plan;
+use App\Services\Ai\JibiatAi;
 use App\Services\Connect\Directory;
 use App\Services\Platform\AppOptions;
 use App\Services\Platform\CompanySignup;
@@ -72,7 +73,8 @@ class MarketingController extends Controller
             'max_couriers' => $p->max_couriers,
             'pricing' => $p->pricing ?: Plan::FLAT,
             'percent_summary' => $p->percentSummary(),
-            'features' => collect($p->features ?? [])->map(fn (string $f) => PlatformFeature::tryFrom($f)?->label())->filter()->values()
+            'features' => collect($p->features ?? [])->map(fn (string $f) => PlatformFeature::tryFrom($f)?->label())
+                ->push(app(JibiatAi::class)->planLine($p->ai_tier))->filter()->values()
                 ->merge(AppOptions::summaryLines($p)),
         ])->values();
     }
