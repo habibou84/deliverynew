@@ -2,19 +2,27 @@
 
 namespace Tests\Feature;
 
+use App\Enums\PlatformFeature;
+use App\Jobs\ProcessInboundWhatsApp;
+use App\Models\Company;
 use App\Models\InboundMessage;
 use App\Models\Order;
 use App\Models\OutboundMessage;
+use App\Models\Plan;
 use App\Models\WhatsAppAccount;
 use App\Models\WhatsAppSession;
 use App\Models\Zone;
+use App\Services\Ai\JibiatAi;
 use App\Services\WhatsApp\ClaudeOrderParser;
 use App\Services\WhatsApp\Conversation;
 use App\Services\WhatsApp\HeuristicOrderParser;
 use App\Services\WhatsApp\OrderMessageParser;
+use App\Services\WhatsApp\WhatsAppMedia;
 use App\Services\WhatsApp\ZoneMatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -191,6 +199,13 @@ class WhatsAppConversationTest extends TestCase
         ];
         $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
         $this->assertSame('draft', WhatsAppSession::sole()->state);
+        // Photo : sa légende comme texte, le fichier à télécharger chez Meta
+        Queue::fake();
+        $payload['entry'][0]['changes'][0]['value']['messages'][0] = [
+            'id' => 'wamid.IN3', 'from' => '2250501020304', 'type' => 'image', 'image' => ['id' => 'media-9', 'mime_type' => 'image/jpeg', 'caption' => 'Commande de Mme Koné'],
+        ];
+        $this->postJson('/api/webhooks/whatsapp', $payload)->assertOk();
+        Queue::assertPushed(ProcessInboundWhatsApp::class, fn ($job) => $job->type === 'image' && $job->text === 'Commande de Mme Koné' && $job->meta['media'] === ['id' => 'media-9']);
     }
 
     public function test_simulator_is_for_admins(): void
@@ -211,11 +226,18 @@ class WhatsAppConversationTest extends TestCase
         {
             public ?array $answer = null;
 
-            protected function extract(string $text, Collection $zones): ?array
+            public int $calls = 0;
+
+            protected function extract(array $content, Collection $zones, Company $company, string $feature): ?array
             {
+                $this->calls++;
+
                 return $this->answer;
             }
         };
+        // Points d'IA dans la formule de l'entreprise
+        $plan = Plan::create(['name' => 'Pro', 'price_monthly' => 60000, 'features' => [], 'ai_points' => 100]);
+        $this->company->forceFill(['plan_id' => $plan->id])->save();
 
         $zones = Zone::forCompany($this->company->id)->with('parent')->get();
         $parser->answer = [
@@ -235,6 +257,108 @@ class WhatsAppConversationTest extends TestCase
         // Refus ou indisponibilité : analyse par règles seule
         $parser->answer = null;
         $this->assertSame([$this->angre->id], $parser->parse('07 08 09 10 11 Angré 5000 F', $zones)['zones']);
+        $this->assertSame(2, $parser->calls);
+
+        // Formule sans points d'IA : l'IA n'est pas appelée, analyse par règles
+        $plan->update(['ai_points' => 0]);
+        $this->assertSame([$this->angre->id], $parser->parse('07 08 09 10 11 Angré 5000 F', $zones)['zones']);
+        $this->assertSame(2, $parser->calls);
         $this->assertInstanceOf(HeuristicOrderParser::class, app(OrderMessageParser::class));
+    }
+
+    /** Lecteur IA dont la réponse est fixée ; chaque lecture brûle ses points comme un vrai appel */
+    private function photoReader(?array $answer): ClaudeOrderParser
+    {
+        $parser = new class(app(HeuristicOrderParser::class), app(ZoneMatcher::class)) extends ClaudeOrderParser
+        {
+            public ?array $answer = null;
+
+            public array $seen = [];
+
+            protected function extract(array $content, Collection $zones, Company $company, string $feature): ?array
+            {
+                $this->seen[] = [$feature, $content[0]['type']];
+                app(JibiatAi::class)->record($company, $feature, 'claude-haiku-5-5', 1500, 200);
+
+                return $this->answer;
+            }
+        };
+        $parser->answer = $answer;
+        $this->app->instance(OrderMessageParser::class, $parser);
+
+        return $parser;
+    }
+
+    /** Photo reçue par le numéro relié par QR code (déposée par le service whatsapp-bridge) */
+    private function sendPhoto(?string $caption = null): string
+    {
+        $dir = WhatsAppMedia::bridgeDir();
+        @mkdir($dir, 0777, true);
+        $file = 'test-'.uniqid().'.jpg';
+        file_put_contents("{$dir}/{$file}", "\xFF\xD8\xFF\xE0photo");
+        $lastId = (int) OutboundMessage::max('id');
+        app(Conversation::class)->handle($this->company->fresh(), self::MERCHANT_PHONE, 'image', $caption, null, ['media' => ['file' => $file]]);
+        $this->lastPhotoReplies = OutboundMessage::where('id', '>', $lastId)->orderBy('id')->pluck('body')->all();
+
+        return $file;
+    }
+
+    private array $lastPhotoReplies = [];
+
+    public function test_a_photo_of_an_order_is_read_by_the_ai_for_two_points(): void
+    {
+        $plan = Plan::create(['name' => 'Pro', 'price_monthly' => 60000, 'features' => PlatformFeature::values(), 'ai_points' => 10]);
+        $this->company->forceFill(['plan_id' => $plan->id])->save();
+        $parser = $this->photoReader([
+            'recipient_name' => 'Mme Bamba', 'recipient_phone' => '0708091011', 'recipient_phone2' => null,
+            'zone_name' => 'Cocody › Angré', 'delivery_address' => '8e tranche', 'delivery_landmark' => null,
+            'items_amount' => 22000, 'fee_payer' => 'recipient', 'description' => 'robe', 'merchant_note' => null,
+        ]);
+
+        $file = $this->sendPhoto();
+
+        $this->assertSame([['photos', 'image']], $parser->seen);
+        $this->assertFileDoesNotExist(WhatsAppMedia::bridgeDir().'/'.$file);
+        $draft = WhatsAppSession::sole()->draft;
+        $this->assertSame(['Mme Bamba', '+2250708091011', $this->angre->id, 22000], [$draft['recipient_name'], $draft['recipient_phone'], $draft['zone_id'], $draft['items_amount']]);
+        $this->assertSame(2, app(JibiatAi::class)->pointsUsed($this->company->fresh()));
+
+        // Rien de lisible sur la photo
+        $parser->answer = ['recipient_name' => null, 'recipient_phone' => null, 'recipient_phone2' => null, 'zone_name' => null, 'delivery_address' => null,
+            'delivery_landmark' => null, 'items_amount' => null, 'fee_payer' => null, 'description' => null, 'merchant_note' => null];
+        WhatsAppSession::query()->delete();
+        $this->sendPhoto();
+        $this->assertStringContainsString('pas trouvé de commande sur cette photo', end($this->lastPhotoReplies));
+    }
+
+    public function test_without_ai_points_a_photo_is_not_read_but_its_caption_is(): void
+    {
+        $plan = Plan::create(['name' => 'Essentiel', 'price_monthly' => 25000, 'features' => PlatformFeature::values(), 'ai_points' => 0]);
+        $this->company->forceFill(['plan_id' => $plan->id])->save();
+        $parser = $this->photoReader(null);
+
+        $this->sendPhoto();
+        $this->assertSame([], $parser->seen);
+        $this->assertStringContainsString('Je ne peux pas lire les photos', end($this->lastPhotoReplies));
+
+        // La légende est lue comme un message écrit (par règles : pas de points)
+        $this->sendPhoto('07 08 09 10 11 Angré 5000 F');
+        $this->assertSame([], $parser->seen);
+        $this->assertSame($this->angre->id, WhatsAppSession::sole()->draft['zone_id']);
+    }
+
+    public function test_a_photo_sent_to_a_meta_number_is_downloaded_from_meta(): void
+    {
+        config(['messaging.whatsapp.graph_url' => 'https://graph.test']);
+        $account = WhatsAppAccount::create(['company_id' => $this->company->id, 'owner_type' => 'company', 'phone_number_id' => '5551', 'access_token' => 'jeton', 'status' => 'connected']);
+        Http::fake([
+            'graph.test/*/media-42' => Http::response(['url' => 'https://cdn.test/fichier', 'mime_type' => 'image/jpeg']),
+            'cdn.test/*' => Http::response("\xFF\xD8photo", 200, ['Content-Type' => 'image/jpeg']),
+        ]);
+
+        $this->assertSame(["\xFF\xD8photo", 'image/jpeg'], app(WhatsAppMedia::class)->photo(['id' => 'media-42'], $account->id));
+        Http::assertSent(fn ($r) => $r->url() === 'https://cdn.test/fichier' && $r->hasHeader('Authorization', 'Bearer jeton'));
+        // Un nom de fichier du service QR ne peut pas sortir de son dossier
+        $this->assertNull(app(WhatsAppMedia::class)->photo(['file' => '../../.env'], null));
     }
 }

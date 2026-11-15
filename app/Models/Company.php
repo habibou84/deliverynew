@@ -106,6 +106,7 @@ class Company extends Model
             'ai_stop_at' => 'datetime',
             'ai_paid_until' => 'date',
             'ai_alerts' => 'array',
+            'ai_disabled' => 'boolean',
             'auto_confirm_orders' => 'boolean',
             'default_max_attempts' => 'integer',
             'require_delivery_code' => 'boolean',

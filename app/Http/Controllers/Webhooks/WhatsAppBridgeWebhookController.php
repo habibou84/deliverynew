@@ -119,7 +119,8 @@ class WhatsAppBridgeWebhookController extends Controller
         ProcessInboundWhatsApp::dispatch($account->company_id, $from, $button ? 'button' : $kind, $button['label'] ?? $text, $button['id'] ?? null, [
             'whatsapp_account_id' => $account->id,
             'provider_message_id' => $id,
-        ]);
+            // Photo : enregistrée par le service dans storage/app/whatsapp-bridge/media
+        ] + ($kind === 'image' && is_string($request->input('media')) ? ['media' => ['file' => $request->input('media')]] : []));
     }
 
     /** Message d'un client au WhatsApp de l'e-commerçante : traité une seule fois, dans la file */

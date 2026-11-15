@@ -352,10 +352,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('merchants', 'merchants')->name('merchants');
             Route::post('merchants/{merchant}/gift', 'gift')->middleware($owner)->whereNumber('merchant')->name('gift');
         });
-        // Jibiat IA : niveaux et réglages au Propriétaire, coût réel par entreprise
+        // Jibiat IA : interrupteur, prix des actions en points, coupure par entreprise au Propriétaire ; suivi
         Route::prefix('console/ai')->name('console.ai.')->middleware($team)->controller(ConsoleJibiatAiController::class)->group(function () use ($owner) {
             Route::get('/', 'show')->name('show');
             Route::put('/', 'update')->middleware($owner)->name('update');
+            Route::put('companies/{company}', 'company')->middleware($owner)->name('company');
         });
         // Applications Android au nom des entreprises : réglages et fabrication au Propriétaire
         Route::prefix('console/branded-apps')->name('console.branded-apps.')->middleware($team)->controller(ConsoleBrandedAppController::class)->group(function () use ($owner) {
@@ -487,14 +488,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::delete('/', 'destroy')->name('destroy');
         });
 
-        // Jibiat IA : abonnement à part, en plus de la formule
+        // Jibiat IA : points compris dans la formule (et arrêt d'un ancien abonnement à part)
         Route::prefix('company/ai')->name('company.ai.')->middleware('can:settings.manage')->controller(JibiatAiController::class)->group(function () {
             Route::get('/', 'show')->name('show');
-            Route::post('trial', 'trial')->middleware('throttle:10,1')->name('trial');
-            Route::post('subscribe', 'subscribe')->middleware('throttle:10,1')->name('subscribe');
             Route::post('stop', 'stop')->middleware('throttle:10,1')->name('stop');
             Route::post('resume', 'resume')->middleware('throttle:10,1')->name('resume');
-            Route::post('recharge', 'recharge')->middleware('throttle:10,1')->name('recharge');
         });
 
         // Formule, essai et consommation du mois de l'entreprise

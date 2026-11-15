@@ -130,6 +130,24 @@ class MetaCloudGateway implements WhatsAppGateway
         return (string) $response->json('messages.0.id');
     }
 
+    /**
+     * Fichier reçu (photo…) : Meta donne d'abord une adresse temporaire, à télécharger avec le même jeton.
+     *
+     * @return array{0: string, 1: string} contenu, type (image/jpeg…)
+     */
+    public function downloadMedia(?WhatsAppAccount $account, string $mediaId): array
+    {
+        $account = $this->ensureConfigured($account);
+        $info = $this->call(fn () => $this->client($account)->get($mediaId));
+        $url = (string) $info->json('url');
+        if ($url === '') {
+            throw new MessagingException('Fichier introuvable chez Meta.');
+        }
+        $file = $this->call(fn () => Http::withToken($account->apiToken())->timeout(30)->get($url));
+
+        return [$file->body(), (string) ($info->json('mime_type') ?: $file->header('Content-Type'))];
+    }
+
     public function templates(?WhatsAppAccount $account): array
     {
         $account = $this->ensureConfigured($account);

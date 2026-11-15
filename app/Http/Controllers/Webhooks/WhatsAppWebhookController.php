@@ -126,13 +126,15 @@ class WhatsAppWebhookController extends Controller
                 $message['interactive']['button_reply']['title'] ?? $message['interactive']['list_reply']['title'] ?? null,
                 $message['interactive']['button_reply']['id'] ?? $message['interactive']['list_reply']['id'] ?? null],
             'button' => ['text', $message['button']['text'] ?? '', null],
+            // Photo (d'une commande) : sa légende comme texte, le fichier téléchargé chez Meta au traitement
+            'image' => ['image', $message['image']['caption'] ?? null, null],
             default => [$type, null, null],
         };
 
         ProcessInboundWhatsApp::dispatch($account->company_id, '+'.ltrim($message['from'], '+'), $kind, $text, $buttonId, [
             'whatsapp_account_id' => $account->id,
             'provider_message_id' => $message['id'],
-        ]);
+        ] + ($type === 'image' && isset($message['image']['id']) ? ['media' => ['id' => (string) $message['image']['id']]] : []));
     }
 
     /**
