@@ -38,7 +38,8 @@ use Throwable;
 class PremiumCards
 {
     public const DEFAULTS = [
-        'enabled' => true,
+        // Éteint par défaut : rallumé dans la console
+        'enabled' => false,
         'quota' => 10,
         'funded_by' => 'jibiat',
         'price' => 0,

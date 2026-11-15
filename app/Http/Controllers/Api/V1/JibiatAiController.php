@@ -9,8 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 /**
- * Page « Jibiat IA » de l'entreprise : niveaux, essai gratuit, abonnement au mois ou à l'année, arrêt en fin de mois,
- * recharges et consommation du mois. La formule de l'entreprise ne change pas.
+ * Page « Jibiat IA » de l'entreprise : niveau compris dans sa formule, consommation du mois, recharges. Plus d'essai ni
+ * d'abonnement à part (refusés) ; un ancien abonnement à part peut encore être arrêté ou continué.
  */
 class JibiatAiController extends Controller
 {
