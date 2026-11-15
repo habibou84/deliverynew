@@ -7,6 +7,7 @@ use App\Models\BrandedApp;
 use App\Models\PlatformWavePayment;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
+use App\Services\Accounts\ConsoleTwoFactor;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
@@ -49,7 +50,7 @@ class PlatformHealth
             $this->guard('certificates', 'Certificats HTTPS', fn () => $this->certificates->check()),
             $this->guard('wave', 'Paiements Wave en attente', fn () => $this->wavePending()),
             $this->guard('security', 'Réglages de sécurité du serveur', fn () => $this->security()),
-            $this->guard('two_factor', 'Code de connexion à la console', fn () => $this->twoFactor()),
+            $this->guard('two_factor', 'Connexion en deux étapes à la console', fn () => $this->twoFactor()),
             $this->guard('github_apps', 'Jeton GitHub (applications à leur nom)', fn () => $this->githubApps()),
         ]));
     }
@@ -146,7 +147,7 @@ class PlatformHealth
 
         return $state['status'] === 'connected'
             ? ['ok', 'Relié'.($state['phone'] ? ' ('.$state['phone'].')' : '').($state['channel'] === 'official' ? ', connexion officielle.' : ', par QR code.')]
-            : ['error', 'Non relié : les alertes de paiement Wave et les codes de connexion ne partent pas. Console › WhatsApp.'];
+            : ['error', 'Non relié : les alertes de paiement Wave ne partent pas par WhatsApp. Console › WhatsApp.'];
     }
 
     /** @return array{0: string, 1: string} */
@@ -211,14 +212,12 @@ class PlatformHealth
     private function twoFactor(): array
     {
         $admins = User::query()->whereNull('company_id')->where('status', 'active')->role(Role::values(Role::platform()))->get();
-        $mail = $this->wave->mailReady();
-        $whatsapp = $this->whatsapp->connected();
-        $without = $admins->filter(fn (User $u) => ! (($mail && filled($u->email)) || ($whatsapp && filled($u->phone))));
+        $without = $admins->filter(fn (User $u) => ! app(ConsoleTwoFactor::class)->enabled($u));
         if ($without->isNotEmpty()) {
-            return ['error', 'Le code ne peut pas partir pour '.$without->pluck('name')->implode(', ').' : la console s\'ouvre avec le seul mot de passe. Reliez Gmail et renseignez l\'e-mail du compte.'];
+            return ['warning', 'Application d\'authentification pas encore configurée pour '.$without->pluck('name')->implode(', ').' : elle sera demandée (QR code) à la prochaine connexion.'];
         }
 
-        return ['ok', 'Code envoyé '.($mail ? 'par e-mail' : 'par WhatsApp').' à chaque connexion (appareil retenu 30 jours).'];
+        return ['ok', 'Code de l\'application d\'authentification demandé à chaque connexion (appareil retenu 30 jours).'];
     }
 
     /** @return array{0: string, 1: string} */

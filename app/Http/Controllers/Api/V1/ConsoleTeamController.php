@@ -23,7 +23,7 @@ use Throwable;
 
 /**
  * Console : équipe de la plateforme (Propriétaires, Support, Comptables). Invitation par lien (mot de passe choisi
- * par la personne, puis code de connexion par e-mail), changement de rôle, suspension. Il reste toujours au moins
+ * par la personne, puis application d'authentification configurée à la première connexion), changement de rôle, suspension. Il reste toujours au moins
  * un Propriétaire actif ; personne ne change son propre rôle ni ne se suspend.
  */
 class ConsoleTeamController extends Controller
@@ -57,7 +57,7 @@ class ConsoleTeamController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', new PhoneRule, User::uniqueIn(null, 'phone')],
-            // L'e-mail reçoit le code de connexion : obligatoire pour l'équipe de la console
+            // E-mail obligatoire pour l'équipe de la console (invitation, alertes de connexion)
             'email' => ['required', 'email', 'max:190', User::uniqueIn(null, 'email')],
             'role' => ['required', Rule::in(Role::values(Role::platform()))],
         ], [], ['name' => 'nom', 'phone' => 'téléphone', 'email' => 'e-mail', 'role' => 'rôle']);

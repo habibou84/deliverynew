@@ -26,7 +26,7 @@
             <select id="t-role" v-model="form.role" class="input"><option v-for="r in ROLES" :key="r.value" :value="r.value">{{ r.icon }} {{ r.label }}</option></select>
           </div>
           <div><label class="label" for="t-phone">Téléphone</label><input id="t-phone" v-model.trim="form.phone" type="tel" class="input" required></div>
-          <div><label class="label" for="t-email">E-mail (reçoit le code de connexion)</label><input id="t-email" v-model.trim="form.email" type="email" class="input" required></div>
+          <div><label class="label" for="t-email">E-mail (invitation et alertes de connexion)</label><input id="t-email" v-model.trim="form.email" type="email" class="input" required></div>
         </div>
         <p class="text-xs text-slate-600">La personne reçoit un lien personnel (valable 7 jours) pour choisir son mot de passe. Ensuite, un code lui est envoyé par e-mail à chaque connexion.</p>
         <p v-if="error" class="field-error">{{ error }}</p>

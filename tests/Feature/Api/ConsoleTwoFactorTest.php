@@ -5,17 +5,17 @@ namespace Tests\Feature\Api;
 use App\Enums\Role;
 use App\Models\TrustedDevice;
 use App\Models\User;
-use App\Notifications\ConsoleLoginCode;
+use App\Support\Totp;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Notifications\AnonymousNotifiable;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
 /**
- * Code de connexion à la console : après le mot de passe, un code par e-mail ; appareil retenu 30 jours.
+ * Connexion à la console en deux étapes : mot de passe puis code d'une application d'authentification (TOTP),
+ * codes de secours, appareil retenu 30 jours.
  */
 class ConsoleTwoFactorTest extends TestCase
 {
@@ -36,80 +36,152 @@ class ConsoleTwoFactorTest extends TestCase
         return $this->postJson('http://admin.jibiat.test/api/v1/auth/login', ['login' => '0700000099', 'password' => 'password', ...$extra]);
     }
 
-    private function sentCode(): string
+    private function confirm(string $challenge, string $code, array $extra = [])
     {
-        $code = null;
-        Notification::assertSentOnDemand(ConsoleLoginCode::class, function (ConsoleLoginCode $n, array $channels, AnonymousNotifiable $to) use (&$code) {
-            preg_match('/\*\*(\d{6})\*\*/', implode("\n", $n->toMail($to)->introLines), $m);
-            $code = $m[1] ?? null;
-
-            return $to->routes['mail'] === 'habib@gmail.com';
-        });
-
-        return (string) $code;
+        return $this->postJson('http://admin.jibiat.test/api/v1/auth/two-factor', ['challenge' => $challenge, 'code' => $code, ...$extra]);
     }
 
-    public function test_the_console_asks_for_the_code_sent_by_email(): void
+    /** Application déjà configurée pour le compte ; renvoie la clé */
+    private function enroll(): string
+    {
+        $secret = Totp::secret();
+        $this->root->forceFill(['two_factor_secret' => $secret, 'two_factor_confirmed_at' => now(), 'two_factor_recovery_codes' => [hash('sha256', 'ABCDE23456')]])->save();
+
+        return $secret;
+    }
+
+    private static function wrong(string $code): string
+    {
+        return $code === '000000' ? '111111' : '000000';
+    }
+
+    public function test_totp_matches_the_rfc_6238_reference_values(): void
+    {
+        // Clé « 12345678901234567890 » de la RFC 6238 (SHA-1), codes à 8 chiffres ramenés à 6
+        $secret = Totp::base32Encode('12345678901234567890');
+        $this->assertSame('287082', Totp::code($secret, Totp::step(59)));
+        $this->assertSame('081804', Totp::code($secret, Totp::step(1111111109)));
+        $this->assertSame('005924', Totp::code($secret, Totp::step(1234567890)));
+        $this->assertSame(Totp::step(59), Totp::match($secret, '287 082', 59 + 30));
+        $this->assertNull(Totp::match($secret, '287082', 59 + 90));
+        $this->assertStringStartsWith('otpauth://totp/Jibiat%20Console:habib%40gmail.com?secret=', Totp::uri($secret, 'habib@gmail.com', 'Jibiat Console'));
+    }
+
+    public function test_the_first_console_login_sets_up_the_authenticator_app(): void
     {
         Notification::fake();
         $data = $this->login()->assertOk()->assertJsonMissingPath('token')
-            ->assertJsonPath('two_factor.channel', 'mail')->assertJsonPath('two_factor.to', 'ha•••@gmail.com')->json('two_factor');
+            ->assertJsonPath('two_factor.method', 'setup')->assertJsonPath('two_factor.account', 'habib@gmail.com')->json('two_factor');
         $this->assertSame(0, PersonalAccessToken::count());
-        $code = $this->sentCode();
-        $wrong = $code === '000000' ? '111111' : '000000';
+        $this->assertStringStartsWith('otpauth://totp/', $data['uri']);
+        // Plus aucun code envoyé par e-mail
+        Notification::assertNothingSent();
 
-        $this->postJson('http://admin.jibiat.test/api/v1/auth/two-factor', ['challenge' => $data['challenge'], 'code' => $wrong])
-            ->assertJsonValidationErrors(['code' => 'Code incorrect. Il reste 4 essai(s).']);
-        $session = $this->postJson('http://admin.jibiat.test/api/v1/auth/two-factor', ['challenge' => $data['challenge'], 'code' => $code, 'remember' => true])
-            ->assertOk()->assertJsonPath('user.id', $this->root->id)->json();
+        $secret = str_replace(' ', '', $data['secret']);
+        $code = Totp::code($secret, Totp::step());
+        $this->confirm($data['challenge'], self::wrong($code))->assertJsonValidationErrors(['code' => 'Code incorrect. Il reste 4 essai(s).']);
+        $this->assertNull($this->root->fresh()->two_factor_secret);
+
+        $session = $this->confirm($data['challenge'], $code)->assertOk()->assertJsonPath('user.id', $this->root->id)
+            ->assertJsonCount(8, 'recovery_codes')->assertJsonMissingPath('user.two_factor_secret')->json();
         $this->assertNotEmpty($session['token']);
+        $root = $this->root->fresh();
+        $this->assertSame($secret, $root->two_factor_secret);
+        $this->assertNotNull($root->two_factor_confirmed_at);
+        // Clé chiffrée en base, codes de secours en empreintes
+        $this->assertStringNotContainsString($secret, (string) DB::table('users')->where('id', $root->id)->value('two_factor_secret'));
+        $this->assertNotContains($session['recovery_codes'][0], $root->two_factor_recovery_codes);
+
+        // Connexion suivante : code de l'application, pas de nouvelle configuration
+        $this->login()->assertOk()->assertJsonPath('two_factor.method', 'totp')->assertJsonMissingPath('two_factor.secret');
+    }
+
+    public function test_the_console_asks_for_the_authenticator_code_once_per_step(): void
+    {
+        $secret = $this->enroll();
+        $challenge = $this->login()->assertOk()->assertJsonPath('two_factor.method', 'totp')->json('two_factor.challenge');
+        $code = Totp::code($secret, Totp::step());
+
+        $this->confirm($challenge, self::wrong($code))->assertJsonValidationErrors(['code' => 'Code incorrect. Il reste 4 essai(s).']);
+        $session = $this->confirm($challenge, $code, ['remember' => true])->assertOk()->assertJsonPath('user.id', $this->root->id)
+            ->assertJsonPath('recovery_codes', null)->json();
         $this->assertStringStartsWith('td_', $session['trusted_device']);
 
-        // Code à usage unique
-        $this->postJson('http://admin.jibiat.test/api/v1/auth/two-factor', ['challenge' => $data['challenge'], 'code' => $code])->assertJsonValidationErrors('code');
+        // Demande à usage unique ; le même code ne rouvre pas une autre demande (rejeu)
+        $this->confirm($challenge, $code)->assertJsonValidationErrors('code');
+        $this->confirm($this->login()->json('two_factor.challenge'), $code)->assertJsonValidationErrors(['code' => 'Code incorrect. Il reste 4 essai(s).']);
+        // Code du pas suivant (horloge du téléphone en avance) : accepté
+        $this->confirm($this->login()->json('two_factor.challenge'), Totp::code($secret, Totp::step() + 1))->assertOk();
 
         // Appareil retenu : la session s'ouvre directement ; un autre jeton ne suffit pas
         $this->login(['trusted_device' => $session['trusted_device']])->assertOk()->assertJsonPath('user.id', $this->root->id);
-        $this->login(['trusted_device' => 'td_'.str_repeat('x', 48)])->assertOk()->assertJsonPath('two_factor.channel', 'mail');
+        $this->login(['trusted_device' => 'td_'.str_repeat('x', 48)])->assertOk()->assertJsonPath('two_factor.method', 'totp');
 
         // Retenu 30 jours seulement
         $this->travel(31)->days();
-        $this->login(['trusted_device' => $session['trusted_device']])->assertOk()->assertJsonPath('two_factor.channel', 'mail');
+        $this->login(['trusted_device' => $session['trusted_device']])->assertOk()->assertJsonPath('two_factor.method', 'totp');
+    }
+
+    public function test_a_recovery_code_works_once(): void
+    {
+        $this->enroll();
+        $this->confirm($this->login()->json('two_factor.challenge'), 'abcde-23456')->assertOk()
+            ->assertJsonPath('user.id', $this->root->id)->assertJsonPath('recovery_codes_left', 0);
+        $this->confirm($this->login()->json('two_factor.challenge'), 'ABCDE23456')->assertJsonValidationErrors('code');
     }
 
     public function test_five_wrong_codes_end_the_attempt(): void
     {
-        Notification::fake();
+        $secret = $this->enroll();
         $challenge = $this->login()->json('two_factor.challenge');
-        $code = $this->sentCode();
-        $wrong = $code === '000000' ? '111111' : '000000';
+        $code = Totp::code($secret, Totp::step());
         for ($i = 0; $i < 5; $i++) {
-            $this->postJson('http://admin.jibiat.test/api/v1/auth/two-factor', ['challenge' => $challenge, 'code' => $wrong]);
+            $this->confirm($challenge, self::wrong($code));
         }
-        $this->postJson('http://admin.jibiat.test/api/v1/auth/two-factor', ['challenge' => $challenge, 'code' => $code])
-            ->assertJsonValidationErrors(['code' => 'Code expiré : reconnectez-vous pour en recevoir un nouveau.']);
+        $this->confirm($challenge, $code)->assertJsonValidationErrors(['code' => 'Demande expirée : reconnectez-vous avec votre mot de passe.']);
     }
 
-    /** Audit n° 2, point 15 : sans moyen d'envoi, la console reste fermée ; secours par commande sur le serveur */
-    public function test_without_any_way_to_send_the_code_the_console_stays_closed_until_the_server_command(): void
+    public function test_the_server_command_removes_a_lost_authenticator(): void
     {
-        config(['mail.default' => 'log']);
-        $this->root->update(['email' => null]);
-        $this->artisan('console:code', ['login' => '0700000099'])->assertFailed();
+        $this->enroll();
+        TrustedDevice::create(['user_id' => $this->root->id, 'token_hash' => hash('sha256', 'td_x'), 'expires_at' => now()->addDay()]);
+        $this->artisan('console:2fa-reset', ['login' => '0711111111', '--force' => true])->assertFailed();
+        $this->artisan('console:2fa-reset', ['login' => 'Habib@gmail.com', '--force' => true])->assertSuccessful();
 
-        $data = $this->login()->assertOk()->assertJsonMissingPath('token')->assertJsonPath('two_factor.channel', 'server')->json('two_factor');
-        $this->assertSame(0, PersonalAccessToken::count());
+        $this->assertNull($this->root->fresh()->two_factor_secret);
+        $this->assertSame(0, TrustedDevice::count());
+        $this->login()->assertOk()->assertJsonPath('two_factor.method', 'setup');
+    }
 
-        // Chaque appel donne un nouveau code ; on lit celui de la sortie
-        $this->assertSame(0, Artisan::call('console:code', ['login' => '0700000099']));
-        preg_match('/: (\d{6}) /', Artisan::output(), $m);
-        $code = $m[1];
+    public function test_my_account_changes_the_app_and_the_recovery_codes(): void
+    {
+        $old = $this->enroll();
+        $url = 'http://admin.jibiat.test/api/v1/console/account';
+        $this->actingAs($this->root, 'sanctum');
+        $this->getJson($url)->assertOk()->assertJsonPath('data.two_factor.enabled', true)->assertJsonPath('data.two_factor.recovery_codes_left', 1);
 
-        $token = $this->postJson('http://admin.jibiat.test/api/v1/auth/two-factor', ['challenge' => $data['challenge'], 'code' => $code])
-            ->assertOk()->assertJsonPath('user.id', $this->root->id)->json('token');
+        // Mot de passe redemandé
+        $this->postJson($url.'/two-factor/setup', ['current_password' => 'faux'])->assertJsonValidationErrors(['current_password' => 'Mot de passe incorrect.']);
+        $setup = $this->postJson($url.'/two-factor/setup', ['current_password' => 'password'])->assertOk()->json('data');
+        $new = str_replace(' ', '', $setup['secret']);
+        $this->postJson($url.'/two-factor/confirm', ['code' => Totp::code($old, Totp::step())])->assertJsonValidationErrors('code');
+        $this->assertSame($old, $this->root->fresh()->two_factor_secret);
+        $this->postJson($url.'/two-factor/confirm', ['code' => Totp::code($new, Totp::step())])->assertOk()
+            ->assertJsonCount(8, 'recovery_codes')->assertJsonPath('data.two_factor.recovery_codes_left', 8);
+        $this->assertSame($new, $this->root->fresh()->two_factor_secret);
 
-        $this->withToken($token)->getJson('http://admin.jibiat.test/api/v1/console/health')->assertOk()
-            ->assertJsonPath('data.checks', fn ($checks) => collect($checks)->firstWhere('key', 'two_factor')['status'] === 'error');
+        $codes = $this->postJson($url.'/two-factor/recovery-codes', ['current_password' => 'password'])->assertOk()->json('recovery_codes');
+        $this->assertCount(8, $codes);
+        $this->assertMatchesRegularExpression('/^[A-Z2-9]{5}-[A-Z2-9]{5}$/', $codes[0]);
+    }
+
+    public function test_the_health_page_lists_accounts_without_the_app(): void
+    {
+        $this->actingAs($this->root, 'sanctum');
+        $check = fn () => collect($this->getJson('http://admin.jibiat.test/api/v1/console/health')->assertOk()->json('data.checks'))->firstWhere('key', 'two_factor');
+        $this->assertSame('warning', $check()['status']);
+        $this->enroll();
+        $this->assertSame('ok', $check()['status']);
     }
 
     public function test_company_accounts_log_in_without_code_and_a_new_password_forgets_devices(): void

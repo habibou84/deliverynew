@@ -109,9 +109,9 @@ class ConsoleTeamTest extends TestCase
         $this->assertSame(0, $awa->tokens()->count());
         $this->assertTrue(Hash::check('un mot de passe solide', $awa->fresh()->password));
 
-        // Connexion : mot de passe, puis code par e-mail comme le Propriétaire
+        // Connexion : mot de passe, puis configuration de l'application d'authentification
         $this->postJson($this->console('/auth/login'), ['login' => '0707123456', 'password' => 'un mot de passe solide'])
-            ->assertOk()->assertJsonPath('two_factor.channel', 'mail');
+            ->assertOk()->assertJsonPath('two_factor.method', 'setup');
     }
 
     public function test_roles_and_suspension_keep_one_active_owner(): void

@@ -72,10 +72,10 @@ class AuthController extends Controller
 
         $device = $request->input('device_name') ?: 'api';
 
-        // Console : code envoyé par e-mail avant d'ouvrir la session (sauf appareil retenu)
+        // Console : code de l'application d'authentification avant d'ouvrir la session (sauf appareil retenu) ;
+        // première connexion : configuration de l'application
         if ($twoFactor->applies($user) && ! $twoFactor->trusted($user, $request->input('trusted_device'))) {
-            // Jamais de session sans le code, même si l'envoi échoue (procédure de secours sur le serveur)
-            return response()->json(['two_factor' => $twoFactor->start($user, $device, (string) $request->ip())]);
+            return response()->json(['two_factor' => $twoFactor->start($user, $device)]);
         }
 
         $session = self::session($user, $device);
@@ -85,13 +85,14 @@ class AuthController extends Controller
     }
 
     /**
-     * Code de connexion de la console : la session s'ouvre ; « remember » retient l'appareil 30 jours.
+     * Deuxième étape de la console (code de l'application ou de secours) : la session s'ouvre ; « remember » retient
+     * l'appareil 30 jours ; à la première configuration, les codes de secours sont renvoyés une seule fois.
      */
     public function twoFactor(Request $request, ConsoleTwoFactor $twoFactor): JsonResponse
     {
         $data = $request->validate([
             'challenge' => ['required', 'string', 'size:48'],
-            'code' => ['required', 'string', 'max:12'],
+            'code' => ['required', 'string', 'max:16'],
             'remember' => ['sometimes', 'boolean'],
         ], [], ['code' => 'code']);
 
@@ -99,7 +100,12 @@ class AuthController extends Controller
         $session = self::session($result['user'], $result['device']);
         self::alertConsoleLogin($result['user'], $result['device'], $request);
 
-        return response()->json([...$session, 'trusted_device' => $result['trusted_device']]);
+        return response()->json([
+            ...$session,
+            'trusted_device' => $result['trusted_device'],
+            'recovery_codes' => $result['recovery_codes'],
+            'recovery_codes_left' => $result['recovery_used'] ? $twoFactor->recoveryCodesLeft($result['user']) : null,
+        ]);
     }
 
     /** Console : alerte « nouvelle connexion » à la personne (e-mail, WhatsApp en secours) */
