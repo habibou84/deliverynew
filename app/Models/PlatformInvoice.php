@@ -25,7 +25,19 @@ class PlatformInvoice extends Model
         'pricing', 'deliveries_amount', 'cap_applied', 'carried_amount', 'carried_into_id',
         'extra_courier_days', 'extra_courier_price', 'extra_couriers_amount', 'premium_cards_count', 'premium_cards_amount',
         'app_options_amount', 'app_options', 'ai_amount', 'ai_lines', 'live_amount', 'live_lines', 'credit_amount',
+        'kind', 'prepaid', 'purchase',
     ];
+
+    // Abonnement de la période ; achats payés tout de suite : livreur en plus, pack de courses, pack de points IA
+    public const SUBSCRIPTION = 'subscription';
+
+    public const COURIER = 'courier';
+
+    public const ORDERS = 'orders';
+
+    public const AI_POINTS = 'ai_points';
+
+    public const PURCHASES = [self::COURIER, self::ORDERS, self::AI_POINTS];
 
     // Petite facture reportée sur la suivante (rien à payer à part)
     public const CARRIED = 'carried';
@@ -64,6 +76,8 @@ class PlatformInvoice extends Model
             'live_lines' => 'array',
             'cap_applied' => 'boolean',
             'amount_paid' => 'integer',
+            'prepaid' => 'boolean',
+            'purchase' => 'array',
         ];
     }
 
@@ -90,11 +104,31 @@ class PlatformInvoice extends Model
      */
     public function periodLabel(): string
     {
+        if ($this->isPurchase()) {
+            return 'achat du '.$this->issued_at->format('d/m/Y');
+        }
         if ($this->cycle === self::WEEKLY) {
             return 'semaine du '.$this->period_start->format('d/m').' au '.$this->period_end->format('d/m/Y');
         }
 
         return $this->period_start->locale('fr')->translatedFormat('F Y');
+    }
+
+    /** Factures d'abonnement (pas les achats) */
+    public function scopeSubscriptions(Builder $query): Builder
+    {
+        return $query->where('kind', self::SUBSCRIPTION);
+    }
+
+    /** Achats payés */
+    public function scopePaidPurchases(Builder $query, string $kind): Builder
+    {
+        return $query->where('kind', $kind)->where('status', self::PAID);
+    }
+
+    public function isPurchase(): bool
+    {
+        return in_array($this->kind, self::PURCHASES, true);
     }
 
     public function scopeUnpaid(Builder $query): Builder

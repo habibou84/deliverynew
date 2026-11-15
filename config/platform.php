@@ -44,8 +44,15 @@ return [
         'due_days' => (int) env('PLATFORM_INVOICE_DUE_DAYS', 10),
         // Facture de la semaine : à régler plus vite (elle est plus petite)
         'weekly_due_days' => (int) env('PLATFORM_WEEKLY_INVOICE_DUE_DAYS', 4),
-        'warning_after_days' => (int) env('PLATFORM_BILLING_WARNING_DAYS', 7),
-        'restrict_after_days' => (int) env('PLATFORM_BILLING_RESTRICT_DAYS', 15),
+        // Abonnement impayé : bandeau dès le lendemain de l'échéance, plus de nouvelles courses 3 jours après
+        // (nouveaux noms : les anciens réglages de 7 et 15 jours, d'avant le prépayé, ne s'appliquent plus)
+        'warning_after_days' => (int) env('PLATFORM_PREPAID_WARNING_DAYS', 1),
+        'restrict_after_days' => (int) env('PLATFORM_PREPAID_GRACE_DAYS', 3),
+        // Tout prépayé : facture de la période suivante émise quelques jours avant qu'elle commence
+        'prepaid_notice_days' => (int) env('PLATFORM_PREPAID_NOTICE_DAYS', 5),
+        'weekly_prepaid_notice_days' => (int) env('PLATFORM_WEEKLY_PREPAID_NOTICE_DAYS', 2),
+        // Pack de courses (au prix d'une course en plus de la formule)
+        'orders_pack' => (int) env('PLATFORM_ORDERS_PACK', 100),
     ],
 
     // Domaines personnalisés des entreprises (ex. livraison.rapide-express.ci) :

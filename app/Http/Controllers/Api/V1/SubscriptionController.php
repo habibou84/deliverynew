@@ -35,10 +35,39 @@ class SubscriptionController extends Controller
             // Paiements Wave annoncés et pas encore vérifiés, par facture
             'wave_pending' => PlatformWavePayment::query()->where('company_id', $company->id)->where('status', PlatformWavePayment::PENDING)
                 ->get()->map(fn (PlatformWavePayment $p) => self::wavePayment($p, $wave))->values(),
+            // Tout prépayé : achats possibles, courses de la période (formule + packs), livreurs en plus achetés
+            'prepaid' => [
+                'purchases' => $billing->purchaseOptions($company),
+                'quota' => $billing->orderQuota($company),
+                'extra_couriers' => (int) $company->extra_couriers,
+                'grace_days' => (int) config('platform.billing.restrict_after_days'),
+            ],
             'invoices' => PlatformInvoice::query()->where('company_id', $company->id)->where('status', '!=', PlatformInvoice::VOID)
-                ->orderByDesc('period')->limit(24)->get()
+                ->orderByDesc('issued_at')->orderByDesc('id')->limit(24)->get()
                 ->map(fn (PlatformInvoice $i) => ConsoleBillingController::invoiceData($i))->values(),
         ]]);
+    }
+
+    /**
+     * Achat payé tout de suite (livreur en plus, pack de courses, pack de points IA) : facture à payer par Wave.
+     */
+    public function purchase(Request $request, Billing $billing): JsonResponse
+    {
+        $company = $request->user()->company;
+        abort_if($company === null, 404, 'Aucune entreprise.');
+        $data = $request->validate(['kind' => ['required', 'in:'.implode(',', PlatformInvoice::PURCHASES)]], [], ['kind' => 'achat']);
+        $invoice = $billing->purchase($company, $data['kind']);
+
+        return response()->json(['data' => ConsoleBillingController::invoiceData($invoice)], 201);
+    }
+
+    /** Achat pas encore payé, annulé */
+    public function cancelPurchase(Request $request, PlatformInvoice $invoice, Billing $billing): JsonResponse
+    {
+        abort_unless($invoice->company_id === $request->user()->company_id, 404, 'Facture introuvable.');
+        $billing->cancelPurchase($invoice);
+
+        return response()->json(['data' => ['cancelled' => true]]);
     }
 
     /**

@@ -149,6 +149,10 @@ class ConsoleBillingController extends Controller
             'period' => $i->period,
             'cycle' => $i->cycle,
             'period_label' => $i->periodLabel(),
+            // Abonnement (payé d'avance ou après coup) ou achat (livreur en plus, pack de courses, pack de points IA)
+            'kind' => $i->kind ?? PlatformInvoice::SUBSCRIPTION,
+            'prepaid' => (bool) $i->prepaid,
+            'purchase' => $i->purchase,
             'period_start' => $i->period_start->toDateString(),
             'period_end' => $i->period_end->toDateString(),
             'plan_name' => $i->plan_name,

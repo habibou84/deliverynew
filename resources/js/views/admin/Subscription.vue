@@ -21,6 +21,31 @@
         <SubscriptionSummary :summary="summary" />
       </div>
 
+      <!-- Tout prépayé : courses de la période, achats payés tout de suite -->
+      <div v-if="summary.plan && summary.prepaid" class="card p-4 space-y-3 text-sm">
+        <div>
+          <h2 class="font-semibold">💳 Tout est payé d'avance</h2>
+          <p class="text-slate-600">
+            Votre abonnement se paie avant chaque {{ summary.billing_period.cycle === 'weekly' ? 'semaine' : 'mois' }} : la facture arrive quelques jours avant, à payer le premier jour
+            ({{ summary.prepaid.grace_days }} jours de délai, ensuite plus de nouvelles courses jusqu'au paiement). Un achat en plus se paie tout de suite et compte dès que le paiement est confirmé.
+          </p>
+        </div>
+        <div v-if="summary.prepaid.quota">
+          <div class="mb-1 flex justify-between"><span>Courses de la période</span><b>{{ summary.prepaid.quota.left }} restantes sur {{ summary.prepaid.quota.included + summary.prepaid.quota.packs }}</b></div>
+          <div class="h-2.5 overflow-hidden rounded-full bg-slate-100"><div :class="['h-full rounded-full', quotaPercent >= 80 ? 'bg-amber-500' : 'bg-emerald-600']" :style="{ width: `${quotaPercent}%` }" /></div>
+          <p v-if="!summary.prepaid.quota.left" class="mt-2 rounded bg-red-50 p-2 text-red-800">Plus de nouvelles courses pour cette période : achetez un pack de courses.</p>
+        </div>
+        <p v-if="summary.prepaid.extra_couriers" class="text-slate-600">Livreurs en plus achetés : <b>{{ summary.prepaid.extra_couriers }}</b> (repris à chaque renouvellement).</p>
+        <div v-if="summary.prepaid.purchases.length" class="grid gap-2 sm:grid-cols-3">
+          <div v-for="p in summary.prepaid.purchases" :key="p.kind" class="flex flex-col gap-1 rounded-lg border p-3">
+            <p class="font-medium">{{ PURCHASE_ICONS[p.kind] }} {{ p.label }}</p>
+            <p class="text-lg font-bold">{{ p.total ? money(p.total) : 'Compté en fin de période' }}</p>
+            <p class="flex-1 text-xs text-slate-600">{{ p.detail }}</p>
+            <button class="btn-primary !py-1" :disabled="buying" @click="buy(p)">{{ p.total ? 'Acheter et payer' : 'Ajouter' }}</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Jibiat IA : comprise dans la formule -->
       <AiInPlan id="jibiat-ia" />
 
@@ -118,6 +143,7 @@
                   <span v-if="pendingFor(i)?.claimed_at" class="text-xs text-slate-600">Paiement Wave en vérification</span>
                   <button v-else class="btn-primary !py-1" @click="openWave(i)">Payer avec Wave</button>
                 </template>
+                <button v-if="i.kind !== 'subscription' && i.status === 'open' && !i.amount_paid && !pendingFor(i)?.claimed_at" class="ml-1 text-xs font-semibold text-red-700" @click="cancelPurchase(i)">Annuler</button>
               </td>
             </tr>
             <tr v-if="!summary.invoices.length"><td colspan="7" class="p-4 text-center text-slate-600">Aucune facture pour l'instant.</td></tr>
@@ -167,7 +193,7 @@
     </Modal>
 
     <p class="text-sm text-slate-600">
-      Pour changer de formule, ajouter des livreurs au-delà de la limite ou activer un module, contactez-nous.
+      Pour changer de formule ou activer un module, contactez-nous.
     </p>
   </div>
 </template>
@@ -198,8 +224,8 @@ const cheapest = computed(() => {
 })
 
 const CYCLES = [
-  { value: 'monthly', label: 'Au mois', help: 'Une facture le 1er de chaque mois, à régler sous 10 jours.' },
-  { value: 'weekly', label: 'À la semaine', help: 'Une facture chaque lundi pour la semaine écoulée, à régler sous 4 jours.' },
+  { value: 'monthly', label: 'Au mois', help: 'Payé d\'avance : la facture arrive 5 jours avant le mois, à payer le 1er.' },
+  { value: 'weekly', label: 'À la semaine', help: 'Payé d\'avance : la facture arrive 2 jours avant la semaine, à payer le lundi.' },
 ]
 // Rythme choisi : le prochain s'il change, sinon celui en cours
 const chosenCycle = computed(() => summary.value?.billing_period.next_cycle ?? summary.value?.billing_period.cycle)
@@ -278,6 +304,43 @@ async function stopApps(a, question) {
 }
 
 onMounted(load)
+
+// Achats payés tout de suite : la facture est créée, puis le paiement Wave s'ouvre
+const PURCHASE_ICONS = { courier: '🛵', orders: '📦', ai_points: '✨' }
+const buying = ref(false)
+const quotaPercent = computed(() => {
+  const q = summary.value?.prepaid?.quota
+  const total = q ? q.included + q.packs : 0
+  return total ? Math.min(100, Math.round((total - q.left) * 100 / total)) : 0
+})
+
+async function buy(p) {
+  if (!await confirmDialog(p.total ? `${p.label} : ${money(p.total)}, à payer maintenant. Continuer ?` : `${p.label} ? ${p.detail}.`)) return
+  buying.value = true
+  try {
+    const invoice = (await http.post('/subscription/purchases', { kind: p.kind })).data.data
+    await load()
+    if (invoice.status === 'open' && summary.value.wave) {
+      openWave(invoice)
+    } else {
+      toasts.success(invoice.status === 'paid' ? 'C\'est fait.' : `Achat enregistré : facture ${invoice.number} à payer.`)
+    }
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    buying.value = false
+  }
+}
+
+async function cancelPurchase(invoice) {
+  if (!await confirmDialog(`Annuler l'achat ${invoice.number} ?`)) return
+  try {
+    await http.delete(`/subscription/purchases/${invoice.id}`)
+    await load()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
 
 // Paiement par le lien marchand Wave : numéro qui paie, puis lien ou QR code, puis « J'ai payé »
 const wave = reactive({ open: false })
