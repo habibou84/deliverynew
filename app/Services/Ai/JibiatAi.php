@@ -8,6 +8,7 @@ use App\Exceptions\BusinessRuleException;
 use App\Models\AiRecharge;
 use App\Models\AiUsage;
 use App\Models\Company;
+use App\Models\Plan;
 use App\Models\PlatformInvoice;
 use App\Models\PlatformSetting;
 use App\Models\User;
@@ -19,11 +20,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 /**
- * Jibiat IA : abonnement à part, en plus de la formule de l'entreprise. Trois niveaux selon le nombre de courses du
- * mois (prix, volume, limites et plafond de coût réglés dans la console), essai gratuit une fois, paiement au mois ou
- * à l'année (mois offerts), arrêt en fin de mois. Chaque appel à l'IA est compté (jetons, coût réel) ; au plafond de
- * coût du mois, l'IA se met en pause et Jibiat continue avec ses règles habituelles. Facturé sur la facture de la
- * plateforme : abonnement, courses au-delà du volume, recharges.
+ * Jibiat IA, comprise dans la formule : chaque formule a son niveau d'IA (ou aucun), choisi dans la console. Trois
+ * niveaux selon le nombre de courses du mois (volume, limites et plafond de coût réglés dans la console). Chaque appel
+ * à l'IA est compté (jetons, coût réel) ; au plafond de coût du mois, l'IA se met en pause et Jibiat continue avec ses
+ * règles habituelles. Sur la facture de la plateforme : courses au-delà du volume et recharges (l'IA elle-même est
+ * dans le prix de la formule).
+ *
+ * Ancien abonnement à part (essai, au mois ou à l'année) : plus possible d'en prendre un ; ceux déjà pris continuent
+ * (facturés comme avant) jusqu'à leur arrêt, sauf si la formule comprend l'IA (plus rien à part à payer).
  */
 class JibiatAi
 {
@@ -120,9 +124,40 @@ class JibiatAi
         return $this->settings();
     }
 
+    /** Niveau en service : celui de la formule, sinon celui d'un ancien abonnement à part */
     public function tier(Company $company): ?array
     {
-        return $company->ai_tier ? ($this->tiers()[$company->ai_tier] ?? null) : null;
+        $key = $this->includedTierKey($company) ?? $company->ai_tier;
+
+        return $key ? ($this->tiers()[$key] ?? null) : null;
+    }
+
+    /** Clé du niveau compris dans la formule de l'entreprise, ou null */
+    public function includedTierKey(Company $company): ?string
+    {
+        $key = $company->loadMissing('plan')->plan?->ai_tier;
+
+        return $key !== null && isset(self::TIER_DEFAULTS[$key]) ? $key : null;
+    }
+
+    /** L'IA est comprise dans la formule de l'entreprise */
+    public function included(Company $company): bool
+    {
+        return $this->includedTierKey($company) !== null;
+    }
+
+    /** Une ligne pour décrire la formule (site, inscription, console), null sans IA */
+    public function planLine(?string $tierKey): ?string
+    {
+        $tier = $tierKey ? ($this->tiers()[$tierKey] ?? null) : null;
+
+        return $tier ? "Jibiat IA {$this->short($tier)} comprise (jusqu'à ".number_format($tier['orders'], 0, ',', ' ').' courses par mois)' : null;
+    }
+
+    /** Clé du niveau en service (formule ou ancien abonnement), pour l'affichage */
+    private function tierKey(Company $company): ?string
+    {
+        return $this->includedTierKey($company) ?? $company->ai_tier;
     }
 
     /** Mois en cours (fuseau de l'entreprise), au format AAAA-MM */
@@ -131,9 +166,12 @@ class JibiatAi
         return ($at ?? CarbonImmutable::now())->setTimezone($this->tz($company))->format('Y-m');
     }
 
-    /** L'IA tourne pour l'entreprise : essai en cours ou abonnement, arrêt demandé pas encore atteint */
+    /** L'IA tourne pour l'entreprise : comprise dans sa formule, ou ancien essai / abonnement pas encore arrêté */
     public function isOn(Company $company): bool
     {
+        if ($this->included($company)) {
+            return true;
+        }
         if ($company->ai_stop_at !== null && $company->ai_stop_at->isPast()) {
             return false;
         }
@@ -254,8 +292,15 @@ class JibiatAi
         return array_key_last($this->tiers());
     }
 
+    /** Plus d'abonnement à part : l'IA vient avec la formule */
+    private function assertNoSeparateSubscription(): void
+    {
+        throw new BusinessRuleException('Jibiat IA est maintenant comprise dans les formules : choisissez une formule avec l\'IA.');
+    }
+
     public function startTrial(Company $company, string $tier): Company
     {
+        $this->assertNoSeparateSubscription();
         $this->assertTier($tier);
         if ($company->ai_trial_started_at !== null) {
             throw new BusinessRuleException('L\'essai gratuit a déjà été utilisé : choisissez un abonnement.');
@@ -273,6 +318,7 @@ class JibiatAi
 
     public function subscribe(Company $company, string $tier, string $period): Company
     {
+        $this->assertNoSeparateSubscription();
         $this->assertTier($tier);
         if (! in_array($period, [self::MONTHLY, self::YEARLY], true)) {
             throw new BusinessRuleException('Paiement au mois ou à l\'année.');
@@ -295,6 +341,9 @@ class JibiatAi
     /** Arrêt : tout de suite pendant l'essai, en fin de mois (ou de l'année payée) pour un abonnement */
     public function stop(Company $company): Company
     {
+        if ($this->included($company)) {
+            throw new BusinessRuleException('Jibiat IA est comprise dans votre formule.');
+        }
         if (! $this->isOn($company)) {
             throw new BusinessRuleException('Jibiat IA n\'est pas active.');
         }
@@ -327,8 +376,8 @@ class JibiatAi
         if (! in_array($amount, self::RECHARGES, true)) {
             throw new BusinessRuleException('Recharge de 5 000, 10 000 ou 20 000 F.');
         }
-        if ($company->ai_status !== self::ACTIVE || ! $this->isOn($company)) {
-            throw new BusinessRuleException('Les recharges sont réservées à un abonnement Jibiat IA en cours.');
+        if (! $this->isOn($company) || (! $this->included($company) && $company->ai_status !== self::ACTIVE)) {
+            throw new BusinessRuleException('Les recharges sont réservées à une formule avec Jibiat IA.');
         }
         $month = $this->month($company);
         $recharge = AiRecharge::create(['company_id' => $company->id, 'month' => $month, 'amount' => $amount, 'created_by' => $by?->id]);
@@ -350,7 +399,10 @@ class JibiatAi
         $tz = $this->tz($company);
         $lines = [];
         $tier = $this->tier($company);
-        if ($tier !== null && $company->ai_started_at !== null && in_array($company->ai_status, [self::ACTIVE, self::STOPPED], true)) {
+        $included = $this->included($company);
+        $separate = ! $included && $tier !== null && $company->ai_started_at !== null && in_array($company->ai_status, [self::ACTIVE, self::STOPPED], true);
+        // Ancien abonnement à part : facturé comme avant ; IA comprise dans la formule : rien à part
+        if ($separate) {
             $started = $company->ai_started_at->setTimezone($tz)->startOfDay()->toImmutable();
             $stop = $company->ai_stop_at?->setTimezone($tz)->startOfDay()->toImmutable();
             if ($company->ai_period === self::YEARLY) {
@@ -370,9 +422,15 @@ class JibiatAi
                     $lines[] = ['kind' => 'subscription', 'label' => "Jibiat IA {$this->short($tier)}", 'days' => $days, 'price' => $tier['price'], 'amount' => (int) round($days * $perDay)];
                 }
             }
+        }
 
-            // Courses au-delà du volume : sur la facture du mois entier
-            if ($cycle === PlatformInvoice::MONTHLY && $first->day === 1 && $last->isSameDay($last->endOfMonth())) {
+        if ($included || $separate) {
+            // Courses au-delà du volume du mois : sur la facture du mois entier, ou (à la semaine) sur celle de la
+            // semaine où le mois se termine
+            $closesMonth = $cycle === PlatformInvoice::MONTHLY
+                ? $first->day === 1 && $last->isSameDay($last->endOfMonth())
+                : $first->endOfMonth()->startOfDay() <= $last->startOfDay();
+            if ($closesMonth) {
                 $month = $first->format('Y-m');
                 $orders = $this->ordersThisMonth($company, $month);
                 $over = max(0, $orders - $this->includedOrders($company, $month));
@@ -401,46 +459,60 @@ class JibiatAi
     public function review(): array
     {
         $result = ['trials_ended' => 0, 'stopped' => 0, 'alerts' => 0];
-        Company::query()->whereNotNull('ai_status')->whereIn('ai_status', [self::TRIAL, self::ACTIVE])->each(function (Company $company) use (&$result) {
-            $tierName = $this->tier($company)['name'] ?? 'Jibiat IA';
-            if ($company->ai_status === self::TRIAL) {
-                if ($company->ai_trial_ends_at?->isPast()) {
-                    $company->forceFill(['ai_status' => self::EXPIRED])->save();
-                    $this->alert($company, 'trial_ended', [], once: false);
-                    $result['trials_ended']++;
+        $withAi = Plan::query()->whereNotNull('ai_tier')->pluck('id');
+        Company::query()->with('plan')
+            ->where(fn ($q) => $q->whereIn('ai_status', [self::TRIAL, self::ACTIVE])->orWhereIn('plan_id', $withAi))
+            ->each(function (Company $company) use (&$result) {
+                $tierName = $this->tier($company)['name'] ?? 'Jibiat IA';
+                // IA comprise dans la formule : seulement les alertes de volume
+                if ($this->included($company)) {
+                    $result['alerts'] += $this->volumeAlert($company, $tierName);
 
                     return;
                 }
-                $days = (int) ceil(now()->diffInHours($company->ai_trial_ends_at) / 24);
-                if ($days <= 3 && $this->alert($company, 'trial_ending', ['days' => $days, 'tier' => $tierName])) {
-                    $result['alerts']++;
-                }
+                if ($company->ai_status === self::TRIAL) {
+                    if ($company->ai_trial_ends_at?->isPast()) {
+                        $company->forceFill(['ai_status' => self::EXPIRED])->save();
+                        $this->alert($company, 'trial_ended', [], once: false);
+                        $result['trials_ended']++;
 
-                return;
-            }
-            if ($company->ai_stop_at !== null && $company->ai_stop_at->isPast()) {
-                $company->forceFill(['ai_status' => self::STOPPED])->save();
-                $result['stopped']++;
-
-                return;
-            }
-            if ($company->ai_period === self::YEARLY && $company->ai_paid_until?->isPast()) {
-                $company->forceFill(['ai_paid_until' => $company->ai_paid_until->addYear()->toDateString()])->save();
-            }
-            $included = $this->includedOrders($company);
-            $orders = $this->ordersThisMonth($company);
-            $data = ['orders' => $orders, 'included' => $included, 'overage' => $this->settings()['overage_per_order'], 'tier' => $tierName];
-            foreach ([100 => 'volume_100', 80 => 'volume_80'] as $percent => $stage) {
-                if ($included > 0 && $orders * 100 >= $included * $percent) {
-                    if ($this->alert($company, $stage, $data)) {
+                        return;
+                    }
+                    $days = (int) ceil(now()->diffInHours($company->ai_trial_ends_at) / 24);
+                    if ($days <= 3 && $this->alert($company, 'trial_ending', ['days' => $days, 'tier' => $tierName])) {
                         $result['alerts']++;
                     }
-                    break;
+
+                    return;
                 }
-            }
-        });
+                if ($company->ai_stop_at !== null && $company->ai_stop_at->isPast()) {
+                    $company->forceFill(['ai_status' => self::STOPPED])->save();
+                    $result['stopped']++;
+
+                    return;
+                }
+                if ($company->ai_period === self::YEARLY && $company->ai_paid_until?->isPast()) {
+                    $company->forceFill(['ai_paid_until' => $company->ai_paid_until->addYear()->toDateString()])->save();
+                }
+                $result['alerts'] += $this->volumeAlert($company, $tierName);
+            });
 
         return $result;
+    }
+
+    /** Alerte de volume du mois à 80 % puis à 100 % (une fois chacune) ; 1 si envoyée */
+    private function volumeAlert(Company $company, string $tierName): int
+    {
+        $included = $this->includedOrders($company);
+        $orders = $this->ordersThisMonth($company);
+        $data = ['orders' => $orders, 'included' => $included, 'overage' => $this->settings()['overage_per_order'], 'tier' => $tierName];
+        foreach ([100 => 'volume_100', 80 => 'volume_80'] as $percent => $stage) {
+            if ($included > 0 && $orders * 100 >= $included * $percent) {
+                return $this->alert($company, $stage, $data) ? 1 : 0;
+            }
+        }
+
+        return 0;
     }
 
     /** État pour la page Jibiat IA de l'entreprise */
@@ -461,8 +533,14 @@ class JibiatAi
             'recharges' => self::RECHARGES,
             'recommended' => $this->recommended($company),
             'plan' => $company->plan ? ['name' => $company->plan->name, 'price' => $company->plan->price_monthly] : null,
+            // Formules proposées qui comprennent l'IA (pour une entreprise dont la formule ne la comprend pas)
+            'plans_with_ai' => Plan::query()->where('is_active', true)->whereNotNull('ai_tier')->orderBy('position')->get()
+                ->filter(fn (Plan $p) => isset($tiers[$p->ai_tier]))
+                ->map(fn (Plan $p) => ['id' => $p->id, 'name' => $p->name, 'price' => $p->price_monthly, 'tier' => $p->ai_tier, 'tier_name' => $tiers[$p->ai_tier]['name']])->values(),
             'subscription' => [
-                'tier' => $company->ai_tier,
+                'tier' => $this->tierKey($company),
+                // Comprise dans la formule (sinon : ancien abonnement à part, ou pas d'IA)
+                'included' => $this->included($company),
                 'tier_name' => $tier['name'] ?? null,
                 'status' => $company->ai_status,
                 'on' => $this->isOn($company),
@@ -497,7 +575,9 @@ class JibiatAi
     {
         $used = AiUsage::query()->where('month', now()->format('Y-m'))->distinct()->pluck('company_id');
 
-        return Company::query()->where(fn ($q) => $q->whereNotNull('ai_status')->orWhereIn('id', $used))->orderBy('name')->get()
+        $withAi = Plan::query()->whereNotNull('ai_tier')->pluck('id');
+
+        return Company::query()->with('plan')->where(fn ($q) => $q->whereNotNull('ai_status')->orWhereIn('id', $used)->orWhereIn('plan_id', $withAi))->orderBy('name')->get()
             ->map(function (Company $company) {
                 $tz = $this->tz($company);
                 $first = CarbonImmutable::now($tz)->startOfMonth();
@@ -509,7 +589,8 @@ class JibiatAi
 
                 return [
                     'id' => $company->id, 'name' => $company->name, 'slug' => $company->slug,
-                    'tier' => $company->ai_tier, 'tier_name' => $this->tier($company)['name'] ?? null,
+                    'tier' => $this->tierKey($company), 'tier_name' => $this->tier($company)['name'] ?? null,
+                    'included' => $this->included($company),
                     'status' => $company->ai_status, 'on' => $this->isOn($company), 'paused' => $this->isPaused($company),
                     'period' => $company->ai_period, 'stop_at' => $company->ai_stop_at?->toIso8601String(),
                     'orders' => $orders, 'included_orders' => $included,
@@ -524,7 +605,7 @@ class JibiatAi
     public function nextTier(Company $company): ?string
     {
         $keys = array_keys(array_filter($this->tiers(), fn ($t) => $t['active']));
-        $index = array_search($company->ai_tier, $keys, true);
+        $index = array_search($this->tierKey($company), $keys, true);
 
         return $index === false ? null : ($keys[$index + 1] ?? null);
     }

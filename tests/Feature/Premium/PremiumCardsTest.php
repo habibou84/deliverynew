@@ -46,6 +46,8 @@ class PremiumCardsTest extends TestCase
         $this->company->forceFill(['slug' => 'livraison-express-ci', 'name' => 'Livraison Express CI'])->save();
         $this->merchant->forceFill(['created_at' => now()->subDays(200)])->save();
         $this->fakeJibiatMarchand();
+        // Programme éteint par défaut : ouvert pour ces tests
+        app(PremiumCards::class)->updateSettings(['enabled' => true]);
     }
 
     private function fakeJibiatMarchand(): void

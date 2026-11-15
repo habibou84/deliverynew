@@ -298,7 +298,7 @@ onMounted(() => {
 onBeforeUnmount(() => clearInterval(countsTimer))
 
 // Menu en rubriques ; une entrée sans droit ni module disparaît, une rubrique vide aussi
-const visible = (item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature))
+const visible = (item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature)) && item.show !== false
 const menu = computed(() => {
   const groups = [
     {
@@ -326,7 +326,8 @@ const menu = computed(() => {
       label: 'Clients',
       items: [
         { to: '/admin/marchands', icon: 'marchand', label: 'E-commerçants', permission: 'merchants.view' },
-        { to: '/admin/premium', icon: 'premium', label: 'Programme Premium', permission: 'merchants.view' },
+        // Éteint dans la console : caché (sauf niveaux déjà créés)
+        { to: '/admin/premium', icon: 'premium', label: 'Programme Premium', permission: 'merchants.view', show: auth.user?.company?.premium_program !== false },
         { to: '/admin/stock', icon: 'stock', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
         { to: '/admin/messages', icon: 'message', label: 'Messages', permission: 'orders.dispatch' },
       ],

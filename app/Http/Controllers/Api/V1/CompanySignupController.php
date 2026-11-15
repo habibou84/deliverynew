@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Plan;
 use App\Rules\PhoneNumber;
+use App\Services\Ai\JibiatAi;
 use App\Services\Platform\CompanySignup;
 use App\Support\PhoneNumber as Phone;
 use App\Support\Tenancy;
@@ -47,7 +48,8 @@ class CompanySignupController extends Controller
                 'max_couriers' => $p->max_couriers,
                 'pricing' => $p->pricing ?: Plan::FLAT,
                 'percent_summary' => $p->percentSummary(),
-                'features' => collect($p->features ?? [])->map(fn (string $f) => PlatformFeature::tryFrom($f)?->label())->filter()->values(),
+                'features' => collect($p->features ?? [])->map(fn (string $f) => PlatformFeature::tryFrom($f)?->label())
+                    ->push(app(JibiatAi::class)->planLine($p->ai_tier))->filter()->values(),
             ])->values() : [],
         ]]);
     }
