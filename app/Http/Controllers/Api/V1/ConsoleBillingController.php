@@ -7,6 +7,7 @@ use App\Models\PlatformInvoice;
 use App\Models\PlatformPayment;
 use App\Models\PlatformSetting;
 use App\Services\Platform\Billing;
+use App\Services\Platform\BillingSettings;
 use App\Services\Platform\CompanySignup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -100,6 +101,8 @@ class ConsoleBillingController extends Controller
             ...self::documentSettings(),
             // Inscription des entreprises en libre-service (ouverte par défaut)
             'company_signup' => CompanySignup::enabledInConsole(),
+            // Prépayé : bandeau, délai de grâce, préavis de la facture d'avance, pack de courses
+            'prepaid' => BillingSettings::all(),
         ]]);
     }
 
@@ -109,8 +112,17 @@ class ConsoleBillingController extends Controller
             'payment_instructions' => ['nullable', 'string', 'max:2000'],
             'invoice_issuer' => ['nullable', 'string', 'max:1000'],
             'company_signup' => ['sometimes', 'boolean'],
-        ], [], ['payment_instructions' => 'instructions de paiement', 'invoice_issuer' => 'émetteur des factures', 'company_signup' => 'inscription en ligne']);
+            'prepaid' => ['sometimes', 'array'],
+            ...collect(BillingSettings::LIMITS)->mapWithKeys(fn (array $l, string $key) => ["prepaid.{$key}" => ['sometimes', 'integer', "min:{$l[0]}", "max:{$l[1]}"]])->all(),
+        ], [], [
+            'payment_instructions' => 'instructions de paiement', 'invoice_issuer' => 'émetteur des factures', 'company_signup' => 'inscription en ligne',
+            'prepaid.warning_days' => 'bandeau d\'alerte', 'prepaid.grace_days' => 'délai de grâce', 'prepaid.notice_days' => 'préavis (mois)',
+            'prepaid.weekly_notice_days' => 'préavis (semaine)', 'prepaid.orders_pack' => 'pack de courses',
+        ]);
 
+        if (isset($data['prepaid'])) {
+            BillingSettings::update($data['prepaid']);
+        }
         if (array_key_exists('company_signup', $data)) {
             PlatformSetting::put('company_signup', $data['company_signup'] ? '1' : '0');
         }

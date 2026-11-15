@@ -41,7 +41,8 @@ class PrivacyPageTest extends TestCase
             ->assertSee('CI-ABJ-2026-B-12345')
             ->assertSee('mailto:contact@jibiat.com', false)
             ->assertSee("30 jours d'essai gratuit", false)
-            ->assertSee('payable sous 10 jours');
+            ->assertSee('payable au premier jour de la période')
+            ->assertSee('au-delà de 3 jour(s), la création de nouvelles courses est suspendue', false);
 
         // Adresse d'une entreprise : elle est nommée comme fournisseur du service de livraison
         $this->get('http://rapide.jibiat.test/conditions')->assertOk()->assertSee('Rapide Express');
