@@ -40,6 +40,9 @@ class ConsoleJibiatAiController extends Controller
             'settings.points_message' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             'settings.points_photo' => ['sometimes', 'integer', 'min:0', 'max:1000'],
             'settings.usd_rate' => ['sometimes', 'integer', 'min:100', 'max:2000'],
+            // Pack de points vendu en plus (prépayé)
+            'settings.pack_points' => ['sometimes', 'integer', 'min:0', 'max:1000000'],
+            'settings.pack_price' => ['sometimes', 'integer', 'min:0', 'max:10000000'],
         ]);
         $this->ai->updateSettings($data['settings']);
 

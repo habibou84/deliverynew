@@ -46,6 +46,12 @@ class ExtraCouriersTest extends TestCase
     public function test_couriers_beyond_the_plan_are_allowed_and_counted_from_the_day_they_start(): void
     {
         Sanctum::actingAs($this->admin);
+        // Plus de place : un livreur en plus s'achète d'abord (période facturée après coup : compté à la fin, 0 F maintenant)
+        $this->postJson('/api/v1/users', ['name' => 'Yao', 'phone' => '0709090909', 'password' => 'password', 'role' => 'courier'])
+            ->assertJsonValidationErrors('role');
+        $this->postJson('/api/v1/subscription/purchases', ['kind' => 'courier'])->assertCreated()->assertJsonPath('data.total', 0)->assertJsonPath('data.status', 'paid');
+        $this->postJson('/api/v1/subscription/purchases', ['kind' => 'courier'])->assertCreated();
+        $this->assertSame(2, $this->company->fresh()->extra_couriers);
         $this->addCourier('0709090909');
         $this->addCourier('0708080808');
 
@@ -56,8 +62,10 @@ class ExtraCouriersTest extends TestCase
         $this->assertSame(200, $data['estimate']['extra_couriers']);
         $this->assertSame(30200, $data['estimate']['total']);
 
-        // Sans prix par livreur en plus : la limite bloque comme avant
+        // Sans prix par livreur en plus : la limite de la formule bloque
         $this->plan->update(['extra_courier_price' => null]);
+        Sanctum::actingAs($this->admin->fresh());
+        $this->postJson('/api/v1/subscription/purchases', ['kind' => 'courier'])->assertUnprocessable();
         $this->postJson('/api/v1/users', ['name' => 'Ali', 'phone' => '0707070707', 'password' => 'password', 'role' => 'courier'])
             ->assertJsonValidationErrors('role');
     }

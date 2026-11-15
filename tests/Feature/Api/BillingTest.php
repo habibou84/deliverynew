@@ -141,17 +141,13 @@ class BillingTest extends TestCase
 
         $this->assertSame('ok', $state());
 
-        // Échéance (11/11) passée
+        // Échéance (11/11) passée : bandeau dès le lendemain
         $this->travelTo(CarbonImmutable::parse('2026-11-12 09:00', 'Africa/Abidjan'));
-        $this->assertSame('due', $state());
-
-        // J+7 : bandeau
-        $this->travelTo(CarbonImmutable::parse('2026-11-18 09:00', 'Africa/Abidjan'));
         $this->assertSame('warning', $state());
         $this->createOrder();
 
-        // J+15 : plus de nouvelles courses, tout le reste consultable
-        $this->travelTo(CarbonImmutable::parse('2026-11-26 09:00', 'Africa/Abidjan'));
+        // 3 jours après : plus de nouvelles courses, tout le reste consultable
+        $this->travelTo(CarbonImmutable::parse('2026-11-14 09:00', 'Africa/Abidjan'));
         $this->assertSame('restricted', $state());
         $this->getJson('/api/v1/orders')->assertOk();
         try {
@@ -168,7 +164,7 @@ class BillingTest extends TestCase
         }
 
         // Payée : tout redevient normal
-        app(Billing::class)->recordPayment($invoice, ['amount' => $invoice->total, 'method' => 'bank_transfer', 'paid_on' => '2026-11-26'], $this->root);
+        app(Billing::class)->recordPayment($invoice, ['amount' => $invoice->total, 'method' => 'bank_transfer', 'paid_on' => '2026-11-14'], $this->root);
         $this->assertSame('ok', $state());
         $this->createOrder();
     }
@@ -178,7 +174,7 @@ class BillingTest extends TestCase
         $this->invoiceOctober();
         Notification::fake();
 
-        $days = ['2026-11-10' => 0, '2026-11-11' => 1, '2026-11-12' => 0, '2026-11-18' => 1, '2026-11-19' => 0, '2026-11-26' => 1, '2026-11-27' => 0];
+        $days = ['2026-11-10' => 0, '2026-11-11' => 1, '2026-11-12' => 1, '2026-11-13' => 0, '2026-11-14' => 1, '2026-11-15' => 0];
         foreach ($days as $day => $expected) {
             $this->travelTo(CarbonImmutable::parse("{$day} 08:05", 'Africa/Abidjan'));
             $this->assertSame($expected, app(Billing::class)->remind(), "Rappels du {$day}");
