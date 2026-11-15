@@ -2,7 +2,7 @@
     $legal = config('marketing.legal');
     $email = config('platform.contact_email') ?: $legal['email'];
     $trialDays = (int) config('platform.trial_days');
-    $billing = config('platform.billing');
+    $billing = \App\Services\Platform\BillingSettings::all();
     $domain = \App\Support\Tenancy::enabled() ? \App\Support\Tenancy::domain() : null;
     // Sur l'adresse d'une entreprise de livraison : on rappelle qui fournit le service de livraison
     $company = rescue(fn () => \App\Support\Branding::company(), null, false);
@@ -103,9 +103,9 @@
         @if ($trialDays > 0)
             <li><strong>Essai gratuit</strong> : une nouvelle entreprise cliente bénéficie de {{ $trialDays }} jours d'essai gratuit, sans moyen de paiement demandé. Un seul essai par entreprise.</li>
         @endif
-        <li><strong>Prix</strong> : les prix sont ceux de la formule choisie, indiqués en francs CFA sur la page Tarifs au moment de la souscription. Chaque formule comprend un nombre de courses par mois ; les courses au-delà sont facturées au prix par course de la formule.</li>
-        <li><strong>Facturation</strong> : une facture est émise chaque mois, consultable dans l'espace de l'entreprise (menu « Mon abonnement »). Elle est payable sous {{ $billing['due_days'] }} jours.</li>
-        <li><strong>Retard de paiement</strong> : passé l'échéance, un rappel est envoyé ; au-delà de {{ $billing['warning_after_days'] }} jours de retard, une alerte s'affiche dans l'espace ; au-delà de {{ $billing['restrict_after_days'] }} jours, la création de nouvelles courses est suspendue jusqu'au paiement. Les données restent consultables.</li>
+        <li><strong>Prix</strong> : les prix sont ceux de la formule choisie, indiqués en francs CFA sur la page Tarifs au moment de la souscription. Chaque formule comprend un nombre de courses par période ; au-delà, l'entreprise cliente achète des packs de courses au prix par course de la formule, ou passe à une formule supérieure.</li>
+        <li><strong>Paiement d'avance</strong> : l'abonnement se paie avant chaque période (mois ou semaine, au choix de l'entreprise cliente). La facture est émise {{ $billing['notice_days'] }} jours avant le début du mois ({{ $billing['weekly_notice_days'] }} jours avant la semaine), consultable dans l'espace de l'entreprise (menu « Mon abonnement »), et payable au premier jour de la période. Les achats en plus (livreur en plus, pack de courses, pack de points Jibiat IA) se paient au moment de l'achat et s'appliquent dès la confirmation du paiement.</li>
+        <li><strong>Retard de paiement</strong> : passé l'échéance, un rappel est envoyé{{ $billing['warning_days'] > 0 ? " ; au-delà de {$billing['warning_days']} jour(s) de retard, une alerte s'affiche dans l'espace" : ' et une alerte s\'affiche dans l\'espace' }} ; au-delà de {{ $billing['grace_days'] }} jour(s), la création de nouvelles courses est suspendue jusqu'au paiement. Les données restent consultables.</li>
         <li><strong>Changement de formule</strong> : possible à tout moment, sur demande ; la nouvelle formule s'applique à la période de facturation suivante, sauf accord contraire.</li>
         <li><strong>Frais de tiers</strong> : les messages WhatsApp envoyés par le numéro WhatsApp Business de l'entreprise cliente sont facturés directement par Meta à l'entreprise cliente, selon ses tarifs. Les notifications de la plateforme aux e-commerçants et aux livreurs sont incluses.</li>
         <li>Un mois commencé est dû ; il n'y a pas de remboursement au prorata, sauf manquement de notre part.</li>
