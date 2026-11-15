@@ -16,6 +16,8 @@
         <div class="grid gap-3 sm:grid-cols-3">
           <label class="block text-sm">Commande WhatsApp écrite (points)<input v-model.number="settings.points_message" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"></label>
           <label class="block text-sm">Photo de commande (points)<input v-model.number="settings.points_photo" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"><span class="text-xs text-slate-600">Bientôt en service</span></label>
+          <label class="block text-sm">Pack de points vendu en plus (points)<input v-model.number="settings.pack_points" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"></label>
+          <label class="block text-sm">Prix du pack (F)<input v-model.number="settings.pack_price" type="number" min="0" class="input mt-1 w-full" :disabled="!owner"><span class="text-xs text-slate-600">Payé d'avance par Wave ; 0 : pas de pack</span></label>
           <label class="block text-sm">1 dollar = (F)<input v-model.number="settings.usd_rate" type="number" min="100" max="2000" class="input mt-1 w-full" :disabled="!owner"><span class="text-xs text-slate-600">Pour le coût réel de l'IA</span></label>
         </div>
         <p class="text-xs text-slate-600">Modèle utilisé : <b>{{ data.model }}</b> (réglage ANTHROPIC_MODEL du serveur).</p>

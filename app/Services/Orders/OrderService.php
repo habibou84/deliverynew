@@ -68,6 +68,12 @@ class OrderService
                 ? 'La création de courses est momentanément suspendue. Contactez votre entreprise de livraison.'
                 : 'Création de courses suspendue : une facture de votre abonnement est impayée. Voir « Mon abonnement ».');
         }
+        // Courses de la période payée d'avance épuisées (formule + packs)
+        if ($merchant->company && ($quota = app(Billing::class)->orderQuota($merchant->company)) !== null && $quota['left'] <= 0) {
+            throw new BusinessRuleException($actor->merchant_id
+                ? 'La création de courses est momentanément suspendue. Contactez votre entreprise de livraison.'
+                : 'Les courses comprises dans votre formule pour cette période sont épuisées : achetez un pack de courses dans « Mon abonnement ».');
+        }
 
         return DB::transaction(function () use ($actor, $merchant, $data, $source) {
             $company = $merchant->company;

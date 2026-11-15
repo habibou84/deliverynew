@@ -4,7 +4,7 @@
       <div>
         <h1 class="text-xl font-bold">Formules d'abonnement</h1>
         <p class="text-sm text-slate-600">
-          Forfait mensuel avec des courses incluses puis un prix par course en plus, ou formule à la livraison (pourcentage des frais de chaque course). Essai gratuit des nouvelles entreprises :
+          Tout est payé d'avance : forfait avec des courses incluses, livreurs en plus et packs de courses achetés par l'entreprise. La formule à la livraison (pourcentage de chaque course) reste facturée après coup. Essai gratuit des nouvelles entreprises :
           {{ trialDays ? `${trialDays} jours` : 'aucun' }} (réglage PLATFORM_TRIAL_DAYS).
         </p>
       </div>
@@ -12,8 +12,8 @@
     </div>
 
     <div v-if="loaded && !plans.length" class="card p-6 text-center space-y-3">
-      <p class="text-slate-600">Aucune formule pour l'instant. Partez des quatre formules proposées, puis ajustez prix et limites.</p>
-      <button v-if="can('owner')" class="btn-primary" :disabled="creating" @click="createSuggested">Créer À la livraison, Essentiel, Pro et Entreprise</button>
+      <p class="text-slate-600">Aucune formule pour l'instant. Partez des trois formules proposées, puis ajustez prix et limites.</p>
+      <button v-if="can('owner')" class="btn-primary" :disabled="creating" @click="createSuggested">Créer Essentiel, Pro et Entreprise</button>
     </div>
 
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -225,8 +225,8 @@ const APP_MODES = [
   { value: 'none', label: 'Non' },
 ]
 const PRICINGS = [
-  { value: 'flat', label: 'Forfait', help: 'Prix fixe, courses incluses, puis prix par course en plus' },
-  { value: 'percent', label: 'À la livraison', help: 'Pourcentage des frais de chaque course prise en charge' },
+  { value: 'flat', label: 'Forfait', help: 'Payé d\'avance : prix fixe, courses incluses, puis packs de courses au prix d\'une course en plus' },
+  { value: 'percent', label: 'À la livraison', help: 'Pourcentage des frais de chaque course : facturé après coup, pas de prépayé (retirée des nouvelles inscriptions)' },
 ]
 
 const toasts = useToastStore()

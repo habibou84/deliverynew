@@ -42,8 +42,9 @@ class PlanTest extends TestCase
     {
         Sanctum::actingAs($this->root);
 
-        $this->postJson('/api/v1/console/plans/suggested')->assertCreated()->assertJsonCount(4, 'data')
-            ->assertJsonPath('data.0.pricing', 'percent')->assertJsonPath('data.2.name', 'Pro')->assertJsonPath('meta.trial_days', 30);
+        // Formules proposées, payées d'avance (plus de formule à la livraison)
+        $this->postJson('/api/v1/console/plans/suggested')->assertCreated()->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.pricing', 'flat')->assertJsonPath('data.1.name', 'Pro')->assertJsonPath('data.1.ai_points', 1500)->assertJsonPath('meta.trial_days', 30);
         $this->postJson('/api/v1/console/plans/suggested')->assertStatus(422);
 
         $id = $this->postJson('/api/v1/console/plans', [

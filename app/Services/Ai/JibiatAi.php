@@ -57,7 +57,7 @@ class JibiatAi
         'entreprise' => ['name' => 'IA Entreprise', 'price' => 120000, 'orders' => 15000, 'cost_cap' => 95000],
     ];
 
-    public const SETTING_DEFAULTS = ['enabled' => 1, 'points_message' => 1, 'points_photo' => 2, 'usd_rate' => 600, 'yearly_months' => 10];
+    public const SETTING_DEFAULTS = ['enabled' => 1, 'points_message' => 1, 'points_photo' => 2, 'usd_rate' => 600, 'yearly_months' => 10, 'pack_points' => 500, 'pack_price' => 5000];
 
     /** Prix de Claude en dollars par million de jetons (entrée, sortie), selon la famille du modèle */
     private const MODEL_PRICES = ['haiku' => [0.10, 0.50], 'sonnet' => [2.0, 10.0], 'opus' => [4.0, 20.0], 'fable' => [10.0, 50.0], 'mythos' => [10.0, 50.0]];
@@ -73,7 +73,7 @@ class JibiatAi
         return str_contains($model, 'haiku') ? [] : ['betas' => ['server-side-fallback-2026-07-01'], 'fallbacks' => 'default'];
     }
 
-    /** @return array{enabled: int, points_message: int, points_photo: int, usd_rate: int, yearly_months: int} */
+    /** @return array{enabled: int, points_message: int, points_photo: int, usd_rate: int, yearly_months: int, pack_points: int, pack_price: int} */
     public function settings(): array
     {
         $stored = json_decode((string) PlatformSetting::get('ai.settings'), true) ?: [];
@@ -119,13 +119,32 @@ class JibiatAi
         return collect(self::FEATURES)->map(fn ($f, $key) => ['key' => $key, 'label' => $f['label'], 'points' => $this->pointsFor($key), 'available' => $f['available']])->values()->all();
     }
 
-    /** Points du mois : ceux de la formule (au moins le volume d'un ancien abonnement à part en cours) */
+    /** Pack de points vendu en plus (prépayé) */
+    public function pack(): array
+    {
+        $s = $this->settings();
+
+        return ['points' => max(0, $s['pack_points']), 'price' => max(0, $s['pack_price'])];
+    }
+
+    /**
+     * Points du mois : ceux de la formule (au moins le volume d'un ancien abonnement à part en cours), plus les packs
+     * achetés et payés ce mois-ci.
+     */
     public function monthlyPoints(Company $company): int
     {
         $points = (int) ($company->loadMissing('plan')->plan?->ai_points ?? 0);
         $legacy = $this->legacyTier($company);
+        $points = $legacy !== null ? max($points, $legacy['orders']) : $points;
 
-        return $legacy !== null ? max($points, $legacy['orders']) : $points;
+        return $points + $this->packPoints($company);
+    }
+
+    /** Points des packs payés pour le mois en cours */
+    public function packPoints(Company $company): int
+    {
+        return (int) PlatformInvoice::query()->paidPurchases(PlatformInvoice::AI_POINTS)->where('company_id', $company->id)
+            ->where('period', $this->month($company))->get()->sum(fn (PlatformInvoice $i) => (int) ($i->purchase['quantity'] ?? 0));
     }
 
     public function pointsUsed(Company $company, ?string $month = null): int

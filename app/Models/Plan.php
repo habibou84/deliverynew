@@ -143,27 +143,21 @@ class Plan extends Model
     {
         return [
             [
-                'name' => 'À la livraison', 'description' => 'Sans forfait : 1 % des frais de chaque course prise en charge, plafonné au prix du Pro.',
-                'pricing' => self::PERCENT, 'price_monthly' => 0, 'included_orders' => null, 'overage_per_order' => 0, 'max_couriers' => 5,
-                'percent_rate' => 100, 'percent_min' => 10, 'percent_max' => 60, 'volume_threshold' => 1000, 'volume_rate' => 75,
-                'cap_amount' => 60000, 'min_invoice' => 1000, 'features' => [], 'position' => 0,
-            ],
-            [
                 'name' => 'Essentiel', 'description' => 'Pour démarrer : courses, livreurs, caisse et suivi.',
                 'price_monthly' => 25000, 'included_orders' => 500, 'overage_per_order' => 30, 'max_couriers' => 5,
-                'features' => [], 'ai_points' => 300, 'ai_cost_cap' => 3000, 'position' => 1,
+                'features' => [], 'ai_points' => 300, 'ai_cost_cap' => 3000, 'position' => 0,
                 'apps' => ['android' => 'option', 'android_price' => 10000, 'ios' => 'none', 'ios_price' => null],
             ],
             [
                 'name' => 'Pro', 'description' => 'Tous les modules pour une entreprise qui grandit.',
                 'price_monthly' => 60000, 'included_orders' => 2000, 'overage_per_order' => 25, 'max_couriers' => 20,
-                'features' => PlatformFeature::values(), 'ai_points' => 1500, 'ai_cost_cap' => 15000, 'position' => 2,
+                'features' => PlatformFeature::values(), 'ai_points' => 1500, 'ai_cost_cap' => 15000, 'position' => 1,
                 'apps' => ['android' => 'included', 'android_price' => null, 'ios' => 'option', 'ios_price' => 15000],
             ],
             [
                 'name' => 'Entreprise', 'description' => 'Gros volumes, livreurs illimités.',
                 'price_monthly' => 150000, 'included_orders' => 6000, 'overage_per_order' => 20, 'max_couriers' => null,
-                'features' => PlatformFeature::values(), 'ai_points' => 5000, 'ai_cost_cap' => 50000, 'position' => 3,
+                'features' => PlatformFeature::values(), 'ai_points' => 5000, 'ai_cost_cap' => 50000, 'position' => 2,
                 'apps' => ['android' => 'included', 'android_price' => null, 'ios' => 'included', 'ios_price' => null],
             ],
         ];

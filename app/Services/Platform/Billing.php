@@ -29,12 +29,21 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Facturation des entreprises par la plateforme : facture du mois ou de la semaine, au choix de l'entreprise
- * (forfait au prorata des jours hors essai + courses prises en charge en plus), paiements, impayés progressifs et rappels.
+ * Facturation des entreprises par la plateforme, tout prépayé.
  *
- * Impayés : à l'échéance, rappel ; à J+7, bandeau d'alerte (« warning ») ; à J+15, plus de
- * nouvelles courses (« restricted »), tout le reste restant consultable. Tout redevient
- * normal dès que la facture est payée.
+ * Abonnement : la facture de la période (mois ou semaine, au choix de l'entreprise) est émise avant qu'elle commence
+ * (prepare), à payer au premier jour : forfait au prorata des jours hors essai, livreurs en plus achetés, options. Les
+ * courses au-delà de la formule se paient d'avance en packs ; sans pack, plus de nouvelles courses jusqu'à la période
+ * suivante.
+ *
+ * Achats payés tout de suite (purchase) : livreur en plus (au prorata de la période en cours, puis repris à chaque
+ * renouvellement), pack de courses, pack de points Jibiat IA. Pris en compte dès le paiement validé.
+ *
+ * Après coup (generate) : seulement ce qui n'a pas été payé d'avance, c'est-à-dire la période en cours au passage au
+ * prépayé et la formule « À la livraison » (pourcentage de chaque course, retirée des nouvelles inscriptions).
+ *
+ * Abonnement impayé : à l'échéance, rappel et bandeau ; 3 jours après, plus de nouvelles courses (« restricted »),
+ * tout le reste restant consultable. Tout redevient normal dès que la facture est payée.
  */
 class Billing
 {
@@ -72,14 +81,14 @@ class Billing
      * Facture d'une période (mois AAAA-MM ou semaine AAAA-Wss) d'une entreprise ; existante si déjà faite, null si
      * rien à facturer (pas de formule, période facturée sur l'autre rythme, en essai ou avant la création, montant nul).
      */
-    public function invoiceFor(Company $company, string $period): ?PlatformInvoice
+    public function invoiceFor(Company $company, string $period, bool $prepaid = false): ?PlatformInvoice
     {
-        if ($existing = PlatformInvoice::query()->where('company_id', $company->id)->where('period', $period)->first()) {
+        if ($existing = PlatformInvoice::query()->subscriptions()->where('company_id', $company->id)->where('period', $period)->first()) {
             return $existing;
         }
 
         $plan = $company->loadMissing('plan')->plan;
-        if ($plan === null) {
+        if ($plan === null || ($prepaid && $plan->isPercent())) {
             return null;
         }
 
@@ -95,8 +104,10 @@ class Billing
         // Part de la période facturée : jours sur 7 (semaine) ou sur les jours du mois ; les montants du mois sont
         // ramenés à la semaine (12 mois = 52 semaines)
         $share = $cycle === PlatformInvoice::WEEKLY ? $days / 7 * 12 / 52 : $days / $periodStart->daysInMonth;
-        $amounts = $this->amounts($plan, $company, $start, $end->addDay(), $share, $cycle);
-        $extra = $this->extraCouriers($plan, $company, $start, $end, $cycle);
+        // Payé d'avance : forfait et livreurs en plus achetés, sans courses en plus (vendues en packs) ; après coup :
+        // courses prises en charge et livreurs en plus relevés chaque jour
+        $amounts = $prepaid ? $this->prepaidAmounts($plan, $share, $cycle) : $this->amounts($plan, $company, $start, $end->addDay(), $share, $cycle);
+        $extra = $prepaid ? $this->prepaidCouriers($plan, $company, $days, $periodStart, $cycle) : $this->extraCouriers($plan, $company, $start, $end, $cycle);
         // Cartes Membre Premium payées par l'entreprise, offertes jusqu'à la fin de la période
         $premium = app(PremiumCards::class)->billable($company, $end->addDay());
         // Options « Applications à votre nom » actives sur la période
@@ -115,15 +126,17 @@ class Billing
             return null;
         }
         // Trop petite pour une facture à part : reportée sur la suivante
-        $isCarried = $plan->min_invoice !== null && $total < $plan->min_invoice;
+        $isCarried = ! $prepaid && $plan->min_invoice !== null && $total < $plan->min_invoice;
         // Crédit de l'agence (sa part des paiements en ligne de ses e-commerçants) : déduit de la facture, le reste
         // est reporté sur les suivantes
         $credit = $isCarried ? 0 : min($total, max(0, PlatformCredit::balance($company->id)));
         $total -= $credit;
 
-        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $apps, $ai, $live, $carried, $carriedAmount, $total, $isCarried, $tz, $credit) {
+        $invoice = DB::transaction(function () use ($company, $period, $cycle, $start, $end, $plan, $amounts, $extra, $premium, $apps, $ai, $live, $carried, $carriedAmount, $total, $isCarried, $tz, $credit, $prepaid) {
             $today = CarbonImmutable::now($tz);
             $dueDays = (int) config($cycle === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_due_days' : 'platform.billing.due_days');
+            // Payé d'avance : à payer au premier jour de la période
+            $due = $prepaid ? max($start, $today->startOfDay()) : $today->addDays($dueDays);
 
             $invoice = PlatformInvoice::create([
                 'company_id' => $company->id,
@@ -160,8 +173,10 @@ class Billing
                 'status' => $isCarried ? PlatformInvoice::CARRIED : ($total === 0 ? PlatformInvoice::PAID : PlatformInvoice::OPEN),
                 'paid_at' => ! $isCarried && $total === 0 ? $today : null,
                 'issued_at' => $today->toDateString(),
-                'due_at' => $today->addDays($dueDays)->toDateString(),
+                'due_at' => $due->toDateString(),
                 'last_reminder' => 'issued',
+                'kind' => PlatformInvoice::SUBSCRIPTION,
+                'prepaid' => $prepaid,
             ]);
             if ($premium['ids'] !== []) {
                 PremiumCard::forCompany($company->id)->whereKey($premium['ids'])->update(['platform_invoice_id' => $invoice->id]);
@@ -249,6 +264,202 @@ class Billing
         $perDay = $cycle === PlatformInvoice::WEEKLY ? $plan->extra_courier_price * 12 / 52 / 7 : $plan->extra_courier_price / $first->daysInMonth;
 
         return ['days' => $days, 'price' => (int) $plan->extra_courier_price, 'amount' => (int) round($days * $perDay)];
+    }
+
+    /**
+     * Payé d'avance : forfait de la période (au prorata des jours), courses comprises ; pas de courses en plus.
+     *
+     * @return array{base: int, included: ?int, orders: int, overage_orders: int, overage_amount: int, deliveries_amount: int, cap_applied: bool}
+     */
+    private function prepaidAmounts(Plan $plan, float $share, string $cycle): array
+    {
+        $base = (int) round(($cycle === PlatformInvoice::WEEKLY ? $plan->weeklyPrice() / (12 / 52) : $plan->price_monthly) * $share);
+
+        return ['base' => $base, 'included' => $plan->included_orders === null ? null : (int) floor($plan->included_orders * $share),
+            'orders' => 0, 'overage_orders' => 0, 'overage_amount' => 0, 'deliveries_amount' => 0, 'cap_applied' => false];
+    }
+
+    /**
+     * Payé d'avance : livreurs en plus achetés par l'entreprise, pour les jours de la période.
+     *
+     * @return array{days: int, price: int, amount: int}
+     */
+    private function prepaidCouriers(Plan $plan, Company $company, int $days, CarbonImmutable $periodStart, string $cycle): array
+    {
+        $count = (int) $company->extra_couriers;
+        if (! $plan->allowsExtraCouriers() || $count === 0) {
+            return ['days' => 0, 'price' => 0, 'amount' => 0];
+        }
+        $perDay = $cycle === PlatformInvoice::WEEKLY ? $plan->extra_courier_price * 12 / 52 / 7 : $plan->extra_courier_price / $periodStart->daysInMonth;
+
+        return ['days' => $count * $days, 'price' => (int) $plan->extra_courier_price, 'amount' => (int) round($count * $days * $perDay)];
+    }
+
+    /**
+     * Factures d'abonnement payées d'avance : pour chaque entreprise active avec une formule (hors « À la livraison »),
+     * la période suivante quand elle commence dans les jours de préavis (5 pour un mois, 2 pour une semaine), et la
+     * fin de la période en cours quand l'essai s'y termine. La période en cours déjà commencée sans facture d'avance
+     * (passage au prépayé) reste facturée après coup.
+     *
+     * @return Collection<int, PlatformInvoice> factures créées
+     */
+    public function prepare(): Collection
+    {
+        return Company::query()->whereNotNull('plan_id')->where('status', CompanyStatus::Active->value)->with('plan')->orderBy('id')->get()
+            ->reject(fn (Company $company) => $company->plan->isPercent())
+            ->flatMap(function (Company $company) {
+                $today = CarbonImmutable::now($company->timezone)->startOfDay();
+                $current = self::currentPeriod($company);
+                $nextStart = $current['end']->addDay();
+                $next = self::cycleOn($company, $nextStart) === PlatformInvoice::WEEKLY ? $nextStart->isoFormat('GGGG-[W]WW') : $nextStart->format('Y-m');
+                $notice = (int) config(self::cycleOn($company, $nextStart) === PlatformInvoice::WEEKLY ? 'platform.billing.weekly_prepaid_notice_days' : 'platform.billing.prepaid_notice_days');
+                $created = [];
+                // Fin d'essai dans la période en cours : le reste de la période, d'avance
+                $trialEnd = $company->trial_ends_at ? CarbonImmutable::parse($company->trial_ends_at->toDateString(), $company->timezone) : null;
+                if ($trialEnd !== null && $trialEnd->gte($today) && $trialEnd->lt($current['end']) && $today->diffInDays($trialEnd->addDay()) <= $notice) {
+                    $created[] = $this->invoiceFor($company, $current['period'], true);
+                }
+                if ($today->diffInDays($nextStart) <= $notice) {
+                    $created[] = $this->invoiceFor($company, $next, true);
+                }
+
+                return array_filter($created, fn (?PlatformInvoice $invoice) => $invoice?->wasRecentlyCreated);
+            })
+            ->values();
+    }
+
+    /**
+     * La période en cours a été payée d'avance (facture d'abonnement émise avant) : courses limitées à la formule
+     * et aux packs achetés.
+     */
+    public function currentInvoice(Company $company): ?PlatformInvoice
+    {
+        return PlatformInvoice::query()->subscriptions()->where('company_id', $company->id)
+            ->where('period', self::currentPeriod($company)['period'])->where('status', '!=', PlatformInvoice::VOID)->first();
+    }
+
+    /**
+     * Courses de la période en cours : comprises (facture payée d'avance + packs achetés), prises en charge.
+     * Null quand rien ne limite (période facturée après coup, courses illimitées, pas de formule).
+     *
+     * @return array{included: int, packs: int, used: int, left: int}|null
+     */
+    public function orderQuota(Company $company): ?array
+    {
+        $invoice = $this->currentInvoice($company);
+        if ($invoice === null || ! $invoice->prepaid || $invoice->included_orders === null) {
+            return null;
+        }
+        $current = self::currentPeriod($company);
+        $packs = (int) PlatformInvoice::query()->paidPurchases(PlatformInvoice::ORDERS)->where('company_id', $company->id)
+            ->where('period', $current['period'])->get()->sum(fn (PlatformInvoice $i) => (int) ($i->purchase['quantity'] ?? 0));
+        $used = self::takenInCharge($company, $current['start'], $current['end']->addDay());
+        $limit = (int) $invoice->included_orders + $packs;
+
+        return ['included' => (int) $invoice->included_orders, 'packs' => $packs, 'used' => $used, 'left' => max(0, $limit - $used)];
+    }
+
+    /**
+     * Ce que l'entreprise peut acheter maintenant, avec le prix.
+     *
+     * @return list<array{kind: string, label: string, quantity: int, unit_price: int, total: int, detail: string}>
+     */
+    public function purchaseOptions(Company $company): array
+    {
+        $plan = $company->loadMissing('plan')->plan;
+        if ($plan === null) {
+            return [];
+        }
+        $options = [];
+        $current = self::currentPeriod($company);
+        $today = CarbonImmutable::now($company->timezone)->startOfDay();
+        $prepaid = (bool) $this->currentInvoice($company)?->prepaid;
+
+        if ($plan->allowsExtraCouriers()) {
+            $days = (int) $today->diffInDays($current['end']) + 1;
+            $periodDays = $current['cycle'] === PlatformInvoice::WEEKLY ? 7 : $current['start']->daysInMonth;
+            $monthly = $current['cycle'] === PlatformInvoice::WEEKLY ? $plan->extra_courier_price * 12 / 52 : $plan->extra_courier_price;
+            // Période facturée après coup (passage au prépayé) : le livreur y est compté à la fin
+            $price = $prepaid ? (int) round($monthly * $days / $periodDays) : 0;
+            $options[] = ['kind' => PlatformInvoice::COURIER, 'label' => 'Un livreur en plus', 'quantity' => 1, 'unit_price' => $price, 'total' => $price,
+                'detail' => $prepaid
+                    ? number_format((int) $plan->extra_courier_price, 0, ',', ' ').' F par mois, au prorata jusqu\'au '.$current['end']->format('d/m').', puis repris à chaque renouvellement'
+                    : 'Compté sur la facture de fin de période, puis repris à chaque renouvellement'];
+        }
+        if ($prepaid && ! $plan->isPercent() && $plan->included_orders !== null && $plan->overage_per_order > 0) {
+            $size = max(1, (int) config('platform.billing.orders_pack'));
+            $options[] = ['kind' => PlatformInvoice::ORDERS, 'label' => "Pack de {$size} courses", 'quantity' => $size, 'unit_price' => (int) $plan->overage_per_order,
+                'total' => $size * (int) $plan->overage_per_order, 'detail' => 'Pour la période en cours (jusqu\'au '.$current['end']->format('d/m').')'];
+        }
+        $ai = app(JibiatAi::class);
+        $pack = $ai->pack();
+        if ($ai->enabled() && $pack['points'] > 0 && $pack['price'] > 0 && ($plan->ai_points ?? 0) > 0) {
+            $options[] = ['kind' => PlatformInvoice::AI_POINTS, 'label' => "Pack de {$pack['points']} points IA", 'quantity' => $pack['points'], 'unit_price' => 0,
+                'total' => $pack['price'], 'detail' => 'Ajoutés à vos points du mois'];
+        }
+
+        return $options;
+    }
+
+    /**
+     * Achat payé tout de suite : facture à payer (par Wave), prise en compte dès le paiement validé.
+     */
+    public function purchase(Company $company, string $kind): PlatformInvoice
+    {
+        $option = collect($this->purchaseOptions($company))->firstWhere('kind', $kind);
+        if ($option === null) {
+            throw ValidationException::withMessages(['kind' => 'Cet achat n\'est pas proposé pour votre formule en ce moment.']);
+        }
+        $current = self::currentPeriod($company);
+        $today = CarbonImmutable::now($company->timezone);
+
+        return DB::transaction(function () use ($company, $kind, $option, $current, $today) {
+            $invoice = PlatformInvoice::create([
+                'company_id' => $company->id,
+                'number' => $this->nextNumber($current['period']),
+                'period' => $kind === PlatformInvoice::AI_POINTS ? $today->format('Y-m') : $current['period'],
+                'cycle' => $current['cycle'],
+                'pricing' => Plan::FLAT,
+                'period_start' => $today->toDateString(),
+                'period_end' => $kind === PlatformInvoice::AI_POINTS ? $today->endOfMonth()->toDateString() : $current['end']->toDateString(),
+                'plan_name' => $option['label'],
+                'base_amount' => $option['total'],
+                'orders_count' => 0, 'overage_orders' => 0, 'overage_per_order' => 0, 'overage_amount' => 0,
+                'total' => $option['total'],
+                'status' => $option['total'] === 0 ? PlatformInvoice::PAID : PlatformInvoice::OPEN,
+                'paid_at' => $option['total'] === 0 ? $today : null,
+                'issued_at' => $today->toDateString(),
+                'due_at' => $today->toDateString(),
+                'last_reminder' => 'issued',
+                'kind' => $kind,
+                'prepaid' => true,
+                'purchase' => ['quantity' => $option['quantity'], 'unit_price' => $option['unit_price'], 'label' => $option['label'], 'detail' => $option['detail']],
+            ]);
+            if ($invoice->status === PlatformInvoice::PAID) {
+                $this->applyPurchase($invoice);
+            }
+
+            return $invoice;
+        });
+    }
+
+    /** Achat pas encore payé, annulé par l'entreprise */
+    public function cancelPurchase(PlatformInvoice $invoice): void
+    {
+        if (! $invoice->isPurchase()) {
+            throw ValidationException::withMessages(['invoice' => 'Seul un achat peut être annulé ici.']);
+        }
+        $this->void($invoice, 'Achat annulé par l\'entreprise');
+    }
+
+    /** Achat payé : livreur en plus ajouté (une fois) ; packs comptés d'après les achats payés */
+    private function applyPurchase(PlatformInvoice $invoice): void
+    {
+        if ($invoice->kind !== PlatformInvoice::COURIER || ($invoice->purchase['applied'] ?? false)) {
+            return;
+        }
+        Company::query()->whereKey($invoice->company_id)->increment('extra_couriers', (int) ($invoice->purchase['quantity'] ?? 1));
+        $invoice->forceFill(['purchase' => [...$invoice->purchase, 'applied' => true]])->save();
     }
 
     /**
@@ -400,7 +611,7 @@ class Billing
             return null;
         }
         // Jamais deux fois le même jour sur ce rythme (les deux rythmes se partagent les jours ci-dessus)
-        $last = PlatformInvoice::query()->where('company_id', $company->id)->where('cycle', $cycle)
+        $last = PlatformInvoice::query()->subscriptions()->where('company_id', $company->id)->where('cycle', $cycle)
             ->where('status', '!=', PlatformInvoice::VOID)->where('period_end', '<=', $end->toDateString())->max('period_end');
         if ($last !== null) {
             $afterLast = CarbonImmutable::parse($last, $tz)->addDay()->startOfDay();
@@ -444,6 +655,9 @@ class Billing
                 $invoice->paid_at = now();
             }
             $invoice->save();
+            if ($invoice->status === PlatformInvoice::PAID) {
+                $this->applyPurchase($invoice);
+            }
 
             return $payment;
         });
@@ -466,7 +680,7 @@ class Billing
     public function state(Company $company): array
     {
         $today = now($company->timezone)->toDateString();
-        $open = PlatformInvoice::query()->where('company_id', $company->id)->unpaid()->orderBy('due_at')->get();
+        $open = PlatformInvoice::query()->subscriptions()->where('company_id', $company->id)->unpaid()->orderBy('due_at')->get();
         $overdue = $open->filter(fn (PlatformInvoice $i) => $i->due_at->toDateString() < $today);
         $daysLate = $overdue->isEmpty() ? 0 : (int) $overdue->first()->due_at->diffInDays($today);
 
@@ -480,13 +694,13 @@ class Billing
     }
 
     /**
-     * Plus de nouvelles courses : une facture impayée depuis le délai de restriction.
+     * Plus de nouvelles courses : une facture d'abonnement impayée depuis le délai de restriction (3 jours).
      */
     public function isRestricted(Company $company): bool
     {
         $limit = now($company->timezone)->subDays((int) config('platform.billing.restrict_after_days'))->toDateString();
 
-        return PlatformInvoice::query()->where('company_id', $company->id)->unpaid()->where('due_at', '<=', $limit)->exists();
+        return PlatformInvoice::query()->subscriptions()->where('company_id', $company->id)->unpaid()->where('due_at', '<=', $limit)->exists();
     }
 
     /**
@@ -498,7 +712,7 @@ class Billing
     {
         $sent = 0;
 
-        PlatformInvoice::query()->unpaid()->with('company')->orderBy('id')->each(function (PlatformInvoice $invoice) use (&$sent) {
+        PlatformInvoice::query()->subscriptions()->unpaid()->with('company')->orderBy('id')->each(function (PlatformInvoice $invoice) use (&$sent) {
             $today = now($invoice->company->timezone)->toDateString();
             if ($invoice->due_at->toDateString() > $today) {
                 return;

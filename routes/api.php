@@ -500,6 +500,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('subscription/apps/{platform}', [SubscriptionController::class, 'requestApps'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.apps.request');
         Route::delete('subscription/apps/{platform}', [SubscriptionController::class, 'stopApps'])->middleware('can:settings.manage')->name('subscription.apps.stop');
         Route::get('subscription/invoices/{invoice}', [SubscriptionController::class, 'invoice'])->middleware('can:settings.manage')->name('subscription.invoice');
+        Route::post('subscription/purchases', [SubscriptionController::class, 'purchase'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.purchase');
+        Route::delete('subscription/purchases/{invoice}', [SubscriptionController::class, 'cancelPurchase'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.purchase.cancel');
         Route::put('subscription/billing-cycle', [SubscriptionController::class, 'updateCycle'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.cycle');
         Route::post('subscription/invoices/{invoice}/wave', [SubscriptionController::class, 'waveStart'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.wave');
         Route::post('subscription/wave-payments/{payment}/paid', [SubscriptionController::class, 'waveClaim'])->middleware(['can:settings.manage', 'throttle:10,1'])->name('subscription.wave.paid');

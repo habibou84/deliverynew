@@ -44,8 +44,7 @@ class Subscription
     }
 
     /**
-     * Refuse un livreur actif de plus quand la formule est au maximum, sauf si elle permet des livreurs en plus
-     * (facturés).
+     * Refuse un livreur actif de plus quand la formule et les livreurs en plus achetés sont au maximum.
      *
      * @throws ValidationException
      */
@@ -53,10 +52,16 @@ class Subscription
     {
         $plan = $company->loadMissing('plan')->plan;
         $max = $plan?->max_couriers;
+        if ($max === null) {
+            return;
+        }
+        $room = $max + ($plan->allowsExtraCouriers() ? (int) $company->extra_couriers : 0);
 
-        if ($max !== null && ! $plan->allowsExtraCouriers() && $this->activeCouriers($company) >= $max) {
+        if ($this->activeCouriers($company) >= $room) {
             throw ValidationException::withMessages([
-                $field => "Votre formule « {$company->plan->name} » permet {$max} livreur(s) actif(s) : suspendez un livreur ou passez à une formule supérieure.",
+                $field => $plan->allowsExtraCouriers()
+                    ? "Vous avez {$room} livreur(s) actif(s) possible(s) : achetez un livreur en plus dans « Mon abonnement », ou suspendez un livreur."
+                    : "Votre formule « {$company->plan->name} » permet {$max} livreur(s) actif(s) : suspendez un livreur ou passez à une formule supérieure.",
             ]);
         }
     }
