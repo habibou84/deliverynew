@@ -25,6 +25,7 @@ const {
   default: makeWASocket,
   Browsers,
   DisconnectReason,
+  downloadMediaMessage,
   fetchLatestBaileysVersion,
   useMultiFileAuthState,
 } = require('@whiskeysockets/baileys')
@@ -35,6 +36,10 @@ const PORT = Number(env.WHATSAPP_BRIDGE_PORT || 3100)
 const TOKEN = env.WHATSAPP_BRIDGE_TOKEN || ''
 const WEBHOOK = env.WHATSAPP_BRIDGE_WEBHOOK || `${(env.APP_URL || 'http://localhost').replace(/\/$/, '')}/api/webhooks/whatsapp-bridge`
 const DATA_DIR = env.WHATSAPP_BRIDGE_DATA || path.join(ROOT, 'storage', 'app', 'whatsapp-bridge')
+// Photos reçues par les numéros d'entreprise (commandes en photo) : lues puis effacées par Jibiat ; 5 Mo au plus
+const MEDIA_DIR = path.join(DATA_DIR, 'media')
+const MEDIA_MAX_BYTES = 5 * 1024 * 1024
+const MEDIA_TYPES = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif' }
 const MIN_DELAY = Number(env.WHATSAPP_BRIDGE_MIN_DELAY_MS || 4000)
 const EXTRA_DELAY = Number(env.WHATSAPP_BRIDGE_EXTRA_DELAY_MS || 3000)
 
@@ -157,17 +162,30 @@ class Session {
     const m = msg.message.ephemeralMessage?.message || msg.message
     const text = m.conversation || m.extendedTextMessage?.text || m.imageMessage?.caption || m.videoMessage?.caption ||
       m.buttonsResponseMessage?.selectedDisplayText || m.listResponseMessage?.title || m.templateButtonReplyMessage?.selectedDisplayText || null
-    const kind = text !== null ? 'text' : (m.imageMessage ? 'image' : m.audioMessage ? 'audio' : m.documentMessage ? 'document' : m.locationMessage ? 'location' : 'other')
+    // Photo (avec ou sans légende) : « image » ; la légende suit comme texte
+    const kind = m.imageMessage ? 'image' : text !== null ? 'text' : (m.audioMessage ? 'audio' : m.documentMessage ? 'document' : m.locationMessage ? 'location' : 'other')
+    const event = { type: 'message', session: this.id, id: msg.key.id, from: '+' + from, name: msg.pushName || null, kind, text }
 
-    notify({
-      type: 'message',
-      session: this.id,
-      id: msg.key.id,
-      from: '+' + from,
-      name: msg.pushName || null,
-      kind,
-      text,
-    })
+    // Numéro d'entreprise : la photo est enregistrée pour que Jibiat lise la commande
+    if (kind === 'image' && this.id.startsWith('company-')) {
+      this.saveImage(msg, m.imageMessage)
+        .then((file) => notify({ ...event, media: file }))
+        .catch((e) => { log.warn({ err: e?.message }, 'photo non enregistrée'); notify(event) })
+      return
+    }
+    notify(event)
+  }
+
+  /** Enregistre la photo d'un message dans MEDIA_DIR ; renvoie son nom de fichier, ou null (trop lourde, autre type) */
+  async saveImage (msg, image) {
+    const ext = MEDIA_TYPES[(image.mimetype || '').split(';')[0]]
+    if (!ext || Number(image.fileLength || 0) > MEDIA_MAX_BYTES) return null
+    const buffer = await downloadMediaMessage(msg, 'buffer', {}, { reuploadRequest: this.sock.updateMediaMessage })
+    if (buffer.length > MEDIA_MAX_BYTES) return null
+    fs.mkdirSync(MEDIA_DIR, { recursive: true })
+    const file = crypto.randomUUID() + '.' + ext
+    fs.writeFileSync(path.join(MEDIA_DIR, file), buffer)
+    return file
   }
 
   onReceipt ({ key, update }) {
@@ -331,6 +349,17 @@ for (const id of fs.readdirSync(DATA_DIR)) {
     open(id).catch((e) => log.error({ err: e, session: id }, 'session non reprise'))
   }
 }
+
+// Photos jamais lues par Jibiat (file d'attente arrêtée…) : effacées au bout d'un jour
+setInterval(() => {
+  fs.readdir(MEDIA_DIR, (err, files) => {
+    if (err) return
+    for (const f of files) {
+      const p = path.join(MEDIA_DIR, f)
+      fs.stat(p, (e, st) => { if (!e && Date.now() - st.mtimeMs > 86400000) fs.unlink(p, () => {}) })
+    }
+  })
+}, 3600000).unref()
 
 server.listen(PORT, '127.0.0.1', () => log.info({ port: PORT, webhook: WEBHOOK }, 'service WhatsApp prêt'))
 

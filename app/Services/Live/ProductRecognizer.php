@@ -23,6 +23,7 @@ class ProductRecognizer
         try {
             $client = new Client(apiKey: config('messaging.ai.api_key'));
             $message = $client->beta->messages->create(
+                ...JibiatAi::fallbackArgs($model),
                 model: $model,
                 maxTokens: 600,
                 system: 'Tu aides une e-commerçante d\'Abidjan à créer la fiche d\'un produit qu\'elle va vendre en live. '
@@ -49,8 +50,6 @@ class ProductRecognizer
                         'additionalProperties' => false,
                     ]],
                 ],
-                betas: ['server-side-fallback-2026-07-01'],
-                fallbacks: 'default',
             );
         } catch (Throwable $e) {
             report($e);
