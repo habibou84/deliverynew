@@ -104,6 +104,8 @@ class OrderController extends Controller
             'include_later' => ['nullable', 'boolean'],
             // Livrées après leur première date prévue
             'delivered_late' => ['nullable', 'boolean'],
+            // Courses en retard : hier et avant-hier (« recent ») ou plus de 2 jours (« old »)
+            'age' => ['nullable', Rule::in(['recent', 'old'])],
             'search' => ['nullable', 'string', 'max:100'],
         ];
     }
@@ -122,6 +124,7 @@ class OrderController extends Controller
                 ->whereNotNull('first_delivery_date')->whereRaw(Order::DELIVERY_DAY_SQL.' > DATE(orders.first_delivery_date)'))
             ->when($queue !== '' && $queue !== 'unassigned', fn ($q) => $this->applyQueue($q, $queue, $day))
             ->when($queue === 'unassigned', fn ($q) => AwaitingCourier::scope($q, $request->input('awaiting'), $day))
+            ->when(in_array($queue, ['untreated', 'untreated_picked', 'to_reschedule', 'late'], true), fn ($q) => $q->overdueAge($request->input('age')))
             ->when($day !== null, fn ($q) => $this->applyDay($q, $queue, $day, $request->boolean('include_later')))
             // En retard et non traitées : du plus ancien au plus récent
             ->when(in_array($queue, ['late', 'untreated', 'untreated_picked'], true), fn ($q) => $q->orderByRaw(Order::DELIVERY_DAY_SQL))
@@ -164,10 +167,14 @@ class OrderController extends Controller
     public function untreatedGroups(Request $request): JsonResponse
     {
         Gate::authorize('dispatch', Order::class);
-        $data = $request->validate(['by' => ['nullable', Rule::in(['date', 'courier', 'merchant'])], 'stage' => ['nullable', Rule::in(['all', 'picked'])]]);
+        $data = $request->validate([
+            'by' => ['nullable', Rule::in(['date', 'courier', 'merchant'])],
+            'stage' => ['nullable', Rule::in(['all', 'picked'])],
+            'age' => ['nullable', Rule::in(['recent', 'old'])],
+        ]);
         $by = $data['by'] ?? 'date';
 
-        $base = Order::query()->untreated()
+        $base = Order::query()->untreated()->overdueAge($data['age'] ?? null)
             ->when(($data['stage'] ?? 'all') === 'picked', fn ($q) => $q->withoutToReschedule(today()->toDateString()));
         $groups = match ($by) {
             'date' => $base->selectRaw(Order::DELIVERY_DAY_SQL.' AS day, COUNT(*) AS n, SUM(cod_amount) AS amount')
@@ -233,6 +240,12 @@ class OrderController extends Controller
             'to_reschedule' => $count('to_reschedule'),
             // Demandes d'annulation à valider par un administrateur
             'cancellation_requests' => CancellationRequest::query()->where('status', CancellationRequest::PENDING)->count(),
+            // Courses en retard selon l'âge : hier et avant-hier (à reporter ou annuler vite), plus de 2 jours (non traitées)
+            'overdue' => collect(['recent', 'old'])->mapWithKeys(fn (string $age) => [$age => [
+                'untreated' => Order::query()->untreated()->overdueAge($age)->count(),
+                'untreated_picked' => Order::query()->untreated()->withoutToReschedule(today()->toDateString())->overdueAge($age)->count(),
+                'to_reschedule' => Order::query()->toReschedule(today()->toDateString())->overdueAge($age)->count(),
+            ]])->all(),
             // Cas à régler (cartes au-dessus des onglets) : toutes dates, tant qu'ils ne sont pas réglés
             'exceptions' => collect(['late', 'untreated', 'untreated_picked', 'to_return', 'to_decide', 'incidents', 'failed', 'code_to_verify', 'scheduled', 'to_prepare'])
                 ->mapWithKeys(fn (string $queue) => [$queue => $count($queue)])->all(),

@@ -424,6 +424,24 @@ class Order extends Model
     /**
      * Non traitées : jour de livraison dépassé (avant aujourd'hui) et course pas terminée, retours demandés compris.
      */
+    /**
+     * Retard récent : date de livraison dépassée depuis au plus ce nombre de jours (hier et avant-hier). Au-delà, la
+     * course est « non traitée » depuis longtemps : elle sort de la file « À régler » du poste de pilotage.
+     */
+    public const RECENT_OVERDUE_DAYS = 2;
+
+    /** Âge du retard : « recent » (hier, avant-hier), « old » (plus de 2 jours) ; null : tous */
+    public function scopeOverdueAge(Builder $query, ?string $age): Builder
+    {
+        $limit = today()->subDays(self::RECENT_OVERDUE_DAYS)->toDateString();
+
+        return match ($age) {
+            'recent' => $query->whereRaw(self::DELIVERY_DAY_SQL.' >= ?', [$limit]),
+            'old' => $query->whereRaw(self::DELIVERY_DAY_SQL.' < ?', [$limit]),
+            default => $query,
+        };
+    }
+
     public function scopeUntreated(Builder $query): Builder
     {
         $final = OrderStatus::values(array_filter(OrderStatus::cases(), fn (OrderStatus $s) => $s->isFinal()));
