@@ -132,12 +132,12 @@ async function start() {
   // Téléphone : Facebook en page entière, retour ici avec le code
   if (prefersFullPage()) {
     working.value = true
-    window.location.assign(facebookDialogUrl(es, es.return_url, ticket))
+    window.location.assign(facebookDialogUrl(es, es.return_url, ticket, { coexistence: true }))
     return
   }
   working.value = true
   try {
-    await finish(await connectWhatsApp(es, { coexistence: false }))
+    await finish(await connectWhatsApp(es, { coexistence: true }))
   } catch (e) {
     error.value = e.isAxiosError ? apiErrorMessage(e, 'Connexion à WhatsApp impossible.') : e.message
   } finally {
