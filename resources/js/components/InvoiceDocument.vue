@@ -39,10 +39,20 @@
             <td class="py-2 text-right">—</td>
             <td class="py-2 text-right">{{ money(invoice.deliveries_amount) }}</td>
           </tr>
+          <!-- Achat payé tout de suite : livreur en plus, pack de courses, pack de points IA -->
+          <tr v-else-if="invoice.purchase">
+            <td class="py-2">
+              {{ invoice.purchase.label }}
+              <span class="block text-xs text-slate-600">{{ invoice.purchase.detail }}</span>
+            </td>
+            <td class="py-2 text-right">1</td>
+            <td class="py-2 text-right">{{ money(invoice.base_amount) }}</td>
+            <td class="py-2 text-right">{{ money(invoice.base_amount) }}</td>
+          </tr>
           <tr v-else>
             <td class="py-2">
               Abonnement « {{ invoice.plan_name }} » — {{ invoice.period_label || monthLabel }}
-              <span class="block text-xs text-slate-600">Du {{ date(invoice.period_start) }} au {{ date(invoice.period_end) }}</span>
+              <span class="block text-xs text-slate-600">Du {{ date(invoice.period_start) }} au {{ date(invoice.period_end) }}{{ invoice.prepaid ? ' · payé d\'avance' : '' }}</span>
             </td>
             <td class="py-2 text-right">1</td>
             <td class="py-2 text-right">{{ money(invoice.base_amount) }}</td>
@@ -60,7 +70,8 @@
           <tr v-if="invoice.extra_couriers_amount">
             <td class="py-2">
               Livreurs en plus de la formule
-              <span class="block text-xs text-slate-600">{{ money(invoice.extra_courier_price) }} par livreur et par mois, au prorata des jours où il est actif ({{ invoice.extra_courier_days }} jour(s) de livreur)</span>
+              <span v-if="invoice.prepaid" class="block text-xs text-slate-600">{{ money(invoice.extra_courier_price) }} par livreur et par mois, pour les livreurs en plus achetés ({{ invoice.extra_courier_days }} jour(s) de livreur)</span>
+              <span v-else class="block text-xs text-slate-600">{{ money(invoice.extra_courier_price) }} par livreur et par mois, au prorata des jours où il est actif ({{ invoice.extra_courier_days }} jour(s) de livreur)</span>
             </td>
             <td class="py-2 text-right">{{ invoice.extra_courier_days }} j</td>
             <td class="py-2 text-right">—</td>

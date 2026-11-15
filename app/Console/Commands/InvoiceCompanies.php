@@ -12,7 +12,7 @@ class InvoiceCompanies extends Command
         {--month= : mois à facturer (AAAA-MM)}
         {--week= : semaine à facturer (AAAA-Wss, ex. 2026-W43)}';
 
-    protected $description = 'Factures d\'abonnement : le 1er du mois, celles du mois écoulé ; le lundi, celles de la semaine écoulée (une seule par période)';
+    protected $description = 'Factures d\'abonnement : chaque jour, celles payées d\'avance de la période suivante ; le 1er du mois et le lundi, ce qui n\'a pas été payé d\'avance (une seule par période)';
 
     public function handle(Billing $billing): int
     {
@@ -25,6 +25,11 @@ class InvoiceCompanies extends Command
             if ($today->isMonday()) {
                 $periods[] = $today->subWeek()->isoFormat('GGGG-[W]WW');
             }
+        }
+
+        // Tout prépayé : factures de la période suivante, quelques jours avant
+        if ($periods === []) {
+            $this->info($billing->prepare()->count().' facture(s) payée(s) d\'avance créée(s).');
         }
 
         foreach ($periods as $period) {
