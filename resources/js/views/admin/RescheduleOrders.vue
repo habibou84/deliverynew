@@ -152,7 +152,7 @@
 
 <script setup>
 import Icone from '../../components/ui/Icone.vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import Modal from '../../components/Modal.vue'
@@ -161,7 +161,8 @@ import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import { useToastStore } from '../../stores/toasts'
 import { money } from '../../utils/format'
 
-defineProps({ embedded: Boolean })
+// age : '' (toutes), 'recent' (hier et avant-hier), 'old' (plus de 2 jours)
+const props = defineProps({ embedded: Boolean, age: { type: String, default: '' } })
 
 /**
  * File « À reporter » : colis pas ramassés dont la date de livraison est passée, par e-commerçant. Demander une
@@ -196,7 +197,7 @@ function toggle(id) {
 
 async function load() {
   try {
-    data.value = (await http.get('/orders/to-reschedule')).data.data
+    data.value = (await http.get('/orders/to-reschedule', { params: { age: props.age || undefined } })).data.data
     checked.value = checked.value.filter((id) => data.value.groups.some((g) => g.merchant?.id === id))
     dispatchCounts.fetchCounts()
   } catch (e) {
@@ -265,4 +266,5 @@ async function allToday() {
 }
 
 onMounted(load)
+watch(() => props.age, load)
 </script>
