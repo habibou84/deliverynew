@@ -152,7 +152,8 @@ const routes = [
       { path: 'mot-de-passe', component: () => import('../views/admin/Password.vue') },
       { path: 'integrations', component: () => import('../views/admin/Integrations.vue'), meta: { permission: 'integrations.manage', feature: 'api' } },
       { path: 'abonnement', component: () => import('../views/admin/Subscription.vue'), meta: { permission: 'settings.manage' } },
-      { path: 'jibiat-ia', component: () => import('../views/admin/JibiatAi.vue'), meta: { permission: 'settings.manage' } },
+      // Jibiat IA est dans la formule : son bloc est sur « Mon abonnement » (anciens liens)
+      { path: 'jibiat-ia', redirect: { path: '/admin/abonnement', hash: '#jibiat-ia' } },
       { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp', component: () => import('../views/admin/WhatsApp.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage', feature: 'whatsapp_bot' } },
