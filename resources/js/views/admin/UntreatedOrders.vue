@@ -123,7 +123,8 @@ const GROUPINGS = [
   { value: 'courier', label: 'Par livreur' },
   { value: 'merchant', label: 'Par e-commerçant' },
 ]
-const props = defineProps({ embedded: Boolean, stage: { type: String, default: 'all' } })
+// age : '' (toutes), 'recent' (hier et avant-hier), 'old' (plus de 2 jours)
+const props = defineProps({ embedded: Boolean, stage: { type: String, default: 'all' }, age: { type: String, default: '' } })
 const route = useRoute()
 const router = useRouter()
 const by = ref(GROUPINGS.some((g) => g.value === route.query.by) ? route.query.by : 'date')
@@ -140,7 +141,7 @@ const courierOf = (o) => o.delivery_courier?.name || o.pickup_courier?.name
 
 async function loadGroups() {
   try {
-    data.value = (await http.get('/orders/untreated-groups', { params: { by: by.value, stage: props.stage } })).data.data
+    data.value = (await http.get('/orders/untreated-groups', { params: { by: by.value, stage: props.stage, age: props.age || undefined } })).data.data
   } catch (e) {
     error.value = apiErrorMessage(e)
   }
@@ -156,7 +157,7 @@ function filtersFor(key) {
 async function load(page = 1) {
   loading.value = true
   try {
-    const params = { queue: props.stage === 'picked' ? 'untreated_picked' : 'untreated', page, per_page: 50, search: search.value || undefined, ...filtersFor(selected.value) }
+    const params = { queue: props.stage === 'picked' ? 'untreated_picked' : 'untreated', page, per_page: 50, search: search.value || undefined, age: props.age || undefined, ...filtersFor(selected.value) }
     const res = (await http.get('/orders', { params })).data
     orders.value = res.data
     meta.value = res.meta
@@ -259,7 +260,7 @@ async function returnMany(list = returnable.value) {
   }, `Retour demandé pour ${list.length} colis.`)
 }
 
-watch(() => props.stage, () => {
+watch(() => [props.stage, props.age], () => {
   selected.value = null
   loadGroups()
   load(1)
