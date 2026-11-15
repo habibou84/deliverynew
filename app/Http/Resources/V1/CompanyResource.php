@@ -3,8 +3,10 @@
 namespace App\Http\Resources\V1;
 
 use App\Models\Company;
+use App\Models\PremiumLevel;
 use App\Models\WhatsAppAccount;
 use App\Services\Platform\Billing;
+use App\Services\Premium\PremiumCards;
 use App\Support\Branding;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -73,6 +75,8 @@ class CompanyResource extends JsonResource
             'status' => $this->status,
             // Formule : modules disponibles (menus et pages de l'application)
             'features' => $this->resource->features(),
+            // Programme Premium : ouvert par la console, ou niveaux déjà créés par l'entreprise (à gérer encore)
+            'premium_program' => app(PremiumCards::class)->settings()['enabled'] || PremiumLevel::forCompany($this->resource->id)->exists(),
             'plan' => $this->whenLoaded('plan', fn () => $this->plan ? ['id' => $this->plan->id, 'name' => $this->plan->name] : null),
             'trial_ends_at' => $this->trial_ends_at?->toDateString(),
             // Facture impayée (bandeau du back-office) : seulement pour qui gère l'abonnement
