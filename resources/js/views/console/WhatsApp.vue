@@ -7,7 +7,7 @@
       </span>
     </div>
 
-    <!-- Connexion officielle (API Cloud de Meta), saisie à la main -->
+    <!-- Connexion officielle (API Cloud de Meta) : en un clic (fenêtre de Meta) ou saisie à la main -->
     <section v-if="state && can('owner')" class="card p-4 space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="font-semibold">Connexion officielle (Meta)</h2>
@@ -22,8 +22,31 @@
         <span v-if="!state.official.webhook_subscribed" class="text-amber-700">Abonnement aux messages reçus à vérifier.</span>
       </p>
       <p v-if="state.official?.error" class="rounded-lg bg-red-50 p-3 text-sm text-red-800">{{ state.official.error }}</p>
+      <p v-if="signupError" class="rounded-lg bg-red-50 p-3 text-sm text-red-800" role="alert">{{ signupError }}</p>
+      <p v-if="tokenExpiry" :class="['rounded-lg p-3 text-sm', tokenExpiry.soon ? 'bg-amber-50 text-amber-800' : 'bg-slate-50 text-slate-700']">
+        Accès Meta valable jusqu'au {{ tokenExpiry.date }} : reconnectez le numéro en un clic avant cette date.
+      </p>
 
-      <form class="grid gap-3 md:grid-cols-2" @submit.prevent="saveOfficial">
+      <!-- Bouton « Connecter WhatsApp » : la fenêtre de Meta s'ouvre sur jibiat.com (seule adresse déclarée chez Facebook) -->
+      <div class="flex flex-wrap items-center gap-3 rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200">
+        <button type="button" class="btn-success" :disabled="busy || signingUp || !state.signup_available" @click="oneClick">
+          {{ signingUp ? 'Ouverture de Facebook…' : (state.official?.live ? 'Reconnecter WhatsApp en un clic' : 'Connecter WhatsApp en un clic') }}
+        </button>
+        <p class="flex-1 text-xs text-emerald-900">
+          <template v-if="state.signup_available">
+            Connectez-vous à Facebook, choisissez le compte WhatsApp Business de Jibiat et son numéro : identifiants, jeton,
+            abonnement aux messages et modèles sont réglés tout seuls.
+          </template>
+          <template v-else>
+            Pas encore disponible : renseignez l'application Meta sur le serveur (WHATSAPP_APP_ID, WHATSAPP_APP_SECRET,
+            WHATSAPP_SIGNUP_CONFIG_ID), ou utilisez la saisie à la main ci-dessous.
+          </template>
+        </p>
+      </div>
+
+      <details :open="!state.signup_available || (!!state.official && state.official.connected_via !== 'embedded_signup')">
+        <summary class="cursor-pointer text-sm font-medium text-slate-700">Saisie à la main (jeton d'un utilisateur système)</summary>
+      <form class="mt-3 grid gap-3 md:grid-cols-2" @submit.prevent="saveOfficial">
         <div>
           <label class="label" for="wa-phone">Numéro WhatsApp</label>
           <input id="wa-phone" v-model="official.display_phone" class="input" inputmode="tel" placeholder="+225 07 00 00 00 00">
@@ -53,6 +76,7 @@
           <li>Paramètres de l'entreprise › Utilisateurs système : créez un jeton sans expiration avec les autorisations whatsapp_business_management et whatsapp_business_messaging.</li>
           <li>Dans l'application Meta, webhook WhatsApp : <code class="break-all">{{ state.webhook_url }}</code> (champ « messages »).</li>
         </ol>
+      </details>
       </details>
 
       <!-- Modèles du numéro officiel : messages que Jibiat envoie en premier -->
@@ -186,7 +210,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { consoleCan } from '../../roles'
 import { useAuthStore } from '../../stores/auth'
@@ -195,7 +219,7 @@ import { dateTime } from '../../utils/format'
 import { confirmDialog } from '../../composables/useDialog'
 
 /**
- * Console › WhatsApp : numéro de Jibiat (connexion officielle de Meta saisie à la main, ou QR code), conversations avec les entreprises et les prospects,
+ * Console › WhatsApp : numéro de Jibiat (connexion officielle de Meta en un clic ou saisie à la main, ou QR code), conversations avec les entreprises et les prospects,
  * réponses depuis la console. Tout se rafraîchit toutes les cinq secondes.
  */
 const toasts = useToastStore()
@@ -235,7 +259,38 @@ const TEMPLATE = {
 }
 const official = reactive({ display_phone: '', phone_number_id: '', waba_id: '', access_token: '' })
 let officialFilled = false
+const signingUp = ref(false)
+const signupError = ref('')
+// Jeton remis par la fenêtre de Meta (60 jours), sauf si l'utilisateur système de Jibiat a pris le relais
+const tokenExpiry = computed(() => {
+  const at = state.value?.official?.token_expires_at
+  if (!at) return null
+  const date = new Date(at)
+  return { date: date.toLocaleDateString('fr-FR'), soon: date - Date.now() < 14 * 86400000 }
+})
 const SENT = { queued: 'en attente', sent: 'envoyé', delivered: 'reçu', read: 'lu', failed: 'échec' }
+
+// Bouton « Connecter WhatsApp » : la page de connexion de jibiat.com s'ouvre dans le même onglet et revient ici
+// avec le résultat dans le fragment de l'adresse (#whatsapp=connecte, ou #whatsapp=erreur&message=…)
+async function oneClick() {
+  signupError.value = ''
+  signingUp.value = true
+  try {
+    const { data } = await http.post('/console/whatsapp/signup-ticket')
+    window.location.assign(data.data.url)
+  } catch (e) {
+    signupError.value = apiErrorMessage(e, 'Connexion à WhatsApp impossible.')
+    signingUp.value = false
+  }
+}
+
+function takeSignupResult() {
+  const params = new URLSearchParams(window.location.hash.slice(1))
+  if (!params.has('whatsapp')) return
+  window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  if (params.get('whatsapp') === 'connecte') toasts.success('WhatsApp de Jibiat connecté : les modèles de messages sont envoyés à Meta pour approbation.')
+  else if (params.get('message')) signupError.value = params.get('message')
+}
 
 async function loadState() {
   state.value = (await http.get('/console/whatsapp')).data.data
@@ -376,6 +431,7 @@ async function tick() {
 }
 
 onMounted(async () => {
+  takeSignupResult()
   await tick()
   timer = setInterval(tick, 5000)
 })

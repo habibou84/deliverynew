@@ -25,7 +25,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Console › WhatsApp : relier le numéro de Jibiat (connexion officielle de Meta saisie à la main, ou QR code), lire les conversations et y répondre ; SMS du mois
+ * Console › WhatsApp : relier le numéro de Jibiat (connexion officielle de Meta en un clic ou saisie à la main, ou QR code), lire les conversations et y répondre ; SMS du mois
  * (payants) et interrupteur du SMS en secours.
  */
 class ConsoleWhatsAppController extends Controller
@@ -259,6 +259,8 @@ class ConsoleWhatsAppController extends Controller
 
         return [
             'available' => WhatsAppBridge::configured(),
+            // Bouton « Connecter WhatsApp » (inscription intégrée de Meta) configuré sur le serveur
+            'signup_available' => WhatsAppConnection::signupAvailable(),
             ...$state,
             // Connexion par QR code (secours de l'officielle)
             'qr_state' => $qr,
@@ -275,6 +277,9 @@ class ConsoleWhatsAppController extends Controller
                 'webhook_subscribed' => $official->webhook_subscribed_at !== null,
                 'error' => $official->last_error,
                 'connected_at' => $official->connected_at,
+                'connected_via' => $official->connected_via,
+                // Jeton de la fenêtre de Meta (60 jours) : à renouveler, sauf si l'utilisateur système de Jibiat a pris le relais
+                'token_expires_at' => $official->platform_token ? null : $official->token_expires_at,
             ] : null,
             // Modèles du numéro officiel : messages que Jibiat envoie en premier (au-delà des 24 heures)
             'templates' => $this->templates($official),

@@ -145,6 +145,60 @@ class WhatsAppConnection
     }
 
     /**
+     * Fin de l'inscription intégrée de Meta pour le numéro de Jibiat (console) : même branchement que pour une
+     * entreprise (jeton, activation, vérification, abonnement), puis les modèles de la plateforme sont soumis.
+     * Remplace la saisie à la main des identifiants et du jeton d'un utilisateur système.
+     */
+    public function completePlatformSignup(string $code, ?string $phoneNumberId, ?string $wabaId, ?string $redirectUri = null): WhatsAppAccount
+    {
+        if (! self::signupAvailable()) {
+            throw new MessagingException('Le bouton « Connecter WhatsApp » n\'est pas encore configuré sur ce serveur.');
+        }
+
+        $token = $this->exchangeCode($code, $redirectUri);
+        $account = WhatsAppAccount::platform()
+            ?? new WhatsAppAccount(['owner_type' => WhatsAppAccount::PLATFORM, 'company_id' => null]);
+        [$wabaId, $phoneNumberId] = $this->chosenNumber($token, $wabaId, $phoneNumberId, $account->phone_number_id);
+        // Nouveau numéro : nouveau code PIN d'activation
+        if ($account->phone_number_id !== $phoneNumberId || blank($account->registration_pin)) {
+            $account->registration_pin = (string) random_int(100000, 999999);
+        }
+        $account->fill([
+            'provider' => 'meta_cloud',
+            'phone_number_id' => $phoneNumberId,
+            'waba_id' => $wabaId,
+            'status' => 'pending',
+            'last_error' => null,
+            'connected_via' => 'embedded_signup',
+            'token_expires_at' => $this->tokenExpiry($token),
+            'token_warned_at' => null,
+            'platform_token' => false,
+        ]);
+        $account->access_token = $token;
+        $account->save();
+
+        // Jeton limité dans le temps : l'utilisateur système de Jibiat prend le relais s'il le peut
+        $this->adoptWithPlatform($account);
+
+        $registration = $this->register($account);
+        $this->connect($account);
+        if ($account->status !== 'connected') {
+            return $account;
+        }
+        if ($registration !== null) {
+            $account->forceFill(['last_error' => 'Numéro connecté, mais son activation a échoué : '.$registration])->save();
+        }
+
+        try {
+            $this->submitPlatformTemplates($account);
+        } catch (MessagingException) {
+            // Les modèles pourront être soumis avec le bouton de la console
+        }
+
+        return $account;
+    }
+
+    /**
      * Vérifie le numéro auprès de Meta et met à jour son état ; renvoie le compte.
      */
     public function connect(WhatsAppAccount $account): WhatsAppAccount
