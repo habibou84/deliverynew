@@ -71,6 +71,27 @@ class WhatsAppSignupController extends Controller
     }
 
     /**
+     * Console › WhatsApp (Propriétaire) : relier le numéro de Jibiat en un clic, sans recopier d'identifiants ni de
+     * jeton. La console est sur une autre adresse que celle déclarée chez Meta : même page, même ticket.
+     */
+    public function platformTicket(Request $request): JsonResponse
+    {
+        abort_unless(WhatsAppConnection::signupAvailable(), 422, 'Le bouton « Connecter WhatsApp » n\'est pas encore configuré sur ce serveur : renseignez l\'application Meta (WHATSAPP_APP_ID, WHATSAPP_APP_SECRET, WHATSAPP_SIGNUP_CONFIG_ID).');
+        $user = $request->user();
+        abort_unless($user->company_id === null && $user->isSuperAdmin(), 403);
+
+        $ticket = Crypt::encryptString(json_encode([
+            'platform' => true,
+            'user' => $user->id,
+            'origin' => $request->getSchemeAndHttpHost(),
+            'return' => '/console/whatsapp',
+            'expires' => now()->addMinutes(self::TICKET_MINUTES)->timestamp,
+        ]));
+
+        return response()->json(['data' => ['url' => Tenancy::platformUrl().'/connecter-whatsapp#'.$ticket]]);
+    }
+
+    /**
      * Page de la plateforme : entreprise concernée et identifiants publics de l'application Meta.
      */
     public function session(Request $request): JsonResponse
@@ -78,11 +99,13 @@ class WhatsAppSignupController extends Controller
         [$company, , $origin, $merchant, $return] = $this->resolve($request);
 
         return response()->json(['data' => [
-            'company' => $merchant?->business_name ?? $company->name,
+            'company' => $merchant?->business_name ?? $company?->name ?? config('app.name'),
             'origin' => $origin,
             'return' => $return,
             // E-commerçant : numéro spécial live (sans compte WhatsApp), activé pour les commandes du live
             'merchant' => $merchant !== null,
+            // Numéro de Jibiat, relié depuis la console
+            'platform' => $company === null,
             'embedded_signup' => [
                 'app_id' => config('messaging.whatsapp.app_id'),
                 'config_id' => config('messaging.whatsapp.signup_config_id'),
@@ -109,9 +132,11 @@ class WhatsAppSignupController extends Controller
         ]);
 
         try {
-            $account = $merchant !== null
-                ? $this->connection->completeMerchantSignup($merchant, $data['code'], $data['phone_number_id'] ?? null, $data['waba_id'] ?? null, $data['redirect_uri'] ?? null)
-                : $this->connection->completeSignup($company, $data['code'], $data['phone_number_id'] ?? null, $data['waba_id'] ?? null, $data['redirect_uri'] ?? null);
+            $account = match (true) {
+                $company === null => $this->connection->completePlatformSignup($data['code'], $data['phone_number_id'] ?? null, $data['waba_id'] ?? null, $data['redirect_uri'] ?? null),
+                $merchant !== null => $this->connection->completeMerchantSignup($merchant, $data['code'], $data['phone_number_id'] ?? null, $data['waba_id'] ?? null, $data['redirect_uri'] ?? null),
+                default => $this->connection->completeSignup($company, $data['code'], $data['phone_number_id'] ?? null, $data['waba_id'] ?? null, $data['redirect_uri'] ?? null),
+            };
         } catch (MessagingException $e) {
             abort(422, $e->getMessage());
         }
@@ -127,9 +152,10 @@ class WhatsAppSignupController extends Controller
 
     /**
      * Ticket valide, non expiré, d'un utilisateur toujours autorisé à régler l'entreprise (ou, pour un
-     * e-commerçant, à gérer sa boutique).
+     * e-commerçant, à gérer sa boutique ; pour le numéro de Jibiat, Propriétaire de la console). Numéro de Jibiat :
+     * pas d'entreprise (null).
      *
-     * @return array{0: Company, 1: User, 2: string, 3: ?Merchant, 4: string}
+     * @return array{0: ?Company, 1: User, 2: string, 3: ?Merchant, 4: string}
      */
     private function resolve(Request $request): array
     {
@@ -145,6 +171,17 @@ class WhatsAppSignupController extends Controller
         abort_if(($ticket['expires'] ?? 0) < now()->timestamp, 403, 'Lien de connexion expiré : recommencez depuis la page WhatsApp de votre espace.');
 
         $user = User::query()->find($ticket['user'] ?? null);
+
+        if (($ticket['platform'] ?? false) === true) {
+            abort_if(
+                $user === null || $user->company_id !== null || ! $user->isActive() || ! $user->isSuperAdmin(),
+                403,
+                'Vous n\'avez plus accès aux réglages WhatsApp de la console.',
+            );
+
+            return [null, $user, (string) ($ticket['origin'] ?? ''), null, (string) ($ticket['return'] ?? '/console/whatsapp')];
+        }
+
         $company = Company::query()->find($ticket['company'] ?? null);
 
         if (isset($ticket['merchant'])) {

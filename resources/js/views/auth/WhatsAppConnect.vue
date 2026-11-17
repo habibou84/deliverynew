@@ -28,8 +28,8 @@
         <p class="font-semibold text-slate-900">WhatsApp est connecté</p>
         <p class="text-sm text-slate-600">{{ result.verified_name }} · {{ result.display_phone }}</p>
         <p v-if="result.warning" class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ result.warning }}</p>
-        <p class="text-sm text-slate-600">{{ session.merchant ? 'Les commandes de vos lives arriveront sur ce numéro. Retour au live…' : 'Les modèles de messages sont envoyés à Meta pour approbation. Retour à votre espace…' }}</p>
-        <button type="button" class="btn-success w-full py-3" @click="goBack({ whatsapp: 'connecte' })">Revenir à mon espace</button>
+        <p class="text-sm text-slate-600">{{ session.merchant ? 'Les commandes de vos lives arriveront sur ce numéro. Retour au live…' : (session.platform ? 'Les modèles de messages sont envoyés à Meta pour approbation. Retour à la console…' : 'Les modèles de messages sont envoyés à Meta pour approbation. Retour à votre espace…') }}</p>
+        <button type="button" class="btn-success w-full py-3" @click="goBack({ whatsapp: 'connecte' })">{{ session.platform ? 'Revenir à la console' : 'Revenir à mon espace' }}</button>
       </div>
 
       <!-- Avant la fenêtre de Meta -->
@@ -54,7 +54,7 @@
 
       <div v-else-if="session && !finishing" class="space-y-4">
         <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
-          <li>Une fenêtre Facebook s'ouvre : connectez-vous avec votre compte.</li>
+          <li>Une fenêtre Facebook s'ouvre : connectez-vous avec {{ session.platform ? 'le compte qui gère Jibiat' : 'votre compte' }}.</li>
           <li>Choisissez ou créez votre entreprise et son compte WhatsApp Business.</li>
           <li>Ajoutez le numéro de l'entreprise et saisissez le code reçu par SMS.</li>
         </ol>
@@ -66,7 +66,7 @@
         <button type="button" class="btn-success w-full py-3" :disabled="working" @click="start">
           {{ working ? 'Fenêtre Facebook ouverte…' : (error ? 'Recommencer avec Facebook' : 'Continuer avec Facebook') }}
         </button>
-        <button type="button" class="btn-secondary w-full" :disabled="working" @click="cancel">Revenir à mon espace</button>
+        <button type="button" class="btn-secondary w-full" :disabled="working" @click="cancel">{{ session.platform ? 'Revenir à la console' : 'Revenir à mon espace' }}</button>
       </div>
 
       <p v-else-if="!error && !finishing" class="text-center text-sm text-slate-600">Chargement…</p>

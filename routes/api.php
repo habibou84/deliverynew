@@ -324,6 +324,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', 'show')->name('show');
             Route::post('connect', 'connect')->middleware([$owner, 'throttle:20,1'])->name('connect');
             Route::delete('connect', 'disconnect')->middleware($owner)->name('disconnect');
+            // Bouton « Connecter WhatsApp » : inscription intégrée de Meta, en un clic
+            Route::post('signup-ticket', [WhatsAppSignupController::class, 'platformTicket'])->middleware([$owner, 'throttle:10,1'])->name('signup-ticket');
             Route::put('official', 'official')->middleware([$owner, 'throttle:20,1'])->name('official');
             Route::post('official/verify', 'verifyOfficial')->middleware([$owner, 'throttle:20,1'])->name('official.verify');
             Route::delete('official', 'removeOfficial')->middleware($owner)->name('official.remove');
