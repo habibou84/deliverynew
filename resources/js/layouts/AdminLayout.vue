@@ -274,6 +274,14 @@ let inboxTimer
 // Conversation ouverte ou réponse envoyée depuis Messages › Reçus
 window.addEventListener('inbox-changed', fetchInbox)
 
+// Colis à rendre aux e-commerçants : badge du menu « Retours marchands », rafraîchi avec la messagerie
+const returnsCount = ref(0)
+async function fetchReturns() {
+  if (!auth.can('orders.dispatch')) return
+  returnsCount.value = (await http.get('/return-slips/count').catch(() => null))?.data?.data?.to_return ?? returnsCount.value
+}
+window.addEventListener('returns-changed', fetchReturns)
+
 const supportActive = ref(null)
 async function loadSupport() {
   if (!auth.can('settings.manage') || !auth.user?.company_id || auth.user?.support_session) return
@@ -302,7 +310,12 @@ onMounted(() => {
   loadSetup()
   loadSupport()
   fetchInbox()
-  inboxTimer = setInterval(() => screenVisible() && fetchInbox(), 60000)
+  fetchReturns()
+  inboxTimer = setInterval(() => {
+    if (!screenVisible()) return
+    fetchInbox()
+    fetchReturns()
+  }, 60000)
   if (!isDispatch.value) return
   fetchCounts()
   countsTimer = setInterval(() => screenVisible() && fetchCounts(), 60000)
@@ -311,6 +324,7 @@ onBeforeUnmount(() => {
   clearInterval(countsTimer)
   clearInterval(inboxTimer)
   window.removeEventListener('inbox-changed', fetchInbox)
+  window.removeEventListener('returns-changed', fetchReturns)
 })
 
 // Menu en rubriques ; une entrée sans droit ni module disparaît, une rubrique vide aussi
@@ -326,7 +340,7 @@ const menu = computed(() => {
         { to: '/admin/courses/en-retard', icon: 'retard', label: 'Courses en retard', permission: 'orders.dispatch', badge: dispatchCounts.counts.exceptions?.untreated || 0 },
         // Carte, disponibles, colis en main, remontées terrain et planning : onglets de cette page
         { to: '/admin/activite', icon: 'activite', label: 'Activité des livreurs', permission: 'orders.dispatch', prefix: true, badge: fieldReports.open.total + heldParcels.counts.overdue },
-        { to: '/admin/retours', icon: 'retour', label: 'Retours marchands', permission: 'orders.dispatch' },
+        { to: '/admin/retours', icon: 'retour', label: 'Retours marchands', permission: 'orders.dispatch', badge: returnsCount.value },
       ],
     },
     {

@@ -72,7 +72,11 @@ class ReturnSlipTest extends TestCase
 
         Sanctum::actingAs($this->dispatcher);
         $index = $this->getJson('/api/v1/return-slips')->assertOk();
-        $index->assertJsonPath('candidates.0.merchant.id', $this->merchant->id)->assertJsonCount(3, 'candidates.0.orders');
+        // Résumé par marchand, puis ses colis à la demande ; compteur du menu
+        $index->assertJsonPath('candidates.0.merchant.id', $this->merchant->id)->assertJsonPath('candidates.0.total', 3)
+            ->assertJsonPath('candidates.0.held', 1)->assertJsonPath('candidates_total', 3);
+        $this->getJson("/api/v1/return-slips/candidates?merchant_id={$this->merchant->id}")->assertOk()->assertJsonCount(3, 'data');
+        $this->getJson('/api/v1/return-slips/count')->assertOk()->assertJsonPath('data.to_return', 3);
 
         // Colis encore chez B : impossible de le confier à A
         $this->postJson('/api/v1/return-slips', [

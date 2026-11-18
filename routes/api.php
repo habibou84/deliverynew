@@ -446,6 +446,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('{purge}/undo', 'undo')->middleware('throttle:10,1')->name('undo');
             Route::get('on-the-way', 'onTheWay')->name('on-the-way');
             Route::post('on-the-way', 'resolve')->middleware('throttle:30,1')->name('resolve');
+            // Vieux colis de la reprise « à rendre » : clos comme retournés (annulable 7 jours)
+            Route::get('returns', 'returns')->name('returns');
+            Route::post('returns', 'closeReturns')->middleware('throttle:10,1')->name('returns.close');
         });
         // Recomparaison complète avec l'ancienne application : modifiées, supprimées (annulées ou à vérifier)
         Route::prefix('company/legacy-recheck')->name('company.legacy-recheck.')->middleware('can:settings.manage')->controller(LegacyRecheckController::class)->group(function () {
@@ -622,6 +625,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Bons de retour groupés par marchand (droits vérifiés dans le contrôleur)
         Route::get('return-slips', [ReturnSlipController::class, 'index'])->name('return-slips.index');
+        Route::get('return-slips/candidates', [ReturnSlipController::class, 'candidates'])->name('return-slips.candidates');
+        Route::get('return-slips/count', [ReturnSlipController::class, 'count'])->name('return-slips.count');
         Route::post('return-slips', [ReturnSlipController::class, 'store'])->name('return-slips.store');
         Route::get('return-slips/{returnSlip}', [ReturnSlipController::class, 'show'])->name('return-slips.show');
         Route::post('return-slips/{returnSlip}/hand-over', [ReturnSlipController::class, 'handOver'])->middleware('throttle:30,1')->name('return-slips.hand-over');
