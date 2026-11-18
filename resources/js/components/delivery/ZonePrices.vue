@@ -1,30 +1,28 @@
 <template>
-  <!-- Zones et prix : une ligne par lieu, « on livre ici » et son prix de livraison -->
+  <!-- Zones et prix : un seul tableau. Par zone : on ramasse ici, on livre ici, son prix « depuis partout », puis le prix
+       de chaque trajet vers les zones où l'on livre -->
   <section class="space-y-3">
     <div class="flex flex-wrap items-center gap-2">
       <input v-model="query" type="search" class="input w-full sm:w-64" placeholder="Chercher une commune ou un quartier" aria-label="Chercher un lieu">
-      <div class="flex flex-wrap gap-2" role="group" aria-label="Filtrer les lieux">
-        <button
-          v-for="f in FILTERS" :key="f.value" type="button" :aria-pressed="filter === f.value"
-          :class="['min-h-10 rounded-full px-3.5 text-sm font-semibold ring-1', filter === f.value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white text-slate-900 ring-slate-300']"
-          @click="filter = f.value"
-        >
-          {{ f.label }}<template v-if="f.value === 'missing' && missingCount"> · {{ missingCount }}</template>
-        </button>
-      </div>
+      <label class="flex items-center gap-2 text-sm"><input v-model="showNeighborhoods" type="checkbox"> Afficher les quartiers</label>
       <span class="flex-1" />
       <button type="button" class="btn-secondary" @click="adding = !adding">+ Ajouter un lieu</button>
     </div>
 
-    <p class="text-sm text-slate-600">
-      Cochez les communes où vous livrez et donnez-leur un prix : c'est le prix d'une livraison vers ce lieu, d'où que parte le colis.
-      Un quartier sans prix prend celui de sa commune ; donnez-lui le sien s'il est plus loin.
-      « On ramasse ici » : décochez les lieux où vous ne passez pas récupérer les colis ; ils ne sont plus proposés comme adresse de ramassage.
-      <template v-if="!isDefault"> Laissé vide, le prix est celui de la grille normale.</template>
-    </p>
+    <div class="space-y-1 text-sm text-slate-600">
+      <p>
+        Cochez où vous <b>ramassez</b> et où vous <b>livrez</b>. La colonne <b>« Partout »</b> est le prix d'une livraison vers la zone de la ligne,
+        d'où que parte le colis. Les colonnes suivantes : le prix d'un trajet précis, depuis la zone de la ligne (départ) vers celle de la
+        colonne (arrivée). Il passe avant « Partout ». Case vide = le prix « Partout » de l'arrivée.
+      </p>
+      <p>
+        Une case grisée reprend le prix du sens inverse. Un quartier sans prix prend celui de sa commune.
+        <template v-if="!isDefault"> Laissé vide, le prix est celui de la grille normale.</template>
+      </p>
+    </div>
     <p v-if="isDefault && missingCount" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-      {{ missingCount }} commune{{ missingCount > 1 ? 's' : '' }} livrée{{ missingCount > 1 ? 's' : '' }} sans prix : une course vers {{ missingCount > 1 ? 'elles' : 'elle' }} ne peut pas être chiffrée.
-      <button type="button" class="font-semibold underline" @click="filter = 'missing'">Les voir</button>
+      {{ missingCount }} commune{{ missingCount > 1 ? 's' : '' }} livrée{{ missingCount > 1 ? 's' : '' }} sans prix « Partout » ({{ missingNames }}) :
+      une course vers {{ missingCount > 1 ? 'elles' : 'elle' }} ne peut pas être chiffrée, sauf trajet précis.
     </p>
 
     <!-- Ajouter un lieu absent de la liste, ou une zone d'expédition -->
@@ -42,7 +40,7 @@
           />
         </div>
         <div class="w-36">
-          <label class="label" for="zp-price">Prix (F)</label>
+          <label class="label" for="zp-price">Prix « Partout » (F)</label>
           <input id="zp-price" v-model.number="draft.price" type="number" min="0" class="input" placeholder="Ex. : 1500">
         </div>
         <button class="btn-primary" :disabled="draft.saving">Ajouter</button>
@@ -60,22 +58,60 @@
     <p v-else-if="loadError" class="field-error">{{ loadError }}</p>
 
     <template v-else>
-      <!-- Communes et quartiers -->
-      <div class="card divide-y overflow-hidden">
-        <div class="hidden grid-cols-[1fr_8rem_15rem] gap-3 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 sm:grid">
-          <span>Lieu · on livre ici ?</span><span>On ramasse ici ?</span><span>Prix de livraison</span>
-        </div>
-        <template v-for="c in visibleCommunes" :key="c.id">
-          <ZonePriceRow :zone="c" :saving="busy[c.id]" :is-default="isDefault" :children-count="childrenOf(c.id).length" :open="opened.has(c.id) || !!q"
-            @toggle="toggleActive(c)" @pickup="togglePickup(c)" @price="(v) => setPrice(c, v)" @expand="expand(c.id)" @rename="rename(c)" @remove="remove(c)"
-          />
-          <template v-if="opened.has(c.id) || q">
-            <ZonePriceRow v-for="n in visibleChildren(c)" :key="n.id" :zone="n" :saving="busy[n.id]" :is-default="isDefault" :parent-price="c.price" :parent-pickup="c.is_pickup"
-              @toggle="toggleActive(n)" @pickup="togglePickup(n)" @price="(v) => setPrice(n, v)" @rename="rename(n)" @remove="remove(n)"
-            />
-          </template>
-        </template>
-        <p v-if="!visibleCommunes.length" class="p-6 text-center text-sm text-slate-600">Aucun lieu ne correspond.</p>
+      <div class="card max-h-[70vh] overflow-auto">
+        <table class="border-collapse text-sm">
+          <thead class="sticky top-0 z-20 bg-slate-100 text-xs font-semibold text-slate-700">
+            <tr>
+              <th class="sticky left-0 z-30 min-w-44 bg-slate-100 p-2 text-left">Zone (départ ↓ · arrivée →)</th>
+              <th class="p-2 text-center">On ramasse ici</th>
+              <th class="p-2 text-center">On livre ici</th>
+              <th class="border-l-2 border-slate-300 bg-emerald-50 p-2 text-center text-emerald-900">Partout</th>
+              <th v-for="col in columns" :key="col.id" class="whitespace-nowrap p-2 font-medium">{{ col.name }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="z in rows" :key="z.id" :class="z.is_active ? '' : 'bg-slate-50'">
+              <th :class="['sticky left-0 z-10 whitespace-nowrap border-t bg-white p-2 text-left font-medium', z.parent_id ? 'pl-6 font-normal' : '']">
+                <span :class="z.is_active || z.is_pickup ? '' : 'text-slate-600'">{{ z.parent_id ? '↳ ' : '' }}{{ z.name }}</span>
+                <span v-if="!z.place" class="ml-1 rounded-full bg-amber-50 px-1.5 text-xs font-normal text-amber-800 ring-1 ring-amber-200">ajouté</span>
+                <template v-if="!z.place">
+                  <button type="button" class="ml-2 text-xs font-normal text-blue-700" @click="rename(z)">Renommer</button>
+                  <button type="button" class="ml-2 text-xs font-normal text-red-700" @click="remove(z)">Supprimer</button>
+                </template>
+              </th>
+              <td class="border-t p-2 text-center">
+                <input type="checkbox" class="h-5 w-5" :checked="pickupOn(z)" :disabled="busy[z.id] || parentPickupOff(z)" :title="parentPickupOff(z) ? 'Pas de ramassage dans la commune' : ''" :aria-label="`On ramasse ici : ${z.name}`" @change="togglePickup(z)">
+              </td>
+              <td class="border-t p-2 text-center">
+                <input type="checkbox" class="h-5 w-5" :checked="z.is_active" :disabled="busy[z.id]" :aria-label="`On livre ici : ${z.name}`" @change="toggleActive(z)">
+              </td>
+              <td class="border-l-2 border-t border-slate-300 bg-emerald-50/50 p-1">
+                <input
+                  :value="ownPrice(z) ?? ''" :placeholder="partoutPlaceholder(z)" inputmode="numeric" :disabled="!z.is_active"
+                  :class="['w-20 rounded border px-1 py-1 text-right tabular-nums', missing(z) ? 'border-amber-500' : 'border-slate-300']"
+                  :aria-label="`Prix partout vers ${z.name}`" @change="setOwnPrice(z, $event.target.value)"
+                >
+              </td>
+              <td v-for="col in columns" :key="col.id" class="border-t p-0.5">
+                <input
+                  :value="cell(z.id, col.id) ?? ''" :placeholder="mirror(z.id, col.id) ?? ''" inputmode="numeric"
+                  :class="['w-16 rounded px-1 py-1 text-right tabular-nums', mirror(z.id, col.id) !== null && cell(z.id, col.id) === null ? 'bg-slate-100' : '']"
+                  :aria-label="`${z.name} vers ${col.name}`" @change="setCell(z.id, col.id, $event.target.value)"
+                >
+              </td>
+            </tr>
+            <tr v-if="!rows.length"><td :colspan="4 + columns.length" class="p-6 text-center text-slate-600">Aucun lieu ne correspond.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Enregistrer : les prix saisis dans le tableau (les cases à cocher s'enregistrent tout de suite) -->
+      <div class="sticky bottom-0 z-30 flex flex-wrap items-center gap-3 rounded-xl border bg-white p-3 shadow-lg">
+        <span class="flex-1 text-sm" :class="changes ? 'font-semibold text-amber-800' : 'text-slate-600'">
+          {{ changes ? `${changes} prix modifié${changes > 1 ? 's' : ''}, pas encore enregistré${changes > 1 ? 's' : ''}` : 'Les cases à cocher s\'enregistrent tout de suite ; les prix avec ce bouton.' }}
+        </span>
+        <button v-if="changes" type="button" class="btn-secondary" :disabled="saving" @click="load">Annuler</button>
+        <button type="button" class="btn-primary" :disabled="!changes || saving" @click="save">{{ saving ? 'Enregistrement…' : 'Enregistrer les prix' }}</button>
       </div>
 
       <!-- Zones d'expédition -->
@@ -84,7 +120,7 @@
         <p class="text-sm text-slate-600">Le prix est celui de la course jusqu'à la gare ; les frais du transporteur, payés par le livreur, sont facturés au marchand.</p>
         <div class="card divide-y overflow-hidden">
           <div v-for="z in shipping" :key="z.id" class="flex flex-wrap items-center gap-3 px-4 py-3">
-            <button type="button" role="switch" :aria-checked="z.is_active" :aria-label="`On livre ici : ${z.name}`" :class="switchClass(z.is_active)" @click="toggleActive(z)"><span :class="knobClass(z.is_active)" /></button>
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5" :checked="z.is_active" :aria-label="`On livre ici : ${z.name}`" @change="toggleActive(z)"> On livre ici</label>
             <span :class="['min-w-40 flex-1 font-medium', z.is_active ? '' : 'text-slate-600 line-through']">{{ z.name }}</span>
             <label class="flex items-center gap-2 text-xs text-slate-600">
               Frais habituels du transporteur
@@ -92,7 +128,7 @@
             </label>
             <label class="flex items-center gap-2 text-xs text-slate-600">
               Prix de la course
-              <input :value="z.price" type="number" min="0" class="input w-28 py-1" :placeholder="isDefault ? 'Pas de prix' : 'grille normale'" :aria-label="`Prix : ${z.name}`" @change="setPrice(z, $event.target.value)">
+              <input :value="ownPrice(z) ?? ''" type="number" min="0" class="input w-28 py-1" :placeholder="isDefault ? 'Pas de prix' : 'grille normale'" :aria-label="`Prix : ${z.name}`" @change="setOwnPrice(z, $event.target.value)">
             </label>
             <button type="button" class="text-xs text-blue-700" @click="rename(z)">Renommer</button>
             <button type="button" class="text-xs text-red-700" @click="remove(z)">Supprimer</button>
@@ -104,72 +140,104 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { confirmDialog, promptDialog } from '../../composables/useDialog'
-import { money } from '../../utils/format'
 import SearchSelect from '../SearchSelect.vue'
-import ZonePriceRow from './ZonePriceRow.vue'
 
 /**
- * Zones et prix : chaque lieu sur une ligne, avec son interrupteur « on livre ici » et son prix de livraison
- * (enregistré dès la saisie). Le prix range le lieu dans le groupe « depuis partout » de ce prix.
+ * Zones et prix : un seul tableau. Lignes : les zones (départ), avec « on ramasse ici » et « on livre ici » (enregistrés
+ * tout de suite) et le prix « Partout » (vers cette zone, d'où que parte le colis). Colonnes : les zones où l'on livre
+ * (arrivée) ; chaque case est le prix d'un trajet précis, qui passe avant « Partout ». Les prix s'enregistrent ensemble.
  */
 const props = defineProps({ gridId: { type: Number, required: true }, isDefault: { type: Boolean, default: true } })
 
-const FILTERS = [
-  { value: 'all', label: 'Tous' },
-  { value: 'active', label: 'Livrés' },
-  { value: 'hidden', label: 'Masqués' },
-  { value: 'missing', label: 'Sans prix' },
-  { value: 'nopickup', label: 'Sans ramassage' },
-]
-
 const toasts = useToastStore()
 const zones = ref([])
+const rules = ref({}) // "départ-arrivée" -> prix enregistré
+const prices = ref({}) // "départ-arrivée" -> prix affiché (modifiable)
+const own = ref({}) // zone -> prix « Partout » affiché (modifiable) ; null : pas de prix propre
 const loading = ref(true)
 const loadError = ref('')
 const query = ref('')
-const filter = ref('all')
-const opened = ref(new Set())
+const showNeighborhoods = ref(false)
 const busy = reactive({})
+const saving = ref(false)
 const adding = ref(false)
 const draft = reactive({ name: '', parent_id: null, is_shipping: false, price: null, error: '', saving: false })
+const leaveWarning = 'Des prix modifiés ne sont pas enregistrés. Quitter quand même ?'
 
 const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-const q = computed(() => norm(query.value.trim()))
+const key = (a, b) => `${a}-${b}`
+const byId = computed(() => Object.fromEntries(zones.value.map((z) => [z.id, z])))
 const communes = computed(() => zones.value.filter((z) => !z.parent_id && !z.is_shipping))
 const shipping = computed(() => zones.value.filter((z) => z.is_shipping))
-const childrenOf = (id) => zones.value.filter((z) => z.parent_id === id)
-const missing = (z) => z.is_active && z.price === null && (z.parent_id === null || zones.value.find((p) => p.id === z.parent_id)?.price == null)
-const missingCount = computed(() => communes.value.filter((c) => c.is_active && c.price === null).length)
+const used = computed(() => new Set(Object.keys(prices.value).flatMap((k) => k.split('-').map(Number))))
+// Lignes : les communes (et les quartiers à la demande, ou ceux qui ont un prix ou un trajet)
+const rows = computed(() => {
+  const q = norm(query.value.trim())
+  return zones.value.filter((z) => !z.is_shipping
+    && (!z.parent_id || showNeighborhoods.value || q || own.value[z.id] != null || used.value.has(z.id))
+    && (!q || norm(z.name).includes(q) || norm(byId.value[z.parent_id]?.name).includes(q)))
+})
+// Colonnes : les lieux où l'on livre (et ceux qui ont déjà un trajet)
+const columns = computed(() => zones.value.filter((z) => (z.is_active || used.value.has(z.id))
+  && (!z.parent_id || showNeighborhoods.value || used.value.has(z.id))))
 
-function matches(z) {
-  if (filter.value === 'active' && !z.is_active) return false
-  if (filter.value === 'hidden' && z.is_active) return false
-  if (filter.value === 'missing' && !missing(z)) return false
-  if (filter.value === 'nopickup' && (!z.is_active || (z.is_pickup && zones.value.find((p) => p.id === z.parent_id)?.is_pickup !== false))) return false
-  return !q.value || norm(z.name).includes(q.value)
-}
-function visibleChildren(c) {
-  return childrenOf(c.id).filter((n) => (!q.value && filter.value === 'all') || matches(n))
-}
-const visibleCommunes = computed(() => communes.value.filter((c) => matches(c) || ((q.value || filter.value !== 'all') && childrenOf(c.id).some(matches))))
-
-function expand(id) {
-  const next = new Set(opened.value)
-  if (next.has(id)) next.delete(id)
-  else next.add(id)
-  opened.value = next
+const ownPrice = (z) => own.value[z.id] ?? null
+const cell = (a, b) => prices.value[key(a, b)] ?? null
+const mirror = (a, b) => (a === b ? null : prices.value[key(b, a)] ?? null)
+const parentPickupOff = (z) => z.parent_id !== null && byId.value[z.parent_id]?.is_pickup === false
+const pickupOn = (z) => z.is_pickup && !parentPickupOff(z)
+const missing = (z) => props.isDefault && z.is_active && !z.parent_id && ownPrice(z) === null
+const missingList = computed(() => communes.value.filter(missing))
+const missingCount = computed(() => missingList.value.length)
+const missingNames = computed(() => missingList.value.slice(0, 4).map((z) => z.name).join(', ') + (missingCount.value > 4 ? '…' : ''))
+function partoutPlaceholder(z) {
+  const parent = z.parent_id ? ownPrice(byId.value[z.parent_id] || {}) : null
+  if (parent !== null) return String(parent)
+  return props.isDefault ? '—' : 'normale'
 }
 
-const switchClass = (on) => ['relative h-7 w-12 shrink-0 rounded-full', on ? 'bg-emerald-700' : 'bg-slate-400']
-const knobClass = (on) => ['absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white transition-all', on ? 'left-[23px]' : 'left-[3px]']
+// Changements de prix pas encore enregistrés
+const ownChanges = computed(() => zones.value.filter((z) => (own.value[z.id] ?? null) !== (z.price ?? null)))
+const ruleChanges = computed(() => {
+  const keys = new Set([...Object.keys(rules.value), ...Object.keys(prices.value)])
+  return [...keys].filter((k) => (rules.value[k] ?? null) !== (prices.value[k] ?? null)).length
+})
+const changes = computed(() => ownChanges.value.length + ruleChanges.value)
+
+function parse(raw) {
+  if (raw === '' || raw === null) return null
+  const n = Number(String(raw).replace(/\s/g, ''))
+  return Number.isNaN(n) || n < 0 ? undefined : Math.round(n)
+}
+function setOwnPrice(z, raw) {
+  const v = parse(raw)
+  if (v !== undefined) own.value = { ...own.value, [z.id]: v }
+}
+function setCell(a, b, raw) {
+  const v = parse(raw)
+  if (v === undefined) return
+  const next = { ...prices.value }
+  if (v === null) delete next[key(a, b)]
+  else next[key(a, b)] = v
+  prices.value = next
+}
 
 async function load() {
+  loading.value = zones.value.length === 0
   try {
-    zones.value = (await http.get(`/pricing-grids/${props.gridId}/zone-prices`)).data.data.zones
+    const [zp, grid] = await Promise.all([
+      http.get(`/pricing-grids/${props.gridId}/zone-prices`),
+      http.get(`/pricing-grids/${props.gridId}`),
+    ])
+    zones.value = zp.data.data.zones
+    own.value = Object.fromEntries(zones.value.map((z) => [z.id, z.price ?? null]))
+    rules.value = Object.fromEntries(grid.data.data.rules.map((r) => [key(r.origin_zone_id, r.destination_zone_id), r.price]))
+    prices.value = { ...rules.value }
     loadError.value = ''
   } catch (e) {
     loadError.value = apiErrorMessage(e)
@@ -178,21 +246,26 @@ async function load() {
   }
 }
 
-async function setPrice(zone, raw) {
-  const price = raw === '' || raw === null ? null : Number(raw)
-  if (price !== null && (Number.isNaN(price) || price < 0)) return
-  if (price === zone.price) return
-  busy[zone.id] = true
+async function save() {
+  saving.value = true
   try {
-    const { data } = await http.put(`/pricing-grids/${props.gridId}/zone-prices/${zone.id}`, { price })
-    zone.price = data.data.price
-    // Les quartiers de cette commune affichent le nouveau prix repris
-    childrenOf(zone.id).forEach((n) => { n.inherited_price = zone.price })
-    toasts.success(price === null ? `${zone.name} : prix retiré.` : `${zone.name} : ${money(price)}.`)
+    for (const z of ownChanges.value) {
+      await http.put(`/pricing-grids/${props.gridId}/zone-prices/${z.id}`, { price: own.value[z.id] ?? null })
+    }
+    if (ruleChanges.value) {
+      // Un trajet est symétrique si le sens inverse n'a pas de prix propre
+      const list = Object.entries(prices.value).map(([k, price]) => {
+        const [o, d] = k.split('-').map(Number)
+        return { origin_zone_id: o, destination_zone_id: d, price, is_symmetric: prices.value[key(d, o)] === undefined }
+      })
+      await http.put(`/pricing-grids/${props.gridId}/rules`, { rules: list })
+    }
+    toasts.success('Prix enregistrés.')
+    await load()
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
-    busy[zone.id] = false
+    saving.value = false
   }
 }
 
@@ -214,7 +287,6 @@ async function togglePickup(zone) {
   try {
     await http.patch(`/zones/${zone.id}`, { is_pickup: !zone.is_pickup })
     zone.is_pickup = !zone.is_pickup
-    toasts.success(zone.is_pickup ? `Ramassage à ${zone.name}.` : `Plus de ramassage à ${zone.name}${childrenOf(zone.id).length ? ' ni dans ses quartiers' : ''}.`)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -248,7 +320,7 @@ async function remove(zone) {
   try {
     await http.delete(`/zones/${zone.id}`)
     toasts.success('Lieu supprimé.')
-    load()
+    await load()
   } catch (e) {
     toasts.error(apiErrorMessage(e), { timeout: 10000 })
   }
@@ -263,7 +335,7 @@ async function create() {
       await http.put(`/pricing-grids/${props.gridId}/zone-prices/${data.data.id}`, { price: Number(draft.price) })
     }
     toasts.success('Lieu ajouté.')
-    if (draft.parent_id) opened.value = new Set([...opened.value, draft.parent_id])
+    if (draft.parent_id) showNeighborhoods.value = true
     Object.assign(draft, { name: '', parent_id: null, price: null })
     await load()
   } catch (e) {
@@ -272,6 +344,13 @@ async function create() {
     draft.saving = false
   }
 }
+
+onBeforeRouteLeave(async () => !changes.value || await confirmDialog(leaveWarning))
+function warnBeforeUnload(event) {
+  if (changes.value) event.preventDefault()
+}
+window.addEventListener('beforeunload', warnBeforeUnload)
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnload))
 
 onMounted(load)
 </script>

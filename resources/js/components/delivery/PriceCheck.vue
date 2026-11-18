@@ -16,7 +16,7 @@
       </p>
     </div>
     <p v-if="result" class="mt-2 text-sm text-slate-600">
-      {{ result.source === 'group' ? 'Prix de la zone d\'arrivée' : `Trajet particulier : ${result.rule?.join(' → ')}` }}<template v-if="result.grid_id !== gridId"> (repris de la grille normale)</template>.
+      {{ result.source === 'group' ? 'Prix « Partout » de la zone d\'arrivée' : `Trajet précis : ${result.rule?.join(' → ')}` }}<template v-if="result.grid_id !== gridId"> (repris de la grille normale)</template>.
     </p>
     <p v-else-if="error" class="mt-2 text-sm text-red-700">{{ error }}</p>
   </details>
