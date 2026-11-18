@@ -13,6 +13,7 @@ use App\Models\LegacyPurge;
 use App\Models\MerchantLedgerEntry;
 use App\Models\Order;
 use App\Models\OrderAssignment;
+use App\Models\OutboundMessage;
 use App\Services\Legacy\LegacyOrdersImporter;
 use App\Services\Legacy\LegacyOrdersPurge;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -54,6 +55,43 @@ class LegacyPurgeTest extends TestCase
         while ($purge->fresh()->status === 'running') {
             (new RunLegacyPurge($purge->id))->handle(app(LegacyOrdersPurge::class));
         }
+    }
+
+    public function test_old_returns_left_with_a_courier_are_closed_as_returned_and_can_be_undone(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $old = today()->subDays(60)->toDateString();
+        // Laissés « à rendre » chez un livreur par le nettoyage, ou au dépôt ; une course d'aujourd'hui n'est pas concernée
+        $heldA = $this->legacy(OrderStatus::DeliveryFailed, $old, ['return_requested' => true, 'held_by_courier_id' => $this->courierA->id]);
+        $heldA2 = $this->legacy(OrderStatus::DeliveryFailed, $old, ['return_requested' => true, 'held_by_courier_id' => $this->courierA->id]);
+        $atHub = $this->legacy(OrderStatus::AtHub, $old, ['return_requested' => true]);
+        $fresh = $this->createOrder();
+        $fresh->forceFill(['status' => OrderStatus::DeliveryFailed, 'return_requested' => true])->save();
+
+        $this->assertSame(3, $this->getJson('/api/v1/orders/counts')->json('data.exceptions.untreated'));
+        $this->getJson('/api/v1/company/legacy-purge/returns')->assertOk()->assertJsonPath('data.total', 3)
+            ->assertJsonPath('data.couriers.0.courier_id', $this->courierA->id)->assertJsonPath('data.couriers.0.count', 2);
+
+        // Confirmation obligatoire, puis ceux du livreur A seulement
+        $this->postJson('/api/v1/company/legacy-purge/returns', ['courier_id' => $this->courierA->id, 'confirm' => 'non'])->assertJsonValidationErrors('confirm');
+        $id = $this->postJson('/api/v1/company/legacy-purge/returns', ['courier_id' => $this->courierA->id, 'confirm' => 'CLÔTURER'])
+            ->assertCreated()->assertJsonPath('data.done', 2)->json('data.id');
+
+        $this->assertSame(OrderStatus::Returned, $heldA->fresh()->status);
+        $this->assertNull($heldA->fresh()->held_by_courier_id);
+        $this->assertSame(OrderStatus::AtHub, $atHub->fresh()->status);
+        $this->assertSame(OrderStatus::DeliveryFailed, $fresh->fresh()->status);
+        $this->assertSame(1, $this->getJson('/api/v1/orders/counts')->json('data.exceptions.untreated'));
+        $this->assertSame(0, OutboundMessage::count());
+
+        // Annulable : les colis redeviennent à rendre chez le livreur
+        $this->postJson("/api/v1/company/legacy-purge/{$id}/undo")->assertOk()->assertJsonPath('data.restored', 2);
+        $this->assertSame(OrderStatus::DeliveryFailed, $heldA2->fresh()->status);
+        $this->assertSame($this->courierA->id, $heldA2->fresh()->held_by_courier_id);
+
+        // Tous d'un coup
+        $this->postJson('/api/v1/company/legacy-purge/returns', ['confirm' => 'CLÔTURER'])->assertCreated()->assertJsonPath('data.done', 3);
+        $this->getJson('/api/v1/company/legacy-purge/returns')->assertJsonPath('data.total', 0);
     }
 
     public function test_old_courses_are_closed_without_any_message_and_can_be_undone(): void
