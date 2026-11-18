@@ -91,11 +91,18 @@ const ALL = computed(() => {
       keywords: 'nom téléphone adresse accroche logo couleurs apparence icône application domaine',
     },
     {
-      key: 'orders', group: 'orders', icon: '📦', title: 'Courses et livraison', to: '/admin/reglages/courses', permission: 'settings.manage',
-      also: [{ to: '/admin/courses', label: 'Courses' }, { to: '/admin/planning', label: 'Planning' }, { to: '/admin/livreurs', label: 'Livreurs' }],
-      description: 'Validation des courses, heure limite, tentatives, code de livraison, hors connexion, garde ou dépôt.',
-      summary: c && `Validation ${mode?.short || '—'} · heure limite ${c.daily_cutoff_time?.slice(0, 5) || 'aucune'} · ${c.default_max_attempts} tentatives · ramassage automatique ${AUTO_MODES.find((m) => m.value === c.auto_pickup)?.short || 'désactivé'} · livraison automatique ${DELIVERY_MODES.find((m) => m.value === c.auto_delivery)?.short || 'désactivée'} · missions ${ACCEPT_MODES.find((m) => m.value === c.mission_acceptance)?.short || 'au choix du livreur'}`,
-      keywords: 'validation heure limite journée tentatives code livraison hors connexion offline garde dépôt fermeture assignation automatique planning acceptation missions refus empêchement injoignable retard livraison jour même plafond',
+      key: 'automation', group: 'orders', icon: '⚡', title: 'Automatisation', to: '/admin/automatisation', permission: 'settings.manage',
+      also: [{ to: '/admin/planning', label: 'Planning' }, { to: '/admin/courses', label: 'Courses' }],
+      description: 'Validation des courses, heure limite et conseil de la journée, ramassage et livraison automatiques, acceptation des missions.',
+      summary: c && `Validation ${mode?.short || '—'} · heure limite ${c.daily_cutoff_time?.slice(0, 5) || 'aucune'} · ramassage automatique ${AUTO_MODES.find((m) => m.value === c.auto_pickup)?.short || 'désactivé'} · livraison automatique ${DELIVERY_MODES.find((m) => m.value === c.auto_delivery)?.short || 'désactivée'} · missions ${ACCEPT_MODES.find((m) => m.value === c.mission_acceptance)?.short || 'au choix du livreur'}`,
+      keywords: 'automatisation automatique validation heure limite journée ouvrir fermer conseil tentatives assignation planning acceptation missions refus empêchement injoignable retard livraison jour même plafond',
+    },
+    {
+      key: 'orders', group: 'orders', icon: '📦', title: 'Courses et livreurs', to: '/admin/reglages/courses', permission: 'settings.manage',
+      also: [{ to: '/admin/livreurs', label: 'Livreurs' }],
+      description: 'Message du soir pour les courses pas ramassées, code de livraison, hors connexion, garde ou dépôt, fermeture du dépôt.',
+      summary: c && `${c.default_max_attempts} tentatives · code de livraison ${c.require_delivery_code ? 'exigé' : 'non'}`,
+      keywords: 'report message du soir pas ramassées code livraison hors connexion offline garde dépôt fermeture relais',
     },
     {
       key: 'pricing', group: 'orders', icon: '🗺️', title: 'Zones et tarifs', permission: 'settings.manage',
@@ -129,11 +136,11 @@ const ALL = computed(() => {
       keywords: 'annulation annuler limite validation alerte refus motif',
     },
     {
-      key: 'merchants', group: 'merchants', icon: '🏪', title: 'E-commerçants', to: '/admin/reglages/e-commercants', permission: 'settings.manage',
+      key: 'merchants', group: 'merchants', icon: '🏪', title: 'Réglages clients', to: '/admin/reglages/e-commercants', permission: 'settings.manage',
       also: [{ to: '/admin/marchands', label: 'E-commerçants' }],
-      description: 'Inscriptions en ligne des e-commerçants, vérification du numéro par WhatsApp ou SMS.',
+      description: 'Inscriptions en ligne des e-commerçants, vérification du numéro, annuaire, modifications de leurs courses, parrainage.',
       summary: c && (c.merchant_signup ? `Inscriptions en ligne ouvertes${c.merchant_signup_verify === false ? ', sans vérification du numéro' : ''}` : 'Inscriptions en ligne fermées'),
-      keywords: 'inscription en ligne créer compte e-commerçant marchand vérification sms code otp',
+      keywords: 'inscription en ligne créer compte e-commerçant marchand client vérification sms code otp annuaire modification approbation parrainage',
     },
     {
       key: 'team', group: 'company', icon: '🛵', title: 'Équipe et paie',

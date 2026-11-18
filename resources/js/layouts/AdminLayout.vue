@@ -344,6 +344,15 @@ const menu = computed(() => {
       ],
     },
     {
+      // Livraison : où et à quel prix, et ce qui se fait tout seul (validation, journée, ramassage et livraison automatiques)
+      id: 'livraison',
+      label: 'Livraison',
+      items: [
+        { to: '/admin/livraison', icon: 'adresse', label: 'Zones et tarifs', permission: 'settings.manage' },
+        { to: '/admin/automatisation', icon: 'automatisation', label: 'Automatisation', permission: 'settings.manage' },
+      ],
+    },
+    {
       id: 'finances',
       label: 'Finances',
       items: [
@@ -359,6 +368,8 @@ const menu = computed(() => {
         // Éteint dans la console : caché (sauf niveaux déjà créés)
         { to: '/admin/premium', icon: 'premium', label: 'Programme Premium', permission: 'merchants.view', show: auth.user?.company?.premium_program !== false },
         { to: '/admin/stock', icon: 'stock', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
+        // Inscriptions en ligne, annuaire, modifications des courses par les e-commerçants, parrainage
+        { to: '/admin/reglages/e-commercants', icon: 'reglages-clients', label: 'Réglages clients', permission: 'settings.manage' },
       ],
     },
     {
@@ -382,10 +393,9 @@ const menu = computed(() => {
     {
       id: 'configuration',
       label: 'Configuration',
-      // Zones, tarifs, intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
+      // Intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
       items: [
         // Point rouge : alertes du bilan de santé
-        { to: '/admin/livraison', icon: 'adresse', label: 'Zones et tarifs', permission: 'settings.manage' },
         { to: '/admin/reglages', icon: 'reglages', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },
       ],
     },

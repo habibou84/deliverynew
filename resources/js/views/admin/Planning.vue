@@ -8,7 +8,7 @@
       <button class="btn-primary" @click="openRule()">+ Nouvelle règle</button>
     </div>
 
-    <SettingsShortcut :blocks="['autoPickup', 'acceptance', 'autoDelivery']" title="Planning des livreurs" intro="Ce que le planning fait tout seul." more="/admin/reglages/courses" @saved="load" />
+    <SettingsShortcut :blocks="['autoPickup', 'acceptance', 'autoDelivery']" title="Planning des livreurs" intro="Ce que le planning fait tout seul." more="/admin/automatisation" @saved="load" />
 
     <!-- Ramassage automatique : état et lien vers le réglage -->
     <div v-if="board?.automation?.paused" class="card px-3 py-2 text-sm bg-red-50 text-red-900 flex flex-wrap items-center gap-2">
