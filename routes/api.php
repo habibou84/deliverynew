@@ -57,6 +57,7 @@ use App\Http\Controllers\Api\V1\LegacyOrdersController;
 use App\Http\Controllers\Api\V1\LegacyOverviewController;
 use App\Http\Controllers\Api\V1\LegacyPurgeController;
 use App\Http\Controllers\Api\V1\LegacyRecheckController;
+use App\Http\Controllers\Api\V1\LegacySettlementController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\LiveController;
 use App\Http\Controllers\Api\V1\MerchantAppReferralController;
@@ -475,6 +476,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('prices/ignore', 'ignorePrice')->name('prices.ignore');
         });
         // Argent chez les livreurs venu de l'ancienne application : point de départ, annulation
+        // Solder l'ancien : sommes dues aux e-commerçants pour les courses reprises, réglées hors Jibiat
+        Route::prefix('company/legacy-settlement')->name('company.legacy-settlement.')->middleware('can:settings.manage')->controller(LegacySettlementController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+            Route::post('{settlement}/undo', 'undo')->name('undo');
+        });
         Route::prefix('company/legacy-cash')->name('company.legacy-cash.')->middleware('can:settings.manage')->controller(LegacyCashBaselineController::class)->group(function () {
             Route::get('/', 'show')->name('show');
             Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
