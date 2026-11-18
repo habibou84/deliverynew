@@ -1,5 +1,5 @@
 <template>
-  <SettingsBlock title="Livraison du jour même automatique" :panel="panel">
+  <SettingsBlock title="Livraison automatique" :panel="panel">
     <p class="text-sm text-slate-600">
       Un colis récupéré ou au dépôt, à livrer aujourd'hui avant l'heure limite, part seul au livreur qui convient :
       celui qui a déjà le colis, puis le planning des livraisons, puis la zone principale avant la zone de secours,

@@ -1,8 +1,14 @@
 <template>
   <div class="max-w-4xl space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h1 class="text-xl font-bold">WhatsApp</h1>
-      <RouterLink to="/admin/messages" class="btn-secondary">Journal des messages</RouterLink>
+      <div>
+        <h1 class="text-xl font-bold">WhatsApp</h1>
+        <p class="text-sm text-slate-600">Connexion du numéro de l'entreprise et messages envoyés aux clients.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <RouterLink to="/admin/reglages/messages-e-commercants" class="btn-secondary">Messages aux e-commerçants</RouterLink>
+        <RouterLink to="/admin/messages" class="btn-secondary">Journal des messages</RouterLink>
+      </div>
     </div>
 
     <p v-if="loadError" class="field-error">{{ loadError }}</p>
@@ -190,8 +196,8 @@
         </p>
       </div>
 
-      <!-- Modèles -->
-      <div class="card p-4 space-y-3">
+      <!-- Modèles (messages aux clients) -->
+      <div id="modeles" class="card scroll-mt-4 p-4 space-y-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
           <h2 class="font-semibold">Modèles de messages</h2>
           <div class="flex flex-wrap gap-2">
@@ -229,7 +235,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
 import WhatsAppQrConnect from '../../components/WhatsAppQrConnect.vue'
@@ -417,8 +423,10 @@ async function copy(text) {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   takeSignupResult()
-  load()
+  await load()
+  // Lien « Messages aux clients » des réglages : directement aux modèles
+  if (window.location.hash) await nextTick(() => document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' }))
 })
 </script>
