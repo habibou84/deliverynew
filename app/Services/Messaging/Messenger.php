@@ -193,7 +193,8 @@ class Messenger
             'whatsapp_account_id' => WhatsAppAccount::forCompanyId($companyId)?->id,
             'to' => PhoneNumber::normalize($to) ?? $to,
             'recipient_type' => $context['recipient_type'] ?? 'merchant',
-            'event' => 'conversation',
+            // « inbox_reply » : réponse écrite par l'équipe (Messages › Reçus) ; sinon réponse du robot
+            'event' => $context['event'] ?? 'conversation',
             'template_name' => null,
             'payload' => $buttons === [] ? null : ['buttons' => $buttons],
             'body' => $text,

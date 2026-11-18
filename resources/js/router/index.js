@@ -133,7 +133,8 @@ const routes = [
       { path: 'reglages/entreprise', component: () => import('../views/admin/settings/SettingsCompany.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/courses', component: () => import('../views/admin/settings/SettingsOrders.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/annulations', component: () => import('../views/admin/Cancellations.vue'), props: { section: 'rules' }, meta: { permission: 'settings.manage' } },
-      { path: 'reglages/messages-e-commercants', component: () => import('../views/admin/settings/SettingsMerchantMessages.vue'), meta: { permission: 'settings.manage' } },
+      // Rangé dans Messages › Messages prédéfinis (onglet E-commerçants)
+      { path: 'reglages/messages-e-commercants', redirect: { path: '/admin/messages/predefinis', query: { onglet: 'merchant' } } },
       { path: 'reglages/alertes', component: () => import('../views/admin/settings/SettingsAlerts.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },
@@ -157,7 +158,10 @@ const routes = [
       { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp', component: () => import('../views/admin/WhatsApp.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage', feature: 'whatsapp_bot' } },
+      // Menu Messages : reçus, envoyés, prédéfinis ; la connexion du numéro est « whatsapp »
       { path: 'messages', component: () => import('../views/admin/Messages.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'messages/recus', component: () => import('../views/admin/Inbox.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'messages/predefinis', component: () => import('../views/admin/MessageTemplates.vue'), meta: { permission: 'settings.manage' } },
     ],
   },
   // Application livreur : écran « appel entrant » d'une nouvelle mission (sonnerie Android), en plein écran

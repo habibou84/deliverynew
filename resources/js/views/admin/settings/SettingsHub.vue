@@ -112,19 +112,15 @@ const ALL = computed(() => {
       keywords: 'alerte délai sans livreur colis gardé livreur relance remontées terrain point semaine rapport',
     },
     {
-      key: 'whatsapp', group: 'messages', icon: '🟢', title: 'WhatsApp', to: '/admin/whatsapp', permission: 'settings.manage',
-      description: 'Connecter le numéro WhatsApp de l\'entreprise (QR code ou Meta), courses reçues par WhatsApp, envois, message de test.',
-      keywords: 'whatsapp connecter connexion numéro qr code meta business envois test webhook simulateur bot',
-    },
-    {
-      key: 'messages', group: 'messages', icon: '📣', title: 'Messages envoyés',
-      description: 'Ce que reçoivent les clients et les e-commerçants à chaque étape d\'une course.',
+      key: 'messages', group: 'messages', icon: '💬', title: 'Messages', permission: 'orders.dispatch',
+      description: 'Tout est dans le menu Messages : messages reçus sur WhatsApp, messages envoyés, messages prédéfinis, connexion du numéro WhatsApp.',
       links: [
-        { to: '/admin/whatsapp#modeles', label: 'Aux clients', permission: 'settings.manage' },
-        { to: '/admin/reglages/messages-e-commercants', label: 'Aux e-commerçants', permission: 'settings.manage' },
-        { to: '/admin/messages', label: 'Journal des messages', permission: 'orders.dispatch' },
+        { to: '/admin/messages/recus', label: 'Reçus', permission: 'orders.dispatch' },
+        { to: '/admin/messages', label: 'Envoyés', permission: 'orders.dispatch' },
+        { to: '/admin/messages/predefinis', label: 'Messages prédéfinis', permission: 'settings.manage' },
+        { to: '/admin/whatsapp', label: 'Connexion WhatsApp', permission: 'settings.manage' },
       ],
-      keywords: 'messages modèles clients destinataires e-commerçant marchand whatsapp sms notification push course validée reçue récupéré livré reversement journal',
+      keywords: 'whatsapp connecter connexion numéro qr code meta messages reçus envoyés journal modèles prédéfinis clients e-commerçant marchand livreurs sms notification push réponse conversation',
     },
     {
       key: 'cancellations', group: 'orders', icon: '🚫', title: 'Annulations', to: '/admin/reglages/annulations', permission: 'settings.manage',
