@@ -51,10 +51,10 @@
         </div>
         <p class="text-sm text-slate-600">{{ t.description }}</p>
         <div class="flex items-start gap-2">
-          <p class="flex-1 rounded-lg border bg-slate-50 p-3 text-sm">{{ preview(t) }}</p>
+          <p class="min-w-0 flex-1 break-words rounded-lg border bg-slate-50 p-3 text-sm [overflow-wrap:anywhere]">{{ preview(t) }}</p>
           <button type="button" class="btn-secondary text-xs" @click="copy(t.body)">Copier</button>
         </div>
-        <p class="text-xs text-slate-600">Modèle Meta : {{ t.name }}</p>
+        <p class="break-all text-xs text-slate-600">Modèle Meta : {{ t.name }}</p>
         <p v-if="t.rejected_reason" class="text-xs text-red-700">Motif du refus : {{ t.rejected_reason }}</p>
       </article>
     </section>

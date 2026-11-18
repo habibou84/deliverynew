@@ -112,6 +112,7 @@ use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\WhatsAppSignupController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use App\Http\Controllers\Api\V1\ZoneLinkController;
+use App\Http\Controllers\Api\V1\ZonePriceController;
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\CourierAppController;
 use App\Http\Controllers\Webhooks\PayDunyaWebhookController;
@@ -546,6 +547,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('pricing-grids/{pricing_grid}/groups/{group}', [PricingGroupController::class, 'update'])->whereNumber('group')->name('pricing-grids.groups.update');
             Route::delete('pricing-grids/{pricing_grid}/groups/{group}', [PricingGroupController::class, 'destroy'])->whereNumber('group')->name('pricing-grids.groups.destroy');
             Route::get('pricing-grids/{pricing_grid}/check', [PricingGroupController::class, 'check'])->name('pricing-grids.check');
+            // Zones et tarifs › Zones et prix : le prix de chaque lieu sur sa ligne (rangé dans le groupe de ce prix)
+            Route::get('pricing-grids/{pricing_grid}/zone-prices', [ZonePriceController::class, 'index'])->name('pricing-grids.zone-prices.index');
+            Route::put('pricing-grids/{pricing_grid}/zone-prices/{zone}', [ZonePriceController::class, 'update'])->whereNumber('zone')->name('pricing-grids.zone-prices.update');
 
             // Paie des livreurs : plans de rémunération
             Route::post('pay-plans/simulate', [PayPlanController::class, 'simulate'])->middleware('throttle:30,1')->name('pay-plans.simulate');

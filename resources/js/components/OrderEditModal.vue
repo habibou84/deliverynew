@@ -58,7 +58,7 @@
             <label class="label" for="edit-pzone">Zone</label>
             <SearchSelect
               id="edit-pzone" v-model="form.pickup_zone_id" :input-class="['input', changed('pickup_zone_id') && 'ring-2 ring-amber-400 bg-amber-50']" search-placeholder="Commune, quartier…"
-              :options="zones.map((z) => ({ value: z.id, label: `${z.full_name}${z.is_shipping ? ' (expédition)' : ''}`, search: z.name }))"
+              :options="zones.filter((z) => z.is_pickup !== false || z.id === form.pickup_zone_id).map((z) => ({ value: z.id, label: `${z.full_name}${z.is_shipping ? ' (expédition)' : ''}`, search: z.name }))"
             />
           </div>
           <EditField v-model="form.pickup_address" label="Adresse" :before="initial.pickup_address" />

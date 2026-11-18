@@ -101,7 +101,7 @@ const ALL = computed(() => {
       key: 'pricing', group: 'orders', icon: '🗺️', title: 'Zones et tarifs', permission: 'settings.manage',
       description: 'Zones desservies, grilles de prix, suppléments, frais des colis retournés.',
       summary: c && `Frais d'un retour : ${c.return_fee_percent} % des frais de livraison`,
-      links: [{ to: '/admin/zones', label: 'Zones' }, { to: '/admin/tarifs', label: 'Tarifs et retours' }],
+      links: [{ to: '/admin/livraison', label: 'Zones et prix' }, { to: '/admin/livraison?onglet=supplements', label: 'Suppléments et retours' }, { to: '/admin/livraison?onglet=grilles', label: 'Grilles négociées' }],
       keywords: 'zones communes quartiers tarifs grille prix suppléments express fragile poids frais retour',
     },
     {

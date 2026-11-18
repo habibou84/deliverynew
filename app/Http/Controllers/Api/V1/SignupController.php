@@ -40,7 +40,7 @@ class SignupController extends Controller
         return response()->json(['data' => [
             'open' => $open,
             'zones' => $open
-                ? Zone::forCompany($company->id)->active()->where('is_shipping', false)->with('parent')->orderBy('name')->get()
+                ? Zone::forCompany($company->id)->pickup()->where('is_shipping', false)->with('parent')->orderBy('name')->get()
                     ->map(fn (Zone $z) => ['id' => $z->id, 'name' => $z->parent ? "{$z->name} ({$z->parent->name})" : $z->name])
                     ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values()
                 : [],
@@ -62,7 +62,8 @@ class SignupController extends Controller
             'contact_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', new PhoneNumber],
             'email' => ['nullable', 'email', 'max:255'],
-            'pickup_zone_id' => ['required', 'integer', Rule::exists('zones', 'id')->where(fn ($q) => $q->where('company_id', $company->id)->where('is_active', true)->where('is_shipping', false))],
+            // Seulement là où l'entreprise ramasse (Zones et tarifs)
+            'pickup_zone_id' => ['required', 'integer', Rule::in(Zone::forCompany($company->id)->pickup()->where('is_shipping', false)->pluck('id')->all())],
             'pickup_address' => ['required', 'string', 'max:500'],
             'pickup_landmark' => ['nullable', 'string', 'max:255'],
             // Facultatif : sans mot de passe, la personne se connecte par WhatsApp (et peut en définir un plus tard)
