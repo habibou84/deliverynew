@@ -92,6 +92,8 @@ class StoreOrderRequest extends FormRequest
             'delivery_place' => ['nullable', 'string', 'max:120'],
             'delivery_address' => ['nullable', 'string', 'max:500'],
             'delivery_landmark' => ['nullable', 'string', 'max:255'],
+            // Expédition : ville de destination (pas encore au contrat de l'API publique)
+            ...($this->is('api/public/*') ? [] : ['shipping_city' => ['nullable', 'string', 'max:100']]),
             'delivery_lat' => ['nullable', 'numeric', 'between:-90,90'],
             'delivery_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'delivery_scheduled_date' => ['nullable', 'date', 'after_or_equal:today'],

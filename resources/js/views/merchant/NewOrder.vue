@@ -107,6 +107,7 @@
           <template v-if="selectedZone.shipping_fee_estimate">(environ {{ money(selectedZone.shipping_fee_estimate) }})</template>.
           Ces frais vous sont facturés au réel et déduits de votre point.
         </p>
+        <ShippingCityField v-if="selectedZone?.is_shipping" id="m-shipping-city" v-model="form.shipping_city" mobile class="mt-3" :required="!!selectedZone.default_shipping" />
       </div>
       <div>
         <label class="m-label" for="address">Adresse et repère</label>
@@ -245,6 +246,7 @@
 </template>
 
 <script setup>
+import ShippingCityField from '../../components/ShippingCityField.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
@@ -268,6 +270,7 @@ const blank = () => ({
   recipient_name: '',
   recipient_phone2: '',
   delivery_zone_id: null,
+  shipping_city: '',
   delivery_address: '',
   delivery_scheduled_date: null,
   items_amount: null,
@@ -656,6 +659,7 @@ async function submit() {
   saving.value = true
   try {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null))
+    if (!selectedZone.value?.is_shipping) delete payload.shipping_city
     payload.recipient_phone = form.recipient_phone.replace(/[^\d+]/g, '')
     if (payload.recipient_phone2) payload.recipient_phone2 = payload.recipient_phone2.replace(/[^\d+]/g, '')
     payload.items_amount = form.items_amount || 0

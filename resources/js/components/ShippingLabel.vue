@@ -22,6 +22,7 @@
       <p class="text-lg font-bold">{{ order.recipient.name || '—' }}</p>
       <p class="font-semibold">{{ order.recipient.phone }}<span v-if="order.recipient.phone2"> / {{ order.recipient.phone2 }}</span></p>
       <p class="text-2xl font-bold uppercase">{{ order.delivery.zone_name }}</p>
+      <p v-if="order.shipping?.city" class="text-xl font-bold uppercase">Expédition vers {{ order.shipping.city }}</p>
       <p class="text-sm">{{ order.delivery.address }}</p>
       <p v-if="order.delivery.landmark" class="text-sm">Repère : {{ order.delivery.landmark }}</p>
     </div>

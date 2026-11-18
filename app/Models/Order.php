@@ -55,6 +55,7 @@ class Order extends Model
         'delivery_scheduled_date',
         'delivery_time_slot',
         'is_shipping',
+        'shipping_city',
         'description',
         'package_size',
         'weight_kg',
