@@ -330,7 +330,7 @@
           <button type="button" :class="['rounded-full px-3 py-1 text-xs ring-1', !filters.allMerchants ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" :aria-pressed="!filters.allMerchants" @click="filters.allMerchants = !filters.allMerchants; load()">Avec un solde</button>
         </div>
         <div v-if="canManage && payableMerchants.length" class="flex flex-wrap items-center gap-3 border-b bg-emerald-50 px-4 py-2 text-sm">
-          <span class="flex-1">☑️ {{ batch.merchants.length }} e-commerçant{{ batch.merchants.length > 1 ? 's' : '' }} coché{{ batch.merchants.length > 1 ? 's' : '' }} · <b class="tabular-nums">{{ money(selectedMerchantsTotal) }}</b><span class="text-xs text-slate-600"> · grisés : moyen de paiement à vérifier</span></span>
+          <span class="flex-1">☑️ {{ batch.merchants.length }} e-commerçant{{ batch.merchants.length > 1 ? 's' : '' }} coché{{ batch.merchants.length > 1 ? 's' : '' }} · <b class="tabular-nums">{{ money(selectedMerchantsTotal) }}</b><span class="text-xs text-slate-600"> · grisés : la raison est sous le nom</span></span>
           <button type="button" class="btn-primary" :disabled="!batch.merchants.length || batch.busy" @click="prepareSelected">Préparer {{ batch.merchants.length > 1 ? `les ${batch.merchants.length} paiements` : 'le paiement' }}</button>
         </div>
 
@@ -354,6 +354,7 @@
                   <span v-if="m.premium" class="ml-1 whitespace-nowrap rounded-full bg-amber-100 px-2 text-xs font-bold text-amber-800">⭐ {{ m.premium.name }}<template v-if="m.premium.payout_label"> · payer {{ m.premium.payout_label.toLowerCase() }}</template></span>
                 </p>
                 <p class="text-xs text-slate-600">{{ m.last_paid_at ? `dernier paiement : ${dateTime(m.last_paid_at)}` : 'jamais payé' }}</p>
+                <p v-if="canManage && blockedReason(m)" class="mt-0.5 text-xs font-semibold text-amber-800">⚠ {{ blockedReason(m) }}</p>
               </td>
               <td v-if="period.key !== 'all'" class="p-3 text-right">
                 <template v-if="m.unpaid_total">
@@ -400,6 +401,7 @@
               <div class="min-w-0 flex-1">
                 <p class="font-semibold">{{ m.business_name }}</p>
                 <p class="text-xs text-slate-600">{{ m.payment_method ? m.payment_method.summary : '⚠️ Aucun moyen de paiement' }}</p>
+                <p v-if="canManage && blockedReason(m)" class="text-xs font-semibold text-amber-800">⚠ {{ blockedReason(m) }}</p>
               </div>
               <div class="text-right"><p class="text-lg font-bold tabular-nums">{{ money(m.all.unpaid_total) }}</p><p class="text-xs text-slate-600">total</p></div>
             </div>
@@ -922,6 +924,15 @@ const merchantPeriod = computed(() => ({
 }))
 const merchantPayable = (m) => m.available > 0 && (!m.payment_method || m.payment_method.status === 'verified')
 const payableMerchants = computed(() => visibleMerchants.value.filter(merchantPayable))
+// Pourquoi la case est grisée : argent pas encore à la caisse, ou moyen de paiement pas vérifié
+function blockedReason(m) {
+  if (merchantPayable(m) || !m.all?.unpaid_total) return ''
+  if (m.available <= 0) {
+    if (m.all.pending_cash) return 'Pas payable : l\'argent est encore noté chez les livreurs'
+    return m.all.unpaid_total < 0 ? 'Solde négatif : l\'e-commerçant doit des frais' : 'Rien de payable pour le moment'
+  }
+  return m.payment_method ? 'Moyen de paiement à vérifier' : 'Aucun moyen de paiement'
+}
 const selectedMerchantsTotal = computed(() => merchantBalances.value.filter((m) => batch.merchants.includes(m.merchant_id)).reduce((s, m) => s + m.available, 0))
 const draftPayouts = computed(() => payouts.value.filter((p) => p.status === 'draft'))
 const batchPaySelected = computed(() => batchPay.rows.filter((r) => r.selected))
