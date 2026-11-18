@@ -23,7 +23,7 @@ export const AUTO_MODES = [
   { value: 'on', label: 'Active', short: 'active', help: 'Les courses validées vont au livreur du planning, ou à son remplaçant.' },
 ]
 
-// Livraison du jour même confiée automatiquement
+// Livraison automatique
 export const DELIVERY_MODES = [
   { value: 'off', label: 'Désactivée', short: 'désactivée', help: 'L\'équipe confie chaque livraison.' },
   { value: 'trial', label: 'À l\'essai', short: 'à l\'essai', help: 'Rien n\'est envoyé : le livreur qui aurait été choisi est noté sur la course, avec la raison.' },

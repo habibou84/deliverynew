@@ -22,7 +22,7 @@ use Illuminate\Validation\Rules\Password;
 /**
  * Inscription en ligne d'un e-commerçant (page d'accueil du site). Le compte n'est
  * créé qu'une fois le numéro vérifié (voir VerificationController), puis il est
- * actif aussitôt. Le mot de passe est facultatif : sans lui, la connexion se fait
+ * actif aussitôt ; si l'entreprise a désactivé la vérification, il est créé dès l'envoi. Le mot de passe est facultatif : sans lui, la connexion se fait
  * par WhatsApp.
  */
 class SignupController extends Controller
@@ -95,6 +95,13 @@ class SignupController extends Controller
             'pickup_landmark' => filled($data['pickup_landmark'] ?? null) ? trim($data['pickup_landmark']) : null,
             'password_hash' => filled($data['password'] ?? null) ? Hash::make($data['password']) : null,
         ], $request->ip());
+
+        // Vérification du numéro désactivée par l'entreprise : compte créé et session ouverte tout de suite
+        if ($company->merchant_signup_verify === false) {
+            $this->verifier->acceptWithoutVerification($verification);
+
+            return response()->json(['token' => $token, ...VerificationController::stateFor($this->verifier, $verification->refresh())], 201);
+        }
 
         return response()->json(['token' => $token, 'data' => VerificationController::describe($this->verifier, $verification)], 201);
     }

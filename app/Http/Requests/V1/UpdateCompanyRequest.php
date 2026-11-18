@@ -68,6 +68,7 @@ class UpdateCompanyRequest extends FormRequest
             'depot_closes_at' => ['sometimes', 'nullable', 'date_format:H:i'],
             'tagline' => ['sometimes', 'nullable', 'string', 'max:160'],
             'merchant_signup' => ['sometimes', 'boolean'],
+            'merchant_signup_verify' => ['sometimes', 'boolean'],
             'weekly_report' => ['sometimes', 'boolean'],
             'pickup_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
             // Heure limite du jour (HH:MM, heure de l'entreprise) ; vide = aucune

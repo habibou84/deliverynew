@@ -33,7 +33,7 @@ export const BLOCKS = {
   autoDelivery: {
     component: AutoDeliveryBlock,
     fields: ['auto_delivery', 'auto_delivery_max_cod', 'same_courier_delivery'],
-    summary: (f) => [['Jour même', short(DELIVERY_MODES, f.auto_delivery)]],
+    summary: (f) => [['Livraison', short(DELIVERY_MODES, f.auto_delivery)]],
   },
   acceptance: {
     component: AcceptanceBlock,
@@ -58,7 +58,7 @@ export const BLOCKS = {
     fields: ['cash_alert_hours', 'cash_alert_amount', 'cash_alert_courier', 'cash_close_reminder_at', 'cash_close_summary'],
     summary: (f) => [['Argent gardé', f.cash_alert_hours ? `alerte après ${f.cash_alert_hours} h` : 'pas d\'alerte']],
   },
-  merchantSignup: { component: MerchantSignupBlock, fields: ['merchant_signup'], summary: (f) => [['Inscriptions', f.merchant_signup ? 'ouvertes' : 'sur demande']] },
+  merchantSignup: { component: MerchantSignupBlock, fields: ['merchant_signup', 'merchant_signup_verify'], summary: (f) => [['Inscriptions', f.merchant_signup ? (f.merchant_signup_verify === false ? 'ouvertes, sans vérification' : 'ouvertes') : 'sur demande']] },
   directory: { component: DirectoryBlock, fields: ['directory_listed', 'directory_pitch'], summary: (f) => [['Annuaire', f.directory_listed ? 'visible' : 'absent']] },
 }
 
