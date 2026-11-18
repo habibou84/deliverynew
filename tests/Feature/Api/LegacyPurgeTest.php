@@ -150,6 +150,38 @@ class LegacyPurgeTest extends TestCase
         $this->getJson('/api/v1/company/legacy-purge')->assertJsonPath('data.last.can_undo', false);
     }
 
+    public function test_everything_left_from_the_old_application_can_be_cleaned_whatever_its_age(): void
+    {
+        Sanctum::actingAs($this->admin);
+        $yesterday = today()->subDay()->toDateString();
+        $never = $this->legacy(OrderStatus::Confirmed, $yesterday);
+        $held = $this->legacy(OrderStatus::PickedUp, today()->subDays(300)->toDateString(), ['held_by_courier_id' => $this->courierA->id]);
+        $onTheWay = $this->legacy(OrderStatus::OutForDelivery, today()->subDays(300)->toDateString(), ['delivery_courier_id' => $this->courierA->id]);
+        $today = $this->legacy(OrderStatus::Confirmed, today()->toDateString());
+        $this->assertSame(3, $this->getJson('/api/v1/orders/counts')->json('data.exceptions.untreated'));
+
+        Queue::fake();
+        Notification::fake();
+        Bus::fake([SendOutboundMessage::class, SendWebhook::class]);
+        // Sans âge précisé : toutes les dates avant aujourd'hui, en chemin et colis chez un livreur compris
+        $this->postJson('/api/v1/company/legacy-purge', ['include' => ['never_picked', 'not_delivered', 'held_returned', 'on_the_way'], 'confirm' => 'CLÔTURER'])->assertAccepted();
+        $purge = LegacyPurge::query()->latest('id')->firstOrFail();
+        while ($purge->fresh()->status === 'running') {
+            (new RunLegacyPurge($purge->id))->handle(app(LegacyOrdersPurge::class));
+        }
+
+        $this->assertSame(OrderStatus::Cancelled, $never->fresh()->status);
+        $this->assertSame(OrderStatus::Returned, $held->fresh()->status);
+        $this->assertSame(OrderStatus::Returned, $onTheWay->fresh()->status);
+        $this->assertSame(OrderStatus::Confirmed, $today->fresh()->status);
+        $this->assertSame(0, $this->getJson('/api/v1/orders/counts')->json('data.exceptions.untreated'));
+        Bus::assertNotDispatched(SendOutboundMessage::class);
+
+        // Annulable comme les autres
+        $this->postJson("/api/v1/company/legacy-purge/{$purge->id}/undo")->assertOk()->assertJsonPath('data.restored', 3);
+        $this->assertSame([OrderStatus::OutForDelivery, OrderStatus::PickedUp], [$onTheWay->fresh()->status, $held->fresh()->status]);
+    }
+
     public function test_courses_on_the_way_are_checked_courier_by_courier(): void
     {
         $old = now()->subDays(40)->toDateString();

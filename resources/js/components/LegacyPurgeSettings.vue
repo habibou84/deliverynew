@@ -3,16 +3,18 @@
     <div>
       <h2 class="font-semibold">Anciennes courses à clôturer</h2>
       <p class="text-sm text-slate-600">
-        Courses venues de l'ancienne application, pas terminées, dont le jour de livraison est passé depuis plus de
-        {{ days }} jours. Rien n'est envoyé : ni message, ni webhook, ni gain livreur, et l'argent ne bouge pas.
+        Courses venues de l'ancienne application, pas terminées, dont le jour de livraison est passé
+        {{ days ? `depuis plus de ${days} jours` : '(toutes les dates avant aujourd\'hui)' }}. Rien n'est envoyé : ni message, ni webhook,
+        ni gain livreur, et l'argent ne bouge pas.
         À faire une fois la reprise terminée.
       </p>
     </div>
 
     <div class="flex flex-wrap items-end gap-3">
-      <label class="text-sm font-medium">Retard d'au moins
+      <label class="text-sm font-medium">Courses prévues
         <select v-model.number="days" class="input mt-1 block" @change="load">
-          <option v-for="d in [7, 15, 30, 60, 90]" :key="d" :value="d">{{ d }} jours</option>
+          <option :value="0">Toutes les dates (avant aujourd'hui)</option>
+          <option v-for="d in [7, 15, 30, 60, 90]" :key="d" :value="d">il y a plus de {{ d }} jours</option>
         </select>
       </label>
       <button type="button" class="btn-secondary" :disabled="busy" @click="load">Simuler</button>
@@ -35,14 +37,20 @@
         </div>
         <div class="rounded-lg border p-3 space-y-2">
           <div class="flex items-center gap-2"><p class="flex-1 font-medium">Ramassées, au dépôt ou en échec</p><span class="text-xl font-bold tabular-nums">{{ sim.not_delivered }}</span></div>
-          <p class="text-sm text-slate-600">Jamais livrées.<template v-if="sim.held"> Dont {{ sim.held }} encore chez un livreur : elles passent sur son point de caisse comme « à rendre ».</template></p>
+          <p class="text-sm text-slate-600">Jamais livrées.<template v-if="sim.held"> Dont {{ sim.held }} notées chez un livreur.</template></p>
           <p class="rounded bg-blue-50 px-2 py-1 text-sm font-medium text-blue-900">→ Retournées à l'e-commerçant</p>
           <label class="flex items-center gap-2 text-sm"><input v-model="include" type="checkbox" value="not_delivered"> Inclure dans le nettoyage</label>
+          <label v-if="sim.held && include.includes('not_delivered')" class="flex items-start gap-2 text-sm">
+            <input v-model="include" type="checkbox" value="held_returned" class="mt-1">
+            <span>Celles notées chez un livreur aussi, directement<span class="block text-xs text-slate-600">Décoché : elles passent sur son point de caisse comme « à rendre ».</span></span>
+          </label>
         </div>
         <div class="rounded-lg border border-amber-200 p-3 space-y-2">
           <div class="flex items-center gap-2"><p class="flex-1 font-medium">En chemin depuis longtemps</p><span class="text-xl font-bold tabular-nums">{{ sim.on_the_way }}</span></div>
-          <p class="text-sm text-slate-600">Livrées ou pas ? On ne peut pas le deviner : aucune action automatique.</p>
-          <RouterLink :to="{ path: '/admin/reglages/reprise/a-verifier', query: { days } }" class="block rounded bg-amber-50 px-2 py-1 text-sm font-semibold text-amber-900">→ Liste à vérifier, livreur par livreur ›</RouterLink>
+          <p class="text-sm text-slate-600">Livrées ou pas dans l'ancienne application ? Pour les vieilles courses, clôturez-les comme retournées, sans argent ; sinon vérifiez-les une par une.</p>
+          <p class="rounded bg-blue-50 px-2 py-1 text-sm font-medium text-blue-900">→ Retournées à l'e-commerçant, sans argent</p>
+          <label class="flex items-center gap-2 text-sm"><input v-model="include" type="checkbox" value="on_the_way"> Inclure dans le nettoyage</label>
+          <RouterLink :to="{ path: '/admin/reglages/reprise/a-verifier', query: { days } }" class="block text-sm font-semibold text-amber-900 underline">Ou vérifier, livreur par livreur (livrée ou retournée) ›</RouterLink>
         </div>
         <div class="rounded-lg border p-3 space-y-2">
           <div class="flex items-center gap-2"><p class="flex-1 font-medium">Livrées, argent pas soldé</p><span class="text-xl font-bold tabular-nums">{{ sim.unsettled }}</span></div>
@@ -87,8 +95,9 @@ import { confirmDialog } from '../composables/useDialog'
  */
 const toasts = useToastStore()
 const state = ref(null)
-const days = ref(30)
-const include = ref(['never_picked', 'not_delivered'])
+// Par défaut : tout ce qui vient de l'ancienne application et n'est pas terminé
+const days = ref(0)
+const include = ref(['never_picked', 'not_delivered', 'held_returned', 'on_the_way'])
 const confirm = ref('')
 const busy = ref(false)
 let timer = null
@@ -98,7 +107,8 @@ const last = computed(() => state.value?.last ?? null)
 const running = computed(() => last.value?.status === 'running')
 const confirmed = computed(() => ['CLÔTURER', 'CLOTURER'].includes(confirm.value.trim().toUpperCase()))
 const toClose = computed(() => (include.value.includes('never_picked') ? sim.value.never_picked ?? 0 : 0)
-  + (include.value.includes('not_delivered') ? sim.value.not_delivered ?? 0 : 0))
+  + (include.value.includes('not_delivered') ? sim.value.not_delivered ?? 0 : 0)
+  + (include.value.includes('on_the_way') ? sim.value.on_the_way ?? 0 : 0))
 
 async function call(request, success) {
   busy.value = true
