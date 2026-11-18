@@ -38,7 +38,6 @@
         <SurchargesEditor :key="`s${gridId}`" :grid-id="gridId" />
         <ReturnFeeSettings />
       </template>
-      <RouteMatrix v-else-if="tab === 'trajets'" :key="`r${gridId}`" :grid-id="gridId" />
     </template>
     <PricingGridsManager v-if="tab === 'grilles'" :grids="grids" @changed="loadGrids" @edit="(id) => { chooseGrid(id); setTab('zones') }" />
   </div>
@@ -50,24 +49,23 @@ import { useRoute, useRouter } from 'vue-router'
 import http from '../../bootstrap/axios'
 import PriceCheck from '../../components/delivery/PriceCheck.vue'
 import PricingGridsManager from '../../components/delivery/PricingGridsManager.vue'
-import RouteMatrix from '../../components/delivery/RouteMatrix.vue'
 import SurchargesEditor from '../../components/delivery/SurchargesEditor.vue'
 import ZonePrices from '../../components/delivery/ZonePrices.vue'
 import ReturnFeeSettings from '../../components/settings/ReturnFeeSettings.vue'
 
 /**
- * Zones et tarifs : les lieux où l'entreprise livre et leur prix sur la même ligne, les suppléments et les retours,
- * les grilles négociées, et les trajets particuliers (avancé). Remplace les anciennes pages Zones et Tarifs.
+ * Zones et tarifs : un tableau unique des zones (on ramasse ici, on livre ici, prix « Partout » et prix de chaque
+ * trajet), les suppléments et les retours, les grilles négociées. Remplace les anciennes pages Zones et Tarifs.
  */
 const TABS = [
   { value: 'zones', label: 'Zones et prix' },
   { value: 'supplements', label: 'Suppléments et retours' },
   { value: 'grilles', label: 'Grilles négociées' },
-  { value: 'trajets', label: 'Trajets particuliers' },
 ]
 
 const route = useRoute()
 const router = useRouter()
+// « trajets » : l'ancien onglet, désormais dans Zones et prix
 const tab = ref(TABS.some((t) => t.value === route.query.onglet) ? route.query.onglet : 'zones')
 const grids = ref([])
 const gridId = ref(Number(route.query.grille) || null)
