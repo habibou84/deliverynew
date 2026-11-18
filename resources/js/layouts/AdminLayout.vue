@@ -348,6 +348,7 @@ const menu = computed(() => {
       items: [
         // Point rouge : alertes du bilan de santé
         { to: '/admin/reglages', icon: 'reglages', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },
+        { to: '/admin/whatsapp', icon: 'message', label: 'WhatsApp', permission: 'settings.manage' },
       ],
     },
   ]
