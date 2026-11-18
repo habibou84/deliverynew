@@ -2,10 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Exceptions\BusinessRuleException;
+use App\Http\Resources\V1\ZoneResource;
 use App\Models\PricingGrid;
 use App\Models\PricingGroup;
 use App\Services\Zones\StandardZones;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -66,6 +69,33 @@ class ZonePricesTest extends TestCase
 
         $this->assertSame(2000, $this->zoneRow($this->plateau->id)['price']);
         $this->assertSame(1500, $this->zoneRow($this->plateau->id, $vip)['price']);
+    }
+
+    public function test_pickup_can_be_switched_off_where_the_company_only_delivers(): void
+    {
+        $this->company->update(['merchant_signup' => true]);
+        $this->patchJson("/api/v1/zones/{$this->cocody->id}", ['is_pickup' => false])->assertOk()->assertJsonPath('data.is_pickup', false);
+
+        // Ni la commune ni ses quartiers : plus proposés comme ramassage, et une course qui y ramasse est refusée
+        $this->assertFalse($this->angre->fresh()->load('parent')->acceptsPickup());
+        $this->assertTrue($this->yopougon->fresh()->acceptsPickup());
+        $zones = collect($this->getJson('/api/v1/signup')->json('data.zones'))->pluck('id');
+        $this->assertNotContains($this->cocody->id, $zones);
+        $this->assertNotContains($this->angre->id, $zones);
+        $this->assertContains($this->yopougon->id, $zones);
+
+        try {
+            $this->createOrder(['pickup_zone_id' => $this->angre->id]);
+            $this->fail('Ramassage accepté dans une zone sans ramassage.');
+        } catch (BusinessRuleException $e) {
+            $this->assertStringContainsString('Pas de ramassage à Cocody › Angré', $e->getMessage());
+        }
+        $this->setPrice($this->cocody->id, 1000)->assertOk();
+        $this->assertNotNull($this->createOrder(['pickup_zone_id' => $this->yopougon->id, 'delivery_zone_id' => $this->cocody->id])->id);
+
+        // On livre toujours à Cocody ; l'API publique garde la même forme (pas de champ ajouté)
+        $this->assertTrue($this->cocody->fresh()->is_active);
+        $this->assertArrayNotHasKey('is_pickup', ZoneResource::make($this->cocody->fresh())->resolve(Request::create('/api/public/v1/zones')));
     }
 
     public function test_only_the_settings_managers_change_prices(): void
