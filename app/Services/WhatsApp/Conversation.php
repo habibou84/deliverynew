@@ -79,6 +79,8 @@ class Conversation
             'type' => $type,
             'body' => $text,
             'payload' => $buttonId ? ['button_id' => $buttonId] : null,
+            // Simulateur des réglages : hors de Messages › Reçus
+            'simulated' => (bool) ($meta['simulated'] ?? false),
         ]);
 
         // Simulateur des réglages : ni vérification de numéro ni avis (le numéro est choisi librement, il

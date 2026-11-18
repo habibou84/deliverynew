@@ -288,6 +288,8 @@ class WhatsAppSettingsController extends Controller
                 'name' => $t->value,
                 'language' => WhatsAppTemplate::LANGUAGE,
                 'category' => 'utility',
+                'title' => $t->title(),
+                'audience' => $t->audience(),
                 'description' => $t->description(),
                 'body' => $t->body(),
                 'example' => $t->example(),

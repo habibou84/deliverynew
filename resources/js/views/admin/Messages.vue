@@ -1,8 +1,11 @@
 <template>
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h1 class="text-xl font-bold">Messages WhatsApp, SMS et notifications</h1>
-      <RouterLink v-if="auth.can('settings.manage')" to="/admin/whatsapp" class="btn-secondary">Paramètres WhatsApp</RouterLink>
+      <div>
+        <h1 class="text-xl font-bold">Messages envoyés</h1>
+        <p class="text-sm text-slate-600">Tout ce qui est parti : WhatsApp, SMS et notifications sur téléphone.</p>
+      </div>
+      <RouterLink v-if="auth.can('settings.manage')" to="/admin/whatsapp" class="btn-secondary">Connexion WhatsApp</RouterLink>
     </div>
 
     <div class="flex flex-wrap gap-2 items-center">

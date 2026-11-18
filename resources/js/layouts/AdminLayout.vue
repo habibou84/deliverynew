@@ -264,6 +264,16 @@ function closeSetupReturn() {
   sessionFlag(false)
 }
 
+// Messages WhatsApp reçus pas encore lus : badge du menu « Reçus », rafraîchi chaque minute
+const inboxUnread = ref(0)
+async function fetchInbox() {
+  if (!auth.can('orders.dispatch')) return
+  inboxUnread.value = (await http.get('/inbox/summary').catch(() => null))?.data?.data?.unread ?? inboxUnread.value
+}
+let inboxTimer
+// Conversation ouverte ou réponse envoyée depuis Messages › Reçus
+window.addEventListener('inbox-changed', fetchInbox)
+
 const supportActive = ref(null)
 async function loadSupport() {
   if (!auth.can('settings.manage') || !auth.user?.company_id || auth.user?.support_session) return
@@ -291,11 +301,17 @@ watch(() => route.fullPath, (to, from) => {
 onMounted(() => {
   loadSetup()
   loadSupport()
+  fetchInbox()
+  inboxTimer = setInterval(() => screenVisible() && fetchInbox(), 60000)
   if (!isDispatch.value) return
   fetchCounts()
   countsTimer = setInterval(() => screenVisible() && fetchCounts(), 60000)
 })
-onBeforeUnmount(() => clearInterval(countsTimer))
+onBeforeUnmount(() => {
+  clearInterval(countsTimer)
+  clearInterval(inboxTimer)
+  window.removeEventListener('inbox-changed', fetchInbox)
+})
 
 // Menu en rubriques ; une entrée sans droit ni module disparaît, une rubrique vide aussi
 const visible = (item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature)) && item.show !== false
@@ -329,7 +345,17 @@ const menu = computed(() => {
         // Éteint dans la console : caché (sauf niveaux déjà créés)
         { to: '/admin/premium', icon: 'premium', label: 'Programme Premium', permission: 'merchants.view', show: auth.user?.company?.premium_program !== false },
         { to: '/admin/stock', icon: 'stock', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
-        { to: '/admin/messages', icon: 'message', label: 'Messages', permission: 'orders.dispatch' },
+      ],
+    },
+    {
+      // Tout ce qui concerne les messages : reçus, envoyés, prédéfinis, connexion du numéro WhatsApp
+      id: 'messages',
+      label: 'Messages',
+      items: [
+        { to: '/admin/messages/recus', icon: 'recus', label: 'Reçus', permission: 'orders.dispatch', badge: inboxUnread.value },
+        { to: '/admin/messages', icon: 'envoyes', label: 'Envoyés', permission: 'orders.dispatch' },
+        { to: '/admin/messages/predefinis', icon: 'modeles', label: 'Messages prédéfinis', permission: 'settings.manage' },
+        { to: '/admin/whatsapp', icon: 'message', label: 'Connexion WhatsApp', permission: 'settings.manage', prefix: true },
       ],
     },
     {
@@ -344,11 +370,10 @@ const menu = computed(() => {
     {
       id: 'configuration',
       label: 'Configuration',
-      // Zones, tarifs, WhatsApp, intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
+      // Zones, tarifs, intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
       items: [
         // Point rouge : alertes du bilan de santé
         { to: '/admin/reglages', icon: 'reglages', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },
-        { to: '/admin/whatsapp', icon: 'message', label: 'WhatsApp', permission: 'settings.manage' },
       ],
     },
   ]
