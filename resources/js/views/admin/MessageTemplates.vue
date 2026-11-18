@@ -2,8 +2,8 @@
   <div class="max-w-5xl space-y-4">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold">Messages prédéfinis</h1>
-        <p class="text-sm text-slate-600">Les messages envoyés tout seuls à chaque étape. Meta doit approuver chaque modèle avant son premier envoi par WhatsApp.</p>
+        <h1 class="text-xl font-bold">WhatsApp</h1>
+        <p class="text-sm text-slate-600">Messages prédéfinis : envoyés tout seuls à chaque étape. Meta doit approuver chaque modèle avant son premier envoi par WhatsApp.</p>
       </div>
       <div v-if="s" class="flex flex-wrap gap-2">
         <button type="button" class="btn-secondary" :disabled="syncing" @click="sync">Vérifier l'approbation chez Meta</button>
@@ -13,16 +13,19 @@
       </div>
     </div>
 
+    <div><WhatsAppTabs /></div>
+
     <p v-if="s && s.mode !== 'live'" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
       WhatsApp n'est pas connecté : ces messages ne partent pas encore.
       <RouterLink to="/admin/whatsapp" class="font-semibold underline">Connecter WhatsApp</RouterLink>
     </p>
 
     <!-- Onglets : à qui s'adressent les messages -->
-    <div role="tablist" aria-label="Destinataires" class="inline-flex flex-wrap gap-1 rounded-xl bg-slate-200 p-1">
+    <div role="tablist" aria-label="Destinataires" class="flex flex-wrap items-center gap-2 border-b border-slate-300">
+      <span class="text-sm font-semibold text-slate-700">Envoyés aux :</span>
       <button
         v-for="t in tabs" :key="t.value" type="button" role="tab" :aria-selected="tab === t.value"
-        :class="['min-h-10 rounded-lg px-4 text-sm font-semibold', tab === t.value ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-700 hover:bg-white/60']"
+        :class="['-mb-px min-h-10 border-b-2 px-3 text-sm font-semibold', tab === t.value ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-600 hover:text-slate-900']"
         @click="choose(t.value)"
       >
         {{ t.label }}<span v-if="s" class="ml-1 font-normal text-slate-600">· {{ countFor(t.value) }}</span>
@@ -64,9 +67,10 @@ import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import SettingsMerchantMessages from './settings/SettingsMerchantMessages.vue'
+import WhatsAppTabs from '../../components/WhatsAppTabs.vue'
 
 /**
- * Messages › Messages prédéfinis : les modèles WhatsApp rangés par destinataire (clients, e-commerçants,
+ * WhatsApp › Messages prédéfinis : les modèles WhatsApp rangés par destinataire (clients, e-commerçants,
  * livreurs, équipe), leur état chez Meta ; pour les e-commerçants, le choix application / WhatsApp par étape.
  */
 const TEMPLATE_STATUS = {

@@ -2,14 +2,12 @@
   <div class="max-w-4xl space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
-        <h1 class="text-xl font-bold">Connexion WhatsApp</h1>
+        <h1 class="text-xl font-bold">WhatsApp</h1>
         <p class="text-sm text-slate-600">Le numéro WhatsApp de l'entreprise : il envoie les messages et reçoit ceux des clients, des e-commerçants et des livreurs.</p>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <RouterLink to="/admin/messages/recus" class="btn-secondary">Messages reçus</RouterLink>
-        <RouterLink to="/admin/messages/predefinis" class="btn-secondary">Messages prédéfinis</RouterLink>
-      </div>
+      <RouterLink to="/admin/messages" class="btn-secondary">Ouvrir les messages</RouterLink>
     </div>
+    <div><WhatsAppTabs /></div>
 
     <p v-if="loadError" class="field-error">{{ loadError }}</p>
 
@@ -21,7 +19,7 @@
           <p>
             {{ s.account.verified_name || 'Numéro' }} · {{ s.account.display_phone }}
             <span v-if="s.account.quality_rating"> · qualité <strong :class="QUALITY[s.account.quality_rating]?.[1]">{{ QUALITY[s.account.quality_rating]?.[0] || s.account.quality_rating }}</strong></span>
-            · <RouterLink to="/admin/messages/predefinis" class="underline">modèles approuvés</RouterLink> : <strong>{{ approvedCount }}/{{ s.templates.length }}</strong>
+            · <RouterLink to="/admin/whatsapp/modeles" class="underline">modèles approuvés</RouterLink> : <strong>{{ approvedCount }}/{{ s.templates.length }}</strong>
             · messages reçus : <strong>{{ s.account.webhook_subscribed_at ? 'branchés' : 'non branchés' }}</strong>
           </p>
         </template>
@@ -32,7 +30,7 @@
         <template v-else>
           <p class="font-semibold">Mode simulation : votre numéro n'est pas encore connecté.</p>
           <p>
-            Les messages sont seulement inscrits dans <RouterLink to="/admin/messages" class="underline">Messages › Envoyés</RouterLink>.
+            Les messages sont seulement inscrits dans <RouterLink to="/admin/messages" class="underline">Messages</RouterLink>.
             Renseignez votre numéro WhatsApp Business ci-dessous : dès que Meta le confirme, les envois deviennent réels.
           </p>
         </template>
@@ -166,7 +164,7 @@
               </template>
             </span></span>
         </label>
-        <p class="text-sm text-slate-600">Quels messages envoyer aux e-commerçants, étape par étape : <RouterLink to="/admin/messages/predefinis?onglet=merchant" class="text-blue-600">Messages prédéfinis › E-commerçants</RouterLink>.</p>
+        <p class="text-sm text-slate-600">Quels messages envoyer aux e-commerçants, étape par étape : <RouterLink to="/admin/whatsapp/modeles?onglet=merchant" class="text-blue-600">Messages prédéfinis › E-commerçants</RouterLink>.</p>
       </div>
 
       <!-- Test -->
@@ -204,6 +202,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
 import WhatsAppQrConnect from '../../components/WhatsAppQrConnect.vue'
+import WhatsAppTabs from '../../components/WhatsAppTabs.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 

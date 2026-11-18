@@ -2,8 +2,8 @@
   <div class="space-y-4">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-xl font-bold">Messages reçus</h1>
-        <p class="text-sm text-slate-600">Ce que les clients, les e-commerçants et les livreurs écrivent au WhatsApp de l'entreprise.</p>
+        <h1 class="text-xl font-bold">Messages</h1>
+        <p class="text-sm text-slate-600">Vos échanges avec les clients, les e-commerçants et les livreurs : ce qu'ils écrivent au WhatsApp de l'entreprise et tout ce qui leur est envoyé.</p>
       </div>
       <div class="flex flex-wrap gap-2" role="group" aria-label="Filtrer les conversations">
         <button
@@ -26,7 +26,7 @@
         </div>
         <p v-if="loading && !conversations.length" class="p-4 text-sm text-slate-600">Chargement…</p>
         <p v-else-if="!conversations.length" class="p-6 text-center text-sm text-slate-600">
-          {{ filter === 'all' && !search ? 'Aucun message reçu pour l\'instant. Ils apparaissent ici dès que quelqu\'un écrit au WhatsApp de l\'entreprise.' : 'Aucune conversation ne correspond.' }}
+          {{ filter === 'all' && !search ? 'Aucun message pour l\'instant. Les conversations apparaissent ici dès qu\'un message part ou arrive.' : 'Aucune conversation ne correspond.' }}
         </p>
         <ul class="max-h-[70vh] divide-y overflow-y-auto">
           <li v-for="c in conversations" :key="c.contact.phone">
@@ -43,7 +43,10 @@
                 {{ c.contact.kind_label }}<template v-if="c.contact.order"> · course {{ c.contact.order.tracking_code }}</template>
               </span>
               <span class="mt-0.5 flex items-center gap-2">
-                <span :class="['flex-1 truncate text-sm', c.unread ? 'font-semibold text-slate-900' : 'text-slate-600']">{{ c.last.body }}</span>
+                <span :class="['flex-1 truncate text-sm', c.unread ? 'font-semibold text-slate-900' : 'text-slate-600']">
+                  <template v-if="c.last.direction === 'out'">{{ c.last.automatic ? 'Auto : ' : 'Vous : ' }}</template>{{ c.last.body }}
+                </span>
+                <span v-if="c.failed" class="shrink-0 rounded-full bg-red-50 px-2 text-xs font-medium text-red-700 ring-1 ring-red-200">échec</span>
                 <span v-if="c.unread" class="grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">{{ c.unread }}</span>
               </span>
             </button>
@@ -83,6 +86,10 @@
               <p :class="['mt-1 text-xs text-slate-600', m.direction === 'out' ? 'text-right' : '']">
                 {{ time(m.at) }}<template v-if="m.direction === 'out'"> · <span :class="m.status === 'failed' ? 'font-semibold text-red-700' : ''">{{ m.status_label.toLowerCase() }}</span></template>
               </p>
+              <p v-if="m.status === 'failed'" class="mt-1 flex flex-wrap items-center justify-end gap-2 text-xs text-red-700">
+                <span v-if="m.error">{{ m.error }}</span>
+                <button type="button" class="rounded-lg bg-white px-2.5 py-1 font-semibold text-red-700 ring-1 ring-red-300 hover:bg-red-50" :disabled="retrying === m.message_id" @click="retry(m)">Renvoyer</button>
+              </p>
             </div>
           </template>
         </div>
@@ -118,8 +125,8 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { statusClass, telLink } from '../../utils/format'
 
 /**
- * Messages › Reçus : conversations WhatsApp reçues sur le numéro de l'entreprise, rangées par numéro ;
- * l'équipe lit et répond. La liste et la conversation ouverte se rafraîchissent toutes seules.
+ * Messages : la messagerie de l'entreprise, façon WhatsApp. Une conversation par numéro, avec les messages reçus
+ * et envoyés (WhatsApp, SMS, notifications) ; l'équipe lit et répond. Tout se rafraîchit tout seul.
  */
 const FILTERS = [
   { value: 'all', label: 'Toutes' },
@@ -128,6 +135,7 @@ const FILTERS = [
   { value: 'merchant', label: 'E-commerçants' },
   { value: 'courier', label: 'Livreurs' },
   { value: 'unknown', label: 'Inconnus' },
+  { value: 'failed', label: 'Échecs' },
 ]
 const QUICK = {
   client: ['Bien reçu, nous prévenons le livreur.', 'Le livreur va vous appeler.', 'D\'accord, nous reportons la livraison.'],
@@ -149,6 +157,7 @@ const reply = ref('')
 const sending = ref(false)
 const sendError = ref('')
 const thread = ref(null)
+const retrying = ref(null)
 const quickReplies = computed(() => QUICK[current.value?.contact.kind] || QUICK.unknown)
 
 const pad = (n) => String(n).padStart(2, '0')
@@ -242,6 +251,20 @@ async function send() {
     sendError.value = apiErrorMessage(e)
   } finally {
     sending.value = false
+  }
+}
+
+// Message en échec : renvoyé (SMS de repli ou nouvel essai, selon le message)
+async function retry(m) {
+  retrying.value = m.message_id
+  try {
+    await http.post(`/messages/${m.message_id}/retry`)
+    await open(current.value.contact.phone, { quiet: true })
+    load()
+  } catch (e) {
+    sendError.value = apiErrorMessage(e)
+  } finally {
+    retrying.value = null
   }
 }
 

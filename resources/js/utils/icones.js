@@ -6,9 +6,9 @@
 import {
   ArrowLeft, Award, Backpack, Ban, Banknote, Bell, Bike, Building2, Bus, Calendar, CalendarClock, CalendarDays, Camera,
   ChartColumn, Check, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
-  House, Inbox, Info, Landmark, LayoutDashboard, LifeBuoy, Lock, Map, MapPin, Megaphone, Menu, MessageCircle, Monitor, Moon,
-  Package, PackageOpen, Pause, Pencil, Phone, Plus, Printer, Receipt, RefreshCw, Repeat, Route, Search, Send, Settings,
-  ShieldAlert, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
+  House, Info, Landmark, LayoutDashboard, LifeBuoy, Lock, Map, MapPin, Megaphone, Menu, MessageCircle, Monitor, Moon,
+  Package, PackageOpen, Pause, Pencil, Phone, Plus, Printer, Receipt, RefreshCw, Repeat, Route, Search, Settings,
+  ShieldAlert, Smartphone, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
   Volume2, VolumeX, Wallet, Warehouse, X, Zap,
 } from 'lucide-vue-next'
 
@@ -29,10 +29,8 @@ export const ICONES = {
   stock: Warehouse,
   depot: Warehouse,
   message: MessageCircle,
-  // Menu Messages : reçus, envoyés, messages prédéfinis
-  recus: Inbox,
-  envoyes: Send,
-  modeles: FileText,
+  // Menu Messages : la connexion du numéro WhatsApp
+  whatsapp: Smartphone,
   livreur: Bike,
   vehicule: Truck,
   utilisateurs: Users,
