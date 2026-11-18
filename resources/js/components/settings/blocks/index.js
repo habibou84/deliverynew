@@ -23,7 +23,7 @@ const minutes = (v) => (v ? `${v} min` : 'aucune')
 export const BLOCKS = {
   validation: { component: ValidationBlock, fields: ['validation_mode'], summary: (f) => [['Validation', short(VALIDATION_MODES, f.validation_mode)]] },
   editApproval: { component: EditApprovalBlock, fields: ['merchant_edit_approval'], summary: (f) => [['Modifications', short(EDIT_APPROVAL_MODES, f.merchant_edit_approval)]] },
-  day: { component: DayBlock, fields: ['daily_cutoff_time', 'cutoff_by_day', 'default_max_attempts'], summary: (f) => [['Heure limite', (f.daily_cutoff_time || '').slice(0, 5) || 'aucune']] },
+  day: { component: DayBlock, fields: ['daily_cutoff_time', 'cutoff_by_day', 'default_max_attempts', 'day_advice'], summary: (f) => [['Heure limite', (f.daily_cutoff_time || '').slice(0, 5) || 'aucune']] },
   couriers: {
     component: CouriersBlock,
     fields: ['require_delivery_code', 'offline_courier_actions', 'relay_required', 'pickup_mission_custody', 'depot_closes_at'],
