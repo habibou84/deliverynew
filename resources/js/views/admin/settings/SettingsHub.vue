@@ -113,11 +113,12 @@ const ALL = computed(() => {
     },
     {
       key: 'messages', group: 'messages', icon: '💬', title: 'Messages', permission: 'orders.dispatch',
-      description: 'Dans le menu Messages : la messagerie avec les clients, les e-commerçants et les livreurs, et WhatsApp (connexion du numéro, messages prédéfinis).',
+      description: 'Dans le menu Messages : la messagerie avec les clients, les e-commerçants et les livreurs, et WhatsApp (connexion du numéro, messages automatiques, options d\'envoi).',
       links: [
         { to: '/admin/messages', label: 'Messages', permission: 'orders.dispatch' },
         { to: '/admin/whatsapp', label: 'Connexion WhatsApp', permission: 'settings.manage' },
-        { to: '/admin/whatsapp/modeles', label: 'Messages prédéfinis', permission: 'settings.manage' },
+        { to: '/admin/whatsapp/messages', label: 'Messages automatiques', permission: 'settings.manage' },
+        { to: '/admin/whatsapp/options', label: 'Options d\'envoi', permission: 'settings.manage' },
       ],
       keywords: 'whatsapp connecter connexion numéro qr code meta messages reçus envoyés journal modèles prédéfinis clients e-commerçant marchand livreurs sms notification push réponse conversation',
     },

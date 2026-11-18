@@ -3,7 +3,7 @@
     <p v-if="error" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{{ error }}</p>
     <p v-if="settings.ask_recipient_rating === false" class="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
       Les clients ne sont pas invités à noter leur livraison.
-      <button v-if="auth.can('settings.manage')" type="button" class="font-semibold underline" @click="settingsOpen = true">Activer</button>
+      <RouterLink v-if="auth.can('settings.manage')" to="/admin/whatsapp/messages" class="font-semibold underline">Activer dans WhatsApp › Messages automatiques</RouterLink>
     </p>
 
     <!-- Avis graves à traiter tout de suite -->
@@ -43,10 +43,7 @@
           Note sur les {{ settings.window_days || 90 }} derniers jours : clients {{ pct(settings.weights?.recipient) }}, e-commerçants {{ pct(settings.weights?.merchant) }}, responsables {{ pct(settings.weights?.manager) }}.
           Elle est lissée : un livreur avec peu d'avis reste proche de 4.
         </p>
-        <label class="flex gap-3 text-sm">
-          <input v-model="draft.ask_recipient_rating" type="checkbox" class="mt-1">
-          <span><b>Demander l'avis du client après la livraison</b><br><span class="text-slate-600">Un message WhatsApp : répondre de 1 à 5, ou noter en détail par un lien.</span></span>
-        </label>
+        <MessageSettingLink :on="draft.ask_recipient_rating !== false" label="Avis du client après la livraison (WhatsApp)" />
         <div>
           <label class="label" for="rating-threshold">Seuil d'alerte</label>
           <input id="rating-threshold" v-model.number="draft.rating_alert_threshold" type="number" min="1" max="5" step="0.1" class="input">
@@ -59,6 +56,7 @@
 </template>
 
 <script setup>
+import MessageSettingLink from '../settings/MessageSettingLink.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
