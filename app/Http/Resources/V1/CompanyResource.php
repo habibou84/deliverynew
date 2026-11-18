@@ -68,6 +68,7 @@ class CompanyResource extends JsonResource
             'auto_delivery_max_cod' => $this->auto_delivery_max_cod,
             'same_courier_delivery' => (bool) $this->same_courier_delivery,
             'cutoff_by_day' => (object) ($this->cutoff_by_day ?? []),
+            'day_advice' => $this->resource->dayAdvice(),
             'tagline' => $this->tagline,
             'merchant_signup' => $this->merchant_signup,
             'merchant_signup_verify' => $this->merchant_signup_verify,
