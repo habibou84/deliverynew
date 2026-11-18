@@ -193,7 +193,7 @@ class UserController extends Controller
             $invitation = $invitations->create($user, $actor);
             UserAccountEvent::record($user, $actor, UserAccountEvent::INVITATION_SENT);
         }
-        $response = UserResource::make($user->load(['roles', 'company']))->additional($invitation ? ['invitation' => $invitation] : []);
+        $response = UserResource::make($user->load(['roles', 'company', 'courier']))->additional($invitation ? ['invitation' => $invitation] : []);
 
         return $response->response()->setStatusCode(201);
     }
