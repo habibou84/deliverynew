@@ -133,7 +133,8 @@ const routes = [
       { path: 'reglages/entreprise', component: () => import('../views/admin/settings/SettingsCompany.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/courses', component: () => import('../views/admin/settings/SettingsOrders.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/annulations', component: () => import('../views/admin/Cancellations.vue'), props: { section: 'rules' }, meta: { permission: 'settings.manage' } },
-      { path: 'reglages/messages-e-commercants', component: () => import('../views/admin/settings/SettingsMerchantMessages.vue'), meta: { permission: 'settings.manage' } },
+      // Rangé dans Messages › Messages prédéfinis (onglet E-commerçants)
+      { path: 'reglages/messages-e-commercants', redirect: { path: '/admin/whatsapp/modeles', query: { onglet: 'merchant' } } },
       { path: 'reglages/alertes', component: () => import('../views/admin/settings/SettingsAlerts.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },
@@ -155,9 +156,14 @@ const routes = [
       // Jibiat IA est dans la formule : son bloc est sur « Mon abonnement » (anciens liens)
       { path: 'jibiat-ia', redirect: { path: '/admin/abonnement', hash: '#jibiat-ia' } },
       { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },
+      // WhatsApp : connexion du numéro et messages prédéfinis (onglets)
       { path: 'whatsapp', component: () => import('../views/admin/WhatsApp.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'whatsapp/modeles', component: () => import('../views/admin/MessageTemplates.vue'), meta: { permission: 'settings.manage' } },
       { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage', feature: 'whatsapp_bot' } },
-      { path: 'messages', component: () => import('../views/admin/Messages.vue'), meta: { permission: 'orders.dispatch' } },
+      // Messages : la messagerie façon WhatsApp (reçus et envoyés au même endroit)
+      { path: 'messages', component: () => import('../views/admin/Inbox.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'messages/recus', redirect: '/admin/messages' },
+      { path: 'messages/predefinis', redirect: (to) => ({ path: '/admin/whatsapp/modeles', query: to.query }) },
     ],
   },
   // Application livreur : écran « appel entrant » d'une nouvelle mission (sonnerie Android), en plein écran

@@ -98,6 +98,23 @@ enum WhatsAppTemplate: string
         };
     }
 
+    /** À qui il s'adresse (Messages › Messages prédéfinis) : client, merchant, courier ou team */
+    public function audience(): string
+    {
+        return match ($this) {
+            self::OutForDelivery, self::ShippedRecipient, self::RatingRequest => 'client',
+            self::CashReceipt, self::CashReminder => 'courier',
+            self::CashClosing, self::ManagerReport => 'team',
+            default => 'merchant',
+        };
+    }
+
+    /** Nom lisible, sans emoji */
+    public function title(): string
+    {
+        return trim((string) preg_replace('/^\S+\s+/u', '', $this->notificationTitle()));
+    }
+
     public function description(): string
     {
         return match ($this) {

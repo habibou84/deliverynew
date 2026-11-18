@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\V1\DeliveryDayController;
 use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
+use App\Http\Controllers\Api\V1\InboxController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\JibiatAiController;
 use App\Http\Controllers\Api\V1\LegacyCashBaselineController;
@@ -632,6 +633,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Journal des messages WhatsApp et SMS
         Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
         Route::post('messages/{message}/retry', [MessageController::class, 'retry'])->name('messages.retry');
+        // Messages › Reçus : conversations WhatsApp reçues sur le numéro de l'entreprise
+        Route::controller(InboxController::class)->prefix('inbox')->name('inbox.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('summary', 'summary')->name('summary');
+            Route::get('{phone}', 'show')->where('phone', '\\+?[0-9]{6,20}')->name('show');
+            Route::post('{phone}/reply', 'reply')->where('phone', '\\+?[0-9]{6,20}')->middleware('throttle:60,1')->name('reply');
+        });
 
         // Connexion en un clic d'une application (gérant) et demandes d'ouverture de compte (équipe)
         Route::post('connect/authorize', [ConnectController::class, 'authorize'])->middleware('throttle:20,1')->name('connect.authorize');
