@@ -30,13 +30,9 @@
           :default-open="!group.closed"
         />
       </nav>
-      <!-- Téléphone : qui est connecté et déconnexion (l'en-tête n'a plus la place) -->
-      <div class="md:hidden border-t border-white/15 p-3 flex items-center justify-between gap-2">
-        <RouterLink to="/admin/mot-de-passe" class="min-w-0 text-sm" @click="sidebarOpen = false">
-          <span class="block truncate font-medium">{{ auth.user?.name }}</span>
-          <span class="block truncate text-white/60">{{ auth.user?.role_label }} · mot de passe</span>
-        </RouterLink>
-        <button class="shrink-0 rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20" @click="logout">Déconnexion</button>
+      <!-- Téléphone : le profil (Mon compte, Mon abonnement, Déconnexion), détaché du menu -->
+      <div class="md:hidden mt-4 border-t border-white/15 px-3 pb-4 pt-4">
+        <AccountMenu sidebar @logout="logout" @navigate="sidebarOpen = false" />
       </div>
     </aside>
 
@@ -60,10 +56,8 @@
         <div class="flex items-center gap-3">
           <AlertSoundToggle v-if="isDispatch" />
           <NotificationBell />
-          <RouterLink to="/admin/mot-de-passe" class="hidden md:inline text-sm text-slate-600 hover:underline" title="Mon compte : mot de passe">
-            {{ auth.user?.name }} <span class="text-slate-600">· {{ auth.user?.role_label }}</span>
-          </RouterLink>
-          <button class="btn-danger hidden md:inline-flex" @click="logout">Déconnexion</button>
+          <!-- Profil : Mon compte, Mon abonnement, Déconnexion -->
+          <AccountMenu class="hidden md:block" @logout="logout" />
         </div>
       </header>
       <!-- Téléphone : recherche de course sous l'en-tête -->
@@ -172,6 +166,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect
 import { useRoute, useRouter } from 'vue-router'
 import http from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'
+import AccountMenu from '../components/AccountMenu.vue'
 import { useRealtime } from '../composables/useRealtime'
 import SidebarGroup from '../components/SidebarGroup.vue'
 import SidebarItem from '../components/SidebarItem.vue'
@@ -344,6 +339,15 @@ const menu = computed(() => {
       ],
     },
     {
+      // Livraison : où et à quel prix, et ce qui se fait tout seul (validation, journée, ramassage et livraison automatiques)
+      id: 'livraison',
+      label: 'Livraison',
+      items: [
+        { to: '/admin/livraison', icon: 'adresse', label: 'Zones et tarifs', permission: 'settings.manage' },
+        { to: '/admin/automatisation', icon: 'automatisation', label: 'Automatisation', permission: 'settings.manage' },
+      ],
+    },
+    {
       id: 'finances',
       label: 'Finances',
       items: [
@@ -359,6 +363,8 @@ const menu = computed(() => {
         // Éteint dans la console : caché (sauf niveaux déjà créés)
         { to: '/admin/premium', icon: 'premium', label: 'Programme Premium', permission: 'merchants.view', show: auth.user?.company?.premium_program !== false },
         { to: '/admin/stock', icon: 'stock', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
+        // Inscriptions en ligne, annuaire, modifications des courses par les e-commerçants, parrainage
+        { to: '/admin/reglages/e-commercants', icon: 'reglages-clients', label: 'Réglages clients', permission: 'settings.manage' },
       ],
     },
     {
@@ -382,10 +388,9 @@ const menu = computed(() => {
     {
       id: 'configuration',
       label: 'Configuration',
-      // Zones, tarifs, intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
+      // Intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
       items: [
         // Point rouge : alertes du bilan de santé
-        { to: '/admin/livraison', icon: 'adresse', label: 'Zones et tarifs', permission: 'settings.manage' },
         { to: '/admin/reglages', icon: 'reglages', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },
       ],
     },
