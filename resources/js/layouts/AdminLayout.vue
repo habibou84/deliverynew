@@ -371,6 +371,7 @@ const menu = computed(() => {
       // Zones, tarifs, intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
       items: [
         // Point rouge : alertes du bilan de santé
+        { to: '/admin/livraison', icon: 'adresse', label: 'Zones et tarifs', permission: 'settings.manage' },
         { to: '/admin/reglages', icon: 'reglages', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },
       ],
     },

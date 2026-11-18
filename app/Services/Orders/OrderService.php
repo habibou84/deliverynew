@@ -116,6 +116,9 @@ class OrderService
             if ($data['pickup_zone_id'] === null) {
                 throw new BusinessRuleException('Indiquez la zone de ramassage.', 'pickup_zone_id');
             }
+            if ($hub === null) {
+                $this->ensurePickupZone($merchant->company_id, (int) $data['pickup_zone_id']);
+            }
 
             $feePayer = FeePayer::tryFrom($data['fee_payer'] ?? '') ?? $merchant->default_fee_payer;
             $itemsAmount = (int) ($data['items_amount'] ?? 0);
@@ -289,6 +292,10 @@ class OrderService
 
         if (! $status->isBeforePickup() && array_intersect(array_keys($data), [...self::PICKUP_FIELDS, ...self::MONEY_FIELDS, 'is_fragile', 'weight_kg', 'package_size'])) {
             throw new BusinessRuleException('Le colis a déjà été récupéré : seules les informations de livraison sont modifiables.', 'status');
+        }
+
+        if (isset($data['pickup_zone_id']) && (int) $data['pickup_zone_id'] !== $order->pickup_zone_id) {
+            $this->ensurePickupZone($order->company_id, (int) $data['pickup_zone_id']);
         }
 
         $order->fill(Arr::only($data, [...self::PICKUP_FIELDS, ...self::DELIVERY_FIELDS, ...self::PACKAGE_FIELDS]));
@@ -469,6 +476,18 @@ class OrderService
         }
 
         return $items;
+    }
+
+    /**
+     * Zones et tarifs : l'entreprise ne ramasse pas dans les lieux où le ramassage est coupé (un quartier suit sa
+     * commune). Les départs de l'entrepôt ne sont pas concernés.
+     */
+    private function ensurePickupZone(int $companyId, int $zoneId): void
+    {
+        $zone = Zone::forCompany($companyId)->with('parent')->find($zoneId);
+        if ($zone && ($zone->is_pickup === false || $zone->parent?->is_pickup === false)) {
+            throw new BusinessRuleException("Pas de ramassage à {$zone->fullName()}. Choisissez une autre adresse de ramassage, ou contactez l'agence.", 'pickup_zone_id');
+        }
     }
 
     /**

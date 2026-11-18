@@ -37,7 +37,7 @@
             <label class="label" for="nm-zone">Zone de ramassage *</label>
             <SearchSelect
               id="nm-zone" v-model="draft.pickup_zone_id" placeholder="Choisir…" :allow-empty="false" :empty-value="null" required search-placeholder="Commune, quartier…" @change="emitDraft"
-              :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+              :options="zones.filter((z) => z.is_pickup !== false).map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
             />
           </div>
         </div>

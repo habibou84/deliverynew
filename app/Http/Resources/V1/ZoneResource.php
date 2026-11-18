@@ -24,6 +24,8 @@ class ZoneResource extends JsonResource
             'is_shipping' => $this->is_shipping,
             'shipping_fee_estimate' => $this->shipping_fee_estimate,
             'is_active' => $this->is_active,
+            // Ramassage possible ici (quartier : et dans sa commune). Hors de l'API publique : pas encore au contrat
+            'is_pickup' => $this->when(! $request->is('api/public/*'), fn () => $this->acceptsPickup()),
             'sort_order' => $this->sort_order,
         ];
     }

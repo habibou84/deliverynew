@@ -84,7 +84,7 @@ class SetupGuide
         $issues = [];
         $pricing = collect($steps)->firstWhere('key', 'pricing');
         if ($pricing && $pricing['status'] === self::PARTIAL) {
-            $issues[] = ['level' => 'alert', 'text' => 'Tarifs : '.lcfirst($pricing['lines'][0]), 'to' => '/admin/tarifs'];
+            $issues[] = ['level' => 'alert', 'text' => 'Tarifs : '.lcfirst($pricing['lines'][0]), 'to' => '/admin/livraison'];
         }
 
         $account = WhatsAppAccount::forCompanyId($c->id);
@@ -152,7 +152,7 @@ class SetupGuide
 
         return $this->step('zones', 'Les zones desservies', true,
             'Chaque course part d\'une zone et va vers une zone : sans zones, ni prix, ni livreur.',
-            $local->isEmpty() ? self::TODO : self::DONE, $lines, '/admin/zones', 'Gérer les zones');
+            $local->isEmpty() ? self::TODO : self::DONE, $lines, '/admin/livraison', 'Gérer les zones');
     }
 
     /**
@@ -166,7 +166,7 @@ class SetupGuide
 
         if ($grid === null) {
             return $this->step('pricing', 'Les tarifs', true, 'Le prix de chaque course se calcule à partir de la grille de tarifs.',
-                self::TODO, ['Aucune grille de tarifs par défaut.'], '/admin/tarifs', 'Créer la grille de tarifs');
+                self::TODO, ['Aucune grille de tarifs par défaut.'], '/admin/livraison', 'Créer la grille de tarifs');
         }
 
         $rules = PricingRule::query()->where('pricing_grid_id', $grid->id)->get(['origin_zone_id', 'destination_zone_id', 'is_symmetric']);
@@ -193,7 +193,7 @@ class SetupGuide
             $missing === []
                 ? ($total ? ["Grille « {$grid->name} » : les {$total} trajets entre communes ont un prix."] : ['Ajoutez d\'abord des zones.'])
                 : [count($missing).' trajet(s) sans prix sur '.$total.', par exemple '.implode(', ', array_slice($missing, 0, 3)).'.'],
-            '/admin/tarifs', 'Compléter les tarifs');
+            '/admin/livraison', 'Compléter les tarifs');
     }
 
     private function orderRules(Company $c): array
