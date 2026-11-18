@@ -7,7 +7,7 @@
       </div>
       <div class="flex flex-wrap gap-2">
         <button v-if="auth.can('settings.manage')" class="btn-secondary" @click="reports?.openSettings()">⭐ Réglages des notes</button>
-        <RouterLink v-if="auth.can('users.manage')" to="/admin/utilisateurs" class="btn-secondary">+ Créer un compte livreur</RouterLink>
+        <button v-if="auth.can('users.manage')" type="button" class="btn-primary" @click="creating = true">+ Nouveau livreur</button>
       </div>
     </div>
 
@@ -162,6 +162,7 @@
       Note sur 5 : clients, e-commerçants et responsables, sur 90 jours. Livrées, réussite, temps de livraison (du ramassage à la livraison, temps habituel) et échecs : sur la période choisie.
     </p>
 
+    <NewCourierModal :open="creating" @close="creating = false" @created="onCreated" />
     <CourierForm :open="!!editing" :courier="editing" @close="editing = null" @saved="load(meta?.current_page)" />
   </div>
 </template>
@@ -171,6 +172,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import CourierForm from '../../components/CourierForm.vue'
+import NewCourierModal from '../../components/NewCourierModal.vue'
 import Pagination from '../../components/Pagination.vue'
 import RatingReports from '../../components/ratings/RatingReports.vue'
 import { scoreText } from '../../components/ratings/ratingWords'
@@ -203,6 +205,7 @@ const zones = ref([])
 const loaded = ref(false)
 const error = ref('')
 const editing = ref(null)
+const creating = ref(false)
 const reports = ref(null)
 
 const desc = computed(() => f.dir === 'desc')
@@ -270,6 +273,12 @@ function sortBy(key) {
 }
 
 const open = (c) => router.push(`/admin/livreurs/${c.id}`)
+// Nouveau livreur créé : la liste est rechargée, puis son profil (véhicule, zones) s'ouvre
+function onCreated({ courierId }) {
+  creating.value = false
+  load(meta.value?.current_page)
+  if (courierId) edit({ id: courierId })
+}
 async function edit(c) {
   try {
     editing.value = (await http.get(`/couriers/${c.id}`)).data.data
