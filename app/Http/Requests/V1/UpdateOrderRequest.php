@@ -36,6 +36,7 @@ class UpdateOrderRequest extends FormRequest
             'delivery_zone_id' => ['sometimes', 'required', 'integer', $zone],
             'delivery_address' => ['sometimes', 'nullable', 'string', 'max:500'],
             'delivery_landmark' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'shipping_city' => ['sometimes', 'nullable', 'string', 'max:100'],
             'delivery_lat' => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'delivery_lng' => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
             'delivery_scheduled_date' => ['sometimes', 'nullable', 'date', 'after_or_equal:today'],
