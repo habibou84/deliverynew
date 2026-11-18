@@ -82,6 +82,7 @@ class OrderResource extends JsonResource
             // Zone d'expédition : colis déposé à une gare ou chez un transporteur
             'is_shipping' => $this->is_shipping,
             'shipping' => $this->when($this->is_shipping, fn () => [
+                'city' => $this->shipping_city,
                 'fee' => $this->shipping_fee,
                 'carrier' => $this->shipping_carrier,
                 'reference' => $this->shipping_reference,

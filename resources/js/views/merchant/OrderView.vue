@@ -159,7 +159,7 @@
 
       <!-- Expédition -->
       <section v-if="order.is_shipping && order.shipping.carrier" class="rounded-[22px] bg-white p-4 shadow-soft space-y-1 text-sm">
-        <h2 class="font-bold">Colis expédié</h2>
+        <h2 class="font-bold">Colis expédié<template v-if="order.shipping.city"> vers {{ order.shipping.city }}</template></h2>
         <p>Par <strong>{{ order.shipping.carrier }}</strong><span v-if="order.shipping.reference"> · ticket {{ order.shipping.reference }}</span></p>
         <p class="text-slate-600">Frais d'expédition de {{ money(order.shipping.fee) }} déduits de votre point.</p>
       </section>

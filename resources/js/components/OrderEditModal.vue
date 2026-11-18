@@ -18,6 +18,8 @@
             />
             <p v-if="changed('delivery_zone_id')" class="text-xs text-slate-600 line-through">{{ zoneName(initial.delivery_zone_id) }}</p>
           </div>
+          <!-- Expédition : ville de destination -->
+          <ShippingCityField v-if="zones.find((z) => z.id === form.delivery_zone_id)?.is_shipping" id="edit-shipping-city" v-model="form.shipping_city" :input-class="['input', changed('shipping_city') && 'ring-2 ring-amber-400 bg-amber-50']" />
           <EditField v-model="form.delivery_address" data-field="address" label="Adresse" :before="initial.delivery_address" />
           <EditField v-model="form.delivery_landmark" label="Repère" :before="initial.delivery_landmark" />
           <EditField v-model="form.delivery_scheduled_date" data-field="date" type="date" :min="today" label="Jour de livraison" :before="initial.delivery_scheduled_date" />
@@ -88,6 +90,7 @@
 </template>
 
 <script setup>
+import ShippingCityField from './ShippingCityField.vue'
 import SearchSelect from './SearchSelect.vue'
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
@@ -133,6 +136,7 @@ function valuesOf(o) {
     delivery_landmark: o.delivery.landmark ?? '',
     delivery_scheduled_date: o.delivery.scheduled_date ?? '',
     delivery_time_slot: o.delivery.time_slot ?? '',
+    shipping_city: o.shipping?.city ?? '',
     ...(o.edit_scope === 'all' ? {
       items_amount: o.amounts.items_amount,
       fee_payer: o.amounts.fee_payer,

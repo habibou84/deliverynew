@@ -116,7 +116,7 @@
           <div><p class="text-slate-600">À encaisser</p><p class="font-semibold text-lg">{{ money(order.amounts.cod_amount) }}</p></div>
           <div><p class="text-slate-600">Encaissé</p><p class="font-semibold">{{ money(order.amounts.collected_amount) }}</p></div>
           <div v-if="order.is_shipping" class="sm:col-span-4 rounded bg-indigo-50 text-indigo-900 p-2">
-            🚌 <strong>Expédition</strong> ·
+            🚌 <strong>Expédition<template v-if="order.shipping.city"> vers {{ order.shipping.city }}</template></strong> ·
             <template v-if="order.shipping.carrier">
               déposé chez {{ order.shipping.carrier }}<span v-if="order.shipping.reference"> (ticket {{ order.shipping.reference }})</span>,
               frais {{ money(order.shipping.fee) }} facturés au marchand

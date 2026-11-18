@@ -117,7 +117,10 @@
       <!-- Zones d'expédition -->
       <section v-if="shipping.length" class="space-y-2">
         <h2 class="pt-2 font-semibold">Zones d'expédition</h2>
-        <p class="text-sm text-slate-600">Le prix est celui de la course jusqu'à la gare ; les frais du transporteur, payés par le livreur, sont facturés au marchand.</p>
+        <p class="text-sm text-slate-600">
+          « Expédition » sert pour toutes les villes de l'intérieur : la ville de destination se choisit sur la course. Le prix est celui de la
+          course jusqu'à la gare ; les frais du transporteur, notés par le livreur, sont déduits du point de l'e-commerçant.
+        </p>
         <div class="card divide-y overflow-hidden">
           <div v-for="z in shipping" :key="z.id" class="flex flex-wrap items-center gap-3 px-4 py-3">
             <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5" :checked="z.is_active" :aria-label="`On livre ici : ${z.name}`" @change="toggleActive(z)"> On livre ici</label>
@@ -127,11 +130,14 @@
               <input :value="z.shipping_fee_estimate" type="number" min="0" class="input w-24 py-1" :aria-label="`Frais habituels : ${z.name}`" @change="setEstimate(z, $event.target.value)">
             </label>
             <label class="flex items-center gap-2 text-xs text-slate-600">
-              Prix de la course
-              <input :value="ownPrice(z) ?? ''" type="number" min="0" class="input w-28 py-1" :placeholder="isDefault ? 'Pas de prix' : 'grille normale'" :aria-label="`Prix : ${z.name}`" @change="setOwnPrice(z, $event.target.value)">
+              {{ z.default_shipping ? 'Prix de la course jusqu\'à la gare' : 'Prix de la course' }}
+              <input :value="ownPrice(z) ?? ''" type="number" min="0" class="input w-28 py-1" :placeholder="isDefault ? '—' : 'normale'" :aria-label="`Prix : ${z.name}`" @change="setOwnPrice(z, $event.target.value)">
             </label>
-            <button type="button" class="text-xs text-blue-700" @click="rename(z)">Renommer</button>
-            <button type="button" class="text-xs text-red-700" @click="remove(z)">Supprimer</button>
+            <template v-if="!z.default_shipping">
+              <button type="button" class="text-xs text-blue-700" @click="rename(z)">Renommer</button>
+              <button type="button" class="text-xs text-red-700" @click="remove(z)">Supprimer</button>
+            </template>
+            <span v-else class="text-xs text-slate-600">La ville se choisit sur chaque course</span>
           </div>
         </div>
       </section>
@@ -173,7 +179,8 @@ const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 const key = (a, b) => `${a}-${b}`
 const byId = computed(() => Object.fromEntries(zones.value.map((z) => [z.id, z])))
 const communes = computed(() => zones.value.filter((z) => !z.parent_id && !z.is_shipping))
-const shipping = computed(() => zones.value.filter((z) => z.is_shipping))
+// Zones d'expédition, la zone « Expédition » d'office en premier
+const shipping = computed(() => zones.value.filter((z) => z.is_shipping).sort((a, b) => Number(!!b.default_shipping) - Number(!!a.default_shipping)))
 const used = computed(() => new Set(Object.keys(prices.value).flatMap((k) => k.split('-').map(Number))))
 // Lignes : les communes (et les quartiers à la demande, ou ceux qui ont un prix ou un trajet)
 const rows = computed(() => {

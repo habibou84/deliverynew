@@ -35,7 +35,7 @@
         ⏳ Enregistré sur votre téléphone : envoi automatique au retour du réseau.
       </p>
       <p v-if="shipping" class="rounded-xl bg-indigo-50 text-indigo-900 p-3 font-medium">
-        🚌 Expédition : déposez le colis à la gare ou chez le transporteur, payez l'envoi et gardez le ticket.
+        🚌 Expédition<template v-if="order.shipping?.city"> vers <strong>{{ order.shipping.city }}</strong></template> : déposez le colis à la gare ou chez le transporteur, payez l'envoi et gardez le ticket.
       </p>
       <p v-if="mission.gain" class="text-sm font-semibold text-emerald-700">💰 Votre gain prévu : + {{ money(mission.gain) }}</p>
       <p class="text-xl font-bold">{{ target.name }}</p>

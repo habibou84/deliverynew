@@ -524,6 +524,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Référentiels
         Route::get('zones', [ZoneController::class, 'index'])->name('zones.index');
+        Route::get('shipping-cities', [ZoneController::class, 'shippingCities'])->name('shipping-cities');
         Route::get('incident-reasons', [ReferenceController::class, 'incidentReasons'])->name('incident-reasons.index');
         Route::get('recipients', [ReferenceController::class, 'recipients'])->name('recipients.index');
         Route::post('quotes', QuoteController::class)->name('quotes.store');

@@ -36,6 +36,8 @@ class OrderService
     private const DELIVERY_FIELDS = [
         'recipient_name', 'recipient_phone', 'recipient_phone2', 'delivery_zone_id', 'delivery_address',
         'delivery_landmark', 'delivery_lat', 'delivery_lng', 'delivery_scheduled_date', 'delivery_time_slot',
+        // Expédition : ville où le transporteur emmène le colis
+        'shipping_city',
     ];
 
     private const PACKAGE_FIELDS = [
