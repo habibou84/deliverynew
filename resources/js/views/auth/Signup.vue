@@ -144,6 +144,8 @@ async function submit() {
       password: withPassword.value ? form.password : null,
       password_confirmation: withPassword.value ? form.password_confirmation : null,
     })
+    // Vérification du numéro désactivée par l'entreprise : le compte est déjà ouvert
+    if (data.session) return finish(data)
     pending.value = { token: data.token, data: data.data }
     savePending('signup', pending.value)
   } catch (e) {

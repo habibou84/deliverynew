@@ -147,7 +147,7 @@ async function start() {
 
 onMounted(async () => {
   if (!ticket) {
-    error.value = 'Ouvrez cette page depuis Réglages › Messages aux clients de votre espace.'
+    error.value = 'Ouvrez cette page depuis Réglages › WhatsApp de votre espace.'
     return
   }
   try {

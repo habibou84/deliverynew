@@ -415,6 +415,269 @@
       </section>
     </template>
 
+    <!-- Reversements -->
+    <template v-if="tab === 'payouts'">
+      <div class="card p-3 flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[12rem]">
+          <label class="label" for="payout-search">Chercher un e-commerçant ou une référence</label>
+          <input id="payout-search" v-model="filters.payout" type="search" class="input">
+        </div>
+        <div>
+          <label class="label" for="payout-status">Statut</label>
+          <select id="payout-status" v-model="filters.payoutStatus" class="input w-auto" @change="load">
+            <option value="">Tous</option><option value="draft">À payer</option><option value="paid">Payés</option><option value="cancelled">Annulés</option>
+          </select>
+        </div>
+        <button type="button" class="btn-secondary" @click="exportPayouts">Exporter</button>
+        <button v-if="canManage && draftPayouts.length" type="button" class="btn-primary" @click="openBatchPay">Marquer plusieurs comme payés ({{ draftPayouts.length }})</button>
+      </div>
+      <div class="card overflow-x-auto">
+        <table class="w-full text-sm stack-table">
+          <thead class="bg-slate-50 text-left text-slate-600">
+            <tr><th class="p-2">Référence</th><th class="p-2">E-commerçant</th><th class="p-2">Période</th><th class="p-2 text-right">Net</th><th class="p-2">Statut</th><th class="p-2">Payé le</th></tr>
+          </thead>
+          <tbody class="divide-y">
+            <tr v-for="p in visiblePayouts" :key="p.id" class="hover:bg-slate-50 cursor-pointer" @click="router.push(`/admin/caisse/reversements/${p.id}`)">
+              <td class="p-2 font-mono text-xs">{{ p.reference }}</td>
+              <td data-label="E-commerçant" class="p-2">{{ p.merchant.business_name }}</td>
+              <td data-label="Période" class="p-2 text-xs">{{ date(p.period_start) }} → {{ date(p.period_end) }}</td>
+              <td data-label="Net" :class="['p-2 text-right font-semibold', signedClass(p.net_amount)]">{{ money(p.net_amount) }}</td>
+              <td data-label="Statut" class="p-2"><PayoutBadge :status="p.status" :label="p.status_label" /></td>
+              <td data-label="Payé le" class="p-2 text-xs">{{ p.paid_at ? `${dateTime(p.paid_at)} · ${p.method_label}` : '—' }}</td>
+            </tr>
+            <tr v-if="!visiblePayouts.length"><td colspan="6" class="p-4 text-center text-slate-600">Aucun paiement.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- Paie des livreurs -->
+    <template v-if="tab === 'payroll'">
+      <div class="card overflow-x-auto">
+        <table class="w-full text-sm stack-table">
+          <thead class="bg-slate-50 text-left text-slate-600">
+            <tr><th class="p-2">Livreur</th><th class="p-2 text-right">Gains non payés</th><th /></tr>
+          </thead>
+          <tbody class="divide-y">
+            <tr v-for="c in (cash?.data || []).filter((c) => c.active || c.unpaid !== 0)" :key="c.courier_id">
+              <td class="p-2 font-medium">{{ c.name }}</td>
+              <td data-label="Gains non payés" :class="['p-2 text-right font-semibold', signedClass(c.unpaid)]">{{ money(c.unpaid) }}</td>
+              <td class="p-2 text-right whitespace-nowrap">
+                <button v-if="canManage" class="text-blue-600 mr-3" @click="openAdjust(c)">Prime / retenue</button>
+                <button v-if="canManage && c.unpaid !== 0" class="btn-primary" @click="prepareCourierPayout(c)">Préparer la paie</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card overflow-x-auto">
+        <div class="flex flex-wrap items-end gap-3 p-4 border-b">
+          <h2 class="flex-1 font-semibold">Fiches de paie</h2>
+          <template v-if="canManage && draftPayslips.length">
+            <div>
+              <label class="label" for="payslips-method">Payé en</label>
+              <select id="payslips-method" v-model="batch.payslipMethod" class="input w-auto">
+                <option v-for="m in PAY_METHODS" :key="m.value" :value="m.value">{{ m.label }}</option>
+              </select>
+            </div>
+            <button type="button" class="btn-primary" :disabled="!batch.payslips.length || batch.busy" @click="paySelectedPayslips">
+              Payer {{ batch.payslips.length }} fiche{{ batch.payslips.length > 1 ? 's' : '' }} ({{ money(selectedPayslipsTotal) }})
+            </button>
+          </template>
+        </div>
+        <table class="w-full text-sm stack-table">
+          <thead class="bg-slate-50 text-left text-slate-600">
+            <tr><th v-if="canManage" class="p-2 w-8"><input v-if="draftPayslips.length" type="checkbox" aria-label="Tout cocher" :checked="batch.payslips.length === draftPayslips.length" @change="toggleAllPayslips($event.target.checked)"></th><th class="p-2">Référence</th><th class="p-2">Livreur</th><th class="p-2">Période</th><th class="p-2 text-right">Montant</th><th class="p-2">Statut</th><th /></tr>
+          </thead>
+          <tbody class="divide-y">
+            <tr v-for="p in courierPayouts" :key="p.id" :class="p.status === 'draft' && holding(p) ? 'bg-orange-50' : ''">
+              <td v-if="canManage" class="p-2"><input v-if="p.status === 'draft'" v-model="batch.payslips" type="checkbox" :value="p.id" :aria-label="`Choisir ${p.reference}`"></td>
+              <td class="p-2 font-mono text-xs">{{ p.reference }}</td>
+              <td data-label="Livreur" class="p-2">{{ p.courier_name }}<span v-if="p.status === 'draft' && holding(p)" class="block text-xs font-semibold text-orange-800">Garde encore {{ money(holding(p)) }} : vous pouvez aussi garder la paie sur l'encaissé (Détail)</span></td>
+              <td data-label="Période" class="p-2 whitespace-nowrap text-slate-600">{{ date(p.period_start) }} → {{ date(p.period_end) }}<span v-if="p.automatic" title="Préparée automatiquement en fin de période"> ⏱</span></td>
+              <td data-label="Montant" :class="['p-2 text-right font-semibold', signedClass(p.amount)]">{{ money(p.amount) }}</td>
+              <td data-label="Statut" class="p-2"><PayoutBadge :status="p.status" :label="p.status_label" /></td>
+              <td class="p-2 text-right"><button class="text-blue-600" @click="openCourierPayout(p)">Détail</button></td>
+            </tr>
+            <tr v-if="!courierPayouts.length"><td :colspan="canManage ? 7 : 6" class="p-4 text-center text-slate-600">Aucune fiche de paie.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
+
+    <!-- Paiements préparés : marquer payés ensemble -->
+    <Modal :open="batchPay.open" title="Marquer des paiements comme payés" @close="batchPay.open = false">
+      <p class="text-sm text-slate-600 mb-3">Après les transferts, vérifiez le moyen et saisissez la référence de chacun. Seuls les paiements cochés sont validés.</p>
+      <div class="space-y-2 max-h-[60vh] overflow-y-auto">
+        <div v-for="row in batchPay.rows" :key="row.id" class="rounded-lg border p-3 flex flex-wrap items-end gap-3">
+          <label class="flex items-center gap-2 flex-1 min-w-[12rem]">
+            <input v-model="row.selected" type="checkbox">
+            <span><span class="font-medium">{{ row.merchant }}</span> · <span :class="signedClass(row.amount)">{{ money(row.amount) }}</span>
+              <span class="block text-xs text-slate-600">{{ row.reference }}<template v-if="row.summary"> · {{ row.summary }}<span v-if="!row.verified" class="text-amber-700"> (pas vérifié)</span></template></span>
+            </span>
+          </label>
+          <div>
+            <label class="label" :for="`bp-method-${row.id}`">Moyen</label>
+            <select :id="`bp-method-${row.id}`" v-model="row.method" class="input w-auto">
+              <option v-for="m in PAY_METHODS" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="label" :for="`bp-ref-${row.id}`">Référence</label>
+            <input :id="`bp-ref-${row.id}`" v-model="row.transaction_ref" type="text" maxlength="100" class="input w-40" :placeholder="row.method === 'cash' ? 'Facultatif' : 'Réf. du transfert'">
+          </div>
+        </div>
+      </div>
+      <p v-if="batchPay.error" class="text-sm text-red-700 mt-2" role="alert">{{ batchPay.error }}</p>
+      <div class="flex justify-end gap-2 mt-4">
+        <button type="button" class="btn-secondary" @click="batchPay.open = false">Fermer</button>
+        <button type="button" class="btn-primary" :disabled="!batchPaySelected.length || batch.busy" @click="saveBatchPay">
+          Marquer {{ batchPaySelected.length }} paiement{{ batchPaySelected.length > 1 ? 's' : '' }} comme payé{{ batchPaySelected.length > 1 ? 's' : '' }}
+        </button>
+      </div>
+    </Modal>
+
+    <!-- Versement d'un livreur -->
+    <Modal :open="remit.open" :title="`${remitHasCash ? 'Versement' : 'Colis'} de ${remit.courier?.name}`" @close="remit.open = false">
+      <form class="space-y-3" @submit.prevent="saveRemit">
+        <!-- Courses pas encore clôturées : le point attend -->
+        <div v-if="remitOnTheRoad.length" class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800 space-y-1">
+          <p class="font-semibold">🛵 {{ remitOnTheRoad.length }} course{{ remitOnTheRoad.length > 1 ? 's' : '' }} encore « En chemin »</p>
+          <p>Le livreur doit indiquer « livré » ou « échec » dans son application avant le point de caisse.</p>
+          <p class="space-x-2">
+            <RouterLink v-for="p in remitOnTheRoad" :key="p.id" :to="`/admin/courses/${p.id}`" class="font-mono text-xs underline">{{ p.tracking_code }}</RouterLink>
+          </p>
+        </div>
+
+        <!-- Colis non livrés à rendre au dépôt -->
+        <div v-if="remitParcels.length" class="space-y-1">
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-semibold">📦 Colis à rendre au dépôt ({{ remitParcels.length }})</p>
+            <button type="button" class="text-xs text-blue-700" @click="remit.returned = remit.returned.length === remitParcels.length ? [] : remitParcels.map((p) => p.id)">
+              {{ remit.returned.length === remitParcels.length ? 'Tout décocher' : 'Tout cocher' }}
+            </button>
+          </div>
+          <p class="text-xs text-slate-600">Cochez chaque colis que le livreur vous remet. Ceux qui restent décochés sont notés comme gardés par le livreur.</p>
+          <ul class="border rounded divide-y max-h-56 overflow-y-auto text-sm">
+            <li v-for="p in remitParcels" :key="p.id" :class="['flex items-center gap-2 p-2', remit.returned.includes(p.id) ? 'bg-emerald-50' : '']">
+              <input v-model="remit.returned" type="checkbox" :value="p.id" :aria-label="`Colis ${p.tracking_code} rendu`">
+              <span class="font-mono text-xs">{{ p.tracking_code }}</span>
+              <span class="flex-1 min-w-0 truncate">{{ p.recipient_name || p.recipient_phone }} <span class="text-xs text-slate-600">· {{ p.merchant }}</span></span>
+              <span v-if="p.kept_for" class="text-xs text-indigo-700 whitespace-nowrap">🌙 Gardé pour la livraison du {{ date(p.kept_for) }}</span>
+              <span v-else class="text-xs text-slate-600 whitespace-nowrap">{{ p.rescheduled_to ? `Reporté au ${date(p.rescheduled_to)}` : (p.incident || p.status_label) }}</span>
+              <span :class="['text-xs whitespace-nowrap', !p.kept_for && isOld(p.held_since) ? 'text-red-600 font-semibold' : 'text-slate-600']">{{ heldFor(p.held_since) }}</span>
+            </li>
+          </ul>
+          <p v-if="remitParcels.length - remit.returned.length > 0" class="text-xs text-amber-700">
+            ⚠ {{ remitParcels.length - remit.returned.length }} colis resteront chez le livreur<template v-if="remitKept.length"> (dont {{ remitKept.length }} gardé{{ remitKept.length > 1 ? 's' : '' }} pour leur livraison)</template>.
+          </p>
+        </div>
+
+        <p v-if="remit.collections.length" class="text-sm font-semibold pt-1">💵 Encaissements</p>
+        <p v-if="remit.collections.length" class="text-sm text-slate-600">
+          Rangés par date de livraison. Décochez ce que le livreur ne verse pas aujourd'hui.
+          <template v-if="period.key !== 'all'"> Seules les courses {{ periodLabel }} sont cochées au départ.</template>
+        </p>
+        <div v-if="remit.collections.length" class="max-h-80 overflow-y-auto space-y-2 text-sm">
+          <div v-for="g in remitDays" :key="g.day || 'none'" class="border rounded">
+            <label :class="['flex items-center gap-2 p-2 font-semibold border-b', g.selected === g.items.length ? 'bg-emerald-50' : 'bg-slate-50']">
+              <input type="checkbox" :checked="g.selected === g.items.length" :indeterminate.prop="g.selected > 0 && g.selected < g.items.length" @change="toggleRemitDay(g, $event.target.checked)">
+              <span class="first-letter:uppercase">{{ g.day ? dayLabel(g.day) : 'Sans date' }}</span>
+              <span class="text-xs font-normal text-slate-600">· {{ g.items.length }} course{{ g.items.length > 1 ? 's' : '' }}</span>
+              <span class="ml-auto">{{ money(g.total) }}</span>
+            </label>
+            <ul class="divide-y pl-4">
+              <li v-for="c in g.items" :key="c.id" class="flex items-center gap-2 p-2">
+                <input v-model="remit.selected" type="checkbox" :value="c.id" :aria-label="c.tracking_code">
+            <span class="font-mono text-xs">{{ c.tracking_code }}</span>
+            <span class="flex-1 truncate">{{ c.recipient_name }}</span>
+            <span class="text-xs text-slate-600">{{ c.method_label }}</span>
+            <span class="font-medium">{{ money(c.amount_collected) }}</span>
+            <!-- Annoncé « reçu par l'entreprise » par le livreur : à retrouver sur le relevé avant de compter -->
+            <button v-if="c.awaits_confirmation && canManage" type="button" class="rounded bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white" :title="`Réf. ${c.transaction_ref} : vérifiez sur le relevé ${c.method_label}`" @click="confirmCollection(c)">Reçu ? Confirmer</button>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <p v-if="remit.collections.length && remit.selected.length < remit.collections.length" class="text-xs text-slate-600">
+          Restera chez le livreur : {{ money(remit.collections.filter((c) => !remit.selected.includes(c.id)).reduce((n, c) => n + c.amount_collected, 0)) }}
+        </p>
+        <p v-if="remit.collections.some((c) => c.awaits_confirmation)" class="text-xs text-blue-800">
+          Paiements annoncés « reçus par l'entreprise » : vérifiez la référence sur le relevé Wave ou Mobile Money, puis confirmez. Tant qu'ils ne sont pas confirmés, le livreur doit cet argent.
+        </p>
+        <!-- Frais déclarés par le livreur : sans effet tant qu'ils ne sont pas validés -->
+        <template v-if="remit.expensesToApprove.length">
+          <p class="text-sm font-semibold pt-1">🧾 Frais à valider</p>
+          <ul class="border rounded divide-y text-sm">
+            <li v-for="e in remit.expensesToApprove" :key="`v${e.id}`" class="flex flex-wrap items-center gap-2 p-2">
+              <span class="font-mono text-xs">{{ e.tracking_code }}</span>
+              <span class="flex-1">{{ e.description }}</span>
+              <span class="font-medium">{{ money(e.amount) }}</span>
+              <template v-if="canManage">
+                <button type="button" class="rounded bg-emerald-700 px-2 py-0.5 text-xs font-semibold text-white" @click="decideExpense(e, true)">Valider</button>
+                <button type="button" class="text-xs text-red-700 underline" @click="decideExpense(e, false)">Refuser</button>
+              </template>
+            </li>
+          </ul>
+        </template>
+        <ul v-if="remit.advances.length || remit.expenses.length" class="border rounded divide-y text-sm">
+          <li v-for="a in remit.advances" :key="`a${a.id}`" class="flex items-center gap-2 p-2">
+            <span class="flex-1">{{ a.pay_kept ? '🧾' : '💵 Avance :' }} {{ a.reason }} <span class="text-xs text-slate-600">{{ dateTime(a.given_at) }}</span></span>
+            <span :class="['font-medium', a.amount < 0 ? 'text-emerald-700' : '']">{{ a.amount < 0 ? '−' : '+' }} {{ money(Math.abs(a.amount)) }}</span>
+            <button v-if="a.can_cancel && canManage" type="button" class="text-xs text-red-700 underline" @click="cancelAdvance(a)">Annuler</button>
+          </li>
+          <li v-for="e in remit.expenses" :key="`e${e.id}`" class="flex items-center gap-2 p-2">
+            <span class="font-mono text-xs">{{ e.tracking_code }}</span>
+            <span class="flex-1">{{ e.description }}</span>
+            <span class="font-medium text-emerald-700">− {{ money(e.amount) }}</span>
+          </li>
+          <li class="p-2 text-xs text-slate-600">Avances, frais payés par le livreur et paie gardée sur l'encaissé : toujours réglés avec ce versement.</li>
+        </ul>
+        <template v-if="remitHasCash">
+        <p class="text-sm">
+          <template v-if="remitExpected >= 0">Montant attendu : <strong>{{ money(remitExpected) }}</strong></template>
+          <template v-else>Frais payés par le livreur : <strong>la caisse lui doit {{ money(-remitExpected) }}</strong></template>
+        </p>
+        <div>
+          <label class="label" for="received">{{ remitExpected >= 0 ? 'Montant reçu (F) *' : 'Montant remis au livreur (F) *' }}</label>
+          <input id="received" v-model.number="remit.amount_received" type="number" min="0" class="input" required>
+          <p v-if="remitDifference" :class="['text-sm mt-1', signedClass(remitDifference)]">
+            Écart : {{ money(remitDifference) }}{{ remitDifference < 0 ? ' (sera retenu sur la paie du livreur)' : '' }}
+          </p>
+        </div>
+        <div><label class="label" for="rnotes">Note</label><input id="rnotes" v-model="remit.notes" class="input"></div>
+        </template>
+        <p v-if="remit.error" class="field-error">{{ remit.error }}</p>
+        <button v-if="remitHasCash" class="btn-primary w-full" :disabled="remitOnTheRoad.length > 0 || (!remit.selected.length && !remit.advances.length && !remit.expenses.length)">
+          Valider le versement{{ remit.returned.length ? ` et ${remit.returned.length} colis` : '' }}
+        </button>
+        <button v-else class="btn-primary w-full" :disabled="!remit.returned.length">Valider la réception de {{ remit.returned.length }} colis</button>
+      </form>
+    </Modal>
+
+    <!-- Avance de caisse à un livreur -->
+    <Modal :open="advance.open" :title="`Avance à ${advance.courier?.name}`" @close="advance.open = false">
+      <form class="space-y-3" @submit.prevent="saveAdvance">
+        <p class="text-sm text-slate-600">
+          Argent remis au livreur avant sa mission (frais de gare, transport…). Il déclare ensuite les frais payés dans son
+          application ; le reste revient à la caisse lors de son versement.
+        </p>
+        <div>
+          <label class="label" for="adv-amount">Montant (F) *</label>
+          <input id="adv-amount" v-model.number="advance.amount" type="number" min="1" class="input" required>
+        </div>
+        <div>
+          <label class="label" for="adv-reason">Motif *</label>
+          <div class="flex flex-wrap gap-2 mb-2">
+            <button v-for="r in ['Frais de gare', 'Transport', 'Emballage']" :key="r" type="button" class="rounded-full px-3 py-1 text-xs ring-1 ring-slate-300" @click="advance.reason = r">{{ r }}</button>
+          </div>
+          <input id="adv-reason" v-model="advance.reason" class="input" required>
+        </div>
+        <p v-if="advance.error" class="field-error">{{ advance.error }}</p>
+        <button class="btn-primary w-full" :disabled="!(advance.amount > 0) || !advance.reason">Remettre l'avance</button>
+      </form>
+    </Modal>
+
     <!-- Détail d'un e-commerçant : à payer par date, versements, grand livre -->
     <MerchantDetail
       v-if="merchantDetail"

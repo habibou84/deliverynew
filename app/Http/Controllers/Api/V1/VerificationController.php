@@ -109,7 +109,17 @@ class VerificationController extends Controller
      */
     private function state(PhoneVerification $verification): array
     {
-        $state = ['data' => self::describe($this->verifier, $verification)];
+        return self::stateFor($this->verifier, $verification);
+    }
+
+    /**
+     * État de la vérification ; ouvre la session la première fois qu'une inscription ou une connexion est vérifiée.
+     *
+     * @return array<string, mixed>
+     */
+    public static function stateFor(PhoneVerifier $verifier, PhoneVerification $verification): array
+    {
+        $state = ['data' => self::describe($verifier, $verification)];
 
         // Inscription ou connexion vérifiée : la première réponse qui le constate ouvre la session
         $opens = match ($verification->purpose) {

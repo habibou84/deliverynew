@@ -106,5 +106,5 @@ async function copy() {
   }
 }
 
-const { form, dirty, saving, error, save, reset } = useCompanySettings(['merchant_signup', 'directory_listed', 'directory_pitch'])
+const { form, dirty, saving, error, save, reset } = useCompanySettings(['merchant_signup', 'merchant_signup_verify', 'directory_listed', 'directory_pitch'])
 </script>
