@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h1 class="text-xl font-bold">WhatsApp</h1>
-        <p class="text-sm text-slate-600">Le numéro WhatsApp de l'entreprise : il envoie les messages et reçoit ceux des clients, des e-commerçants et des livreurs.</p>
+        <p class="text-sm text-slate-600">Le numéro de l'entreprise, les messages qui partent tout seuls, et comment ils partent.</p>
       </div>
       <RouterLink to="/admin/messages" class="btn-secondary">Ouvrir les messages</RouterLink>
     </div>
@@ -19,7 +19,7 @@
           <p>
             {{ s.account.verified_name || 'Numéro' }} · {{ s.account.display_phone }}
             <span v-if="s.account.quality_rating"> · qualité <strong :class="QUALITY[s.account.quality_rating]?.[1]">{{ QUALITY[s.account.quality_rating]?.[0] || s.account.quality_rating }}</strong></span>
-            · <RouterLink to="/admin/whatsapp/modeles" class="underline">modèles approuvés</RouterLink> : <strong>{{ approvedCount }}/{{ s.templates.length }}</strong>
+            · <RouterLink to="/admin/whatsapp/messages" class="underline">modèles approuvés</RouterLink> : <strong>{{ approvedCount }}/{{ s.templates.length }}</strong>
             · messages reçus : <strong>{{ s.account.webhook_subscribed_at ? 'branchés' : 'non branchés' }}</strong>
           </p>
         </template>
@@ -110,63 +110,6 @@
         </details>
       </section>
 
-      <!-- Courses reçues sur WhatsApp -->
-      <div class="card p-4 space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="font-semibold">Courses par WhatsApp</h2>
-          <RouterLink v-if="auth.hasFeature('whatsapp_bot')" to="/admin/whatsapp/simulateur" class="btn-secondary">Ouvrir le simulateur</RouterLink>
-        </div>
-        <p v-if="!auth.hasFeature('whatsapp_bot')" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-          Les commandes par WhatsApp ne sont pas incluses dans votre formule.
-          <RouterLink v-if="auth.user?.company?.plan" to="/admin/abonnement" class="font-medium underline">Voir mon abonnement</RouterLink>
-        </p>
-        <label v-else class="flex items-start gap-2 text-sm">
-          <input :checked="s.whatsapp_orders" type="checkbox" class="mt-1" @change="saveOption('whatsapp_orders', $event.target.checked)">
-          <span>Les e-commerçants peuvent créer des courses en écrivant à ce numéro
-            <span class="block text-slate-600">
-              Ils envoient les informations de la course (ou transfèrent la commande de leur client) ; le bot demande ce qui manque,
-              affiche un récapitulatif avec le prix et crée la course après confirmation. Menu : nouvelle course, point du jour, suivi d'un colis.
-            </span></span>
-        </label>
-        <p class="text-sm" :class="s.ai_parser ? 'text-emerald-700' : 'text-slate-600'">
-          {{ s.ai_parser
-            ? '✨ Analyse des messages libres par Claude activée.'
-            : 'Analyse par règles (numéros, montants, communes, format « Nom : … »). Ajoutez ANTHROPIC_API_KEY dans .env pour que Claude comprenne aussi les messages sans format.' }}
-        </p>
-      </div>
-
-      <!-- Options -->
-      <div class="card p-4 space-y-3">
-        <h2 class="font-semibold">Envois</h2>
-        <label class="flex items-start gap-2 text-sm">
-          <input :checked="s.notify_recipients" type="checkbox" class="mt-1" @change="saveOption('notify_recipients', $event.target.checked)">
-          <span>Prévenir le destinataire quand son colis part en livraison
-            <span class="block text-slate-600">Message avec le montant à payer, le code de livraison et le lien de suivi.</span></span>
-        </label>
-        <label class="flex items-start gap-2 text-sm">
-          <input :checked="s.sms_fallback" type="checkbox" class="mt-1" @change="saveOption('sms_fallback', $event.target.checked)">
-          <span>Envoyer un SMS si le message WhatsApp n'arrive pas
-            <span class="block text-slate-600">
-              Numéro sans WhatsApp ou échec définitif.
-              <template v-if="s.sms_driver === 'none'">Les SMS sont désactivés sur ce serveur (<code>SMS_DRIVER=none</code>).</template>
-              <template v-else-if="s.sms_driver === 'log'">SMS simulés sur ce serveur (<code>SMS_DRIVER=log</code>).</template>
-            </span></span>
-        </label>
-        <label class="flex items-start gap-2 text-sm">
-          <input :checked="s.merchant_push_first" type="checkbox" class="mt-1" :disabled="!s.push_enabled" @change="saveOption('merchant_push_first', $event.target.checked)">
-          <span>Prévenir les e-commerçants par notification sur leur téléphone plutôt que par WhatsApp
-            <span class="block text-slate-600">
-              Gratuit. WhatsApp ne sert que pour les e-commerçants qui n'ont pas activé les notifications dans leur application,
-              ou si la notification n'arrive pas.
-              <template v-if="!s.push_enabled">Notifications push non configurées sur ce serveur (<code>php artisan webpush:vapid</code>).</template>
-              <template v-else-if="s.merchants_total">
-                <strong>{{ s.merchants_with_push }} e-commerçant{{ s.merchants_with_push > 1 ? 's' : '' }} sur {{ s.merchants_total }}</strong> reçoivent déjà les notifications.
-              </template>
-            </span></span>
-        </label>
-        <p class="text-sm text-slate-600">Quels messages envoyer aux e-commerçants, étape par étape : <RouterLink to="/admin/whatsapp/modeles?onglet=merchant" class="text-blue-600">Messages prédéfinis › E-commerçants</RouterLink>.</p>
-      </div>
-
       <!-- Test -->
       <form class="card p-4 space-y-3" @submit.prevent="sendTest">
         <h2 class="font-semibold">Message de test</h2>
@@ -203,10 +146,8 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
 import WhatsAppQrConnect from '../../components/WhatsAppQrConnect.vue'
 import WhatsAppTabs from '../../components/WhatsAppTabs.vue'
-import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
-const auth = useAuthStore()
 
 const ACCOUNT_STATUS = {
   connected: ['Connecté', 'bg-emerald-100 text-emerald-800'],
@@ -300,15 +241,6 @@ async function reconnect() {
     accountError.value = apiErrorMessage(e)
   } finally {
     saving.value = false
-  }
-}
-
-async function saveOption(key, value) {
-  try {
-    apply((await http.put('/whatsapp/settings', { [key]: value })).data.data)
-    toasts.success('Réglage enregistré.')
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
   }
 }
 

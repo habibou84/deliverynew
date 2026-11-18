@@ -345,7 +345,7 @@ class FinanceController extends Controller
     public function resendReceipt(Request $request, CourierRemittance $remittance): JsonResponse
     {
         $this->authorizeStaff($request, manage: true);
-        $sent = $this->sendReceipt($remittance->load(['courier.user', 'receiver']));
+        $sent = $this->sendReceipt($remittance->load(['courier.user', 'receiver']), manual: true);
         abort_if($sent === null, 422, 'Ce livreur n\'a pas de numéro de téléphone.');
 
         return response()->json(['data' => ['sent' => true]]);
@@ -400,7 +400,8 @@ class FinanceController extends Controller
         ]);
     }
 
-    private function sendReceipt(CourierRemittance $r): ?OutboundMessage
+    /** Reçu WhatsApp au livreur ; à la main (bouton « Renvoyer »), il part même si le message automatique est coupé */
+    private function sendReceipt(CourierRemittance $r, bool $manual = false): ?OutboundMessage
     {
         $phone = $r->courier?->user?->phone;
         if ($phone === null) {
@@ -419,7 +420,7 @@ class FinanceController extends Controller
             $gap,
             count($r->parcels['returned'] ?? []),
             count($r->parcels['kept'] ?? []),
-        ], ['event' => 'cash.receipt']);
+        ], ['event' => 'cash.receipt', 'manual' => $manual]);
     }
 
     public function remittances(Request $request): JsonResponse

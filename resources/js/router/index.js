@@ -136,7 +136,7 @@ const routes = [
       { path: 'reglages/courses', component: () => import('../views/admin/settings/SettingsOrders.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/annulations', component: () => import('../views/admin/Cancellations.vue'), props: { section: 'rules' }, meta: { permission: 'settings.manage' } },
       // Rangé dans Messages › Messages prédéfinis (onglet E-commerçants)
-      { path: 'reglages/messages-e-commercants', redirect: { path: '/admin/whatsapp/modeles', query: { onglet: 'merchant' } } },
+      { path: 'reglages/messages-e-commercants', redirect: '/admin/whatsapp/messages' },
       { path: 'reglages/alertes', component: () => import('../views/admin/settings/SettingsAlerts.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },
@@ -160,12 +160,15 @@ const routes = [
       { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },
       // WhatsApp : connexion du numéro et messages prédéfinis (onglets)
       { path: 'whatsapp', component: () => import('../views/admin/WhatsApp.vue'), meta: { permission: 'settings.manage' } },
-      { path: 'whatsapp/modeles', component: () => import('../views/admin/MessageTemplates.vue'), meta: { permission: 'settings.manage' } },
+      // WhatsApp en trois onglets : Connexion, Messages automatiques, Options d'envoi
+      { path: 'whatsapp/messages', component: () => import('../views/admin/AutomaticMessages.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'whatsapp/options', component: () => import('../views/admin/WhatsAppOptions.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'whatsapp/modeles', redirect: '/admin/whatsapp/messages' },
       { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage', feature: 'whatsapp_bot' } },
       // Messages : la messagerie façon WhatsApp (reçus et envoyés au même endroit)
       { path: 'messages', component: () => import('../views/admin/Inbox.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'messages/recus', redirect: '/admin/messages' },
-      { path: 'messages/predefinis', redirect: (to) => ({ path: '/admin/whatsapp/modeles', query: to.query }) },
+      { path: 'messages/predefinis', redirect: '/admin/whatsapp/messages' },
     ],
   },
   // Application livreur : écran « appel entrant » d'une nouvelle mission (sonnerie Android), en plein écran

@@ -1,14 +1,9 @@
 <template>
   <SettingsBlock title="Colis non ramassés" :panel="panel">
-    <label class="flex items-start gap-2 text-sm">
-      <input v-model="form.reschedule_evening" type="checkbox" class="mt-1">
-      <span>
-        <b>Prévenir les e-commerçants le soir</b>
-        <span class="block text-xs text-slate-600">Message aux e-commerçants dont les colis du jour n'ont pas été ramassés : ils répondent « tout demain », « 1 3 lundi », « 2 annuler »… La nouvelle date s'enregistre toute seule.</span>
-      </span>
-    </label>
+    <p class="text-xs text-slate-600">Message du soir aux e-commerçants dont les colis du jour n'ont pas été ramassés : ils répondent « tout demain », « 1 3 lundi », « 2 annuler »… La nouvelle date s'enregistre toute seule.</p>
+    <MessageSettingLink :on="!!form.reschedule_evening" label="Message du soir « Colis à reporter »" />
 
-    <template v-if="form.reschedule_evening">
+    <template>
       <div>
         <label class="label" :for="`rs-time${uid}`">Heure d'envoi</label>
         <input :id="`rs-time${uid}`" v-model="form.reschedule_evening_time" type="time" class="input w-32">
@@ -41,6 +36,7 @@
 
 <script setup>
 import SettingsBlock from '../SettingsBlock.vue'
+import MessageSettingLink from '../MessageSettingLink.vue'
 import { RESCHEDULE_CHANNELS as CHANNELS, RESCHEDULE_NO_ANSWER as NO_ANSWER } from '../../../views/admin/settings/options'
 
 const props = defineProps({ form: { type: Object, required: true }, panel: Boolean })
