@@ -348,14 +348,12 @@ const menu = computed(() => {
       ],
     },
     {
-      // Tout ce qui concerne les messages : reçus, envoyés, prédéfinis, connexion du numéro WhatsApp
+      // Messages : la messagerie (reçus et envoyés) ; WhatsApp : connexion du numéro et messages prédéfinis
       id: 'messages',
       label: 'Messages',
       items: [
-        { to: '/admin/messages/recus', icon: 'recus', label: 'Reçus', permission: 'orders.dispatch', badge: inboxUnread.value },
-        { to: '/admin/messages', icon: 'envoyes', label: 'Envoyés', permission: 'orders.dispatch' },
-        { to: '/admin/messages/predefinis', icon: 'modeles', label: 'Messages prédéfinis', permission: 'settings.manage' },
-        { to: '/admin/whatsapp', icon: 'message', label: 'Connexion WhatsApp', permission: 'settings.manage', prefix: true },
+        { to: '/admin/messages', icon: 'message', label: 'Messages', permission: 'orders.dispatch', badge: inboxUnread.value },
+        { to: '/admin/whatsapp', icon: 'whatsapp', label: 'WhatsApp', permission: 'settings.manage', prefix: true },
       ],
     },
     {

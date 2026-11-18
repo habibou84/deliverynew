@@ -236,6 +236,7 @@ class Messenger
         if ($message->channel !== MessageChannel::WhatsApp
             || $message->recipient_type === 'test'
             || $message->event === 'conversation'
+            || $message->event === 'inbox_reply'
             || config('messaging.sms.driver') === 'none'
             || ! Company::find($message->company_id)?->sms_fallback
             || $message->fallback()->exists()) {

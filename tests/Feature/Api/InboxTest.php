@@ -69,6 +69,24 @@ class InboxTest extends TestCase
         $this->getJson('/api/v1/inbox?filter=unread')->assertJsonCount(2, 'data');
     }
 
+    public function test_sent_messages_open_a_conversation_and_failures_can_be_filtered(): void
+    {
+        $this->whatsapp();
+        OutboundMessage::create(['company_id' => $this->company->id, 'channel' => 'whatsapp', 'to' => '+2250755556666', 'recipient_type' => 'recipient',
+            'event' => 'out_for_delivery', 'template_name' => 'colis_en_route', 'body' => 'Votre colis est en route', 'status' => 'failed', 'error' => 'numéro sans WhatsApp']);
+        $this->receive(self::CLIENT, 'Bonjour');
+        Sanctum::actingAs($this->dispatcher);
+
+        $this->getJson('/api/v1/inbox')->assertJsonCount(2, 'data');
+        $this->getJson('/api/v1/inbox?filter=failed')->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.last.direction', 'out')->assertJsonPath('data.0.failed', 1);
+
+        // Jamais écrit : seuls les messages prédéfinis peuvent partir
+        $this->getJson('/api/v1/inbox/'.urlencode('+2250755556666'))->assertJsonPath('data.window.open', false)
+            ->assertJsonPath('data.messages.0.error', 'numéro sans WhatsApp');
+        $this->postJson('/api/v1/inbox/'.urlencode('+2250755556666').'/reply', ['text' => 'Bonjour'])->assertUnprocessable();
+    }
+
     public function test_reply_within_24_hours_with_meta_and_always_with_qr(): void
     {
         $this->whatsapp();

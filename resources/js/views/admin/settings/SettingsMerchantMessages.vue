@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div>
       <template v-if="!embedded">
-        <RouterLink to="/admin/messages/predefinis?onglet=merchant" class="text-sm text-blue-600">‹ Messages prédéfinis</RouterLink>
+        <RouterLink to="/admin/whatsapp/modeles?onglet=merchant" class="text-sm text-blue-600">‹ Messages prédéfinis</RouterLink>
         <h1 class="text-xl font-bold">Messages aux e-commerçants</h1>
       </template>
       <p class="text-sm text-slate-600">
@@ -63,7 +63,7 @@
       </div>
       <p class="text-xs text-slate-600">
         Les courses envoyées par Jibiat Marchand ne reçoivent rien d'ici : Jibiat Marchand prévient lui-même la boutique.
-        Numéro WhatsApp et envois : <RouterLink to="/admin/whatsapp" class="text-blue-600">Messages › Connexion WhatsApp</RouterLink>.
+        Numéro WhatsApp et envois : <RouterLink to="/admin/whatsapp" class="text-blue-600">WhatsApp › Connexion</RouterLink>.
       </p>
     </template>
   </div>

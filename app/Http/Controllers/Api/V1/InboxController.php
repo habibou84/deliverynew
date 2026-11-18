@@ -18,56 +18,84 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 /**
- * Messages › Reçus : ce que les clients, les e-commerçants et les livreurs écrivent au WhatsApp de
- * l'entreprise, rangé par conversation (un numéro), avec les messages envoyés à ce numéro. L'équipe lit
- * et répond. Avec la connexion officielle Meta, une réponse libre n'est permise que dans les 24 h qui
+ * Messages : la messagerie de l'entreprise, façon WhatsApp. Une conversation par numéro, avec ce que les
+ * clients, les e-commerçants et les livreurs écrivent et tout ce qui leur a été envoyé (WhatsApp, SMS,
+ * notifications). L'équipe lit et répond. Avec la connexion officielle Meta, une réponse libre n'est permise que dans les 24 h qui
  * suivent le dernier message reçu ; avec le QR code, toujours.
  */
 class InboxController extends Controller
 {
     public const WINDOW_HOURS = 24;
 
+    /** Conversations affichées : activité des 90 derniers jours, 300 numéros au plus par sens */
+    public const HISTORY_DAYS = 90;
+
+    public const LIST_LIMIT = 300;
+
     public function __construct(private readonly InboxContacts $contacts) {}
 
-    /** Conversations, la plus récente en premier */
+    /**
+     * Conversations, la plus récente en premier : chaque numéro qui a écrit à l'entreprise ou à qui elle a
+     * envoyé un message (WhatsApp, SMS, notification), sur les 90 derniers jours.
+     */
     public function index(Request $request): JsonResponse
     {
         Gate::authorize(Permission::OrdersDispatch->value);
         $request->validate([
-            'filter' => ['nullable', Rule::in(['unread', InboxContacts::CLIENT, InboxContacts::MERCHANT, InboxContacts::COURIER, InboxContacts::UNKNOWN])],
+            'filter' => ['nullable', Rule::in(['unread', 'failed', InboxContacts::CLIENT, InboxContacts::MERCHANT, InboxContacts::COURIER, InboxContacts::UNKNOWN])],
             'search' => ['nullable', 'string', 'max:50'],
         ]);
         $companyId = $request->user()->company_id;
+        $since = now()->subDays(self::HISTORY_DAYS);
+        $filter = $request->input('filter');
 
-        $rows = InboundMessage::query()
-            ->where('simulated', false)
-            ->when($request->input('filter') === 'unread', fn ($q) => $q->whereNull('read_at'))
-            ->selectRaw('from_phone, MAX(id) AS last_id, SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) AS unread')
-            ->groupBy('from_phone')
-            ->orderByDesc('last_id')
-            ->limit(300)
-            ->get();
+        $in = InboundMessage::query()
+            ->where('simulated', false)->where('created_at', '>=', $since)
+            ->selectRaw('from_phone AS phone, MAX(id) AS last_id, MAX(created_at) AS last_at, SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) AS unread')
+            ->groupBy('from_phone')->orderByDesc('last_id')->limit(self::LIST_LIMIT)
+            ->get()->keyBy('phone');
+        $out = $filter === 'unread' ? collect() : OutboundMessage::query()
+            ->where('to', '!=', '')->where('recipient_type', '!=', 'test')->where('created_at', '>=', $since)
+            ->selectRaw("\"to\" AS phone, MAX(id) AS last_id, MAX(created_at) AS last_at, SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed")
+            ->groupBy('to')->orderByDesc('last_id')->limit(self::LIST_LIMIT)
+            ->get()->keyBy('phone');
 
-        $last = InboundMessage::whereIn('id', $rows->pluck('last_id'))->get()->keyBy('id');
-        $contacts = $this->contacts->identify($companyId, $rows->pluck('from_phone')->all());
+        $phones = $in->keys()->merge($out->keys())->unique()
+            ->filter(fn ($phone) => match ($filter) {
+                'unread' => ($in[$phone]->unread ?? 0) > 0,
+                'failed' => ($out[$phone]->failed ?? 0) > 0,
+                default => true,
+            })->values();
+
+        // Dernier message de chaque sens (only() d'une collection Eloquent filtre par identifiant : base d'abord)
+        $lastIn = InboundMessage::whereIn('id', $in->toBase()->only($phones->all())->pluck('last_id'))->get()->keyBy('from_phone');
+        $lastOut = OutboundMessage::whereIn('id', $out->toBase()->only($phones->all())->pluck('last_id'))->get()->keyBy('to');
+        $contacts = $this->contacts->identify($companyId, $phones->all());
 
         $search = $request->filled('search') ? mb_strtolower(preg_replace('/\s+/', '', (string) $request->input('search'))) : null;
-        $kind = in_array($request->input('filter'), [null, 'unread'], true) ? null : $request->input('filter');
+        $kind = in_array($filter, [null, 'unread', 'failed'], true) ? null : $filter;
 
-        $data = $rows->map(function ($row) use ($last, $contacts) {
-            $message = $last[$row->last_id];
+        $data = $phones->map(function (string $phone) use ($in, $out, $lastIn, $lastOut, $contacts) {
+            $received = $lastIn[$phone] ?? null;
+            $sent = $lastOut[$phone] ?? null;
+            $latestIsIn = $received && (! $sent || $received->created_at->gte($sent->created_at));
 
             return [
-                'contact' => $contacts[$row->from_phone],
-                'last' => ['body' => $this->preview($message), 'at' => $message->created_at],
-                'unread' => (int) $row->unread,
+                'contact' => $contacts[$phone],
+                'last' => $latestIsIn
+                    ? ['body' => $this->preview($received), 'at' => $received->created_at, 'direction' => 'in']
+                    : ['body' => (string) $sent->body, 'at' => $sent->created_at, 'direction' => 'out',
+                        'automatic' => $sent->event !== 'inbox_reply', 'status' => $sent->status->value],
+                'unread' => (int) ($in[$phone]->unread ?? 0),
+                'failed' => (int) ($out[$phone]->failed ?? 0),
             ];
         })->filter(fn ($c) => $kind === null || $c['contact']['kind'] === $kind)
             ->filter(fn ($c) => $search === null || str_contains(mb_strtolower(str_replace(' ', '', implode(' ', array_filter([
                 $c['contact']['name'], $c['contact']['phone'], $c['contact']['order']['tracking_code'] ?? null,
             ])))), $search))
+            ->sortByDesc(fn ($c) => $c['last']['at']->getTimestamp())
             ->values()
-            ->take(100);
+            ->take(150);
 
         return response()->json(['data' => $data, 'meta' => ['unread' => $this->unreadCount()]]);
     }
@@ -126,9 +154,10 @@ class InboxController extends Controller
                 'id' => "in-{$m->id}", 'direction' => 'in', 'body' => $this->preview($m), 'at' => $m->created_at,
                 'order' => $m->order_id,
             ]);
-        $outbound = OutboundMessage::where('to', $phone)->latest('id')->limit(100)->get()
+        $outbound = OutboundMessage::where('to', $phone)->where('recipient_type', '!=', 'test')->latest('id')->limit(100)->get()
             ->map(fn (OutboundMessage $m) => [
-                'id' => "out-{$m->id}", 'direction' => 'out', 'body' => $m->body, 'at' => $m->created_at,
+                'id' => "out-{$m->id}", 'message_id' => $m->id, 'direction' => 'out', 'body' => $m->body, 'at' => $m->created_at,
+                'error' => $m->error,
                 'channel' => $m->channel->value, 'status' => $m->status->value, 'status_label' => $m->status->label(),
                 'automatic' => $m->event !== 'inbox_reply',
                 'template' => $m->template_name,
@@ -159,7 +188,10 @@ class InboxController extends Controller
 
         $lastIn = InboundMessage::where('from_phone', $phone)->where('simulated', false)->latest('id')->value('created_at');
         $until = $lastIn ? Carbon::parse($lastIn)->addHours(self::WINDOW_HOURS) : null;
-        if ($until === null || $until->isPast()) {
+        if ($until === null) {
+            return ['open' => false, 'until' => null, 'reason' => 'Cette personne n\'a pas encore écrit au WhatsApp de l\'entreprise : Meta n\'autorise que les messages prédéfinis tant qu\'elle n\'a pas écrit.'];
+        }
+        if ($until->isPast()) {
             return ['open' => false, 'until' => $until, 'reason' => 'Plus de 24 h depuis son dernier message : Meta n\'autore plus de réponse libre. Seuls les messages prédéfinis partent, jusqu\'à ce que la personne écrive de nouveau.'];
         }
 
