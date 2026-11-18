@@ -49,7 +49,8 @@ class LegacyOrdersPurge
     public const NOTE = 'Clôturée lors du nettoyage de la reprise de l\'ancienne application';
 
     /**
-     * Anciennes courses reprises, pas encore nettoyées, prévues il y a plus de $days jours.
+     * Anciennes courses reprises, pas encore nettoyées, prévues il y a plus de $days jours (0 : toutes celles
+     * prévues avant aujourd'hui).
      *
      * @param  array{merchant_id?: ?int, courier_id?: ?int}  $filters
      */
@@ -105,7 +106,8 @@ class LegacyOrdersPurge
             'filters' => [...$filters, 'include' => array_values($include)],
             'counts' => $counts,
             'total' => (in_array('never_picked', $include, true) ? $counts['never_picked'] : 0)
-                + (in_array('not_delivered', $include, true) ? $counts['not_delivered'] : 0),
+                + (in_array('not_delivered', $include, true) ? $counts['not_delivered'] : 0)
+                + (in_array('on_the_way', $include, true) ? $counts['on_the_way'] : 0),
         ]);
     }
 
@@ -119,12 +121,21 @@ class LegacyOrdersPurge
         $statuses = [
             ...(in_array('never_picked', $include, true) ? self::NEVER_PICKED : []),
             ...(in_array('not_delivered', $include, true) ? self::NOT_DELIVERED : []),
+            ...(in_array('on_the_way', $include, true) ? self::ON_THE_WAY : []),
         ];
+        // Colis notés chez un livreur : clos comme retournés (sinon « à rendre » par le livreur)
+        $heldReturned = in_array('held_returned', $include, true);
         $orders = $statuses === [] ? collect() : $this->scope($company, $purge->min_days, $purge->filters ?? [])
             ->whereIn('status', OrderStatus::values($statuses))->orderBy('id')->limit(self::BATCH)->get();
 
         foreach ($orders as $order) {
-            DB::transaction(fn () => $this->close($purge, $order, in_array($order->status, self::NEVER_PICKED, true) ? 'cancel' : 'return'));
+            $how = match (true) {
+                in_array($order->status, self::NEVER_PICKED, true) => 'cancel',
+                // En chemin depuis longtemps dans l'ancienne application : clos comme retourné, sans argent
+                in_array($order->status, self::ON_THE_WAY, true), $heldReturned => 'returned',
+                default => 'return',
+            };
+            DB::transaction(fn () => $this->close($purge, $order, $how));
         }
         $purge->increment('done', $orders->count());
 

@@ -28,7 +28,9 @@ class LegacyPurgeController extends Controller
         return response()->json(['data' => [
             'days' => $days,
             'simulation' => $this->purges->simulate($company, $days, $filters),
-            'last' => $this->describe(LegacyPurge::query()->where('company_id', $company->id)->where('min_days', '>', 0)->latest('id')->first()),
+            // Le dernier nettoyage (pas une clôture des colis à rendre, voir returns)
+            'last' => $this->describe(LegacyPurge::query()->with('user')->where('company_id', $company->id)->latest('id')->get()
+                ->first(fn (LegacyPurge $p) => empty($p->filters['returns']))),
         ]]);
     }
 
@@ -37,7 +39,7 @@ class LegacyPurgeController extends Controller
         [$days, $filters] = $this->filters($request);
         $data = $request->validate([
             'include' => ['required', 'array', 'min:1'],
-            'include.*' => [Rule::in(['never_picked', 'not_delivered'])],
+            'include.*' => [Rule::in(['never_picked', 'not_delivered', 'on_the_way', 'held_returned'])],
             'confirm' => ['required', 'string', Rule::in(['CLÔTURER', 'CLOTURER'])],
         ], ['confirm.in' => 'Tapez CLÔTURER pour confirmer.'], ['confirm' => 'confirmation']);
 
@@ -107,8 +109,8 @@ class LegacyPurgeController extends Controller
     public function returns(Request $request): JsonResponse
     {
         $company = $request->user()->company;
-        $last = LegacyPurge::query()->where('company_id', $company->id)->where('min_days', 0)
-            ->where('filters->returns', true)->latest('id')->first();
+        $last = LegacyPurge::query()->with('user')->where('company_id', $company->id)->latest('id')->get()
+            ->first(fn (LegacyPurge $p) => ! empty($p->filters['returns']));
 
         return response()->json(['data' => [
             'couriers' => $this->purges->returnsByCourier($company),
@@ -134,12 +136,13 @@ class LegacyPurgeController extends Controller
     private function filters(Request $request): array
     {
         $data = $request->validate([
-            'days' => ['nullable', 'integer', Rule::in([7, 15, 30, 60, 90])],
+            // 0 : toutes les dates (prévues avant aujourd'hui)
+            'days' => ['nullable', 'integer', Rule::in([0, 7, 15, 30, 60, 90])],
             'merchant_id' => ['nullable', 'integer'],
             'filter_courier_id' => ['nullable', 'integer'],
         ]);
 
-        return [(int) ($data['days'] ?? 30), ['merchant_id' => $data['merchant_id'] ?? null, 'courier_id' => $data['filter_courier_id'] ?? null]];
+        return [(int) ($data['days'] ?? 0), ['merchant_id' => $data['merchant_id'] ?? null, 'courier_id' => $data['filter_courier_id'] ?? null]];
     }
 
     private function describe(?LegacyPurge $purge): ?array
