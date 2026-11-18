@@ -151,7 +151,7 @@ class Highlights
         }
         $losing = $rows->filter(fn ($r) => $r['margin_per_order'] !== null && $r['margin_per_order'] < 0)->sortBy('margin_per_order');
         if ($zone = $losing->first()) {
-            $lines[] = ['text' => "**{$zone['name']}** fait perdre {$this->money(-$zone['margin_per_order'])} par course : revoir le prix.", 'to' => '/admin/tarifs', 'level' => 'bad'];
+            $lines[] = ['text' => "**{$zone['name']}** fait perdre {$this->money(-$zone['margin_per_order'])} par course : revoir le prix.", 'to' => '/admin/livraison', 'level' => 'bad'];
         }
         if ($best = $rows->filter(fn ($r) => $r['margin_per_order'] !== null)->sortByDesc('margin_per_order')->first()) {
             $lines[] = ['text' => "**{$best['name']}** rapporte le plus par course ({$this->money($best['margin_per_order'])}).", 'level' => 'good'];
