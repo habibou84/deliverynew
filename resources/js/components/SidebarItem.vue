@@ -1,7 +1,7 @@
 <template>
   <RouterLink
     :to="to"
-    class="flex min-h-10 items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/15"
+    :class="['flex min-h-10 items-center gap-3 rounded-lg px-2.5 py-2 hover:bg-white/15', below ? 'bg-white/20' : '']"
     :active-class="prefix ? 'bg-white/20' : ''"
     :exact-active-class="prefix ? '' : 'bg-white/20'"
   >
@@ -12,9 +12,11 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import Icone from './ui/Icone.vue'
 
-defineProps({
+const props = defineProps({
   icon: { type: String, default: '' },
   label: { type: String, required: true },
   to: { type: String, required: true },
@@ -22,4 +24,8 @@ defineProps({
   // Reste allumé sur les pages en dessous (onglets)
   prefix: { type: Boolean, default: false },
 })
+
+// « prefix » : aussi allumé sur les pages sœurs en dessous de son adresse (ex. /admin/whatsapp/messages)
+const route = useRoute()
+const below = computed(() => props.prefix && route.path.startsWith(`${props.to}/`))
 </script>

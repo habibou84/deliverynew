@@ -132,7 +132,9 @@ class MessagingTest extends TestCase
 
     public function test_recipient_messages_can_be_turned_off(): void
     {
-        $this->company->update(['notify_recipients' => false]);
+        // WhatsApp › Messages automatiques : interrupteur « Colis en route »
+        Sanctum::actingAs($this->admin);
+        $this->putJson('/api/v1/whatsapp/messages/out_for_delivery', ['on' => false])->assertOk()->assertJsonPath('data.on', false);
 
         $this->outForDelivery($this->createOrder());
 

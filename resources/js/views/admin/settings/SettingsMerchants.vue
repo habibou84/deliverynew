@@ -3,6 +3,7 @@
     <template v-if="form">
       <MerchantSignupBlock :form="form" />
       <DirectoryBlock :form="form" />
+      <LiveOfferBlock />
 
       <section v-if="inviteUrl" class="card p-4 space-y-3">
         <h2 class="font-semibold">Parrainer vos e-commerçants sur Jibiat Marchand</h2>
@@ -58,6 +59,7 @@
 import SettingsPage from '../../../components/settings/SettingsPage.vue'
 import SaveBar from '../../../components/settings/SaveBar.vue'
 import DirectoryBlock from '../../../components/settings/blocks/DirectoryBlock.vue'
+import LiveOfferBlock from '../../../components/settings/LiveOfferBlock.vue'
 import MerchantSignupBlock from '../../../components/settings/blocks/MerchantSignupBlock.vue'
 import { useCompanySettings } from '../../../composables/useCompanySettings'
 import { computed, onMounted, ref, watch } from 'vue'
