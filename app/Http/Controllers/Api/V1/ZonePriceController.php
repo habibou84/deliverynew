@@ -38,6 +38,7 @@ class ZonePriceController extends Controller
                     'is_active' => $zone->is_active,
                     'is_pickup' => $zone->is_pickup,
                     'is_shipping' => $zone->is_shipping,
+                    'default_shipping' => (bool) $zone->default_shipping,
                     // Lieu de la liste commune de Jibiat (masquable) ; sinon zone créée par l'entreprise
                     'place' => $zone->place_code,
                     'shipping_fee_estimate' => $zone->shipping_fee_estimate,

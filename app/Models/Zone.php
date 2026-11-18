@@ -16,7 +16,7 @@ class Zone extends Model
     /** @use HasFactory<ZoneFactory> */
     use BelongsToCompany, HasFactory;
 
-    protected $fillable = ['company_id', 'parent_id', 'place_code', 'name', 'aliases', 'city', 'is_shipping', 'shipping_fee_estimate', 'is_active', 'is_pickup', 'sort_order', 'legacy_price'];
+    protected $fillable = ['company_id', 'parent_id', 'place_code', 'name', 'aliases', 'city', 'is_shipping', 'default_shipping', 'shipping_fee_estimate', 'is_active', 'is_pickup', 'sort_order', 'legacy_price'];
 
     protected function casts(): array
     {
@@ -24,6 +24,7 @@ class Zone extends Model
             'is_active' => 'boolean',
             'is_pickup' => 'boolean',
             'is_shipping' => 'boolean',
+            'default_shipping' => 'boolean',
             'shipping_fee_estimate' => 'integer',
             'sort_order' => 'integer',
             'aliases' => 'array',
