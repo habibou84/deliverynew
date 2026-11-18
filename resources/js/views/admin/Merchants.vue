@@ -64,7 +64,7 @@
           <label class="label">Zone de ramassage</label>
           <SearchSelect
             v-model="form.data.pickup_zone_id" placeholder="—" :empty-value="null" aria-label="Zone de ramassage" search-placeholder="Commune, quartier…"
-            :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+            :options="zones.filter((z) => z.is_pickup !== false || z.id === form.data.pickup_zone_id).map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
           />
         </div>
         <div><label class="label">Adresse de ramassage</label><input v-model="form.data.pickup_address" class="input"></div>

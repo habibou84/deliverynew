@@ -36,6 +36,7 @@ class ZonePriceController extends Controller
                     'name' => $zone->name,
                     'parent_id' => $zone->parent_id,
                     'is_active' => $zone->is_active,
+                    'is_pickup' => $zone->is_pickup,
                     'is_shipping' => $zone->is_shipping,
                     // Lieu de la liste commune de Jibiat (masquable) ; sinon zone créée par l'entreprise
                     'place' => $zone->place_code,

@@ -19,6 +19,7 @@
     <p class="text-sm text-slate-600">
       Cochez les communes où vous livrez et donnez-leur un prix : c'est le prix d'une livraison vers ce lieu, d'où que parte le colis.
       Un quartier sans prix prend celui de sa commune ; donnez-lui le sien s'il est plus loin.
+      « On ramasse ici » : décochez les lieux où vous ne passez pas récupérer les colis ; ils ne sont plus proposés comme adresse de ramassage.
       <template v-if="!isDefault"> Laissé vide, le prix est celui de la grille normale.</template>
     </p>
     <p v-if="isDefault && missingCount" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
@@ -61,16 +62,16 @@
     <template v-else>
       <!-- Communes et quartiers -->
       <div class="card divide-y overflow-hidden">
-        <div class="hidden grid-cols-[1fr_14rem] gap-3 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 sm:grid">
-          <span>Lieu · on livre ici ?</span><span>Prix de livraison</span>
+        <div class="hidden grid-cols-[1fr_8rem_15rem] gap-3 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 sm:grid">
+          <span>Lieu · on livre ici ?</span><span>On ramasse ici ?</span><span>Prix de livraison</span>
         </div>
         <template v-for="c in visibleCommunes" :key="c.id">
           <ZonePriceRow :zone="c" :saving="busy[c.id]" :is-default="isDefault" :children-count="childrenOf(c.id).length" :open="opened.has(c.id) || !!q"
-            @toggle="toggleActive(c)" @price="(v) => setPrice(c, v)" @expand="expand(c.id)" @rename="rename(c)" @remove="remove(c)"
+            @toggle="toggleActive(c)" @pickup="togglePickup(c)" @price="(v) => setPrice(c, v)" @expand="expand(c.id)" @rename="rename(c)" @remove="remove(c)"
           />
           <template v-if="opened.has(c.id) || q">
-            <ZonePriceRow v-for="n in visibleChildren(c)" :key="n.id" :zone="n" :saving="busy[n.id]" :is-default="isDefault" :parent-price="c.price"
-              @toggle="toggleActive(n)" @price="(v) => setPrice(n, v)" @rename="rename(n)" @remove="remove(n)"
+            <ZonePriceRow v-for="n in visibleChildren(c)" :key="n.id" :zone="n" :saving="busy[n.id]" :is-default="isDefault" :parent-price="c.price" :parent-pickup="c.is_pickup"
+              @toggle="toggleActive(n)" @pickup="togglePickup(n)" @price="(v) => setPrice(n, v)" @rename="rename(n)" @remove="remove(n)"
             />
           </template>
         </template>
@@ -122,6 +123,7 @@ const FILTERS = [
   { value: 'active', label: 'Livrés' },
   { value: 'hidden', label: 'Masqués' },
   { value: 'missing', label: 'Sans prix' },
+  { value: 'nopickup', label: 'Sans ramassage' },
 ]
 
 const toasts = useToastStore()
@@ -147,6 +149,7 @@ function matches(z) {
   if (filter.value === 'active' && !z.is_active) return false
   if (filter.value === 'hidden' && z.is_active) return false
   if (filter.value === 'missing' && !missing(z)) return false
+  if (filter.value === 'nopickup' && (!z.is_active || (z.is_pickup && zones.value.find((p) => p.id === z.parent_id)?.is_pickup !== false))) return false
   return !q.value || norm(z.name).includes(q.value)
 }
 function visibleChildren(c) {
@@ -198,6 +201,20 @@ async function toggleActive(zone) {
   try {
     await http.patch(`/zones/${zone.id}`, { is_active: !zone.is_active })
     zone.is_active = !zone.is_active
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    busy[zone.id] = false
+  }
+}
+
+// Ramassage coupé ou rétabli : couper une commune coupe aussi ses quartiers
+async function togglePickup(zone) {
+  busy[zone.id] = true
+  try {
+    await http.patch(`/zones/${zone.id}`, { is_pickup: !zone.is_pickup })
+    zone.is_pickup = !zone.is_pickup
+    toasts.success(zone.is_pickup ? `Ramassage à ${zone.name}.` : `Plus de ramassage à ${zone.name}${childrenOf(zone.id).length ? ' ni dans ses quartiers' : ''}.`)
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {

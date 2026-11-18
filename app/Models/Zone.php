@@ -16,12 +16,13 @@ class Zone extends Model
     /** @use HasFactory<ZoneFactory> */
     use BelongsToCompany, HasFactory;
 
-    protected $fillable = ['company_id', 'parent_id', 'place_code', 'name', 'aliases', 'city', 'is_shipping', 'shipping_fee_estimate', 'is_active', 'sort_order', 'legacy_price'];
+    protected $fillable = ['company_id', 'parent_id', 'place_code', 'name', 'aliases', 'city', 'is_shipping', 'shipping_fee_estimate', 'is_active', 'is_pickup', 'sort_order', 'legacy_price'];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'is_pickup' => 'boolean',
             'is_shipping' => 'boolean',
             'shipping_fee_estimate' => 'integer',
             'sort_order' => 'integer',
@@ -51,6 +52,26 @@ class Zone extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * Lieux où l'entreprise ramasse : actifs, ramassage permis, et pour un quartier aussi dans sa commune.
+     */
+    public function scopePickup(Builder $query): Builder
+    {
+        return $query->active()->where('is_pickup', true)
+            ->where(fn ($q) => $q->whereNull('parent_id')->orWhereHas('parent', fn ($p) => $p->where('is_pickup', true)));
+    }
+
+    /** L'entreprise ramasse-t-elle ici ? (un quartier suit sa commune quand elle est coupée) */
+    public function acceptsPickup(): bool
+    {
+        if (! $this->is_active || ! $this->is_pickup) {
+            return false;
+        }
+
+        // Commune pas chargée : on s'en tient au lieu lui-même (les commandes, elles, vérifient la commune)
+        return $this->parent_id === null || ! $this->relationLoaded('parent') || ($this->parent?->is_pickup ?? true);
     }
 
     /**

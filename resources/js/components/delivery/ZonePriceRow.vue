@@ -1,6 +1,6 @@
 <template>
   <!-- Une ligne de Zones et prix : interrupteur, nom, prix (enregistré à la sortie du champ) -->
-  <div :class="['grid grid-cols-[1fr_auto] items-center gap-3 px-4 py-2.5 sm:grid-cols-[1fr_14rem]', zone.parent_id ? 'bg-slate-50/60 pl-10' : '']">
+  <div :class="['grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:grid-cols-[1fr_8rem_15rem]', zone.parent_id ? 'bg-slate-50/60 pl-10' : '']">
     <div class="flex min-w-0 flex-wrap items-center gap-3">
       <button
         type="button" role="switch" :aria-checked="zone.is_active" :aria-label="`On livre ici : ${zone.name}`" :disabled="saving"
@@ -19,6 +19,20 @@
         <button type="button" class="text-xs text-red-700" @click="$emit('remove')">Supprimer</button>
       </template>
     </div>
+    <!-- Ramassage : l'entreprise ramasse-t-elle ici ? (un quartier suit sa commune quand elle est coupée) -->
+    <div class="col-span-2 flex items-center gap-2 sm:col-span-1">
+      <button
+        v-if="!zone.is_shipping" type="button" role="switch" :aria-checked="pickupOn" :aria-label="`On ramasse ici : ${zone.name}`"
+        :disabled="saving || !zone.is_active || parentPickup === false"
+        :title="parentPickup === false ? 'Pas de ramassage dans la commune' : ''"
+        :class="['relative h-6 w-10 shrink-0 rounded-full disabled:opacity-50', pickupOn ? 'bg-blue-800' : 'bg-slate-400']"
+        @click="$emit('pickup')"
+      >
+        <span :class="['absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all', pickupOn ? 'left-[19px]' : 'left-[3px]']" />
+      </button>
+      <span class="text-xs text-slate-600 sm:hidden">Ramassage</span>
+      <span v-if="!zone.is_shipping" class="hidden text-xs text-slate-600 sm:inline">{{ pickupOn ? 'oui' : 'non' }}</span>
+    </div>
     <div class="flex items-center gap-2">
       <input
         :value="zone.price" type="number" min="0" step="100" inputmode="numeric"
@@ -26,7 +40,7 @@
         :placeholder="placeholder" :aria-label="`Prix de livraison : ${zone.name}`" :disabled="saving"
         @change="$emit('price', $event.target.value)" @keydown.enter="$event.target.blur()"
       >
-      <span class="w-20 text-sm text-slate-600">F<template v-if="usesParent"> · commune</template></span>
+      <span class="whitespace-nowrap text-sm text-slate-600">F<template v-if="usesParent"> · commune</template></span>
     </div>
   </div>
 </template>
@@ -42,8 +56,12 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   // Prix de la commune, repris par un quartier sans prix propre
   parentPrice: { type: Number, default: null },
+  // Ramassage dans la commune (quartier) ; null pour une commune
+  parentPickup: { type: Boolean, default: null },
 })
-defineEmits(['toggle', 'price', 'expand', 'rename', 'remove'])
+defineEmits(['toggle', 'pickup', 'price', 'expand', 'rename', 'remove'])
+
+const pickupOn = computed(() => props.zone.is_active && props.zone.is_pickup && props.parentPickup !== false)
 
 const inherited = computed(() => props.parentPrice ?? props.zone.inherited_price)
 // Quartier sans prix propre : il prend celui de sa commune
