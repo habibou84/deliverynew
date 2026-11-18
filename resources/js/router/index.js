@@ -118,8 +118,10 @@ const routes = [
       { path: 'vehicules', component: () => import('../views/admin/Vehicles.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs/:id(\\d+)/notes', redirect: (to) => ({ path: `/admin/livreurs/${to.params.id}`, query: { onglet: 'notes' } }) },
       { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
-      { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },
-      { path: 'tarifs', component: () => import('../views/admin/Pricing.vue'), meta: { permission: 'settings.manage' } },
+      // Zones et tarifs : où l'on livre et à quel prix, au même endroit (anciennes pages Zones et Tarifs)
+      { path: 'livraison', component: () => import('../views/admin/Delivery.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'zones', redirect: '/admin/livraison' },
+      { path: 'tarifs', redirect: (to) => ({ path: '/admin/livraison', query: to.query }) },
       { path: 'paie-livreurs', component: () => import('../views/admin/PayPlans.vue'), meta: { permission: 'settings.manage' } },
       { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage', feature: 'stock' } },
       { path: 'caisse', component: () => import('../views/admin/Finance.vue'), meta: { permission: 'finance.view' } },
