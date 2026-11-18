@@ -101,6 +101,35 @@ class LegacyPurgeController extends Controller
         return response()->json(['data' => ['done' => $this->purges->resolve($request->user()->company, $days, $data['ids'], $data['outcome'])]]);
     }
 
+    /**
+     * Vieux colis de la reprise à rendre au marchand : par livreur censé les avoir, et la dernière clôture (annulable).
+     */
+    public function returns(Request $request): JsonResponse
+    {
+        $company = $request->user()->company;
+        $last = LegacyPurge::query()->where('company_id', $company->id)->where('min_days', 0)
+            ->where('filters->returns', true)->latest('id')->first();
+
+        return response()->json(['data' => [
+            'couriers' => $this->purges->returnsByCourier($company),
+            'total' => $this->purges->returnsScope($company)->count(),
+            'last' => $this->describe($last),
+        ]]);
+    }
+
+    /** Clôt comme retournés les colis de la reprise à rendre : tous, ou ceux d'un livreur (0 : sans livreur) */
+    public function closeReturns(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'courier_id' => ['nullable', 'integer', 'min:0'],
+            'confirm' => ['required', 'string', Rule::in(['CLÔTURER', 'CLOTURER'])],
+        ], ['confirm.in' => 'Tapez CLÔTURER pour confirmer.'], ['confirm' => 'confirmation']);
+
+        $purge = $this->purges->closeReturns($request->user()->company, $request->user(), $data['courier_id'] ?? null);
+
+        return response()->json(['data' => $this->describe($purge->fresh())], 201);
+    }
+
     /** @return array{0: int, 1: array{merchant_id: ?int, courier_id: ?int}} */
     private function filters(Request $request): array
     {

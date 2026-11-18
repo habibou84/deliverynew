@@ -24,15 +24,21 @@ class ReturnSlipController extends Controller
     public function __construct(private readonly ReturnSlips $slips) {}
 
     /**
-     * Colis à rendre par marchand, bons en cours et derniers bons remis.
+     * Colis à rendre résumés par marchand (les colis se chargent marchand par marchand : voir candidates), bons en
+     * cours et derniers bons remis.
      */
     public function index(Request $request): JsonResponse
     {
         $this->authorizeDispatch($request);
 
-        $candidates = $this->slips->candidates()->groupBy('merchant_id')->map(fn ($orders) => [
-            'merchant' => $this->merchantData($orders->first()->merchant),
-            'orders' => $orders->map(fn (Order $o) => $this->orderData($o))->values(),
+        $summary = $this->slips->summary();
+        $merchants = Merchant::with('pickupZone:id,name')->whereIn('id', $summary->pluck('merchant_id'))->get()->keyBy('id');
+        $candidates = $summary->filter(fn ($row) => $merchants->has($row->merchant_id))->map(fn ($row) => [
+            'merchant' => $this->merchantData($merchants[$row->merchant_id]),
+            'total' => (int) $row->total,
+            'held' => (int) $row->held,
+            'legacy' => (int) $row->legacy,
+            'oldest' => $row->oldest ? substr((string) $row->oldest, 0, 10) : null,
         ])->values();
 
         $slips = ReturnSlip::with(['merchant', 'courier.user'])->withCount('orders')
@@ -41,8 +47,26 @@ class ReturnSlipController extends Controller
 
         return response()->json([
             'candidates' => $candidates,
+            'candidates_total' => $candidates->sum('total'),
             'data' => $slips->map(fn (ReturnSlip $s) => $this->slipData($s)),
         ]);
+    }
+
+    /** Colis à rendre d'un marchand (déplié dans Retours marchands) */
+    public function candidates(Request $request): JsonResponse
+    {
+        $this->authorizeDispatch($request);
+        $data = $request->validate(['merchant_id' => ['required', 'integer']]);
+
+        return response()->json(['data' => $this->slips->candidates($data['merchant_id'])->map(fn (Order $o) => $this->orderData($o))->values()]);
+    }
+
+    /** Nombre de colis à rendre (compteur du menu) */
+    public function count(Request $request): JsonResponse
+    {
+        $this->authorizeDispatch($request);
+
+        return response()->json(['data' => ['to_return' => $this->slips->candidatesQuery()->count()]]);
     }
 
     public function store(Request $request): JsonResponse
@@ -215,6 +239,9 @@ class ReturnSlipController extends Controller
             'attempts_count' => $o->attempts_count,
             'held_by' => $o->relationLoaded('holder') && $o->holder ? ['id' => $o->holder->id, 'name' => $o->holder->user?->name] : null,
             'return_courier' => $o->relationLoaded('returnCourier') && $o->returnCourier ? ['id' => $o->returnCourier->id, 'name' => $o->returnCourier->user?->name] : null,
+            // Repris de l'ancienne application, et jour de livraison prévu (ancienneté)
+            'legacy' => $o->legacy_id !== null,
+            'delivery_day' => $o->delivery_scheduled_date?->toDateString() ?? $o->created_at?->toDateString(),
         ];
     }
 }
