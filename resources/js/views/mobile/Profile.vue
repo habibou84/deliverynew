@@ -118,8 +118,9 @@ const shopRows = computed(() => {
     auth.can('orders.create') && { to: '/marchand/courses/import', icon: 'excel', label: 'Importer des courses', text: 'Depuis un fichier Excel ou CSV' },
   ].filter(Boolean)
 })
-// Suppression du compte : e-commerçant (propriétaire ou employé) et livreur
-const canDelete = computed(() => ['merchant_owner', 'merchant_staff', 'courier'].includes(auth.role))
+// Suppression du compte : e-commerçant (propriétaire ou employé) seulement. Le compte du livreur est créé et fermé
+// par l'entreprise.
+const canDelete = computed(() => ['merchant_owner', 'merchant_staff'].includes(auth.role))
 const deleting = ref(false)
 const understood = ref(false)
 const sending = ref(false)
@@ -132,7 +133,7 @@ async function deleteAccount() {
   try {
     const { data } = await http.post('/account/deletion', { confirm: true })
     await forgetPushDevice().catch(() => {})
-    const login = appLock()?.login || (auth.role === 'courier' ? '/livreur/connexion' : '/')
+    const login = appLock()?.login || '/'
     // Connexion déjà coupée par le serveur : on oublie seulement la session de ce téléphone
     auth.clear()
     toasts.success(data.data.message)

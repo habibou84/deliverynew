@@ -9,7 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Suppression du compte : demandée par l'e-commerçant ou le livreur depuis son profil ; l'entreprise voit les
+ * Suppression du compte : demandée par l'e-commerçant depuis son profil ; l'entreprise voit les
  * demandes en cours et peut les annuler avant l'effacement.
  */
 class AccountDeletionController extends Controller
@@ -19,7 +19,7 @@ class AccountDeletionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = $request->user();
-        abort_unless(AccountDeletions::allowed($user), 403, 'La suppression depuis le profil est réservée aux comptes e-commerçant et livreur.');
+        abort_unless(AccountDeletions::allowed($user), 403, 'La suppression depuis le profil est réservée aux comptes e-commerçant.');
         $request->validate(['confirm' => ['accepted']], ['confirm.accepted' => 'Confirmez la suppression de votre compte.']);
 
         $deletion = $this->deletions->request($user);

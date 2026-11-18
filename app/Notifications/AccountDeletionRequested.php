@@ -7,7 +7,7 @@ use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
 /**
- * Cloche des administrateurs de l'entreprise : un e-commerçant ou un livreur a demandé la suppression de son compte
+ * Cloche des administrateurs de l'entreprise : un e-commerçant a demandé la suppression de son compte
  * (annulable jusqu'à l'effacement).
  */
 class AccountDeletionRequested extends Notification
