@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\AccountDeletionController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AppearanceController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\AutomaticMessageController;
 use App\Http\Controllers\Api\V1\CancellationController;
 use App\Http\Controllers\Api\V1\CashClosingController;
 use App\Http\Controllers\Api\V1\CompanyController;
@@ -554,6 +555,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
             // WhatsApp
             Route::get('whatsapp/settings', [WhatsAppSettingsController::class, 'show'])->name('whatsapp.settings');
+            // WhatsApp › Messages automatiques : un interrupteur par message
+            Route::get('whatsapp/messages', [AutomaticMessageController::class, 'index'])->name('whatsapp.messages.index');
+            Route::put('whatsapp/messages/{id}', [AutomaticMessageController::class, 'update'])->where('id', '[a-z_]+')->name('whatsapp.messages.update');
             Route::put('whatsapp/settings', [WhatsAppSettingsController::class, 'update'])->name('whatsapp.settings.update');
             Route::post('whatsapp/test', [WhatsAppSettingsController::class, 'test'])->middleware('throttle:10,1')->name('whatsapp.test');
             Route::post('whatsapp/templates/sync', [WhatsAppSettingsController::class, 'syncTemplates'])->name('whatsapp.templates.sync');

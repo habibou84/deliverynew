@@ -10,7 +10,7 @@
         <input :id="`cash-amount${uid}`" v-model.number="form.cash_alert_amount" type="number" min="0" class="input w-36" placeholder="Pas de plafond">
       </div>
     </div>
-    <label class="mt-2 flex items-center gap-2 text-sm"><input v-model="form.cash_alert_courier" type="checkbox"> Rappel au livreur par WhatsApp</label>
+    <MessageSettingLink class="mt-2" :on="!!form.cash_alert_courier" label="Rappel au livreur par WhatsApp" />
     <p class="text-xs text-slate-600 mt-1">
       Alerte aux administrateurs et caissiers dans l'application, une fois par livreur et par jour ; le livreur apparaît
       « à surveiller » dans la caisse. 0 heure et plafond vide = pas d'alerte.
@@ -20,7 +20,7 @@
       <label class="label" :for="`cash-close${uid}`">Rappeler de clôturer la caisse à</label>
       <input :id="`cash-close${uid}`" v-model="form.cash_close_reminder_at" type="time" class="input w-32">
     </div>
-    <label class="mt-2 flex items-center gap-2 text-sm"><input v-model="form.cash_close_summary" type="checkbox"> Envoyer le résumé de la clôture aux administrateurs par WhatsApp</label>
+    <MessageSettingLink class="mt-2" :on="!!form.cash_close_summary" label="Résumé de la clôture aux administrateurs par WhatsApp" />
     <p class="text-xs text-slate-600 mt-1">
       Rappel dans l'application aux administrateurs et caissiers si la journée n'est pas clôturée (une fois par jour).
       Heure vide = pas de rappel. Le résumé arrive aussi dans la cloche.
@@ -30,6 +30,7 @@
 
 <script setup>
 import SettingsBlock from '../SettingsBlock.vue'
+import MessageSettingLink from '../MessageSettingLink.vue'
 
 const props = defineProps({ form: { type: Object, required: true }, panel: Boolean })
 const uid = props.panel ? '-panel' : ''

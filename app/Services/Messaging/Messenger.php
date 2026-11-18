@@ -29,7 +29,9 @@ class Messenger
     public function toMerchant(Merchant $merchant, NotificationEvent $event, WhatsAppTemplate $template, array $params, ?Order $order = null): ?OutboundMessage
     {
         // Course envoyée par une application qui prévient elle-même le marchand (Jibiat Marchand) : pas de doublon
-        if (! $merchant->wantsNotification($event) || $order?->merchant_alerts_muted) {
+        // « Colis expédié » a son propre interrupteur (WhatsApp › Messages automatiques), pas celui de « Colis livré »
+        $wanted = $template === WhatsAppTemplate::Shipped || $merchant->wantsNotification($event);
+        if (! $wanted || $order?->merchant_alerts_muted) {
             return null;
         }
 
@@ -46,6 +48,10 @@ class Messenger
      */
     public function merchantMessage(Merchant $merchant, string $event, WhatsAppTemplate $template, array $params, array $context = []): ?OutboundMessage
     {
+        if ($this->switchedOff($merchant->company_id, $template, $context)) {
+            return null;
+        }
+        unset($context['manual']);
         $context = [...$context, 'event' => $event, 'merchant_id' => $merchant->id];
 
         if (! $this->pushFirst($merchant)) {
@@ -127,18 +133,12 @@ class Messenger
     }
 
     /**
-     * Message au destinataire d'une course, si l'entreprise l'a activé.
+     * Message au destinataire d'une course, si l'entreprise l'a activé (WhatsApp › Messages automatiques).
      *
      * @param  list<string|int>  $params
      */
     public function toRecipient(Order $order, string $event, WhatsAppTemplate $template, array $params): ?OutboundMessage
     {
-        $company = Company::find($order->company_id);
-
-        if (! $company?->notify_recipients) {
-            return null;
-        }
-
         return $this->whatsapp($order->company_id, $order->recipient_phone, 'recipient', $template, $params, [
             'event' => $event,
             'merchant_id' => $order->merchant_id,
@@ -153,9 +153,10 @@ class Messenger
     public function whatsapp(int $companyId, ?string $to, string $recipientType, WhatsAppTemplate $template, array $params, array $context = []): ?OutboundMessage
     {
         $to = PhoneNumber::normalize($to);
-        if ($to === null) {
+        if ($to === null || $this->switchedOff($companyId, $template, $context)) {
             return null;
         }
+        unset($context['manual']);
 
         $params = array_map(fn ($p) => self::cleanParameter((string) $p), $params);
 
@@ -175,6 +176,17 @@ class Messenger
         SendOutboundMessage::dispatch($message)->afterCommit();
 
         return $message;
+    }
+
+    /**
+     * Message coupé dans WhatsApp › Messages automatiques ? Un envoi demandé à la main (contexte « manual »,
+     * ex. « Renvoyer le reçu ») part quand même.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    private function switchedOff(int $companyId, WhatsAppTemplate $template, array $context): bool
+    {
+        return ! ($context['manual'] ?? false) && Company::find($companyId)?->messageOn($template) === false;
     }
 
     /**
