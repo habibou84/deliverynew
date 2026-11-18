@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Courses</h1>
       <div class="flex items-center gap-2">
-        <SettingsShortcut v-if="isStaff" compact :blocks="['validation', 'editApproval', 'day', 'autoPickup', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/reglages/courses" />
+        <SettingsShortcut v-if="isStaff" compact :blocks="['validation', 'editApproval', 'day', 'autoPickup', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/automatisation" />
         <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/import`" class="btn-secondary"><Icone nom="importer" /> Importer</RouterLink>
         <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/nouvelle`" :class="['btn-primary', isStaff ? 'hidden md:inline-flex' : '']"><Icone nom="ajouter" /> Nouvelle course</RouterLink>
       </div>
