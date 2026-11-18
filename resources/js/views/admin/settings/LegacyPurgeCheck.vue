@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <div>
       <RouterLink to="/admin/reglages/reprise/controles" class="text-sm font-medium text-emerald-700">‹ Contrôles et ménage</RouterLink>
-      <h1 class="text-xl font-bold">En chemin depuis plus de {{ days }} jours : à vérifier</h1>
+      <h1 class="text-xl font-bold">{{ days ? `En chemin depuis plus de ${days} jours` : 'En chemin, toutes dates' }} : à vérifier</h1>
       <p class="text-sm text-slate-600">Pour chaque colis, demandez au livreur s'il l'a livré ou s'il l'a encore. Rien n'est envoyé aux clients.</p>
     </div>
 
@@ -64,7 +64,8 @@ import { date, localPhone, money, telLink, whatsappLink } from '../../../utils/f
 /** Nettoyage de la reprise : anciennes courses « en chemin », à vérifier livreur par livreur */
 const route = useRoute()
 const toasts = useToastStore()
-const days = Number(route.query.days) || 30
+// 0 : toutes les dates avant aujourd'hui
+const days = route.query.days !== undefined ? Number(route.query.days) || 0 : 0
 const couriers = ref([])
 const orders = ref(null)
 const total = ref(0)
