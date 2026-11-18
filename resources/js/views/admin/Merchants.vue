@@ -41,6 +41,7 @@
             <td class="p-2 text-right whitespace-nowrap">
               <RouterLink :to="{ path: '/admin/courses', query: { merchant_id: m.id } }" class="text-blue-600 mr-3">Courses</RouterLink>
               <button v-if="auth.can('finance.view')" class="text-blue-600 mr-3" @click="openPayment(m)">Paiement</button>
+              <button v-if="auth.can('users.manage')" class="text-blue-600 mr-3" @click="accounts = m">Compte</button>
               <button v-if="auth.can('merchants.manage')" class="text-blue-600" @click="openForm(m)">Modifier</button>
             </td>
           </tr>
@@ -93,6 +94,10 @@
             </select>
           </div>
         </div>
+        <p v-if="form.id && auth.can('users.manage')" class="rounded-lg bg-slate-50 p-2 text-xs text-slate-600">
+          Le téléphone ci-dessus est celui de la boutique. Pour changer le numéro ou le mot de passe de connexion :
+          <button type="button" class="font-semibold text-blue-600 underline" @click="accounts = merchants.find((x) => x.id === form.id); form.open = false">Compte</button>.
+        </p>
         <div v-if="form.id">
           <label class="label">Statut</label>
           <select v-model="form.data.status" class="input">
@@ -112,6 +117,10 @@
         <button class="btn-primary w-full" :disabled="form.saving">Enregistrer</button>
       </form>
     </Modal>
+    <!-- Comptes de connexion : téléphone et mot de passe -->
+    <Modal :open="!!accounts" :title="`Compte · ${accounts?.business_name || ''}`" @close="accounts = null">
+      <MerchantAccounts v-if="accounts" :merchant="accounts" @changed="load" />
+    </Modal>
     <!-- Moyens de paiement du marchand : vérifier, refuser, saisir, historique -->
     <Modal :open="!!payment" :title="`Paiement · ${payment?.business_name || ''}`" @close="payment = null">
       <PaymentMethodsManager v-if="payment" :merchant-id="payment.id" :can-edit="auth.can('finance.manage')" />
@@ -129,6 +138,7 @@ import ConnectRequests from '../../components/ConnectRequests.vue'
 import LocationPicker from '../../components/LocationPicker.vue'
 import Modal from '../../components/Modal.vue'
 import PaymentMethodsManager from '../../components/payment/PaymentMethodsManager.vue'
+import MerchantAccounts from '../../components/merchant/MerchantAccounts.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 
@@ -143,6 +153,8 @@ const route = useRoute()
 const onlySignups = ref(!!route.query.nouveaux)
 // Fenêtre « Paiement » ouverte (lien de la caisse ou de l'alerte : ?id=…&onglet=paiement)
 const payment = ref(null)
+// Fenêtre « Compte » ouverte (numéro et mot de passe de connexion), aussi par ?id=…&onglet=compte
+const accounts = ref(null)
 function openPayment(m) {
   payment.value = { id: m.id, business_name: m.business_name }
 }
@@ -211,6 +223,8 @@ onMounted(async () => {
   if (route.query.onglet === 'paiement' && route.query.id) {
     const m = merchants.value.find((x) => x.id === Number(route.query.id))
     payment.value = { id: Number(route.query.id), business_name: m?.business_name || '' }
+  } else if (route.query.onglet === 'compte' && route.query.id) {
+    accounts.value = merchants.value.find((x) => x.id === Number(route.query.id)) ?? null
   } else if (route.query.id) {
     const m = merchants.value.find((x) => x.id === Number(route.query.id))
     if (m) openForm(m)
