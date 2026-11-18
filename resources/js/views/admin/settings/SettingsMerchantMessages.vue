@@ -1,8 +1,10 @@
 <template>
   <div class="space-y-4">
     <div>
-      <RouterLink to="/admin/reglages" class="text-sm text-blue-600">‹ Réglages</RouterLink>
-      <h1 class="text-xl font-bold">💬 Messages aux e-commerçants</h1>
+      <template v-if="!embedded">
+        <RouterLink to="/admin/whatsapp/modeles?onglet=merchant" class="text-sm text-blue-600">‹ Messages prédéfinis</RouterLink>
+        <h1 class="text-xl font-bold">Messages aux e-commerçants</h1>
+      </template>
       <p class="text-sm text-slate-600">
         Pour chaque étape d'une course : la notification dans l'application est toujours envoyée (gratuite).
         Choisissez si l'e-commerçant reçoit aussi un message WhatsApp (ou une notification sur son téléphone quand il l'a activée).
@@ -61,7 +63,7 @@
       </div>
       <p class="text-xs text-slate-600">
         Les courses envoyées par Jibiat Marchand ne reçoivent rien d'ici : Jibiat Marchand prévient lui-même la boutique.
-        Numéro WhatsApp, modèles et envois : <RouterLink to="/admin/whatsapp" class="text-blue-600">page WhatsApp</RouterLink>.
+        Numéro WhatsApp et envois : <RouterLink to="/admin/whatsapp" class="text-blue-600">WhatsApp › Connexion</RouterLink>.
       </p>
     </template>
   </div>
@@ -74,6 +76,9 @@ import http, { apiErrorMessage } from '../../../bootstrap/axios'
 import { useToastStore } from '../../../stores/toasts'
 
 /** Réglages › Messages aux e-commerçants : WhatsApp oui ou non par étape, choix laissés ou non aux e-commerçants */
+// Intégrée dans Messages › Messages prédéfinis (onglet E-commerçants) : sans titre ni retour
+defineProps({ embedded: { type: Boolean, default: false } })
+
 const HINTS = {
   'order.received': 'À l\'enregistrement, quand la validation est automatique',
   'order.confirmed': 'Quand l\'équipe valide la course à la main',
