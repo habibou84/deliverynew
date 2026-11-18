@@ -35,6 +35,7 @@
         <RouterLink to="/admin/reglages/reprise/argent-livreurs" class="btn-secondary">Faire le point ›</RouterLink>
       </section>
       <LegacyPurgeSettings />
+      <LegacySettlementSettings />
     </template>
 
     <LegacySwitchSettings v-else-if="name === 'switch'" />
@@ -48,6 +49,7 @@ import SettingsPage from '../../../components/settings/SettingsPage.vue'
 import LegacyAccountsCopy from '../../../components/LegacyAccountsCopy.vue'
 import LegacyImportSettings from '../../../components/LegacyImportSettings.vue'
 import LegacyOrdersSettings from '../../../components/LegacyOrdersSettings.vue'
+import LegacySettlementSettings from '../../../components/LegacySettlementSettings.vue'
 import LegacyPurgeSettings from '../../../components/LegacyPurgeSettings.vue'
 import LegacyRecheckSettings from '../../../components/LegacyRecheckSettings.vue'
 import LegacySwitchSettings from '../../../components/LegacySwitchSettings.vue'
