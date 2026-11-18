@@ -30,13 +30,9 @@
           :default-open="!group.closed"
         />
       </nav>
-      <!-- Téléphone : qui est connecté et déconnexion (l'en-tête n'a plus la place) -->
-      <div class="md:hidden border-t border-white/15 p-3 flex items-center justify-between gap-2">
-        <RouterLink to="/admin/mot-de-passe" class="min-w-0 text-sm" @click="sidebarOpen = false">
-          <span class="block truncate font-medium">{{ auth.user?.name }}</span>
-          <span class="block truncate text-white/60">{{ auth.user?.role_label }} · mot de passe</span>
-        </RouterLink>
-        <button class="shrink-0 rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20" @click="logout">Déconnexion</button>
+      <!-- Téléphone : le profil (Mon compte, Mon abonnement, Déconnexion), détaché du menu -->
+      <div class="md:hidden mt-4 border-t border-white/15 px-3 pb-4 pt-4">
+        <AccountMenu sidebar @logout="logout" @navigate="sidebarOpen = false" />
       </div>
     </aside>
 
@@ -60,10 +56,8 @@
         <div class="flex items-center gap-3">
           <AlertSoundToggle v-if="isDispatch" />
           <NotificationBell />
-          <RouterLink to="/admin/mot-de-passe" class="hidden md:inline text-sm text-slate-600 hover:underline" title="Mon compte : mot de passe">
-            {{ auth.user?.name }} <span class="text-slate-600">· {{ auth.user?.role_label }}</span>
-          </RouterLink>
-          <button class="btn-danger hidden md:inline-flex" @click="logout">Déconnexion</button>
+          <!-- Profil : Mon compte, Mon abonnement, Déconnexion -->
+          <AccountMenu class="hidden md:block" @logout="logout" />
         </div>
       </header>
       <!-- Téléphone : recherche de course sous l'en-tête -->
@@ -172,6 +166,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect
 import { useRoute, useRouter } from 'vue-router'
 import http from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'
+import AccountMenu from '../components/AccountMenu.vue'
 import { useRealtime } from '../composables/useRealtime'
 import SidebarGroup from '../components/SidebarGroup.vue'
 import SidebarItem from '../components/SidebarItem.vue'
