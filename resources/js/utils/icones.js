@@ -5,10 +5,10 @@
  */
 import {
   ArrowLeft, Award, Backpack, Ban, Banknote, Bell, Bike, Building2, Bus, Calendar, CalendarClock, CalendarDays, Camera,
-  ChartColumn, Check, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
+  ChartColumn, Check, CircleUserRound, LogOut, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
   House, Info, Landmark, LayoutDashboard, LifeBuoy, Lock, Map, MapPin, Megaphone, Menu, MessageCircle, Monitor, Moon,
   Package, PackageOpen, Pause, Pencil, Phone, Plus, Printer, Receipt, RefreshCw, Repeat, Route, Search, Settings,
-  ShieldAlert, Smartphone, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
+  ShieldAlert, SlidersHorizontal, Smartphone, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
   Volume2, VolumeX, Wallet, Warehouse, X, Zap,
 } from 'lucide-vue-next'
 
@@ -36,6 +36,13 @@ export const ICONES = {
   utilisateurs: Users,
   client: UserRound,
   reglages: Settings,
+  // Menu du compte (en-tête et bas du menu) : mon compte, mon abonnement, déconnexion
+  compte: CircleUserRound,
+  abonnement: Receipt,
+  deconnexion: LogOut,
+  // Livraison › Automatisation ; Clients › Réglages clients
+  automatisation: Zap,
+  'reglages-clients': SlidersHorizontal,
   ia: Sparkles,
   assistance: LifeBuoy,
   'mise-en-route': Compass,

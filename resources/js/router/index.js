@@ -133,6 +133,8 @@ const routes = [
       { path: 'mise-en-route', component: () => import('../views/admin/SetupGuide.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages', component: () => import('../views/admin/settings/SettingsHub.vue'), meta: { permission: ['settings.manage', 'integrations.manage', 'users.view'] } },
       { path: 'reglages/entreprise', component: () => import('../views/admin/settings/SettingsCompany.vue'), meta: { permission: 'settings.manage' } },
+      // Livraison › Automatisation
+      { path: 'automatisation', component: () => import('../views/admin/settings/SettingsAutomation.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/courses', component: () => import('../views/admin/settings/SettingsOrders.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/annulations', component: () => import('../views/admin/Cancellations.vue'), props: { section: 'rules' }, meta: { permission: 'settings.manage' } },
       // Rangé dans Messages › Messages prédéfinis (onglet E-commerçants)
