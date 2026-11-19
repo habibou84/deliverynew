@@ -2,37 +2,47 @@
   <div v-if="wallet" class="space-y-4">
     <p v-if="stale" class="rounded-xl bg-amber-50 text-amber-800 text-sm px-4 py-3">Hors ligne : montants de la dernière connexion.</p>
     <section class="rounded-2xl p-5 text-white" :style="{ backgroundColor: 'var(--app-color)' }">
-      <p class="text-sm opacity-80">{{ wallet.cash_in_hand >= 0 ? 'À verser à la caisse' : 'La caisse vous doit' }}</p>
-      <p class="text-4xl font-bold mt-1">{{ money(Math.abs(wallet.cash_in_hand)) }}</p>
-      <div v-if="wallet.balance && (wallet.balance.advances || wallet.balance.expenses || wallet.balance.pay_kept)" class="mt-3 space-y-1 text-sm opacity-90">
-        <div class="flex justify-between"><span>Encaissé</span><span>{{ money(wallet.balance.collected) }}</span></div>
+      <p class="text-sm opacity-80">{{ toRemit >= 0 ? 'À verser à la caisse' : 'La caisse vous doit' }}</p>
+      <p class="text-4xl font-bold mt-1">{{ money(Math.abs(toRemit)) }}</p>
+      <div v-if="wallet.balance && (wallet.balance.advances || wallet.balance.expenses || wallet.balance.pay_kept || wallet.pay_deduction)" class="mt-3 space-y-1 border-t border-white/25 pt-3 text-sm opacity-95">
+        <div class="flex justify-between"><span>Argent encaissé</span><span>{{ money(wallet.balance.collected) }}</span></div>
         <div v-if="wallet.balance.advances" class="flex justify-between"><span>+ Avances de la caisse</span><span>{{ money(wallet.balance.advances) }}</span></div>
+        <div v-if="wallet.pay_deduction" class="flex justify-between"><span>− Ma paie, déduite au versement</span><span>{{ money(wallet.pay_deduction) }}</span></div>
+        <div v-if="wallet.balance.pay_kept" class="flex justify-between"><span>− Paie déjà gardée sur l'encaissé</span><span>{{ money(wallet.balance.pay_kept) }}</span></div>
         <div v-if="wallet.balance.expenses" class="flex justify-between"><span>− Frais payés pour les courses</span><span>{{ money(wallet.balance.expenses) }}</span></div>
-        <div v-if="wallet.balance.pay_kept" class="flex justify-between"><span>− Paie gardée sur l'encaissé</span><span>{{ money(wallet.balance.pay_kept) }}</span></div>
       </div>
     </section>
+    <RouterLink to="/livreur/gains" class="flex items-start gap-2 px-1 text-sm text-slate-600">
+      <Icone nom="gain" taille="petite" class="mt-0.5 shrink-0" />
+      <span>
+        <template v-if="wallet.settles_on_remittance && wallet.pay_deduction">Votre entreprise déduit votre paie à chaque versement : gardez {{ money(wallet.pay_deduction) }}, versez le reste.</template>
+        <template v-else-if="wallet.settles_on_remittance">Votre entreprise déduit votre paie à chaque versement à la caisse.</template>
+        <template v-else>Votre paie est versée sur votre fiche de paie.</template>
+        <span class="font-semibold text-[var(--app-color)]"> Voir Mes gains</span>
+      </span>
+    </RouterLink>
 
     <!-- Colis non livrés encore en main : à rapporter au dépôt lors du point -->
     <section v-if="parcelsToReturn.length || parcelsKept.length || onTheRoad.length" class="space-y-2">
-      <p v-if="onTheRoad.length" class="rounded-xl bg-sky-50 text-sky-900 text-sm px-4 py-3">
-        🛵 {{ onTheRoad.length }} course{{ onTheRoad.length > 1 ? 's' : '' }} en chemin : indiquez « livré » ou « échec » avant de faire votre point à la caisse.
+      <p v-if="onTheRoad.length" class="flex items-start gap-2 rounded-xl bg-sky-50 text-sky-900 text-sm px-4 py-3">
+        <Icone nom="livrer" taille="petite" class="mt-0.5" />{{ onTheRoad.length }} course{{ onTheRoad.length > 1 ? 's' : '' }} en chemin : indiquez « livré » ou « échec » avant de faire votre point à la caisse.
       </p>
       <template v-if="parcelsKept.length">
-        <h2 class="font-semibold">🌙 Colis à garder pour leur livraison ({{ parcelsKept.length }})</h2>
+        <h2 class="flex items-center gap-2 font-semibold"><Icone nom="jour-ferme" />Colis à garder pour leur livraison ({{ parcelsKept.length }})</h2>
         <div class="m-card divide-y">
           <div v-for="p in parcelsKept" :key="p.id" class="p-4 flex justify-between gap-3">
             <div class="min-w-0">
               <p class="font-medium truncate">{{ p.recipient_name || p.recipient_phone }}</p>
               <p class="text-xs text-slate-600">{{ p.tracking_code }} · {{ p.merchant }}</p>
             </div>
-            <p v-if="p.date_to_confirm" class="text-xs text-right text-amber-700">📅 Date à confirmer</p>
+            <p v-if="p.date_to_confirm" class="flex items-center justify-end gap-1 text-xs text-amber-700"><Icone nom="date" taille="petite" />Date à confirmer</p>
             <p v-else class="text-xs text-right text-indigo-700">Livraison {{ date(p.kept_for) }}</p>
           </div>
         </div>
         <p class="text-sm text-slate-600 text-center">Gardez-les avec vous : la livraison vous sera confiée le jour prévu.<template v-if="parcelsKept.some((p) => p.date_to_confirm)"> « Date à confirmer » : l'agence vous dira quand le livrer ou le rapporter.</template></p>
       </template>
       <template v-if="parcelsToReturn.length">
-        <h2 class="font-semibold">📦 Colis à rapporter au dépôt ({{ parcelsToReturn.length }})</h2>
+        <h2 class="flex items-center gap-2 font-semibold"><Icone nom="course" />Colis à rapporter au dépôt ({{ parcelsToReturn.length }})</h2>
         <div class="m-card divide-y">
           <div v-for="p in parcelsToReturn" :key="p.id" class="p-4 flex justify-between gap-3">
             <div class="min-w-0">
@@ -45,66 +55,6 @@
         <p class="text-sm text-slate-600 text-center">Remettez-les à la caisse ou au dépôt lors de votre point.</p>
       </template>
     </section>
-
-    <section class="grid grid-cols-2 gap-2">
-      <div class="m-card p-4">
-        <p class="text-sm text-slate-600">Gagné aujourd'hui</p>
-        <p class="text-2xl font-bold text-emerald-700">{{ money(wallet.earned_today) }}</p>
-      </div>
-      <div class="m-card p-4">
-        <p class="text-sm text-slate-600">Gains à recevoir</p>
-        <p :class="['text-2xl font-bold', signedClass(wallet.unpaid)]">{{ money(wallet.unpaid) }}</p>
-      </div>
-    </section>
-
-    <div v-for="p in wallet.pending_payslips || []" :key="p.reference" class="m-card p-4 flex justify-between gap-3 bg-emerald-50">
-      <div class="min-w-0">
-        <p class="font-medium">🧾 Fiche de paie prête</p>
-        <p class="text-xs text-slate-600">{{ date(p.period_start) }} → {{ date(p.period_end) }} · {{ p.reference }} · en attente de paiement</p>
-      </div>
-      <p :class="['font-bold whitespace-nowrap', signedClass(p.amount)]">{{ money(p.amount) }}</p>
-    </div>
-
-    <p v-if="wallet.pay" class="m-card p-4 text-sm text-slate-600">
-      <template v-if="wallet.pay.base_salary">Salaire de base : <strong>{{ money(wallet.pay.base_salary) }}</strong> · </template>
-      <template v-if="wallet.pay.period_label">Paie : {{ wallet.pay.period_label.toLowerCase() }}<template v-if="wallet.pay.next_payslip"> · prochaine fiche le <strong>{{ date(wallet.pay.next_payslip) }}</strong></template></template>
-    </p>
-
-    <section v-if="wallet.pay?.objectives?.length" class="m-card p-4 space-y-3">
-      <h2 class="font-semibold">🎯 Mes objectifs de la période</h2>
-      <div v-for="o in wallet.pay.objectives" :key="o.metric" class="space-y-1">
-        <div class="flex justify-between text-sm">
-          <span>{{ o.label }}</span>
-          <strong>{{ o.value }}{{ o.metric === 'success_rate' ? ' %' : '' }}</strong>
-        </div>
-        <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
-          <div class="h-full rounded-full bg-emerald-500" :style="{ width: `${Math.min(100, (o.value / o.tiers[o.tiers.length - 1].threshold) * 100)}%` }" />
-        </div>
-        <p class="text-xs text-slate-600">
-          <span v-for="(t, i) in o.tiers" :key="t.threshold">
-            <span :class="t.reached ? 'text-emerald-700 font-semibold' : ''">{{ t.reached ? '✓ ' : '' }}{{ t.threshold }}{{ o.metric === 'success_rate' ? ' %' : '' }} → {{ money(t.amount) }}</span><span v-if="i < o.tiers.length - 1"> · </span>
-          </span>
-        </p>
-        <p v-if="o.metric === 'success_rate' && o.min_count && o.attempts < o.min_count" class="text-xs text-slate-600">
-          Compte à partir de {{ o.min_count }} livraisons tentées ({{ o.attempts }} pour l'instant).
-        </p>
-      </div>
-      <p class="text-xs text-slate-600">Seul le palier le plus haut atteint est payé, sur la fiche de fin de période.</p>
-    </section>
-
-    <details v-if="wallet.earnings?.length" class="m-card">
-      <summary class="p-4 font-semibold cursor-pointer">Détail de mes gains à recevoir</summary>
-      <div class="divide-y border-t">
-        <div v-for="e in wallet.earnings" :key="e.id" class="p-4 flex justify-between gap-3">
-          <div class="min-w-0">
-            <p class="font-medium truncate">{{ e.description }}</p>
-            <p v-if="e.detail" class="text-xs text-slate-600">{{ e.detail }}</p>
-            <p class="text-xs text-slate-600">{{ dateTime(e.created_at) }}</p>
-          </div>
-          <p :class="['font-semibold whitespace-nowrap', signedClass(e.amount)]">{{ e.amount > 0 ? '+ ' : '' }}{{ money(e.amount) }}</p>
-        </div>
-      </div>
-    </details>
 
     <section v-if="cashAdvances.length" class="space-y-2">
       <h2 class="font-semibold">Avances reçues de la caisse</h2>
@@ -147,17 +97,7 @@
       <p class="text-sm text-slate-600 text-center">Remettez cet argent à la caisse de l'agence en fin de journée.</p>
     </section>
 
-    <section v-if="wallet.recent_payouts.length" class="space-y-2">
-      <h2 class="font-semibold">Mes derniers paiements</h2>
-      <div class="m-card divide-y">
-        <div v-for="p in wallet.recent_payouts" :key="p.reference" class="p-4 flex justify-between">
-          <span class="text-sm">{{ date(p.paid_at) }} <span class="text-xs text-slate-600 font-mono">{{ p.reference }}</span></span>
-          <span class="font-semibold">{{ money(p.amount) }}</span>
-        </div>
-      </div>
-    </section>
-
-    <EmptyState v-if="!wallet.parcels?.length && !wallet.collections.length && !wallet.advances?.length && !wallet.expenses?.length && !wallet.recent_payouts.length" icon="💵" title="Rien à verser" text="L'argent encaissé lors de vos livraisons apparaîtra ici." />
+    <EmptyState v-if="!wallet.parcels?.length && !wallet.collections.length && !wallet.advances?.length && !wallet.expenses?.length" art="argent" title="Rien à verser" text="L'argent encaissé lors de vos livraisons apparaîtra ici." />
   </div>
   <div v-else-if="error" class="text-center py-10 space-y-3">
     <p class="text-slate-600">{{ error }}</p>
@@ -167,11 +107,12 @@
 </template>
 
 <script setup>
+import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, ref } from 'vue'
 import { apiErrorMessage } from '../../bootstrap/axios'
 import { cachedGet } from '../../composables/useCachedApi'
 import EmptyState from '../../components/mobile/EmptyState.vue'
-import { date, dateTime, money, signedClass } from '../../utils/format'
+import { date, dateTime, money } from '../../utils/format'
 
 const wallet = ref(null)
 const stale = ref(false)
@@ -182,6 +123,8 @@ const parcelsKept = computed(() => (wallet.value?.parcels || []).filter((p) => !
 const onTheRoad = computed(() => (wallet.value?.parcels || []).filter((p) => p.on_the_road))
 // Avances réelles de la caisse (la paie gardée sur l'encaissé figure dans le solde)
 const cashAdvances = computed(() => (wallet.value?.advances || []).filter((a) => !a.pay_kept))
+// Ce qu'il remet : son solde, moins la paie qu'il garde au versement (plan « paie déduite à chaque versement »)
+const toRemit = computed(() => (wallet.value?.cash_in_hand || 0) - (wallet.value?.pay_deduction || 0))
 
 async function load() {
   error.value = ''

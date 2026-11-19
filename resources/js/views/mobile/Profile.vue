@@ -15,8 +15,9 @@
 
     <!-- Livreur : le téléphone sonne comme un appel pour une nouvelle mission (application Android) -->
     <RouterLink v-if="auth.user?.role === 'courier'" to="/livreur/sonnerie" class="m-card tap p-4 flex items-center justify-between gap-3 active:bg-slate-50">
-      <span>
-        <span class="block font-semibold">🔔 Sonnerie des missions</span>
+      <ColorIcon name="cloche" :size="40" />
+      <span class="flex-1">
+        <span class="block font-semibold">Sonnerie des missions</span>
         <span class="block text-sm text-slate-600">Le téléphone sonne comme un appel pour chaque nouvelle mission</span>
       </span>
       <span class="text-slate-600" aria-hidden="true">›</span>

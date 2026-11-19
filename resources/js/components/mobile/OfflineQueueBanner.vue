@@ -1,11 +1,12 @@
 <template>
   <!-- Actions faites hors connexion : en attente d'envoi, ou refusées au retour du réseau -->
-  <button v-if="offlineQueue.pending.length" type="button" class="block w-full bg-sky-600 text-white text-center text-sm font-medium py-1.5" @click="sendNow">
-    {{ offlineQueue.syncing ? 'Envoi en cours…' : `⏳ ${offlineQueue.pending.length} action${offlineQueue.pending.length > 1 ? 's' : ''} en attente d'envoi` }}
+  <button v-if="offlineQueue.pending.length" type="button" class="flex w-full items-center justify-center gap-1.5 bg-sky-600 text-white text-sm font-medium py-1.5" @click="sendNow">
+    <Icone nom="hors-ligne" taille="petite" />
+    {{ offlineQueue.syncing ? 'Envoi en cours…' : `${offlineQueue.pending.length} action${offlineQueue.pending.length > 1 ? 's' : ''} en attente d'envoi` }}
     <span v-if="pwa.online && !offlineQueue.syncing" class="underline ml-1">Envoyer</span>
   </button>
-  <button v-if="offlineQueue.rejected.length" type="button" class="block w-full bg-red-600 text-white text-center text-sm font-medium py-1.5" @click="open = true">
-    ⚠️ {{ offlineQueue.rejected.length }} action{{ offlineQueue.rejected.length > 1 ? 's' : '' }} refusée{{ offlineQueue.rejected.length > 1 ? 's' : '' }} : voir
+  <button v-if="offlineQueue.rejected.length" type="button" class="flex w-full items-center justify-center gap-1.5 bg-red-600 text-white text-sm font-medium py-1.5" @click="open = true">
+    <Icone nom="urgent" taille="petite" />{{ offlineQueue.rejected.length }} action{{ offlineQueue.rejected.length > 1 ? 's' : '' }} refusée{{ offlineQueue.rejected.length > 1 ? 's' : '' }} : voir
   </button>
 
   <BottomSheet :open="open" title="Actions refusées" @close="open = false">
@@ -22,6 +23,7 @@
 </template>
 
 <script setup>
+import Icone from '../ui/Icone.vue'
 import { ref, watch } from 'vue'
 import BottomSheet from './BottomSheet.vue'
 import { dismissRejected, offlineQueue, syncOfflineQueue } from '../../composables/useOfflineQueue'

@@ -376,6 +376,7 @@ Choix faits pendant la phase 1 :
 - [x] Versements livreurs à la caisse (total ou partiel), écarts ; un manque est retenu sur la paie du livreur.
 - [x] Grand livre marchand (écritures non modifiables), relevés imprimables / PDF, reversements (à payer → payé), ajustements.
 - [x] Gains et paie des livreurs (commission par ramassage, livraison et retour ; primes et retenues).
+- [x] Paie déduite à chaque versement (réglage du plan de paie, `pay_plans.settle_on_remittance`) : au point de caisse, le livreur garde ses gains non payés (courses, primes, retenues ; pas le salaire fixe) sur l'argent qu'il remet, jamais plus que ce montant (le reste attend le versement suivant). Une fiche « réglée sur le versement » (`courier_payouts.remittance_id`, payée « gardée sur l'encaissé ») en garde la trace. Application livreur : la Caisse ne montre que ce qu'il doit verser, l'onglet Mes gains le détail des gains, fiches et objectifs.
 - [x] Point détaillé complet ; les frais affichés proviennent du grand livre.
 
 Règles retenues en phase 2 :

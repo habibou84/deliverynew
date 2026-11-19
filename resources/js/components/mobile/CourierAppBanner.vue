@@ -1,20 +1,21 @@
 <template>
   <!-- Application Android : nouvelle version à installer -->
   <a v-if="update" :href="update.page_url" target="_blank" rel="noopener" class="m-card mb-3 flex items-center gap-3 p-3 text-sm">
-    <span class="text-2xl" aria-hidden="true">⬇️</span>
+    <Icone nom="exporter" taille="grande" class="text-[var(--app-color)]" />
     <span class="flex-1"><strong class="block">Nouvelle version de l'application</strong>Version {{ update.version_name }} : touchez pour l'installer.</span>
   </a>
   <!-- Navigateur d'un téléphone Android : l'application fait sonner le téléphone pour chaque mission -->
   <div v-else-if="suggest" class="m-card mb-3 flex items-center gap-3 p-3 text-sm">
-    <span class="text-2xl" aria-hidden="true">🔔</span>
+    <Icone nom="notifications" taille="grande" class="text-[var(--app-color)]" />
     <a :href="suggest.page_url" target="_blank" rel="noopener" class="flex-1">
       <strong class="block">Installez l'application Jibiat Livreur</strong>Le téléphone sonne comme un appel à chaque nouvelle mission.
     </a>
-    <button type="button" class="h-10 w-10 shrink-0 rounded-full text-slate-600 active:bg-slate-100" aria-label="Masquer" @click="dismiss">✕</button>
+    <button type="button" class="h-10 w-10 shrink-0 rounded-full text-slate-600 active:bg-slate-100" aria-label="Masquer" @click="dismiss"><Icone nom="fermer" class="mx-auto" /></button>
   </div>
 </template>
 
 <script setup>
+import Icone from '../ui/Icone.vue'
 import { onMounted, ref } from 'vue'
 import { App } from '@capacitor/app'
 import { Capacitor } from '@capacitor/core'
