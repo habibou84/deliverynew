@@ -7,8 +7,8 @@
       <span>
         <b>Offrir l'outil live à mes e-commerçants</b>
         <span class="block text-xs text-slate-600">
-          Sinon, ils paient eux-mêmes leurs lives à Jibiat selon les commandes du live (gratuit jusqu'à {{ live.tiers?.[0]?.to }} commandes, puis à partir de {{ live.tiers?.[1]?.price }} F), ou {{ live.price_month }} F pour 30 jours.
-          Offert : c'est votre entreprise qui paie, sur votre facture Jibiat. Plus de lives, plus de livraisons.
+          Sinon, ils paient eux-mêmes à Jibiat chaque commande reçue en live, par packs ({{ live.free_orders }} commandes offertes au départ, puis de {{ live.packs?.[2]?.unit }} à {{ live.packs?.[0]?.unit }} F la commande selon le pack), ou {{ live.price_month }} F pour 30 jours sans limite.
+          Offert : c'est votre entreprise qui paie leurs commandes en live ({{ live.unit_price }} F la commande), sur votre facture Jibiat. Plus de lives, plus de livraisons.
         </span>
       </span>
     </label>

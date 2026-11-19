@@ -42,9 +42,8 @@ class LivePaymentTest extends TestCase
         $this->travelTo(CarbonImmutable::parse('2026-11-20 10:00', 'Africa/Abidjan'));
         $this->buildWorld();
         config(['payments.paydunya' => [...config('payments.paydunya'), 'master_key' => 'cle-principale', 'private_key' => 'cle-privee', 'token' => 'jeton', 'mode' => 'test']]);
-        // Plus de commandes offertes ; 1 000 F dès la 1re commande ; l'agence touche 20 % des lives de ses e-commerçants
-        app(LiveStudio::class)->updateSettings(['free_orders' => 0, 'free_upto' => 0, 'tier2_upto' => 5, 'tier2_price' => 1000, 'tier3_upto' => 10,
-            'agency_share' => 20, 'pack_price' => 500, 'pack_cards' => 20]);
+        // Plus de commandes offertes ; l'agence touche 20 % de ce que paient ses e-commerçants
+        app(LiveStudio::class)->updateSettings(['free_orders' => 0, 'agency_share' => 20]);
         Http::fake([
             '*/sandbox-api/v1/checkout-invoice/create' => function () {
                 $token = 'tok-'.(++$this->invoices);
@@ -68,20 +67,19 @@ class LivePaymentTest extends TestCase
         $this->postJson("/api/v1/live/{$live}/orders", ['code' => 'A1', 'recipient_name' => 'Awa K.', 'recipient_phone' => $phone, 'delivery_zone_id' => $this->yopougon->id])->assertCreated();
     }
 
-    public function test_the_live_credit_is_recharged_online_and_the_tier_is_taken_at_the_end(): void
+    public function test_an_order_pack_is_paid_online_and_the_live_orders_are_taken_at_the_end(): void
     {
         $live = $this->postJson('/api/v1/live/prepare')->assertOk()->assertJsonPath('data.offer.pay_online', true)
             ->assertJsonPath('data.offer.can_start', false)->json('data.live.id');
         $this->postJson("/api/v1/live/{$live}/products", ['name' => 'Robe wax', 'price' => 9000, 'quantity' => 3])->assertCreated();
 
-        // Ni commandes offertes ni crédit : recharge demandée
+        // Pas assez de commandes dans le solde : recharge demandée
         $this->postJson("/api/v1/live/{$live}/start")->assertStatus(422)->assertJsonValidationErrors('payment');
-        $this->postJson('/api/v1/live/credit', ['amount' => 300])->assertStatus(422);
 
-        // Recharge de 5 000 F : page de paiement PayDunya
-        $data = $this->postJson('/api/v1/live/credit', ['amount' => 5000])->assertOk()->json('data');
+        // Pack 2 (300 commandes, 6 000 F) : page de paiement PayDunya
+        $data = $this->postJson('/api/v1/live/orders', ['pack' => 2])->assertOk()->json('data');
         $this->assertSame('https://paydunya.com/sandbox-checkout/invoice/tok-1', $data['payment_url']);
-        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), 'checkout-invoice/create') && $r['invoice']['total_amount'] === 5000
+        Http::assertSent(fn (Request $r) => str_ends_with($r->url(), 'checkout-invoice/create') && $r['invoice']['total_amount'] === 6000
             && $r->hasHeader('PAYDUNYA-MASTER-KEY', 'cle-principale') && str_ends_with($r['actions']['callback_url'], '/api/webhooks/paydunya'));
         $this->getJson("/api/v1/live/payments/{$data['payment_id']}")->assertOk()->assertJsonPath('data.status', 'pending');
 
@@ -89,31 +87,45 @@ class LivePaymentTest extends TestCase
         $this->ipn('faux');
         $this->assertSame(LivePayment::PENDING, LivePayment::first()->status);
 
+        // Le prix du pack change entre-temps : le pack payé reste celui du paiement
+        app(LiveStudio::class)->updateSettings(['pack2_orders' => 250]);
+
         // Payé : avis authentique (empreinte de la clé principale), relu chez PayDunya, appliqué une seule fois
         $this->status = 'completed';
-        $this->paidAmount = 5000;
+        $this->paidAmount = 6000;
         $this->ipn(hash('sha512', 'cle-principale'));
         $this->ipn(hash('sha512', 'cle-principale'));
-        $this->getJson("/api/v1/live/payments/{$data['payment_id']}")->assertJsonPath('data.status', 'paid')->assertJsonPath('data.kind', 'credit');
-        $this->assertSame(5000, $this->merchant->refresh()->live_credit);
-        $this->assertSame(0, LiveCharge::query()->count());
-
-        // Le live démarre ; 2 commandes : 1 000 F pris sur le crédit à la fin
-        $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.plan', 'tier');
-        $this->liveOrder($live, '0707070701');
-        $this->liveOrder($live, '0707070702');
-        $this->postJson("/api/v1/live/{$live}/end")->assertOk();
-
+        $this->getJson("/api/v1/live/payments/{$data['payment_id']}")->assertJsonPath('data.status', 'paid')->assertJsonPath('data.kind', 'orders');
+        // 300 commandes, et 300 fiches IA en plus des 20 offertes au départ
+        $this->assertSame([300, 320], [$this->merchant->refresh()->live_order_credits, (int) $this->merchant->live_extra_cards]);
         $charge = LiveCharge::sole();
-        $this->assertSame(['credit', 1000, 800], [$charge->paid_via, $charge->amount, $charge->platform_amount]);
-        $this->assertSame(4000, $this->merchant->refresh()->live_credit);
+        $this->assertSame(['paydunya', 6000, 4800], [$charge->paid_via, $charge->amount, $charge->platform_amount]);
         // Rien retenu sur les reversements de l'e-commerçant, rien à facturer à l'agence ; 20 % pour elle, sur son crédit
         $this->assertSame(0, MerchantLedgerEntry::query()->where('merchant_id', $this->merchant->id)->count());
         $this->assertSame(0, app(LiveStudio::class)->billable($this->company, CarbonImmutable::now())['amount']);
-        $this->assertSame(200, PlatformCredit::balance($this->company->id));
+        $this->assertSame(1200, PlatformCredit::balance($this->company->id));
 
-        // Paquet de fiches IA : aussi en ligne
-        $this->postJson('/api/v1/live/pack')->assertOk()->assertJsonStructure(['data' => ['payment_url', 'payment_id']]);
+        // Le live démarre ; 2 commandes : retirées du solde à la fin, rien d'autre à payer
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.plan', 'orders');
+        $this->liveOrder($live, '0707070701');
+        $this->liveOrder($live, '0707070702');
+        $this->postJson("/api/v1/live/{$live}/end")->assertOk();
+        $this->assertSame(298, $this->merchant->refresh()->live_order_credits);
+        $this->assertSame(1, LiveCharge::query()->count());
+
+        // Illimité 30 jours : aussi en ligne
+        $this->postJson('/api/v1/live/subscribe')->assertOk()->assertJsonStructure(['data' => ['payment_url', 'payment_id']]);
+    }
+
+    public function test_an_old_live_credit_payment_becomes_orders(): void
+    {
+        $payment = LivePayment::create(['company_id' => $this->company->id, 'merchant_id' => $this->merchant->id, 'user_id' => $this->merchantUser->id,
+            'kind' => 'credit', 'amount' => 5000, 'token' => 'tok-ancien']);
+        $this->status = 'completed';
+        $this->paidAmount = 5000;
+        $this->getJson("/api/v1/live/payments/{$payment->id}")->assertJsonPath('data.status', 'paid');
+        // 5 000 F au prix du petit pack (25 F la commande)
+        $this->assertSame(200, $this->merchant->refresh()->live_order_credits);
     }
 
     public function test_the_credit_is_deducted_from_the_invoice_and_the_rest_is_carried_over(): void
@@ -154,18 +166,18 @@ class LivePaymentTest extends TestCase
             ->assertJsonPath('data.live_credit.lines.0.amount', -500);
     }
 
-    public function test_without_paydunya_the_tier_is_still_deducted_from_payouts(): void
+    public function test_without_paydunya_the_orders_beyond_the_balance_are_deducted_from_payouts(): void
     {
         config(['payments.paydunya.master_key' => null]);
         $live = $this->postJson('/api/v1/live/prepare')->assertOk()->assertJsonPath('data.offer.pay_online', false)->json('data.live.id');
         $this->postJson("/api/v1/live/{$live}/products", ['name' => 'Robe wax', 'price' => 9000, 'quantity' => 3])->assertCreated();
-        // Sans PayDunya : pas de crédit demandé, le prix du palier est retenu sur le reversement à la fin
+        // Sans PayDunya : pas de recharge demandée, la commande hors solde est retenue sur le reversement à la fin
         $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.status', 'live');
         $this->liveOrder($live);
         $this->postJson("/api/v1/live/{$live}/end")->assertOk();
 
         $this->assertSame('ledger', LiveCharge::sole()->paid_via);
-        $this->assertSame(-1000, (int) MerchantLedgerEntry::query()->where('merchant_id', $this->merchant->id)->sum('amount'));
+        $this->assertSame(-25, (int) MerchantLedgerEntry::query()->where('merchant_id', $this->merchant->id)->sum('amount'));
         $this->assertSame(0, PlatformCredit::balance($this->company->id));
     }
 }

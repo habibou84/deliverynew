@@ -35,22 +35,18 @@ class ConsoleLiveController extends Controller
         $int = fn (int $max) => ['sometimes', 'integer', 'min:0', "max:{$max}"];
         $data = $request->validate([
             'enabled' => ['sometimes', 'boolean'], 'qr_whatsapp' => ['sometimes', 'boolean'], 'paid' => ['sometimes', 'boolean'],
-            'free_upto' => $int(10000), 'tier2_upto' => ['sometimes', 'integer', 'min:1', 'max:100000'], 'tier2_price' => $int(1000000),
-            'tier3_upto' => ['sometimes', 'integer', 'min:1', 'max:100000'], 'tier3_price' => $int(1000000), 'top_price' => $int(1000000),
-            'free_orders' => $int(100000), 'min_credit' => $int(1000000),
+            ...collect([1, 2, 3])->flatMap(fn (int $i) => [
+                "pack{$i}_orders" => ['sometimes', 'integer', 'min:1', 'max:100000'], "pack{$i}_price" => $int(10000000), "pack{$i}_cards" => $int(100000),
+            ])->all(),
+            'free_orders' => $int(100000), 'min_orders' => $int(100000),
             'cards_per_live' => $int(1000), 'welcome_cards' => $int(1000),
-            'price_month' => $int(10000000), 'cards_per_month' => $int(10000),
-            'pack_price' => $int(1000000), 'pack_cards' => ['sometimes', 'integer', 'min:1', 'max:10000'],
+            'price_month' => ['sometimes', 'integer', 'min:100', 'max:10000000'], 'cards_per_month' => $int(100000),
             'agency_share' => $int(100), 'retakes' => $int(20), 'cards_per_day' => $int(10000),
             'items_per_card' => ['sometimes', 'integer', 'min:1', 'max:9'],
             'low_stock' => $int(1000), 'idle_minutes' => ['sometimes', 'integer', 'min:1', 'max:240'],
             'risk_refusals' => ['sometimes', 'integer', 'min:1', 'max:100'], 'min_sales_range' => ['sometimes', 'integer', 'min:1', 'max:100000'],
             'monthly_ai_cap' => $int(100000000),
-        ], [], ['tier2_upto' => 'palier 2', 'tier3_upto' => 'palier 3', 'free_upto' => 'gratuit jusqu\'à']);
-        $next = [...$this->studio->settings(), ...$data];
-        if (! ($next['free_upto'] < $next['tier2_upto'] && $next['tier2_upto'] < $next['tier3_upto'])) {
-            throw ValidationException::withMessages(['tier2_upto' => 'Les paliers doivent se suivre : gratuit < palier 2 < palier 3.']);
-        }
+        ]);
         $this->studio->updateSettings($data);
 
         return $this->show();
@@ -74,18 +70,18 @@ class ConsoleLiveController extends Controller
             'month' => [
                 'paid' => (int) LivePayment::withoutGlobalScopes()->where('status', LivePayment::PAID)->where('paid_at', '>=', now()->startOfMonth())->sum('amount'),
                 'count' => LivePayment::withoutGlobalScopes()->where('status', LivePayment::PAID)->where('paid_at', '>=', now()->startOfMonth())->count(),
-                // Par type : recharges du crédit live, forfaits, packs de fiches IA
+                // Par type : packs de commandes, illimités 30 jours (et anciens paiements)
                 'by_kind' => LivePayment::withoutGlobalScopes()->where('status', LivePayment::PAID)->where('paid_at', '>=', now()->startOfMonth())
                     ->selectRaw('kind, COUNT(*) AS n, SUM(amount) AS total')->groupBy('kind')->get()
                     ->mapWithKeys(fn ($r) => [$r->kind => ['count' => (int) $r->n, 'total' => (int) $r->total]]),
-                // Lives comptés au palier : commandes, dont offertes, et prix pris (crédit, reversement ou agence)
+                // Lives comptés à la commande : commandes, dont offertes, et montant retenu (reversement ou agence)
                 'billed' => (fn ($q) => [
                     'lives' => (clone $q)->count(),
                     'orders' => (int) (clone $q)->sum('billed_orders'),
                     'offered' => (int) (clone $q)->sum('billed_offered'),
                     'amount' => (int) (clone $q)->sum('billed_amount'),
                     'by_agency' => (clone $q)->where('plan', 'offered')->count(),
-                ])(Live::withoutGlobalScopes()->whereIn('plan', ['tier', 'offered'])->where('billed_at', '>=', now()->startOfMonth())),
+                ])(Live::withoutGlobalScopes()->whereIn('plan', LiveStudio::COUNTED)->where('billed_at', '>=', now()->startOfMonth())),
             ],
             'payments' => $payments->map(fn (LivePayment $p) => [
                 'id' => $p->id,
@@ -115,22 +111,20 @@ class ConsoleLiveController extends Controller
         return response()->json(['data' => $merchants->map(fn (Merchant $m) => $this->merchantLive($m))->values()]);
     }
 
-    /** Offert à un e-commerçant : des commandes en live, du crédit live, ou 30 jours de lives sans limite */
+    /** Offert à un e-commerçant : des commandes en live, ou 30 jours de lives sans limite */
     public function gift(Request $request, int $merchant): JsonResponse
     {
         $model = Merchant::withoutGlobalScopes()->with('company:id,name')->findOrFail($merchant);
         $data = $request->validate([
             'orders' => ['nullable', 'integer', 'min:1', 'max:100000'],
-            'credit' => ['nullable', 'integer', 'min:100', 'max:1000000'],
             'month' => ['nullable', 'boolean'],
-        ], [], ['orders' => 'commandes offertes', 'credit' => 'crédit offert']);
-        if (empty($data['orders']) && empty($data['credit']) && empty($data['month'])) {
-            throw ValidationException::withMessages(['orders' => 'Choisissez des commandes, du crédit ou 30 jours à offrir.']);
+        ], [], ['orders' => 'commandes offertes']);
+        if (empty($data['orders']) && empty($data['month'])) {
+            throw ValidationException::withMessages(['orders' => 'Choisissez des commandes ou 30 jours à offrir.']);
         }
         // Rien n'est encaissé : pas de frais ni de part d'agence (l'action est notée dans le journal de la console)
         $model->forceFill([
             'live_orders_bonus' => (int) $model->live_orders_bonus + (int) ($data['orders'] ?? 0),
-            'live_credit' => (int) $model->live_credit + (int) ($data['credit'] ?? 0),
             ...(! empty($data['month']) ? ['live_plan_until' => ($this->studio->monthlyActive($model) ? $model->live_plan_until : now())->copy()->addDays(30)] : []),
         ])->save();
 
@@ -147,7 +141,7 @@ class ConsoleLiveController extends Controller
             'phone' => $merchant->phone,
             'free_left' => $this->studio->freeLeft($merchant),
             'orders_bonus' => (int) $merchant->live_orders_bonus,
-            'credit' => (int) $merchant->live_credit,
+            'orders_left' => $this->studio->ordersLeft($merchant),
             'monthly_until' => $this->studio->monthlyActive($merchant) ? $merchant->live_plan_until : null,
         ];
     }
@@ -176,7 +170,9 @@ class ConsoleLiveController extends Controller
         return response()->json(['data' => [
             'live_offered' => (bool) $request->user()->company->live_offered,
             'enabled' => (bool) $s['enabled'],
-            'tiers' => $this->studio->tiers(),
+            'packs' => $this->studio->packs(),
+            'unit_price' => $this->studio->unitPrice(),
+            'free_orders' => $s['free_orders'],
             'price_month' => $s['price_month'],
         ]]);
     }

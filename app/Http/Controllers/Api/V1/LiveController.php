@@ -202,7 +202,7 @@ class LiveController extends Controller
     public function start(Request $request, Live $live): JsonResponse
     {
         $this->own($request, $live);
-        // Payé au palier à la fin du live ; sans commandes offertes ni crédit suffisant : recharge demandée (422)
+        // Payé à la commande à la fin du live ; solde sous le minimum : recharge demandée (422)
         $this->studio->start($live, $request->user());
 
         return response()->json(['data' => $this->studio->board($live->refresh())]);
@@ -257,24 +257,17 @@ class LiveController extends Controller
         return response()->json(['data' => $this->studio->offer($merchant)]);
     }
 
-    public function pack(Request $request): JsonResponse
+    /** Pack de commandes en live (fiches IA incluses) : page de paiement de PayDunya, ou retenu sur le reversement */
+    public function orders(Request $request): JsonResponse
     {
         $merchant = $this->merchant($request);
+        $index = (int) $request->validate(['pack' => ['required', 'integer', 'in:1,2,3']], [], ['pack' => 'pack'])['pack'];
         if ($this->studio->paysOnline($merchant)) {
-            return $this->checkout($request, $merchant, 'pack');
+            return $this->checkout($request, $merchant, 'orders', null, $index);
         }
-        $merchant = $this->studio->buyPack($merchant, $request->user());
+        $merchant = $this->studio->buyOrders($merchant, $request->user(), $index);
 
         return response()->json(['data' => $this->studio->offer($merchant)]);
-    }
-
-    /** Recharger le crédit live : page de paiement de PayDunya */
-    public function credit(Request $request): JsonResponse
-    {
-        $merchant = $this->merchant($request);
-        $data = $request->validate(['amount' => ['required', 'integer', 'min:100', 'max:1000000']], [], ['amount' => 'montant']);
-
-        return $this->checkout($request, $merchant, 'credit', null, $data['amount']);
     }
 
     /** Retour de la page de paiement : état relu chez PayDunya (et appliqué s'il est payé) */
@@ -296,9 +289,9 @@ class LiveController extends Controller
     }
 
     /** Paiement à faire : adresse de la page de PayDunya */
-    private function checkout(Request $request, Merchant $merchant, string $kind, ?Live $live = null, ?int $amount = null): JsonResponse
+    private function checkout(Request $request, Merchant $merchant, string $kind, ?Live $live = null, ?int $pack = null): JsonResponse
     {
-        $result = app(LivePayments::class)->checkout($merchant, $request->user(), $kind, $live, $request->getSchemeAndHttpHost(), $amount);
+        $result = app(LivePayments::class)->checkout($merchant, $request->user(), $kind, $live, $request->getSchemeAndHttpHost(), $pack);
 
         return response()->json(['data' => ['payment_url' => $result['url'], 'payment_id' => $result['payment']->id]]);
     }
