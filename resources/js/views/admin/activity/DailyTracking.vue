@@ -14,39 +14,48 @@
       <RouterLink to="/admin/activite/mural" class="btn-secondary">Écran mural</RouterLink>
     </div>
 
-    <!-- Chiffres de l'équipe -->
-    <div class="grid grid-cols-2 lg:grid-cols-6 gap-3">
-      <div class="card p-3">
-        <p class="text-sm text-slate-600">{{ isToday ? 'Livreurs actifs' : isFuture ? 'Livreurs prévus' : 'Livreurs au travail' }}</p>
+    <!-- Chiffres de l'équipe : aujourd'hui en mission, libres, livrées, échecs, fin estimée, argent en main -->
+    <div :class="['grid grid-cols-2 gap-3 sm:grid-cols-3', stacked ? '' : '2xl:grid-cols-6']">
+      <template v-if="isToday">
+        <button type="button" :class="['card p-3 text-left', f.state === 'mission' ? 'ring-2 ring-blue-500' : '']" @click="toggleState('mission')">
+          <p class="text-sm text-slate-600">En mission</p>
+          <p class="text-2xl font-bold text-blue-700">{{ byState.mission }} <span class="text-sm font-normal text-slate-600">sur {{ totals.couriers ?? '—' }}</span></p>
+        </button>
+        <button type="button" :class="['card p-3 text-left border-emerald-200', f.state === 'available' ? 'ring-2 ring-emerald-500' : '']" @click="toggleState('available')">
+          <p class="text-sm text-emerald-800">Libres maintenant</p>
+          <p class="text-2xl font-bold text-emerald-700">{{ byState.available }}</p>
+        </button>
+      </template>
+      <div v-else class="card p-3">
+        <p class="text-sm text-slate-600">{{ isFuture ? 'Livreurs prévus' : 'Livreurs au travail' }}</p>
         <p class="text-2xl font-bold">{{ totals.active ?? '—' }} <span class="text-sm font-normal text-slate-600">sur {{ totals.couriers ?? '—' }}</span></p>
       </div>
       <div class="card p-3">
-        <p class="text-sm text-slate-600">{{ isFuture ? 'Livraisons prévues' : 'Livrés' }}</p>
+        <p class="text-sm text-slate-600">{{ isFuture ? 'Livraisons prévues' : 'Livrées' }}</p>
         <p v-if="isFuture" class="text-2xl font-bold">{{ totals.deliveries ?? '—' }}</p>
-        <p v-else class="text-2xl font-bold text-emerald-700">{{ totals.delivered ?? '—' }} <span class="text-sm font-normal text-slate-600">sur {{ totals.deliveries ?? '—' }}</span></p>
-      </div>
-      <div v-if="!isFuture" class="card p-3">
-        <p class="text-sm text-slate-600">Taux de réussite</p>
-        <p class="text-2xl font-bold">{{ pct(totals.success_rate) }}</p>
-        <p v-if="totals.habit_success_rate !== null && totals.habit_success_rate !== undefined" class="text-xs text-slate-600">habituel {{ totals.habit_success_rate }} %</p>
+        <template v-else>
+          <p class="text-2xl font-bold">{{ totals.delivered ?? '—' }} <span class="text-sm font-normal text-slate-600">/ {{ totals.deliveries ?? '—' }}</span></p>
+          <div class="mt-1 h-2 rounded-full bg-slate-200" role="progressbar" :aria-valuenow="totals.progress || 0" aria-valuemin="0" aria-valuemax="100" aria-label="Avancement de la journée">
+            <div class="h-2 rounded-full bg-emerald-700" :style="{ width: `${totals.progress || 0}%` }" />
+          </div>
+        </template>
       </div>
       <div v-if="!isFuture" class="card p-3">
         <p class="text-sm text-slate-600">Échecs</p>
         <p :class="['text-2xl font-bold', totals.failed ? 'text-red-700' : '']">{{ totals.failed ?? '—' }}</p>
+        <p v-if="totals.success_rate !== null && totals.success_rate !== undefined" class="text-xs text-slate-600">réussite {{ pct(totals.success_rate) }}<template v-if="totals.habit_success_rate !== null && totals.habit_success_rate !== undefined"> · habituel {{ totals.habit_success_rate }} %</template></p>
       </div>
       <div v-if="isToday" :class="['card p-3', totals.late_end ? 'bg-amber-50 border-amber-200' : '']">
-        <p :class="['text-sm', totals.late_end ? 'text-amber-800' : 'text-slate-600']">{{ closesAt ? `Risquent de finir après ${closesAt}` : 'Colis en main' }}</p>
-        <p :class="['text-2xl font-bold', totals.late_end ? 'text-amber-800' : '']">{{ closesAt ? `${totals.late_end || 0} livreur${totals.late_end > 1 ? 's' : ''}` : (totals.in_hand ?? '—') }}</p>
-      </div>
-      <div v-if="isToday" class="card p-3">
-        <p class="text-sm text-slate-600">Fin de journée estimée</p>
+        <p class="text-sm text-slate-600">Fin estimée</p>
         <p class="text-2xl font-bold">{{ totals.estimated_end ? time(totals.estimated_end) : '—' }}</p>
-        <div class="mt-1 h-2 rounded-full bg-slate-200" role="progressbar" :aria-valuenow="totals.progress || 0" aria-valuemin="0" aria-valuemax="100" aria-label="Avancement de la journée">
-          <div class="h-2 rounded-full bg-emerald-700" :style="{ width: `${totals.progress || 0}%` }" />
-        </div>
+        <p v-if="totals.late_end && closesAt" class="text-xs font-semibold text-amber-800">{{ totals.late_end }} après {{ closesAt }}</p>
+      </div>
+      <div v-if="isToday" :class="['card p-3', cashInHand ? 'bg-amber-50 border-amber-200' : '']">
+        <p class="text-sm text-slate-600">Argent chez les livreurs</p>
+        <p class="text-2xl font-bold">{{ money(cashInHand) }}</p>
+        <p class="text-xs text-slate-600">{{ totals.in_hand ?? 0 }} colis en main</p>
       </div>
     </div>
-
     <!-- Colis des jours précédents encore à faire : à part, hors avancement du jour -->
     <div v-if="isToday && totals.late_before" class="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
       <span class="flex-1"><b>{{ totals.late_before }} colis en retard d'avant</b> : prévus les jours précédents, encore chez les livreurs. Ils ne comptent pas dans l'avancement du jour.</span>
@@ -59,20 +68,14 @@
         <label class="label" for="act-search">Chercher un livreur</label>
         <input id="act-search" v-model="f.search" type="search" class="input" placeholder="Nom ou téléphone">
       </div>
-      <div>
-        <label class="label" for="act-state">État</label>
-        <select id="act-state" v-model="f.state" class="input w-auto">
-          <option value="">Tous</option>
-          <template v-if="isToday">
-            <option value="mission">En mission</option>
-            <option value="available">Disponibles</option>
-            <option value="offline">Hors service</option>
-            <option value="watch">À surveiller ({{ totals.watched || 0 }})</option>
-            <option v-if="totals.late_before" value="late">Retards d'avant</option>
-          </template>
-          <option v-else-if="isFuture" value="planned">Ont des missions prévues</option>
-          <option v-else value="done">Ont travaillé</option>
-        </select>
+      <div class="flex flex-wrap items-center gap-2" role="group" aria-label="État des livreurs">
+        <button
+          v-for="o in stateChips" :key="o.value" type="button"
+          :class="['rounded-full px-3 py-1.5 text-sm ring-1', f.state === o.value ? 'bg-[var(--admin-color,#0f172a)] font-semibold text-white ring-transparent' : (o.cls || 'bg-white ring-slate-300')]"
+          :aria-pressed="f.state === o.value" @click="f.state = o.value"
+        >
+          {{ o.label }}<template v-if="o.count !== undefined"> · {{ o.count }}</template>
+        </button>
       </div>
       <div v-if="zones.length">
         <label class="label" for="act-zone">Zone</label>
@@ -93,7 +96,7 @@
       </div>
     </div>
 
-    <div :class="['grid gap-4', selected ? 'xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]' : '']">
+    <div :class="['grid gap-4', selected && !stacked ? 'xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]' : '']">
       <!-- Vue d'ensemble : un livreur par ligne (la carte est dans l'onglet « Carte ») -->
       <div class="card overflow-x-auto self-start">
         <p v-if="!loaded" class="p-4 text-slate-600">Chargement…</p>
@@ -275,7 +278,8 @@ import { useAuthStore } from '../../../stores/auth'
 import { useToastStore } from '../../../stores/toasts'
 import { money, telLink, whatsappLink } from '../../../utils/format'
 
-defineProps({ embedded: { type: Boolean, default: false } })
+// stacked : écran partagé (Activité des livreurs) : le détail d'un livreur s'ouvre sous la liste
+defineProps({ embedded: { type: Boolean, default: false }, stacked: { type: Boolean, default: false } })
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -329,6 +333,23 @@ const time = (at) => new Date(at).toLocaleTimeString('fr-FR', { hour: '2-digit',
 const dayLabel = computed(() => new Date(`${day.value}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }))
 const shortDay = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) : '')
 const zones = computed(() => [...new Set(couriers.value.flatMap((c) => c.zones))].sort())
+// Compteurs par état (aujourd'hui) et argent encore chez les livreurs
+const byState = computed(() => couriers.value.reduce((n, c) => ({ ...n, [c.state]: (n[c.state] || 0) + 1 }), { mission: 0, available: 0, offline: 0 }))
+const cashInHand = computed(() => couriers.value.reduce((sum, c) => sum + (c.cash_in_hand || 0), 0))
+const toggleState = (state) => { f.state = f.state === state ? '' : state }
+const stateChips = computed(() => {
+  if (isFuture.value) return [{ value: '', label: 'Tous' }, { value: 'planned', label: 'Ont des missions prévues' }]
+  if (!isToday.value) return [{ value: '', label: 'Tous' }, { value: 'done', label: 'Ont travaillé' }]
+  return [
+    { value: '', label: 'Tous', count: couriers.value.length, cls: 'bg-white ring-slate-300' },
+    { value: 'watch', label: 'À surveiller', count: totals.value.watched || 0, cls: 'bg-amber-50 text-amber-900 ring-amber-300 font-semibold' },
+    { value: 'mission', label: 'En mission', count: byState.value.mission, cls: 'bg-blue-50 text-blue-900 ring-blue-200' },
+    { value: 'available', label: 'Libres', count: byState.value.available, cls: 'bg-emerald-50 text-emerald-900 ring-emerald-200' },
+    { value: 'offline', label: 'Hors service', count: byState.value.offline, cls: 'bg-white text-slate-700 ring-slate-300' },
+    ...(totals.value.late_before ? [{ value: 'late', label: 'Retards d\'avant', count: undefined, cls: 'bg-white text-amber-800 ring-amber-300' }] : []),
+  ]
+})
+
 const visible = computed(() => {
   const list = couriers.value.filter((c) => (!f.search || norm(`${c.name} ${c.phone}`).includes(norm(f.search)))
     && (!f.state || (f.state === 'watch' ? c.flags.length > 0 : f.state === 'late' ? c.late_before > 0 : c.state === f.state))

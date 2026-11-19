@@ -20,7 +20,7 @@
         >
           <Icone nom="ajouter" /> Nouvelle course
         </RouterLink>
-        <SidebarItem v-for="item in menu.top" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" :prefix="!!item.prefix" />
+        <SidebarItem v-for="item in menu.top" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" :prefix="!!item.prefix" :also="item.active || []" />
         <SidebarGroup
           v-for="group in menu.groups"
           :id="group.id"
@@ -330,12 +330,10 @@ const menu = computed(() => {
       id: 'operations',
       label: 'Opérations',
       items: [
-        { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
+        // Courses : trois onglets (la liste, l'activité des livreurs, les retours marchands)
+        { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view', active: ['/admin/activite', '/admin/retours'], badge: isDispatch.value ? dispatchCounts.counts.late.total + fieldReports.open.total + heldParcels.counts.overdue + returnsCount.value : 0 },
         // Jour de livraison dépassé, course pas terminée : pas ramassées (à reporter), ramassées, toutes
         { to: '/admin/courses/en-retard', icon: 'retard', label: 'Courses en retard', permission: 'orders.dispatch', badge: dispatchCounts.counts.exceptions?.untreated || 0 },
-        // Carte, disponibles, colis en main, remontées terrain et planning : onglets de cette page
-        { to: '/admin/activite', icon: 'activite', label: 'Activité des livreurs', permission: 'orders.dispatch', prefix: true, badge: fieldReports.open.total + heldParcels.counts.overdue },
-        { to: '/admin/retours', icon: 'retour', label: 'Retours marchands', permission: 'orders.dispatch', badge: returnsCount.value },
       ],
     },
     {
@@ -345,6 +343,7 @@ const menu = computed(() => {
       items: [
         { to: '/admin/livraison', icon: 'adresse', label: 'Zones et tarifs', permission: 'settings.manage' },
         { to: '/admin/automatisation', icon: 'automatisation', label: 'Automatisation', permission: 'settings.manage' },
+        { to: '/admin/planning', icon: 'planning', label: 'Planning des livreurs', permission: 'orders.dispatch' },
       ],
     },
     {

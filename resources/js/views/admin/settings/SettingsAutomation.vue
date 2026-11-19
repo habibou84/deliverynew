@@ -1,6 +1,6 @@
 <template>
   <SettingsPage icon="⚡" title="Automatisation" intro="Ce qui se fait tout seul pour les livraisons : validation des courses, journée, ramassages et livraisons confiés aux livreurs." back="/admin" back-label="Accueil">
-    <RouterLink to="/admin/activite/planning" class="card flex items-center gap-3 p-4 hover:border-slate-400">
+    <RouterLink to="/admin/planning" class="card flex items-center gap-3 p-4 hover:border-slate-400">
       <Icone nom="planning" class="text-slate-700" />
       <span class="min-w-0 flex-1">
         <span class="block font-semibold">Planning des livreurs</span>
