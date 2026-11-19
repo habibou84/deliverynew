@@ -13,7 +13,7 @@
     <label class="flex items-start gap-2 text-sm">
       <input v-model="form.relay_required" type="checkbox" class="mt-1">
       <span>Relais obligatoire entre livreurs
-        <span class="block text-slate-600">Si le colis est chez un autre livreur, celui qui livre doit d'abord le recevoir avec un code à 4 chiffres avant de partir livrer.</span>
+        <span class="block text-slate-600">Si le colis est chez un autre livreur, celui qui livre doit d'abord le recevoir en scannant le QR code de l'autre livreur avant de partir livrer.</span>
       </span>
     </label>
     <MoreHelp>
