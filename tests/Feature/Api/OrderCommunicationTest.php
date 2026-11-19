@@ -192,6 +192,49 @@ class OrderCommunicationTest extends TestCase
         $this->getJson('/api/v1/tracking/LV-XXXX-XXXX')->assertNotFound();
     }
 
+    public function test_recipient_shares_location_from_tracking_page(): void
+    {
+        Notification::fake();
+        $order = $this->createOrder();
+        $this->outForDelivery($order);
+        $this->app['auth']->forgetGuards();
+
+        $this->getJson("/api/v1/tracking/{$order->tracking_code}")
+            ->assertOk()
+            ->assertJsonPath('data.location_shared', false)
+            ->assertJsonPath('data.can_share_location', true);
+
+        $this->postJson("/api/v1/tracking/{$order->tracking_code}/location", ['lat' => 95, 'lng' => -4])->assertUnprocessable();
+        $this->postJson("/api/v1/tracking/{$order->tracking_code}/location", ['lat' => 5.3456789, 'lng' => -3.9876543])
+            ->assertOk()
+            ->assertJsonPath('data.location_shared', true);
+
+        $order->refresh();
+        $this->assertSame(5.3456789, $order->delivery_lat);
+        $this->assertSame(-3.9876543, $order->delivery_lng);
+        $this->assertSame(5.3456789, (float) $order->recipient->lat);
+
+        $event = $order->events()->where('type', 'edited')->latest('id')->first();
+        $this->assertSame('recipient', $event->actor_type);
+        $this->assertSame('tracking', $event->meta['source']);
+
+        // Le livreur en mission est prévenu
+        Notification::assertSentTo($this->courierA->user, OrderAlert::class);
+
+        // Les coordonnées ne sont jamais renvoyées par la page publique
+        $json = $this->getJson("/api/v1/tracking/{$order->tracking_code}")
+            ->assertJsonPath('data.location_shared', true)
+            ->getContent();
+        $this->assertStringNotContainsString('5.3456789', $json);
+
+        // Colis livré : plus de position attendue
+        $this->as($this->courierA->user)->move($order, 'delivered')->assertOk();
+        $this->app['auth']->forgetGuards();
+        $this->getJson("/api/v1/tracking/{$order->tracking_code}")->assertJsonPath('data.can_share_location', false);
+        $this->postJson("/api/v1/tracking/{$order->tracking_code}/location", ['lat' => 5.3, 'lng' => -4])->assertStatus(422);
+        $this->postJson('/api/v1/tracking/LV-XXXX-XXXX/location', ['lat' => 5.3, 'lng' => -4])->assertNotFound();
+    }
+
     public function test_merchant_report_summary(): void
     {
         $delivered = $this->createOrder(['items_amount' => 20000]);

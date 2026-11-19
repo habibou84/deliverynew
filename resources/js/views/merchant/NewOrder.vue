@@ -113,11 +113,6 @@
         <label class="m-label" for="address">Adresse et repère</label>
         <input id="address" v-model="form.delivery_address" autocomplete="jibiat-off" class="m-input" placeholder="Ex. : résidence Les Palmiers, face pharmacie">
       </div>
-      <!-- Position du client demandée sur WhatsApp, pour aider le livreur -->
-      <a v-if="phoneValid" :href="positionLink" target="_blank" rel="noopener" class="tap flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm font-bold text-green-800 ring-1 ring-green-200">
-        <AppIcon name="pin" class="h-[18px] w-[18px] shrink-0" />
-        <span>Demander sa position au client sur WhatsApp<span class="block text-xs font-normal text-green-900/80">Collez ensuite le lien reçu dans « Adresse et repère ».</span></span>
-      </a>
       </template>
     </section>
 
@@ -357,7 +352,7 @@ const codAmount = computed(() => (form.items_amount || 0) + (form.fee_payer === 
 const shareLink = computed(() => {
   if (!created.value) return '#'
   const url = `${siteOrigin()}/suivi/${created.value.tracking_code}`
-  const text = `Bonjour, votre commande ${auth.user?.merchant?.business_name || ''} est en préparation pour la livraison.\nSuivi : ${url}\nCode de livraison à donner au livreur : ${created.value.delivery_code}`
+  const text = `Bonjour, votre commande ${auth.user?.merchant?.business_name || ''} est en préparation pour la livraison.\nSuivi : ${url}\n📍 Ouvrez ce lien et touchez « Envoyer ma position » pour que le livreur vous trouve facilement.\nCode de livraison à donner au livreur : ${created.value.delivery_code}`
   const phone = (created.value.recipient.phone || '').replace(/\D/g, '')
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
 })
@@ -452,7 +447,6 @@ async function checkDuplicates() {
 
 // Ce qui manque encore, rappelé en bas de la page
 const SHORT = { phone: 'le numéro du client', zone: 'la commune', feePayer: 'qui paie la livraison', date: 'le jour de livraison' }
-const phoneValid = computed(() => form.recipient_phone.replace(/\D/g, '').length >= 8)
 const stillMissing = computed(() => [1, 2, 3]
   .flatMap((n) => problemsOf(n))
   .filter(([bad]) => bad)
@@ -501,20 +495,6 @@ function applyHabits() {
 }
 watch(() => form.fee_payer, (v, old) => { if (old) habitsUsed.feePayer = false })
 watch(when, (v, old) => { if (old) habitsUsed.when = false })
-
-// Numéro pour WhatsApp : « 07 00 00 00 01 » → « 2250700000001 » (le 0 reste en Côte d'Ivoire)
-const whatsappNumber = (phone) => {
-  const digits = (phone || '').replace(/\D/g, '')
-  return digits.length === 10 ? `225${digits}` : digits
-}
-
-// Position du client demandée sur WhatsApp
-const positionLink = computed(() => {
-  const shop = auth.user?.merchant?.business_name || ''
-  const hello = form.recipient_name ? `Bonjour ${form.recipient_name.split(' ')[0]}` : 'Bonjour'
-  const text = `${hello}, c'est ${shop}. Pour bien vous livrer, pouvez-vous m'envoyer votre position WhatsApp (trombone, puis « Position ») ? Merci !`
-  return `https://wa.me/${whatsappNumber(form.recipient_phone)}?text=${encodeURIComponent(text)}`
-})
 
 // Message copié : lu dans le presse-papiers puis analysé, sinon zone de collage
 const clipText = ref('')
