@@ -28,6 +28,7 @@
         "@capacitor/app": "8.1.1",
         "@capacitor/core": "8.5.2",
         "@fontsource-variable/inter": "^5.2.5",
+        "jsqr": "^1.4.0",
         "leaflet": "^1.9.4",
         "lucide-vue-next": "^0.460.0",
         "pinia": "^3.0.4",

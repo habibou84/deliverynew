@@ -14,14 +14,16 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Suppression du compte d'un e-commerçant ou d'un livreur, demandée depuis son profil (exigée par Google Play) :
+ * Suppression du compte d'un e-commerçant, demandée depuis son profil (exigée par Google Play) :
  * le compte est coupé tout de suite, les administrateurs de l'entreprise sont prévenus, et ses données personnelles
  * (nom, téléphone, e-mail, mot de passe) sont effacées après le délai, sauf annulation par l'entreprise. Les courses
  * et la comptabilité restent, sous un nom anonyme.
+ *
+ * Le livreur ne peut pas supprimer son compte : c'est l'entreprise qui le crée et le ferme (Utilisateurs).
  */
 class AccountDeletions
 {
-    public const ROLES = [Role::MerchantOwner, Role::MerchantStaff, Role::Courier];
+    public const ROLES = [Role::MerchantOwner, Role::MerchantStaff];
 
     public const ERASED_NAME = 'Compte supprimé';
 

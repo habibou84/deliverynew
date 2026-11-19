@@ -20,7 +20,7 @@
         <div>
           <p class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">À recevoir de</p>
           <p class="text-lg font-bold">{{ g.name }}</p>
-          <p class="text-sm text-slate-600">{{ g.parcels.length }} colis · {{ g.relay ? 'code prêt chez lui' : 'demandez-lui d\'afficher le code' }}</p>
+          <p class="text-sm text-slate-600">{{ g.parcels.length }} colis · {{ g.relay ? 'QR code prêt chez lui' : 'demandez-lui d\'afficher son QR code' }}</p>
         </div>
         <ContactButtons :courier="g" />
 
@@ -36,14 +36,23 @@
         <p v-if="(checked[g.courier_id] || []).length < g.parcels.length" class="text-sm text-amber-700">Les colis non cochés restent chez {{ g.name }} : l'agence est prévenue.</p>
 
         <template v-if="g.relay">
-          <label class="m-label" :for="`code-${g.courier_id}`">Code à 4 chiffres affiché par {{ g.name }}</label>
-          <input :id="`code-${g.courier_id}`" v-model="codes[g.courier_id]" class="m-input text-center text-3xl font-bold tracking-[0.5em]" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••">
           <p v-if="errors[g.courier_id]" class="text-sm text-red-600">{{ errors[g.courier_id] }}</p>
-          <button class="m-btn-primary" :disabled="busy || (codes[g.courier_id] || '').length !== 4 || !(checked[g.courier_id] || []).length" @click="confirm(g)">
-            ✅ J'ai reçu {{ (checked[g.courier_id] || []).length }} colis
+          <!-- QR code de l'autre livreur : scanné, les colis cochés sont reçus -->
+          <button class="m-btn-primary" :disabled="busy || !(checked[g.courier_id] || []).length" @click="scanning = g">
+            📷 Scanner le QR code de {{ g.name }} ({{ (checked[g.courier_id] || []).length }} colis)
           </button>
+          <button v-if="!typing[g.courier_id]" type="button" class="w-full text-center text-sm font-medium text-[var(--app-color)] underline" @click="typing[g.courier_id] = true">
+            Caméra en panne ? Saisir le code à la place
+          </button>
+          <template v-else>
+            <label class="m-label" :for="`code-${g.courier_id}`">Code à 4 chiffres affiché sous le QR code de {{ g.name }}</label>
+            <input :id="`code-${g.courier_id}`" v-model="codes[g.courier_id]" class="m-input text-center text-3xl font-bold tracking-[0.5em]" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••">
+            <button class="m-btn-secondary" :disabled="busy || (codes[g.courier_id] || '').length !== 4 || !(checked[g.courier_id] || []).length" @click="confirm(g)">
+              ✅ J'ai reçu {{ (checked[g.courier_id] || []).length }} colis
+            </button>
+          </template>
         </template>
-        <p v-else class="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">⏳ Quand {{ g.name }} affichera le code sur son téléphone, la saisie apparaîtra ici.</p>
+        <p v-else class="rounded-xl bg-slate-50 p-3 text-sm text-slate-600">⏳ Quand {{ g.name }} affichera son QR code, le bouton pour le scanner apparaîtra ici.</p>
       </section>
     </template>
 
@@ -57,10 +66,11 @@
         </div>
         <ContactButtons :courier="g" />
 
-        <div v-if="g.relay" class="rounded-2xl bg-[var(--app-color)] p-5 text-center text-white space-y-1">
-          <p class="text-sm text-white/80">Montrez ce code à {{ g.name }}</p>
-          <p class="text-5xl font-bold tracking-[0.3em]">{{ g.relay.code }}</p>
+        <div v-if="g.relay" class="rounded-2xl bg-[var(--app-color)] p-5 text-center text-white space-y-2">
+          <p class="text-sm text-white/80">{{ g.name }} scanne ce QR code avec son téléphone</p>
+          <img v-if="qr[`${g.relay.id}:${g.relay.code}`]" :src="qr[`${g.relay.id}:${g.relay.code}`]" :alt="`QR code du relais pour ${g.name}`" class="mx-auto h-56 w-56 rounded-xl bg-white p-2">
           <p class="text-xs text-white/80">{{ g.relay.order_ids.length }} colis · valable jusqu'à {{ time(g.relay.expires_at) }}</p>
+          <p class="text-xs text-white/80">Caméra en panne chez lui ? Code : <strong class="text-base tracking-[0.2em] text-white">{{ g.relay.code }}</strong></p>
         </div>
 
         <div class="divide-y rounded-xl border">
@@ -74,23 +84,27 @@
         </div>
         <p v-if="errors[g.courier_id]" class="text-sm text-red-600">{{ errors[g.courier_id] }}</p>
         <button :class="g.relay ? 'm-btn-secondary' : 'm-btn-primary'" :disabled="busy || !(checked[g.courier_id] || []).length" @click="offer(g)">
-          {{ g.relay ? '🔄 Nouveau code' : `🔢 Afficher le code (${(checked[g.courier_id] || []).length} colis)` }}
+          {{ g.relay ? '🔄 Nouveau QR code' : `🔳 Afficher le QR code (${(checked[g.courier_id] || []).length} colis)` }}
         </button>
       </section>
     </template>
+
+    <QrScanner v-if="scanning" :title="`QR code de ${scanning.name}`" @read="onScan" @close="scanning = null" />
   </div>
 </template>
 
 <script setup>
-import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import QRCode from 'qrcode'
+import { computed, defineComponent, h, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import QrScanner from '../../components/courier/QrScanner.vue'
 import { currentPosition } from '../../composables/useGeolocation'
 import { useToastStore } from '../../stores/toasts'
 import { mapsLink, money, telLink, whatsappLink } from '../../utils/format'
 
 /**
- * Relais entre livreurs : celui qui a les colis affiche un code à 4 chiffres, celui qui doit les livrer le saisit et
- * coche les colis reçus. Obligatoire avant « Je pars livrer » quand le colis est chez un autre livreur.
+ * Relais entre livreurs : celui qui a les colis affiche un QR code (et son code à 4 chiffres en secours), celui qui
+ * doit les livrer coche les colis reçus et le scanne avec la caméra. Obligatoire avant « Je pars livrer » quand le colis est chez un autre livreur.
  */
 const ContactButtons = defineComponent({
   props: { courier: { type: Object, required: true } },
@@ -115,6 +129,11 @@ const busy = ref(false)
 const checked = reactive({})
 const codes = reactive({})
 const errors = reactive({})
+// Saisie du code à la main (caméra en panne), QR codes affichés, relais en cours de lecture
+const typing = reactive({})
+const qr = reactive({})
+const scanning = ref(null)
+const QR_PREFIX = 'JIBIAT-RELAIS'
 const tabs = [{ value: 'receive', label: 'À recevoir' }, { value: 'give', label: 'À remettre' }]
 
 const groups = computed(() => board.value[tab.value] || [])
@@ -151,6 +170,30 @@ async function offer(g) {
   } finally {
     busy.value = false
   }
+}
+
+// QR code du relais : préfixe, numéro du relais, code (le serveur vérifie le code comme s'il était saisi)
+watch(() => board.value.give.map((g) => g.relay && `${g.relay.id}:${g.relay.code}`).join(','), async () => {
+  for (const g of board.value.give) {
+    const key = g.relay && `${g.relay.id}:${g.relay.code}`
+    if (key && !qr[key]) qr[key] = await QRCode.toDataURL(`${QR_PREFIX}:${g.relay.id}:${g.relay.code}`, { width: 448, margin: 1, errorCorrectionLevel: 'M' })
+  }
+})
+
+function onScan(text) {
+  const g = scanning.value
+  scanning.value = null
+  const [prefix, id, code] = String(text).split(':')
+  if (prefix !== QR_PREFIX || !g?.relay) {
+    errors[g.courier_id] = 'Ce n\'est pas un QR code de relais Jibiat.'
+    return
+  }
+  if (Number(id) !== g.relay.id) {
+    errors[g.courier_id] = `Ce QR code n'est pas celui de ${g.name} (ou il a été renouvelé) : scannez celui affiché maintenant.`
+    return
+  }
+  codes[g.courier_id] = code
+  confirm(g)
 }
 
 async function confirm(g) {

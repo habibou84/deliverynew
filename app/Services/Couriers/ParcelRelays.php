@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Notification;
 
 /**
  * Relais entre livreurs : un colis encore chez un livreur (ramassage, échec, report) alors que sa livraison est
- * confiée à un autre. Celui qui a le colis affiche un code à 4 chiffres, celui qui le reçoit le saisit et coche les
+ * confiée à un autre. Celui qui a le colis affiche un QR code (et son code à 4 chiffres en secours), celui qui le reçoit le scanne et coche les
  * colis reçus. Le dispatch peut valider à leur place (téléphone en panne). Sans relais, pas de départ en livraison
  * (réglage « Relais obligatoire »).
  */
@@ -174,7 +174,7 @@ class ParcelRelays
         $count = count($orderIds);
         $this->alert(collect([$to->user]), $orders->first(), 'relay',
             '🤝 Relais : '.($from->user?->name ?? 'un livreur').' a '.$count.' colis pour vous',
-            'Demandez-lui le code à 4 chiffres et saisissez-le dans Relais.');
+            'Scannez son QR code dans Relais.');
 
         return $relay;
     }
