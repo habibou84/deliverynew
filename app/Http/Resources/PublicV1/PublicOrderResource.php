@@ -70,6 +70,8 @@ class PublicOrderResource extends JsonResource
             // Échec de livraison : le marchand doit décider (relivrer, reporter ou faire revenir le colis)
             'needs_decision' => $this->needsDecision(),
             'return_requested' => (bool) $this->return_requested,
+            // Contrat 1.11 : pourquoi le colis repart (refused, max_attempts, company, merchant)
+            'return_cause' => $this->return_requested ? $this->return_cause?->value : null,
             'last_incident' => $this->whenLoaded('lastIncidentReason', fn () => $this->lastIncidentReason?->label),
             'events' => $this->whenLoaded('events', fn () => $this->events->map(fn (OrderEvent $e) => [
                 'type' => $e->type->value,
