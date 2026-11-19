@@ -90,7 +90,11 @@ class CourierSpaceController extends Controller
                     && OrderChanges::describe($e->meta['changes'] ?? [], OrderChanges::COURIER_FIELDS) !== []);
                 $a->setAttribute('last_edit', $event ? [
                     'at' => $event->created_at->toIso8601String(),
-                    'by' => $event->actor_role === 'merchant_owner' || $event->actor_role === 'merchant_staff' ? 'l\'e-commerçant' : 'l\'agence',
+                    'by' => match (true) {
+                        $event->actor_type === 'recipient' => 'le client',
+                        $event->actor_role === 'merchant_owner' || $event->actor_role === 'merchant_staff' => 'l\'e-commerçant',
+                        default => 'l\'agence',
+                    },
                     'changes' => OrderChanges::describe($event->meta['changes'] ?? [], OrderChanges::COURIER_FIELDS),
                     'seen' => $a->edit_seen_at !== null && $a->edit_seen_at >= $event->created_at,
                 ] : null);
