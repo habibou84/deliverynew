@@ -116,7 +116,7 @@
           <div class="card flex flex-wrap gap-3 p-4 text-sm">
             <RouterLink v-if="auth.can('finance.view')" to="/admin/caisse" class="text-blue-600">Caisse</RouterLink>
             <RouterLink v-if="auth.can('settings.manage')" to="/admin/paie-livreurs" class="text-blue-600">Paie des livreurs</RouterLink>
-            <RouterLink to="/admin/activite/planning" class="text-blue-600">Planning</RouterLink>
+            <RouterLink to="/admin/planning" class="text-blue-600">Planning</RouterLink>
             <RouterLink v-if="c.vehicle" :to="{ path: '/admin/vehicules', query: { id: c.vehicle.id } }" class="text-blue-600">Fiche du véhicule</RouterLink>
           </div>
         </div>
