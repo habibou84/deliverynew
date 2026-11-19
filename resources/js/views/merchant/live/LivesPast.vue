@@ -31,7 +31,7 @@
             <span class="min-w-0">
               <b class="block truncate text-[15px]">{{ l.name }}</b>
               <span class="text-[13px] text-slate-600">{{ day(l.started_at || l.ended_at) }} · {{ l.items_count }} produit{{ l.items_count > 1 ? 's' : '' }} · {{ l.orders_count }} cde{{ l.orders_count > 1 ? 's' : '' }}</span>
-              <span v-if="l.billed && ['tier', 'offered'].includes(l.plan)" class="block text-[13px] font-semibold text-slate-700">{{ costLine(l) }}</span>
+              <span v-if="l.billed && ['orders', 'tier', 'offered'].includes(l.plan)" class="block text-[13px] font-semibold text-slate-700">{{ costLine(l) }}</span>
             </span>
           </RouterLink>
           <button v-if="!live" type="button" class="shrink-0 rounded-xl bg-slate-100 px-3 py-2 text-[13.5px] font-bold text-slate-800 disabled:opacity-50" :disabled="redoing" @click="redo(l)">Refaire</button>
@@ -86,7 +86,9 @@ function costLine(l) {
   const { orders, offered, amount } = l.billed
   const what = `${orders} commande${orders > 1 ? 's' : ''} comptée${orders > 1 ? 's' : ''}`
   if (l.plan === 'offered') return `${what} · payé par votre agence`
-  if (!amount) return `${what} · ${offered ? 'offertes' : 'gratuit'}`
-  return `${what} · ${money(amount)}${offered ? ` (${offered} offertes)` : ''}`
+  // Ancien live au palier : son prix
+  if (l.plan === 'tier') return amount ? `${what} · ${money(amount)}` : what
+  const parts = [offered ? `${offered} offerte${offered > 1 ? 's' : ''}` : '', orders - offered ? `${orders - offered} retirée${orders - offered > 1 ? 's' : ''} du solde` : '', amount ? `${money(amount)} retenus sur le reversement` : '']
+  return [what, ...parts.filter(Boolean)].join(' · ')
 }
 </script>

@@ -33,13 +33,17 @@
       </div>
 
       <!-- Avant la fenêtre de Meta -->
-      <!-- E-commerçant : numéro spécial live, sans compte WhatsApp -->
+      <!-- E-commerçant : son numéro WhatsApp Business, gardé dans l'application (coexistence) -->
       <div v-else-if="session?.merchant && !finishing" class="space-y-4">
-        <!-- Deux consignes, en grand (comme Jibiat Marchand) -->
+        <!-- Trois consignes, en grand (comme Jibiat Marchand) -->
         <div class="space-y-3">
           <div class="flex gap-3 rounded-2xl bg-slate-50 p-3.5">
             <span class="text-[26px] leading-none" aria-hidden="true">📱</span>
-            <p class="text-[17px] font-bold leading-snug text-slate-900">Un numéro spécial live, connecté à aucun WhatsApp<span class="block text-sm font-normal text-slate-600">Vous recevrez un code par SMS ou par appel.</span></p>
+            <p class="text-[17px] font-bold leading-snug text-slate-900">Votre numéro WhatsApp Business<span class="block text-sm font-normal text-slate-600">Celui de l'application WhatsApp Business. Quand Meta le propose, choisissez de le garder dans l'application : vous continuez à l'utiliser comme avant.</span></p>
+          </div>
+          <div class="flex gap-3 rounded-2xl bg-slate-50 p-3.5">
+            <span class="text-[26px] leading-none" aria-hidden="true">🔗</span>
+            <p class="text-[17px] font-bold leading-snug text-slate-900">Pas de numéro WhatsApp Business ?<span class="block text-sm font-normal text-slate-600">Revenez à votre espace et continuez avec le lien du live : les commandes arrivent quand même chez votre agence.</span></p>
           </div>
           <div class="flex gap-3 rounded-2xl bg-slate-50 p-3.5">
             <span class="text-[26px] leading-none" aria-hidden="true">💳</span>
