@@ -16,7 +16,10 @@
       @click="option.disabled || $emit('update:modelValue', option.value)"
     >
       <span class="flex items-center gap-2">
-        <span v-if="option.icon" class="text-xl">{{ option.icon }}</span>
+        <!-- Icône de la charte (nom), pastille de couleur (moyen de paiement) ou, à défaut, emoji -->
+        <Icone v-if="option.iconName" :nom="option.iconName" class="text-slate-600" />
+        <span v-else-if="option.dot" class="h-3.5 w-3.5 shrink-0 rounded-full ring-2 ring-white shadow" :style="{ backgroundColor: option.dot }" aria-hidden="true" />
+        <span v-else-if="option.icon" class="text-xl">{{ option.icon }}</span>
         <span :class="['font-medium', columns === 3 && 'text-[15px] tracking-tight']">{{ option.label }}</span>
       </span>
       <span v-if="option.description" class="block text-sm text-slate-600 mt-0.5">{{ option.description }}</span>
@@ -25,9 +28,11 @@
 </template>
 
 <script setup>
+import Icone from '../ui/Icone.vue'
+
 defineProps({
   modelValue: { type: [String, Number, Boolean, null], default: null },
-  options: { type: Array, required: true }, // { value, label, icon?, description?, disabled? }
+  options: { type: Array, required: true }, // { value, label, iconName? | dot? | icon?, description?, disabled? }
   columns: { type: Number, default: 1 },
   label: { type: String, default: '' },
 })

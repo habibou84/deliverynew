@@ -17,7 +17,7 @@
           <span class="text-[16px]">Faites défiler et touchez <b>« Sur l'écran d'accueil »</b>.</span>
         </li>
         <li class="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
-          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-[18px] font-bold text-white">✓</span>
+          <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--app-color)] text-white"><Icone nom="valider" /></span>
           <span class="text-[16px]">Touchez <b>Ajouter</b>, puis ouvrez l'application depuis son icône.</span>
         </li>
         <li v-if="!inSafari" class="text-[14px] text-slate-600">Option absente ? Ouvrez cette page dans <b>Safari</b>.</li>
@@ -71,6 +71,7 @@
 </template>
 
 <script setup>
+import Icone from '../ui/Icone.vue'
 import { computed, h, onBeforeUnmount, onMounted, ref } from 'vue'
 import { pwa, promptInstall } from '../../composables/usePwa'
 import BottomSheet from './BottomSheet.vue'

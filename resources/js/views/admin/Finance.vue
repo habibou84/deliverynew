@@ -158,7 +158,7 @@
                 </td>
                 <td class="p-3 text-right">
                   <template v-if="c.cash_in_hand < 0"><p class="font-semibold text-violet-700">La caisse lui doit {{ money(-c.cash_in_hand) }}</p><p class="text-xs text-slate-600">frais payés de sa poche</p></template>
-                  <template v-else><p class="text-lg font-bold tabular-nums">{{ money(c.cash_in_hand) }}</p><p class="text-xs text-slate-600">{{ spreadLabel(c) }}</p></template>
+                  <template v-else><p class="text-lg font-bold tabular-nums">{{ money(c.cash_in_hand - (c.pay_deduction || 0)) }}</p><p class="text-xs text-slate-600">{{ c.pay_deduction ? `paie de ${money(c.pay_deduction)} déduite · ` : '' }}{{ spreadLabel(c) }}</p></template>
                 </td>
                 <td class="hidden p-3 xl:table-cell"><span v-if="c.parcels_in_hand" class="rounded-full bg-slate-100 px-2 py-0.5 text-xs">📦 {{ c.parcels_in_hand }}</span><span v-else class="text-slate-300">—</span></td>
                 <td class="hidden p-3 text-xs text-slate-600 xl:table-cell">{{ c.oldest_collected_at ? dateTime(c.oldest_collected_at) : '—' }}</td>
@@ -196,7 +196,7 @@
               </span>
               <span class="text-right">
                 <template v-if="c.cash_in_hand < 0"><span class="block font-semibold text-violet-700">La caisse lui doit {{ money(-c.cash_in_hand) }}</span></template>
-                <template v-else><span class="block text-lg font-bold tabular-nums">{{ money(c.cash_in_hand) }}</span><span class="block text-xs text-slate-600">total, {{ spreadLabel(c) }}</span></template>
+                <template v-else><span class="block text-lg font-bold tabular-nums">{{ money(c.cash_in_hand - (c.pay_deduction || 0)) }}</span><span class="block text-xs text-slate-600">total{{ c.pay_deduction ? `, paie de ${money(c.pay_deduction)} déduite` : '' }}, {{ spreadLabel(c) }}</span></template>
               </span>
             </button>
             <p v-if="c.watch" class="inline-block rounded bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-800">⚠️ {{ c.watch }}</p>
@@ -637,6 +637,10 @@
           <li class="p-2 text-xs text-slate-600">Avances, frais payés par le livreur et paie gardée sur l'encaissé : toujours réglés avec ce versement.</li>
         </ul>
         <template v-if="remitHasCash">
+        <p v-if="remitPay" class="flex justify-between rounded bg-blue-50 p-2 text-sm text-blue-900">
+          <span>Paie du livreur, déduite (plan « paie déduite à chaque versement ») <span class="block text-xs">Une fiche « réglée sur le versement » sera créée.</span></span>
+          <strong class="whitespace-nowrap">− {{ money(remitPay) }}</strong>
+        </p>
         <p class="text-sm">
           <template v-if="remitExpected >= 0">Montant attendu : <strong>{{ money(remitExpected) }}</strong></template>
           <template v-else>Frais payés par le livreur : <strong>la caisse lui doit {{ money(-remitExpected) }}</strong></template>
@@ -884,7 +888,7 @@ const alertText = computed(() => {
 const today = new Date().toISOString().slice(0, 10)
 const remitFilter = reactive({ from: today, to: today, basis: 'received' })
 
-const remit = reactive({ open: false, courier: null, collections: [], advances: [], expenses: [], expensesToApprove: [], parcels: [], returned: [], selected: [], amount_received: 0, notes: '', error: '' })
+const remit = reactive({ open: false, courier: null, pay_deduction: 0, collections: [], advances: [], expenses: [], expensesToApprove: [], parcels: [], returned: [], selected: [], amount_received: 0, notes: '', error: '' })
 const remitHasCash = computed(() => remit.collections.length > 0 || remit.advances.length > 0 || remit.expenses.length > 0)
 const remitOnTheRoad = computed(() => remit.parcels.filter((p) => p.on_the_road))
 const remitParcels = computed(() => remit.parcels.filter((p) => !p.on_the_road))
@@ -946,7 +950,8 @@ const remittable = computed(() => visibleCouriers.value.filter((c) => c.pending_
 // Tous les versements validés ensemble : chaque livreur verse tout ce qu'il doit, toutes dates
 async function remitAll() {
   const list = remittable.value
-  const total = list.reduce((n, c) => n + c.cash_in_hand, 0)
+  // Paie déduite au versement (plan du livreur) : il la garde
+  const total = list.reduce((n, c) => n + c.cash_in_hand - (c.pay_deduction || 0), 0)
   if (!await confirmDialog(`Valider le versement de ${list.length} livreurs pour ${money(total)} au total ?\n\n`
     + 'Chacun est noté comme ayant remis exactement ce qu\'il doit, toutes dates confondues. Les colis restent notés chez les livreurs ; '
     + 'ceux qui ont une course « En chemin » sont laissés de côté. Pour un écart ou des colis rendus, utilisez « Recevoir » livreur par livreur.')) return
@@ -1041,9 +1046,12 @@ const payslipTotals = computed(() => {
 
 // Montant dû par le livreur, frais d'expédition avancés déduits ; négatif : la caisse lui doit de l'argent
 // Encaissements cochés + avances reçues − frais payés ; négatif : la caisse doit de l'argent au livreur
-const remitExpected = computed(() => remit.collections.filter((c) => remit.selected.includes(c.id)).reduce((s, c) => s + c.amount_collected, 0)
+const remitBeforePay = computed(() => remit.collections.filter((c) => remit.selected.includes(c.id)).reduce((s, c) => s + c.amount_collected, 0)
   + remit.advances.reduce((s, a) => s + a.amount, 0)
   - remit.expenses.reduce((s, e) => s + e.amount, 0))
+// Plan « paie déduite à chaque versement » : le livreur garde sa paie, au plus l'argent qu'il remet
+const remitPay = computed(() => Math.min(remit.pay_deduction || 0, Math.max(0, remitBeforePay.value)))
+const remitExpected = computed(() => remitBeforePay.value - remitPay.value)
 // Le champ est toujours saisi en positif : reçu du livreur, ou remis au livreur quand la caisse lui doit
 const remitSigned = computed(() => (remitExpected.value < 0 ? -1 : 1) * (remit.amount_received ?? 0))
 const remitDifference = computed(() => remitSigned.value - remitExpected.value)
@@ -1131,6 +1139,7 @@ async function openRemit(courier, all = false) {
     open: true,
     courier,
     collections: data.data,
+    pay_deduction: data.pay_deduction || 0,
     advances: data.advances || [],
     expenses: data.expenses || [],
     expensesToApprove: data.expenses_to_approve || [],
