@@ -28,11 +28,11 @@
 <body>
 <main>
     <h1>Supprimer votre compte</h1>
-    <p class="muted">{{ $name }}@if ($company) · applications e-commerçant et livreur @endif</p>
+    <p class="muted">{{ $name }}@if ($company) · application e-commerçant @endif</p>
 
     <div class="card">
         <p>
-            Vous êtes e-commerçant ou livreur{{ $company ? ' chez '.$company->name : '' }} : vous pouvez supprimer votre compte
+            Vous êtes e-commerçant{{ $company ? ' chez '.$company->name : '' }} : vous pouvez supprimer votre compte
             vous-même, depuis l'application ou depuis le site, sans rien demander à personne.
         </p>
     </div>
@@ -61,6 +61,12 @@
     <p>
         Les courses, les encaissements, les reversements et la comptabilité restent, sous un nom anonyme : la loi impose de
         conserver ces écritures. Ils ne permettent plus de vous joindre.
+    </p>
+
+    <h2>Vous êtes livreur</h2>
+    <p>
+        Votre compte livreur est créé par votre entreprise de livraison : c'est elle qui le ferme. Demandez-lui la fermeture
+        @if ($company?->phone) ({{ $company->phone }})@endif ; vos données personnelles sont ensuite traitées comme ci-dessus.
     </p>
 
     <p class="muted">Voir aussi la <a href="/confidentialite">politique de confidentialité</a>.</p>
