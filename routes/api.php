@@ -94,6 +94,7 @@ use App\Http\Controllers\Api\V1\QuoteController;
 use App\Http\Controllers\Api\V1\ReferenceController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\RescheduleController;
+use App\Http\Controllers\Api\V1\ReturnHandoverController;
 use App\Http\Controllers\Api\V1\ReturnSlipController;
 use App\Http\Controllers\Api\V1\RoleController;
 use App\Http\Controllers\Api\V1\SetupGuideController;
@@ -647,6 +648,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('return-slips/{returnSlip}/hand-over', [ReturnSlipController::class, 'handOver'])->middleware('throttle:30,1')->name('return-slips.hand-over');
         Route::post('return-slips/{returnSlip}/cancel', [ReturnSlipController::class, 'cancel'])->name('return-slips.cancel');
         Route::get('return-slips/{returnSlip}/proof/{kind}', [ReturnSlipController::class, 'proof'])->whereIn('kind', ['signature', 'photo'])->name('return-slips.proof');
+        // Remises au marchand confirmées par lui : bandeau du marchand, remises à vérifier par l'agence (droits vérifiés dans le contrôleur)
+        Route::get('return-handovers/mine', [ReturnHandoverController::class, 'mine'])->name('return-handovers.mine');
+        Route::get('return-handovers/review', [ReturnHandoverController::class, 'review'])->name('return-handovers.review');
+        Route::post('return-handovers/{returnHandover}/confirm', [ReturnHandoverController::class, 'confirm'])->middleware('throttle:30,1')->name('return-handovers.confirm');
+        Route::post('return-handovers/{returnHandover}/dispute', [ReturnHandoverController::class, 'dispute'])->middleware('throttle:30,1')->name('return-handovers.dispute');
+        Route::post('return-handovers/{returnHandover}/resolve', [ReturnHandoverController::class, 'resolve'])->name('return-handovers.resolve');
+        Route::get('return-handovers/{returnHandover}/proof/{kind}', [ReturnHandoverController::class, 'proof'])->whereIn('kind', ['signature', 'photo'])->name('return-handovers.proof');
 
         // Colis chez les livreurs (droits vérifiés dans le contrôleur)
         Route::get('parcels/held', [ParcelController::class, 'index'])->name('parcels.held');
@@ -931,6 +939,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
             Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');
             Route::get('return-slips', [ReturnSlipController::class, 'mine'])->name('return-slips');
+            // Remise au marchand : QR code à lui faire scanner, remise de secours
+            Route::post('return-handovers', [ReturnHandoverController::class, 'start'])->middleware('throttle:30,1')->name('return-handovers.start');
+            Route::get('return-handovers/{returnHandover}', [ReturnHandoverController::class, 'show'])->name('return-handovers.show');
+            Route::post('return-handovers/{returnHandover}/renew', [ReturnHandoverController::class, 'renew'])->middleware('throttle:30,1')->name('return-handovers.renew');
+            Route::post('return-handovers/{returnHandover}/cancel', [ReturnHandoverController::class, 'cancel'])->name('return-handovers.cancel');
+            Route::post('return-handovers/{returnHandover}/fallback', [ReturnHandoverController::class, 'fallback'])->middleware('throttle:30,1')->name('return-handovers.fallback');
             // Relais : remettre des colis à un autre livreur (code) ou les recevoir
             Route::get('relays', [ParcelRelayController::class, 'mine'])->name('relays');
             Route::post('relays', [ParcelRelayController::class, 'offer'])->middleware('throttle:30,1')->name('relays.offer');

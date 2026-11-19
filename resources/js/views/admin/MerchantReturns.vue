@@ -36,6 +36,8 @@
       <button type="button" class="font-semibold text-blue-700 underline" :disabled="closing" @click="undoLegacy">Annuler cette clôture</button>
     </p>
 
+    <ReturnHandoverReview />
+
     <!-- Colis à rendre, par marchand -->
     <section class="space-y-3">
       <div class="flex flex-wrap items-center gap-2">
@@ -150,6 +152,7 @@
 <script setup>
 import CoursesTabs from '../../components/CoursesTabs.vue'
 import Icone from '../../components/ui/Icone.vue'
+import ReturnHandoverReview from '../../components/admin/ReturnHandoverReview.vue'
 import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
