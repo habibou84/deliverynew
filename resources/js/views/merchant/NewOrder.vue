@@ -126,7 +126,7 @@
       <template v-else>
 
       <button v-if="products.length && !showStock" type="button" class="tap w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
-        <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon stock</span><AppIcon name="right" class="h-4 w-4 text-slate-600" />
+        <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon catalogue</span><AppIcon name="right" class="h-4 w-4 text-slate-600" />
       </button>
       <div v-if="products.length && showStock" class="space-y-3">
         <div v-if="stockHubs.length">
@@ -137,7 +137,7 @@
           <div v-for="p in sourceProducts" :key="p.id" class="p-3 flex items-center gap-3">
             <div class="min-w-0 flex-1">
               <p class="font-medium truncate">{{ p.name }}</p>
-              <p class="text-xs text-slate-600">{{ money(p.price) }} · {{ availableAt(p) }} dispo</p>
+              <p class="text-xs text-slate-600">{{ money(p.price) }}<template v-if="isTracked(p)"> · {{ availableAt(p) }} dispo</template></p>
             </div>
             <div class="flex items-center gap-2">
               <button type="button" class="tap h-9 w-9 rounded-full bg-slate-100 text-lg font-bold disabled:opacity-40" :disabled="!picked[p.id]" :aria-label="`Retirer un ${p.name}`" @click="pick(p, -1)">−</button>
@@ -255,6 +255,7 @@ import { keyboardOpen } from '../../composables/useKeyboard'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import { siteOrigin } from '../../native'
+import { describeLines, isTracked, limitAt, orderLine } from '../../utils/catalog'
 
 const route = useRoute()
 
@@ -307,11 +308,10 @@ const sourceOptions = computed(() => [
 const sourceName = computed(() => hubs.value.find((h) => h.id === source.value)?.name)
 const sourceZoneId = computed(() => hubs.value.find((h) => h.id === source.value)?.zone_id)
 
-function availableAt(product) {
-  return product.levels.find((l) => (l.hub_id ?? null) === source.value)?.available ?? 0
-}
+// Tout le catalogue : un produit sans stock suivi part de chez le marchand, sans limite
+const availableAt = (product) => limitAt(product, source.value)
 const sourceProducts = computed(() => products.value.filter((p) => availableAt(p) > 0 || picked[p.id]))
-const pickedItems = computed(() => products.value.filter((p) => picked[p.id] > 0).map((p) => ({ product_id: p.id, name: p.name, quantity: picked[p.id], unit_price: p.price })))
+const pickedItems = computed(() => products.value.filter((p) => picked[p.id] > 0).map((p) => ({ ...orderLine(p, picked[p.id]), name: p.name })))
 
 function pick(product, delta) {
   picked[product.id] = Math.max(0, Math.min(availableAt(product), (picked[product.id] || 0) + delta))
@@ -324,7 +324,7 @@ function pick(product, delta) {
 let autoDescription = ''
 function fillDescription() {
   if (form.description && form.description !== autoDescription) return
-  autoDescription = pickedItems.value.map((i) => `${i.quantity} × ${i.name}`).join(', ')
+  autoDescription = describeLines(pickedItems.value)
   form.description = autoDescription
 }
 
@@ -643,7 +643,7 @@ async function submit() {
     payload.recipient_phone = form.recipient_phone.replace(/[^\d+]/g, '')
     if (payload.recipient_phone2) payload.recipient_phone2 = payload.recipient_phone2.replace(/[^\d+]/g, '')
     payload.items_amount = form.items_amount || 0
-    if (pickedItems.value.length) payload.items = pickedItems.value.map(({ product_id, quantity, unit_price }) => ({ product_id, quantity, unit_price }))
+    if (pickedItems.value.length) payload.items = pickedItems.value.map(({ name, ...line }) => line)
     if (source.value) payload.pickup_hub_id = source.value
     created.value = (await http.post('/orders', payload)).data.data
     saveHabits()
