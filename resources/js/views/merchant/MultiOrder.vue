@@ -77,6 +77,7 @@
           <span class="block truncate text-slate-600">
             {{ r.delivery_zone_id ? zoneName(r.delivery_zone_id) : 'commune ?' }} · {{ money(r.items_amount || 0) }}<template v-if="r.fee_payer && r.fee_payer !== common.fee_payer"> · livraison payée par {{ r.fee_payer === 'merchant' ? 'vous' : 'le client' }}</template>
           </span>
+          <span v-if="r.description" class="block truncate text-xs text-slate-600">{{ r.description }}</span>
           <span v-if="!isComplete(r)" class="block text-xs font-bold text-orange-700">À compléter : {{ missingOf(r).join(', ') }}</span>
           <span v-else-if="r.error" class="block text-xs font-bold text-red-600">{{ r.error }}</span>
         </button>
@@ -127,6 +128,38 @@
           <label class="m-label" for="d-address">Adresse et repère</label>
           <input id="d-address" v-model="draft.delivery_address" class="m-input" autocomplete="off" placeholder="Ex. : face pharmacie">
         </div>
+        <!-- Articles du catalogue : remplissent le montant et le contenu du colis -->
+        <div v-if="products.length" class="space-y-2">
+          <p class="m-label">Articles du catalogue <span class="font-normal text-slate-600">(facultatif)</span></p>
+          <div v-if="draft.items.length" class="rounded-xl ring-1 ring-slate-200 divide-y">
+            <div v-for="item in draft.items" :key="item.product_id" class="p-3 flex items-center gap-3">
+              <div class="min-w-0 flex-1">
+                <p class="font-medium truncate">{{ item.name }}</p>
+                <p class="text-xs text-slate-600">{{ money(item.unit_price) }} × {{ item.quantity }} = {{ money(item.unit_price * item.quantity) }}</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" class="tap h-9 w-9 rounded-full bg-slate-100 text-lg font-bold" :aria-label="`Retirer un ${item.name}`" @click="pickProduct(productOf(item), -1)">−</button>
+                <span class="w-6 text-center font-semibold">{{ item.quantity }}</span>
+                <button type="button" class="tap h-9 w-9 rounded-full text-white text-lg font-bold disabled:opacity-40 bg-[var(--app-color)]" :disabled="!canAdd(productOf(item))" :aria-label="`Ajouter un ${item.name}`" @click="pickProduct(productOf(item), 1)">+</button>
+              </div>
+            </div>
+          </div>
+          <input v-model="productSearch" type="search" class="m-input" placeholder="Chercher un produit (nom ou référence)" aria-label="Chercher un produit du catalogue" autocomplete="off">
+          <div v-if="productResults.length" class="rounded-xl ring-1 ring-slate-200 divide-y">
+            <button v-for="p in productResults" :key="p.id" type="button" class="tap w-full p-3 flex items-center gap-3 text-left disabled:opacity-50" :disabled="!canAdd(p)" @click="pickProduct(p, 1)">
+              <span class="min-w-0 flex-1">
+                <b class="block truncate font-medium">{{ p.name }}<span v-if="p.sku" class="font-normal text-slate-600"> · {{ p.sku }}</span></b>
+                <span class="text-xs text-slate-600">{{ money(p.price) }}<template v-if="isTracked(p)"> · {{ leftFor(p) > 0 ? `${leftFor(p)} dispo` : limitAt(p) > 0 ? 'tout est déjà dans la série' : 'pas de stock chez vous' }}</template></span>
+              </span>
+              <AppIcon name="plus" class="h-5 w-5 shrink-0 text-[var(--app-color)]" />
+            </button>
+          </div>
+          <p v-else-if="productSearch.trim()" class="text-sm text-slate-600">Aucun produit trouvé : décrivez le contenu ci-dessous.</p>
+        </div>
+        <div>
+          <label class="m-label" for="d-desc">Contenu du colis <span class="font-normal text-slate-600">(facultatif)</span></label>
+          <input id="d-desc" v-model="draft.description" class="m-input" autocomplete="off" placeholder="Ex. : 2 robes, 1 sac">
+        </div>
         <div>
           <label class="m-label" for="d-amount">Montant à encaisser</label>
           <input id="d-amount" v-model.number="draft.items_amount" type="number" min="0" step="50" inputmode="numeric" class="m-input !text-lg !font-bold" placeholder="0">
@@ -150,6 +183,7 @@ import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import ZoneSelect from '../../components/ZoneSelect.vue'
 import { useDeliveryDate } from '../../composables/useDeliveryDate'
 import { money } from '../../utils/format'
+import { describeLines, isTracked, limitAt, orderLine } from '../../utils/catalog'
 
 /**
  * Plusieurs courses d'un coup : réglages communs (qui paie, quand), puis les clients ajoutés à la chaîne
@@ -164,7 +198,7 @@ const quotes = reactive({})
 const error = ref('')
 let nextKey = 1
 
-const blankRow = () => ({ key: nextKey++, recipient_phone: '', recipient_name: '', delivery_zone_id: null, delivery_address: '', items_amount: null, fee_payer: null, description: '', merchant_note: '', recipient_phone2: '', order: null, error: '' })
+const blankRow = () => ({ key: nextKey++, recipient_phone: '', recipient_name: '', delivery_zone_id: null, delivery_address: '', items_amount: null, fee_payer: null, description: '', auto_description: '', items: [], merchant_note: '', recipient_phone2: '', order: null, error: '' })
 const pairs = (phone) => (phone || '').replace(/^\+225/, '').replace(/\D/g, '').replace(/(\d{2})(?=\d)/g, '$1 ')
 const zoneName = (id) => zones.value.find((z) => z.id === id)?.full_name || ''
 
@@ -199,8 +233,9 @@ watch(() => draft.value?.delivery_zone_id, quote)
 
 async function edit(row) {
   draftIsNew.value = !row
-  draft.value = row ? { ...row } : blankRow()
+  draft.value = row ? { ...row, items: row.items.map((i) => ({ ...i })) } : blankRow()
   suggestions.value = []
+  productSearch.value = ''
   await nextTick()
   setTimeout(() => phoneInput.value?.focus(), 250)
 }
@@ -246,6 +281,51 @@ function useRecipient(r) {
     delivery_address: [r.address, r.landmark].filter(Boolean).join(', ') || draft.value.delivery_address,
   })
   suggestions.value = []
+}
+
+/* ---------- Articles du catalogue ---------- */
+// Tout le catalogue actif ; un produit au stock suivi est limité à ce qui reste chez le marchand
+const products = ref([])
+const productSearch = ref('')
+const productOf = (item) => products.value.find((p) => p.id === item.product_id) || { id: item.product_id, name: item.name, price: item.unit_price }
+const productResults = computed(() => {
+  const term = productSearch.value.trim().toLowerCase()
+  if (!term) return []
+  return products.value.filter((p) => p.name.toLowerCase().includes(term) || (p.sku || '').toLowerCase().includes(term)).slice(0, 6)
+})
+
+// Ce qui reste disponible pour cette fiche, une fois retirées les quantités des autres courses de la série
+function leftFor(product) {
+  const elsewhere = rows.value.filter((r) => r.key !== draft.value?.key && !r.order).reduce((sum, r) => sum + (r.items.find((i) => i.product_id === product.id)?.quantity || 0), 0)
+  return limitAt(product) - elsewhere
+}
+const canAdd = (product) => (draft.value.items.find((i) => i.product_id === product.id)?.quantity || 0) < leftFor(product)
+
+function pickProduct(product, delta) {
+  const d = draft.value
+  let item = d.items.find((i) => i.product_id === product.id)
+  if (delta > 0 && !canAdd(product)) return
+  if (!item) {
+    item = { product_id: product.id, name: product.name, quantity: 0, unit_price: product.price }
+    d.items.push(item)
+  }
+  item.quantity += delta
+  if (item.quantity <= 0) d.items = d.items.filter((i) => i !== item)
+  productSearch.value = ''
+  // Le montant et le contenu suivent les articles (modifiables ensuite) ; un contenu écrit à la main est gardé
+  d.items_amount = d.items.reduce((sum, i) => sum + i.quantity * i.unit_price, 0) || null
+  if (!d.description || d.description === d.auto_description) {
+    d.auto_description = describeLines(d.items)
+    d.description = d.auto_description
+  }
+}
+
+async function loadProducts() {
+  try {
+    products.value = (await http.get('/products', { params: { per_page: 200 } })).data.data
+  } catch {
+    products.value = []
+  }
 }
 
 /* ---------- Coller une liste ---------- */
@@ -331,6 +411,7 @@ async function sendAll() {
       delivery_scheduled_date: common.delivery_scheduled_date,
       description: r.description || undefined,
       merchant_note: r.merchant_note || undefined,
+      items: r.items.length ? r.items.map((i) => orderLine(productOf(i), i.quantity, i.unit_price)) : undefined,
     }
     try {
       r.order = (await http.post('/orders', payload)).data.data
@@ -342,6 +423,7 @@ async function sendAll() {
   }
   sending.value = false
   saveHabits()
+  loadProducts()
   done.value = true
 }
 
@@ -379,6 +461,7 @@ function applyHabits() {
 
 onMounted(async () => {
   loadDeliveryDay().then(applyHabits)
+  loadProducts()
   zones.value = (await http.get('/zones')).data.data
   try {
     const { data } = await http.get('/orders', { params: { per_page: 40 } })
