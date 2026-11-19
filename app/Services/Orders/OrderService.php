@@ -415,6 +415,52 @@ class OrderService
         ]);
     }
 
+    /** Le destinataire peut envoyer sa position depuis le lien de suivi tant que le colis n'est pas livré */
+    public static function acceptsRecipientLocation(Order $order): bool
+    {
+        return ! $order->is_shipping && ! $order->status->isFinal();
+    }
+
+    /**
+     * Position GPS envoyée par le destinataire depuis le lien de suivi : enregistrée sur la course (le livreur en
+     * mission est prévenu) et sur sa fiche du carnet de destinataires, pour ses prochains colis.
+     */
+    public function shareRecipientLocation(Order $order, float $lat, float $lng): Order
+    {
+        if (! self::acceptsRecipientLocation($order)) {
+            throw new BusinessRuleException('Ce colis n\'attend plus de position.', 'status');
+        }
+
+        return DB::transaction(function () use ($order, $lat, $lng) {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            $order->fill(['delivery_lat' => round($lat, 7), 'delivery_lng' => round($lng, 7)]);
+            $changes = collect($order->getDirty())->only(['delivery_lat', 'delivery_lng'])
+                ->map(fn ($new, $field) => ['from' => $order->getRawOriginal($field), 'to' => $order->getAttributes()[$field]])
+                ->all();
+
+            if ($changes === []) {
+                return $order;
+            }
+
+            $order->save();
+            if ($order->recipient_id !== null) {
+                Recipient::withoutGlobalScopes()->whereKey($order->recipient_id)
+                    ->update(['lat' => $order->delivery_lat, 'lng' => $order->delivery_lng]);
+            }
+
+            $this->journal->record($order, null, OrderEventType::Edited, [
+                'actor_type' => 'recipient',
+                'actor_name' => $order->recipient_name ?: 'Le destinataire',
+                'note' => 'Position envoyée par le destinataire depuis le lien de suivi.',
+                'lat' => $order->delivery_lat,
+                'lng' => $order->delivery_lng,
+                'meta' => ['changes' => $changes, 'source' => 'tracking'],
+            ]);
+
+            return $order;
+        });
+    }
+
     public function requestReturn(User $actor, Order $order, ?string $note = null): void
     {
         if ($order->status->isFinal() || $order->status->isBeforePickup()) {

@@ -47,7 +47,7 @@ const SHOTS = [
   ['j-demandes', 'admin', '/admin/marchands', null, [0], ['nouveau client potentiel', 'Awa Mode', 'Accepter', 'via Jibiat Marchand']],
   ['j-reglages-annuaire', 'admin', '/admin/reglages/e-commercants', null, ['Annuaire des entreprises'], ['Annuaire des entreprises', 'Figurer dans l', 'Votre présentation']],
   ['j-stats', 'admin', '/admin/statistiques', null, [0, 'Taux de livraison'], ['Courses créées', 'Taux de livraison', 'Chiffre d', 'Encaissé pour']],
-  ['j-livreur', 'courier', '/livreur', null, [0], ['Je suis en service', 'À verser à la caisse', 'Ramasser', 'Livrer']],
+  ['j-livreur', 'courier', '/livreur', null, [0], ['Disponible', 'À verser à la caisse', 'Mon itinéraire', 'À livrer']],
   ['j-livreur-caisse', 'courier', '/livreur/caisse', null, [0], ['À verser à la caisse', 'Gagné aujourd', 'Colis à rapporter']],
   ['j-ecommercant-message', 'merchant', '/marchand/courses/nouvelle', async (page) => {
     await page.getByText(/Coller un message/).first().click()

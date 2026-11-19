@@ -4,18 +4,14 @@
 
     <!-- Colis encore chez un autre livreur : relais avant de partir livrer -->
     <section v-if="mission.relay_from" class="rounded-2xl border border-violet-300 bg-violet-50 p-4 space-y-3 text-violet-900">
-      <p class="font-bold">🤝 Colis encore chez {{ mission.relay_from.name }}</p>
+      <p class="flex items-center gap-2 font-bold"><Icone nom="relais" />Colis encore chez {{ mission.relay_from.name }}</p>
       <p class="text-sm">Récupérez-le en scannant son QR code (menu Relais) avant de {{ mission.type === 'return' ? 'le rapporter au marchand' : 'partir livrer' }}.</p>
-      <div class="grid grid-cols-3 gap-2">
-        <a :href="telLink(mission.relay_from.phone)" class="tap rounded-2xl bg-white py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-violet-100"><span class="text-2xl">📞</span>Appeler</a>
-        <a :href="whatsappLink(mission.relay_from.phone)" target="_blank" class="tap rounded-2xl bg-white py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-violet-100"><span class="text-2xl">💬</span>WhatsApp</a>
-        <a v-if="mission.relay_from.lat" :href="mapsLink(mission.relay_from.lat, mission.relay_from.lng, '')" target="_blank" class="tap rounded-2xl bg-white py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-violet-100"><span class="text-2xl">🗺️</span>Le rejoindre</a>
-      </div>
+      <ContactActions :phone="mission.relay_from.phone" :maps-href="mission.relay_from.lat ? mapsLink(mission.relay_from.lat, mission.relay_from.lng, '') : null" maps-label="Le rejoindre" light />
     </section>
 
     <!-- Course modifiée depuis la mission : changements surlignés, « J'ai vu » -->
     <section v-if="mission.last_edit && !mission.last_edit.seen" class="rounded-2xl border border-amber-300 bg-amber-50 p-4 space-y-2 text-amber-900">
-      <p class="font-bold">⚠️ Course modifiée {{ sinceText(mission.last_edit.at) }} par {{ mission.last_edit.by }}</p>
+      <p class="flex items-center gap-2 font-bold"><Icone nom="modifier" />Course modifiée {{ sinceText(mission.last_edit.at) }} par {{ mission.last_edit.by }}</p>
       <ul class="space-y-1 text-sm">
         <li v-for="c in mission.last_edit.changes" :key="c.field">
           <b>{{ c.label }}</b> : <span class="rounded bg-amber-200/70 px-1">{{ c.to || '—' }}</span>
@@ -31,30 +27,20 @@
         <span class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">{{ mission.type_label }}</span>
         <StatusBadge :status="order.status" :label="order.status_label" />
       </div>
-      <p v-if="mission.offline" class="rounded-xl bg-sky-50 text-sky-900 p-3 text-sm">
-        ⏳ Enregistré sur votre téléphone : envoi automatique au retour du réseau.
+      <p v-if="mission.offline" class="flex items-start gap-2 rounded-xl bg-sky-50 text-sky-900 p-3 text-sm">
+        <Icone nom="hors-ligne" taille="petite" />Enregistré sur votre téléphone : envoi automatique au retour du réseau.
       </p>
-      <p v-if="shipping" class="rounded-xl bg-indigo-50 text-indigo-900 p-3 font-medium">
-        🚌 Expédition<template v-if="order.shipping?.city"> vers <strong>{{ order.shipping.city }}</strong></template> : déposez le colis à la gare ou chez le transporteur, payez l'envoi et gardez le ticket.
+      <p v-if="shipping" class="flex items-start gap-2 rounded-xl bg-indigo-50 text-indigo-900 p-3 font-medium">
+        <Icone nom="expedition" /><span>Expédition<template v-if="order.shipping?.city"> vers <strong>{{ order.shipping.city }}</strong></template> : déposez le colis à la gare ou chez le transporteur, payez l'envoi et gardez le ticket.</span>
       </p>
-      <p v-if="mission.gain" class="text-sm font-semibold text-emerald-700">💰 Votre gain prévu : + {{ money(mission.gain) }}</p>
+      <p v-if="mission.gain" class="flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Icone nom="gain" taille="petite" />Votre gain prévu : + {{ money(mission.gain) }}</p>
       <p class="text-xl font-bold">{{ target.name }}</p>
-      <p class="text-slate-700">📍 {{ target.zone }}<span v-if="target.address"> · {{ target.address }}</span></p>
+      <p class="flex items-start gap-1.5 text-slate-700"><Icone nom="adresse" class="mt-0.5" />{{ target.zone }}<span v-if="target.address"> · {{ target.address }}</span></p>
       <p v-if="target.landmark" class="text-slate-600">Repère : {{ target.landmark }}</p>
       <p v-if="mission.type === 'delivery' && order.delivery.scheduled_date" class="text-sm text-slate-600">Prévue le {{ date(order.delivery.scheduled_date) }} {{ order.delivery.time_slot ? `(${order.delivery.time_slot}h)` : '' }}</p>
 
-      <div class="grid grid-cols-3 gap-2 pt-2">
-        <a :href="telLink(target.phone)" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
-          <span class="text-2xl">📞</span>Appeler
-        </a>
-        <a :href="whatsappLink(target.phone)" target="_blank" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
-          <span class="text-2xl">💬</span>WhatsApp
-        </a>
-        <a :href="mapsLink(target.lat, target.lng, `${target.address || ''} ${target.zone}`)" target="_blank" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
-          <span class="text-2xl">🗺️</span>Itinéraire
-        </a>
-      </div>
-      <a v-if="target.phone2" :href="telLink(target.phone2)" class="block text-center text-sm text-[var(--app-color)] font-medium pt-1">📞 Autre numéro : {{ target.phone2 }}</a>
+      <ContactActions class="pt-2" :phone="target.phone" :maps-href="mapsLink(target.lat, target.lng, `${target.address || ''} ${target.zone}`)" />
+      <a v-if="target.phone2" :href="telLink(target.phone2)" class="flex items-center justify-center gap-1.5 text-sm text-[var(--app-color)] font-medium pt-1"><Icone nom="appeler" taille="petite" />Autre numéro : {{ target.phone2 }}</a>
     </section>
 
     <!-- Argent et colis -->
@@ -63,19 +49,19 @@
         <span class="text-slate-600">À encaisser</span>
         <span class="text-3xl font-bold">{{ money(order.amounts.cod_amount) }}</span>
       </div>
-      <p v-if="order.from_warehouse && mission.type === 'delivery' && ['delivery_assigned', 'at_hub'].includes(order.status)" class="rounded-xl bg-sky-50 p-3 text-sky-900">
-        🏬 À récupérer à l'entrepôt <strong>{{ order.pickup.hub_name }}</strong><span v-if="order.pickup.address"> · {{ order.pickup.address }}</span>
+      <p v-if="order.from_warehouse && mission.type === 'delivery' && ['delivery_assigned', 'at_hub'].includes(order.status)" class="flex items-start gap-2 rounded-xl bg-sky-50 p-3 text-sky-900">
+        <Icone nom="depot" /><span>À récupérer à l'entrepôt <strong>{{ order.pickup.hub_name }}</strong><span v-if="order.pickup.address"> · {{ order.pickup.address }}</span></span>
       </p>
       <ul v-if="order.items?.length" class="text-slate-700 space-y-0.5">
-        <li v-for="item in order.items" :key="item.id">📦 <strong>{{ item.quantity }} ×</strong> {{ item.label }}</li>
+        <li v-for="item in order.items" :key="item.id" class="flex items-center gap-1.5"><Icone nom="course" taille="petite" /><strong>{{ item.quantity }} ×</strong> {{ item.label }}</li>
       </ul>
-      <p v-else class="text-slate-700">📦 {{ order.package.description || 'Colis' }}</p>
+      <p v-else class="flex items-center gap-1.5 text-slate-700"><Icone nom="course" taille="petite" />{{ order.package.description || 'Colis' }}</p>
       <div class="flex flex-wrap gap-2">
-        <span v-if="order.package.is_fragile" class="rounded-full bg-red-100 text-red-700 text-sm font-semibold px-3 py-1">🥚 Fragile</span>
-        <span v-if="order.package.is_express" class="rounded-full bg-amber-100 text-amber-800 text-sm font-semibold px-3 py-1">⚡ Express</span>
+        <span v-if="order.package.is_fragile" class="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 text-sm font-semibold px-3 py-1"><Icone nom="fragile" taille="petite" />Fragile</span>
+        <span v-if="order.package.is_express" class="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-800 text-sm font-semibold px-3 py-1"><Icone nom="rapide" taille="petite" />Express</span>
         <span v-if="order.attempts_count" class="rounded-full bg-slate-100 text-slate-700 text-sm px-3 py-1">Tentative {{ order.attempts_count + 1 }} / {{ order.max_attempts }}</span>
       </div>
-      <p v-if="order.package.merchant_note" class="rounded-xl bg-amber-50 p-3 text-amber-900">📝 {{ order.package.merchant_note }}</p>
+      <p v-if="order.package.merchant_note" class="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-amber-900"><Icone nom="note" class="mt-0.5" />{{ order.package.merchant_note }}</p>
       <p class="font-mono text-xs text-slate-600">{{ order.tracking_code }}<span v-if="mission.type === 'pickup'"> · {{ order.merchant?.business_name }}</span></p>
     </section>
 
@@ -95,17 +81,17 @@
         <template v-if="mission.status === 'assigned'">
           <div class="grid grid-cols-3 gap-2">
             <button class="m-btn-secondary" @click="sheet = 'refuse'">Refuser</button>
-            <button class="m-btn-success col-span-2" :disabled="busy" @click="accept">✓ Accepter</button>
+            <button class="m-btn-success col-span-2" :disabled="busy" @click="accept"><span class="inline-flex items-center justify-center gap-2"><Icone nom="valider" />Accepter</span></button>
           </div>
         </template>
         <template v-else-if="active">
-          <button v-if="primary" :class="[primary.class, 'text-lg py-5']" :disabled="busy" @click="primary.action()">{{ primary.label }}</button>
+          <button v-if="primary" :class="[primary.class, 'text-lg py-5']" :disabled="busy" @click="primary.action()"><span class="inline-flex items-center justify-center gap-2"><Icone v-if="primary.icon" :nom="primary.icon" taille="grande" />{{ primary.label }}</span></button>
           <div class="grid grid-cols-4 gap-2">
-            <button v-if="canReportIncident" class="m-btn-secondary py-3 px-1 text-sm text-red-600" @click="openIncident">⚠️ Problème</button>
-            <button class="m-btn-secondary py-3 px-1 text-sm" @click="sheet = 'note'">💬 Note</button>
-            <button class="m-btn-secondary py-3 px-1 text-sm" @click="openExpense">💸 Frais</button>
+            <button v-if="canReportIncident" class="m-btn-secondary py-3 px-1 text-sm text-red-600" @click="openIncident"><span class="flex flex-col items-center gap-0.5"><Icone nom="urgent" />Problème</span></button>
+            <button class="m-btn-secondary py-3 px-1 text-sm" @click="sheet = 'note'"><span class="flex flex-col items-center gap-0.5"><Icone nom="note" />Note</span></button>
+            <button class="m-btn-secondary py-3 px-1 text-sm" @click="openExpense"><span class="flex flex-col items-center gap-0.5"><Icone nom="frais" />Frais</span></button>
             <label class="m-btn-secondary py-3 px-1 text-sm cursor-pointer">
-              📷 Photo
+              <span class="flex flex-col items-center gap-0.5"><Icone nom="photo" />Photo</span>
               <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
             </label>
           </div>
@@ -139,7 +125,7 @@
             <input id="ticket" v-model="delivery.shipping_reference" class="m-input" placeholder="Facultatif">
           </div>
           <label class="m-btn-secondary cursor-pointer">
-            📷 Photographier le ticket
+            <span class="inline-flex items-center justify-center gap-2"><Icone nom="photo" />Photographier le ticket</span>
             <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
           </label>
         </template>
@@ -175,7 +161,7 @@
           <p v-if="offlineEnabled && !pwa.online" class="text-xs text-slate-600 mt-1">Hors connexion : le code sera vérifié au retour du réseau. S'il est faux, l'agence vérifiera la livraison auprès du client.</p>
         </div>
         <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
-        <button class="m-btn-success text-lg py-5" :disabled="busy" @click="confirmDelivered">{{ shipping ? '✓ Confirmer l\'expédition' : '✓ Confirmer la livraison' }}</button>
+        <button class="m-btn-success text-lg py-5" :disabled="busy" @click="confirmDelivered"><span class="inline-flex items-center justify-center gap-2"><Icone nom="valider" taille="grande" />{{ shipping ? 'Confirmer l\'expédition' : 'Confirmer la livraison' }}</span></button>
       </div>
     </BottomSheet>
 
@@ -209,7 +195,7 @@
         </div>
         <p class="text-sm text-slate-600">Payé de votre poche ou avec une avance de la caisse : le montant est déduit de votre prochain versement et facturé au marchand.</p>
         <label class="m-btn-secondary cursor-pointer">
-          📷 Photographier le reçu
+          <span class="inline-flex items-center justify-center gap-2"><Icone nom="photo" />Photographier le reçu</span>
           <input type="file" accept="image/*" capture="environment" class="hidden" @change="uploadPhoto">
         </label>
         <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
@@ -246,13 +232,15 @@ import StatusBadge from '../../components/StatusBadge.vue'
 import DispatchMessages from '../../components/mobile/DispatchMessages.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
+import ContactActions from '../../components/courier/ContactActions.vue'
+import Icone from '../../components/ui/Icone.vue'
 import { useAuthStore } from '../../stores/auth'
 import { cachedGet } from '../../composables/useCachedApi'
 import { useToastStore } from '../../stores/toasts'
 import { currentPosition } from '../../composables/useGeolocation'
 import { enqueue, isNetworkError, sendStatus, withPending } from '../../composables/useOfflineQueue'
 import { pwa } from '../../composables/usePwa'
-import { dateTime, date, DELIVERY_PAYMENT_METHODS, mapsLink, money, PAYMENT_METHODS, telLink, today, whatsappLink } from '../../utils/format'
+import { dateTime, date, DELIVERY_PAYMENT_METHODS, mapsLink, money, PAYMENT_METHODS, telLink, today } from '../../utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -303,11 +291,11 @@ function readCarriers() {
 const incident = reactive({ reason: null, when: 'tomorrow', date: null, note: '' })
 const expense = reactive({ type: 'transport', label: '', amount: null })
 const expenseOptions = [
-  { value: 'transport', label: 'Transport', icon: '🚕' },
-  { value: 'packaging', label: 'Emballage', icon: '📦' },
-  { value: 'parking', label: 'Parking, péage', icon: '🅿️' },
-  { value: 'shipping', label: 'Gare', icon: '🚌' },
-  { value: 'other', label: 'Autre', icon: '➕' },
+  { value: 'transport', label: 'Transport', iconName: 'taxi' },
+  { value: 'packaging', label: 'Emballage', iconName: 'course' },
+  { value: 'parking', label: 'Parking, péage', iconName: 'parking' },
+  { value: 'shipping', label: 'Gare', iconName: 'expedition' },
+  { value: 'other', label: 'Autre', iconName: 'ajouter' },
 ]
 
 const active = computed(() => ['accepted', 'in_progress'].includes(mission.value?.status))
@@ -328,14 +316,14 @@ const target = computed(() => {
 const primary = computed(() => {
   const s = order.value.status
   const t = mission.value.type
-  if (t === 'pickup' && s === 'pickup_assigned') return { label: '🛵 Je pars chercher le colis', class: 'm-btn-primary', action: () => move('pickup_in_progress') }
-  if (t === 'pickup' && ['pickup_assigned', 'pickup_in_progress'].includes(s)) return { label: '✓ J\'ai récupéré le colis', class: 'm-btn-success', action: () => move('picked_up') }
+  if (t === 'pickup' && s === 'pickup_assigned') return { icon: 'livrer', label: 'Je pars chercher le colis', class: 'm-btn-primary', action: () => move('pickup_in_progress') }
+  if (t === 'pickup' && ['pickup_assigned', 'pickup_in_progress'].includes(s)) return { icon: 'valider', label: 'J\'ai récupéré le colis', class: 'm-btn-success', action: () => move('picked_up') }
   // Relais à faire : le départ (livraison ou retour au marchand) attend la réception du colis
-  if (['delivery', 'return'].includes(t) && mission.value.relay_from) return { label: '🤝 Recevoir le colis (relais)', class: 'm-btn-primary !bg-violet-600', action: () => router.push('/livreur/relais') }
-  if (t === 'delivery' && ['delivery_assigned', 'picked_up', 'at_hub', 'delivery_failed', 'rescheduled'].includes(s)) return { label: shipping.value ? '🚌 Je pars à la gare' : '🛵 Je pars livrer', class: 'm-btn-primary', action: () => move('out_for_delivery') }
-  if (t === 'delivery' && s === 'out_for_delivery') return { label: shipping.value ? '✓ Colis expédié' : '✓ Colis livré', class: 'm-btn-success', action: openDelivered }
-  if (t === 'return' && s === 'return_assigned') return { label: '🛵 Je rapporte le colis', class: 'm-btn-primary', action: () => move('returning') }
-  if (t === 'return' && ['return_assigned', 'returning'].includes(s)) return { label: '✓ Colis rendu au marchand', class: 'm-btn-success', action: () => move('returned') }
+  if (['delivery', 'return'].includes(t) && mission.value.relay_from) return { icon: 'relais', label: 'Recevoir le colis (relais)', class: 'm-btn-primary !bg-violet-600', action: () => router.push('/livreur/relais') }
+  if (t === 'delivery' && ['delivery_assigned', 'picked_up', 'at_hub', 'delivery_failed', 'rescheduled'].includes(s)) return { icon: shipping.value ? 'expedition' : 'livrer', label: shipping.value ? 'Je pars à la gare' : 'Je pars livrer', class: 'm-btn-primary', action: () => move('out_for_delivery') }
+  if (t === 'delivery' && s === 'out_for_delivery') return { icon: 'valider', label: shipping.value ? 'Colis expédié' : 'Colis livré', class: 'm-btn-success', action: openDelivered }
+  if (t === 'return' && s === 'return_assigned') return { icon: 'retourner', label: 'Je rapporte le colis', class: 'm-btn-primary', action: () => move('returning') }
+  if (t === 'return' && ['return_assigned', 'returning'].includes(s)) return { icon: 'valider', label: 'Colis rendu au marchand', class: 'm-btn-success', action: () => move('returned') }
   return null
 })
 
@@ -348,7 +336,8 @@ const selectedReason = computed(() => reasons.value.find((r) => r.id === inciden
 const paymentOptions = DELIVERY_PAYMENT_METHODS.map((m) => ({
   value: m,
   label: PAYMENT_METHODS[m],
-  icon: { cash: '💵', wave: '🌊', orange_money: '🟠', mtn_momo: '🟡', moov_money: '🔵' }[m],
+  // Pastille de la couleur du moyen de paiement
+  dot: { cash: '#16a34a', wave: '#1dc4ff', orange_money: '#ff7900', mtn_momo: '#ffcc00', moov_money: '#0057a8' }[m],
 }))
 const dayOffset = (n) => {
   const d = new Date(Date.now() + n * 86400000)

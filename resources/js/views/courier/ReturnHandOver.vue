@@ -2,13 +2,13 @@
   <div v-if="slip" class="space-y-4">
     <section class="m-card p-4 space-y-1">
       <p class="text-xs text-slate-600">Bon de retour {{ slip.reference }}</p>
-      <p class="text-lg font-semibold">🏪 {{ slip.merchant.business_name }}</p>
+      <p class="flex items-center gap-2 text-lg font-semibold"><Icone nom="marchand" />{{ slip.merchant.business_name }}</p>
       <a :href="telLink(slip.merchant.phone)" class="text-blue-600">{{ slip.merchant.phone }}</a>
       <p class="text-sm text-slate-600">{{ [slip.merchant.zone, slip.merchant.address].filter(Boolean).join(' · ') }}</p>
     </section>
 
-    <p v-if="slip.status !== 'open'" class="rounded-xl bg-emerald-50 text-emerald-900 p-4">
-      ✅ {{ slip.status_label }}<span v-if="slip.handed_at"> le {{ dateTime(slip.handed_at) }}, reçu par {{ slip.received_by_name }}</span>.
+    <p v-if="slip.status !== 'open'" class="flex items-start gap-2 rounded-xl bg-emerald-50 text-emerald-900 p-4">
+      <Icone nom="livre" class="mt-0.5" /><span>{{ slip.status_label }}<span v-if="slip.handed_at"> le {{ dateTime(slip.handed_at) }}, reçu par {{ slip.received_by_name }}</span>.</span>
     </p>
 
     <form v-else class="space-y-4" @submit.prevent="submit">
@@ -43,7 +43,7 @@
 
       <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
       <button class="m-btn-primary" :disabled="busy || !selected.length || !form.received_by_name || (!form.signature && !form.photo)">
-        ✅ Valider la remise de {{ selected.length }} colis
+        <span class="inline-flex items-center justify-center gap-2"><Icone nom="valider" />Valider la remise de {{ selected.length }} colis</span>
       </button>
     </form>
   </div>
@@ -52,6 +52,7 @@
 </template>
 
 <script setup>
+import Icone from '../../components/ui/Icone.vue'
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'

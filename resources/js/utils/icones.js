@@ -4,8 +4,8 @@
  * messages WhatsApp envoyés aux clients.
  */
 import {
-  ArrowLeft, Award, Backpack, Ban, Banknote, Bell, Bike, Building2, Bus, Calendar, CalendarClock, CalendarDays, Camera,
-  ChartColumn, Check, CircleUserRound, LogOut, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
+  ArrowLeft, ArrowUpDown, Award, Backpack, Ban, Banknote, Bell, Bike, Building2, Bus, Calendar, CalendarClock, CalendarDays, Camera,
+  CarTaxiFront, ChartColumn, Check, CircleParking, Egg, MessageCircleMore, QrCode, ReceiptText, ScanLine, StickyNote, Target, ChevronDown, ChevronUp, CircleUserRound, ClipboardList, CloudOff, Coins, Handshake, ListOrdered, LocateFixed, MapPinned, Navigation, PackageCheck, PackagePlus, Power, LogOut, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
   House, Info, Landmark, LayoutDashboard, LifeBuoy, Lock, Map, MapPin, Megaphone, Menu, MessageCircle, Monitor, Moon,
   Package, PackageOpen, Pause, Pencil, Phone, Plus, Printer, Receipt, RefreshCw, Repeat, Route, Search, Settings,
   ShieldAlert, SlidersHorizontal, Smartphone, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
@@ -103,4 +103,32 @@ export const ICONES = {
   ouvrir: ChevronRight,
   fermer: X,
   precedent: ArrowLeft,
+
+  // Application livreur : un événement de mission = une icône (voir docs/ICONES-LIVREUR.md)
+  itineraire: Route,
+  ramasser: PackagePlus,
+  ramasse: PackageCheck,
+  livrer: Bike,
+  retourner: Undo2,
+  relais: Handshake,
+  gain: Coins,
+  'bon-retour': ClipboardList,
+  'hors-ligne': CloudOff,
+  'a-proximite': MapPinned,
+  organiser: ListOrdered,
+  'modifier-ordre': ArrowUpDown,
+  trajet: Navigation,
+  monter: ChevronUp,
+  descendre: ChevronDown,
+  disponible: Power,
+  position: LocateFixed,
+  ecrire: MessageCircleMore,
+  fragile: Egg,
+  note: StickyNote,
+  frais: ReceiptText,
+  taxi: CarTaxiFront,
+  parking: CircleParking,
+  objectif: Target,
+  scanner: ScanLine,
+  'qr-code': QrCode,
 }

@@ -27,6 +27,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Espace du livreur connecté : ses missions, sa disponibilité, sa position.
@@ -44,7 +45,10 @@ class CourierSpaceController extends Controller
             ->where('courier_id', $courier->id)
             ->when(
                 $request->boolean('history'),
-                fn ($q) => $q->whereNotIn('status', ['assigned', 'accepted', 'in_progress'])->whereDate('updated_at', today()),
+                // Missions terminées du jour ; les retours rendus restent visibles 7 jours
+                fn ($q) => $q->whereNotIn('status', ['assigned', 'accepted', 'in_progress'])
+                    ->where(fn ($q) => $q->where(fn ($q) => $q->where('type', '!=', AssignmentType::Return->value)->whereDate('updated_at', today()))
+                        ->orWhere(fn ($q) => $q->where('type', AssignmentType::Return->value)->where('updated_at', '>=', today()->subDays(6)))),
                 // Livraisons : seulement celles prévues aujourd'hui (les retards et les jours à venir restent à l'agence)
                 fn ($q) => $q->active()->where(fn ($q) => $q->where('type', '!=', AssignmentType::Delivery->value)
                     ->orWhereHas('order', fn ($o) => $o->ofDay($today)))
@@ -57,6 +61,9 @@ class CourierSpaceController extends Controller
                 'expenses' => fn ($e) => $e->active()->where('courier_id', $courier->id)->orderBy('id'),
             ])])
             ->orderByRaw("CASE type WHEN 'pickup' THEN 0 WHEN 'delivery' THEN 1 ELSE 2 END")
+            // Itinéraire choisi par le livreur, puis les missions pas encore placées
+            ->orderByRaw('CASE WHEN route_rank IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('route_rank')
             ->orderBy('assigned_at')
             ->get();
 
@@ -90,7 +97,11 @@ class CourierSpaceController extends Controller
                     && OrderChanges::describe($e->meta['changes'] ?? [], OrderChanges::COURIER_FIELDS) !== []);
                 $a->setAttribute('last_edit', $event ? [
                     'at' => $event->created_at->toIso8601String(),
-                    'by' => $event->actor_role === 'merchant_owner' || $event->actor_role === 'merchant_staff' ? 'l\'e-commerçant' : 'l\'agence',
+                    'by' => match (true) {
+                        $event->actor_type === 'recipient' => 'le client',
+                        $event->actor_role === 'merchant_owner' || $event->actor_role === 'merchant_staff' => 'l\'e-commerçant',
+                        default => 'l\'agence',
+                    },
                     'changes' => OrderChanges::describe($event->meta['changes'] ?? [], OrderChanges::COURIER_FIELDS),
                     'seen' => $a->edit_seen_at !== null && $a->edit_seen_at >= $event->created_at,
                 ] : null);
@@ -128,6 +139,31 @@ class CourierSpaceController extends Controller
     }
 
     /** « J'ai vu » : le livreur a lu la modification de sa mission (noté dans le journal pour l'équipe) */
+    /**
+     * Itinéraire : ordre de passage des missions en cours (ramassages, livraisons, retours), choisi par le livreur
+     * (tri de proche en proche ou à la main). Les missions absentes de la liste passent après.
+     */
+    public function route(Request $request): JsonResponse
+    {
+        $courier = $request->user()->courier ?? abort(403, 'Profil livreur introuvable.');
+        $ids = $request->validate([
+            'assignment_ids' => ['present', 'array', 'max:500'],
+            'assignment_ids.*' => ['integer', 'distinct'],
+        ])['assignment_ids'];
+
+        $mine = OrderAssignment::query()->where('courier_id', $courier->id)->active()->pluck('id');
+        abort_if(array_diff($ids, $mine->all()) !== [], 422, 'Certaines missions ne sont pas (ou plus) les vôtres.');
+
+        DB::transaction(function () use ($ids, $mine) {
+            OrderAssignment::query()->whereIn('id', $mine)->whereNotIn('id', $ids)->update(['route_rank' => null]);
+            foreach (array_values($ids) as $i => $id) {
+                OrderAssignment::query()->whereKey($id)->update(['route_rank' => $i + 1]);
+            }
+        });
+
+        return response()->json(['data' => ['assignment_ids' => array_values($ids)]]);
+    }
+
     public function editSeen(Request $request, OrderAssignment $assignment, OrderJournal $journal): JsonResponse
     {
         abort_unless($assignment->courier_id === $request->user()->courier?->id, 403);

@@ -252,6 +252,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('tracking/{code}', TrackingController::class)
         ->middleware('throttle:30,1')
         ->name('tracking.show');
+    // Le destinataire envoie sa position GPS depuis le lien de suivi
+    Route::post('tracking/{code}/location', [TrackingController::class, 'location'])
+        ->middleware('throttle:10,1')
+        ->name('tracking.location');
     // Avis du destinataire sur sa livraison (lien reçu après la livraison)
     Route::get('ratings/{token}', [PublicRatingController::class, 'show'])->middleware('throttle:30,1')->name('ratings.show');
     Route::post('ratings/{token}', [PublicRatingController::class, 'store'])->middleware('throttle:10,1')->name('ratings.store');
@@ -911,6 +915,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('missions', [CourierSpaceController::class, 'missions'])->name('missions');
             Route::post('assignments/{assignment}/accept', [CourierSpaceController::class, 'accept'])->name('assignments.accept');
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
+            // Itinéraire : ordre de passage des missions choisi par le livreur
+            Route::put('route', [CourierSpaceController::class, 'route'])->middleware('throttle:60,1')->name('route');
             Route::post('assignments/{assignment}/edit-seen', [CourierSpaceController::class, 'editSeen'])->name('assignments.edit-seen');
             // Sonnerie des missions (application Android)
             Route::post('devices', [CourierRingController::class, 'register'])->middleware('throttle:20,1')->name('devices.register');

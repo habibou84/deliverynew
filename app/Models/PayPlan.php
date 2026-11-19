@@ -32,7 +32,7 @@ class PayPlan extends Model
 
     protected $fillable = [
         'company_id', 'courier_id', 'name', 'is_default', 'pickup_mode', 'pickup_extra_parcel_amount', 'min_amount', 'max_amount',
-        'base_salary', 'pay_period', 'deduction_cap_percent',
+        'base_salary', 'pay_period', 'deduction_cap_percent', 'settle_on_remittance',
     ];
 
     protected function casts(): array
@@ -44,6 +44,8 @@ class PayPlan extends Model
             'max_amount' => 'integer',
             'base_salary' => 'integer',
             'deduction_cap_percent' => 'integer',
+            // Paie déduite à chaque versement (sinon : sur fiche de paie)
+            'settle_on_remittance' => 'boolean',
         ];
     }
 

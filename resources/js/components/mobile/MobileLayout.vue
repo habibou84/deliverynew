@@ -10,11 +10,20 @@
         <span v-if="!route.meta.back && initials" class="ml-1 h-8 w-8 shrink-0 rounded-lg bg-white grid place-items-center text-sm font-extrabold" :style="{ color }" aria-hidden="true">{{ initials }}</span>
         <img v-else-if="!route.meta.back && branding.logo_url" :src="branding.logo_url" alt="" class="ml-1 h-8 w-8 shrink-0 rounded-lg bg-white object-contain p-0.5">
         <h1 :class="['flex-1 truncate text-lg font-semibold', route.meta.back ? '' : 'pl-2']">{{ title }}</h1>
-        <RouterLink :to="`${base}/notifications`" class="relative h-11 w-11 grid place-items-center rounded-full active:bg-white/15" aria-label="Notifications">
+        <!-- Raccourcis de l'espace (livreur : disponibilité) -->
+        <slot name="actions" />
+        <!-- Cloche : ouvre les notifications ; touchée à nouveau, les referme (retour à l'écran d'avant) -->
+        <button
+          type="button"
+          :class="['relative h-11 w-11 grid place-items-center rounded-full active:bg-white/15', onNotifications ? 'bg-white/20' : '']"
+          :aria-label="onNotifications ? 'Fermer les notifications' : 'Notifications'"
+          :aria-expanded="onNotifications"
+          @click="toggleNotifications"
+        >
           <span v-if="colorful" class="text-2xl leading-none" aria-hidden="true">🔔</span>
           <svg v-else viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 003.4 0" stroke-linecap="round" stroke-linejoin="round" /></svg>
           <span v-if="notifications.unread" class="absolute top-1.5 right-1.5 min-w-5 h-5 px-1 rounded-full bg-red-500 text-xs font-bold grid place-items-center">{{ notifications.unread > 9 ? '9+' : notifications.unread }}</span>
-        </RouterLink>
+        </button>
       </div>
       <div v-if="!pwa.online" class="bg-amber-500 text-amber-950 text-center text-sm font-medium py-1.5">
         Hors ligne : les informations peuvent ne pas être à jour
@@ -125,5 +134,12 @@ function isActive(tab) {
 function goBack() {
   if (window.history.state?.back) router.back()
   else router.push(props.base)
+}
+
+// La cloche ouvre la page des notifications ; touchée sur cette page, elle la referme
+const onNotifications = computed(() => route.path === `${props.base}/notifications`)
+function toggleNotifications() {
+  if (onNotifications.value) goBack()
+  else router.push(`${props.base}/notifications`)
 }
 </script>

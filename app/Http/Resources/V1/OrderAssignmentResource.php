@@ -29,6 +29,8 @@ class OrderAssignmentResource extends JsonResource
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,
             'refusal_reason' => $this->refusal_reason,
+            // Itinéraire du livreur : place dans l'ordre de passage (vide = pas encore placée)
+            'route_rank' => $this->route_rank,
             // planning : confiée automatiquement (acceptée d'office)
             'source' => $this->source,
             'can_report_impediment' => $this->when($this->resource->hasAttribute('can_report_impediment'), fn () => $this->resource->getAttribute('can_report_impediment')),
