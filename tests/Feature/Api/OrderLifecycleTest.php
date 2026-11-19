@@ -134,6 +134,51 @@ class OrderLifecycleTest extends TestCase
         $this->move($order, 'delivered')->assertOk()->assertJsonPath('data.amounts.collected_amount', 10000);
     }
 
+    private function failedDelivery(string $reason, array $attributes = []): Order
+    {
+        $order = $this->createOrder();
+        $order->forceFill($attributes)->save();
+        $this->as($this->dispatcher);
+        $this->assign($order, 'pickup', $this->courierA)->assertOk();
+        $this->assign($order, 'delivery', $this->courierA)->assertOk();
+        $this->as($this->courierA->user);
+        $this->move($order, 'picked_up')->assertOk();
+        $this->move($order, 'out_for_delivery')->assertOk();
+        $this->move($order, 'delivery_failed', ['incident_reason_id' => $this->reason($reason)])->assertOk();
+
+        return $order->fresh();
+    }
+
+    public function test_the_return_says_why_the_parcel_goes_back(): void
+    {
+        // Refusé par le client : retour automatique, l'e-commerçant ne lit pas « Retour demandé »
+        $refused = $this->failedDelivery('refused');
+        $this->assertSame('refused', $refused->return_cause->value);
+        $this->as($this->merchantUser)->getJson("/api/v1/orders/{$refused->id}")
+            ->assertJsonPath('data.return_cause', 'refused')
+            ->assertJsonPath('data.return_cause_label', 'Refusé par le client : le colis vous sera retourné');
+        $this->as($this->dispatcher)->getJson("/api/v1/orders/{$refused->id}")->assertJsonPath('data.return_cause_label', 'Refusé par le client');
+        // Le retour organisé ensuite par l'agence garde la raison d'origine
+        $this->postJson("/api/v1/orders/{$refused->id}/return-request")->assertSuccessful();
+        $this->assertSame('refused', $refused->fresh()->return_cause->value);
+
+        // Tentatives épuisées
+        $exhausted = $this->failedDelivery('absent', ['max_attempts' => 1]);
+        $this->assertSame('max_attempts', $exhausted->return_cause->value);
+
+        // Retour décidé par l'agence, ou demandé par l'e-commerçant
+        $byAgency = $this->failedDelivery('absent');
+        $this->assertFalse($byAgency->return_requested);
+        $this->assertNull($byAgency->return_cause);
+        $this->as($this->dispatcher)->postJson("/api/v1/orders/{$byAgency->id}/return-request")->assertSuccessful();
+        $this->assertSame('company', $byAgency->fresh()->return_cause->value);
+
+        $byMerchant = $this->failedDelivery('absent');
+        $this->as($this->merchantUser)->postJson("/api/v1/orders/{$byMerchant->id}/return-request")->assertSuccessful()
+            ->assertJsonPath('data.return_cause_label', 'Vous avez demandé le retour');
+        $this->assertSame('merchant', $byMerchant->fresh()->return_cause->value);
+    }
+
     public function test_assigning_a_pending_order_confirms_it(): void
     {
         $order = $this->createOrder();
