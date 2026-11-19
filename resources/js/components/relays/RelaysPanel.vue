@@ -2,7 +2,7 @@
   <section v-if="loaded && (data.awaiting.length || data.done.length)" class="card">
     <header class="p-4 border-b">
       <h2 class="font-semibold">🤝 Relais entre livreurs</h2>
-      <p class="text-sm text-slate-600">Colis ramassés par un livreur et livrés par un autre : ils se les remettent avec un code à 4 chiffres. Sans relais, le livreur ne peut pas partir livrer.</p>
+      <p class="text-sm text-slate-600">Colis ramassés par un livreur et livrés par un autre : ils se les remettent en scannant un QR code. Sans relais, le livreur ne peut pas partir livrer.</p>
     </header>
 
     <div v-if="data.awaiting.length" class="divide-y">

@@ -44,7 +44,7 @@
     <!-- Colis chez un autre livreur que celui qui livre : relais avant le départ -->
     <div v-if="order.relay_needed" class="card border-violet-300 bg-violet-50 p-4 space-y-2 text-sm text-violet-900">
       <p class="font-semibold">🤝 Relais à faire : colis chez {{ order.held_by?.name || 'un livreur' }}, livré par {{ order.delivery_courier?.name || 'un autre livreur' }}</p>
-      <p>Le livreur ne peut pas partir livrer avant de l'avoir reçu avec le code à 4 chiffres. Si le relais a bien eu lieu mais qu'un téléphone ne marche pas, validez-le à leur place.</p>
+      <p>Le livreur ne peut pas partir livrer avant de l'avoir reçu en scannant le QR code de l'autre livreur. Si le relais a bien eu lieu mais qu'un téléphone ne marche pas, validez-le à leur place.</p>
       <button v-if="isDispatcher" class="btn-secondary" :disabled="relayBusy" @click="validateRelay">Valider le relais à leur place</button>
     </div>
 
