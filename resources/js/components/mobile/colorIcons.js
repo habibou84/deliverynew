@@ -13,6 +13,7 @@ export const HUES = {
   indigo: { tile: '#ECEEFF', soft: '#C5CBFF', mid: '#5E6AE8', deep: '#3A43B5', g1: '#8C95FF', g2: '#545FE0' },
   sky: { tile: '#E4F5FD', soft: '#ACDDF6', mid: '#2A9BD8', deep: '#11699C', g1: '#6CC2EE', g2: '#2590CC' },
   slate: { tile: '#EEF1F5', soft: '#CDD5DF', mid: '#64748B', deep: '#3B4859', g1: '#A3B0C2', g2: '#64748B' },
+  red: { tile: '#FFEDEA', soft: '#FFC4BA', mid: '#E5484D', deep: '#B4232A', g1: '#FF8A7A', g2: '#E03E3E' },
   lime: { tile: '#EEF8E3', soft: '#C7E9A3', mid: '#5DAA2A', deep: '#3D7A14', g1: '#93D460', g2: '#529E24' },
 }
 
@@ -106,6 +107,15 @@ export const ICONS = {
     body: [c(24, 24, 18)],
     line: ['M20 16l-6 6 6 6', 'M14 22h12a6 6 0 0 1 0 12h-4'],
     accentP: [] },
+  // Application livreur : échec de livraison, itinéraire du jour
+  echec: { hue: 'red', accent: 'amber',
+    body: [c(24, 24, 18)],
+    line: ['M17.5 17.5l13 13', 'M30.5 17.5l-13 13'],
+    accentP: [] },
+  itineraire: { hue: 'indigo', accent: 'amber',
+    body: [c(24, 24, 18)],
+    line: ['M15.5 31.5h9.5a4.5 4.5 0 0 0 0-9h-2a4.5 4.5 0 0 1 0-9h9.5'],
+    accentP: [c(15.5, 31.5, 3.2), c(32.5, 13.5, 3.2)] },
   attente: { hue: 'slate', accent: 'amber',
     body: [c(24, 24, 18)],
     line: ['M24 14v10l6 4'],
