@@ -1,7 +1,9 @@
 <template>
-  <div class="space-y-4 max-w-6xl">
-    <div>
-      <h1 class="text-xl font-bold">Retours marchands</h1>
+  <div class="space-y-4">
+    <h1 class="text-xl font-bold">Courses</h1>
+    <!-- Courses, Activité des livreurs, Retours marchands -->
+    <CoursesTabs />
+    <div class="max-w-6xl">
       <p class="text-sm text-slate-600">
         Les colis à rendre aux e-commerçants : trop de tentatives, colis refusé, ou retour demandé par l'e-commerçant ou par l'agence.
         Regroupez ceux d'un e-commerçant sur un bon de retour confié à un livreur : l'e-commerçant est prévenu, il signe à la remise,
@@ -146,6 +148,7 @@
 </template>
 
 <script setup>
+import CoursesTabs from '../../components/CoursesTabs.vue'
 import Icone from '../../components/ui/Icone.vue'
 import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref } from 'vue'

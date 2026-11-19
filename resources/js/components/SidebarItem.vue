@@ -23,9 +23,12 @@ const props = defineProps({
   badge: { type: Number, default: 0 },
   // Reste allumé sur les pages en dessous (onglets)
   prefix: { type: Boolean, default: false },
+  // Autres adresses qui l'allument (onglets rangés ailleurs, ex. Courses › Activité des livreurs)
+  also: { type: Array, default: () => [] },
 })
 
 // « prefix » : aussi allumé sur les pages sœurs en dessous de son adresse (ex. /admin/whatsapp/messages)
 const route = useRoute()
-const below = computed(() => props.prefix && route.path.startsWith(`${props.to}/`))
+const below = computed(() => (props.prefix && route.path.startsWith(`${props.to}/`))
+  || props.also.some((p) => route.path === p || route.path.startsWith(`${p}/`)))
 </script>
