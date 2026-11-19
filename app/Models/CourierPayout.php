@@ -18,7 +18,7 @@ class CourierPayout extends Model
 
     protected $fillable = [
         'company_id', 'courier_id', 'reference', 'period_start', 'period_end', 'amount', 'status', 'automatic',
-        'method', 'compensated', 'transaction_ref', 'created_by', 'paid_by', 'paid_at',
+        'method', 'compensated', 'remittance_id', 'transaction_ref', 'created_by', 'paid_by', 'paid_at',
     ];
 
     protected function casts(): array
@@ -38,6 +38,12 @@ class CourierPayout extends Model
     public function courier(): BelongsTo
     {
         return $this->belongsTo(Courier::class);
+    }
+
+    /** Paie réglée sur ce versement (plan « paie déduite à chaque versement ») */
+    public function remittance(): BelongsTo
+    {
+        return $this->belongsTo(CourierRemittance::class, 'remittance_id');
     }
 
     public function earnings(): HasMany

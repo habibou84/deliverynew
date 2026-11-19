@@ -81,7 +81,7 @@ class PayPlanController extends Controller
             };
 
             if ($source) {
-                $attributes = $source->only(['pickup_mode', 'pickup_extra_parcel_amount', 'min_amount', 'max_amount', 'base_salary', 'pay_period', 'deduction_cap_percent']);
+                $attributes = $source->only(['pickup_mode', 'pickup_extra_parcel_amount', 'min_amount', 'max_amount', 'base_salary', 'pay_period', 'deduction_cap_percent', 'settle_on_remittance']);
                 $bonuses = $source->loadMissing('bonuses')->bonuses->map(fn ($b) => $b->only(['metric', 'threshold', 'min_count', 'amount', 'label']))
                     ->map(fn ($b) => ['metric' => $b['metric']->value] + $b)->all();
                 $rules = $source->rules->map(fn ($r) => [
@@ -215,6 +215,7 @@ class PayPlanController extends Controller
             'base_salary' => ['sometimes', 'integer', 'min:0', 'max:100000000'],
             'pay_period' => ['sometimes', 'nullable', Rule::in(array_keys(PayPlan::PERIODS))],
             'deduction_cap_percent' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100'],
+            'settle_on_remittance' => ['sometimes', 'boolean'],
             'rules' => ['sometimes', 'array', 'max:100'],
             'rules.*.event' => ['required', Rule::enum(PayEvent::class)],
             'rules.*.calc' => ['required', Rule::enum(PayCalc::class)],
@@ -269,6 +270,7 @@ class PayPlanController extends Controller
             'base_salary' => 'salaire de base',
             'pay_period' => 'période de paie',
             'deduction_cap_percent' => 'plafond des retenues',
+            'settle_on_remittance' => 'paie déduite au versement',
         ]);
 
         foreach ($data['rules'] ?? [] as $i => $rule) {

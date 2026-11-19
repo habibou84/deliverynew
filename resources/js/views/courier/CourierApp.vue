@@ -18,7 +18,7 @@ import { loadBranding, spaceColor } from '../../composables/useBranding'
 import OfflineQueueBanner from '../../components/mobile/OfflineQueueBanner.vue'
 import CourierAppBanner from '../../components/mobile/CourierAppBanner.vue'
 import AvailabilitySwitch from '../../components/courier/AvailabilitySwitch.vue'
-import { RouteIcon, UserIcon, WalletIcon } from '../../components/mobile/icons'
+import { CoinsIcon, RouteIcon, UserIcon, WalletIcon } from '../../components/mobile/icons'
 import { currentPosition } from '../../composables/useGeolocation'
 import { loadOfflineQueue, startOfflineSync } from '../../composables/useOfflineQueue'
 import { useAuthStore } from '../../stores/auth'
@@ -52,6 +52,7 @@ onBeforeUnmount(() => clearInterval(locationTimer))
 const tabs = [
   { to: '/livreur', label: 'Missions', icon: RouteIcon, exact: true },
   { to: '/livreur/caisse', label: 'Caisse', icon: WalletIcon },
+  { to: '/livreur/gains', label: 'Mes gains', icon: CoinsIcon },
   { to: '/livreur/profil', label: 'Profil', icon: UserIcon },
 ]
 
