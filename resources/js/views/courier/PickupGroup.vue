@@ -6,25 +6,15 @@
         <span class="text-xs font-semibold uppercase tracking-wide text-[var(--app-color)]">Ramassage groupé</span>
         <span class="rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold px-2 py-0.5">{{ missions.length }} colis</span>
       </div>
-      <p v-if="offlineCount" class="rounded-xl bg-sky-50 text-sky-900 p-3 text-sm">
-        ⏳ Enregistré sur votre téléphone : envoi automatique au retour du réseau.
+      <p v-if="offlineCount" class="flex items-start gap-2 rounded-xl bg-sky-50 text-sky-900 p-3 text-sm">
+        <Icone nom="hors-ligne" taille="petite" />Enregistré sur votre téléphone : envoi automatique au retour du réseau.
       </p>
-      <p v-if="gain" class="text-sm font-semibold text-emerald-700">💰 Votre gain prévu : + {{ money(gain) }}</p>
+      <p v-if="gain" class="flex items-center gap-1.5 text-sm font-semibold text-emerald-700"><Icone nom="gain" taille="petite" />Votre gain prévu : + {{ money(gain) }}</p>
       <p class="text-xl font-bold">{{ shop.name }}</p>
-      <p class="text-slate-700">📍 {{ shop.zone }}<span v-if="shop.address"> · {{ shop.address }}</span></p>
+      <p class="flex items-start gap-1.5 text-slate-700"><Icone nom="adresse" class="mt-0.5" />{{ shop.zone }}<span v-if="shop.address"> · {{ shop.address }}</span></p>
       <p v-if="shop.landmark" class="text-slate-600">Repère : {{ shop.landmark }}</p>
 
-      <div class="grid grid-cols-3 gap-2 pt-2">
-        <a :href="telLink(shop.phone)" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
-          <span class="text-2xl">📞</span>Appeler
-        </a>
-        <a :href="whatsappLink(shop.phone)" target="_blank" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
-          <span class="text-2xl">💬</span>WhatsApp
-        </a>
-        <a :href="mapsLink(shop.lat, shop.lng, `${shop.address || ''} ${shop.zone}`)" target="_blank" class="tap rounded-2xl bg-slate-100 py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-slate-200">
-          <span class="text-2xl">🗺️</span>Itinéraire
-        </a>
-      </div>
+      <ContactActions class="pt-2" :phone="shop.phone" :maps-href="mapsLink(shop.lat, shop.lng, `${shop.address || ''} ${shop.zone}`)" />
     </section>
 
     <!-- Les colis : décocher ceux qui ne sont pas prêts -->
@@ -43,13 +33,13 @@
         >
         <span class="flex-1 min-w-0">
           <span class="block font-semibold truncate">{{ m.order.recipient.name || m.order.recipient.phone }}</span>
-          <span class="block text-sm text-slate-600 truncate">🛵 vers {{ m.order.delivery.zone_name }} · {{ m.order.package.description || 'Colis' }}</span>
+          <span class="flex items-center gap-1 text-sm text-slate-600 truncate"><Icone nom="livrer" taille="petite" />vers {{ m.order.delivery.zone_name }} · {{ m.order.package.description || 'Colis' }}</span>
           <span class="flex flex-wrap items-center gap-2 mt-1">
             <span v-if="m.status === 'assigned'" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">À accepter</span>
             <StatusBadge v-else :status="m.order.status" :label="m.order.status_label" />
-            <span v-if="m.offline" class="rounded-full bg-sky-100 text-sky-800 text-xs font-semibold px-2 py-0.5">⏳ À envoyer</span>
-            <span v-if="m.order.package.is_fragile" class="rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5">🥚 Fragile</span>
-            <span v-if="m.order.package.is_express" class="rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5">⚡ Express</span>
+            <span v-if="m.offline" class="inline-flex items-center gap-1 rounded-full bg-sky-100 text-sky-800 text-xs font-semibold px-2 py-0.5"><Icone nom="hors-ligne" taille="petite" />À envoyer</span>
+            <span v-if="m.order.package.is_fragile" class="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5"><Icone nom="fragile" taille="petite" />Fragile</span>
+            <span v-if="m.order.package.is_express" class="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold px-2 py-0.5"><Icone nom="rapide" taille="petite" />Express</span>
             <span class="font-mono text-xs text-slate-600">{{ m.order.tracking_code }}</span>
           </span>
         </span>
@@ -61,12 +51,12 @@
     <div class="fixed bottom-16 inset-x-0 z-20 bg-white border-t pb-safe">
       <div class="mx-auto max-w-lg p-3 space-y-2">
         <button v-if="toAccept.length" class="m-btn-success text-lg py-5" :disabled="busy" @click="acceptAll">
-          ✓ Accepter {{ toAccept.length > 1 ? `les ${toAccept.length} colis` : 'le colis' }}
+          <span class="inline-flex items-center justify-center gap-2"><Icone nom="valider" taille="grande" />Accepter {{ toAccept.length > 1 ? `les ${toAccept.length} colis` : 'le colis' }}</span>
         </button>
         <template v-if="active.length">
-          <button v-if="toStart.length" class="m-btn-primary text-lg py-5" :disabled="busy" @click="leave">🛵 Je pars chez {{ shop.name }}</button>
+          <button v-if="toStart.length" class="m-btn-primary text-lg py-5" :disabled="busy" @click="leave"><span class="inline-flex items-center justify-center gap-2"><Icone nom="livrer" taille="grande" />Je pars chez {{ shop.name }}</span></button>
           <button v-else class="m-btn-success text-lg py-5" :disabled="busy || !pickedCount" @click="openPicked">
-            ✓ J'ai tout récupéré ({{ pickedCount }}/{{ active.length }})
+            <span class="inline-flex items-center justify-center gap-2"><Icone nom="valider" taille="grande" />J'ai tout récupéré ({{ pickedCount }}/{{ active.length }})</span>
           </button>
         </template>
         <p v-if="toAccept.length" class="text-center text-xs text-slate-600">Pour refuser un colis, ouvrez son détail.</p>
@@ -78,13 +68,13 @@
       <div class="space-y-4">
         <p class="text-sm text-slate-600">Ces colis retournent à l'agence pour un prochain ramassage :</p>
         <ul class="text-sm font-medium space-y-0.5">
-          <li v-for="m in missing" :key="m.id">📦 {{ m.order.recipient.name || m.order.recipient.phone }} <span class="font-mono text-xs text-slate-600">{{ m.order.tracking_code }}</span></li>
+          <li v-for="m in missing" :key="m.id" class="flex items-center gap-1.5"><Icone nom="course" taille="petite" />{{ m.order.recipient.name || m.order.recipient.phone }} <span class="font-mono text-xs text-slate-600">{{ m.order.tracking_code }}</span></li>
         </ul>
         <ChoiceChips v-model="incident.reason" :options="reasonOptions" label="Motif" />
         <textarea v-model="incident.note" rows="2" class="m-input" placeholder="Précisez (facultatif) : ex. colis pas encore emballé" />
         <p v-if="sheetError" class="text-red-600 text-sm">{{ sheetError }}</p>
         <button class="m-btn-success" :disabled="busy || !incident.reason" @click="confirmPicked">
-          ✓ Valider : {{ pickedCount }} récupéré{{ pickedCount > 1 ? 's' : '' }}
+          <span class="inline-flex items-center justify-center gap-2"><Icone nom="valider" />Valider : {{ pickedCount }} récupéré{{ pickedCount > 1 ? 's' : '' }}</span>
         </button>
       </div>
     </BottomSheet>
@@ -99,12 +89,14 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
+import ContactActions from '../../components/courier/ContactActions.vue'
+import Icone from '../../components/ui/Icone.vue'
 import { useAuthStore } from '../../stores/auth'
 import { cachedGet } from '../../composables/useCachedApi'
 import { useToastStore } from '../../stores/toasts'
 import { currentPosition } from '../../composables/useGeolocation'
 import { sendStatus, withPending } from '../../composables/useOfflineQueue'
-import { mapsLink, money, telLink, whatsappLink } from '../../utils/format'
+import { mapsLink, money } from '../../utils/format'
 
 /**
  * Une mission par boutique : tous les colis à ramasser chez le même client, à la même adresse.

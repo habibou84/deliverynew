@@ -5,7 +5,7 @@
  */
 import {
   ArrowLeft, ArrowUpDown, Award, Backpack, Ban, Banknote, Bell, Bike, Building2, Bus, Calendar, CalendarClock, CalendarDays, Camera,
-  ChartColumn, Check, ChevronDown, ChevronUp, CircleUserRound, ClipboardList, CloudOff, Coins, Handshake, ListOrdered, LocateFixed, MapPinned, Navigation, PackageCheck, PackagePlus, Power, LogOut, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
+  CarTaxiFront, ChartColumn, Check, CircleParking, Egg, MessageCircleMore, QrCode, ReceiptText, ScanLine, StickyNote, Target, ChevronDown, ChevronUp, CircleUserRound, ClipboardList, CloudOff, Coins, Handshake, ListOrdered, LocateFixed, MapPinned, Navigation, PackageCheck, PackagePlus, Power, LogOut, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
   House, Info, Landmark, LayoutDashboard, LifeBuoy, Lock, Map, MapPin, Megaphone, Menu, MessageCircle, Monitor, Moon,
   Package, PackageOpen, Pause, Pencil, Phone, Plus, Printer, Receipt, RefreshCw, Repeat, Route, Search, Settings,
   ShieldAlert, SlidersHorizontal, Smartphone, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
@@ -122,4 +122,13 @@ export const ICONES = {
   descendre: ChevronDown,
   disponible: Power,
   position: LocateFixed,
+  ecrire: MessageCircleMore,
+  fragile: Egg,
+  note: StickyNote,
+  frais: ReceiptText,
+  taxi: CarTaxiFront,
+  parking: CircleParking,
+  objectif: Target,
+  scanner: ScanLine,
+  'qr-code': QrCode,
 }

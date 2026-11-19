@@ -14,25 +14,25 @@
 
     <!-- Colis non livrés encore en main : à rapporter au dépôt lors du point -->
     <section v-if="parcelsToReturn.length || parcelsKept.length || onTheRoad.length" class="space-y-2">
-      <p v-if="onTheRoad.length" class="rounded-xl bg-sky-50 text-sky-900 text-sm px-4 py-3">
-        🛵 {{ onTheRoad.length }} course{{ onTheRoad.length > 1 ? 's' : '' }} en chemin : indiquez « livré » ou « échec » avant de faire votre point à la caisse.
+      <p v-if="onTheRoad.length" class="flex items-start gap-2 rounded-xl bg-sky-50 text-sky-900 text-sm px-4 py-3">
+        <Icone nom="livrer" taille="petite" class="mt-0.5" />{{ onTheRoad.length }} course{{ onTheRoad.length > 1 ? 's' : '' }} en chemin : indiquez « livré » ou « échec » avant de faire votre point à la caisse.
       </p>
       <template v-if="parcelsKept.length">
-        <h2 class="font-semibold">🌙 Colis à garder pour leur livraison ({{ parcelsKept.length }})</h2>
+        <h2 class="flex items-center gap-2 font-semibold"><Icone nom="jour-ferme" />Colis à garder pour leur livraison ({{ parcelsKept.length }})</h2>
         <div class="m-card divide-y">
           <div v-for="p in parcelsKept" :key="p.id" class="p-4 flex justify-between gap-3">
             <div class="min-w-0">
               <p class="font-medium truncate">{{ p.recipient_name || p.recipient_phone }}</p>
               <p class="text-xs text-slate-600">{{ p.tracking_code }} · {{ p.merchant }}</p>
             </div>
-            <p v-if="p.date_to_confirm" class="text-xs text-right text-amber-700">📅 Date à confirmer</p>
+            <p v-if="p.date_to_confirm" class="flex items-center justify-end gap-1 text-xs text-amber-700"><Icone nom="date" taille="petite" />Date à confirmer</p>
             <p v-else class="text-xs text-right text-indigo-700">Livraison {{ date(p.kept_for) }}</p>
           </div>
         </div>
         <p class="text-sm text-slate-600 text-center">Gardez-les avec vous : la livraison vous sera confiée le jour prévu.<template v-if="parcelsKept.some((p) => p.date_to_confirm)"> « Date à confirmer » : l'agence vous dira quand le livrer ou le rapporter.</template></p>
       </template>
       <template v-if="parcelsToReturn.length">
-        <h2 class="font-semibold">📦 Colis à rapporter au dépôt ({{ parcelsToReturn.length }})</h2>
+        <h2 class="flex items-center gap-2 font-semibold"><Icone nom="course" />Colis à rapporter au dépôt ({{ parcelsToReturn.length }})</h2>
         <div class="m-card divide-y">
           <div v-for="p in parcelsToReturn" :key="p.id" class="p-4 flex justify-between gap-3">
             <div class="min-w-0">
@@ -59,7 +59,7 @@
 
     <div v-for="p in wallet.pending_payslips || []" :key="p.reference" class="m-card p-4 flex justify-between gap-3 bg-emerald-50">
       <div class="min-w-0">
-        <p class="font-medium">🧾 Fiche de paie prête</p>
+        <p class="flex items-center gap-2 font-medium"><Icone nom="recette" />Fiche de paie prête</p>
         <p class="text-xs text-slate-600">{{ date(p.period_start) }} → {{ date(p.period_end) }} · {{ p.reference }} · en attente de paiement</p>
       </div>
       <p :class="['font-bold whitespace-nowrap', signedClass(p.amount)]">{{ money(p.amount) }}</p>
@@ -71,7 +71,7 @@
     </p>
 
     <section v-if="wallet.pay?.objectives?.length" class="m-card p-4 space-y-3">
-      <h2 class="font-semibold">🎯 Mes objectifs de la période</h2>
+      <h2 class="flex items-center gap-2 font-semibold"><Icone nom="objectif" />Mes objectifs de la période</h2>
       <div v-for="o in wallet.pay.objectives" :key="o.metric" class="space-y-1">
         <div class="flex justify-between text-sm">
           <span>{{ o.label }}</span>
@@ -82,7 +82,7 @@
         </div>
         <p class="text-xs text-slate-600">
           <span v-for="(t, i) in o.tiers" :key="t.threshold">
-            <span :class="t.reached ? 'text-emerald-700 font-semibold' : ''">{{ t.reached ? '✓ ' : '' }}{{ t.threshold }}{{ o.metric === 'success_rate' ? ' %' : '' }} → {{ money(t.amount) }}</span><span v-if="i < o.tiers.length - 1"> · </span>
+            <span :class="t.reached ? 'text-emerald-700 font-semibold' : ''"><Icone v-if="t.reached" nom="valider" taille="petite" class="inline align-[-3px]" />{{ t.threshold }}{{ o.metric === 'success_rate' ? ' %' : '' }} → {{ money(t.amount) }}</span><span v-if="i < o.tiers.length - 1"> · </span>
           </span>
         </p>
         <p v-if="o.metric === 'success_rate' && o.min_count && o.attempts < o.min_count" class="text-xs text-slate-600">
@@ -157,7 +157,7 @@
       </div>
     </section>
 
-    <EmptyState v-if="!wallet.parcels?.length && !wallet.collections.length && !wallet.advances?.length && !wallet.expenses?.length && !wallet.recent_payouts.length" icon="💵" title="Rien à verser" text="L'argent encaissé lors de vos livraisons apparaîtra ici." />
+    <EmptyState v-if="!wallet.parcels?.length && !wallet.collections.length && !wallet.advances?.length && !wallet.expenses?.length && !wallet.recent_payouts.length" art="argent" title="Rien à verser" text="L'argent encaissé lors de vos livraisons apparaîtra ici." />
   </div>
   <div v-else-if="error" class="text-center py-10 space-y-3">
     <p class="text-slate-600">{{ error }}</p>
@@ -167,6 +167,7 @@
 </template>
 
 <script setup>
+import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, ref } from 'vue'
 import { apiErrorMessage } from '../../bootstrap/axios'
 import { cachedGet } from '../../composables/useCachedApi'
