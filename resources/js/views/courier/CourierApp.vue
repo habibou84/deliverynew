@@ -1,5 +1,8 @@
 <template>
   <MobileLayout base="/livreur" :color="spaceColor('livreur')" app-name="Mes missions" :tabs="tabs">
+    <template #actions>
+      <AvailabilitySwitch />
+    </template>
     <template #banner>
       <OfflineQueueBanner />
       <CourierAppBanner />
@@ -14,6 +17,7 @@ import MobileLayout from '../../components/mobile/MobileLayout.vue'
 import { loadBranding, spaceColor } from '../../composables/useBranding'
 import OfflineQueueBanner from '../../components/mobile/OfflineQueueBanner.vue'
 import CourierAppBanner from '../../components/mobile/CourierAppBanner.vue'
+import AvailabilitySwitch from '../../components/courier/AvailabilitySwitch.vue'
 import { RouteIcon, UserIcon, WalletIcon } from '../../components/mobile/icons'
 import { currentPosition } from '../../composables/useGeolocation'
 import { loadOfflineQueue, startOfflineSync } from '../../composables/useOfflineQueue'

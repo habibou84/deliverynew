@@ -10,8 +10,8 @@ use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
 /**
- * Tournée du livreur : il range ses livraisons du jour (de proche en proche ou à la main), l'ordre est gardé et les
- * nouvelles livraisons passent après.
+ * Itinéraire du livreur : il range ses missions du jour (ramassages, livraisons, retours ; de proche en proche ou à
+ * la main), l'ordre est gardé et les nouvelles missions passent après.
  */
 class CourierRouteTest extends TestCase
 {
@@ -73,7 +73,7 @@ class CourierRouteTest extends TestCase
         $mine = $this->deliveryFor();
         $pickup = OrderAssignment::query()->where('order_id', $mine->order_id)->where('type', 'pickup')->sole();
 
-        // Livraison d'un autre livreur, ou ramassage : refusé, rien ne change
+        // Livraison d'un autre livreur, ou ramassage déjà fait par un autre : refusé, rien ne change
         Sanctum::actingAs($this->courierA->user);
         $this->putJson('/api/v1/courier/route', ['assignment_ids' => [$mine->id]])->assertStatus(422);
         Sanctum::actingAs($this->courierB->user);
@@ -82,5 +82,31 @@ class CourierRouteTest extends TestCase
 
         Sanctum::actingAs($this->dispatcher);
         $this->putJson('/api/v1/courier/route', ['assignment_ids' => [$mine->id]])->assertForbidden();
+    }
+
+    public function test_pickups_and_deliveries_share_one_itinerary(): void
+    {
+        $delivery = $this->deliveryFor();
+        // Nouveau ramassage confié au même livreur B
+        $order = $this->createOrder();
+        Sanctum::actingAs($this->dispatcher);
+        $this->postJson("/api/v1/orders/{$order->id}/assign", ['type' => 'pickup', 'courier_id' => $this->courierB->id])->assertOk();
+        $pickup = OrderAssignment::query()->where('order_id', $order->id)->where('type', 'pickup')->sole();
+
+        Sanctum::actingAs($this->courierB->user);
+        $this->putJson('/api/v1/courier/route', ['assignment_ids' => [$delivery->id, $pickup->id]])->assertOk();
+        $this->assertSame([2, 1], [$pickup->fresh()->route_rank, $delivery->fresh()->route_rank]);
+    }
+
+    public function test_history_lists_todays_finished_missions(): void
+    {
+        $delivery = $this->deliveryFor();
+        Sanctum::actingAs($this->courierB->user);
+        $this->postJson("/api/v1/orders/{$delivery->order_id}/status", ['status' => 'out_for_delivery'])->assertOk();
+        $delivery->forceFill(['status' => 'completed', 'completed_at' => now()])->save();
+
+        $history = collect($this->getJson('/api/v1/courier/missions?history=1')->assertOk()->json('data'));
+        $this->assertSame([$delivery->id], $history->pluck('id')->all());
+        $this->assertNotContains($delivery->id, collect($this->getJson('/api/v1/courier/missions')->json('data'))->pluck('id'));
     }
 }
