@@ -45,7 +45,10 @@ class CourierSpaceController extends Controller
             ->where('courier_id', $courier->id)
             ->when(
                 $request->boolean('history'),
-                fn ($q) => $q->whereNotIn('status', ['assigned', 'accepted', 'in_progress'])->whereDate('updated_at', today()),
+                // Missions terminées du jour ; les retours rendus restent visibles 7 jours
+                fn ($q) => $q->whereNotIn('status', ['assigned', 'accepted', 'in_progress'])
+                    ->where(fn ($q) => $q->where(fn ($q) => $q->where('type', '!=', AssignmentType::Return->value)->whereDate('updated_at', today()))
+                        ->orWhere(fn ($q) => $q->where('type', AssignmentType::Return->value)->where('updated_at', '>=', today()->subDays(6)))),
                 // Livraisons : seulement celles prévues aujourd'hui (les retards et les jours à venir restent à l'agence)
                 fn ($q) => $q->active()->where(fn ($q) => $q->where('type', '!=', AssignmentType::Delivery->value)
                     ->orWhereHas('order', fn ($o) => $o->ofDay($today)))
@@ -58,7 +61,7 @@ class CourierSpaceController extends Controller
                 'expenses' => fn ($e) => $e->active()->where('courier_id', $courier->id)->orderBy('id'),
             ])])
             ->orderByRaw("CASE type WHEN 'pickup' THEN 0 WHEN 'delivery' THEN 1 ELSE 2 END")
-            // Tournée choisie par le livreur, puis les missions pas encore placées
+            // Itinéraire choisi par le livreur, puis les missions pas encore placées
             ->orderByRaw('CASE WHEN route_rank IS NULL THEN 1 ELSE 0 END')
             ->orderBy('route_rank')
             ->orderBy('assigned_at')
@@ -137,8 +140,8 @@ class CourierSpaceController extends Controller
 
     /** « J'ai vu » : le livreur a lu la modification de sa mission (noté dans le journal pour l'équipe) */
     /**
-     * Tournée : ordre de passage des livraisons en cours, choisi par le livreur (tri de proche en proche ou à la
-     * main). Les livraisons absentes de la liste passent après.
+     * Itinéraire : ordre de passage des missions en cours (ramassages, livraisons, retours), choisi par le livreur
+     * (tri de proche en proche ou à la main). Les missions absentes de la liste passent après.
      */
     public function route(Request $request): JsonResponse
     {
@@ -148,12 +151,11 @@ class CourierSpaceController extends Controller
             'assignment_ids.*' => ['integer', 'distinct'],
         ])['assignment_ids'];
 
-        $deliveries = OrderAssignment::query()->where('courier_id', $courier->id)->active()
-            ->where('type', AssignmentType::Delivery->value)->pluck('id');
-        abort_if(array_diff($ids, $deliveries->all()) !== [], 422, 'Certaines livraisons ne sont pas (ou plus) les vôtres.');
+        $mine = OrderAssignment::query()->where('courier_id', $courier->id)->active()->pluck('id');
+        abort_if(array_diff($ids, $mine->all()) !== [], 422, 'Certaines missions ne sont pas (ou plus) les vôtres.');
 
-        DB::transaction(function () use ($ids, $deliveries) {
-            OrderAssignment::query()->whereIn('id', $deliveries)->whereNotIn('id', $ids)->update(['route_rank' => null]);
+        DB::transaction(function () use ($ids, $mine) {
+            OrderAssignment::query()->whereIn('id', $mine)->whereNotIn('id', $ids)->update(['route_rank' => null]);
             foreach (array_values($ids) as $i => $id) {
                 OrderAssignment::query()->whereKey($id)->update(['route_rank' => $i + 1]);
             }
