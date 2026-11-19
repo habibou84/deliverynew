@@ -89,6 +89,8 @@ class FinanceController extends Controller
             // À surveiller : argent gardé trop longtemps ou au-delà du plafond de l'entreprise
             'watch' => isset($cash[$c->id]) ? $this->alerts->reason($company, $cash[$c->id]) : null,
             'cash_in_hand' => $cash[$c->id]['due'] ?? 0,
+            // Paie déduite au prochain versement (plan « paie déduite à chaque versement »)
+            'pay_deduction' => ($cash[$c->id]['due'] ?? 0) > 0 ? min($cash[$c->id]['due'], $this->payroll->remittancePayable($c)) : 0,
             'collected' => $cash[$c->id]['collected'] ?? 0,
             'advances' => $cash[$c->id]['advances'] ?? 0,
             'expenses' => $cash[$c->id]['expenses'] ?? 0,
@@ -860,7 +862,9 @@ class FinanceController extends Controller
         return response()->json(['data' => [
             ...$this->payroll->summary($courier),
             'earned_today' => (int) $courier->earnings()->whereIn('type', ['pickup', 'delivery', 'failed_attempt', 'return'])->whereDate('created_at', today())->sum('amount'),
-            ...$this->courierExtras($courier),
+            ...($extras = $this->courierExtras($courier)),
+            // Paie déduite au prochain versement : au plus l'argent qu'il a en main
+            'pay_deduction' => min($extras['pay_deduction'], max(0, $extras['balance']['due'])),
             'collections' => $courier->collections()->inCourierHands()->with('order:id,tracking_code,recipient_name,merchant_id')
                 ->orderBy('collected_at')->get()->map(fn ($c) => $this->collectionData($c)),
             // Fiches de paie préparées, pas encore payées
@@ -871,8 +875,18 @@ class FinanceController extends Controller
             // Détail des gains à recevoir (montant, calcul selon le plan)
             'earnings' => $courier->earnings()->with('order:id,tracking_code')->whereNull('payout_id')->latest('id')->limit(50)->get()
                 ->map(fn ($e) => $this->earningData($e)),
-            'recent_payouts' => $courier->payouts()->where('status', 'paid')->latest('paid_at')->limit(5)->get()
-                ->map(fn ($p) => ['reference' => $p->reference, 'amount' => $p->amount, 'paid_at' => $p->paid_at]),
+            'recent_payouts' => $courier->payouts()->where('status', 'paid')->latest('paid_at')->limit(10)->get()
+                ->map(fn ($p) => [
+                    'reference' => $p->reference,
+                    'amount' => $p->amount,
+                    'paid_at' => $p->paid_at,
+                    'settled_on_remittance' => $p->remittance_id !== null,
+                    'method_label' => $p->remittance_id !== null ? 'réglée sur le versement' : ($p->compensated ? 'gardée sur l\'encaissé' : $p->method?->label()),
+                ]),
+            // Gains de la semaine (lundi → aujourd'hui)
+            'earned_week' => (int) $courier->earnings()->whereIn('type', ['pickup', 'delivery', 'failed_attempt', 'return'])->where('created_at', '>=', today()->startOfWeek())->sum('amount'),
+            // Plan « paie déduite à chaque versement »
+            'settles_on_remittance' => (bool) app(CourierPay::class)->planFor($courier)?->settle_on_remittance,
         ]]);
     }
 
@@ -962,6 +976,8 @@ class FinanceController extends Controller
     {
         return [
             'balance' => $this->courierCash->balance($courier),
+            // Plan « paie déduite à chaque versement » : paie qu'il gardera au prochain versement (au plus ce qu'il remet)
+            'pay_deduction' => $this->payroll->remittancePayable($courier),
             'parcels' => $this->custody->held($courier)->map(fn ($o) => ParcelCustody::parcelData($o))->values(),
             'advances' => $courier->advances()->unsettled()->with('order:id,tracking_code')->orderBy('given_at')->get()
                 ->map(fn (CourierAdvance $a) => $this->advanceData($a)),
@@ -1105,7 +1121,8 @@ class FinanceController extends Controller
             'status_label' => $p->status->label(),
             'automatic' => $p->automatic,
             'compensated' => $p->compensated,
-            'method_label' => $p->compensated ? 'gardé sur l\'encaissé' : $p->method?->label(),
+            'settled_on_remittance' => $p->remittance_id !== null,
+            'method_label' => $p->remittance_id !== null ? 'réglée sur le versement' : ($p->compensated ? 'gardé sur l\'encaissé' : $p->method?->label()),
             'transaction_ref' => $p->transaction_ref,
             'paid_at' => $p->paid_at,
             'created_at' => $p->created_at,

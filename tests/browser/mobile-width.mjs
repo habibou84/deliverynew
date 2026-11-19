@@ -11,7 +11,7 @@ const BASE = process.env.BASE_URL || 'http://127.0.0.1:8000'
 const WIDTH = Number(process.env.WIDTH || 360)
 const PAGES = [
   '', 'statistiques', 'courses', 'courses?queue=to_pickup', 'courses?queue=pickup_unassigned&vue=client', 'courses?queue=delivery_unassigned', 'courses/nouvelle', 'activite', 'activite/carte', 'activite/disponibles',
-  'activite/planning', 'activite/remontees', 'activite/colis', 'retours', 'caisse', 'paie-livreurs', 'marchands', 'stock', 'messages', 'livreurs', 'utilisateurs',
+  'planning', 'activite/remontees', 'activite/colis', 'retours', 'caisse', 'paie-livreurs', 'marchands', 'stock', 'messages', 'livreurs', 'utilisateurs',
   'mise-en-route', 'reglages', 'reglages/entreprise', 'reglages/courses', 'reglages/alertes', 'reglages/e-commercants', 'reglages/reprise',
   'livraison', 'livraison?onglet=supplements', 'livraison?onglet=grilles', 'whatsapp', 'whatsapp/messages', 'whatsapp/options', 'integrations', 'abonnement',
 ]

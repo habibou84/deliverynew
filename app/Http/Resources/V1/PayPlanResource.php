@@ -30,6 +30,7 @@ class PayPlanResource extends JsonResource
             'pay_period' => $this->pay_period,
             'pay_period_label' => $this->periodLabel(),
             'deduction_cap_percent' => $this->deduction_cap_percent,
+            'settle_on_remittance' => (bool) $this->settle_on_remittance,
             'couriers_count' => $this->whenCounted('couriers'),
             'bonuses' => $this->whenLoaded('bonuses', fn () => $this->bonuses->map(fn ($b) => [
                 'id' => $b->id,

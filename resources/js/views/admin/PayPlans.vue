@@ -76,6 +76,27 @@
         <p v-if="plan.base_salary > 0" class="text-xs text-slate-600">Un livreur arrivé en cours de période touche le salaire au prorata des jours.</p>
       </div>
 
+      <!-- Quand la paie est réglée : sur fiche, ou déduite à chaque versement à la caisse -->
+      <fieldset class="card p-4 space-y-3">
+        <legend class="font-semibold">Quand la paie est-elle réglée ?</legend>
+        <label :class="['flex items-start gap-3 rounded-lg border p-3 cursor-pointer', !plan.settle_on_remittance ? 'border-blue-600 bg-blue-50' : 'border-slate-200']">
+          <input v-model="plan.settle_on_remittance" type="radio" :value="false" class="mt-1">
+          <span>
+            <span class="block font-medium">Sur fiche de paie</span>
+            <span class="block text-sm text-slate-600">Le livreur verse tout l'argent encaissé. Ses gains sont payés à la fin de la période (ou à la demande), sur sa fiche de paie.</span>
+          </span>
+        </label>
+        <label :class="['flex items-start gap-3 rounded-lg border p-3 cursor-pointer', plan.settle_on_remittance ? 'border-blue-600 bg-blue-50' : 'border-slate-200']">
+          <input v-model="plan.settle_on_remittance" type="radio" :value="true" class="mt-1">
+          <span>
+            <span class="block font-medium">Déduite à chaque versement</span>
+            <span class="block text-sm text-slate-600">À chaque point à la caisse, ses gains pas encore payés (courses, primes, retenues) sont retirés de ce qu'il doit verser : il garde sa paie sur l'argent encaissé.</span>
+            <span class="mt-1 block text-xs text-slate-600">Jamais plus que l'argent qu'il remet (le reste attend le versement suivant) · plafond des retenues appliqué · une fiche « réglée sur le versement » est créée à chaque fois · le salaire fixe reste sur la fiche de fin de période.</span>
+          </span>
+        </label>
+        <p v-if="errors.settle_on_remittance" class="field-error has-error">{{ errors.settle_on_remittance[0] }}</p>
+      </fieldset>
+
       <!-- Règles par étape -->
       <div v-for="ev in meta.events" :key="ev.value" class="card p-4 space-y-3">
         <div class="flex items-center justify-between gap-2">
@@ -329,6 +350,7 @@ function emptyConditions() {
 function editable(p) {
   return {
     ...p,
+    settle_on_remittance: !!p.settle_on_remittance,
     bonuses: (p.bonuses || []).map((b) => ({ ...b, key: nextKey++ })),
     rules: p.rules.map((r) => ({
       ...r,
@@ -416,6 +438,7 @@ function payload(p) {
     base_salary: p.base_salary || 0,
     pay_period: p.pay_period || null,
     deduction_cap_percent: blank(p.deduction_cap_percent),
+    settle_on_remittance: !!p.settle_on_remittance,
     rules: p.rules.map((r) => ({
       event: r.event,
       calc: r.calc,

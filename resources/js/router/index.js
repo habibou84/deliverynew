@@ -95,12 +95,14 @@ const routes = [
         component: () => import('../views/admin/activity/CourierActivity.vue'),
         meta: { permission: 'orders.dispatch' },
         children: [
-          { path: '', component: () => import('../views/admin/activity/DailyTracking.vue'), meta: { permission: 'orders.dispatch' } },
-          { path: 'carte', component: () => import('../views/admin/CourierMap.vue'), meta: { permission: 'orders.dispatch' } },
+          // Écran d'ensemble : livreurs en liste ou sur la carte, remontées terrain et colis gardés à côté
+          { path: '', component: () => import('../views/admin/activity/ActivityBoard.vue'), props: { view: 'liste' }, meta: { permission: 'orders.dispatch' } },
+          { path: 'carte', component: () => import('../views/admin/activity/ActivityBoard.vue'), props: { view: 'carte' }, meta: { permission: 'orders.dispatch' } },
           { path: 'disponibles', component: () => import('../views/admin/CourierAvailability.vue'), meta: { permission: 'orders.dispatch' } },
           { path: 'colis', component: () => import('../views/admin/HeldParcels.vue'), meta: { permission: 'orders.dispatch' } },
           { path: 'remontees', component: () => import('../views/admin/FieldReports.vue'), meta: { permission: 'orders.dispatch' } },
-          { path: 'planning', component: () => import('../views/admin/Planning.vue'), meta: { permission: 'orders.dispatch' } },
+          // Le planning est dans Livraison › Planning des livreurs
+          { path: 'planning', redirect: (to) => ({ path: '/admin/planning', query: to.query }) },
           { path: 'mural', component: () => import('../views/admin/activity/WallScreen.vue'), meta: { permission: 'orders.dispatch' } },
         ],
       },
@@ -109,7 +111,8 @@ const routes = [
       { path: 'disponibilites', redirect: (to) => ({ path: '/admin/activite/disponibles', query: to.query }) },
       { path: 'colis-livreurs', redirect: (to) => ({ path: '/admin/activite/colis', query: to.query }) },
       { path: 'terrain', redirect: (to) => ({ path: '/admin/activite/remontees', query: to.query }) },
-      { path: 'planning', redirect: (to) => ({ path: '/admin/activite/planning', query: to.query }) },
+      // Livraison › Planning des livreurs
+      { path: 'planning', component: () => import('../views/admin/Planning.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'retours', component: () => import('../views/admin/MerchantReturns.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs', component: () => import('../views/admin/Couriers.vue'), meta: { permission: 'orders.dispatch' } },
       // Ancienne page « Notes des livreurs » : la note est dans la liste et la fiche de chaque livreur
@@ -185,7 +188,9 @@ const routes = [
       { path: 'missions/:id(\\d+)', component: () => import('../views/courier/MissionDetail.vue'), meta: { title: 'Mission', back: true } },
       { path: 'ramassage/:key', component: () => import('../views/courier/PickupGroup.vue'), meta: { title: 'Ramassage', back: true } },
       { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage', feature: 'stock' } },
+      { path: 'itineraire', component: () => import('../views/courier/Itinerary.vue'), meta: { title: 'Mon itinéraire', back: true } },
       { path: 'caisse', component: () => import('../views/courier/Wallet.vue'), meta: { title: 'Ma caisse' } },
+      { path: 'gains', component: () => import('../views/courier/Earnings.vue'), meta: { title: 'Mes gains' } },
       { path: 'messages', component: () => import('../views/courier/Messages.vue'), meta: { title: 'Consignes de l\'agence', back: true } },
       { path: 'relais', component: () => import('../views/courier/Relays.vue'), meta: { title: 'Relais', back: true } },
       { path: 'retours/:id(\\d+)', component: () => import('../views/courier/ReturnHandOver.vue'), meta: { title: 'Remise au marchand', back: true } },
