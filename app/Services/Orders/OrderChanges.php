@@ -21,6 +21,7 @@ class OrderChanges
         'delivery_zone_id' => 'Zone de livraison',
         'delivery_address' => 'Adresse de livraison',
         'delivery_landmark' => 'Repère',
+        'delivery_lat' => 'Position GPS du client',
         'delivery_scheduled_date' => 'Jour de livraison',
         'delivery_time_slot' => 'Créneau',
         'pickup_zone_id' => 'Zone de ramassage',
@@ -45,7 +46,7 @@ class OrderChanges
     /** Ce qui concerne le livreur en mission (il est prévenu quand ça change) */
     public const COURIER_FIELDS = [
         'recipient_name', 'recipient_phone', 'recipient_phone2', 'delivery_zone_id', 'delivery_address', 'delivery_landmark',
-        'delivery_scheduled_date', 'delivery_time_slot', 'cod_amount', 'pickup_zone_id', 'pickup_address', 'pickup_landmark',
+        'delivery_lat', 'delivery_scheduled_date', 'delivery_time_slot', 'cod_amount', 'pickup_zone_id', 'pickup_address', 'pickup_landmark',
         'pickup_contact_name', 'pickup_phone', 'is_fragile', 'description',
     ];
 
@@ -93,6 +94,8 @@ class OrderChanges
             'fee_payer' => FeePayer::tryFrom((string) $value) === FeePayer::Recipient ? 'Le client' : 'L\'e-commerçant',
             'is_fragile', 'is_express' => $value ? 'Oui' : 'Non',
             'delivery_scheduled_date' => Carbon::parse($value)->locale('fr')->isoFormat('dddd D/MM'),
+            // Coordonnées : le livreur ouvre la carte depuis la mission, ici on dit seulement qu'il y a un point
+            'delivery_lat' => 'Point sur la carte',
             default => (string) $value,
         };
     }
