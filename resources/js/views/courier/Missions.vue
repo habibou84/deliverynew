@@ -198,9 +198,9 @@ const error = ref('')
 const available = ref(auth.user?.courier?.is_available ?? false)
 const tab = ref('pickup')
 const tabs = [
-  { value: 'pickup', label: 'Ramasser' },
-  { value: 'delivery', label: 'Livrer' },
-  { value: 'return', label: 'Retours' },
+  { value: 'pickup', label: 'À ramasser' },
+  { value: 'delivery', label: 'À livrer' },
+  { value: 'return', label: 'À retourner' },
 ]
 
 // Livraisons : dans l'ordre de la tournée choisie par le livreur (non placées à la fin)
