@@ -40,6 +40,93 @@ class CourierPayroll
     }
 
     /**
+     * Plan « paie déduite à chaque versement » : gains non payés que le livreur garde sur l'argent encaissé au
+     * prochain versement (courses, primes, retenues ; le salaire fixe reste sur la fiche de fin de période).
+     * 0 si son plan règle la paie sur fiche.
+     */
+    public function remittancePayable(Courier $courier): int
+    {
+        $plan = app(CourierPay::class)->planFor($courier);
+        if (! $plan?->settle_on_remittance) {
+            return 0;
+        }
+
+        return max(0, $this->payable($this->remittanceEarnings($courier)->get(), $plan));
+    }
+
+    /**
+     * Au versement : la paie due est réglée en la laissant au livreur sur l'argent encaissé, jamais plus que
+     * $available (ce qu'il remet). Le reste éventuel attend le versement suivant. Null : rien à régler.
+     */
+    public function settleOnRemittance(User $actor, Courier $courier, int $available): ?CourierPayout
+    {
+        $plan = app(CourierPay::class)->planFor($courier);
+        if (! $plan?->settle_on_remittance || $available <= 0) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($actor, $courier, $plan, $available) {
+            $earnings = $this->remittanceEarnings($courier)->lockForUpdate()->get();
+            $payable = $this->payable($earnings, $plan);
+            if ($earnings->isEmpty() || $payable <= 0) {
+                return null;
+            }
+
+            $payout = $this->build($courier, $earnings, $earnings->min('created_at'), $earnings->max('created_at'), $actor);
+            if ($payout === null) {
+                return null;
+            }
+
+            // Pas assez d'argent en main : le reste de la paie attend le versement suivant
+            $rest = $payout->amount - $available;
+            if ($rest > 0) {
+                $detail = sprintf('Argent remis à la caisse : %s ; reste de la paie : %s', Money::format($available), Money::format($rest));
+                foreach ([[-$rest, $payout->id, 'Reste de la paie, à recevoir au prochain versement'], [$rest, null, 'Reste de la paie '.$payout->reference]] as [$amount, $payoutId, $description]) {
+                    CourierEarning::create([
+                        'company_id' => $courier->company_id,
+                        'courier_id' => $courier->id,
+                        'type' => EarningType::Adjustment,
+                        'amount' => $amount,
+                        'payout_id' => $payoutId,
+                        'description' => $description,
+                        'detail' => $detail,
+                        'created_by' => $actor->id,
+                    ]);
+                }
+                $payout->forceFill(['amount' => $available])->save();
+            }
+
+            return $this->markPaid($actor, $payout, self::COMPENSATION);
+        });
+    }
+
+    /** Gains réglés au versement : tout ce qui n'est pas payé, sauf le salaire fixe */
+    private function remittanceEarnings(Courier $courier)
+    {
+        return CourierEarning::query()->where('courier_id', $courier->id)->whereNull('payout_id')
+            ->where('type', '!=', EarningType::Salary->value);
+    }
+
+    /**
+     * Montant d'une fiche faite de ces gains : retenues limitées par le plafond du plan, comme build().
+     *
+     * @param  Collection<int, CourierEarning>  $earnings
+     */
+    private function payable(Collection $earnings, ?PayPlan $plan): int
+    {
+        $carriedBack = (int) $earnings->where('type', EarningType::Carryover)->where('amount', '>', 0)->sum('amount');
+        $gains = (int) $earnings->where('amount', '>', 0)->sum('amount') - $carriedBack;
+        $deductions = -(int) $earnings->where('amount', '<', 0)->sum('amount') - $carriedBack;
+        $cap = $plan?->deduction_cap_percent;
+        if ($cap !== null && $gains === 0) {
+            return 0;
+        }
+        $excess = $cap !== null ? max(0, $deductions - intdiv($gains * $cap, 100)) : 0;
+
+        return (int) $earnings->sum('amount') + $excess;
+    }
+
+    /**
      * Fiche de paie à la demande : tous les gains non payés du livreur.
      */
     public function create(User $actor, Courier $courier): CourierPayout

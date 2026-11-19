@@ -1,6 +1,6 @@
 # Icônes de l'application livreur
 
-L'application livreur n'utilise plus d'emojis : chaque événement d'une mission a son icône, toujours la même. Les
+L'application livreur (missions, détail d'une mission, ramassage groupé, relais, caisse, remise d'un retour, consignes, bandeaux) n'utilise plus d'emojis : chaque événement d'une mission a son icône, toujours la même. Les
 emojis restent réservés aux messages WhatsApp envoyés aux clients.
 
 Deux familles, déjà utilisées dans l'application e-commerçant :
@@ -52,3 +52,22 @@ Une idée nouvelle reçoit son icône dans le dictionnaire avant d'entrer dans u
 | Disponibilité | `disponible` | |
 | Notifications | `notifications` | cloche, invitation |
 | Ouvrir | `ouvrir` | chevron d'une carte |
+| Appeler | `appeler` | boutons de contact |
+| Écrire sur WhatsApp | `ecrire` | boutons de contact |
+| Valider (accepter, j'ai récupéré, livré, rendu) | `valider` | boutons d'action |
+| Problème | `urgent` | bouton d'une mission |
+| Note | `note` | bouton, note du marchand |
+| Frais | `frais` | bouton d'une mission |
+| Photo | `photo` | bouton, ticket, reçu |
+| Fragile | `fragile` | étiquette |
+| Colis | `course` | contenu du colis |
+| Entrepôt | `depot` | colis à prendre à l'entrepôt |
+| Transport, parking | `taxi`, `parking` | type de frais |
+| Scanner le QR code | `scanner` | relais |
+| Afficher le QR code | `qr-code` | relais |
+| Objectifs | `objectif` | caisse |
+| Fiche de paie | `recette` | caisse |
+| Colis gardé pour demain | `jour-ferme` | caisse |
+| Attente | `attente` | relais |
+
+Les moyens de paiement (espèces, Wave, Orange Money, MTN, Moov) sont signalés par une pastille de leur couleur.
