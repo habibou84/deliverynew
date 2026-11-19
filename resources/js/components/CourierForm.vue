@@ -1,9 +1,6 @@
 <template>
   <Modal :open="open" :title="`Profil livreur${courier?.name ? ` : ${courier.name}` : ''}`" @close="$emit('close')">
-    <!-- Profil (véhicule, zones, paie…) et compte de connexion (téléphone, mot de passe) -->
-    <Onglets v-if="canAccount" v-model="tab" :items="TABS" label="Fiche du livreur" class="mb-4" />
-    <CourierAccount v-if="canAccount && tab === 'compte'" :user-id="courier.user_id" @saved="$emit('saved')" />
-    <form v-show="tab === 'profil'" class="space-y-3" @submit.prevent="save">
+    <form class="space-y-3" @submit.prevent="save">
       <p v-if="courier?.vehicle" class="rounded-lg bg-slate-50 px-3 py-2 text-sm">
         Véhicule : <RouterLink :to="{ path: '/admin/vehicules', query: { id: courier.vehicle.id } }" class="text-blue-600">{{ courier.vehicle.label }}</RouterLink> (à changer dans sa fiche)
       </p>
@@ -68,20 +65,13 @@ import { RouterLink, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'
 import { ACCEPT_MODES } from '../views/admin/settings/options'
-import CourierAccount from './CourierAccount.vue'
 import Modal from './Modal.vue'
-import Onglets from './ui/Onglets.vue'
 
-/**
- * Fenêtre « Profil livreur » (page Livreurs et fiche du livreur) : onglet Profil (véhicule, paie, zones, limites,
- * disponibilité) et onglet Compte de connexion (nom, téléphone, mot de passe, lien, suspension).
- */
+/** Fenêtre « Profil livreur » : véhicule, paie, zones, limites, disponibilité (page Livreurs et fiche du livreur) */
 const props = defineProps({
   open: { type: Boolean, default: false },
   // Livreur au format de GET /couriers/{id}
   courier: { type: Object, default: null },
-  // Onglet ouvert d'abord : profil ou compte (compte de connexion)
-  initialTab: { type: String, default: 'profil' },
 })
 const emit = defineEmits(['close', 'saved'])
 
@@ -89,10 +79,6 @@ const VEHICLES = { moto: 'Moto', velo: 'Vélo', voiture: 'Voiture', tricycle: 'T
 const auth = useAuthStore()
 const router = useRouter()
 const canPay = computed(() => auth.can('settings.manage'))
-// Compte de connexion : pour qui gère les utilisateurs
-const canAccount = computed(() => auth.can('users.manage') && !!props.courier?.user_id)
-const TABS = [{ value: 'profil', label: 'Profil' }, { value: 'compte', label: 'Compte de connexion' }]
-const tab = ref('profil')
 const data = ref({})
 const error = ref('')
 const saving = ref(false)
@@ -111,11 +97,6 @@ async function loadLists() {
   zones.value = (await http.get('/zones')).data.data
   if (canPay.value) plans.value = (await http.get('/pay-plans')).data.data
 }
-
-// À l'ouverture seulement : un livreur rechargé après un enregistrement garde l'onglet ouvert
-watch(() => props.open, (value) => {
-  if (value) tab.value = canAccount.value && props.initialTab === 'compte' ? 'compte' : 'profil'
-}, { immediate: true })
 
 watch(() => [props.open, props.courier], () => {
   if (!props.open || !props.courier) return
