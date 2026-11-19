@@ -27,7 +27,7 @@ Une fois le ramassage fait (colis récupérés), un nouveau colis attend une nou
 
 ## 3. Livreur : une mission par boutique
 
-Dans l'onglet **Ramasser**, les colis d'une même boutique forment une seule carte
+Dans l'onglet **À ramasser**, les colis d'une même boutique forment une seule carte
 « Boutique X : N colis ». L'écran du lot permet de :
 
 - **Accepter** tous les colis d'un geste (pour en refuser un, ouvrir son détail) ;
