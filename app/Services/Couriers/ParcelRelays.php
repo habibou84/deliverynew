@@ -19,11 +19,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 
 /**
  * Relais entre livreurs : un colis encore chez un livreur (ramassage, échec, report) alors que sa livraison est
- * confiée à un autre. Celui qui a le colis affiche un code à 4 chiffres, celui qui le reçoit le saisit et coche les
- * colis reçus. Le dispatch peut valider à leur place (téléphone en panne). Sans relais, pas de départ en livraison
+ * confiée à un autre. Celui qui a le colis affiche un QR code, celui qui le reçoit coche les colis reçus et le scanne
+ * (le QR code porte un jeton secret, valable 15 minutes). Le dispatch peut valider à leur place (téléphone en panne). Sans relais, pas de départ en livraison
  * (réglage « Relais obligatoire »).
  */
 class ParcelRelays
@@ -137,7 +138,7 @@ class ParcelRelays
     }
 
     /**
-     * Le livreur qui a les colis prépare le relais : code à 4 chiffres affiché chez lui, l'autre livreur prévenu.
+     * Le livreur qui a les colis prépare le relais : QR code affiché chez lui, l'autre livreur prévenu.
      *
      * @param  list<int>  $orderIds
      */
@@ -153,7 +154,7 @@ class ParcelRelays
         }
 
         $relay = DB::transaction(function () use ($from, $to, $orderIds, $lat, $lng) {
-            // Un seul code valable à la fois entre ces deux livreurs
+            // Un seul QR code valable à la fois entre ces deux livreurs
             ParcelRelay::query()->where('status', ParcelRelay::PENDING)
                 ->where('from_courier_id', $from->id)->where('to_courier_id', $to->id)
                 ->update(['status' => ParcelRelay::CANCELLED, 'updated_at' => now()]);
@@ -163,7 +164,8 @@ class ParcelRelays
                 'from_courier_id' => $from->id,
                 'to_courier_id' => $to->id,
                 'status' => ParcelRelay::PENDING,
-                'code' => str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT),
+                // Jeton secret porté par le QR code : impossible à deviner
+                'code' => Str::random(ParcelRelay::TOKEN_LENGTH),
                 'order_ids' => $orderIds,
                 'expires_at' => now()->addMinutes(ParcelRelay::TTL_MINUTES),
                 'from_lat' => $lat,
@@ -174,13 +176,13 @@ class ParcelRelays
         $count = count($orderIds);
         $this->alert(collect([$to->user]), $orders->first(), 'relay',
             '🤝 Relais : '.($from->user?->name ?? 'un livreur').' a '.$count.' colis pour vous',
-            'Demandez-lui le code à 4 chiffres et saisissez-le dans Relais.');
+            'Retrouvez-le et scannez le QR code affiché sur son téléphone, dans Relais.');
 
         return $relay;
     }
 
     /**
-     * Le livreur qui reçoit saisit le code et coche les colis reçus : ils passent chez lui. Les colis non cochés
+     * Le livreur qui reçoit coche les colis reçus et scanne le QR code : ils passent chez lui. Les colis non cochés
      * restent chez l'autre livreur, le dispatch est prévenu.
      *
      * @param  list<int>  $receivedIds
@@ -192,7 +194,7 @@ class ParcelRelays
         }
 
         if (! $relay->isOpen()) {
-            throw new BusinessRuleException('Code expiré : demandez à l\'autre livreur d\'afficher un nouveau code.', 'code');
+            throw new BusinessRuleException('QR code expiré : demandez à l\'autre livreur d\'afficher un nouveau QR code.', 'code');
         }
 
         if (! hash_equals((string) $relay->code, trim($code))) {
@@ -200,8 +202,8 @@ class ParcelRelays
             $left = ParcelRelay::MAX_ATTEMPTS - $relay->attempts;
 
             throw new BusinessRuleException($left > 0
-                ? "Code incorrect. Encore {$left} essai(s)."
-                : 'Code incorrect trop de fois : demandez un nouveau code.', 'code');
+                ? "Ce QR code n'est pas le bon. Encore {$left} essai(s)."
+                : 'Mauvais QR code trop de fois : demandez un nouveau QR code.', 'code');
         }
 
         $receivedIds = array_values(array_intersect($relay->order_ids, array_map('intval', $receivedIds)));

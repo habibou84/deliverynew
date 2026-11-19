@@ -13,7 +13,7 @@ use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
 /**
- * Relais entre livreurs : le colis ramassé par A et livré par B passe de l'un à l'autre avec un code à 4 chiffres.
+ * Relais entre livreurs : le colis ramassé par A et livré par B passe de l'un à l'autre : A affiche un QR code, B le scanne.
  * Sans relais, B ne peut pas partir livrer (réglage « Relais obligatoire »).
  */
 class ParcelRelayTest extends TestCase
@@ -64,12 +64,12 @@ class ParcelRelayTest extends TestCase
             ->assertJsonPath('data.receive.0.parcels.0.id', $order->id)
             ->assertJsonPath('data.receive.0.relay', null);
 
-        // A prépare le relais : il obtient le code, B est prévenu
+        // A prépare le relais : il obtient le jeton du QR code, B est prévenu
         Sanctum::actingAs($this->courierA->user);
         $this->getJson('/api/v1/courier/relays')->assertJsonPath('data.give.0.name', 'Awa Livreuse');
         $code = $this->postJson('/api/v1/courier/relays', ['to_courier_id' => $this->courierB->id, 'order_ids' => [$order->id]])
             ->assertCreated()->json('data.code');
-        $this->assertMatchesRegularExpression('/^\d{4}$/', $code);
+        $this->assertMatchesRegularExpression('/^[A-Za-z0-9]{32}$/', $code);
         $relay = ParcelRelay::sole();
         $this->assertNotSame($code, $relay->getRawOriginal('code'), 'Code chiffré en base');
         Notification::assertSentTo($this->courierB->user, OrderAlert::class, fn (OrderAlert $n) => $n->kind === 'relay');
@@ -79,12 +79,12 @@ class ParcelRelayTest extends TestCase
         $this->getJson('/api/v1/courier/relays')->assertJsonPath('data.receive.0.relay.id', $relay->id)
             ->assertJsonMissingPath('data.receive.0.relay.code');
 
-        // Mauvais code : refusé, essai compté
-        $wrong = $code === '0000' ? '1111' : '0000';
+        // Mauvais QR code : refusé, essai compté
+        $wrong = substr($code, 0, -1).(str_ends_with($code, 'x') ? 'y' : 'x');
         $this->postJson("/api/v1/courier/relays/{$relay->id}/confirm", ['code' => $wrong, 'order_ids' => [$order->id]])
-            ->assertStatus(422)->assertJsonPath('errors.code.0', 'Code incorrect. Encore 4 essai(s).');
+            ->assertStatus(422)->assertJsonPath('errors.code.0', 'Ce QR code n\'est pas le bon. Encore 4 essai(s).');
 
-        // Bon code : le colis passe chez B, noté dans le journal (pas chez le marchand)
+        // Bon QR code : le colis passe chez B, noté dans le journal (pas chez le marchand)
         $this->postJson("/api/v1/courier/relays/{$relay->id}/confirm", ['code' => $code, 'order_ids' => [$order->id]])
             ->assertOk()->assertJsonPath('data.received', 1)->assertJsonPath('data.missing', 0);
         $order->refresh();
@@ -125,14 +125,14 @@ class ParcelRelayTest extends TestCase
         Sanctum::actingAs($this->courierA->user);
         $code = $this->postJson('/api/v1/courier/relays', ['to_courier_id' => $this->courierB->id, 'order_ids' => [$order->id]])->json('data.code');
         $relay = ParcelRelay::sole();
-        $wrong = $code === '0000' ? '1111' : '0000';
+        $wrong = substr($code, 0, -1).(str_ends_with($code, 'x') ? 'y' : 'x');
 
         Sanctum::actingAs($this->courierB->user);
         foreach (range(1, ParcelRelay::MAX_ATTEMPTS) as $i) {
             $this->postJson("/api/v1/courier/relays/{$relay->id}/confirm", ['code' => $wrong, 'order_ids' => [$order->id]])->assertStatus(422);
         }
         $this->postJson("/api/v1/courier/relays/{$relay->id}/confirm", ['code' => $code, 'order_ids' => [$order->id]])
-            ->assertStatus(422)->assertJsonPath('errors.code.0', 'Code expiré : demandez à l\'autre livreur d\'afficher un nouveau code.');
+            ->assertStatus(422)->assertJsonPath('errors.code.0', 'QR code expiré : demandez à l\'autre livreur d\'afficher un nouveau QR code.');
 
         // Nouveau code : l'ancien est annulé ; expiré au bout de 15 minutes
         Sanctum::actingAs($this->courierA->user);

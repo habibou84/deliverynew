@@ -5,7 +5,7 @@
     <!-- Colis encore chez un autre livreur : relais avant de partir livrer -->
     <section v-if="mission.relay_from" class="rounded-2xl border border-violet-300 bg-violet-50 p-4 space-y-3 text-violet-900">
       <p class="font-bold">🤝 Colis encore chez {{ mission.relay_from.name }}</p>
-      <p class="text-sm">Récupérez-le avec son code à 4 chiffres avant de {{ mission.type === 'return' ? 'le rapporter au marchand' : 'partir livrer' }}.</p>
+      <p class="text-sm">Récupérez-le en scannant son QR code avant de {{ mission.type === 'return' ? 'le rapporter au marchand' : 'partir livrer' }}.</p>
       <div class="grid grid-cols-3 gap-2">
         <a :href="telLink(mission.relay_from.phone)" class="tap rounded-2xl bg-white py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-violet-100"><span class="text-2xl">📞</span>Appeler</a>
         <a :href="whatsappLink(mission.relay_from.phone)" target="_blank" class="tap rounded-2xl bg-white py-3 flex flex-col items-center gap-1 text-sm font-medium active:bg-violet-100"><span class="text-2xl">💬</span>WhatsApp</a>

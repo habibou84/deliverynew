@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Relais entre deux livreurs : celui qui a les colis (from) les remet à celui qui doit les livrer (to), qui saisit
- * le code à 4 chiffres affiché chez le premier. Le dispatch peut valider à leur place (téléphone en panne).
+ * Relais entre deux livreurs : celui qui a les colis (from) les remet à celui qui doit les livrer (to), qui scanne
+ * le QR code affiché chez le premier. Le dispatch peut valider à leur place (téléphone en panne).
  */
 class ParcelRelay extends Model
 {
@@ -23,6 +23,9 @@ class ParcelRelay extends Model
     public const MAX_ATTEMPTS = 5;
 
     public const TTL_MINUTES = 15;
+
+    /** Longueur du jeton secret porté par le QR code */
+    public const TOKEN_LENGTH = 32;
 
     protected $fillable = [
         'company_id', 'from_courier_id', 'to_courier_id', 'status', 'code', 'attempts', 'order_ids', 'received_ids',

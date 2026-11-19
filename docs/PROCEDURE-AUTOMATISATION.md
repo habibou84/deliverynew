@@ -61,7 +61,7 @@ Côté livreur :
 | Journée | Nombre maximal de tentatives de livraison | **3** |
 | Livreurs | Exiger le code de livraison du destinataire | **oui** |
 | Livreurs | Mode hors connexion des livreurs | **oui** |
-| Livreurs | Relais obligatoire entre livreurs | **oui** (deux livreurs se passent le colis avec un code) |
+| Livreurs | Relais obligatoire entre livreurs | **oui** (deux livreurs se passent le colis en scannant un QR code) |
 | Livreurs | Après une mission ramassage, les colis… | **Restent chez le livreur** (sa livraison lui est confiée le jour venu) |
 | Livreurs | Heure de fermeture du dépôt | **19:00** |
 | Ramassage automatique | | **À l'essai** d'abord, puis **Active** (voir étape 6) |

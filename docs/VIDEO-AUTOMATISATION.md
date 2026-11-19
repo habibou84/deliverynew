@@ -66,13 +66,13 @@ la règle. »
 - Acceptation des missions : acceptées d'office ;
 - Délai injoignable : 20 minutes ;
 - Heure limite : 16 h, 12 h le samedi ; fermeture du dépôt : 19 h ;
-- Colis après ramassage : gardé par le livreur ; relais avec code.
+- Colis après ramassage : gardé par le livreur ; relais par QR code.
 
 **Voix off :** « Place aux réglages. Les courses des e-commerçants sont validées toutes seules. Le ramassage
 automatique suit le planning : vous pouvez d'abord le mettre à l'essai, pour voir ses choix sans rien envoyer. La
 livraison du jour même part seule, jusqu'au montant que vous fixez. Les missions sont acceptées d'office : le livreur
 peut seulement signaler un empêchement. S'il ne donne pas signe de vie pendant vingt minutes, sa mission passe à son
-remplaçant. Enfin, l'heure limite du jour, l'heure de fermeture du dépôt, et le relais avec code quand deux livreurs
+remplaçant. Enfin, l'heure limite du jour, l'heure de fermeture du dépôt, et le relais par QR code quand deux livreurs
 se passent un colis. »
 
 ### Scène 5 — Une course arrive (2:10 – 2:40)

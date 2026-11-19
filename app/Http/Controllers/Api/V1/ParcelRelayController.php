@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Relais entre livreurs : écran Relais du livreur (remettre avec un code, recevoir en le saisissant) et relais du
+ * Relais entre livreurs : écran Relais du livreur (remettre en affichant un QR code, recevoir en le scannant) et relais du
  * jour pour le dispatch, qui peut valider à la place des livreurs.
  */
 class ParcelRelayController extends Controller
@@ -25,7 +25,7 @@ class ParcelRelayController extends Controller
         return response()->json(['data' => $this->relays->board($this->courier($request))]);
     }
 
-    /** Livreur qui a les colis : prépare le relais et obtient le code à montrer */
+    /** Livreur qui a les colis : prépare le relais et obtient le jeton du QR code à montrer */
     public function offer(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -47,11 +47,11 @@ class ParcelRelayController extends Controller
         ]], 201);
     }
 
-    /** Livreur qui reçoit : saisit le code et coche les colis reçus */
+    /** Livreur qui reçoit : coche les colis reçus et scanne le QR code */
     public function confirm(Request $request, ParcelRelay $relay): JsonResponse
     {
         $data = $request->validate([
-            'code' => ['required', 'string', 'size:4'],
+            'code' => ['required', 'string', 'max:100'],
             'order_ids' => ['required', 'array', 'min:1', 'max:200'],
             'order_ids.*' => ['integer'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],

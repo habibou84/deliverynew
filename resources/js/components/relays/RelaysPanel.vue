@@ -2,7 +2,7 @@
   <section v-if="loaded && (data.awaiting.length || data.done.length)" class="card">
     <header class="p-4 border-b">
       <h2 class="font-semibold">🤝 Relais entre livreurs</h2>
-      <p class="text-sm text-slate-600">Colis ramassés par un livreur et livrés par un autre : ils se les remettent avec un code à 4 chiffres. Sans relais, le livreur ne peut pas partir livrer.</p>
+      <p class="text-sm text-slate-600">Colis ramassés par un livreur et livrés par un autre : ils se les remettent en scannant un QR code. Sans relais, le livreur ne peut pas partir livrer.</p>
     </header>
 
     <div v-if="data.awaiting.length" class="divide-y">
@@ -12,7 +12,7 @@
           <p class="text-sm text-slate-600">
             <a v-if="g.from.phone" :href="telLink(g.from.phone)" class="text-blue-600">{{ g.from.phone }}</a>
             <template v-if="g.to.phone"> · <a :href="telLink(g.to.phone)" class="text-blue-600">{{ g.to.phone }}</a></template>
-            · <span :class="g.code_given_at ? 'text-emerald-700' : 'text-amber-700'">{{ g.code_given_at ? 'code affiché, en cours' : 'pas encore commencé' }}</span>
+            · <span :class="g.code_given_at ? 'text-emerald-700' : 'text-amber-700'">{{ g.code_given_at ? 'QR code affiché, en cours' : 'pas encore commencé' }}</span>
           </p>
           <p class="text-xs text-slate-600 truncate">{{ g.parcels.map((p) => p.tracking_code).join(', ') }}</p>
         </div>
