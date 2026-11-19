@@ -12,7 +12,7 @@ const TARGETS = [
   ['marchand-accueil', 'shop', `${MARCHAND}/gestion`, ['Ventes du jour', 'Ventes des 7 derniers jours']],
   ['marchand-entreprises', 'shop', `${MARCHAND}/gestion/livraisons/entreprises`, ['Trouver une entreprise de livraison', 'Livraison Express CI', 'Réussite', 'Connecter', 'colis livrés en 90 jours']],
   ['jibiat-admin-courses', 'admin', `${JIBIAT}/admin/courses`, ['Christelle Aka']],
-  ['jibiat-livreur-missions', 'courier', `${JIBIAT}/livreur`, ['Boutique Chic Abidjan', 'Je suis en service']],
+  ['jibiat-livreur-missions', 'courier', `${JIBIAT}/livreur`, ['Boutique Chic Abidjan', 'Mon itinéraire']],
   ['jibiat-marchand-courses', 'merchant', `${JIBIAT}/marchand/courses`, ['Livrée à', 'Un livreur vient']],
   ['jibiat-marchand-argent', 'merchant', `${JIBIAT}/marchand/paiements`, ['On vous doit', 'Payé le 17/10/2026']],
 ]

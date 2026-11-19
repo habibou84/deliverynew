@@ -908,7 +908,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('missions', [CourierSpaceController::class, 'missions'])->name('missions');
             Route::post('assignments/{assignment}/accept', [CourierSpaceController::class, 'accept'])->name('assignments.accept');
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
-            // Tournée : ordre de passage des livraisons choisi par le livreur
+            // Itinéraire : ordre de passage des missions choisi par le livreur
             Route::put('route', [CourierSpaceController::class, 'route'])->middleware('throttle:60,1')->name('route');
             Route::post('assignments/{assignment}/edit-seen', [CourierSpaceController::class, 'editSeen'])->name('assignments.edit-seen');
             // Sonnerie des missions (application Android)
