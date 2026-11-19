@@ -80,8 +80,43 @@
       text="Les nouvelles missions apparaissent ici automatiquement."
     />
 
+    <!-- Tournée : ordre de passage des livraisons, trajet dans Google Maps -->
+    <section v-if="tab === 'delivery' && visible.length && !loading" class="m-card p-3 space-y-2">
+      <template v-if="!reordering">
+        <div class="grid grid-cols-2 gap-2">
+          <button v-if="visible.length > 1" type="button" class="tap rounded-xl bg-[var(--app-color)] px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-60" :disabled="routing" @click="organizeRoute">
+            {{ routing ? 'Calcul…' : '🧭 Organiser ma tournée' }}
+          </button>
+          <button v-if="visible.length > 1" type="button" class="tap rounded-xl bg-slate-100 px-3 py-2.5 text-sm font-semibold active:bg-slate-200" @click="startReorder">✋ Modifier l'ordre</button>
+          <a v-if="routeLink" :href="routeLink" target="_blank" rel="noopener" class="tap col-span-2 rounded-xl bg-slate-100 px-3 py-2.5 text-center text-sm font-semibold active:bg-slate-200">
+            🗺️ Trajet dans Google Maps ({{ Math.min(visible.length, MAPS_MAX_STOPS) }} arrêt{{ Math.min(visible.length, MAPS_MAX_STOPS) > 1 ? 's' : '' }})
+          </a>
+        </div>
+        <p v-if="visible.length > MAPS_MAX_STOPS" class="text-xs text-slate-600">Google Maps n'accepte que {{ MAPS_MAX_STOPS }} arrêts : le trajet s'arrête au {{ MAPS_MAX_STOPS }}ᵉ. Relancez-le après ces livraisons.</p>
+        <p v-if="unlocated" class="text-xs text-slate-600">📍 {{ unlocated }} livraison{{ unlocated > 1 ? 's' : '' }} sans position GPS : placée{{ unlocated > 1 ? 's' : '' }} à la fin, par commune. Déplacez-les si besoin.</p>
+      </template>
+      <template v-else>
+        <p class="text-sm font-semibold">Rangez vos livraisons dans l'ordre de passage</p>
+        <ol class="divide-y rounded-xl border">
+          <li v-for="(m, i) in draft" :key="m.id" class="flex items-center gap-2 p-2">
+            <span class="h-7 w-7 shrink-0 rounded-full bg-[var(--app-color)] text-center text-sm font-bold leading-7 text-white">{{ i + 1 }}</span>
+            <span class="flex-1 min-w-0">
+              <span class="block truncate text-sm font-medium">{{ m.order.recipient.name || m.order.recipient.phone }}</span>
+              <span class="block truncate text-xs text-slate-600">{{ m.order.delivery.zone_name }} · {{ m.order.delivery.address }}<template v-if="!(m.order.delivery.lat && m.order.delivery.lng)"> · sans position</template></span>
+            </span>
+            <button type="button" class="tap h-10 w-10 rounded-lg bg-slate-100 text-lg disabled:opacity-30" :disabled="i === 0" :aria-label="`Monter ${m.order.recipient.name || ''}`" @click="move(i, -1)">↑</button>
+            <button type="button" class="tap h-10 w-10 rounded-lg bg-slate-100 text-lg disabled:opacity-30" :disabled="i === draft.length - 1" :aria-label="`Descendre ${m.order.recipient.name || ''}`" @click="move(i, 1)">↓</button>
+          </li>
+        </ol>
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" class="m-btn-secondary" :disabled="routing" @click="reordering = false">Annuler</button>
+          <button type="button" class="m-btn-primary" :disabled="routing" @click="saveRoute(draft)">{{ routing ? '…' : 'Enregistrer' }}</button>
+        </div>
+      </template>
+    </section>
+
     <!-- Plusieurs colis chez la même boutique : une seule mission -->
-    <template v-for="c in cards" :key="c.key">
+    <template v-for="(c, idx) in (reordering ? [] : cards)" :key="c.key">
       <RouterLink v-if="c.group" :to="`/livreur/ramassage/${c.key}`" class="block m-card p-4 active:bg-slate-50">
         <div class="flex items-start gap-3">
           <span class="h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl bg-indigo-100">🏪</span>
@@ -101,8 +136,10 @@
       </RouterLink>
       <RouterLink v-else :to="`/livreur/missions/${c.first.id}`" class="block m-card p-4 active:bg-slate-50">
         <div class="flex items-start gap-3">
-          <span :class="['h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl', c.first.type === 'pickup' ? 'bg-indigo-100' : c.first.type === 'delivery' ? 'bg-blue-100' : 'bg-rose-100']">
+          <span :class="['relative h-11 w-11 shrink-0 rounded-xl grid place-items-center text-xl', c.first.type === 'pickup' ? 'bg-indigo-100' : c.first.type === 'delivery' ? 'bg-blue-100' : 'bg-rose-100']">
             {{ c.first.type === 'pickup' ? '📦' : c.first.type === 'delivery' ? '🛵' : '↩️' }}
+            <!-- Place dans la tournée -->
+            <span v-if="c.first.type === 'delivery' && routeSet" class="absolute -right-1.5 -top-1.5 h-6 min-w-6 rounded-full bg-[var(--app-color)] px-1 text-center text-xs font-bold leading-6 text-white">{{ idx + 1 }}</span>
           </span>
           <div class="flex-1 min-w-0">
             <p class="font-semibold truncate">
@@ -146,6 +183,7 @@ import { currentPosition } from '../../composables/useGeolocation'
 import { useCourierMessageStore } from '../../stores/courierMessages'
 import { enablePush, initPush, push } from '../../composables/usePush'
 import { money } from '../../utils/format'
+import { googleMapsRoute, MAPS_MAX_STOPS, nearestNeighborRoute } from '../../utils/route'
 
 const auth = useAuthStore()
 const notifications = useNotificationStore()
@@ -165,7 +203,12 @@ const tabs = [
   { value: 'return', label: 'Retours' },
 ]
 
-const visible = computed(() => missions.value.filter((m) => m.type === tab.value))
+// Livraisons : dans l'ordre de la tournée choisie par le livreur (non placées à la fin)
+const visible = computed(() => {
+  const list = missions.value.filter((m) => m.type === tab.value)
+  if (tab.value !== 'delivery') return list
+  return list.map((m, i) => [m, i]).sort(([a, i], [b, j]) => (a.route_rank ?? Infinity) - (b.route_rank ?? Infinity) || i - j).map(([m]) => m)
+})
 // Ramassages : colis d'une même boutique (même adresse) regroupés en une carte
 const cards = computed(() => {
   const groups = new Map()
@@ -206,6 +249,51 @@ async function load() {
   if (!count(tab.value)) tab.value = ['pickup', 'delivery', 'return'].find((t) => count(t)) || tab.value
 }
 
+// Tournée : de proche en proche (position du téléphone), à la main, puis enregistrée pour la journée
+const reordering = ref(false)
+const routing = ref(false)
+const draft = ref([])
+const routeSet = computed(() => visible.value.some((m) => m.type === 'delivery' && m.route_rank != null))
+const routeLink = computed(() => (tab.value === 'delivery' ? googleMapsRoute(visible.value) : null))
+const unlocated = computed(() => (tab.value === 'delivery' ? visible.value.filter((m) => !(m.order.delivery.lat && m.order.delivery.lng)).length : 0))
+
+async function saveRoute(ordered, message = 'Ordre de la tournée enregistré.') {
+  routing.value = true
+  try {
+    await http.put('/courier/route', { assignment_ids: ordered.map((m) => m.id) })
+    ordered.forEach((m, i) => { m.route_rank = i + 1 })
+    reordering.value = false
+    toasts.success(message)
+  } catch (e) {
+    toasts.error(apiErrorMessage(e, 'Impossible d\'enregistrer la tournée.'))
+  } finally {
+    routing.value = false
+  }
+}
+
+async function organizeRoute() {
+  routing.value = true
+  const position = await currentPosition(5000)
+  routing.value = false
+  const { ordered, located } = nearestNeighborRoute(visible.value, position)
+  if (!located) {
+    toasts.error('Aucune livraison n\'a de position GPS : rangez-les à la main avec « Modifier l\'ordre ».')
+    return
+  }
+  await saveRoute(ordered, position ? 'Tournée organisée de proche en proche depuis votre position.' : 'Tournée organisée (position du téléphone indisponible : départ de la première livraison).')
+}
+
+function startReorder() {
+  draft.value = [...visible.value]
+  reordering.value = true
+}
+
+function move(i, step) {
+  const list = [...draft.value]
+  ;[list[i], list[i + step]] = [list[i + step], list[i]]
+  draft.value = list
+}
+
 async function toggleAvailability() {
   try {
     const position = await currentPosition()
@@ -230,6 +318,7 @@ function dismissPushInvite() {
 }
 
 watch(() => notifications.unread, load)
+watch(tab, () => { reordering.value = false })
 
 // Actions faites hors connexion envoyées : liste rechargée
 window.addEventListener('offline-synced', load)
