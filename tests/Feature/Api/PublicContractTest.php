@@ -105,7 +105,7 @@ class PublicContractTest extends TestCase
         $this->assertContract('order-response', $this->api('GET', "orders/{$failed->tracking_code}")->assertJsonPath('data.needs_decision', true)->json(), 'en échec');
         $this->assertContract('order-response', $this->api('POST', "orders/{$failed->tracking_code}/decision", ['decision' => 'redeliver', 'date' => today()->addDay()->toDateString()])->assertOk()->json(), 'reportée');
         $this->assertContract('order-response', $this->api('POST', 'orders/'.$this->failed()->tracking_code.'/decision', ['decision' => 'return'])->assertOk()->json(), 'retour');
-        $this->assertContract('order-response', $this->api('POST', 'orders/'.$this->pickedUp()->tracking_code.'/return-request')->assertOk()->json(), 'retour demandé');
+        $this->assertContract('order-response', $this->api('POST', 'orders/'.$this->pickedUp()->tracking_code.'/return-request')->assertOk()->assertJsonPath('data.return_cause', 'merchant')->json(), 'retour demandé');
 
         $delivered = $this->pickedUp();
         $this->move($delivered, $this->courierB->user, 'out_for_delivery');

@@ -66,7 +66,11 @@ function describe(event) {
     }
   }
   if (event.type === 'incident') return { text: 'Problème signalé', detail: [event.incident_reason?.label, event.note].filter(Boolean).join(' · ') || null, dot: 'bg-orange-500 text-orange-500' }
-  if (event.type === 'return_requested') return { text: 'Retour demandé', detail: event.note, dot: 'bg-violet-600 text-violet-600' }
+  // Retour demandé par l'e-commerçant lui-même, ou décidé par l'agence
+  if (event.type === 'return_requested') {
+    const mine = ['merchant_owner', 'merchant_staff'].includes(event.actor_role)
+    return { text: mine ? 'Vous avez demandé le retour' : 'L\'agence vous retourne le colis', detail: event.note, dot: 'bg-violet-600 text-violet-600' }
+  }
   if (event.type === 'note' && event.note) return { text: 'Message', detail: event.note, dot: 'bg-sky-400 text-sky-400' }
   if (event.type === 'edited') return { text: 'Livraison modifiée', dot: 'bg-slate-400 text-slate-600' }
   return null

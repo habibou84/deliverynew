@@ -1,5 +1,6 @@
 import { longDay } from '../composables/useDeliveryDate'
 import { today } from './format'
+import { merchantReturnText } from './returnCause'
 
 /**
  * Où en est une course, en une phrase pour l'e-commerçant (au lieu du nom technique du statut),
@@ -30,7 +31,7 @@ function line(order) {
     case 'delivered': return ['check', order.delivered_at ? `Livrée à ${hour(order.delivered_at)}` : 'Livrée', 'green']
     // Décision prise : le colis revient, ou une nouvelle livraison est prévue
     case 'delivery_failed': return order.return_requested
-      ? ['back', 'Retour demandé : le colis va vous revenir', 'violet']
+      ? ['back', merchantReturnText(order), 'violet']
       : ['alert', order.last_incident?.label || 'Livraison échouée : à régler', 'amber']
     case 'rescheduled': return ['calendar', order.delivery?.scheduled_date ? `Relivraison prévue le ${longDay(order.delivery.scheduled_date)}` : 'Relivraison prévue', 'blue']
     case 'return_assigned':
