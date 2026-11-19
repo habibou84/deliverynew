@@ -51,7 +51,7 @@ const busy = ref(false)
 const STEPS = [
   { title: '📱 Votre numéro WhatsApp Business', text: 'Celui de l\'application WhatsApp Business de votre téléphone. Vous continuez à vous en servir comme avant : les messages restent dans l\'application.' },
   { title: '🔗 Reliez-le avec Facebook', text: 'Touchez le bouton vert. Meta propose de garder le numéro dans WhatsApp Business : acceptez, puis suivez les étapes.' },
-  { title: '💳 Meta demande une carte ? Touchez « Terminer »', text: 'Pas besoin de carte : les commandes sont gratuites.' },
+  { title: '💳 Meta demande une carte ? Touchez « Terminer »', text: 'Pas besoin de mettre de carte.' },
 ]
 
 /** Connexion officielle : fenêtre de Meta ouverte depuis l'adresse de la plateforme, retour ici à la fin */
