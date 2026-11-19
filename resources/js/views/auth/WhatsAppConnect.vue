@@ -47,7 +47,7 @@
           </div>
           <div class="flex gap-3 rounded-2xl bg-slate-50 p-3.5">
             <span class="text-[26px] leading-none" aria-hidden="true">💳</span>
-            <p class="text-[17px] font-bold leading-snug text-slate-900">Pas besoin de carte bancaire<span class="block text-sm font-normal text-slate-600">Si Meta en demande une, touchez « Terminer » : les commandes du live sont gratuites.</span></p>
+            <p class="text-[17px] font-bold leading-snug text-slate-900">Pas besoin de carte bancaire<span class="block text-sm font-normal text-slate-600">Si Meta en demande une, touchez simplement « Terminer ».</span></p>
           </div>
         </div>
         <button type="button" class="btn-success w-full py-3" :disabled="working" @click="start">
