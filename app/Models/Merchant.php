@@ -55,6 +55,7 @@ class Merchant extends Model
             'live_wa_connected_at' => 'datetime',
             'live_extra_cards' => 'integer',
             'live_credit' => 'integer',
+            'live_order_credits' => 'integer',
             'live_orders_used' => 'integer',
             'live_orders_bonus' => 'integer',
             'default_fee_payer' => FeePayer::class,

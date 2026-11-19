@@ -6,7 +6,7 @@ use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-/** Paiement PayDunya d'un e-commerçant à Jibiat : un live, le forfait du mois ou des fiches IA */
+/** Paiement PayDunya d'un e-commerçant à Jibiat : un pack de commandes en live (fiches IA incluses) ou l'illimité 30 jours */
 class LivePayment extends Model
 {
     use BelongsToCompany;
@@ -19,13 +19,13 @@ class LivePayment extends Model
 
     public const FAILED = 'failed';
 
-    protected $fillable = ['company_id', 'merchant_id', 'user_id', 'live_id', 'kind', 'amount', 'provider', 'token', 'status', 'method', 'error', 'live_charge_id', 'paid_at'];
+    protected $fillable = ['company_id', 'merchant_id', 'user_id', 'live_id', 'kind', 'amount', 'orders', 'cards', 'provider', 'token', 'status', 'method', 'error', 'live_charge_id', 'paid_at'];
 
     protected $hidden = ['token'];
 
     protected function casts(): array
     {
-        return ['amount' => 'integer', 'paid_at' => 'datetime'];
+        return ['amount' => 'integer', 'orders' => 'integer', 'cards' => 'integer', 'paid_at' => 'datetime'];
     }
 
     public function merchant(): BelongsTo

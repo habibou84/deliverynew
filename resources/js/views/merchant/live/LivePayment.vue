@@ -40,8 +40,9 @@ let tries = 0
 
 const done = computed(() => ({
   live: 'Votre live est ouvert. Bon live !',
-  credit: 'Votre crédit live est rechargé. Vous pouvez démarrer votre live.',
-  monthly: 'Votre forfait du mois est activé : lives sans limite pendant 30 jours.',
+  orders: 'Les commandes sont ajoutées à votre solde, avec leurs fiches IA. Vous pouvez démarrer votre live.',
+  credit: 'Votre paiement est ajouté à votre solde de commandes. Vous pouvez démarrer votre live.',
+  monthly: 'Votre illimité 30 jours est activé : lives sans compter les commandes.',
   pack: 'Vos fiches produit IA sont ajoutées.',
 })[p.value?.kind] || 'Merci !')
 const goesToLive = computed(() => p.value?.status === 'paid' && p.value.kind === 'live' && p.value.live_status === 'live')

@@ -101,8 +101,8 @@ class WhatsAppConnection
     }
 
     /**
-     * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : un numéro spécial live,
-     * qui n'a pas de compte WhatsApp, est activé pour l'API (code PIN). Pas de modèles : le live ne répond
+     * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : son numéro WhatsApp
+     * Business, gardé dans l'application (coexistence, déjà actif), ou une puce neuve activée pour l'API (code PIN). Pas de modèles : le live ne répond
      * qu'aux clients qui viennent d'écrire, et ces réponses ne sont pas facturées par Meta.
      */
     public function completeMerchantSignup(Merchant $merchant, string $code, ?string $phoneNumberId, ?string $wabaId, ?string $redirectUri = null): WhatsAppAccount
@@ -292,7 +292,7 @@ class WhatsAppConnection
             }
         }
         if ($numbers === []) {
-            throw new MessagingException('Aucun numéro trouvé sur votre compte WhatsApp : recommencez et ajoutez votre numéro spécial live dans Facebook.');
+            throw new MessagingException('Aucun numéro trouvé sur votre compte WhatsApp : recommencez et choisissez votre numéro WhatsApp Business dans Facebook.');
         }
         usort($numbers, fn ($a, $b) => [$a['test'], $a['id'] === $previous] <=> [$b['test'], $b['id'] === $previous]);
 

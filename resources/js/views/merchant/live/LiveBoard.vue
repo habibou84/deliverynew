@@ -14,14 +14,13 @@
         <p class="mt-1.5 truncate text-[15px] font-bold opacity-90">{{ b.live.name }}</p>
         <p class="text-[32px] font-black leading-tight tabular-nums">{{ short(b.totals.amount) }} F</p>
         <p class="text-[14px] font-bold opacity-90">{{ b.totals.orders }} commande{{ b.totals.orders > 1 ? 's' : '' }} · {{ b.totals.waiting }} en attente</p>
-        <!-- Payé au palier : commandes comptées, prix atteint, combien avant le palier suivant -->
+        <!-- Payé à la commande : commandes comptées, et ce qu'il restera dans le solde -->
         <div v-if="b.billing" class="mt-2.5 rounded-xl bg-black/25 px-3 py-2">
           <div class="flex items-center justify-between text-[14px] font-extrabold">
             <span>{{ b.billing.orders }} commande{{ b.billing.orders > 1 ? 's' : '' }} comptée{{ b.billing.orders > 1 ? 's' : '' }}</span>
-            <span>{{ tierLabel }}</span>
+            <span>{{ billingLabel }}</span>
           </div>
-          <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/25"><i class="block h-full rounded-full bg-white" :style="{ width: `${tierFill}%` }" /></div>
-          <small v-if="b.billing.next && !b.billing.billed" class="mt-1 block text-[12.5px] opacity-90">Encore {{ b.billing.next.in }} avant {{ money(b.billing.next.price) }}<template v-if="b.billing.offered"> · {{ b.billing.offered }} offerte{{ b.billing.offered > 1 ? 's' : '' }}</template><template v-if="b.billing.by_agency"> · payé par votre agence</template></small>
+          <small v-if="billingHint" class="mt-1 block text-[12.5px] opacity-90">{{ billingHint }}</small>
         </div>
       </section>
 
@@ -396,17 +395,21 @@ onBeforeUnmount(() => {
 // Retour sur l'écran du live (après TikTok, Facebook…) : commandes à jour tout de suite
 refreshWhenVisible(() => { if (isLive.value && !saving.value) load() })
 
-// Palier atteint et remplissage de la barre (entre le début et la fin du palier)
-const tierLabel = computed(() => {
+// Commandes comptées : offertes, retirées du solde, solde restant (ou payé par l'agence)
+const billingLabel = computed(() => {
   const g = b.value?.billing
   if (!g) return ''
-  if (g.billable === 0 && g.offered) return 'Offertes 🎁'
-  return g.price ? `Palier ${g.tier} · ${money(g.price)}` : 'Gratuit'
+  if (g.by_agency) return 'Payé par votre agence'
+  if (g.left === null || g.left === undefined) return ''
+  return `Solde : ${g.left}`
 })
-const tierFill = computed(() => {
+const billingHint = computed(() => {
   const g = b.value?.billing
-  const t = g?.tiers?.[g.tier - 1]
-  if (!t || t.to === null) return 100
-  return Math.min(100, Math.round(((g.billable - t.from + 1) / (t.to - t.from + 1)) * 100))
+  if (!g || g.by_agency) return ''
+  const parts = []
+  if (g.offered) parts.push(`${g.offered} offerte${g.offered > 1 ? 's' : ''}`)
+  if (g.from_balance) parts.push(`${g.from_balance} retirée${g.from_balance > 1 ? 's' : ''} du solde${g.billed ? '' : ' à la fin'}`)
+  if (g.left < 0) parts.push('rechargez avant votre prochain live')
+  return parts.join(' · ')
 })
 </script>

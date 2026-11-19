@@ -803,9 +803,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('prepare', 'prepare')->name('prepare');
             Route::post('subscribe', 'subscribe')->middleware('throttle:10,1')->name('subscribe');
-            Route::post('pack', 'pack')->middleware('throttle:10,1')->name('pack');
-            // Recharge du crédit live (PayDunya) : le prix de chaque live y est pris à la fin, selon ses commandes
-            Route::post('credit', 'credit')->middleware('throttle:10,1')->name('credit');
+            // Pack de commandes en live, fiches IA incluses (PayDunya) : chaque commande d'un live y est retirée à la fin
+            Route::post('orders', 'orders')->middleware('throttle:10,1')->name('orders');
             Route::post('products/{product}/photo', 'productPhoto')->whereNumber('product')->middleware('throttle:60,1')->name('products.photo');
             // Paiement en ligne (PayDunya) : état relu au retour de la page de paiement
             Route::get('payments/{payment}', 'payment')->whereNumber('payment')->middleware('throttle:60,1')->name('payment');

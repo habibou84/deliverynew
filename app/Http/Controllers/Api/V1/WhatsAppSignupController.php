@@ -102,7 +102,7 @@ class WhatsAppSignupController extends Controller
             'company' => $merchant?->business_name ?? $company?->name ?? config('app.name'),
             'origin' => $origin,
             'return' => $return,
-            // E-commerçant : numéro spécial live (sans compte WhatsApp), activé pour les commandes du live
+            // E-commerçant : son numéro WhatsApp Business (gardé dans l'application), relié pour les commandes du live
             'merchant' => $merchant !== null,
             // Numéro de Jibiat, relié depuis la console
             'platform' => $company === null,
