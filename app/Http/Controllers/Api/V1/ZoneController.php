@@ -23,6 +23,8 @@ class ZoneController extends Controller
     {
         $zones = Zone::query()
             ->with('parent')
+            // Adresses de l'ancienne application : rubrique à part (legacy), jamais dans les destinations
+            ->where('legacy', false)
             ->when(! $request->boolean('include_inactive'), fn ($q) => $q->active())
             ->orderByRaw('COALESCE(parent_id, id)')
             ->orderByRaw('parent_id IS NOT NULL')
@@ -31,6 +33,27 @@ class ZoneController extends Controller
             ->get();
 
         return ZoneResource::collection($zones);
+    }
+
+    /**
+     * Adresses de l'ancienne application (zones reprises sans lieu du référentiel) et leurs commandes : seulement pour
+     * une entreprise qui a fait la reprise, tant que la reprise est ouverte sur la plateforme.
+     */
+    public function legacy(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->company?->usesLegacy(), 404);
+
+        $zones = Zone::query()->where('legacy', true)->whereNull('merged_into_id')->with('parent')->orderBy('name')->get();
+        $orders = DB::table('orders')->where('company_id', $request->user()->company_id)->whereIn('delivery_zone_id', $zones->pluck('id'))
+            ->selectRaw('delivery_zone_id, COUNT(*) AS n')->groupBy('delivery_zone_id')->pluck('n', 'delivery_zone_id');
+
+        return response()->json(['data' => $zones->map(fn (Zone $z) => [
+            'id' => $z->id,
+            'name' => $z->name,
+            'parent' => $z->parent?->name,
+            'orders' => (int) ($orders[$z->id] ?? 0),
+            'legacy_price' => $z->legacy_price,
+        ])->values()]);
     }
 
     /** Villes de destination proposées pour une expédition */
@@ -42,6 +65,11 @@ class ZoneController extends Controller
     public function store(Request $request): ZoneResource
     {
         $data = $request->validate($this->rules($request));
+        // Les lieux viennent du référentiel commun (socle) : seule une zone d'expédition se crée ici. Un quartier
+        // manquant se signale (POST /place-reports) et arrive pour toutes les entreprises.
+        if (empty($data['is_shipping'])) {
+            throw new BusinessRuleException('Les communes et quartiers viennent de la liste commune : signalez le quartier manquant, il sera ajouté pour tout le monde.', 'name');
+        }
 
         return ZoneResource::make(Zone::create($data)->load('parent'));
     }

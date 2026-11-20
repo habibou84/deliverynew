@@ -20,7 +20,7 @@
       <Icone nom="attente" taille="petite" /> Après {{ order.awaiting_courier.cutoff_time }}
     </div>
     <div v-if="order.last_incident && ['delivery_failed', 'rescheduled'].includes(order.status)" class="text-xs text-red-700 mt-0.5">{{ order.last_incident.label }}</div>
-    <div v-if="order.return_requested && !['returned', 'return_assigned', 'returning'].includes(order.status)" class="mt-0.5"><span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200"><Icone nom="retour" taille="petite" /> Retour demandé</span></div>
+    <div v-if="order.return_requested && !['returned', 'return_assigned', 'returning'].includes(order.status)" class="mt-0.5"><span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200"><Icone nom="retour" taille="petite" /> {{ agencyReturnText(order) }}</span></div>
     <div v-if="order.delivery.scheduled_date && (order.status === 'rescheduled' || (order.delivery.scheduled_date > todayIso && !['delivered', 'cancelled', 'rejected', 'returned', 'lost'].includes(order.status)))" :class="['text-xs', order.delivery.scheduled_date <= todayIso ? 'text-emerald-700 font-medium' : 'text-slate-600']">{{ order.delivery.scheduled_date <= todayIso ? 'Prévue aujourd\'hui' : date(order.delivery.scheduled_date) }}</div>
     <!-- Décision du marchand encore d'actualité -->
     <div v-if="order.merchant_decision" class="mt-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800 ring-1 ring-blue-200 whitespace-nowrap">
@@ -36,6 +36,7 @@ import Icone from './ui/Icone.vue'
 import StatusBadge from './StatusBadge.vue'
 import { useAuthStore } from '../stores/auth'
 import { date, waitDuration as duration } from '../utils/format'
+import { agencyReturnText } from '../utils/returnCause'
 
 defineProps({
   order: { type: Object, required: true },

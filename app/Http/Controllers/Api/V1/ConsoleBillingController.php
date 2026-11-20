@@ -101,6 +101,8 @@ class ConsoleBillingController extends Controller
             ...self::documentSettings(),
             // Inscription des entreprises en libre-service (ouverte par défaut)
             'company_signup' => CompanySignup::enabledInConsole(),
+            // Reprise de l'ancienne application encore ouverte : ses menus (dont les anciennes adresses) restent visibles
+            'legacy_enabled' => PlatformSetting::get('legacy_enabled', '1') === '1',
             // Prépayé : bandeau, délai de grâce, préavis de la facture d'avance, pack de courses
             'prepaid' => BillingSettings::all(),
         ]]);
@@ -112,6 +114,7 @@ class ConsoleBillingController extends Controller
             'payment_instructions' => ['nullable', 'string', 'max:2000'],
             'invoice_issuer' => ['nullable', 'string', 'max:1000'],
             'company_signup' => ['sometimes', 'boolean'],
+            'legacy_enabled' => ['sometimes', 'boolean'],
             'prepaid' => ['sometimes', 'array'],
             ...collect(BillingSettings::LIMITS)->mapWithKeys(fn (array $l, string $key) => ["prepaid.{$key}" => ['sometimes', 'integer', "min:{$l[0]}", "max:{$l[1]}"]])->all(),
         ], [], [
@@ -125,6 +128,9 @@ class ConsoleBillingController extends Controller
         }
         if (array_key_exists('company_signup', $data)) {
             PlatformSetting::put('company_signup', $data['company_signup'] ? '1' : '0');
+        }
+        if (array_key_exists('legacy_enabled', $data)) {
+            PlatformSetting::put('legacy_enabled', $data['legacy_enabled'] ? '1' : '0');
         }
 
         foreach (['payment_instructions', 'invoice_issuer'] as $key) {
