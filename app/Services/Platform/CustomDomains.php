@@ -7,6 +7,7 @@ use App\Exceptions\BusinessRuleException;
 use App\Models\Company;
 use App\Models\User;
 use App\Notifications\CustomDomainActivated;
+use App\Services\Webhooks\UrlGuard;
 use App\Support\Dns;
 use App\Support\Tenancy;
 use Illuminate\Support\Facades\Http;
@@ -105,7 +106,17 @@ class CustomDomains
         $httpsOk = false;
         $error = null;
         try {
-            $response = Http::timeout(8)->acceptJson()->get('https://'.$domain.self::CHECK_PATH);
+            // Même garde-fou que les webhooks : jamais vers un réseau interne, pas de redirection suivie,
+            // et appel vers l'adresse vérifiée (pas de seconde résolution du nom : rebinding DNS)
+            $url = 'https://'.$domain.self::CHECK_PATH;
+            $guard = UrlGuard::target($url);
+            if ($guard['reason'] !== null) {
+                throw new \RuntimeException($guard['reason']);
+            }
+            $response = Http::timeout(8)->acceptJson()
+                ->withOptions(UrlGuard::pin($url, $guard['ip']))
+                ->withoutRedirecting()
+                ->get($url);
             $httpsOk = $response->successful() && $response->json('slug') === $company->slug;
             if (! $httpsOk) {
                 $error = $response->successful()
