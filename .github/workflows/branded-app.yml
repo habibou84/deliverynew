@@ -57,7 +57,7 @@ jobs:
           curl -fsS -H "X-Build-Token: $BUILD_TOKEN" -H 'Accept: application/json' "$API/status" \
             --data-urlencode status=building --data-urlencode "run_url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" > /dev/null
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
