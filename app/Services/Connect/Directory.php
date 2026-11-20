@@ -52,7 +52,7 @@ class Directory
             ->where('status', CompanyStatus::Active->value)
             ->where('directory_listed', true)
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('zones')->whereColumn('zones.company_id', 'companies.id')
-                ->where('zones.is_active', true)->where('zones.is_shipping', false))
+                ->where('zones.is_active', true)->where('zones.is_shipping', false)->where('zones.legacy', false))
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('pricing_grids')->whereColumn('pricing_grids.company_id', 'companies.id')
                 ->where('pricing_grids.is_default', true));
     }
@@ -67,7 +67,7 @@ class Directory
      */
     public function entry(Company $company): array
     {
-        $zones = Zone::forCompany($company->id)->active()->get(['id', 'parent_id', 'name', 'city', 'is_shipping']);
+        $zones = Zone::forCompany($company->id)->offered()->get(['id', 'parent_id', 'name', 'city', 'is_shipping']);
         $local = $zones->where('is_shipping', false);
         $cities = $local->pluck('city')->filter()->unique()->values();
         if ($cities->isEmpty()) {

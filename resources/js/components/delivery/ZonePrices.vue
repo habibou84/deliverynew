@@ -6,7 +6,8 @@
       <input v-model="query" type="search" class="input w-full sm:w-64" placeholder="Chercher une commune ou un quartier" aria-label="Chercher un lieu">
       <label class="flex items-center gap-2 text-sm"><input v-model="showNeighborhoods" type="checkbox"> Afficher les quartiers</label>
       <span class="flex-1" />
-      <button type="button" class="btn-secondary" @click="adding = !adding">+ Ajouter un lieu</button>
+      <button type="button" class="btn-secondary" @click="open('report')">Quartier manquant ?</button>
+      <button type="button" class="btn-secondary" @click="open('shipping')">+ Zone d'expédition</button>
     </div>
 
     <div class="space-y-1 text-sm text-slate-600">
@@ -25,32 +26,39 @@
       une course vers {{ missingCount > 1 ? 'elles' : 'elle' }} ne peut pas être chiffrée, sauf trajet précis.
     </p>
 
-    <!-- Ajouter un lieu absent de la liste, ou une zone d'expédition -->
-    <form v-if="adding" class="card space-y-3 p-4" @submit.prevent="create">
+    <!-- Les communes et quartiers viennent de la liste commune : un quartier manquant se signale, il sera ajouté pour
+         toutes les entreprises. Seule une zone d'expédition (gare, transporteur) se crée ici. -->
+    <form v-if="adding === 'report'" class="card space-y-3 p-4" @submit.prevent="report">
+      <p class="text-sm text-slate-600">Les quartiers sont les mêmes pour toutes les entreprises et Jibiat Marchand. Signalez celui qui manque : il sera ajouté à la liste.</p>
+      <div class="flex flex-wrap items-end gap-2">
+        <div class="min-w-40 flex-1">
+          <label class="label" for="zp-report-name">Quartier</label>
+          <input id="zp-report-name" v-model="draft.name" class="input" required maxlength="120" placeholder="Ex. : Angré Nouveau CHU">
+        </div>
+        <div class="min-w-40 flex-1">
+          <label class="label" for="zp-report-parent">Dans la commune ou la ville</label>
+          <SearchSelect
+            id="zp-report-parent" v-model="draft.parent_code" placeholder="— Choisir —" :empty-value="null" search-placeholder="Commune…"
+            :options="communes.filter((c) => c.place).map((c) => ({ value: c.place, label: c.name }))"
+          />
+        </div>
+        <button class="btn-primary" :disabled="draft.saving || !draft.parent_code">Signaler</button>
+      </div>
+      <p v-if="draft.error" class="field-error">{{ draft.error }}</p>
+    </form>
+    <form v-if="adding === 'shipping'" class="card space-y-3 p-4" @submit.prevent="create">
       <div class="flex flex-wrap items-end gap-2">
         <div class="min-w-40 flex-1">
           <label class="label" for="zp-name">Nom</label>
-          <input id="zp-name" v-model="draft.name" class="input" required :placeholder="draft.is_shipping ? 'Ex. : Expédition Bouaké (gare UTB Adjamé)' : 'Ex. : Angré'">
-        </div>
-        <div v-if="!draft.is_shipping" class="min-w-40 flex-1">
-          <label class="label" for="zp-parent">Dans la commune</label>
-          <SearchSelect
-            id="zp-parent" v-model="draft.parent_id" placeholder="— (c'est une commune)" :empty-value="null" search-placeholder="Commune…"
-            :options="communes.map((c) => ({ value: c.id, label: c.name }))"
-          />
+          <input id="zp-name" v-model="draft.name" class="input" required placeholder="Ex. : Expédition Bouaké (gare UTB Adjamé)">
         </div>
         <div class="w-36">
-          <label class="label" for="zp-price">Prix « Partout » (F)</label>
+          <label class="label" for="zp-price">Prix (F)</label>
           <input id="zp-price" v-model.number="draft.price" type="number" min="0" class="input" placeholder="Ex. : 1500">
         </div>
         <button class="btn-primary" :disabled="draft.saving">Ajouter</button>
       </div>
-      <label class="flex items-start gap-2 text-sm">
-        <input v-model="draft.is_shipping" type="checkbox" class="mt-1" @change="draft.parent_id = null">
-        <span>Zone d'expédition
-          <span class="block text-slate-600">Le livreur dépose le colis à une gare ou chez un transporteur et paie l'envoi, facturé au marchand. Le prix est celui de la course jusqu'à la gare.</span>
-        </span>
-      </label>
+      <p class="text-sm text-slate-600">Le livreur dépose le colis à une gare ou chez un transporteur et paie l'envoi, facturé au marchand. Le prix est celui de la course jusqu'à la gare.</p>
       <p v-if="draft.error" class="field-error">{{ draft.error }}</p>
     </form>
 
@@ -172,7 +180,24 @@ const showNeighborhoods = ref(false)
 const busy = reactive({})
 const saving = ref(false)
 const adding = ref(false)
-const draft = reactive({ name: '', parent_id: null, is_shipping: false, price: null, error: '', saving: false })
+const draft = reactive({ name: '', parent_code: null, price: null, error: '', saving: false })
+function open(mode) {
+  adding.value = adding.value === mode ? false : mode
+  Object.assign(draft, { name: '', parent_code: null, price: null, error: '' })
+}
+async function report() {
+  draft.error = ''
+  draft.saving = true
+  try {
+    await http.post('/place-reports', { name: draft.name, parent_code: draft.parent_code })
+    toasts.success('Merci : le quartier sera ajouté à la liste après vérification.')
+    adding.value = false
+  } catch (e) {
+    draft.error = apiErrorMessage(e)
+  } finally {
+    draft.saving = false
+  }
+}
 const leaveWarning = 'Des prix modifiés ne sont pas enregistrés. Quitter quand même ?'
 
 const norm = (s) => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -337,13 +362,13 @@ async function create() {
   draft.error = ''
   draft.saving = true
   try {
-    const { data } = await http.post('/zones', { name: draft.name, parent_id: draft.is_shipping ? null : draft.parent_id, is_shipping: draft.is_shipping })
+    const { data } = await http.post('/zones', { name: draft.name, parent_id: null, is_shipping: true })
     if (draft.price !== null && draft.price !== '') {
       await http.put(`/pricing-grids/${props.gridId}/zone-prices/${data.data.id}`, { price: Number(draft.price) })
     }
     toasts.success('Lieu ajouté.')
-    if (draft.parent_id) showNeighborhoods.value = true
-    Object.assign(draft, { name: '', parent_id: null, price: null })
+    Object.assign(draft, { name: '', parent_code: null, price: null })
+    adding.value = false
     await load()
   } catch (e) {
     draft.error = apiErrorMessage(e)

@@ -871,7 +871,7 @@ class LegacyOrdersImporter
     {
         return $this->unknownZone ??= Zone::withoutGlobalScopes()->firstOrCreate(
             ['company_id' => $this->company->id, 'name' => self::UNKNOWN_ZONE, 'parent_id' => null],
-            ['is_active' => false],
+            ['is_active' => false, 'legacy' => true],
         );
     }
 

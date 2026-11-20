@@ -588,7 +588,7 @@ class Conversation
      */
     private function zones(): Collection
     {
-        return Zone::forCompany($this->company->id)->active()->with('parent')->get();
+        return Zone::forCompany($this->company->id)->offered()->with('parent')->get();
     }
 
     /**

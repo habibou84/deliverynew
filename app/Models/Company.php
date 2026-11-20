@@ -247,6 +247,15 @@ class Company extends Model
         return [...self::DAY_ADVICE_DEFAULTS, ...($this->day_advice ?? [])];
     }
 
+    /**
+     * L'entreprise a repris l'ancienne application et la reprise est encore ouverte sur la plateforme (interrupteur
+     * de la console) : ses menus propres à la reprise, dont « Adresses de l'ancienne application », sont visibles.
+     */
+    public function usesLegacy(): bool
+    {
+        return $this->legacy_import_used_at !== null && PlatformSetting::get('legacy_enabled', '1') === '1';
+    }
+
     /** Automatisation suspendue (bouton du planning) : plus d'assignation ni de passage au remplaçant, les alertes restent */
     public function automationPaused(): bool
     {
