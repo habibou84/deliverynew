@@ -20,9 +20,6 @@ class StandardZones
 {
     public const SHIPPING_NAME = 'Expédition (intérieur du pays)';
 
-    /** Ville de la liste commune où l'on livre directement par défaut */
-    public const DIRECT_CITY = 'grand-bassam';
-
     public function syncAll(): void
     {
         Company::query()->select('id')->eachById(fn (Company $company) => $this->sync($company));
@@ -68,8 +65,9 @@ class StandardZones
                 'place_code' => $place['code'],
                 'name' => $place['name'],
                 'city' => $this->city($place),
-                // Villes : par Expédition, sauf Grand-Bassam (livraison directe) ; l'entreprise peut en rouvrir d'autres
-                'is_active' => $place['type'] !== Places::CITY || $place['code'] === self::DIRECT_CITY,
+                // Villes de l'intérieur et leurs quartiers : par Expédition (masqués), sauf ce qui est livré directement
+                // depuis Abidjan (ses communes, Grand-Bassam) ; l'entreprise peut en rouvrir d'autres
+                'is_active' => Places::isDirect($place['code']),
                 'sort_order' => ++$sort,
             ]);
             $zones->push($zone);
@@ -93,13 +91,15 @@ class StandardZones
     }
 
     /**
-     * Villes de destination proposées pour une expédition : les villes de la liste commune, hors Abidjan.
+     * Villes de destination proposées pour une expédition : les villes de la liste commune, hors Abidjan et les villes
+     * livrées directement (Grand-Bassam).
      *
      * @return list<string>
      */
     public static function shippingCities(): array
     {
         return collect(Places::all())->where('type', Places::CITY)->where('code', '!=', 'abidjan')
+            ->reject(fn (array $city) => in_array($city['code'], Places::directCities(), true))
             ->pluck('name')->sort(SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
     }
 

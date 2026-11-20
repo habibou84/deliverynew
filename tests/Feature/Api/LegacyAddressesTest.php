@@ -6,6 +6,7 @@ use App\Models\ApiKey;
 use App\Models\PlaceReport;
 use App\Models\PlatformSetting;
 use App\Models\Zone;
+use App\Services\Zones\StandardZones;
 use App\Services\Zones\ZoneLinks;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
@@ -99,5 +100,14 @@ class LegacyAddressesTest extends TestCase
 
         $this->assertTrue(Zone::withoutGlobalScopes()->where('company_id', $this->company->id)->where('place_code', 'abidjan-yopougon-lokoa')->exists());
         $this->assertSame(Places::checksum(), PlatformSetting::get('places_checksum'));
+
+        // Villes de l'intérieur et leurs quartiers : par Expédition (masqués) ; Grand-Bassam livré directement
+        $zone = fn (string $code) => Zone::withoutGlobalScopes()->where('company_id', $this->company->id)->where('place_code', $code)->firstOrFail();
+        $this->assertFalse($zone('bouake')->is_active);
+        $this->assertFalse($zone('bouake-commerce')->is_active);
+        $this->assertTrue($zone('grand-bassam-moossou')->is_active);
+        $this->assertTrue($zone('abidjan-songon-songon-agban')->is_active);
+        $this->assertContains('Bouaké', StandardZones::shippingCities());
+        $this->assertNotContains('Grand-Bassam', StandardZones::shippingCities());
     }
 }
