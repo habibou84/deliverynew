@@ -9,11 +9,13 @@ use App\Models\Order;
 use App\Models\PricingRule;
 use App\Models\Zone;
 use App\Support\Branding;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Annuaire public des entreprises de livraison (jibiat.com/annuaire et Jibiat Marchand) : seules celles qui
- * l'ont choisi y figurent, avec leurs villes, leur prix de départ et leurs vrais chiffres des 90 derniers jours.
+ * Annuaire public des entreprises de livraison (jibiat.com/annuaire et Jibiat Marchand) : toutes y figurent dès
+ * qu'elles sont prêtes (zones et tarifs), sauf celles qui s'en sont retirées, avec leurs villes, leur prix de départ
+ * et leurs vrais chiffres des 90 derniers jours.
  * Contrat : schéma « directory » de habibou84/socle.
  */
 class Directory
@@ -28,9 +30,7 @@ class Directory
      */
     public function all(): array
     {
-        return Cache::remember(self::CACHE_KEY, now()->addMinutes(10), fn () => Company::query()
-            ->where('status', CompanyStatus::Active->value)
-            ->where('directory_listed', true)
+        return Cache::remember(self::CACHE_KEY, now()->addMinutes(10), fn () => self::listed()
             ->orderBy('name')
             ->get()
             ->map(fn (Company $company) => $this->entry($company))
@@ -38,6 +38,23 @@ class Directory
             ->sortByDesc(fn (array $e) => $e['stats']['deliveries_90d'])
             ->values()
             ->all());
+    }
+
+    /**
+     * Entreprises de l'annuaire : actives, pas retirées, et prêtes à recevoir un e-commerçant (au moins une zone
+     * de livraison active et une grille de tarifs par défaut).
+     *
+     * @return Builder<Company>
+     */
+    public static function listed(): Builder
+    {
+        return Company::query()
+            ->where('status', CompanyStatus::Active->value)
+            ->where('directory_listed', true)
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('zones')->whereColumn('zones.company_id', 'companies.id')
+                ->where('zones.is_active', true)->where('zones.is_shipping', false))
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('pricing_grids')->whereColumn('pricing_grids.company_id', 'companies.id')
+                ->where('pricing_grids.is_default', true));
     }
 
     public static function forget(): void

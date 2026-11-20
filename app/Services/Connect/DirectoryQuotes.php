@@ -2,7 +2,6 @@
 
 namespace App\Services\Connect;
 
-use App\Enums\CompanyStatus;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Company;
 use App\Models\Merchant;
@@ -34,7 +33,7 @@ class DirectoryQuotes
             return [];
         }
 
-        return Company::query()->where('status', CompanyStatus::Active->value)->where('directory_listed', true)
+        return Directory::listed()
             ->when(! empty($data['slugs']), fn ($q) => $q->whereIn('slug', $data['slugs']))
             ->orderBy('name')->limit(50)->get()
             ->map(fn (Company $company) => $this->quote($company, $data))
