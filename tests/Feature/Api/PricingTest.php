@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Enums\SurchargeType;
+use App\Exceptions\BusinessRuleException;
 use App\Models\Company;
 use App\Models\PricingGrid;
 use App\Services\Pricing\PricingService;
@@ -95,5 +96,27 @@ class PricingTest extends TestCase
 
         $this->postJson('/api/v1/quotes', ['delivery_zone_id' => $foreign->id])
             ->assertJsonValidationErrors('delivery_zone_id');
+    }
+
+    public function test_a_destination_without_price_takes_the_base_price_of_the_grid(): void
+    {
+        // Pas de prix vers le Plateau : refusé, puis le prix de base de la grille s'applique
+        try {
+            $this->price($this->cocody, $this->plateau);
+            $this->fail('Le trajet sans prix devait être refusé.');
+        } catch (BusinessRuleException) {
+        }
+
+        Sanctum::actingAs($this->admin);
+        $this->putJson("/api/v1/pricing-grids/{$this->grid->id}", ['base_price' => 1200])->assertOk()->assertJsonPath('data.base_price', 1200);
+
+        $this->assertSame(1200, $this->price($this->cocody, $this->plateau));
+        // Un vrai prix (trajet, destination) passe toujours avant le prix de base
+        $this->assertSame(1500, $this->price($this->cocody, $this->yopougon));
+        $this->getJson("/api/v1/pricing-grids/{$this->grid->id}/check?pickup_zone_id={$this->cocody->id}&delivery_zone_id={$this->plateau->id}")
+            ->assertOk()->assertJsonPath('data.source', 'base')->assertJsonPath('data.total', 1200);
+
+        // Vide : plus de prix de base
+        $this->putJson("/api/v1/pricing-grids/{$this->grid->id}", ['base_price' => null])->assertOk()->assertJsonPath('data.base_price', null);
     }
 }
