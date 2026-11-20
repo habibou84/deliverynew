@@ -59,7 +59,7 @@ class ZoneResolver
                 continue;
             }
 
-            $zones ??= Zone::forCompany($companyId)->active()->with('parent')->get();
+            $zones ??= Zone::forCompany($companyId)->offered()->with('parent')->get();
             $found = $this->match($name, $zones);
 
             if ($found->count() === 1) {

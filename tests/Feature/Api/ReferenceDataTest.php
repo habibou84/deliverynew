@@ -37,8 +37,10 @@ class ReferenceDataTest extends TestCase
         $this->postJson('/api/v1/zones', ['name' => 'Marcory'])->assertForbidden();
 
         Sanctum::actingAs($this->admin);
-        $this->postJson('/api/v1/zones', ['name' => 'Marcory'])->assertCreated()->assertJsonPath('data.name', 'Marcory');
+        // Les communes et quartiers viennent de la liste commune : seule une zone d'expédition se crée ici
         $this->postJson('/api/v1/zones', ['name' => 'Marcory'])->assertJsonValidationErrors('name');
+        $this->postJson('/api/v1/zones', ['name' => 'Expédition Korhogo', 'is_shipping' => true])->assertCreated()->assertJsonPath('data.name', 'Expédition Korhogo');
+        $this->postJson('/api/v1/zones', ['name' => 'Expédition Korhogo', 'is_shipping' => true])->assertJsonValidationErrors('name');
         $this->postJson('/api/v1/zones', ['name' => 'Riviera 3', 'parent_id' => $this->angre->id])
             ->assertJsonValidationErrors('parent_id'); // un seul niveau de sous-zone
     }

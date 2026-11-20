@@ -83,6 +83,7 @@ use App\Http\Controllers\Api\V1\ParcelRelayController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PayPlanController;
+use App\Http\Controllers\Api\V1\PlaceReportController;
 use App\Http\Controllers\Api\V1\PlanningController;
 use App\Http\Controllers\Api\V1\PremiumProgramController;
 use App\Http\Controllers\Api\V1\PricingGridController;
@@ -321,6 +322,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('companies/{company}/whatsapp-qr', 'whatsappQr')->middleware($support)->name('companies.whatsapp-qr');
         });
         Route::get('console/dashboard', [ConsoleDashboardController::class, 'show'])->middleware($team)->name('console.dashboard');
+        Route::get('console/place-reports', [PlaceReportController::class, 'index'])->middleware($team)->name('console.place-reports');
+        Route::put('console/place-reports/{placeReport}', [PlaceReportController::class, 'update'])->middleware($support)->name('console.place-reports.update');
         Route::get('console/search', [ConsoleSearchController::class, 'search'])->middleware([$team, 'throttle:60,1'])->name('console.search');
         Route::get('console/audit', [ConsoleAuditController::class, 'index'])->middleware($owner)->name('console.audit');
         Route::get('console/health', [ConsoleHealthController::class, 'show'])->middleware($support)->name('console.health');
@@ -551,6 +554,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Référentiels
         Route::get('zones', [ZoneController::class, 'index'])->name('zones.index');
+        Route::get('zones/legacy', [ZoneController::class, 'legacy'])->name('zones.legacy');
+        // Quartier absent de la liste commune : signalé à la plateforme, ajouté ensuite pour tout le monde
+        Route::post('place-reports', [PlaceReportController::class, 'store'])->middleware('throttle:20,1')->name('place-reports.store');
         Route::get('shipping-cities', [ZoneController::class, 'shippingCities'])->name('shipping-cities');
         Route::get('incident-reasons', [ReferenceController::class, 'incidentReasons'])->name('incident-reasons.index');
         Route::get('recipients', [ReferenceController::class, 'recipients'])->name('recipients.index');

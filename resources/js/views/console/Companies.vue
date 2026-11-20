@@ -25,6 +25,18 @@
       <button v-if="can('owner')" class="btn-secondary !py-1" :disabled="signupOpen === null" @click="toggleSignup">{{ signupOpen ? 'Fermer' : 'Ouvrir' }}</button>
     </div>
 
+    <!-- Reprise de l'ancienne application : un seul interrupteur pour masquer tous ses menus (anciennes adresses comprises) -->
+    <div class="card flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
+      <p>
+        <span class="font-medium">Reprise de l'ancienne application :</span>{{ ' ' }}
+        <template v-if="legacyOn === null">…</template>
+        <template v-else-if="legacyOn">ouverte (anciennes adresses visibles pour les entreprises qui l'ont faite)</template>
+        <template v-else>fermée (anciennes adresses masquées partout)</template>
+      </p>
+      <button v-if="can('owner')" class="btn-secondary !py-1" :disabled="legacyOn === null" @click="toggleLegacy">{{ legacyOn ? 'Fermer' : 'Rouvrir' }}</button>
+    </div>
+    <ConsolePlaceReports :can-decide="can('support')" />
+
     <div class="flex flex-wrap gap-2">
       <input v-model="search" class="input w-64" placeholder="Nom ou adresse…" aria-label="Rechercher" @input="debouncedLoad">
       <select v-model="status" class="input w-auto" aria-label="Statut" @change="load">
@@ -131,6 +143,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
+import ConsolePlaceReports from '../../components/ConsolePlaceReports.vue'
 import Modal from '../../components/Modal.vue'
 import StatCard from '../../components/StatCard.vue'
 import { consoleCan } from '../../roles'
@@ -158,6 +171,7 @@ const status = ref('')
 const source = ref('')
 // Inscription des entreprises en libre-service (réglage de la plateforme)
 const signupOpen = ref(null)
+const legacyOn = ref(null)
 const signupUrl = `${window.location.origin}/creer-mon-entreprise`
 const form = reactive({ open: false, name: '', slug: '', slugTouched: false, phone: '', timezone: 'Africa/Abidjan', plan_id: null, admin: {}, error: '', saving: false })
 // Formules proposées aux nouvelles entreprises
@@ -211,6 +225,16 @@ async function create() {
   }
 }
 
+async function toggleLegacy() {
+  try {
+    const { data } = await http.put('/console/settings', { legacy_enabled: !legacyOn.value })
+    legacyOn.value = data.data.legacy_enabled
+    toasts.success(legacyOn.value ? 'Reprise rouverte.' : 'Reprise fermée : ses menus sont masqués.')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  }
+}
+
 async function toggleSignup() {
   try {
     const { data } = await http.put('/console/settings', { company_signup: !signupOpen.value })
@@ -223,6 +247,8 @@ async function toggleSignup() {
 
 onMounted(async () => {
   await load()
-  signupOpen.value = (await http.get('/console/settings')).data.data.company_signup
+  const settings = (await http.get('/console/settings')).data.data
+  signupOpen.value = settings.company_signup
+  legacyOn.value = settings.legacy_enabled
 })
 </script>

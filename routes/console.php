@@ -26,6 +26,8 @@ Schedule::call(fn () => Cache::put(PlatformHealth::HEARTBEAT, now()->toIso8601St
 Schedule::command('platform:health --alert')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('horizon:snapshot')->everyFiveMinutes();
 Schedule::command('reports:send')->everyFiveMinutes()->withoutOverlapping();
+// Référentiel des lieux (socle) : nouveaux quartiers ajoutés aux zones standard des entreprises
+Schedule::command('places:sync')->hourly()->withoutOverlapping();
 // Connexion directe : demande sans décision avant « decide_before » (24 h quand un colis attend) expirée et annoncée à Jibiat Marchand
 Schedule::call(fn () => app(DirectConnect::class)->expireDue())->everyFiveMinutes()->name('connect:expire')->withoutOverlapping();
 // Lives restés ouverts plus de 12 h (oubliés) : fermés et comptés
