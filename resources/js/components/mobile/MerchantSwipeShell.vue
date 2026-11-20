@@ -32,7 +32,7 @@
     </header>
 
     <!-- Pages côte à côte : on glisse avec le doigt, ou on touche l'onglet -->
-    <div ref="track" data-swipe-pages :class="{ 'swipe-peek': peek }" class="swipe-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden" @scroll.passive="onScroll" @touchstart.passive="touched = true; peek = false">
+    <div ref="track" data-swipe-pages :class="{ 'swipe-peek': peek }" class="swipe-track flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overflow-y-hidden" @scroll.passive="onScroll" @scrollend="settle" @touchstart.passive="touched = true; peek = false">
       <section
         v-for="(p, i) in pages"
         :key="p.key"
@@ -237,12 +237,36 @@ function showHint() {
   }, 900)
 }
 
+const nearest = () => {
+  const el = track.value
+  return el ? Math.round(el.scrollLeft / Math.max(1, el.clientWidth)) : current.value
+}
+// Pendant le glissement : l'onglet change dès que la page suivante dépasse la moitié de l'écran, et son contenu
+// commence à se charger (avant, il fallait attendre que la page soit arrêtée : environ un tiers de seconde de plus)
+let frame = 0
 function onScroll() {
+  if (!frame) {
+    frame = requestAnimationFrame(() => {
+      frame = 0
+      const i = nearest()
+      if (i !== current.value) highlight(i)
+    })
+  }
+  // Page arrêtée : l'adresse suit (scrollend quand le navigateur le connaît, sinon juste après le dernier mouvement)
   clearTimeout(scrollTimer)
-  scrollTimer = setTimeout(() => {
-    const el = track.value
-    setPage(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)))
-  }, 80)
+  scrollTimer = setTimeout(settle, 120)
+}
+function settle() {
+  clearTimeout(scrollTimer)
+  if (track.value) setPage(nearest())
+}
+function highlight(i) {
+  const p = props.pages[i]
+  if (!p) return
+  if (touched) hintDone()
+  tabsEl.value?.children[i]?.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' })
+  current.value = i
+  if (!screenOpen.value) seen.add(p.key)
 }
 const tabClass = (p, i) => {
   const red = p.badge?.()?.level === 'red'
