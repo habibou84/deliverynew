@@ -239,4 +239,22 @@ class AppConnectTest extends TestCase
         Sanctum::actingAs($this->courierA->user);
         $this->getJson($this->at('rapide', '/api/v1/connect-requests'))->assertForbidden();
     }
+
+    public function test_every_ready_company_is_listed_automatically_unless_it_opts_out(): void
+    {
+        // Entreprise sans réglage : présente dès qu'elle a des zones et une grille de tarifs
+        Directory::forget();
+        $this->assertSame(['rapide'], array_column($this->getJson($this->at('', '/api/public/directory'))->json('data'), 'slug'));
+
+        // Pas encore prête (aucune zone, aucun tarif) : absente
+        $empty = Company::factory()->create(['slug' => 'toute-neuve', 'name' => 'Toute Neuve']);
+        $this->assertTrue((bool) $empty->fresh()->directory_listed);
+        Directory::forget();
+        $this->assertNotContains('toute-neuve', array_column($this->getJson($this->at('', '/api/public/directory'))->json('data'), 'slug'));
+
+        // Retirée par l'entreprise : absente
+        $this->company->update(['directory_listed' => false]);
+        Directory::forget();
+        $this->assertSame([], $this->getJson($this->at('', '/api/public/directory'))->json('data'));
+    }
 }

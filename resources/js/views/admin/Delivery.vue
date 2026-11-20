@@ -6,7 +6,7 @@
         <p class="text-sm text-slate-600">Où vous livrez et à quel prix, au même endroit.</p>
       </div>
       <!-- Grille dont on règle les prix : la grille normale, ou une grille négociée -->
-      <div v-if="grids.length > 1 && tab !== 'grilles'" class="flex items-center gap-2">
+      <div v-if="grids.length > 1 && !['grilles', 'anciennes'].includes(tab)" class="flex items-center gap-2">
         <label for="grid" class="text-sm font-semibold text-slate-700">Prix de la grille</label>
         <select id="grid" v-model="gridId" class="input w-auto" @change="chooseGrid(gridId)">
           <option v-for="g in grids" :key="g.id" :value="g.id">{{ g.name }}{{ g.is_default ? ' (normale)' : '' }}</option>
@@ -14,7 +14,7 @@
       </div>
     </div>
 
-    <p v-if="grid && !grid.is_default && tab !== 'grilles'" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+    <p v-if="grid && !grid.is_default && !['grilles', 'anciennes'].includes(tab)" class="rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
       Vous réglez la grille négociée « {{ grid.name }} » ({{ grid.merchants_count ?? 0 }} e-commerçant{{ (grid.merchants_count ?? 0) > 1 ? 's' : '' }}).
       Un lieu sans prix ici reprend celui de la grille normale.
     </p>
@@ -22,7 +22,7 @@
     <!-- Onglets -->
     <div role="tablist" aria-label="Zones et tarifs" class="flex flex-wrap gap-1 border-b border-slate-300">
       <button
-        v-for="t in TABS" :key="t.value" type="button" role="tab" :aria-selected="tab === t.value"
+        v-for="t in tabs" :key="t.value" type="button" role="tab" :aria-selected="tab === t.value"
         :class="['-mb-px min-h-11 border-b-2 px-4 text-sm font-semibold', tab === t.value ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-600 hover:text-slate-900']"
         @click="setTab(t.value)"
       >
@@ -30,7 +30,8 @@
       </button>
     </div>
 
-    <PriceCheck v-if="gridId && tab !== 'grilles'" :grid-id="gridId" />
+    <PriceCheck v-if="gridId && !['grilles', 'anciennes'].includes(tab)" :grid-id="gridId" />
+    <LegacyAddresses v-if="tab === 'anciennes'" />
 
     <template v-if="gridId">
       <ZonePrices v-if="tab === 'zones'" :key="`z${gridId}`" :grid-id="gridId" :is-default="!!grid?.is_default" />
@@ -52,6 +53,8 @@ import PricingGridsManager from '../../components/delivery/PricingGridsManager.v
 import SurchargesEditor from '../../components/delivery/SurchargesEditor.vue'
 import ZonePrices from '../../components/delivery/ZonePrices.vue'
 import ReturnFeeSettings from '../../components/settings/ReturnFeeSettings.vue'
+import LegacyAddresses from '../../components/delivery/LegacyAddresses.vue'
+import { useAuthStore } from '../../stores/auth'
 
 /**
  * Zones et tarifs : un tableau unique des zones (on ramasse ici, on livre ici, prix « Partout » et prix de chaque
@@ -63,10 +66,13 @@ const TABS = [
   { value: 'grilles', label: 'Grilles négociées' },
 ]
 
+// Reprise de l'ancienne application : ses adresses à part, seulement pour les entreprises qui l'ont faite
+const auth = useAuthStore()
+const tabs = computed(() => (auth.user?.company?.uses_legacy ? [...TABS, { value: 'anciennes', label: 'Adresses de l\'ancienne application' }] : TABS))
 const route = useRoute()
 const router = useRouter()
 // « trajets » : l'ancien onglet, désormais dans Zones et prix
-const tab = ref(TABS.some((t) => t.value === route.query.onglet) ? route.query.onglet : 'zones')
+const tab = ref(tabs.value.some((t) => t.value === route.query.onglet) ? route.query.onglet : 'zones')
 const grids = ref([])
 const gridId = ref(Number(route.query.grille) || null)
 const grid = computed(() => grids.value.find((g) => g.id === gridId.value) ?? null)

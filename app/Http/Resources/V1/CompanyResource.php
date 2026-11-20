@@ -60,6 +60,8 @@ class CompanyResource extends JsonResource
             'reschedule_no_answer' => $this->reschedule_no_answer ?? 'remind',
             'courier_available_alert' => (bool) ($this->courier_available_alert ?? true),
             'directory_listed' => (bool) $this->directory_listed,
+            // Reprise de l'ancienne application : rubrique « Adresses de l'ancienne application » visible
+            'uses_legacy' => $this->resource->usesLegacy(),
             'directory_pitch' => $this->directory_pitch,
             // Lien à envoyer aux e-commerçants : Jibiat Marchand leur offre un mois d'essai en plus (entreprise de l'annuaire)
             'jibiat_marchand_invite_url' => $this->resource->jibiatMarchandInviteUrl(),

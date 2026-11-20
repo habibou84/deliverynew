@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Company;
 use App\Models\Plan;
 use App\Models\PlatformSetting;
+use App\Models\PricingGrid;
+use App\Models\Zone;
 use App\Services\Connect\Directory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -110,8 +112,14 @@ class MarketingSiteTest extends TestCase
     {
         $this->get('http://jibiat.test/annuaire')->assertOk()->assertSee('annuaire ouvre bientôt');
 
-        Company::factory()->create(['slug' => 'rapide', 'name' => 'Rapide Express', 'directory_listed' => true, 'merchant_signup' => true, 'directory_pitch' => 'Livré le jour même.']);
-        Company::factory()->create(['slug' => 'discrete', 'name' => 'Discrète Livraison']);
+        // Annuaire automatique : une entreprise prête (zones, tarifs) y figure ; retirée ou pas prête, elle n'y est pas
+        $rapide = Company::factory()->create(['slug' => 'rapide', 'name' => 'Rapide Express', 'merchant_signup' => true, 'directory_pitch' => 'Livré le jour même.']);
+        Zone::factory()->create(['company_id' => $rapide->id, 'name' => 'Cocody']);
+        PricingGrid::factory()->default()->create(['company_id' => $rapide->id]);
+        $discrete = Company::factory()->create(['slug' => 'discrete', 'name' => 'Discrète Livraison', 'directory_listed' => false]);
+        Zone::factory()->create(['company_id' => $discrete->id, 'name' => 'Plateau']);
+        PricingGrid::factory()->default()->create(['company_id' => $discrete->id]);
+        Company::factory()->create(['slug' => 'neuve', 'name' => 'Toute Neuve Livraison']);
         Directory::forget();
 
         $this->get('http://jibiat.test/annuaire')->assertOk()
@@ -119,7 +127,7 @@ class MarketingSiteTest extends TestCase
             ->assertSee('Rapide Express')->assertSee('Livré le jour même.')
             ->assertSee('https://rapide.jibiat.test/inscription', false)
             ->assertSee('chiffres affichés dès 20 courses')
-            ->assertDontSee('Discrète Livraison');
+            ->assertDontSee('Discrète Livraison')->assertDontSee('Toute Neuve Livraison');
     }
 
     public function test_closed_signup_keeps_prices_and_offers_contact(): void
