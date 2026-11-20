@@ -69,6 +69,8 @@ class AutomaticMessages
                 'templates' => $t(WhatsAppTemplate::MerchantWelcome), 'fixed' => 'À la création', 'channel' => 'WhatsApp'],
             ['id' => 'activity_report', 'audience' => 'merchant', 'title' => 'Point d\'activité', 'when' => 'Chaque jour ou chaque semaine : choisi par l\'e-commerçant dans son application',
                 'templates' => $t(WhatsAppTemplate::ActivityReport), 'fixed' => 'Son choix'],
+            ['id' => 'connect_confirm', 'audience' => 'merchant', 'title' => 'Connecter sa boutique Jibiat Marchand', 'when' => 'Sa boutique Jibiat Marchand demande à se connecter à son compte : il confirme ou refuse (sécurité, ne se coupe pas)',
+                'templates' => $t(WhatsAppTemplate::ConnectConfirm), 'fixed' => 'Toujours', 'channel' => 'WhatsApp'],
             ['id' => 'payment_method', 'audience' => 'merchant', 'title' => 'Moyen de paiement modifié', 'when' => 'Ajouté, modifié ou retiré sur son compte : sécurité, ne se coupe pas',
                 'templates' => $t(WhatsAppTemplate::PaymentMethodChanged), 'fixed' => 'Toujours'],
 
