@@ -13,7 +13,7 @@
         muted loop playsinline preload="none"
         aria-label="Vidéo : {{ $title }}"
     ></video>
-    <script>
+    <script nonce="{{ \Illuminate\Support\Facades\Vite::cspNonce() }}">
         (function () {
             var video = document.currentScript.previousElementSibling;
             var wide = window.matchMedia('(min-width: 640px)').matches;

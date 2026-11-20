@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Connect\ConnectController;
 use App\Http\Controllers\Api\Connect\DirectConnectController;
 use App\Http\Controllers\Api\Connect\DirectoryQuoteController;
 use App\Http\Controllers\Api\Connect\PublicConnectController;
+use App\Http\Controllers\Api\CspReportController;
 use App\Http\Controllers\Api\NativeAppController;
 use App\Http\Controllers\Api\PublicV1\PublicAccountController;
 use App\Http\Controllers\Api\PublicV1\PublicApiController;
@@ -195,6 +196,9 @@ Route::prefix('public/connect/direct')->name('public.connect.direct.')->controll
         Route::get('{requestId}', 'show')->where('requestId', '[A-Za-z0-9-]{8,64}')->name('show');
         Route::delete('{requestId}', 'destroy')->where('requestId', '[A-Za-z0-9-]{8,64}')->name('destroy');
     });
+
+// Rapports des navigateurs sur la politique de contenu (CSP, mode « signalement seul ») : sans compte, limités
+Route::post('csp-report', CspReportController::class)->middleware('throttle:30,1');
 
 // Applications Android et iOS : entreprise désignée par son code (depuis l'adresse de la plateforme)
 Route::get('public/apps/companies/{code}', [NativeAppController::class, 'company'])
