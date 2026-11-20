@@ -330,10 +330,8 @@ const menu = computed(() => {
       id: 'operations',
       label: 'Opérations',
       items: [
-        // Courses : trois onglets (la liste, l'activité des livreurs, les retours marchands)
-        { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view', active: ['/admin/activite', '/admin/retours'], badge: isDispatch.value ? dispatchCounts.counts.late.total + fieldReports.open.total + heldParcels.counts.overdue + returnsCount.value : 0 },
-        // Jour de livraison dépassé, course pas terminée : pas ramassées (à reporter), ramassées, toutes
-        { to: '/admin/courses/en-retard', icon: 'retard', label: 'Courses en retard', permission: 'orders.dispatch', badge: dispatchCounts.counts.exceptions?.untreated || 0 },
+        // Courses : quatre cartes (la liste, l'activité des livreurs, les retours marchands, les courses en retard)
+        { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view', active: ['/admin/activite', '/admin/retours', '/admin/courses/en-retard'], badge: isDispatch.value ? (dispatchCounts.counts.exceptions?.untreated || 0) + fieldReports.open.total + heldParcels.counts.overdue + returnsCount.value : 0 },
       ],
     },
     {
