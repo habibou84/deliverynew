@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Orders\ReturnSlips;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -61,12 +62,23 @@ class ReturnSlipController extends Controller
         return response()->json(['data' => $this->slips->candidates($data['merchant_id'])->map(fn (Order $o) => $this->orderData($o))->values()]);
     }
 
-    /** Nombre de colis à rendre (compteur du menu) */
+    /**
+     * Colis à rendre (compteur du menu, carte « Retours marchands ») : combien, chez combien d'e-commerçants,
+     * combien chez un livreur, bons de retour en route, plus ancien jour de livraison prévu.
+     */
     public function count(Request $request): JsonResponse
     {
         $this->authorizeDispatch($request);
+        $summary = $this->slips->summary();
+        $oldest = $summary->pluck('oldest')->filter()->min();
 
-        return response()->json(['data' => ['to_return' => $this->slips->candidatesQuery()->count()]]);
+        return response()->json(['data' => [
+            'to_return' => (int) $summary->sum('total'),
+            'merchants' => $summary->count(),
+            'held' => (int) $summary->sum('held'),
+            'slips_on_the_way' => ReturnSlip::query()->where('status', ReturnSlip::OPEN)->count(),
+            'oldest_days' => $oldest ? (int) Carbon::parse(substr((string) $oldest, 0, 10))->diffInDays(today()) : null,
+        ]]);
     }
 
     public function store(Request $request): JsonResponse

@@ -76,7 +76,8 @@ class ReturnSlipTest extends TestCase
         $index->assertJsonPath('candidates.0.merchant.id', $this->merchant->id)->assertJsonPath('candidates.0.total', 3)
             ->assertJsonPath('candidates.0.held', 1)->assertJsonPath('candidates_total', 3);
         $this->getJson("/api/v1/return-slips/candidates?merchant_id={$this->merchant->id}")->assertOk()->assertJsonCount(3, 'data');
-        $this->getJson('/api/v1/return-slips/count')->assertOk()->assertJsonPath('data.to_return', 3);
+        $this->getJson('/api/v1/return-slips/count')->assertOk()->assertJsonPath('data.to_return', 3)
+            ->assertJsonPath('data.merchants', 1)->assertJsonPath('data.held', 1)->assertJsonPath('data.slips_on_the_way', 0);
 
         // Colis encore chez B : impossible de le confier à A
         $this->postJson('/api/v1/return-slips', [

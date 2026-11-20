@@ -1,11 +1,10 @@
 <template>
   <div class="space-y-4">
+    <h1 class="text-xl font-bold">Courses</h1>
+    <!-- Courses, Activité des livreurs, Retours marchands, Courses en retard -->
+    <CoursesTabs />
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <div>
-        <RouterLink to="/admin/courses" class="text-sm text-blue-600">‹ Courses</RouterLink>
-        <h1 class="text-xl font-bold">Courses en retard</h1>
-        <p class="text-sm text-slate-600">Date de livraison dépassée, et pas encore livrées, retournées ni annulées.</p>
-      </div>
+      <p class="text-sm text-slate-600">Date de livraison dépassée, et pas encore livrées, retournées ni annulées.</p>
       <RouterLink v-if="tab === 'pas-ramassees' && auth.can('settings.manage')" to="/admin/reglages/courses" class="inline-flex items-center gap-1 text-sm text-blue-700"><Icone nom="reglages" taille="petite" /> Message du soir</RouterLink>
     </div>
 
@@ -34,6 +33,7 @@
 </template>
 
 <script setup>
+import CoursesTabs from '../../components/CoursesTabs.vue'
 import Onglets from '../../components/ui/Onglets.vue'
 import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, ref } from 'vue'
