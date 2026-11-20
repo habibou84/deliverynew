@@ -107,16 +107,12 @@
           <template v-if="selectedZone.shipping_fee_estimate">(environ {{ money(selectedZone.shipping_fee_estimate) }})</template>.
           Ces frais vous sont facturés au réel et déduits de votre point.
         </p>
+        <ShippingCityField v-if="selectedZone?.is_shipping" id="m-shipping-city" v-model="form.shipping_city" mobile class="mt-3" :required="!!selectedZone.default_shipping" />
       </div>
       <div>
         <label class="m-label" for="address">Adresse et repère</label>
         <input id="address" v-model="form.delivery_address" autocomplete="jibiat-off" class="m-input" placeholder="Ex. : résidence Les Palmiers, face pharmacie">
       </div>
-      <!-- Position du client demandée sur WhatsApp, pour aider le livreur -->
-      <a v-if="phoneValid" :href="positionLink" target="_blank" rel="noopener" class="tap flex items-center gap-2 rounded-xl bg-green-50 px-3 py-2.5 text-sm font-bold text-green-800 ring-1 ring-green-200">
-        <AppIcon name="pin" class="h-[18px] w-[18px] shrink-0" />
-        <span>Demander sa position au client sur WhatsApp<span class="block text-xs font-normal text-green-900/80">Collez ensuite le lien reçu dans « Adresse et repère ».</span></span>
-      </a>
       </template>
     </section>
 
@@ -130,7 +126,7 @@
       <template v-else>
 
       <button v-if="products.length && !showStock" type="button" class="tap w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
-        <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon stock</span><AppIcon name="right" class="h-4 w-4 text-slate-600" />
+        <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon catalogue</span><AppIcon name="right" class="h-4 w-4 text-slate-600" />
       </button>
       <div v-if="products.length && showStock" class="space-y-3">
         <div v-if="stockHubs.length">
@@ -141,7 +137,7 @@
           <div v-for="p in sourceProducts" :key="p.id" class="p-3 flex items-center gap-3">
             <div class="min-w-0 flex-1">
               <p class="font-medium truncate">{{ p.name }}</p>
-              <p class="text-xs text-slate-600">{{ money(p.price) }} · {{ availableAt(p) }} dispo</p>
+              <p class="text-xs text-slate-600">{{ money(p.price) }}<template v-if="isTracked(p)"> · {{ availableAt(p) }} dispo</template></p>
             </div>
             <div class="flex items-center gap-2">
               <button type="button" class="tap h-9 w-9 rounded-full bg-slate-100 text-lg font-bold disabled:opacity-40" :disabled="!picked[p.id]" :aria-label="`Retirer un ${p.name}`" @click="pick(p, -1)">−</button>
@@ -245,6 +241,7 @@
 </template>
 
 <script setup>
+import ShippingCityField from '../../components/ShippingCityField.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
@@ -258,6 +255,7 @@ import { keyboardOpen } from '../../composables/useKeyboard'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import { siteOrigin } from '../../native'
+import { describeLines, isTracked, limitAt, orderLine } from '../../utils/catalog'
 
 const route = useRoute()
 
@@ -268,6 +266,7 @@ const blank = () => ({
   recipient_name: '',
   recipient_phone2: '',
   delivery_zone_id: null,
+  shipping_city: '',
   delivery_address: '',
   delivery_scheduled_date: null,
   items_amount: null,
@@ -309,11 +308,10 @@ const sourceOptions = computed(() => [
 const sourceName = computed(() => hubs.value.find((h) => h.id === source.value)?.name)
 const sourceZoneId = computed(() => hubs.value.find((h) => h.id === source.value)?.zone_id)
 
-function availableAt(product) {
-  return product.levels.find((l) => (l.hub_id ?? null) === source.value)?.available ?? 0
-}
+// Tout le catalogue : un produit sans stock suivi part de chez le marchand, sans limite
+const availableAt = (product) => limitAt(product, source.value)
 const sourceProducts = computed(() => products.value.filter((p) => availableAt(p) > 0 || picked[p.id]))
-const pickedItems = computed(() => products.value.filter((p) => picked[p.id] > 0).map((p) => ({ product_id: p.id, name: p.name, quantity: picked[p.id], unit_price: p.price })))
+const pickedItems = computed(() => products.value.filter((p) => picked[p.id] > 0).map((p) => ({ ...orderLine(p, picked[p.id]), name: p.name })))
 
 function pick(product, delta) {
   picked[product.id] = Math.max(0, Math.min(availableAt(product), (picked[product.id] || 0) + delta))
@@ -326,7 +324,7 @@ function pick(product, delta) {
 let autoDescription = ''
 function fillDescription() {
   if (form.description && form.description !== autoDescription) return
-  autoDescription = pickedItems.value.map((i) => `${i.quantity} × ${i.name}`).join(', ')
+  autoDescription = describeLines(pickedItems.value)
   form.description = autoDescription
 }
 
@@ -354,7 +352,7 @@ const codAmount = computed(() => (form.items_amount || 0) + (form.fee_payer === 
 const shareLink = computed(() => {
   if (!created.value) return '#'
   const url = `${siteOrigin()}/suivi/${created.value.tracking_code}`
-  const text = `Bonjour, votre commande ${auth.user?.merchant?.business_name || ''} est en préparation pour la livraison.\nSuivi : ${url}\nCode de livraison à donner au livreur : ${created.value.delivery_code}`
+  const text = `Bonjour, votre commande ${auth.user?.merchant?.business_name || ''} est en préparation pour la livraison.\nSuivi : ${url}\n📍 Ouvrez ce lien et touchez « Envoyer ma position » pour que le livreur vous trouve facilement.\nCode de livraison à donner au livreur : ${created.value.delivery_code}`
   const phone = (created.value.recipient.phone || '').replace(/\D/g, '')
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
 })
@@ -449,7 +447,6 @@ async function checkDuplicates() {
 
 // Ce qui manque encore, rappelé en bas de la page
 const SHORT = { phone: 'le numéro du client', zone: 'la commune', feePayer: 'qui paie la livraison', date: 'le jour de livraison' }
-const phoneValid = computed(() => form.recipient_phone.replace(/\D/g, '').length >= 8)
 const stillMissing = computed(() => [1, 2, 3]
   .flatMap((n) => problemsOf(n))
   .filter(([bad]) => bad)
@@ -498,20 +495,6 @@ function applyHabits() {
 }
 watch(() => form.fee_payer, (v, old) => { if (old) habitsUsed.feePayer = false })
 watch(when, (v, old) => { if (old) habitsUsed.when = false })
-
-// Numéro pour WhatsApp : « 07 00 00 00 01 » → « 2250700000001 » (le 0 reste en Côte d'Ivoire)
-const whatsappNumber = (phone) => {
-  const digits = (phone || '').replace(/\D/g, '')
-  return digits.length === 10 ? `225${digits}` : digits
-}
-
-// Position du client demandée sur WhatsApp
-const positionLink = computed(() => {
-  const shop = auth.user?.merchant?.business_name || ''
-  const hello = form.recipient_name ? `Bonjour ${form.recipient_name.split(' ')[0]}` : 'Bonjour'
-  const text = `${hello}, c'est ${shop}. Pour bien vous livrer, pouvez-vous m'envoyer votre position WhatsApp (trombone, puis « Position ») ? Merci !`
-  return `https://wa.me/${whatsappNumber(form.recipient_phone)}?text=${encodeURIComponent(text)}`
-})
 
 // Message copié : lu dans le presse-papiers puis analysé, sinon zone de collage
 const clipText = ref('')
@@ -656,10 +639,11 @@ async function submit() {
   saving.value = true
   try {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null))
+    if (!selectedZone.value?.is_shipping) delete payload.shipping_city
     payload.recipient_phone = form.recipient_phone.replace(/[^\d+]/g, '')
     if (payload.recipient_phone2) payload.recipient_phone2 = payload.recipient_phone2.replace(/[^\d+]/g, '')
     payload.items_amount = form.items_amount || 0
-    if (pickedItems.value.length) payload.items = pickedItems.value.map(({ product_id, quantity, unit_price }) => ({ product_id, quantity, unit_price }))
+    if (pickedItems.value.length) payload.items = pickedItems.value.map(({ name, ...line }) => line)
     if (source.value) payload.pickup_hub_id = source.value
     created.value = (await http.post('/orders', payload)).data.data
     saveHabits()

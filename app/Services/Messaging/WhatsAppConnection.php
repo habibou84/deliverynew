@@ -101,8 +101,8 @@ class WhatsAppConnection
     }
 
     /**
-     * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : un numéro spécial live,
-     * qui n'a pas de compte WhatsApp, est activé pour l'API (code PIN). Pas de modèles : le live ne répond
+     * Fin de l'inscription intégrée de Meta pour un e-commerçant (commandes du live) : son numéro WhatsApp
+     * Business, gardé dans l'application (coexistence, déjà actif), ou une puce neuve activée pour l'API (code PIN). Pas de modèles : le live ne répond
      * qu'aux clients qui viennent d'écrire, et ces réponses ne sont pas facturées par Meta.
      */
     public function completeMerchantSignup(Merchant $merchant, string $code, ?string $phoneNumberId, ?string $wabaId, ?string $redirectUri = null): WhatsAppAccount
@@ -139,6 +139,60 @@ class WhatsAppConnection
         $this->connect($account);
         if ($account->status === 'connected' && $registration !== null) {
             $account->forceFill(['last_error' => 'Numéro relié, mais son activation a échoué : '.$registration])->save();
+        }
+
+        return $account;
+    }
+
+    /**
+     * Fin de l'inscription intégrée de Meta pour le numéro de Jibiat (console) : même branchement que pour une
+     * entreprise (jeton, activation, vérification, abonnement), puis les modèles de la plateforme sont soumis.
+     * Remplace la saisie à la main des identifiants et du jeton d'un utilisateur système.
+     */
+    public function completePlatformSignup(string $code, ?string $phoneNumberId, ?string $wabaId, ?string $redirectUri = null): WhatsAppAccount
+    {
+        if (! self::signupAvailable()) {
+            throw new MessagingException('Le bouton « Connecter WhatsApp » n\'est pas encore configuré sur ce serveur.');
+        }
+
+        $token = $this->exchangeCode($code, $redirectUri);
+        $account = WhatsAppAccount::platform()
+            ?? new WhatsAppAccount(['owner_type' => WhatsAppAccount::PLATFORM, 'company_id' => null]);
+        [$wabaId, $phoneNumberId] = $this->chosenNumber($token, $wabaId, $phoneNumberId, $account->phone_number_id);
+        // Nouveau numéro : nouveau code PIN d'activation
+        if ($account->phone_number_id !== $phoneNumberId || blank($account->registration_pin)) {
+            $account->registration_pin = (string) random_int(100000, 999999);
+        }
+        $account->fill([
+            'provider' => 'meta_cloud',
+            'phone_number_id' => $phoneNumberId,
+            'waba_id' => $wabaId,
+            'status' => 'pending',
+            'last_error' => null,
+            'connected_via' => 'embedded_signup',
+            'token_expires_at' => $this->tokenExpiry($token),
+            'token_warned_at' => null,
+            'platform_token' => false,
+        ]);
+        $account->access_token = $token;
+        $account->save();
+
+        // Jeton limité dans le temps : l'utilisateur système de Jibiat prend le relais s'il le peut
+        $this->adoptWithPlatform($account);
+
+        $registration = $this->register($account);
+        $this->connect($account);
+        if ($account->status !== 'connected') {
+            return $account;
+        }
+        if ($registration !== null) {
+            $account->forceFill(['last_error' => 'Numéro connecté, mais son activation a échoué : '.$registration])->save();
+        }
+
+        try {
+            $this->submitPlatformTemplates($account);
+        } catch (MessagingException) {
+            // Les modèles pourront être soumis avec le bouton de la console
         }
 
         return $account;
@@ -238,7 +292,7 @@ class WhatsAppConnection
             }
         }
         if ($numbers === []) {
-            throw new MessagingException('Aucun numéro trouvé sur votre compte WhatsApp : recommencez et ajoutez votre numéro spécial live dans Facebook.');
+            throw new MessagingException('Aucun numéro trouvé sur votre compte WhatsApp : recommencez et choisissez votre numéro WhatsApp Business dans Facebook.');
         }
         usort($numbers, fn ($a, $b) => [$a['test'], $a['id'] === $previous] <=> [$b['test'], $b['id'] === $previous]);
 

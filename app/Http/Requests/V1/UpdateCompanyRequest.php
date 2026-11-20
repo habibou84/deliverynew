@@ -68,6 +68,7 @@ class UpdateCompanyRequest extends FormRequest
             'depot_closes_at' => ['sometimes', 'nullable', 'date_format:H:i'],
             'tagline' => ['sometimes', 'nullable', 'string', 'max:160'],
             'merchant_signup' => ['sometimes', 'boolean'],
+            'merchant_signup_verify' => ['sometimes', 'boolean'],
             'weekly_report' => ['sometimes', 'boolean'],
             'pickup_assign_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:1440'],
             // Heure limite du jour (HH:MM, heure de l'entreprise) ; vide = aucune
@@ -81,6 +82,12 @@ class UpdateCompanyRequest extends FormRequest
             'same_courier_delivery' => ['sometimes', 'boolean'],
             'cutoff_by_day' => ['sometimes', 'nullable', 'array'],
             'cutoff_by_day.*' => ['nullable', 'date_format:H:i'],
+            // Conseil d'ouverture ou de fermeture de la journée
+            'day_advice' => ['sometimes', 'array:enabled,min_couriers,seen_minutes,margin_minutes'],
+            'day_advice.enabled' => ['sometimes', 'boolean'],
+            'day_advice.min_couriers' => ['sometimes', 'integer', 'min:1', 'max:50'],
+            'day_advice.seen_minutes' => ['sometimes', 'integer', 'min:5', 'max:240'],
+            'day_advice.margin_minutes' => ['sometimes', 'integer', 'min:30', 'max:300'],
             'unreachable_minutes' => ['sometimes', 'integer', 'min:0', 'max:240'],
             'late_pickup_alert_minutes' => ['sometimes', 'integer', 'min:0', 'max:600'],
             // Colis pas ramassés à leur date : message du soir aux e-commerçants
@@ -115,6 +122,9 @@ class UpdateCompanyRequest extends FormRequest
             'auto_delivery_max_cod' => 'plafond du montant à encaisser',
             'same_courier_delivery' => 'même livreur du ramassage à la livraison',
             'cutoff_by_day' => 'heure limite par jour',
+            'day_advice.min_couriers' => 'nombre de livreurs libres',
+            'day_advice.seen_minutes' => 'dernier signe de vie',
+            'day_advice.margin_minutes' => 'marge avant la fermeture du dépôt',
             'unreachable_minutes' => 'délai livreur injoignable',
             'late_pickup_alert_minutes' => 'alerte ramassage pas commencé',
             'courier_available_alert' => 'alerte livreur libre',

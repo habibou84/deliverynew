@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-4">
-    <h1 class="text-xl font-bold">Activité des livreurs</h1>
-
-    <!-- Onglets : chaque ancienne page garde son adresse sous /admin/activite -->
-    <Onglets label="Onglets de l'activité des livreurs" :items="tabs.map((t) => ({ to: t.to, exact: t.exact, label: t.label, count: t.badge, urgent: !!t.badge }))" />
-
+    <h1 class="text-xl font-bold">Courses</h1>
+    <!-- Courses, Activité des livreurs, Retours marchands -->
+    <CoursesTabs />
+    <!-- Écrans détaillés (remontées, colis, disponibles) : retour à l'écran d'ensemble -->
+    <RouterLink v-if="!overview" to="/admin/activite" class="inline-block text-sm font-medium text-blue-700 hover:underline">← Activité des livreurs</RouterLink>
     <RouterView v-slot="{ Component }">
       <component :is="Component" embedded />
     </RouterView>
@@ -13,20 +13,10 @@
 
 <script setup>
 import { computed } from 'vue'
-import { RouterView } from 'vue-router'
-import Onglets from '../../../components/ui/Onglets.vue'
-import { useFieldReportStore } from '../../../stores/fieldReports'
-import { useHeldParcelStore } from '../../../stores/heldParcels'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
+import CoursesTabs from '../../../components/CoursesTabs.vue'
 
-const fieldReports = useFieldReportStore()
-const heldParcels = useHeldParcelStore()
-
-const tabs = computed(() => [
-  { to: '/admin/activite', label: 'Suivi du jour', exact: true },
-  { to: '/admin/activite/carte', label: 'Carte' },
-  { to: '/admin/activite/disponibles', label: 'Disponibles' },
-  { to: '/admin/activite/colis', label: 'Colis en main', badge: heldParcels.counts.overdue },
-  { to: '/admin/activite/remontees', label: 'Remontées terrain', badge: fieldReports.open.total },
-  { to: '/admin/activite/planning', label: 'Planning' },
-])
+const route = useRoute()
+// Écran d'ensemble (liste ou carte) : pas de lien de retour
+const overview = computed(() => ['/admin/activite', '/admin/activite/', '/admin/activite/carte'].includes(route.path))
 </script>

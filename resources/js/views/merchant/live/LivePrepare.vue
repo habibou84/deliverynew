@@ -3,8 +3,11 @@
     <p v-if="error" class="rounded-2xl bg-red-50 px-4 py-3 text-[15px] text-red-700" role="alert">{{ error }}</p>
     <p v-if="!d && !error" class="m-card p-6 text-center text-slate-600">Chargement…</p>
 
-    <!-- Comment ça marche : en entier aux premières visites, ou à la demande -->
+    <!-- Comment ça marche : en entier aux premières visites ; ensuite, le bouton ouvre la vidéo en grand -->
     <LiveIntro v-if="d && introOpen && !running" :offer="d.offer" />
+    <LiveVideo v-if="howOpen" @close="howOpen = false" />
+    <!-- Recharger : packs de commandes (fiches IA incluses) ou illimité 30 jours -->
+    <LivePaySheet v-if="d && paySheet" :offer="d.offer" @close="paySheet = false" @offer="onOffer" />
 
     <!-- ══ Une seule page : les étapes, cochées une à une (chacune s'ouvre en grand) ══ -->
     <!-- Live en cours : seulement le bandeau, pour y retourner -->
@@ -20,7 +23,7 @@
       <section class="rounded-[22px] bg-gradient-to-br from-[#1e3478] to-[#3c5bc4] px-4 py-5 text-center text-white">
         <h2 class="text-[25px] font-black leading-tight">Votre live en {{ stepList.length }} étapes</h2>
         <p class="mt-1 text-[15.5px] font-bold text-blue-50">Les clients envoient le code, la commande part à votre agence.</p>
-        <button type="button" class="mt-3 rounded-full bg-white/20 px-4 py-1.5 text-[14px] font-bold" @click="introOpen = true">🎬 Comment ça marche</button>
+        <button type="button" class="mt-3 rounded-full bg-white/20 px-4 py-1.5 text-[14px] font-bold" @click="howOpen = true">🎬 Comment ça marche</button>
       </section>
 
       <div v-for="(s, i) in stepList" :key="s.key" :class="['flex items-center gap-3 rounded-[20px] bg-white p-3.5 shadow-soft', s.state === 'current' ? 'ring-2 ring-[var(--app-color)]' : '', s.state === 'todo' ? 'opacity-55' : '']">
@@ -36,20 +39,18 @@
       <template v-if="current === 'start'">
         <button type="button" class="block w-full rounded-2xl bg-rose-600 py-4 text-[18px] font-black text-white shadow-soft active:scale-[.99] disabled:opacity-60" :disabled="saving" @click="start">{{ d.offer.can_start ? '● Je commence mon live' : '● Recharger et commencer' }}</button>
         <p class="text-center text-[14px] text-slate-600">{{ priceLine }}</p>
-        <!-- Payé au palier : prix selon les commandes, crédit, forfait du mois -->
-        <div v-if="d.offer.next_plan === 'tier'" class="space-y-2 rounded-2xl bg-white p-3.5 shadow-soft">
-          <b class="block text-[15.5px]">Prix d'un live, selon vos commandes</b>
-          <LiveTiers :tiers="d.offer.tiers" />
-          <div v-if="d.offer.pay_online" class="flex items-center gap-2 pt-1">
-            <span class="flex-1 text-[14.5px]">Crédit live : <b :class="d.offer.credit < 0 ? 'text-red-700' : ''">{{ money(d.offer.credit) }}</b></span>
+        <!-- Payé à la commande (comme Jibiat Marchand) : solde de commandes, packs, illimité 30 jours -->
+        <div v-if="d.offer.next_plan === 'orders'" class="space-y-2 rounded-2xl bg-white p-3.5 shadow-soft">
+          <div class="flex items-center gap-2">
+            <span class="flex-1 text-[15px]">Mes commandes en live : <b :class="d.offer.orders_left < 0 ? 'text-red-700' : ''">{{ d.offer.orders_left }}</b><span v-if="d.offer.free_left" class="block text-[13px] text-emerald-700">dont {{ d.offer.free_left }} offertes</span></span>
             <button type="button" class="rounded-xl bg-slate-900 px-3.5 py-2 text-[14.5px] font-bold text-white" @click="paySheet = true">Recharger</button>
           </div>
+          <p class="text-[13px] text-slate-600">1 commande reçue en live = 1 commande retirée du solde, à la fin du live. Packs de {{ d.offer.packs?.[0]?.orders }} à {{ d.offer.packs?.[2]?.orders }} commandes, dès {{ money(d.offer.packs?.[2]?.unit) }} la commande.</p>
           <button v-if="offerMonthly" type="button" class="block w-full rounded-xl bg-slate-50 px-3 py-2.5 text-left" :disabled="saving" @click="subscribeMonthly">
-            <b class="block text-[15px]">📅 Ou le forfait du mois : {{ money(d.offer.prices.month) }}</b>
-            <span class="text-[13px] text-slate-600">Lives sans limite pendant 30 jours, sans compter les commandes ›</span>
+            <b class="block text-[15px]">♾️ Ou l'illimité 30 jours : {{ money(d.offer.prices.month) }}</b>
+            <span class="text-[13px] text-slate-600">Lives sans compter les commandes pendant 30 jours ›</span>
           </button>
         </div>
-        <LivePaySheet v-if="paySheet" :offer="d.offer" @close="paySheet = false" @offer="d.offer = $event" />
       </template>
       <RouterLink to="/marchand/live/passes" class="block pt-1 text-center text-[14px] font-bold text-[var(--app-color)]">Voir mes lives passés ▸</RouterLink>
     </template>
@@ -82,9 +83,11 @@
 
           <LiveWhatsAppConnect :initial="d.whatsapp" :default-phone="d.offer.phone" @connected="onWhatsApp" @next="open('produits')" />
 
-          <div v-if="!d.whatsapp?.auto" class="space-y-1 pt-1 text-center">
-            <button type="button" class="text-[15px] font-bold text-[var(--app-color)]" @click="skipWhatsApp">{{ waConnectable ? 'Pas de numéro spécial ? Continuer sans WhatsApp ›' : 'Continuer sans WhatsApp ›' }}</button>
-            <p class="text-[13px] text-slate-600">Sans WhatsApp, vos clients commandent par le lien du live.</p>
+          <!-- Pas de numéro à relier à Meta : on continue avec le lien du live, sans rien perdre -->
+          <div v-if="!d.whatsapp?.auto" class="rounded-[22px] border-2 border-slate-200 bg-white px-4 py-3.5">
+            <p class="text-[17px] font-black leading-tight">🔗 {{ waConnectable ? 'Vous n\'avez pas de numéro à relier à Meta ?' : 'En attendant, le lien du live' }}</p>
+            <p class="mt-1 text-[15px] text-slate-700">Continuez avec <b>le lien du live</b> : vous le partagez pendant le direct, vos clients le touchent et choisissent leurs produits. Les commandes arrivent quand même chez votre agence, sans rien à enregistrer.</p>
+            <button type="button" class="mt-3 block w-full rounded-xl bg-slate-900 py-3 text-[16px] font-bold text-white" @click="skipWhatsApp">Continuer avec le lien du live ›</button>
           </div>
         </template>
 
@@ -107,7 +110,7 @@
             </div>
           </div>
         <p v-if="d.offer.offered_by_company" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Votre agence vous offre vos lives.</p>
-        <p v-else-if="d.offer.next_plan === 'tier' && d.offer.free_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Il vous reste <b>{{ d.offer.free_left }} commandes offertes</b> en live.</p>
+        <p v-else-if="d.offer.next_plan === 'orders' && d.offer.free_left" class="rounded-2xl bg-emerald-50 px-4 py-3 text-[15px] text-emerald-800">Il vous reste <b>{{ d.offer.free_left }} commandes offertes</b> en live.</p>
         <p v-if="d.offer.extra_cards" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] text-indigo-900">Il vous reste <b>{{ d.offer.extra_cards }} fiches IA</b> (photo + IA). Ajouter un produit à la main reste toujours gratuit.</p>
 
         <button type="button" class="tap flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--app-color)] bg-white py-3.5 text-[16px] font-bold text-[var(--app-color)]" @click="openNew">
@@ -199,7 +202,7 @@
           <template v-else>
             <span class="block font-bold">Vous n'avez plus de fiches IA.</span>
             <span class="mt-1 block">Pas obligé d'en acheter : écrivez le nom ci-dessous, c'est gratuit.</span>
-            <button type="button" class="mt-2 block w-full rounded-xl bg-amber-600 py-2.5 font-bold text-white" @click="buyPack">Acheter {{ d.offer.prices.pack_cards }} fiches pour {{ money(d.offer.prices.pack) }}</button>
+            <button type="button" class="mt-2 block w-full rounded-xl bg-amber-600 py-2.5 font-bold text-white" @click="paySheet = true">Recharger un pack (fiches IA incluses)</button>
           </template>
         </div>
         <div v-if="recognizing" class="rounded-2xl bg-indigo-50 px-4 py-3 text-[15px] font-semibold text-indigo-800">L'IA regarde la photo…</div>
@@ -212,8 +215,8 @@
         <div v-if="needPack" class="rounded-2xl bg-amber-50 px-4 py-3 text-[15px] text-amber-900">
           Vous n'avez plus de fiches IA.
           <span class="mt-1 block font-bold">Pas obligé d'en acheter : écrivez le nom ci-dessous, c'est gratuit.</span>
-          <button type="button" class="mt-2 block w-full rounded-xl bg-amber-600 py-2.5 font-bold text-white" @click="buyPack">Acheter {{ d.offer.prices.pack_cards }} fiches pour {{ money(d.offer.prices.pack) }}</button>
-          <span class="mt-1 block text-[13px]">Les fiches achetées restent valables pour vos prochains lives.</span>
+          <button type="button" class="mt-2 block w-full rounded-xl bg-amber-600 py-2.5 font-bold text-white" @click="paySheet = true">Recharger un pack (fiches IA incluses)</button>
+          <span class="mt-1 block text-[13px]">Chaque pack de commandes ajoute des fiches IA, valables pour vos prochains lives.</span>
         </div>
 
         <div class="space-y-3">
@@ -304,7 +307,6 @@
 
 <script setup>
 import LivePaySheet from './LivePaySheet.vue'
-import LiveTiers from './LiveTiers.vue'
 import { thumb } from '../../../utils/thumb'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
@@ -313,6 +315,7 @@ import { useToastStore } from '../../../stores/toasts'
 import { localPhone, money } from '../../../utils/format'
 import { drawCard, saveCard } from './liveCard'
 import LiveIntro from './LiveIntro.vue'
+import LiveVideo from './LiveVideo.vue'
 import { confirmDialog } from '../../../composables/useDialog'
 import { isPhone } from '../../../composables/usePhone'
 import LiveWhatsAppConnect from './LiveWhatsAppConnect.vue'
@@ -468,24 +471,24 @@ const shownCatalog = computed(() => {
   return (d.value?.catalog || []).filter((p) => !q || p.name.toLowerCase().includes(q))
 })
 const isSelected = (id) => selected.value.some((r) => r.product_id === id)
-// Recharge du crédit live ou forfait du mois (PayDunya)
+// Pack de commandes ou illimité 30 jours (PayDunya)
 const paySheet = ref(false)
 const priceLine = computed(() => {
   const o = d.value?.offer
   if (!o) return ''
   if (o.next_plan === 'free') return 'Les lives sont gratuits en ce moment.'
   if (o.offered_by_company) return 'Ce live vous est offert par votre agence.'
-  if (o.monthly_until) return 'Compris dans votre forfait du mois.'
-  if (!o.can_start) return `Rechargez au moins ${money(o.min_credit)} pour démarrer : vous payez à la fin, selon vos commandes.`
-  if (o.free_left) return `Vous payez à la fin, selon vos commandes. Encore ${o.free_left} commandes offertes.`
+  if (o.monthly_until) return 'Compris dans votre illimité 30 jours.'
+  if (!o.can_start) return `Il vous faut au moins ${o.min_orders} commandes dans votre solde pour démarrer : rechargez un pack.`
+  if (o.free_left) return `Chaque commande reçue est retirée de votre solde. Encore ${o.free_left} commandes offertes.`
   return o.pay_online
-    ? 'Vous payez à la fin, selon vos commandes : pris sur votre crédit live.'
-    : 'Vous payez à la fin, selon vos commandes : retenu sur votre prochain reversement.'
+    ? 'Chaque commande reçue est retirée de votre solde, à la fin du live.'
+    : `Chaque commande reçue est retirée de votre solde ; au-delà, ${money(o.unit_price)} la commande, retenus sur votre reversement.`
 })
-// Forfait du mois proposé quand les lives sont payés au palier
+// Illimité 30 jours proposé quand les lives sont payés à la commande
 const offerMonthly = computed(() => {
   const o = d.value?.offer
-  return !!o && o.next_plan === 'tier' && Number(o.prices?.month) > 0
+  return !!o && o.next_plan === 'orders' && Number(o.prices?.month) > 0
 })
 async function subscribeMonthly() {
   saving.value = true
@@ -496,7 +499,7 @@ async function subscribeMonthly() {
       return
     }
     d.value.offer = data
-    toasts.success('Forfait du mois activé : lives sans limite pendant 30 jours.')
+    toasts.success('Illimité 30 jours activé : lives sans compter les commandes.')
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
@@ -515,6 +518,8 @@ function fill(data) {
 
 // « Comment ça marche » en entier aux premières visites (compté sur le serveur, par compte)
 const introOpen = ref(false)
+// Vidéo « Comment ça marche », ouverte par-dessus la page
+const howOpen = ref(false)
 const running = computed(() => d.value?.live?.status === 'live')
 // Numéro qui reçoit les commandes (connexion officielle, sinon code d'association)
 const waPhone = computed(() => d.value?.whatsapp?.official?.phone || d.value?.whatsapp?.phone || null)
@@ -651,7 +656,7 @@ async function start() {
     const { data } = await http.post(`/live/${d.value.live.id}/start`)
     router.push(`/marchand/live/${data.data.live.id}`)
   } catch (e) {
-    // Ni commandes offertes ni crédit suffisant : recharger (ou forfait du mois)
+    // Pas assez de commandes dans le solde : recharger un pack (ou l'illimité 30 jours)
     if (e.response?.data?.errors?.payment) {
       paySheet.value = true
       return
@@ -735,20 +740,14 @@ async function analyze() {
   }
 }
 
-async function buyPack() {
-  try {
-    const data = (await http.post('/live/pack')).data.data
-    if (data.payment_url) {
-      window.location.assign(data.payment_url)
-      return
-    }
-    d.value.offer = data
-    d.value.cards = { ...d.value.cards, left: (d.value.cards?.left ?? 0) + Number(data.prices?.pack_cards ?? 0) }
+// Pack acheté (retenu sur le reversement) : solde et fiches IA à jour tout de suite
+function onOffer(offer) {
+  const added = Number(offer.extra_cards ?? 0) - Number(d.value.offer.extra_cards ?? 0)
+  if (added > 0) {
+    d.value.cards = { ...d.value.cards, left: (d.value.cards?.left ?? 0) + added }
     needPack.value = false
-    toasts.success('Fiches ajoutées. Touchez « Remplir avec l\'IA ».')
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
   }
+  d.value.offer = offer
 }
 
 async function saveProduct(another) {

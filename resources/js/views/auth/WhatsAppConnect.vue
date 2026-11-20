@@ -28,22 +28,26 @@
         <p class="font-semibold text-slate-900">WhatsApp est connecté</p>
         <p class="text-sm text-slate-600">{{ result.verified_name }} · {{ result.display_phone }}</p>
         <p v-if="result.warning" class="rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">{{ result.warning }}</p>
-        <p class="text-sm text-slate-600">{{ session.merchant ? 'Les commandes de vos lives arriveront sur ce numéro. Retour au live…' : 'Les modèles de messages sont envoyés à Meta pour approbation. Retour à votre espace…' }}</p>
-        <button type="button" class="btn-success w-full py-3" @click="goBack({ whatsapp: 'connecte' })">Revenir à mon espace</button>
+        <p class="text-sm text-slate-600">{{ session.merchant ? 'Les commandes de vos lives arriveront sur ce numéro. Retour au live…' : (session.platform ? 'Les modèles de messages sont envoyés à Meta pour approbation. Retour à la console…' : 'Les modèles de messages sont envoyés à Meta pour approbation. Retour à votre espace…') }}</p>
+        <button type="button" class="btn-success w-full py-3" @click="goBack({ whatsapp: 'connecte' })">{{ session.platform ? 'Revenir à la console' : 'Revenir à mon espace' }}</button>
       </div>
 
       <!-- Avant la fenêtre de Meta -->
-      <!-- E-commerçant : numéro spécial live, sans compte WhatsApp -->
+      <!-- E-commerçant : son numéro WhatsApp Business, gardé dans l'application (coexistence) -->
       <div v-else-if="session?.merchant && !finishing" class="space-y-4">
-        <!-- Deux consignes, en grand (comme Jibiat Marchand) -->
+        <!-- Trois consignes, en grand (comme Jibiat Marchand) -->
         <div class="space-y-3">
           <div class="flex gap-3 rounded-2xl bg-slate-50 p-3.5">
             <span class="text-[26px] leading-none" aria-hidden="true">📱</span>
-            <p class="text-[17px] font-bold leading-snug text-slate-900">Un numéro spécial live, connecté à aucun WhatsApp<span class="block text-sm font-normal text-slate-600">Vous recevrez un code par SMS ou par appel.</span></p>
+            <p class="text-[17px] font-bold leading-snug text-slate-900">Votre numéro WhatsApp Business<span class="block text-sm font-normal text-slate-600">Celui de l'application WhatsApp Business. Quand Meta le propose, choisissez de le garder dans l'application : vous continuez à l'utiliser comme avant.</span></p>
+          </div>
+          <div class="flex gap-3 rounded-2xl bg-slate-50 p-3.5">
+            <span class="text-[26px] leading-none" aria-hidden="true">🔗</span>
+            <p class="text-[17px] font-bold leading-snug text-slate-900">Pas de numéro WhatsApp Business ?<span class="block text-sm font-normal text-slate-600">Revenez à votre espace et continuez avec le lien du live : les commandes arrivent quand même chez votre agence.</span></p>
           </div>
           <div class="flex gap-3 rounded-2xl bg-slate-50 p-3.5">
             <span class="text-[26px] leading-none" aria-hidden="true">💳</span>
-            <p class="text-[17px] font-bold leading-snug text-slate-900">Pas besoin de carte bancaire<span class="block text-sm font-normal text-slate-600">Si Meta en demande une, touchez « Terminer » : les commandes du live sont gratuites.</span></p>
+            <p class="text-[17px] font-bold leading-snug text-slate-900">Pas besoin de carte bancaire<span class="block text-sm font-normal text-slate-600">Si Meta en demande une, touchez simplement « Terminer ».</span></p>
           </div>
         </div>
         <button type="button" class="btn-success w-full py-3" :disabled="working" @click="start">
@@ -54,7 +58,7 @@
 
       <div v-else-if="session && !finishing" class="space-y-4">
         <ol class="list-decimal space-y-1 pl-5 text-sm text-slate-700">
-          <li>Une fenêtre Facebook s'ouvre : connectez-vous avec votre compte.</li>
+          <li>Une fenêtre Facebook s'ouvre : connectez-vous avec {{ session.platform ? 'le compte qui gère Jibiat' : 'votre compte' }}.</li>
           <li>Choisissez ou créez votre entreprise et son compte WhatsApp Business.</li>
           <li>Ajoutez le numéro de l'entreprise et saisissez le code reçu par SMS.</li>
         </ol>
@@ -66,7 +70,7 @@
         <button type="button" class="btn-success w-full py-3" :disabled="working" @click="start">
           {{ working ? 'Fenêtre Facebook ouverte…' : (error ? 'Recommencer avec Facebook' : 'Continuer avec Facebook') }}
         </button>
-        <button type="button" class="btn-secondary w-full" :disabled="working" @click="cancel">Revenir à mon espace</button>
+        <button type="button" class="btn-secondary w-full" :disabled="working" @click="cancel">{{ session.platform ? 'Revenir à la console' : 'Revenir à mon espace' }}</button>
       </div>
 
       <p v-else-if="!error && !finishing" class="text-center text-sm text-slate-600">Chargement…</p>
@@ -147,7 +151,7 @@ async function start() {
 
 onMounted(async () => {
   if (!ticket) {
-    error.value = 'Ouvrez cette page depuis Réglages › Messages aux clients de votre espace.'
+    error.value = 'Ouvrez cette page depuis Réglages › WhatsApp de votre espace.'
     return
   }
   try {

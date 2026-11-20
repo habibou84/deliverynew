@@ -62,6 +62,9 @@ class PhoneVerifier
     // Début du message WhatsApp prérempli, reconnu à la réception
     public const WHATSAPP_PREFIX = 'Code de vérification';
 
+    // Inscription acceptée sans vérification du numéro (réglage de l'entreprise)
+    public const UNVERIFIED = 'none';
+
     public function __construct(private readonly SmsGateway $sms) {}
 
     /**
@@ -101,6 +104,15 @@ class PhoneVerifier
         });
 
         return [$verification, $token];
+    }
+
+    /**
+     * Inscription d'un e-commerçant sans vérification du numéro (désactivée par l'entreprise) :
+     * le compte est créé tout de suite.
+     */
+    public function acceptWithoutVerification(PhoneVerification $verification): void
+    {
+        $this->markVerified($verification, self::UNVERIFIED);
     }
 
     public function find(string $token): ?PhoneVerification

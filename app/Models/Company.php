@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CompanyStatus;
 use App\Enums\NotificationEvent;
 use App\Enums\PlatformFeature;
+use App\Enums\WhatsAppTemplate;
 use App\Services\Connect\Directory;
 use App\Support\Tenancy;
 use Carbon\CarbonImmutable;
@@ -46,6 +47,7 @@ class Company extends Model
         'merchant_push_first',
         'whatsapp_orders',
         'merchant_signup',
+        'merchant_signup_verify',
         'appearance',
         'weekly_report',
         'field_alert_reminder_minutes',
@@ -71,7 +73,7 @@ class Company extends Model
         'reschedule_evening_time',
         'reschedule_channel',
         'reschedule_no_answer',
-        'merchant_whatsapp_events', 'merchant_messages_locked',
+        'merchant_whatsapp_events', 'merchant_messages_locked', 'message_settings',
         // Alerte « livreur libre avec des ramassages près de lui »
         'courier_available_alert',
         // Annuaire des entreprises de livraison (jibiat.com/annuaire, Jibiat Marchand)
@@ -83,6 +85,8 @@ class Company extends Model
         'same_courier_delivery',
         // Heure limite différente certains jours : {"6": "12:00"} (1 = lundi … 7 = dimanche)
         'cutoff_by_day',
+        // Conseil d'ouverture ou de fermeture de la journée : {enabled, min_couriers, seen_minutes, margin_minutes}
+        'day_advice',
         // Cartes Membre Premium Jibiat Marchand : offertes toutes seules aux marchands qui remplissent les conditions
         'premium_auto',
         // Connexion WhatsApp par QR code (non officielle) : autorisée depuis la console seulement
@@ -121,6 +125,7 @@ class Company extends Model
             'merchant_push_first' => 'boolean',
             'whatsapp_orders' => 'boolean',
             'merchant_signup' => 'boolean',
+            'merchant_signup_verify' => 'boolean',
             'appearance' => 'array',
             'weekly_report' => 'boolean',
             'weekly_report_sent_at' => 'datetime',
@@ -142,6 +147,10 @@ class Company extends Model
             'late_pickup_alert_minutes' => 'integer',
             'reschedule_evening' => 'boolean',
             'merchant_whatsapp_events' => 'array',
+            'message_settings' => 'array',
+            'day_advice' => 'array',
+            'cutoff_extended_on' => 'date:Y-m-d',
+            'day_advice_dismissed' => 'array',
             'merchant_messages_locked' => 'boolean',
             'reschedule_evening_sent_on' => 'date',
             'courier_available_alert' => 'boolean',
@@ -219,9 +228,23 @@ class Company extends Model
      */
     public function cutoffFor(?string $date = null): ?string
     {
-        $day = $date ? CarbonImmutable::parse($date) : CarbonImmutable::now($this->timezone ?: config('app.timezone'));
+        $now = CarbonImmutable::now($this->timezone ?: config('app.timezone'));
+        $day = $date ? CarbonImmutable::parse($date) : $now;
+        // Journée rouverte : heure limite repoussée pour aujourd'hui seulement
+        if ($this->cutoff_extended_to && $this->cutoff_extended_on?->toDateString() === $now->toDateString() && $day->toDateString() === $now->toDateString()) {
+            return $this->cutoff_extended_to;
+        }
 
         return ($this->cutoff_by_day ?? [])[(string) $day->isoWeekday()] ?? $this->daily_cutoff_time;
+    }
+
+    /** Critères du conseil d'ouverture ou de fermeture de la journée */
+    public const DAY_ADVICE_DEFAULTS = ['enabled' => true, 'min_couriers' => 2, 'seen_minutes' => 30, 'margin_minutes' => 90];
+
+    /** @return array{enabled: bool, min_couriers: int, seen_minutes: int, margin_minutes: int} */
+    public function dayAdvice(): array
+    {
+        return [...self::DAY_ADVICE_DEFAULTS, ...($this->day_advice ?? [])];
     }
 
     /** Automatisation suspendue (bouton du planning) : plus d'assignation ni de passage au remplaçant, les alertes restent */
@@ -278,6 +301,15 @@ class Company extends Model
     /**
      * Lien vers une page de l'entreprise : son adresse sur la plateforme, sinon APP_URL.
      */
+    /**
+     * WhatsApp › Messages automatiques : ce modèle part-il ? Interrupteur rangé par nom de modèle ; absent, il part.
+     * (Les étapes des e-commerçants et quelques messages gardent leur propre réglage : voir AutomaticMessages.)
+     */
+    public function messageOn(WhatsAppTemplate $template): bool
+    {
+        return (bool) ($this->message_settings[$template->value] ?? true);
+    }
+
     /** Message WhatsApp (ou notification sur le téléphone) à l'e-commerçant pour cette étape, choix de l'agence */
     public function merchantWantsByDefault(NotificationEvent $event): bool
     {

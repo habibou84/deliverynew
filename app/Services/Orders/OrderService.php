@@ -5,6 +5,7 @@ namespace App\Services\Orders;
 use App\Enums\FeePayer;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
+use App\Enums\ReturnCause;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Hub;
 use App\Models\Merchant;
@@ -36,6 +37,8 @@ class OrderService
     private const DELIVERY_FIELDS = [
         'recipient_name', 'recipient_phone', 'recipient_phone2', 'delivery_zone_id', 'delivery_address',
         'delivery_landmark', 'delivery_lat', 'delivery_lng', 'delivery_scheduled_date', 'delivery_time_slot',
+        // Expédition : ville où le transporteur emmène le colis
+        'shipping_city',
     ];
 
     private const PACKAGE_FIELDS = [
@@ -115,6 +118,9 @@ class OrderService
 
             if ($data['pickup_zone_id'] === null) {
                 throw new BusinessRuleException('Indiquez la zone de ramassage.', 'pickup_zone_id');
+            }
+            if ($hub === null) {
+                $this->ensurePickupZone($merchant->company_id, (int) $data['pickup_zone_id']);
             }
 
             $feePayer = FeePayer::tryFrom($data['fee_payer'] ?? '') ?? $merchant->default_fee_payer;
@@ -291,6 +297,10 @@ class OrderService
             throw new BusinessRuleException('Le colis a déjà été récupéré : seules les informations de livraison sont modifiables.', 'status');
         }
 
+        if (isset($data['pickup_zone_id']) && (int) $data['pickup_zone_id'] !== $order->pickup_zone_id) {
+            $this->ensurePickupZone($order->company_id, (int) $data['pickup_zone_id']);
+        }
+
         $order->fill(Arr::only($data, [...self::PICKUP_FIELDS, ...self::DELIVERY_FIELDS, ...self::PACKAGE_FIELDS]));
 
         if (array_key_exists('fee_payer', $data)) {
@@ -406,6 +416,52 @@ class OrderService
         ]);
     }
 
+    /** Le destinataire peut envoyer sa position depuis le lien de suivi tant que le colis n'est pas livré */
+    public static function acceptsRecipientLocation(Order $order): bool
+    {
+        return ! $order->is_shipping && ! $order->status->isFinal();
+    }
+
+    /**
+     * Position GPS envoyée par le destinataire depuis le lien de suivi : enregistrée sur la course (le livreur en
+     * mission est prévenu) et sur sa fiche du carnet de destinataires, pour ses prochains colis.
+     */
+    public function shareRecipientLocation(Order $order, float $lat, float $lng): Order
+    {
+        if (! self::acceptsRecipientLocation($order)) {
+            throw new BusinessRuleException('Ce colis n\'attend plus de position.', 'status');
+        }
+
+        return DB::transaction(function () use ($order, $lat, $lng) {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            $order->fill(['delivery_lat' => round($lat, 7), 'delivery_lng' => round($lng, 7)]);
+            $changes = collect($order->getDirty())->only(['delivery_lat', 'delivery_lng'])
+                ->map(fn ($new, $field) => ['from' => $order->getRawOriginal($field), 'to' => $order->getAttributes()[$field]])
+                ->all();
+
+            if ($changes === []) {
+                return $order;
+            }
+
+            $order->save();
+            if ($order->recipient_id !== null) {
+                Recipient::withoutGlobalScopes()->whereKey($order->recipient_id)
+                    ->update(['lat' => $order->delivery_lat, 'lng' => $order->delivery_lng]);
+            }
+
+            $this->journal->record($order, null, OrderEventType::Edited, [
+                'actor_type' => 'recipient',
+                'actor_name' => $order->recipient_name ?: 'Le destinataire',
+                'note' => 'Position envoyée par le destinataire depuis le lien de suivi.',
+                'lat' => $order->delivery_lat,
+                'lng' => $order->delivery_lng,
+                'meta' => ['changes' => $changes, 'source' => 'tracking'],
+            ]);
+
+            return $order;
+        });
+    }
+
     public function requestReturn(User $actor, Order $order, ?string $note = null): void
     {
         if ($order->status->isFinal() || $order->status->isBeforePickup()) {
@@ -413,7 +469,8 @@ class OrderService
         }
 
         DB::transaction(function () use ($actor, $order, $note) {
-            $order->forceFill(['return_requested' => true])->save();
+            $order->markForReturn($actor->merchant_id !== null ? ReturnCause::Merchant : ReturnCause::Company);
+            $order->save();
             $this->journal->record($order, $actor, OrderEventType::ReturnRequested, ['note' => $note]);
         });
     }
@@ -469,6 +526,18 @@ class OrderService
         }
 
         return $items;
+    }
+
+    /**
+     * Zones et tarifs : l'entreprise ne ramasse pas dans les lieux où le ramassage est coupé (un quartier suit sa
+     * commune). Les départs de l'entrepôt ne sont pas concernés.
+     */
+    private function ensurePickupZone(int $companyId, int $zoneId): void
+    {
+        $zone = Zone::forCompany($companyId)->with('parent')->find($zoneId);
+        if ($zone && ($zone->is_pickup === false || $zone->parent?->is_pickup === false)) {
+            throw new BusinessRuleException("Pas de ramassage à {$zone->fullName()}. Choisissez une autre adresse de ramassage, ou contactez l'agence.", 'pickup_zone_id');
+        }
     }
 
     /**

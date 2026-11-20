@@ -48,6 +48,11 @@
           </div>
           <p v-if="errors.delivery_zone_id" class="field-error">{{ errors.delivery_zone_id[0] }}</p>
         </div>
+        <!-- Expédition : la ville de destination -->
+        <div v-if="shippingZone" class="sm:col-span-2">
+          <ShippingCityField v-model="form.shipping_city" :required="!!shippingZone.default_shipping" />
+          <p v-if="errors.shipping_city" class="field-error">{{ errors.shipping_city[0] }}</p>
+        </div>
         <div class="sm:col-span-2">
           <label class="label" for="address">Adresse et repère <span v-if="parsed.delivery_address" class="check">à vérifier</span></label>
           <input id="address" v-model="form.delivery_address" :class="['input', mark('delivery_address')]" placeholder="Ex. : Siporex, résidence Les Palmiers, face pharmacie" @input="touched('delivery_address')">
@@ -157,7 +162,7 @@
             <label class="label" for="pzone">Zone de ramassage</label>
             <SearchSelect
               id="pzone" v-model="form.pickup_zone_id" placeholder="Adresse habituelle" :empty-value="null" search-placeholder="Commune, quartier…"
-              :options="zones.map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
+              :options="zones.filter((z) => z.is_pickup !== false || z.id === form.pickup_zone_id).map((z) => ({ value: z.id, label: `${z.is_shipping ? '🚌 ' : ''}${z.full_name}`, search: z.name }))"
             />
           </div>
           <div>
@@ -186,6 +191,7 @@
 </template>
 
 <script setup>
+import ShippingCityField from './ShippingCityField.vue'
 import SearchSelect from './SearchSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../bootstrap/axios'
@@ -210,6 +216,7 @@ const form = reactive({
   recipient_phone: '',
   recipient_phone2: '',
   delivery_zone_id: null,
+  shipping_city: '',
   delivery_address: '',
   delivery_landmark: '',
   delivery_scheduled_date: null,
@@ -231,6 +238,8 @@ const hubs = ref([])
 const products = ref([])
 
 const zones = ref([])
+// Zone d'expédition choisie : on demande la ville de destination
+const shippingZone = computed(() => zones.value.find((z) => z.id === form.delivery_zone_id && z.is_shipping) ?? null)
 // E-commerçant pas encore inscrit : créé avec la course
 const newMerchant = ref(null)
 const pickerEl = ref(null)
@@ -430,6 +439,7 @@ async function submit(again = false) {
   }
   try {
     const payload = Object.fromEntries(Object.entries(form).filter(([, v]) => v !== '' && v !== null))
+    if (!shippingZone.value) delete payload.shipping_city
     if (isMerchant.value) delete payload.merchant_id
     if (!isMerchant.value && !form.merchant_id && newMerchant.value) payload.new_merchant = newMerchant.value
     if (form.pickup_hub_id) {

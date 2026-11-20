@@ -18,7 +18,7 @@ enum LedgerEntryType: string
     case StorageFee = 'storage_fee';
     // Indemnité versée au marchand pour un colis perdu
     case LostCompensation = 'lost_compensation';
-    // Outil live : un live, le forfait du mois ou des fiches produit en plus
+    // Outil live : un pack de commandes, l'illimité 30 jours, ou les commandes d'un live au-delà du solde
     case LiveFee = 'live_fee';
     case Adjustment = 'adjustment';
     // Reversement effectué : solde les écritures du relevé

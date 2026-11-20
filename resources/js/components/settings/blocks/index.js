@@ -23,7 +23,7 @@ const minutes = (v) => (v ? `${v} min` : 'aucune')
 export const BLOCKS = {
   validation: { component: ValidationBlock, fields: ['validation_mode'], summary: (f) => [['Validation', short(VALIDATION_MODES, f.validation_mode)]] },
   editApproval: { component: EditApprovalBlock, fields: ['merchant_edit_approval'], summary: (f) => [['Modifications', short(EDIT_APPROVAL_MODES, f.merchant_edit_approval)]] },
-  day: { component: DayBlock, fields: ['daily_cutoff_time', 'cutoff_by_day', 'default_max_attempts'], summary: (f) => [['Heure limite', (f.daily_cutoff_time || '').slice(0, 5) || 'aucune']] },
+  day: { component: DayBlock, fields: ['daily_cutoff_time', 'cutoff_by_day', 'default_max_attempts', 'day_advice'], summary: (f) => [['Heure limite', (f.daily_cutoff_time || '').slice(0, 5) || 'aucune']] },
   couriers: {
     component: CouriersBlock,
     fields: ['require_delivery_code', 'offline_courier_actions', 'relay_required', 'pickup_mission_custody', 'depot_closes_at'],
@@ -33,7 +33,7 @@ export const BLOCKS = {
   autoDelivery: {
     component: AutoDeliveryBlock,
     fields: ['auto_delivery', 'auto_delivery_max_cod', 'same_courier_delivery'],
-    summary: (f) => [['Jour même', short(DELIVERY_MODES, f.auto_delivery)]],
+    summary: (f) => [['Livraison', short(DELIVERY_MODES, f.auto_delivery)]],
   },
   acceptance: {
     component: AcceptanceBlock,
@@ -58,7 +58,7 @@ export const BLOCKS = {
     fields: ['cash_alert_hours', 'cash_alert_amount', 'cash_alert_courier', 'cash_close_reminder_at', 'cash_close_summary'],
     summary: (f) => [['Argent gardé', f.cash_alert_hours ? `alerte après ${f.cash_alert_hours} h` : 'pas d\'alerte']],
   },
-  merchantSignup: { component: MerchantSignupBlock, fields: ['merchant_signup'], summary: (f) => [['Inscriptions', f.merchant_signup ? 'ouvertes' : 'sur demande']] },
+  merchantSignup: { component: MerchantSignupBlock, fields: ['merchant_signup', 'merchant_signup_verify'], summary: (f) => [['Inscriptions', f.merchant_signup ? (f.merchant_signup_verify === false ? 'ouvertes, sans vérification' : 'ouvertes') : 'sur demande']] },
   directory: { component: DirectoryBlock, fields: ['directory_listed', 'directory_pitch'], summary: (f) => [['Annuaire', f.directory_listed ? 'visible' : 'absent']] },
 }
 

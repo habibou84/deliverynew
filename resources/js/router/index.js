@@ -95,12 +95,14 @@ const routes = [
         component: () => import('../views/admin/activity/CourierActivity.vue'),
         meta: { permission: 'orders.dispatch' },
         children: [
-          { path: '', component: () => import('../views/admin/activity/DailyTracking.vue'), meta: { permission: 'orders.dispatch' } },
-          { path: 'carte', component: () => import('../views/admin/CourierMap.vue'), meta: { permission: 'orders.dispatch' } },
+          // Écran d'ensemble : livreurs en liste ou sur la carte, remontées terrain et colis gardés à côté
+          { path: '', component: () => import('../views/admin/activity/ActivityBoard.vue'), props: { view: 'liste' }, meta: { permission: 'orders.dispatch' } },
+          { path: 'carte', component: () => import('../views/admin/activity/ActivityBoard.vue'), props: { view: 'carte' }, meta: { permission: 'orders.dispatch' } },
           { path: 'disponibles', component: () => import('../views/admin/CourierAvailability.vue'), meta: { permission: 'orders.dispatch' } },
           { path: 'colis', component: () => import('../views/admin/HeldParcels.vue'), meta: { permission: 'orders.dispatch' } },
           { path: 'remontees', component: () => import('../views/admin/FieldReports.vue'), meta: { permission: 'orders.dispatch' } },
-          { path: 'planning', component: () => import('../views/admin/Planning.vue'), meta: { permission: 'orders.dispatch' } },
+          // Le planning est dans Livraison › Planning des livreurs
+          { path: 'planning', redirect: (to) => ({ path: '/admin/planning', query: to.query }) },
           { path: 'mural', component: () => import('../views/admin/activity/WallScreen.vue'), meta: { permission: 'orders.dispatch' } },
         ],
       },
@@ -109,7 +111,8 @@ const routes = [
       { path: 'disponibilites', redirect: (to) => ({ path: '/admin/activite/disponibles', query: to.query }) },
       { path: 'colis-livreurs', redirect: (to) => ({ path: '/admin/activite/colis', query: to.query }) },
       { path: 'terrain', redirect: (to) => ({ path: '/admin/activite/remontees', query: to.query }) },
-      { path: 'planning', redirect: (to) => ({ path: '/admin/activite/planning', query: to.query }) },
+      // Livraison › Planning des livreurs
+      { path: 'planning', component: () => import('../views/admin/Planning.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'retours', component: () => import('../views/admin/MerchantReturns.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs', component: () => import('../views/admin/Couriers.vue'), meta: { permission: 'orders.dispatch' } },
       // Ancienne page « Notes des livreurs » : la note est dans la liste et la fiche de chaque livreur
@@ -118,8 +121,10 @@ const routes = [
       { path: 'vehicules', component: () => import('../views/admin/Vehicles.vue'), meta: { permission: 'orders.dispatch' } },
       { path: 'livreurs/:id(\\d+)/notes', redirect: (to) => ({ path: `/admin/livreurs/${to.params.id}`, query: { onglet: 'notes' } }) },
       { path: 'utilisateurs', component: () => import('../views/admin/Users.vue'), meta: { permission: 'users.view' } },
-      { path: 'zones', component: () => import('../views/admin/Zones.vue'), meta: { permission: 'settings.manage' } },
-      { path: 'tarifs', component: () => import('../views/admin/Pricing.vue'), meta: { permission: 'settings.manage' } },
+      // Zones et tarifs : où l'on livre et à quel prix, au même endroit (anciennes pages Zones et Tarifs)
+      { path: 'livraison', component: () => import('../views/admin/Delivery.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'zones', redirect: '/admin/livraison' },
+      { path: 'tarifs', redirect: (to) => ({ path: '/admin/livraison', query: to.query }) },
       { path: 'paie-livreurs', component: () => import('../views/admin/PayPlans.vue'), meta: { permission: 'settings.manage' } },
       { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage', feature: 'stock' } },
       { path: 'caisse', component: () => import('../views/admin/Finance.vue'), meta: { permission: 'finance.view' } },
@@ -131,9 +136,12 @@ const routes = [
       { path: 'mise-en-route', component: () => import('../views/admin/SetupGuide.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages', component: () => import('../views/admin/settings/SettingsHub.vue'), meta: { permission: ['settings.manage', 'integrations.manage', 'users.view'] } },
       { path: 'reglages/entreprise', component: () => import('../views/admin/settings/SettingsCompany.vue'), meta: { permission: 'settings.manage' } },
+      // Livraison › Automatisation
+      { path: 'automatisation', component: () => import('../views/admin/settings/SettingsAutomation.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/courses', component: () => import('../views/admin/settings/SettingsOrders.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/annulations', component: () => import('../views/admin/Cancellations.vue'), props: { section: 'rules' }, meta: { permission: 'settings.manage' } },
-      { path: 'reglages/messages-e-commercants', component: () => import('../views/admin/settings/SettingsMerchantMessages.vue'), meta: { permission: 'settings.manage' } },
+      // Rangé dans Messages › Messages prédéfinis (onglet E-commerçants)
+      { path: 'reglages/messages-e-commercants', redirect: '/admin/whatsapp/messages' },
       { path: 'reglages/alertes', component: () => import('../views/admin/settings/SettingsAlerts.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/e-commercants', component: () => import('../views/admin/settings/SettingsMerchants.vue'), meta: { permission: 'settings.manage' } },
       { path: 'reglages/reprise', component: () => import('../views/admin/settings/SettingsLegacy.vue'), meta: { permission: 'settings.manage' } },
@@ -155,9 +163,17 @@ const routes = [
       // Jibiat IA est dans la formule : son bloc est sur « Mon abonnement » (anciens liens)
       { path: 'jibiat-ia', redirect: { path: '/admin/abonnement', hash: '#jibiat-ia' } },
       { path: 'abonnement/factures/:id(\\d+)', component: () => import('../views/shared/PlatformInvoiceView.vue'), meta: { permission: 'settings.manage' } },
+      // WhatsApp : connexion du numéro et messages prédéfinis (onglets)
       { path: 'whatsapp', component: () => import('../views/admin/WhatsApp.vue'), meta: { permission: 'settings.manage' } },
+      // WhatsApp en trois onglets : Connexion, Messages automatiques, Options d'envoi
+      { path: 'whatsapp/messages', component: () => import('../views/admin/AutomaticMessages.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'whatsapp/options', component: () => import('../views/admin/WhatsAppOptions.vue'), meta: { permission: 'settings.manage' } },
+      { path: 'whatsapp/modeles', redirect: '/admin/whatsapp/messages' },
       { path: 'whatsapp/simulateur', component: () => import('../views/admin/WhatsAppSimulator.vue'), meta: { permission: 'settings.manage', feature: 'whatsapp_bot' } },
-      { path: 'messages', component: () => import('../views/admin/Messages.vue'), meta: { permission: 'orders.dispatch' } },
+      // Messages : la messagerie façon WhatsApp (reçus et envoyés au même endroit)
+      { path: 'messages', component: () => import('../views/admin/Inbox.vue'), meta: { permission: 'orders.dispatch' } },
+      { path: 'messages/recus', redirect: '/admin/messages' },
+      { path: 'messages/predefinis', redirect: '/admin/whatsapp/messages' },
     ],
   },
   // Application livreur : écran « appel entrant » d'une nouvelle mission (sonnerie Android), en plein écran
@@ -172,7 +188,9 @@ const routes = [
       { path: 'missions/:id(\\d+)', component: () => import('../views/courier/MissionDetail.vue'), meta: { title: 'Mission', back: true } },
       { path: 'ramassage/:key', component: () => import('../views/courier/PickupGroup.vue'), meta: { title: 'Ramassage', back: true } },
       { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage', feature: 'stock' } },
+      { path: 'itineraire', component: () => import('../views/courier/Itinerary.vue'), meta: { title: 'Mon itinéraire', back: true } },
       { path: 'caisse', component: () => import('../views/courier/Wallet.vue'), meta: { title: 'Ma caisse' } },
+      { path: 'gains', component: () => import('../views/courier/Earnings.vue'), meta: { title: 'Mes gains' } },
       { path: 'messages', component: () => import('../views/courier/Messages.vue'), meta: { title: 'Consignes de l\'agence', back: true } },
       { path: 'relais', component: () => import('../views/courier/Relays.vue'), meta: { title: 'Relais', back: true } },
       { path: 'retours/:id(\\d+)', component: () => import('../views/courier/ReturnHandOver.vue'), meta: { title: 'Remise au marchand', back: true } },
@@ -216,8 +234,8 @@ const routes = [
       { path: '', name: 'marchand', component: () => import('../views/merchant/Home.vue') },
       { path: 'courses', component: () => import('../views/merchant/Orders.vue'), meta: { title: 'Mes courses', fullscreen: true } },
       { path: 'statistiques', component: () => import('../views/merchant/Stats.vue'), meta: { title: 'Mes statistiques', back: true } },
-      { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true, hideTabs: true } },
-      { path: 'courses/plusieurs', component: () => import('../views/merchant/MultiOrder.vue'), meta: { title: 'Plusieurs courses', back: true, hideTabs: true, permission: 'orders.create' } },
+      { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true, hideTabs: true, fullscreen: true } },
+      { path: 'courses/plusieurs', component: () => import('../views/merchant/MultiOrder.vue'), meta: { title: 'Plusieurs courses', back: true, hideTabs: true, fullscreen: true, permission: 'orders.create' } },
       { path: 'courses/import', component: () => import('../views/merchant/OrderImport.vue'), meta: { title: 'Importer des courses', back: true, permission: 'orders.create' } },
       { path: 'boutique', component: () => import('../views/merchant/Shop.vue'), meta: { title: 'Ma boutique en ligne', back: true, permission: 'integrations.manage', feature: 'shop' } },
       // API et webhooks : plus proposés aux e-commerçants (l'adresse ramène au profil)

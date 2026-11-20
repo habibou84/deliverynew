@@ -22,7 +22,8 @@
         </li>
       </ol>
     </div>
-    <button type="button" class="m-btn-primary w-full !bg-none !bg-[#25d366] !py-4 !text-[17px]" :disabled="busy" @click="connectOfficial">{{ busy ? 'Un instant…' : 'Relier mon numéro spécial' }}</button>
+    <button type="button" class="m-btn-primary w-full !bg-none !bg-[#25d366] !py-4 !text-[17px]" :disabled="busy" @click="connectOfficial">{{ busy ? 'Un instant…' : 'Relier mon numéro WhatsApp Business' }}</button>
+    <p class="text-center text-[13.5px] text-slate-600">Pas encore WhatsApp Business ? Installez l'application gratuite et passez-y votre numéro, ou prenez une nouvelle puce.</p>
   </section>
 </template>
 
@@ -34,8 +35,8 @@ import { dottedPhone } from './liveCard'
 import { confirmDialog } from '../../../composables/useDialog'
 
 /**
- * Commandes du live reçues et enregistrées sans l'e-commerçante : son numéro spécial live relié par la connexion
- * officielle de WhatsApp (Facebook). Un numéro déjà relié autrement (code d'association) reste affiché et peut être délié.
+ * Commandes du live reçues et enregistrées sans l'e-commerçante : son numéro WhatsApp Business relié par la connexion
+ * officielle de WhatsApp (Facebook), en le gardant dans l'application WhatsApp Business du téléphone (coexistence). Un numéro déjà relié autrement (code d'association) reste affiché et peut être délié.
  */
 const props = defineProps({
   initial: { type: Object, default: () => ({ mode: 'none', auto: false, official: { available: false }, available: false, connected: false, phone: null }) },
@@ -48,9 +49,9 @@ const state = reactive({ ...props.initial })
 const busy = ref(false)
 // Les 3 étapes, en bref (comme Jibiat Marchand)
 const STEPS = [
-  { title: '📱 Un numéro spécial live', text: 'Une puce qui n\'a pas de WhatsApp.' },
-  { title: '🔗 Reliez-le avec Facebook', text: 'Touchez le bouton vert, puis suivez les étapes.' },
-  { title: '💳 Meta demande une carte ? Touchez « Terminer »', text: 'Pas besoin de carte : les commandes sont gratuites.' },
+  { title: '📱 Votre numéro WhatsApp Business', text: 'Celui de l\'application WhatsApp Business de votre téléphone. Vous continuez à vous en servir comme avant : les messages restent dans l\'application.' },
+  { title: '🔗 Reliez-le avec Facebook', text: 'Touchez le bouton vert. Meta propose de garder le numéro dans WhatsApp Business : acceptez, puis suivez les étapes.' },
+  { title: '💳 Meta demande une carte ? Touchez « Terminer »', text: 'Pas besoin de mettre de carte.' },
 ]
 
 /** Connexion officielle : fenêtre de Meta ouverte depuis l'adresse de la plateforme, retour ici à la fin */

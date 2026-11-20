@@ -14,7 +14,7 @@ use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
 
 /**
- * Suppression du compte depuis le profil (e-commerçant, livreur), exigée par Google Play : compte coupé tout de
+ * Suppression du compte depuis le profil (e-commerçant ; pas le livreur), exigée par Google Play : compte coupé tout de
  * suite, entreprise prévenue, données personnelles effacées après 30 jours sauf annulation.
  */
 class AccountDeletionTest extends TestCase
@@ -68,8 +68,8 @@ class AccountDeletionTest extends TestCase
 
     public function test_company_cancels_before_erasure(): void
     {
-        $courier = $this->courierA->user;
-        Sanctum::actingAs($courier);
+        $merchant = $this->merchantUser;
+        Sanctum::actingAs($merchant);
         $this->postJson('/api/v1/account/deletion', ['confirm' => true])->assertCreated();
         $deletion = AccountDeletionRequest::withoutGlobalScopes()->sole();
 
@@ -79,19 +79,26 @@ class AccountDeletionTest extends TestCase
 
         Sanctum::actingAs($this->admin);
         $this->postJson("/api/v1/account-deletions/{$deletion->id}/cancel")->assertOk();
-        $this->assertSame(UserStatus::Active, $courier->fresh()->status);
+        $this->assertSame(UserStatus::Active, $merchant->fresh()->status);
         $this->postJson("/api/v1/account-deletions/{$deletion->id}/cancel")->assertStatus(422);
 
         $this->travel(31)->days();
         $this->artisan('accounts:erase-deleted')->assertSuccessful();
-        $this->assertNotSame(AccountDeletions::ERASED_NAME, $courier->fresh()->name);
-        $this->assertFalse($courier->fresh()->trashed());
+        $this->assertNotSame(AccountDeletions::ERASED_NAME, $merchant->fresh()->name);
+        $this->assertFalse($merchant->fresh()->trashed());
     }
 
-    public function test_reserved_to_merchants_and_couriers(): void
+    public function test_reserved_to_merchants(): void
     {
         Sanctum::actingAs($this->admin);
         $this->postJson('/api/v1/account/deletion', ['confirm' => true])->assertForbidden();
+
+        // Le livreur ne supprime pas son compte : c'est l'entreprise qui le ferme
+        $courier = $this->courierA->user;
+        Sanctum::actingAs($courier);
+        $this->postJson('/api/v1/account/deletion', ['confirm' => true])->assertForbidden();
+        $this->assertSame(UserStatus::Active, $courier->fresh()->status);
+
         $this->assertSame(0, AccountDeletionRequest::withoutGlobalScopes()->count());
     }
 
@@ -100,7 +107,8 @@ class AccountDeletionTest extends TestCase
         $this->get('/suppression-du-compte')->assertOk()
             ->assertSee('Supprimer votre compte')
             ->assertSee('Supprimer mon compte')
-            ->assertSee('30 jours');
+            ->assertSee('30 jours')
+            ->assertSee('Vous êtes livreur');
         $this->get('/confidentialite')->assertOk()->assertSee('href="/suppression-du-compte"', false);
     }
 }

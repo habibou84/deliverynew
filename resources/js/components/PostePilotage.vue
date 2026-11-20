@@ -6,6 +6,9 @@
       <span class="text-sm text-slate-600">mis à jour à {{ updatedAt }}</span>
     </div>
 
+    <!-- Conseil : rouvrir ou fermer la journée selon les livreurs libres -->
+    <DayAdvice :advice="advice" @changed="refresh" />
+
     <!-- 1. État du jour : une seule ligne -->
     <section class="card flex flex-wrap items-center gap-x-7 gap-y-4 px-5 py-4" aria-label="État du jour">
       <div v-if="deliveryDay?.rules" class="flex min-w-[11rem] items-center gap-2.5">
@@ -161,6 +164,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import http from '../bootstrap/axios'
+import DayAdvice from './DayAdvice.vue'
 import DayPoint from './DayPoint.vue'
 import Icone from './ui/Icone.vue'
 import { useDispatchCountStore } from '../stores/dispatchCounts'
@@ -188,6 +192,7 @@ const hour = (value) => new Date(value).toLocaleTimeString('fr-FR', { hour: '2-d
 const report = ref(null)
 const activity = ref(null)
 const deliveryDay = ref(null)
+const advice = ref(null)
 const updatedAt = ref('')
 
 const counts = computed(() => dispatchCounts.counts)
@@ -222,7 +227,7 @@ const todos = computed(() => {
     { key: 'cancel', level: 'faire', count: c.cancellation_requests || 0, title: 'Annulations demandées', sub: 'à accepter ou refuser', action: 'Décider', to: '/admin/courses/annulations' },
     { key: 'change', level: 'faire', count: c.change_requests || 0, title: 'Modifications à valider', sub: 'prix ou livraison changés par l\'e-commerçant', action: 'Voir', to: queue('change_requests') },
     { key: 'decide', level: 'faire', count: exc.value.to_decide || 0, title: 'Échecs de livraison sans suite', sub: 'relivrer, retourner ou remettre en stock', action: 'Décider', to: queue('to_decide') },
-    { key: 'return', level: 'faire', count: day.value.to_return || 0, title: 'Colis à retourner', sub: 'retour demandé par l\'e-commerçant', action: 'Organiser', to: queue('to_return') },
+    { key: 'return', level: 'faire', count: day.value.to_return || 0, title: 'Colis à retourner', sub: 'refusés, tentatives épuisées ou retour demandé', action: 'Organiser', to: queue('to_return') },
     { key: 'held', level: 'voir', count: heldParcels.counts.overdue || 0, title: 'Colis gardés trop longtemps par un livreur', sub: 'à faire rapporter ou livrer', action: 'Voir', to: '/admin/activite/colis' },
     { key: 'reports', level: 'voir', count: fieldReports.open.total || 0, title: 'Remontées terrain', sub: 'signalées par les livreurs, pas encore traitées', action: 'Ouvrir', to: '/admin/activite/remontees' },
   ].filter((t) => t.count > 0)
@@ -279,14 +284,16 @@ async function refresh() {
   dispatchCounts.day = todayIso
   dispatchCounts.fetchCounts().catch(() => {})
   // Colis gardés et remontées terrain : déjà chargés par le menu (AdminLayout), chaque minute
-  const [r, a, d] = await Promise.allSettled([
+  const [r, a, d, adv] = await Promise.allSettled([
     http.get('/reports/day', { params: { day: todayIso } }),
     http.get('/couriers/activity'),
     http.get('/delivery-day'),
+    http.get('/delivery-day/advice'),
   ])
   if (r.status === 'fulfilled') report.value = r.value.data.data
   if (a.status === 'fulfilled') activity.value = a.value.data
   if (d.status === 'fulfilled') deliveryDay.value = d.value.data.data
+  advice.value = adv.status === 'fulfilled' ? adv.value.data.data : null
   updatedAt.value = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 

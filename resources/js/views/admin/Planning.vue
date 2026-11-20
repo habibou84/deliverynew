@@ -8,7 +8,7 @@
       <button class="btn-primary" @click="openRule()">+ Nouvelle règle</button>
     </div>
 
-    <SettingsShortcut :blocks="['autoPickup', 'acceptance', 'autoDelivery']" title="Planning des livreurs" intro="Ce que le planning fait tout seul." more="/admin/reglages/courses" @saved="load" />
+    <SettingsShortcut :blocks="['autoPickup', 'acceptance', 'autoDelivery']" title="Planning des livreurs" intro="Ce que le planning fait tout seul." more="/admin/automatisation" @saved="load" />
 
     <!-- Ramassage automatique : état et lien vers le réglage -->
     <div v-if="board?.automation?.paused" class="card px-3 py-2 text-sm bg-red-50 text-red-900 flex flex-wrap items-center gap-2">
@@ -21,7 +21,7 @@
     <div v-else-if="board" :class="['card px-3 py-2 text-sm flex flex-wrap items-center gap-2', AUTO[board.auto_pickup].cls]">
       <span class="flex-1 min-w-0">
         {{ AUTO[board.auto_pickup].text }}
-        <template v-if="board.auto_delivery !== 'off'"> Livraison du jour même automatique {{ board.auto_delivery === 'on' ? 'active' : 'à l\'essai' }}.</template>
+        <template v-if="board.auto_delivery !== 'off'"> Livraison automatique {{ board.auto_delivery === 'on' ? 'active' : 'à l\'essai' }}.</template>
       </span>
       <button v-if="board.auto_pickup !== 'off' || board.auto_delivery !== 'off'" class="btn-secondary" :disabled="pausing" @click="pause(true)"><Icone nom="pause" /> Suspendre l'automatisation</button>
     </div>
@@ -145,7 +145,7 @@
           <div class="flex gap-2">
             <button v-for="(label, value) in TYPES" :key="value" type="button" :class="['rounded-full px-3 py-1 text-sm ring-1', form.type === value ? 'bg-slate-900 text-white ring-slate-900' : 'bg-white ring-slate-300']" @click="setType(value)">{{ label }}s</button>
           </div>
-          <p v-if="form.type === 'delivery'" class="text-xs text-slate-600 mt-1">Utilisé par la livraison du jour même automatique : il livre ces zones avant les autres livreurs.</p>
+          <p v-if="form.type === 'delivery'" class="text-xs text-slate-600 mt-1">Utilisé par la livraison automatique : il livre ces zones avant les autres livreurs.</p>
         </fieldset>
         <div class="grid sm:grid-cols-2 gap-3">
           <div>

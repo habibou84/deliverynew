@@ -7,6 +7,7 @@ use App\Enums\AssignmentType;
 use App\Enums\FeePayer;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
+use App\Enums\ReturnCause;
 use App\Enums\Role;
 use App\Models\Concerns\BelongsToCompany;
 use App\Support\PhoneNumber;
@@ -55,6 +56,7 @@ class Order extends Model
         'delivery_scheduled_date',
         'delivery_time_slot',
         'is_shipping',
+        'shipping_city',
         'description',
         'package_size',
         'weight_kg',
@@ -93,6 +95,7 @@ class Order extends Model
             'is_shipping' => 'boolean',
             'shipping_fee' => 'integer',
             'return_requested' => 'boolean',
+            'return_cause' => ReturnCause::class,
             'is_test' => 'boolean',
             'delivery_fee' => 'integer',
             'surcharges_total' => 'integer',
@@ -310,6 +313,18 @@ class Order extends Model
             ->whereIn('actor_role', [Role::MerchantOwner->value, Role::MerchantStaff->value])
             ->where(fn (Builder $q) => $q->where('type', OrderEventType::ReturnRequested->value)
                 ->orWhere(fn (Builder $q) => $q->where('type', OrderEventType::StatusChanged->value)->where('to_status', OrderStatus::Rescheduled->value))));
+    }
+
+    /**
+     * Le colis repart chez l'e-commerçant. La première raison reste (un colis refusé par le client reste « refusé »
+     * même si l'agence organise ensuite le retour).
+     */
+    public function markForReturn(ReturnCause $cause): void
+    {
+        if (! $this->return_requested || $this->return_cause === null) {
+            $this->return_cause = $cause;
+        }
+        $this->return_requested = true;
     }
 
     /**

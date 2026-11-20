@@ -3,11 +3,14 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h1 class="text-xl font-bold">Courses</h1>
       <div class="flex items-center gap-2">
-        <SettingsShortcut v-if="isStaff" compact :blocks="['validation', 'editApproval', 'day', 'autoPickup', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/reglages/courses" />
+        <SettingsShortcut v-if="isStaff" compact :blocks="['validation', 'editApproval', 'day', 'autoPickup', 'autoDelivery']" title="Courses" intro="S'applique à toutes les nouvelles courses de l'entreprise." more="/admin/automatisation" />
         <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/import`" class="btn-secondary"><Icone nom="importer" /> Importer</RouterLink>
         <RouterLink v-if="auth.can('orders.create')" :to="`${auth.homeRoute}/courses/nouvelle`" :class="['btn-primary', isStaff ? 'hidden md:inline-flex' : '']"><Icone nom="ajouter" /> Nouvelle course</RouterLink>
       </div>
     </div>
+
+    <!-- Courses, Activité des livreurs, Retours marchands -->
+    <CoursesTabs v-if="isStaff && isDispatch" />
 
     <!-- Réglages manquants pour l'assignation automatique : bandeau d'action -->
     <AutoAssignBanner v-if="isStaff" />
@@ -31,21 +34,18 @@
         aria-label="Autre jour" title="Autre jour"
         @change="$event.target.value && setDay($event.target.value)"
       >
-      <span v-if="filters.day" class="hidden sm:inline text-slate-600">· seulement les courses prévues ce jour (jours passés dans « Courses en retard »)</span>
+      <span v-if="filters.day" class="hidden xl:inline text-slate-600">· courses prévues ce jour</span>
+      <RouterLink
+        v-if="untreatedCount" to="/admin/courses/en-retard"
+        class="ml-auto inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 font-semibold text-red-800 hover:bg-red-200"
+        :title="'Date de livraison dépassée, pas encore livrées, retournées ni annulées'"
+      >
+        <Icone nom="retard" taille="petite" /> {{ untreatedCount }} en retard ›
+      </RouterLink>
     </div>
 
     <!-- Point du jour : livrées, recette, encaissé, à reverser -->
     <DayPoint v-if="isStaff && isDispatch" :day="filters.day" @delivered="showDelivered" />
-
-    <!-- Courses non traitées (jour de livraison dépassé) : page à part, toutes dates -->
-    <RouterLink
-      v-if="isStaff && untreatedCount" to="/admin/courses/en-retard"
-      class="card flex items-center gap-3 border-red-300 bg-red-50 px-3 py-2 text-red-900 hover:bg-red-100"
-    >
-      <Icone nom="retard" class="text-red-700" />
-      <span class="min-w-0 flex-1 text-sm"><b>{{ untreatedCount }} course{{ untreatedCount > 1 ? 's' : '' }} non traitée{{ untreatedCount > 1 ? 's' : '' }}</b> : date de livraison dépassée, pas encore livrée{{ untreatedCount > 1 ? 's' : '' }}, retournée{{ untreatedCount > 1 ? 's' : '' }} ni annulée{{ untreatedCount > 1 ? 's' : '' }}</span>
-      <span class="text-sm font-semibold underline">Voir</span>
-    </RouterLink>
 
     <!-- Ramassages pas faits à leur date : cachés chez les livreurs jusqu'à la nouvelle date -->
     <RouterLink
@@ -70,12 +70,40 @@
       </button>
     </div>
 
-    <!-- Onglets : les courses du jour choisi (toutes les dates si « Toutes les dates ») -->
-    <Onglets
-      v-if="isStaff" label="Files de courses" :model-value="filters.queue"
-      :items="mainQueues.map((q) => ({ value: q.value, label: q.label, group: q.group, count: tabCount(q.value), late: tabLate(q.value), lateTitle: 'en attente depuis trop longtemps' }))"
-      @update:model-value="setQueue"
-    />
+    <!-- Étapes du colis : Validation, Ramassage, Livraison, Retours ; chaque case filtre la liste (« Toutes » au-dessus) -->
+    <div v-if="isStaff" class="space-y-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          :class="['rounded-full px-4 py-1.5 text-sm ring-1', filters.queue === '' ? 'bg-[var(--admin-color,#0f172a)] font-semibold text-white ring-transparent' : 'bg-white ring-slate-400 hover:bg-slate-50']"
+          :aria-pressed="filters.queue === ''" @click="setQueue('')"
+        >
+          Toutes les courses<template v-if="isDispatch"> · {{ tabCount('') }}</template>
+        </button>
+        <span class="hidden text-xs text-slate-600 sm:inline">Ou une étape du colis : les cases rouges demandent une action.</span>
+      </div>
+      <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-[var(--stage-cols)]" :style="{ '--stage-cols': stageCols }" role="group" aria-label="Étapes des courses">
+        <section v-for="(st, i) in stages" :key="st.key" :class="['card space-y-2 p-3', st.key === 'delivery' ? 'sm:col-span-2 xl:col-span-1' : '']" :aria-label="st.label">
+          <p :class="['text-xs font-bold uppercase tracking-wide', STAGE_COLORS[st.key].title]">{{ i + 1 }}. {{ st.label }}</p>
+          <div :class="['grid gap-2', CELL_GRID[st.items.length] || 'grid-cols-2']">
+            <button
+              v-for="q in st.items" :key="q.value" type="button"
+              :class="[
+                'min-w-0 rounded-xl px-3 py-2 text-left transition',
+                stageCellClass(st, q),
+                filters.queue === q.value ? 'ring-2 ring-[var(--admin-color,#0f172a)]' : 'hover:brightness-95',
+              ]"
+              :aria-pressed="filters.queue === q.value" :title="q.hint" @click="setQueue(filters.queue === q.value ? '' : q.value)"
+            >
+              <span class="block truncate text-sm font-semibold">{{ q.label }}</span>
+              <span v-if="isDispatch" class="block text-2xl font-extrabold tabular-nums">{{ tabCount(q.value) }}</span>
+              <span v-if="isDispatch && tabLate(q.value)" class="block truncate text-xs font-semibold text-red-700">{{ tabLate(q.value) }} attendent trop</span>
+              <span v-else-if="q.hint" class="hidden truncate text-xs opacity-80 sm:block">{{ q.hint }}</span>
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
 
     <!-- Sans ramasseur : en liste ou regroupés par client et adresse -->
     <div v-if="filters.queue === 'pickup_unassigned' && isDispatch" class="flex flex-wrap items-center gap-3 text-sm">
@@ -352,7 +380,7 @@ import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
 import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
 import { confirmDialog, promptDialog } from '../../composables/useDialog'
 import Icone from '../../components/ui/Icone.vue'
-import Onglets from '../../components/ui/Onglets.vue'
+import CoursesTabs from '../../components/CoursesTabs.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -403,6 +431,40 @@ const queues = [
   { value: 'code_to_verify', label: 'Codes à vérifier' },
   { value: 'change_requests', label: 'Modifications à valider' },
 ]
+
+// Étapes du colis (cases au-dessus de la liste) : dans l'ordre du parcours, chacune avec ses états ; « action » : rouge quand il y en a
+const STAGES = [
+  { key: 'validation', label: 'Validation', items: [{ value: 'to_confirm', label: 'À valider', action: true }] },
+  { key: 'pickup', label: 'Ramassage', items: [
+    { value: 'pickup_unassigned', label: 'À assigner', hint: 'sans ramasseur', action: true },
+    { value: 'to_pickup', label: 'En cours', hint: 'ramasseur en route' },
+    { value: 'to_prepare', label: 'À préparer', hint: 'au stock' },
+  ] },
+  { key: 'delivery', label: 'Livraison', items: [
+    { value: 'delivery_unassigned', label: 'À assigner', hint: 'sans livreur', action: true },
+    { value: 'delivery_assigned', label: 'Assignées', hint: 'pas encore parties' },
+    { value: 'on_the_way', label: 'En chemin', hint: 'chez le livreur' },
+    { value: 'delivered', label: 'Livrées', done: true },
+    { value: 'failed', label: 'Échecs', hint: 'à relivrer', action: true },
+  ] },
+  { key: 'returns', label: 'Retours', items: [{ value: 'to_return', label: 'À retourner', hint: 'vers l\'e-commerçant' }] },
+]
+// Cases d'une étape : côte à côte (classes écrites en entier pour Tailwind)
+const CELL_GRID = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4', 5: 'grid-cols-3 sm:grid-cols-5' }
+const STAGE_COLORS = {
+  validation: { title: 'text-violet-700', cell: 'bg-violet-50 text-violet-900' },
+  pickup: { title: 'text-amber-700', cell: 'bg-amber-50 text-amber-900' },
+  delivery: { title: 'text-blue-700', cell: 'bg-blue-50 text-blue-900' },
+  returns: { title: 'text-slate-600', cell: 'bg-slate-100 text-slate-900' },
+}
+const stages = computed(() => STAGES.map((st) => ({ ...st, items: st.items.filter((q) => mainQueues.value.some((m) => m.value === q.value)) })))
+// Largeur de chaque étape selon son nombre de cases (grand écran : une seule ligne)
+const stageCols = computed(() => stages.value.map((st) => `minmax(0,${st.items.length + 0.4}fr)`).join(' '))
+function stageCellClass(st, q) {
+  if (q.action && isDispatch.value && tabCount(q.value) > 0) return 'bg-red-50 text-red-900 ring-1 ring-red-200'
+  if (q.done) return 'bg-emerald-50 text-emerald-900'
+  return STAGE_COLORS[st.key].cell
+}
 
 // Onglets : les courses du jour choisi ; les jours passés sont dans « Courses en retard » (page à part)
 const MAIN_QUEUES = ['to_confirm', 'pickup_unassigned', 'to_pickup', 'to_prepare', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered', 'failed', 'to_return', '']

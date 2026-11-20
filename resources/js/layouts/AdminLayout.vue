@@ -20,7 +20,7 @@
         >
           <Icone nom="ajouter" /> Nouvelle course
         </RouterLink>
-        <SidebarItem v-for="item in menu.top" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" :prefix="!!item.prefix" />
+        <SidebarItem v-for="item in menu.top" :key="item.to" :icon="item.icon" :label="item.label" :to="item.to" :badge="item.badge || 0" :prefix="!!item.prefix" :also="item.active || []" />
         <SidebarGroup
           v-for="group in menu.groups"
           :id="group.id"
@@ -30,13 +30,9 @@
           :default-open="!group.closed"
         />
       </nav>
-      <!-- Téléphone : qui est connecté et déconnexion (l'en-tête n'a plus la place) -->
-      <div class="md:hidden border-t border-white/15 p-3 flex items-center justify-between gap-2">
-        <RouterLink to="/admin/mot-de-passe" class="min-w-0 text-sm" @click="sidebarOpen = false">
-          <span class="block truncate font-medium">{{ auth.user?.name }}</span>
-          <span class="block truncate text-white/60">{{ auth.user?.role_label }} · mot de passe</span>
-        </RouterLink>
-        <button class="shrink-0 rounded-md bg-white/10 px-3 py-2 text-sm font-medium hover:bg-white/20" @click="logout">Déconnexion</button>
+      <!-- Téléphone : le profil (Mon compte, Mon abonnement, Déconnexion), détaché du menu -->
+      <div class="md:hidden mt-4 border-t border-white/15 px-3 pb-4 pt-4">
+        <AccountMenu sidebar @logout="logout" @navigate="sidebarOpen = false" />
       </div>
     </aside>
 
@@ -60,10 +56,8 @@
         <div class="flex items-center gap-3">
           <AlertSoundToggle v-if="isDispatch" />
           <NotificationBell />
-          <RouterLink to="/admin/mot-de-passe" class="hidden md:inline text-sm text-slate-600 hover:underline" title="Mon compte : mot de passe">
-            {{ auth.user?.name }} <span class="text-slate-600">· {{ auth.user?.role_label }}</span>
-          </RouterLink>
-          <button class="btn-danger hidden md:inline-flex" @click="logout">Déconnexion</button>
+          <!-- Profil : Mon compte, Mon abonnement, Déconnexion -->
+          <AccountMenu class="hidden md:block" @logout="logout" />
         </div>
       </header>
       <!-- Téléphone : recherche de course sous l'en-tête -->
@@ -172,6 +166,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, watchEffect
 import { useRoute, useRouter } from 'vue-router'
 import http from '../bootstrap/axios'
 import { useAuthStore } from '../stores/auth'
+import AccountMenu from '../components/AccountMenu.vue'
 import { useRealtime } from '../composables/useRealtime'
 import SidebarGroup from '../components/SidebarGroup.vue'
 import SidebarItem from '../components/SidebarItem.vue'
@@ -264,6 +259,24 @@ function closeSetupReturn() {
   sessionFlag(false)
 }
 
+// Messages WhatsApp reçus pas encore lus : badge du menu « Reçus », rafraîchi chaque minute
+const inboxUnread = ref(0)
+async function fetchInbox() {
+  if (!auth.can('orders.dispatch')) return
+  inboxUnread.value = (await http.get('/inbox/summary').catch(() => null))?.data?.data?.unread ?? inboxUnread.value
+}
+let inboxTimer
+// Conversation ouverte ou réponse envoyée depuis Messages › Reçus
+window.addEventListener('inbox-changed', fetchInbox)
+
+// Colis à rendre aux e-commerçants : badge du menu « Retours marchands », rafraîchi avec la messagerie
+const returnsCount = ref(0)
+async function fetchReturns() {
+  if (!auth.can('orders.dispatch')) return
+  returnsCount.value = (await http.get('/return-slips/count').catch(() => null))?.data?.data?.to_return ?? returnsCount.value
+}
+window.addEventListener('returns-changed', fetchReturns)
+
 const supportActive = ref(null)
 async function loadSupport() {
   if (!auth.can('settings.manage') || !auth.user?.company_id || auth.user?.support_session) return
@@ -291,11 +304,23 @@ watch(() => route.fullPath, (to, from) => {
 onMounted(() => {
   loadSetup()
   loadSupport()
+  fetchInbox()
+  fetchReturns()
+  inboxTimer = setInterval(() => {
+    if (!screenVisible()) return
+    fetchInbox()
+    fetchReturns()
+  }, 60000)
   if (!isDispatch.value) return
   fetchCounts()
   countsTimer = setInterval(() => screenVisible() && fetchCounts(), 60000)
 })
-onBeforeUnmount(() => clearInterval(countsTimer))
+onBeforeUnmount(() => {
+  clearInterval(countsTimer)
+  clearInterval(inboxTimer)
+  window.removeEventListener('inbox-changed', fetchInbox)
+  window.removeEventListener('returns-changed', fetchReturns)
+})
 
 // Menu en rubriques ; une entrée sans droit ni module disparaît, une rubrique vide aussi
 const visible = (item) => (!item.permission || auth.can(item.permission)) && (!item.feature || auth.hasFeature(item.feature)) && item.show !== false
@@ -305,12 +330,20 @@ const menu = computed(() => {
       id: 'operations',
       label: 'Opérations',
       items: [
-        { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view', badge: isDispatch.value ? dispatchCounts.counts.late.total : 0 },
+        // Courses : trois onglets (la liste, l'activité des livreurs, les retours marchands)
+        { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view', active: ['/admin/activite', '/admin/retours'], badge: isDispatch.value ? dispatchCounts.counts.late.total + fieldReports.open.total + heldParcels.counts.overdue + returnsCount.value : 0 },
         // Jour de livraison dépassé, course pas terminée : pas ramassées (à reporter), ramassées, toutes
         { to: '/admin/courses/en-retard', icon: 'retard', label: 'Courses en retard', permission: 'orders.dispatch', badge: dispatchCounts.counts.exceptions?.untreated || 0 },
-        // Carte, disponibles, colis en main, remontées terrain et planning : onglets de cette page
-        { to: '/admin/activite', icon: 'activite', label: 'Activité des livreurs', permission: 'orders.dispatch', prefix: true, badge: fieldReports.open.total + heldParcels.counts.overdue },
-        { to: '/admin/retours', icon: 'retour', label: 'Retours marchands', permission: 'orders.dispatch' },
+      ],
+    },
+    {
+      // Livraison : où et à quel prix, et ce qui se fait tout seul (validation, journée, ramassage et livraison automatiques)
+      id: 'livraison',
+      label: 'Livraison',
+      items: [
+        { to: '/admin/livraison', icon: 'adresse', label: 'Zones et tarifs', permission: 'settings.manage' },
+        { to: '/admin/automatisation', icon: 'automatisation', label: 'Automatisation', permission: 'settings.manage' },
+        { to: '/admin/planning', icon: 'planning', label: 'Planning des livreurs', permission: 'orders.dispatch' },
       ],
     },
     {
@@ -329,7 +362,17 @@ const menu = computed(() => {
         // Éteint dans la console : caché (sauf niveaux déjà créés)
         { to: '/admin/premium', icon: 'premium', label: 'Programme Premium', permission: 'merchants.view', show: auth.user?.company?.premium_program !== false },
         { to: '/admin/stock', icon: 'stock', label: 'Stock', permission: 'stock.manage', feature: 'stock' },
-        { to: '/admin/messages', icon: 'message', label: 'Messages', permission: 'orders.dispatch' },
+        // Inscriptions en ligne, annuaire, modifications des courses par les e-commerçants, parrainage
+        { to: '/admin/reglages/e-commercants', icon: 'reglages-clients', label: 'Réglages clients', permission: 'settings.manage' },
+      ],
+    },
+    {
+      // Messages : la messagerie (reçus et envoyés) ; WhatsApp : connexion du numéro et messages prédéfinis
+      id: 'messages',
+      label: 'Messages',
+      items: [
+        { to: '/admin/messages', icon: 'message', label: 'Messages', permission: 'orders.dispatch', badge: inboxUnread.value },
+        { to: '/admin/whatsapp', icon: 'whatsapp', label: 'WhatsApp', permission: 'settings.manage', prefix: true },
       ],
     },
     {
@@ -344,7 +387,7 @@ const menu = computed(() => {
     {
       id: 'configuration',
       label: 'Configuration',
-      // Zones, tarifs, WhatsApp, intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
+      // Intégrations, abonnement… : tout passe par la page Réglages, rangée par thèmes
       items: [
         // Point rouge : alertes du bilan de santé
         { to: '/admin/reglages', icon: 'reglages', label: 'Réglages', permission: ['settings.manage', 'integrations.manage', 'users.view'], badge: (setup.value?.health || []).filter((h) => h.level === 'alert').length },

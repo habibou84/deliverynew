@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\ZoneResource;
 use App\Models\Merchant;
 use App\Models\Zone;
+use App\Services\Zones\StandardZones;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -32,6 +33,12 @@ class ZoneController extends Controller
         return ZoneResource::collection($zones);
     }
 
+    /** Villes de destination proposées pour une expédition */
+    public function shippingCities(): JsonResponse
+    {
+        return response()->json(['data' => StandardZones::shippingCities()]);
+    }
+
     public function store(Request $request): ZoneResource
     {
         $data = $request->validate($this->rules($request));
@@ -48,6 +55,11 @@ class ZoneController extends Controller
             throw new BusinessRuleException("{$zone->name} a des quartiers : elle ne peut pas être placée dans une autre commune.", 'parent_id');
         }
 
+        // Zone « Expédition » d'office : on règle seulement si on livre ici et ses frais habituels
+        if ($zone->default_shipping) {
+            $data = array_intersect_key($data, array_flip(['is_active', 'shipping_fee_estimate', 'sort_order']));
+        }
+
         $zone->update($data);
 
         return ZoneResource::make($zone->load('parent'));
@@ -60,6 +72,9 @@ class ZoneController extends Controller
      */
     public function destroy(Zone $zone): JsonResponse
     {
+        if ($zone->default_shipping) {
+            throw new BusinessRuleException('La zone « Expédition » est créée d\'office : elle ne se supprime pas. Décochez « On livre ici » si vous n\'expédiez pas.');
+        }
         $orders = DB::table('orders')->where(fn ($q) => $q->where('pickup_zone_id', $zone->id)->orWhere('delivery_zone_id', $zone->id))->count();
         $blockers = array_filter([
             $zone->children()->count() ? $zone->children()->count().' quartier(s)' : null,
@@ -93,6 +108,7 @@ class ZoneController extends Controller
                 Rule::notIn(array_filter([$zone?->id]))],
             'city' => ['sometimes', 'string', 'max:100'],
             'is_active' => ['sometimes', 'boolean'],
+            'is_pickup' => ['sometimes', 'boolean'],
             'is_shipping' => ['sometimes', 'boolean'],
             'shipping_fee_estimate' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000000'],
             'sort_order' => ['sometimes', 'integer', 'min:0'],

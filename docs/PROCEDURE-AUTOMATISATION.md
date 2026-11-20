@@ -87,7 +87,7 @@ Cliquer sur **Enregistrer** en bas de la page.
 | Caisse : argent gardé et clôture | alerte après **6 h** ou au-delà d'un montant ; rappel de clôture **19:30** ; récapitulatif envoyé |
 | Point de la semaine | **envoyé le lundi** |
 
-**Réglages → Messages aux clients** : brancher WhatsApp pour que l'e-commerçant et le destinataire soient prévenus à
+**Réglages → WhatsApp** : brancher WhatsApp pour que l'e-commerçant et le destinataire soient prévenus à
 chaque étape (validation, ramassage, « en route » avec le code, livré, avis).
 
 ## Étape 6 — La mise à l'essai (2 ou 3 jours)

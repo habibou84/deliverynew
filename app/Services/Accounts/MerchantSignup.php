@@ -60,7 +60,9 @@ class MerchantSignup
                 'email' => $data['email'] ?? null,
             ]);
             // Mot de passe haché à la demande d'inscription (jamais conservé en clair) ; absent, la connexion se fait par WhatsApp
-            $user->forceFill(['password' => $data['password_hash'] ?? null, 'phone_verified_at' => now()])->save();
+            // Inscription sans vérification (réglage de l'entreprise) : numéro non marqué vérifié
+            $verified = $verification->verified_via !== PhoneVerifier::UNVERIFIED;
+            $user->forceFill(['password' => $data['password_hash'] ?? null, 'phone_verified_at' => $verified ? now() : null])->save();
             $user->assignRole(Role::MerchantOwner->value);
 
             // Le mot de passe haché n'a plus à être conservé

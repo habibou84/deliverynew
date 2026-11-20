@@ -80,7 +80,12 @@ class CompanyController extends Controller
 
     public function update(UpdateCompanyRequest $request, Company $company): CompanyResource
     {
-        $company->update($request->validated());
+        $data = $request->validated();
+        // Critères du conseil de la journée : les champs envoyés complètent ceux déjà réglés
+        if (isset($data['day_advice'])) {
+            $data['day_advice'] = [...$company->dayAdvice(), ...$data['day_advice']];
+        }
+        $company->update($data);
 
         return CompanyResource::make($company->loadCount('users'));
     }

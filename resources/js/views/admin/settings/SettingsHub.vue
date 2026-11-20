@@ -30,10 +30,12 @@
 
     <p v-if="!cards.length" class="card p-6 text-center text-slate-600">Aucun réglage ne correspond à « {{ query }} ».</p>
 
-    <div class="grid gap-3 sm:grid-cols-2">
+    <section v-for="g in groups" :key="g.key" class="space-y-2">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600">{{ g.label }}</h2>
+      <div class="grid gap-3 sm:grid-cols-2">
       <component
         :is="card.to ? 'RouterLink' : 'div'"
-        v-for="card in cards"
+        v-for="card in g.cards"
         :key="card.key"
         :to="card.to"
         :class="['card p-4 flex gap-3', card.to ? 'hover:border-slate-400 transition' : '']"
@@ -52,7 +54,8 @@
           </span>
         </span>
       </component>
-    </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -82,74 +85,82 @@ const ALL = computed(() => {
   const mode = VALIDATION_MODES.find((m) => m.value === c?.validation_mode)
   return [
     {
-      key: 'company', icon: '🏢', title: 'Entreprise et marque', to: '/admin/reglages/entreprise', permission: 'settings.manage',
+      key: 'company', group: 'company', icon: '🏢', title: 'Entreprise et marque', to: '/admin/reglages/entreprise', permission: 'settings.manage',
       description: 'Nom, coordonnées, logo, couleurs et icônes des applications, adresse de l\'espace.',
       summary: c && `${c.name}${c.logo_url ? ' · logo en place' : ' · sans logo'}`,
       keywords: 'nom téléphone adresse accroche logo couleurs apparence icône application domaine',
     },
     {
-      key: 'orders', icon: '📦', title: 'Courses et livraison', to: '/admin/reglages/courses', permission: 'settings.manage',
-      also: [{ to: '/admin/courses', label: 'Courses' }, { to: '/admin/planning', label: 'Planning' }, { to: '/admin/livreurs', label: 'Livreurs' }],
-      description: 'Validation des courses, heure limite, tentatives, code de livraison, hors connexion, garde ou dépôt.',
-      summary: c && `Validation ${mode?.short || '—'} · heure limite ${c.daily_cutoff_time?.slice(0, 5) || 'aucune'} · ${c.default_max_attempts} tentatives · ramassage automatique ${AUTO_MODES.find((m) => m.value === c.auto_pickup)?.short || 'désactivé'} · livraison automatique ${DELIVERY_MODES.find((m) => m.value === c.auto_delivery)?.short || 'désactivée'} · missions ${ACCEPT_MODES.find((m) => m.value === c.mission_acceptance)?.short || 'au choix du livreur'}`,
-      keywords: 'validation heure limite journée tentatives code livraison hors connexion offline garde dépôt fermeture assignation automatique planning acceptation missions refus empêchement injoignable retard livraison jour même plafond',
+      key: 'automation', group: 'orders', icon: '⚡', title: 'Automatisation', to: '/admin/automatisation', permission: 'settings.manage',
+      also: [{ to: '/admin/planning', label: 'Planning' }, { to: '/admin/courses', label: 'Courses' }],
+      description: 'Validation des courses, heure limite et conseil de la journée, ramassage et livraison automatiques, acceptation des missions.',
+      summary: c && `Validation ${mode?.short || '—'} · heure limite ${c.daily_cutoff_time?.slice(0, 5) || 'aucune'} · ramassage automatique ${AUTO_MODES.find((m) => m.value === c.auto_pickup)?.short || 'désactivé'} · livraison automatique ${DELIVERY_MODES.find((m) => m.value === c.auto_delivery)?.short || 'désactivée'} · missions ${ACCEPT_MODES.find((m) => m.value === c.mission_acceptance)?.short || 'au choix du livreur'}`,
+      keywords: 'automatisation automatique validation heure limite journée ouvrir fermer conseil tentatives assignation planning acceptation missions refus empêchement injoignable retard livraison jour même plafond',
     },
     {
-      key: 'pricing', icon: '🗺️', title: 'Zones et tarifs', permission: 'settings.manage',
+      key: 'orders', group: 'orders', icon: '📦', title: 'Courses et livreurs', to: '/admin/reglages/courses', permission: 'settings.manage',
+      also: [{ to: '/admin/livreurs', label: 'Livreurs' }],
+      description: 'Message du soir pour les courses pas ramassées, code de livraison, hors connexion, garde ou dépôt, fermeture du dépôt.',
+      summary: c && `${c.default_max_attempts} tentatives · code de livraison ${c.require_delivery_code ? 'exigé' : 'non'}`,
+      keywords: 'report message du soir pas ramassées code livraison hors connexion offline garde dépôt fermeture relais',
+    },
+    {
+      key: 'pricing', group: 'orders', icon: '🗺️', title: 'Zones et tarifs', permission: 'settings.manage',
       description: 'Zones desservies, grilles de prix, suppléments, frais des colis retournés.',
       summary: c && `Frais d'un retour : ${c.return_fee_percent} % des frais de livraison`,
-      links: [{ to: '/admin/zones', label: 'Zones' }, { to: '/admin/tarifs', label: 'Tarifs et retours' }],
+      links: [{ to: '/admin/livraison', label: 'Zones et prix' }, { to: '/admin/livraison?onglet=supplements', label: 'Suppléments et retours' }, { to: '/admin/livraison?onglet=grilles', label: 'Grilles négociées' }],
       keywords: 'zones communes quartiers tarifs grille prix suppléments express fragile poids frais retour',
     },
     {
-      key: 'alerts', icon: '⏰', title: 'Alertes et rappels', to: '/admin/reglages/alertes', permission: 'settings.manage',
+      key: 'alerts', group: 'orders', icon: '⏰', title: 'Alertes et rappels', to: '/admin/reglages/alertes', permission: 'settings.manage',
       also: [{ to: '/admin/disponibilites', label: 'Livreurs disponibles' }, { to: '/admin/colis-livreurs', label: 'Colis chez les livreurs' }, { to: '/admin/terrain', label: 'Remontées terrain' }, { to: '/admin/statistiques', label: 'Statistiques' }],
       description: 'Quand prévenir le dispatch : courses sans livreur, colis gardés, remontées terrain, point de la semaine.',
       summary: c && `Ramassage ${delay(c.pickup_assign_alert_minutes)} · livraison ${delay(c.delivery_assign_alert_minutes)} · point de la semaine : ${onOff(c.weekly_report)}`,
       keywords: 'alerte délai sans livreur colis gardé livreur relance remontées terrain point semaine rapport',
     },
     {
-      key: 'messages', icon: '💬', title: 'Messages aux clients', to: '/admin/whatsapp', permission: 'settings.manage',
-      description: 'WhatsApp de l\'entreprise : numéro, envois, modèles, test ; notifications sur téléphone des e-commerçants.',
-      keywords: 'whatsapp sms messages modèles envois test notifications push téléphone',
+      key: 'messages', group: 'messages', icon: '💬', title: 'Messages', permission: 'orders.dispatch',
+      description: 'Dans le menu Messages : la messagerie avec les clients, les e-commerçants et les livreurs, et WhatsApp (connexion du numéro, messages automatiques, options d\'envoi).',
+      links: [
+        { to: '/admin/messages', label: 'Messages', permission: 'orders.dispatch' },
+        { to: '/admin/whatsapp', label: 'Connexion WhatsApp', permission: 'settings.manage' },
+        { to: '/admin/whatsapp/messages', label: 'Messages automatiques', permission: 'settings.manage' },
+        { to: '/admin/whatsapp/options', label: 'Options d\'envoi', permission: 'settings.manage' },
+      ],
+      keywords: 'whatsapp connecter connexion numéro qr code meta messages reçus envoyés journal modèles prédéfinis clients e-commerçant marchand livreurs sms notification push réponse conversation',
     },
     {
-      key: 'cancellations', icon: '🚫', title: 'Annulations', to: '/admin/reglages/annulations', permission: 'settings.manage',
+      key: 'cancellations', group: 'orders', icon: '🚫', title: 'Annulations', to: '/admin/reglages/annulations', permission: 'settings.manage',
       also: [{ to: '/admin/statistiques?onglet=cancellations', label: 'Point des annulations' }],
       description: 'Limite d\'annulations par jour pour l\'équipe, validation d\'un administrateur et alertes.',
       keywords: 'annulation annuler limite validation alerte refus motif',
     },
     {
-      key: 'merchantMessages', icon: '📣', title: 'Messages aux e-commerçants', to: '/admin/reglages/messages-e-commercants', permission: 'settings.manage',
-      description: 'Pour chaque étape d\'une course : notification dans l\'application, et WhatsApp ou non. Choix laissés ou non aux e-commerçants.',
-      keywords: 'messages e-commerçant marchand whatsapp notification course validée reçue récupéré livré reversement',
-    },
-    {
-      key: 'merchants', icon: '🏪', title: 'E-commerçants', to: '/admin/reglages/e-commercants', permission: 'settings.manage',
+      key: 'merchants', group: 'merchants', icon: '🏪', title: 'Réglages clients', to: '/admin/reglages/e-commercants', permission: 'settings.manage',
       also: [{ to: '/admin/marchands', label: 'E-commerçants' }],
-      description: 'Inscriptions en ligne des e-commerçants.',
-      summary: c && (c.merchant_signup ? 'Inscriptions en ligne ouvertes' : 'Inscriptions en ligne fermées'),
-      keywords: 'inscription en ligne créer compte e-commerçant marchand',
+      description: 'Inscriptions en ligne des e-commerçants, vérification du numéro, annuaire, modifications de leurs courses, parrainage.',
+      summary: c && (c.merchant_signup ? `Inscriptions en ligne ouvertes${c.merchant_signup_verify === false ? ', sans vérification du numéro' : ''}` : 'Inscriptions en ligne fermées'),
+      keywords: 'inscription en ligne créer compte e-commerçant marchand client vérification sms code otp annuaire modification approbation parrainage',
     },
     {
-      key: 'team', icon: '🛵', title: 'Équipe et paie',
+      key: 'team', group: 'company', icon: '🛵', title: 'Équipe et paie',
       description: 'Rémunération des livreurs, comptes et rôles de l\'équipe.',
       links: [{ to: '/admin/paie-livreurs', label: 'Règles de paie des livreurs', permission: 'settings.manage' }, { to: '/admin/utilisateurs', label: 'Utilisateurs et rôles', permission: 'users.view' }, { to: '/admin/reglages/assistance', label: "Accès de l'assistance Jibiat", permission: 'settings.manage' }],
       keywords: 'paie salaire plan rémunération primes utilisateurs rôles équipe assistance support jibiat accès',
     },
     {
-      key: 'integrations', icon: '🔌', title: 'Intégrations',
+      key: 'integrations', group: 'merchants', icon: '🔌', title: 'Intégrations',
       description: 'Clés API et webhooks pour les boutiques en ligne.',
       links: [{ to: '/admin/integrations', label: 'API et webhooks', permission: 'integrations.manage', feature: 'api' }],
       keywords: 'api clé webhook boutique',
     },
     {
-      key: 'legacy', icon: '📥', title: 'Reprise de l\'ancienne application', to: '/admin/reglages/reprise', permission: 'settings.manage',
+      key: 'legacy', group: 'tools', icon: '📥', title: 'Reprise de l\'ancienne application', to: '/admin/reglages/reprise', permission: 'settings.manage',
       description: 'Brancher l\'ancienne application, reprendre comptes et commandes, contrôler l\'argent, basculer.',
       keywords: 'import reprise ancienne application bascule migration commandes soldes argent livreurs supprimées recomparaison',
     },
     ...(auth.user?.company?.plan ? [{
-      key: 'billing', icon: '🧾', title: 'Abonnement', to: '/admin/abonnement', permission: 'settings.manage',
+      key: 'billing', group: 'company', icon: '🧾', title: 'Abonnement', to: '/admin/abonnement', permission: 'settings.manage',
       description: 'Votre formule et vos factures.',
       summary: `Formule ${auth.user.company.plan.name}`,
       keywords: 'abonnement formule facture paiement',
@@ -170,6 +181,18 @@ const cards = computed(() => ALL.value
     const text = norm([card.title, card.description, card.summary, card.keywords, ...(card.links || []).map((l) => l.label)].join(' '))
     return q.split(/\s+/).every((word) => text.includes(word))
   }))
+
+// Rubriques de la page, dans cet ordre
+const GROUPS = [
+  { key: 'company', label: 'Entreprise et équipe' },
+  { key: 'orders', label: 'Courses et livraison' },
+  { key: 'messages', label: 'WhatsApp et messages' },
+  { key: 'merchants', label: 'E-commerçants' },
+  { key: 'tools', label: 'Outils' },
+]
+const groups = computed(() => GROUPS
+  .map((g) => ({ ...g, cards: cards.value.filter((c) => (c.group || 'tools') === g.key) }))
+  .filter((g) => g.cards.length))
 
 onMounted(async () => {
   if (!auth.can('settings.manage')) return

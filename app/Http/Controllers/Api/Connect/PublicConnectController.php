@@ -45,7 +45,7 @@ class PublicConnectController extends Controller
             'scopes' => $client['scopes'],
             'company' => ['name' => $company->name, 'slug' => $company->slug],
             'accepts' => $company->merchant_signup ? 'signup' : 'request',
-            'zones' => $company->merchant_signup ? [] : Zone::forCompany($company->id)->active()->where('is_shipping', false)->with('parent')->get()
+            'zones' => $company->merchant_signup ? [] : Zone::forCompany($company->id)->pickup()->where('is_shipping', false)->with('parent')->get()
                 ->map(fn (Zone $z) => ['id' => $z->id, 'name' => $z->parent ? "{$z->name} ({$z->parent->name})" : $z->name])
                 ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values(),
         ]]);
@@ -67,7 +67,7 @@ class PublicConnectController extends Controller
             'contact_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', new PhoneNumber],
             'email' => ['nullable', 'email', 'max:255'],
-            'pickup_zone_id' => ['nullable', 'integer', Rule::exists('zones', 'id')->where(fn ($q) => $q->where('company_id', $company->id)->where('is_active', true))],
+            'pickup_zone_id' => ['nullable', 'integer', Rule::in(Zone::forCompany($company->id)->pickup()->pluck('id')->all())],
             'pickup_address' => ['nullable', 'string', 'max:500'],
             'message' => ['nullable', 'string', 'max:500'],
             'password' => ['required', 'string', 'confirmed', Password::min(8)],

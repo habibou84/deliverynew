@@ -4,11 +4,11 @@
  * messages WhatsApp envoyés aux clients.
  */
 import {
-  ArrowLeft, Award, Backpack, Ban, Banknote, Bell, Bike, Building2, Bus, Calendar, CalendarClock, CalendarDays, Camera,
-  ChartColumn, Check, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
+  ArrowLeft, ArrowUpDown, Award, Backpack, Ban, Banknote, Bell, Bike, Building2, Bus, Calendar, CalendarClock, CalendarDays, Camera,
+  CarTaxiFront, ChartColumn, Check, CircleParking, Egg, MessageCircleMore, QrCode, ReceiptText, ScanLine, StickyNote, Target, ChevronDown, ChevronUp, CircleUserRound, ClipboardList, CloudOff, Coins, Handshake, ListOrdered, LocateFixed, MapPinned, Navigation, PackageCheck, PackagePlus, Power, LogOut, ChevronRight, CircleCheck, CirclePlus, CircleX, Clock, Compass, Download, FileText, Filter, HandCoins,
   House, Info, Landmark, LayoutDashboard, LifeBuoy, Lock, Map, MapPin, Megaphone, Menu, MessageCircle, Monitor, Moon,
   Package, PackageOpen, Pause, Pencil, Phone, Plus, Printer, Receipt, RefreshCw, Repeat, Route, Search, Settings,
-  ShieldAlert, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
+  ShieldAlert, SlidersHorizontal, Smartphone, Sparkles, Star, Store, Sun, Trash2, TrendingUp, TriangleAlert, Truck, Undo2, Upload, UserRound, Users,
   Volume2, VolumeX, Wallet, Warehouse, X, Zap,
 } from 'lucide-vue-next'
 
@@ -29,11 +29,20 @@ export const ICONES = {
   stock: Warehouse,
   depot: Warehouse,
   message: MessageCircle,
+  // Menu Messages : la connexion du numéro WhatsApp
+  whatsapp: Smartphone,
   livreur: Bike,
   vehicule: Truck,
   utilisateurs: Users,
   client: UserRound,
   reglages: Settings,
+  // Menu du compte (en-tête et bas du menu) : mon compte, mon abonnement, déconnexion
+  compte: CircleUserRound,
+  abonnement: Receipt,
+  deconnexion: LogOut,
+  // Livraison › Automatisation ; Clients › Réglages clients
+  automatisation: Zap,
+  'reglages-clients': SlidersHorizontal,
   ia: Sparkles,
   assistance: LifeBuoy,
   'mise-en-route': Compass,
@@ -94,4 +103,32 @@ export const ICONES = {
   ouvrir: ChevronRight,
   fermer: X,
   precedent: ArrowLeft,
+
+  // Application livreur : un événement de mission = une icône (voir docs/ICONES-LIVREUR.md)
+  itineraire: Route,
+  ramasser: PackagePlus,
+  ramasse: PackageCheck,
+  livrer: Bike,
+  retourner: Undo2,
+  relais: Handshake,
+  gain: Coins,
+  'bon-retour': ClipboardList,
+  'hors-ligne': CloudOff,
+  'a-proximite': MapPinned,
+  organiser: ListOrdered,
+  'modifier-ordre': ArrowUpDown,
+  trajet: Navigation,
+  monter: ChevronUp,
+  descendre: ChevronDown,
+  disponible: Power,
+  position: LocateFixed,
+  ecrire: MessageCircleMore,
+  fragile: Egg,
+  note: StickyNote,
+  frais: ReceiptText,
+  taxi: CarTaxiFront,
+  parking: CircleParking,
+  objectif: Target,
+  scanner: ScanLine,
+  'qr-code': QrCode,
 }

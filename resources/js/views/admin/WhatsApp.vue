@@ -1,9 +1,13 @@
 <template>
   <div class="max-w-4xl space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h1 class="text-xl font-bold">WhatsApp</h1>
-      <RouterLink to="/admin/messages" class="btn-secondary">Journal des messages</RouterLink>
+      <div>
+        <h1 class="text-xl font-bold">WhatsApp</h1>
+        <p class="text-sm text-slate-600">Le numéro de l'entreprise, les messages qui partent tout seuls, et comment ils partent.</p>
+      </div>
+      <RouterLink to="/admin/messages" class="btn-secondary">Ouvrir les messages</RouterLink>
     </div>
+    <div><WhatsAppTabs /></div>
 
     <p v-if="loadError" class="field-error">{{ loadError }}</p>
 
@@ -15,7 +19,7 @@
           <p>
             {{ s.account.verified_name || 'Numéro' }} · {{ s.account.display_phone }}
             <span v-if="s.account.quality_rating"> · qualité <strong :class="QUALITY[s.account.quality_rating]?.[1]">{{ QUALITY[s.account.quality_rating]?.[0] || s.account.quality_rating }}</strong></span>
-            · modèles approuvés : <strong>{{ approvedCount }}/{{ s.templates.length }}</strong>
+            · <RouterLink to="/admin/whatsapp/messages" class="underline">modèles approuvés</RouterLink> : <strong>{{ approvedCount }}/{{ s.templates.length }}</strong>
             · messages reçus : <strong>{{ s.account.webhook_subscribed_at ? 'branchés' : 'non branchés' }}</strong>
           </p>
         </template>
@@ -26,7 +30,7 @@
         <template v-else>
           <p class="font-semibold">Mode simulation : votre numéro n'est pas encore connecté.</p>
           <p>
-            Les messages sont seulement inscrits dans le <RouterLink to="/admin/messages" class="underline">journal des messages</RouterLink>.
+            Les messages sont seulement inscrits dans <RouterLink to="/admin/messages" class="underline">Messages</RouterLink>.
             Renseignez votre numéro WhatsApp Business ci-dessous : dès que Meta le confirme, les envois deviennent réels.
           </p>
         </template>
@@ -106,63 +110,6 @@
         </details>
       </section>
 
-      <!-- Courses reçues sur WhatsApp -->
-      <div class="card p-4 space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="font-semibold">Courses par WhatsApp</h2>
-          <RouterLink v-if="auth.hasFeature('whatsapp_bot')" to="/admin/whatsapp/simulateur" class="btn-secondary">Ouvrir le simulateur</RouterLink>
-        </div>
-        <p v-if="!auth.hasFeature('whatsapp_bot')" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
-          Les commandes par WhatsApp ne sont pas incluses dans votre formule.
-          <RouterLink v-if="auth.user?.company?.plan" to="/admin/abonnement" class="font-medium underline">Voir mon abonnement</RouterLink>
-        </p>
-        <label v-else class="flex items-start gap-2 text-sm">
-          <input :checked="s.whatsapp_orders" type="checkbox" class="mt-1" @change="saveOption('whatsapp_orders', $event.target.checked)">
-          <span>Les e-commerçants peuvent créer des courses en écrivant à ce numéro
-            <span class="block text-slate-600">
-              Ils envoient les informations de la course (ou transfèrent la commande de leur client) ; le bot demande ce qui manque,
-              affiche un récapitulatif avec le prix et crée la course après confirmation. Menu : nouvelle course, point du jour, suivi d'un colis.
-            </span></span>
-        </label>
-        <p class="text-sm" :class="s.ai_parser ? 'text-emerald-700' : 'text-slate-600'">
-          {{ s.ai_parser
-            ? '✨ Analyse des messages libres par Claude activée.'
-            : 'Analyse par règles (numéros, montants, communes, format « Nom : … »). Ajoutez ANTHROPIC_API_KEY dans .env pour que Claude comprenne aussi les messages sans format.' }}
-        </p>
-      </div>
-
-      <!-- Options -->
-      <div class="card p-4 space-y-3">
-        <h2 class="font-semibold">Envois</h2>
-        <label class="flex items-start gap-2 text-sm">
-          <input :checked="s.notify_recipients" type="checkbox" class="mt-1" @change="saveOption('notify_recipients', $event.target.checked)">
-          <span>Prévenir le destinataire quand son colis part en livraison
-            <span class="block text-slate-600">Message avec le montant à payer, le code de livraison et le lien de suivi.</span></span>
-        </label>
-        <label class="flex items-start gap-2 text-sm">
-          <input :checked="s.sms_fallback" type="checkbox" class="mt-1" @change="saveOption('sms_fallback', $event.target.checked)">
-          <span>Envoyer un SMS si le message WhatsApp n'arrive pas
-            <span class="block text-slate-600">
-              Numéro sans WhatsApp ou échec définitif.
-              <template v-if="s.sms_driver === 'none'">Les SMS sont désactivés sur ce serveur (<code>SMS_DRIVER=none</code>).</template>
-              <template v-else-if="s.sms_driver === 'log'">SMS simulés sur ce serveur (<code>SMS_DRIVER=log</code>).</template>
-            </span></span>
-        </label>
-        <label class="flex items-start gap-2 text-sm">
-          <input :checked="s.merchant_push_first" type="checkbox" class="mt-1" :disabled="!s.push_enabled" @change="saveOption('merchant_push_first', $event.target.checked)">
-          <span>Prévenir les e-commerçants par notification sur leur téléphone plutôt que par WhatsApp
-            <span class="block text-slate-600">
-              Gratuit. WhatsApp ne sert que pour les e-commerçants qui n'ont pas activé les notifications dans leur application,
-              ou si la notification n'arrive pas.
-              <template v-if="!s.push_enabled">Notifications push non configurées sur ce serveur (<code>php artisan webpush:vapid</code>).</template>
-              <template v-else-if="s.merchants_total">
-                <strong>{{ s.merchants_with_push }} e-commerçant{{ s.merchants_with_push > 1 ? 's' : '' }} sur {{ s.merchants_total }}</strong> reçoivent déjà les notifications.
-              </template>
-            </span></span>
-        </label>
-        <p class="text-sm text-slate-600">Quels messages envoyer aux e-commerçants, étape par étape : <RouterLink to="/admin/reglages/messages-e-commercants" class="text-blue-600">Messages aux e-commerçants</RouterLink>.</p>
-      </div>
-
       <!-- Test -->
       <form class="card p-4 space-y-3" @submit.prevent="sendTest">
         <h2 class="font-semibold">Message de test</h2>
@@ -177,9 +124,9 @@
         </p>
       </form>
 
-      <!-- Webhook -->
-      <div class="card p-4 space-y-2 text-sm">
-        <h2 class="font-semibold">Accusés de réception (webhook)</h2>
+      <!-- Webhook : réservé à l'assistance ou aux experts -->
+      <details class="card p-4 space-y-2 text-sm">
+        <summary class="cursor-pointer font-semibold">Avancé : accusés de réception (webhook)</summary>
         <p class="text-slate-600">Dans l'application Meta, rubrique WhatsApp &gt; Configuration, abonnez ce lien au champ <code>messages</code> :</p>
         <div class="flex gap-2">
           <input :value="s.webhook_url" readonly class="input font-mono text-xs" aria-label="Adresse du webhook">
@@ -188,42 +135,7 @@
         <p :class="s.webhook_ready ? 'text-emerald-700' : 'text-amber-700'">
           {{ s.webhook_ready ? 'Secret de l\'application et jeton de vérification configurés.' : 'À compléter dans .env : WHATSAPP_APP_SECRET et WHATSAPP_VERIFY_TOKEN.' }}
         </p>
-      </div>
-
-      <!-- Modèles -->
-      <div class="card p-4 space-y-3">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 class="font-semibold">Modèles de messages</h2>
-          <div class="flex flex-wrap gap-2">
-            <button v-if="s.mode === 'live' && approvedCount < s.templates.length" class="btn-primary" :disabled="submitting" @click="submitTemplates">
-              {{ submitting ? 'Envoi à Meta…' : 'Soumettre les modèles à Meta' }}
-            </button>
-            <button class="btn-secondary" :disabled="syncing" @click="sync">Vérifier l'approbation chez Meta</button>
-          </div>
-        </div>
-        <p class="text-sm text-slate-600">
-          Hors conversation ouverte par le client, WhatsApp n'accepte que des modèles approuvés par Meta.
-          Une fois le numéro connecté, « Soumettre les modèles à Meta » les crée tous pour vous (catégorie Utilitaire, Français).
-          L'approbation prend de quelques minutes à 48 h ; revenez ensuite vérifier leur état.
-        </p>
-        <ul class="divide-y">
-          <li v-for="t in s.templates" :key="t.name" class="py-3 space-y-1 text-sm">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <span class="font-mono font-medium">{{ t.name }}</span>
-              <span :class="['rounded-full px-2 py-0.5 text-xs font-medium', TEMPLATE_STATUS[t.status]?.[1] || 'bg-slate-100 text-slate-700']">
-                {{ TEMPLATE_STATUS[t.status]?.[0] || t.status }}<template v-if="s.mode !== 'live' && t.status !== 'unknown'"> (simulation)</template>
-              </span>
-            </div>
-            <p class="text-slate-600">{{ t.description }}</p>
-            <div class="flex gap-2 items-start">
-              <p class="flex-1 rounded bg-slate-50 p-2 font-mono text-xs">{{ t.body }}</p>
-              <button type="button" class="btn-secondary text-xs" @click="copy(t.body)">Copier</button>
-            </div>
-            <p class="text-xs text-slate-600">Exemples : {{ t.example.join(' · ') }}</p>
-            <p v-if="t.rejected_reason" class="text-xs text-red-700">Motif du refus : {{ t.rejected_reason }}</p>
-          </li>
-        </ul>
-      </div>
+      </details>
     </template>
   </div>
 </template>
@@ -233,19 +145,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import MessageStatus from '../../components/MessageStatus.vue'
 import WhatsAppQrConnect from '../../components/WhatsAppQrConnect.vue'
-import { useAuthStore } from '../../stores/auth'
+import WhatsAppTabs from '../../components/WhatsAppTabs.vue'
 import { useToastStore } from '../../stores/toasts'
 
-const auth = useAuthStore()
-
-const TEMPLATE_STATUS = {
-  approved: ['Approuvé', 'bg-emerald-100 text-emerald-800'],
-  pending: ['En cours de validation', 'bg-amber-100 text-amber-800'],
-  rejected: ['Refusé', 'bg-red-100 text-red-800'],
-  paused: ['En pause', 'bg-amber-100 text-amber-800'],
-  disabled: ['Désactivé', 'bg-red-100 text-red-800'],
-  unknown: ['À créer chez Meta', 'bg-slate-100 text-slate-700'],
-}
 
 const ACCOUNT_STATUS = {
   connected: ['Connecté', 'bg-emerald-100 text-emerald-800'],
@@ -268,8 +170,6 @@ const accountError = ref('')
 const signupError = ref('')
 const signingUp = ref(false)
 const saving = ref(false)
-const syncing = ref(false)
-const submitting = ref(false)
 const approvedCount = computed(() => (s.value?.templates || []).filter((t) => t.status === 'approved').length)
 const testing = ref(false)
 const testPhone = ref('')
@@ -344,30 +244,6 @@ async function reconnect() {
   }
 }
 
-async function submitTemplates() {
-  submitting.value = true
-  try {
-    const { data } = await http.post('/whatsapp/templates/submit')
-    apply(data.data)
-    const errors = Object.entries(data.meta.errors || {})
-    if (errors.length) toasts.error(`${errors.length} modèle(s) refusé(s) à l'envoi : ${errors.map(([name, error]) => `${name} (${error})`).join(' ; ')}`)
-    else toasts.success(`${data.meta.submitted} modèle(s) envoyé(s) à Meta pour validation.`)
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function saveOption(key, value) {
-  try {
-    apply((await http.put('/whatsapp/settings', { [key]: value })).data.data)
-    toasts.success('Réglage enregistré.')
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
-  }
-}
-
 async function sendTest() {
   testing.value = true
   testResult.value = null
@@ -394,18 +270,6 @@ async function followTest(id, tries = 6) {
     return
   }
   followTest(id, tries - 1)
-}
-
-async function sync() {
-  syncing.value = true
-  try {
-    apply((await http.post('/whatsapp/templates/sync')).data.data)
-    toasts.success('État des modèles mis à jour.')
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
-  } finally {
-    syncing.value = false
-  }
 }
 
 async function copy(text) {

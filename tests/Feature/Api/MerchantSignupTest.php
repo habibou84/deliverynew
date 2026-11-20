@@ -104,6 +104,27 @@ class MerchantSignupTest extends TestCase
             ->assertJsonPath('message', 'Les inscriptions en ligne sont fermées. Contactez-nous pour ouvrir un compte.');
     }
 
+    public function test_signup_without_verification_opens_the_account_at_once(): void
+    {
+        Notification::fake();
+        $this->company->update(['merchant_signup_verify' => false]);
+
+        $this->postJson('/api/v1/signup', $this->signupData())->assertCreated()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('session.user.merchant.business_name', 'Boutique Awa')
+            ->assertJsonStructure(['token', 'session' => ['token']]);
+
+        $this->assertSame([], $this->sms);
+        $user = User::where('phone', self::PHONE)->firstOrFail();
+        $this->assertNull($user->phone_verified_at);
+        $this->assertTrue($user->hasRole(Role::MerchantOwner->value));
+        $this->assertTrue(Merchant::where('phone', self::PHONE)->firstOrFail()->isActive());
+        Notification::assertSentTo($this->admin, MerchantSignedUp::class);
+
+        // Un numéro déjà inscrit reste refusé
+        $this->postJson('/api/v1/signup', $this->signupData(['email' => 'autre@example.ci']))->assertUnprocessable();
+    }
+
     public function test_whatsapp_still_under_the_old_8_digit_number_is_recognised(): void
     {
         Notification::fake();

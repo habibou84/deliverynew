@@ -36,7 +36,7 @@
             </div>
             <button type="button" class="grid h-10 w-10 place-items-center rounded-lg text-slate-600 hover:bg-slate-100" aria-label="Fermer" @click="block = null"><Icone nom="fermer" /></button>
           </div>
-          <SettingsPanelBody :blocks="[block]" more="/admin/reglages/courses" @saved="saved" @close="block = null" />
+          <SettingsPanelBody :blocks="[block]" more="/admin/automatisation" @saved="saved" @close="block = null" />
         </aside>
       </div>
     </Teleport>

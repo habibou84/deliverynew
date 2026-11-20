@@ -89,6 +89,8 @@ class FinanceController extends Controller
             // À surveiller : argent gardé trop longtemps ou au-delà du plafond de l'entreprise
             'watch' => isset($cash[$c->id]) ? $this->alerts->reason($company, $cash[$c->id]) : null,
             'cash_in_hand' => $cash[$c->id]['due'] ?? 0,
+            // Paie déduite au prochain versement (plan « paie déduite à chaque versement »)
+            'pay_deduction' => ($cash[$c->id]['due'] ?? 0) > 0 ? min($cash[$c->id]['due'], $this->payroll->remittancePayable($c)) : 0,
             'collected' => $cash[$c->id]['collected'] ?? 0,
             'advances' => $cash[$c->id]['advances'] ?? 0,
             'expenses' => $cash[$c->id]['expenses'] ?? 0,
@@ -236,8 +238,48 @@ class FinanceController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
         ], [], ['amount_received' => 'montant reçu', 'courier_id' => 'livreur']);
 
-        $courier = Courier::findOrFail($data['courier_id']);
+        $remittance = $this->recordRemittance($request->user(), Courier::findOrFail($data['courier_id']), $data['amount_received'],
+            $data['collection_ids'] ?? null, $data['returned_order_ids'] ?? [], $data['notes'] ?? null);
 
+        return response()->json(['data' => $this->remittanceData($remittance)], 201);
+    }
+
+    /**
+     * Versements de plusieurs livreurs validés en une fois : chacun verse tout ce qu'il doit (toutes dates),
+     * reçu au montant attendu. Les colis restent notés chez le livreur. Un livreur avec une course « En chemin »
+     * ou sans rien à verser est laissé de côté, avec la raison.
+     */
+    public function storeRemittanceBatch(Request $request): JsonResponse
+    {
+        $this->authorizeStaff($request, manage: true);
+
+        $data = $request->validate([
+            'courier_ids' => ['required', 'array', 'min:1', 'max:200'],
+            'courier_ids.*' => ['integer', Rule::exists('couriers', 'id')->where('company_id', $request->user()->company_id)],
+        ], [], ['courier_ids' => 'livreurs']);
+
+        $done = [];
+        $errors = [];
+        foreach (Courier::with('user')->whereIn('id', array_unique($data['courier_ids']))->get() as $courier) {
+            try {
+                $done[] = $this->remittanceData($this->recordRemittance($request->user(), $courier, null, null, [], 'Versements validés ensemble'));
+            } catch (BusinessRuleException $e) {
+                $errors[$courier->user?->name ?? "Livreur {$courier->id}"] = $e->getMessage();
+            }
+        }
+
+        return response()->json(['data' => $done, 'errors' => (object) $errors]);
+    }
+
+    /**
+     * Point de caisse d'un livreur : colis rendus, encaissements, avances et frais réglés, reçu envoyé.
+     *
+     * @param  int|null  $amountReceived  null : reçu exactement le montant attendu
+     * @param  list<int>|null  $collectionIds  null : tous les encaissements en main
+     * @param  list<int>  $returnedOrderIds
+     */
+    private function recordRemittance(User $actor, Courier $courier, ?int $amountReceived, ?array $collectionIds, array $returnedOrderIds, ?string $notes): CourierRemittance
+    {
         // Pas de point tant qu'une course est « En chemin » : le livreur doit d'abord la clôturer
         $onTheRoad = $this->custody->onTheRoad($courier);
         if ($onTheRoad->isNotEmpty()) {
@@ -248,15 +290,15 @@ class FinanceController extends Controller
             );
         }
 
-        $remittance = DB::transaction(function () use ($request, $courier, $data) {
-            $received = $this->custody->receive($request->user(), $courier, $data['returned_order_ids'] ?? []);
+        $remittance = DB::transaction(function () use ($actor, $courier, $amountReceived, $collectionIds, $returnedOrderIds, $notes) {
+            $received = $this->custody->receive($actor, $courier, $returnedOrderIds);
 
             $remittance = $this->cashDesk->remit(
-                $request->user(),
+                $actor,
                 $courier,
-                $data['amount_received'],
-                $data['collection_ids'] ?? null,
-                $data['notes'] ?? null,
+                $amountReceived,
+                $collectionIds,
+                $notes,
             );
 
             // Trace des colis rendus et de ceux que le livreur garde encore
@@ -268,7 +310,7 @@ class FinanceController extends Controller
                 ]]);
             }
 
-            $this->journal->record($request->user(), $courier->company_id, 'remittance',
+            $this->journal->record($actor, $courier->company_id, 'remittance',
                 ($courier->user?->name ?? 'Livreur').' · attendu '.Money::format($remittance->amount_expected)
                 .($remittance->difference !== 0 ? ' · écart '.($remittance->difference > 0 ? '+' : '').Money::format($remittance->difference) : ''),
                 ['courier_id' => $courier->id, 'amount' => $remittance->amount_received, 'reference' => $remittance->reference()]);
@@ -279,7 +321,7 @@ class FinanceController extends Controller
         // Reçu envoyé au livreur par WhatsApp
         $this->sendReceipt($remittance->load(['courier.user', 'receiver']));
 
-        return response()->json(['data' => $this->remittanceData($remittance)], 201);
+        return $remittance;
     }
 
     /** Reçu d'un versement : détail de ce qui a été réglé, colis rendus et gardés */
@@ -305,7 +347,7 @@ class FinanceController extends Controller
     public function resendReceipt(Request $request, CourierRemittance $remittance): JsonResponse
     {
         $this->authorizeStaff($request, manage: true);
-        $sent = $this->sendReceipt($remittance->load(['courier.user', 'receiver']));
+        $sent = $this->sendReceipt($remittance->load(['courier.user', 'receiver']), manual: true);
         abort_if($sent === null, 422, 'Ce livreur n\'a pas de numéro de téléphone.');
 
         return response()->json(['data' => ['sent' => true]]);
@@ -360,7 +402,8 @@ class FinanceController extends Controller
         ]);
     }
 
-    private function sendReceipt(CourierRemittance $r): ?OutboundMessage
+    /** Reçu WhatsApp au livreur ; à la main (bouton « Renvoyer »), il part même si le message automatique est coupé */
+    private function sendReceipt(CourierRemittance $r, bool $manual = false): ?OutboundMessage
     {
         $phone = $r->courier?->user?->phone;
         if ($phone === null) {
@@ -379,7 +422,7 @@ class FinanceController extends Controller
             $gap,
             count($r->parcels['returned'] ?? []),
             count($r->parcels['kept'] ?? []),
-        ], ['event' => 'cash.receipt']);
+        ], ['event' => 'cash.receipt', 'manual' => $manual]);
     }
 
     public function remittances(Request $request): JsonResponse
@@ -819,7 +862,9 @@ class FinanceController extends Controller
         return response()->json(['data' => [
             ...$this->payroll->summary($courier),
             'earned_today' => (int) $courier->earnings()->whereIn('type', ['pickup', 'delivery', 'failed_attempt', 'return'])->whereDate('created_at', today())->sum('amount'),
-            ...$this->courierExtras($courier),
+            ...($extras = $this->courierExtras($courier)),
+            // Paie déduite au prochain versement : au plus l'argent qu'il a en main
+            'pay_deduction' => min($extras['pay_deduction'], max(0, $extras['balance']['due'])),
             'collections' => $courier->collections()->inCourierHands()->with('order:id,tracking_code,recipient_name,merchant_id')
                 ->orderBy('collected_at')->get()->map(fn ($c) => $this->collectionData($c)),
             // Fiches de paie préparées, pas encore payées
@@ -830,8 +875,18 @@ class FinanceController extends Controller
             // Détail des gains à recevoir (montant, calcul selon le plan)
             'earnings' => $courier->earnings()->with('order:id,tracking_code')->whereNull('payout_id')->latest('id')->limit(50)->get()
                 ->map(fn ($e) => $this->earningData($e)),
-            'recent_payouts' => $courier->payouts()->where('status', 'paid')->latest('paid_at')->limit(5)->get()
-                ->map(fn ($p) => ['reference' => $p->reference, 'amount' => $p->amount, 'paid_at' => $p->paid_at]),
+            'recent_payouts' => $courier->payouts()->where('status', 'paid')->latest('paid_at')->limit(10)->get()
+                ->map(fn ($p) => [
+                    'reference' => $p->reference,
+                    'amount' => $p->amount,
+                    'paid_at' => $p->paid_at,
+                    'settled_on_remittance' => $p->remittance_id !== null,
+                    'method_label' => $p->remittance_id !== null ? 'réglée sur le versement' : ($p->compensated ? 'gardée sur l\'encaissé' : $p->method?->label()),
+                ]),
+            // Gains de la semaine (lundi → aujourd'hui)
+            'earned_week' => (int) $courier->earnings()->whereIn('type', ['pickup', 'delivery', 'failed_attempt', 'return'])->where('created_at', '>=', today()->startOfWeek())->sum('amount'),
+            // Plan « paie déduite à chaque versement »
+            'settles_on_remittance' => (bool) app(CourierPay::class)->planFor($courier)?->settle_on_remittance,
         ]]);
     }
 
@@ -921,6 +976,8 @@ class FinanceController extends Controller
     {
         return [
             'balance' => $this->courierCash->balance($courier),
+            // Plan « paie déduite à chaque versement » : paie qu'il gardera au prochain versement (au plus ce qu'il remet)
+            'pay_deduction' => $this->payroll->remittancePayable($courier),
             'parcels' => $this->custody->held($courier)->map(fn ($o) => ParcelCustody::parcelData($o))->values(),
             'advances' => $courier->advances()->unsettled()->with('order:id,tracking_code')->orderBy('given_at')->get()
                 ->map(fn (CourierAdvance $a) => $this->advanceData($a)),
@@ -1064,7 +1121,8 @@ class FinanceController extends Controller
             'status_label' => $p->status->label(),
             'automatic' => $p->automatic,
             'compensated' => $p->compensated,
-            'method_label' => $p->compensated ? 'gardé sur l\'encaissé' : $p->method?->label(),
+            'settled_on_remittance' => $p->remittance_id !== null,
+            'method_label' => $p->remittance_id !== null ? 'réglée sur le versement' : ($p->compensated ? 'gardé sur l\'encaissé' : $p->method?->label()),
             'transaction_ref' => $p->transaction_ref,
             'paid_at' => $p->paid_at,
             'created_at' => $p->created_at,

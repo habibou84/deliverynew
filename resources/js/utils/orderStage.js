@@ -1,5 +1,6 @@
 import { longDay } from '../composables/useDeliveryDate'
 import { money } from './format'
+import { merchantReturnText } from './returnCause'
 
 /**
  * Étape d'une course pour l'e-commerçant : groupe de la liste, couleur, barre d'avancement en 4 traits
@@ -82,7 +83,7 @@ function sentence(order) {
     case 'delivered': return [`Livrée${order.delivered_at ? ` à ${hour(order.delivered_at)}` : ''} · ${money(orderNet(order))} pour vous`, 'check']
     case 'rescheduled': return [order.delivery?.scheduled_date ? `Relivraison ${longDay(order.delivery.scheduled_date)}` : 'Relivraison prévue', 'calendar']
     case 'delivery_failed':
-      if (order.return_requested) return ['Retour demandé', 'back']
+      if (order.return_requested) return [merchantReturnText(order), 'back']
       return [order.last_incident?.label ? `Échec : ${order.last_incident.label.charAt(0).toLowerCase()}${order.last_incident.label.slice(1)}` : 'Livraison échouée', 'alert']
     case 'return_assigned':
     case 'returning': return ['En retour vers vous', 'back']

@@ -18,6 +18,11 @@ use Jibiat\Socle\Places\Places;
  */
 class StandardZones
 {
+    public const SHIPPING_NAME = 'Expédition (intérieur du pays)';
+
+    /** Ville de la liste commune où l'on livre directement par défaut */
+    public const DIRECT_CITY = 'grand-bassam';
+
     public function syncAll(): void
     {
         Company::query()->select('id')->eachById(fn (Company $company) => $this->sync($company));
@@ -63,7 +68,8 @@ class StandardZones
                 'place_code' => $place['code'],
                 'name' => $place['name'],
                 'city' => $this->city($place),
-                'is_active' => $place['type'] !== Places::CITY,
+                // Villes : par Expédition, sauf Grand-Bassam (livraison directe) ; l'entreprise peut en rouvrir d'autres
+                'is_active' => $place['type'] !== Places::CITY || $place['code'] === self::DIRECT_CITY,
                 'sort_order' => ++$sort,
             ]);
             $zones->push($zone);
@@ -71,7 +77,30 @@ class StandardZones
             $counts['created']++;
         }
 
+        $this->ensureShippingZone($company, $sort);
+
         return $counts;
+    }
+
+    /** Zone « Expédition » de l'entreprise, créée d'office : prix fixe de la course jusqu'à la gare */
+    public function ensureShippingZone(Company $company, int $sort = 0): Zone
+    {
+        return Zone::withoutGlobalScopes()->where('company_id', $company->id)->where('default_shipping', true)->first()
+            ?? Zone::withoutGlobalScopes()->create([
+                'company_id' => $company->id, 'name' => self::SHIPPING_NAME, 'city' => 'Côte d\'Ivoire',
+                'is_shipping' => true, 'default_shipping' => true, 'is_active' => true, 'is_pickup' => false, 'sort_order' => $sort + 1,
+            ]);
+    }
+
+    /**
+     * Villes de destination proposées pour une expédition : les villes de la liste commune, hors Abidjan.
+     *
+     * @return list<string>
+     */
+    public static function shippingCities(): array
+    {
+        return collect(Places::all())->where('type', Places::CITY)->where('code', '!=', 'abidjan')
+            ->pluck('name')->sort(SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
     }
 
     /**

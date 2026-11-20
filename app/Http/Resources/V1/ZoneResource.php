@@ -22,8 +22,12 @@ class ZoneResource extends JsonResource
             'full_name' => $this->relationLoaded('parent') ? $this->fullName() : $this->name,
             'city' => $this->city,
             'is_shipping' => $this->is_shipping,
+            // Zone « Expédition » créée d'office : la ville de destination se choisit sur la course
+            'default_shipping' => $this->when(! $request->is('api/public/*'), fn () => (bool) $this->default_shipping),
             'shipping_fee_estimate' => $this->shipping_fee_estimate,
             'is_active' => $this->is_active,
+            // Ramassage possible ici (quartier : et dans sa commune). Hors de l'API publique : pas encore au contrat
+            'is_pickup' => $this->when(! $request->is('api/public/*'), fn () => $this->acceptsPickup()),
             'sort_order' => $this->sort_order,
         ];
     }

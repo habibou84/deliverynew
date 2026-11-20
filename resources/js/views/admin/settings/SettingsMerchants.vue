@@ -1,8 +1,10 @@
 <template>
-  <SettingsPage icon="🏪" title="E-commerçants" intro="Comment les e-commerçants rejoignent votre entreprise.">
+  <SettingsPage icon="🏪" title="Réglages clients" intro="Comment les e-commerçants rejoignent votre entreprise et ce qu'ils peuvent changer sur leurs courses." back="/admin/marchands" back-label="E-commerçants">
     <template v-if="form">
       <MerchantSignupBlock :form="form" />
       <DirectoryBlock :form="form" />
+      <EditApprovalBlock :form="form" />
+      <LiveOfferBlock />
 
       <section v-if="inviteUrl" class="card p-4 space-y-3">
         <h2 class="font-semibold">Parrainer vos e-commerçants sur Jibiat Marchand</h2>
@@ -58,6 +60,8 @@
 import SettingsPage from '../../../components/settings/SettingsPage.vue'
 import SaveBar from '../../../components/settings/SaveBar.vue'
 import DirectoryBlock from '../../../components/settings/blocks/DirectoryBlock.vue'
+import EditApprovalBlock from '../../../components/settings/blocks/EditApprovalBlock.vue'
+import LiveOfferBlock from '../../../components/settings/LiveOfferBlock.vue'
 import MerchantSignupBlock from '../../../components/settings/blocks/MerchantSignupBlock.vue'
 import { useCompanySettings } from '../../../composables/useCompanySettings'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -106,5 +110,5 @@ async function copy() {
   }
 }
 
-const { form, dirty, saving, error, save, reset } = useCompanySettings(['merchant_signup', 'directory_listed', 'directory_pitch'])
+const { form, dirty, saving, error, save, reset } = useCompanySettings(['merchant_signup', 'merchant_signup_verify', 'directory_listed', 'directory_pitch', 'merchant_edit_approval'])
 </script>

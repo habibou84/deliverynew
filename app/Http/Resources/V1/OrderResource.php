@@ -82,6 +82,7 @@ class OrderResource extends JsonResource
             // Zone d'expédition : colis déposé à une gare ou chez un transporteur
             'is_shipping' => $this->is_shipping,
             'shipping' => $this->when($this->is_shipping, fn () => [
+                'city' => $this->shipping_city,
                 'fee' => $this->shipping_fee,
                 'carrier' => $this->shipping_carrier,
                 'reference' => $this->shipping_reference,
@@ -138,6 +139,9 @@ class OrderResource extends JsonResource
             'pending_change' => $this->whenLoaded('pendingChange', fn () => $this->pendingChange?->summary()),
             'merchant_decision' => $this->whenLoaded('merchantDecision', fn () => $this->merchantDecisionSummary()),
             'return_requested' => $this->return_requested,
+            // Raison du retour : refus du client, tentatives épuisées, agence ou e-commerçant
+            'return_cause' => $this->return_requested ? $this->return_cause?->value : null,
+            'return_cause_label' => $this->return_requested ? ($request->user()?->merchant_id !== null ? $this->return_cause?->merchantLabel() : $this->return_cause?->label()) : null,
             'last_incident' => $this->whenLoaded('lastIncidentReason', fn () => $this->lastIncidentReason ? [
                 'id' => $this->lastIncidentReason->id,
                 'label' => $this->lastIncidentReason->label,

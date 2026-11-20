@@ -7,12 +7,15 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderEvent;
+use App\Services\Orders\OrderService;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Suivi public d'un colis par son code (sans authentification).
- * N'expose ni adresse, ni téléphone, ni montant.
+ * N'expose ni adresse, ni téléphone, ni montant (ni les coordonnées GPS : seulement si une position est connue).
+ * Le destinataire peut y envoyer sa position GPS pour guider le livreur.
  */
 class TrackingController extends Controller
 {
@@ -24,14 +27,7 @@ class TrackingController extends Controller
 
     public function __invoke(string $code): JsonResponse
     {
-        $order = Order::withoutGlobalScopes()
-            ->whereNull('deleted_at')
-            ->where('tracking_code', mb_strtoupper(trim($code)))
-            ->tap(fn ($q) => app(Tenancy::class)->restrict($q))
-            ->with(['merchant' => fn ($q) => $q->withoutGlobalScopes(), 'deliveryZone' => fn ($q) => $q->withoutGlobalScopes(), 'deliveryCourier.user'])
-            ->first();
-
-        abort_if($order === null, 404);
+        $order = $this->find($code);
 
         $timeline = $order->events()
             ->where('type', '!=', OrderEventType::Edited)
@@ -60,6 +56,35 @@ class TrackingController extends Controller
             'courier_first_name' => $courierFirstName ?: null,
             'delivered_at' => $order->delivered_at,
             'timeline' => $timeline,
+            'location_shared' => $order->delivery_lat !== null && $order->delivery_lng !== null,
+            'can_share_location' => OrderService::acceptsRecipientLocation($order),
         ]]);
+    }
+
+    /** Position GPS envoyée par le destinataire (bouton « Envoyer ma position » de la page de suivi) */
+    public function location(Request $request, string $code, OrderService $orders): JsonResponse
+    {
+        $data = $request->validate([
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+        ]);
+
+        $orders->shareRecipientLocation($this->find($code), (float) $data['lat'], (float) $data['lng']);
+
+        return response()->json(['data' => ['location_shared' => true]]);
+    }
+
+    private function find(string $code): Order
+    {
+        $order = Order::withoutGlobalScopes()
+            ->whereNull('deleted_at')
+            ->where('tracking_code', mb_strtoupper(trim($code)))
+            ->tap(fn ($q) => app(Tenancy::class)->restrict($q))
+            ->with(['merchant' => fn ($q) => $q->withoutGlobalScopes(), 'deliveryZone' => fn ($q) => $q->withoutGlobalScopes(), 'deliveryCourier.user'])
+            ->first();
+
+        abort_if($order === null, 404);
+
+        return $order;
     }
 }

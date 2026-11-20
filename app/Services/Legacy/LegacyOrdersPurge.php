@@ -17,6 +17,7 @@ use App\Models\Order;
 use App\Models\OrderAssignment;
 use App\Models\OrderEvent;
 use App\Models\User;
+use App\Services\Orders\ReturnSlips;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -48,7 +49,8 @@ class LegacyOrdersPurge
     public const NOTE = 'Clôturée lors du nettoyage de la reprise de l\'ancienne application';
 
     /**
-     * Anciennes courses reprises, pas encore nettoyées, prévues il y a plus de $days jours.
+     * Anciennes courses reprises, pas encore nettoyées, prévues il y a plus de $days jours (0 : toutes celles
+     * prévues avant aujourd'hui).
      *
      * @param  array{merchant_id?: ?int, courier_id?: ?int}  $filters
      */
@@ -104,7 +106,8 @@ class LegacyOrdersPurge
             'filters' => [...$filters, 'include' => array_values($include)],
             'counts' => $counts,
             'total' => (in_array('never_picked', $include, true) ? $counts['never_picked'] : 0)
-                + (in_array('not_delivered', $include, true) ? $counts['not_delivered'] : 0),
+                + (in_array('not_delivered', $include, true) ? $counts['not_delivered'] : 0)
+                + (in_array('on_the_way', $include, true) ? $counts['on_the_way'] : 0),
         ]);
     }
 
@@ -118,12 +121,21 @@ class LegacyOrdersPurge
         $statuses = [
             ...(in_array('never_picked', $include, true) ? self::NEVER_PICKED : []),
             ...(in_array('not_delivered', $include, true) ? self::NOT_DELIVERED : []),
+            ...(in_array('on_the_way', $include, true) ? self::ON_THE_WAY : []),
         ];
+        // Colis notés chez un livreur : clos comme retournés (sinon « à rendre » par le livreur)
+        $heldReturned = in_array('held_returned', $include, true);
         $orders = $statuses === [] ? collect() : $this->scope($company, $purge->min_days, $purge->filters ?? [])
             ->whereIn('status', OrderStatus::values($statuses))->orderBy('id')->limit(self::BATCH)->get();
 
         foreach ($orders as $order) {
-            DB::transaction(fn () => $this->close($purge, $order, in_array($order->status, self::NEVER_PICKED, true) ? 'cancel' : 'return'));
+            $how = match (true) {
+                in_array($order->status, self::NEVER_PICKED, true) => 'cancel',
+                // En chemin depuis longtemps dans l'ancienne application : clos comme retourné, sans argent
+                in_array($order->status, self::ON_THE_WAY, true), $heldReturned => 'returned',
+                default => 'return',
+            };
+            DB::transaction(fn () => $this->close($purge, $order, $how));
         }
         $purge->increment('done', $orders->count());
 
@@ -213,6 +225,63 @@ class LegacyOrdersPurge
         return $orders->count();
     }
 
+    /**
+     * Colis de la reprise « à rendre au marchand » pas encore sur un bon de retour : surtout ceux que le nettoyage a
+     * laissés chez un livreur. Ils n'existent souvent plus vraiment ; on peut les clore comme retournés.
+     */
+    public function returnsScope(Company $company): Builder
+    {
+        return Order::withoutGlobalScopes()->where('company_id', $company->id)
+            ->whereNotNull('legacy_id')->whereNull('deleted_at')
+            ->where('return_requested', true)->whereNull('return_slip_id')->whereNull('pickup_hub_id')
+            ->whereIn('status', OrderStatus::values(ReturnSlips::RETURNABLE));
+    }
+
+    /**
+     * Colis de la reprise à rendre, par livreur qui est censé les avoir (null : au dépôt ou sans livreur connu).
+     *
+     * @return list<array{courier_id: ?int, name: string, count: int, oldest: ?string}>
+     */
+    public function returnsByCourier(Company $company): array
+    {
+        return $this->returnsScope($company)
+            ->select('held_by_courier_id')->selectRaw('COUNT(*) AS n, MIN('.Order::DELIVERY_DAY_SQL.') AS oldest')
+            ->groupBy('held_by_courier_id')->orderByDesc('n')->get()
+            ->map(function ($row) use ($company) {
+                $name = $row->held_by_courier_id ? DB::table('couriers')->join('users', 'users.id', '=', 'couriers.user_id')
+                    ->where('couriers.company_id', $company->id)->where('couriers.id', $row->held_by_courier_id)->value('users.name') : null;
+
+                return ['courier_id' => $row->held_by_courier_id ? (int) $row->held_by_courier_id : null,
+                    'name' => $name ?? 'Au dépôt ou sans livreur', 'count' => (int) $row->n,
+                    'oldest' => $row->oldest ? substr((string) $row->oldest, 0, 10) : null];
+            })->all();
+    }
+
+    /**
+     * Clôt comme « Retourné » les colis de la reprise à rendre : tous, ou ceux d'un livreur (0 : sans livreur).
+     * Enregistré comme un nettoyage : annulable pendant 7 jours.
+     */
+    public function closeReturns(Company $company, User $by, ?int $courierId): LegacyPurge
+    {
+        $scope = fn () => $this->returnsScope($company)->when($courierId !== null, fn ($q) => $courierId === 0
+            ? $q->whereNull('held_by_courier_id') : $q->where('held_by_courier_id', $courierId));
+        $total = $scope()->count();
+
+        $purge = LegacyPurge::create([
+            'company_id' => $company->id, 'user_id' => $by->id, 'min_days' => 0,
+            'filters' => ['returns' => true, 'courier_id' => $courierId], 'counts' => ['returns' => $total], 'total' => $total,
+        ]);
+        $scope()->orderBy('id')->chunkById(200, function ($orders) use ($purge) {
+            foreach ($orders as $order) {
+                DB::transaction(fn () => $this->close($purge, $order, 'returned',
+                    self::NOTE.' : vieux colis à rendre de l\'ancienne application, clos comme retourné.'));
+            }
+        });
+        $purge->forceFill(['status' => 'done', 'finished_at' => now(), 'done' => $purge->items()->count()])->save();
+
+        return $purge;
+    }
+
     /** Commande supprimée dans l'ancienne application, sans argent en jeu : annulée sans message (annulable avec $purge) */
     public function cancelDeleted(?LegacyPurge $purge, Order $order): void
     {
@@ -230,6 +299,8 @@ class LegacyOrdersPurge
         $held = $order->held_by_courier_id !== null;
         $status = match (true) {
             $how === 'cancel' => OrderStatus::Cancelled,
+            // Vieux colis « à rendre » de la reprise clos à la main : retournés, même s'ils étaient notés chez un livreur
+            $how === 'returned' => OrderStatus::Returned,
             // Colis encore chez un livreur : retour décidé, à rendre à l'e-commerçant (point de caisse du livreur)
             $held => OrderStatus::DeliveryFailed,
             default => OrderStatus::Returned,

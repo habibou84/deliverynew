@@ -72,8 +72,8 @@ class LiveTest extends TestCase
         $codes = $this->putJson("/api/v1/live/{$live}/items", ['items' => $rows, 'name' => 'Vendredi mode'])->assertOk()->json('data.items.*.code');
         $this->assertSame(['A1', 'B1'], $codes);
 
-        // Live payé au palier, à la fin : rien n'est débité au démarrage
-        $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.plan', 'tier');
+        // Live payé à la commande, à la fin : rien n'est débité au démarrage
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.plan', 'orders');
         $this->assertSame(0, MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->count());
     }
 
@@ -183,15 +183,17 @@ class LiveTest extends TestCase
         }
         $this->post("/api/v1/live/{$live}/recognize", ['photo' => $photo()], ['Accept' => 'application/json'])->assertStatus(422);
 
-        $this->postJson('/api/v1/live/pack')->assertOk()->assertJsonPath('data.extra_cards', 20);
-        $this->assertSame(-500, (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount'));
-        $this->post("/api/v1/live/{$live}/recognize", ['photo' => $photo()])->assertOk()->assertJsonPath('data.cards.left', 19);
+        // Pack de commandes (fiches IA incluses) : sans PayDunya, retenu sur le reversement
+        $this->postJson('/api/v1/live/orders', ['pack' => 1])->assertOk()->assertJsonPath('data.extra_cards', 100)->assertJsonPath('data.orders_left', 150);
+        $this->assertSame(-2500, (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount'));
+        $this->post("/api/v1/live/{$live}/recognize", ['photo' => $photo()])->assertOk()->assertJsonPath('data.cards.left', 99);
+        $this->postJson('/api/v1/live/orders', ['pack' => 4])->assertJsonValidationErrors('pack');
     }
 
-    /** Paliers courts pour les tests : gratuit jusqu'à 1 commande, 500 F jusqu'à 3, 1 000 F jusqu'à 5, puis 2 000 F */
-    private function smallTiers(array $more = []): void
+    /** Réglages pour les tests : commandes offertes au départ, et le reste */
+    private function settings(array $more = []): void
     {
-        app(LiveStudio::class)->updateSettings(['free_upto' => 1, 'tier2_upto' => 3, 'tier2_price' => 500, 'tier3_upto' => 5, 'tier3_price' => 1000, 'top_price' => 2000, ...$more]);
+        app(LiveStudio::class)->updateSettings($more);
     }
 
     /** Commandes de clientes différentes (une course chacune) */
@@ -202,58 +204,81 @@ class LiveTest extends TestCase
         }
     }
 
-    public function test_live_paye_au_palier_forfait_offert_et_facture(): void
+    public function test_live_paye_a_la_commande_illimite_offert_et_facture(): void
     {
         $studio = app(LiveStudio::class);
-        $this->smallTiers(['free_orders' => 0, 'agency_share' => 20]);
+        $this->settings(['free_orders' => 0, 'agency_share' => 20]);
         $fee = fn () => (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount');
 
-        // 3 commandes : palier 2 (500 F), compté à la fin ; sans PayDunya, retenu sur le reversement
+        // Pack de 100 commandes (2 500 F) : sans PayDunya, retenu sur le reversement
+        $this->postJson('/api/v1/live/orders', ['pack' => 1])->assertOk()->assertJsonPath('data.orders_left', 100);
+        $this->assertSame(-2500, $fee());
+        $this->assertSame(2000, LiveCharge::query()->sole()->platform_amount);
+
+        // 3 commandes : retirées du solde à la fin, rien de plus à payer
         $live = $this->prepare();
         $this->addProduct($live, 'Robe wax', 9000, 50);
-        $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.plan', 'tier');
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.plan', 'orders');
         $this->orders($live, 3);
-        $this->assertSame(0, $fee());
+        $this->getJson("/api/v1/live/{$live}")->assertJsonPath('data.billing.from_balance', 3)->assertJsonPath('data.billing.left', 97);
         $this->postJson("/api/v1/live/{$live}/end")->assertOk();
-        $this->assertSame(-500, $fee());
-        $this->assertSame(400, LiveCharge::query()->sole()->platform_amount);
-        $this->assertSame([3, 0, 500], array_values(Live::find($live)->only(['billed_orders', 'billed_offered', 'billed_amount'])));
+        $this->assertSame(-2500, $fee());
+        $this->assertSame(97, $this->merchant->refresh()->live_order_credits);
+        $this->assertSame([3, 0, 0], array_values(Live::find($live)->only(['billed_orders', 'billed_offered', 'billed_amount'])));
 
-        // Forfait du mois : les lives ne sont plus comptés
-        $this->postJson('/api/v1/live/subscribe')->assertOk()->assertJsonPath('data.monthly_cards_left', 60);
+        // Illimité 30 jours : les lives ne sont plus comptés
+        $this->postJson('/api/v1/live/subscribe')->assertOk()->assertJsonPath('data.monthly_cards_left', 1000);
         $live2 = $this->prepare();
         $this->addProduct($live2, 'Sac', 9000, 50);
         $this->postJson("/api/v1/live/{$live2}/start")->assertJsonPath('data.live.plan', 'monthly');
         $this->orders($live2, 6);
         $this->postJson("/api/v1/live/{$live2}/end");
-        $this->assertSame(-7500, $fee());
+        $this->assertSame(-9500, $fee());
+        $this->assertSame(97, $this->merchant->refresh()->live_order_credits);
 
         // Part de Jibiat sur la facture de l'entreprise
-        $this->assertSame(400 + 5600, $studio->billable($this->company, CarbonImmutable::now())['amount']);
-
+        $this->assertSame(2000 + 5600, $studio->billable($this->company, CarbonImmutable::now())['amount']);
     }
 
-    public function test_l_agence_qui_offre_les_lives_paie_le_palier(): void
+    public function test_sans_paydunya_les_commandes_au_dela_du_solde_sont_retenues(): void
     {
-        $this->smallTiers(['free_orders' => 0]);
+        $this->settings(['free_orders' => 2]);
         $fee = fn () => (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount');
 
-        // L'agence offre les lives : elle paie le palier (6 commandes : 2 000 F), rien pour l'e-commerçante
+        // Sans paiement en ligne, le live démarre même avec un petit solde
+        $live = $this->prepare();
+        $this->addProduct($live, 'Robe wax', 9000, 50);
+        $this->postJson("/api/v1/live/{$live}/start")->assertOk();
+        $this->orders($live, 5);
+        $this->postJson("/api/v1/live/{$live}/end")->assertOk();
+        // 2 offertes, 3 au prix du petit pack (25 F)
+        $this->assertSame(-75, $fee());
+        $this->assertSame([5, 2, 75], array_values(Live::find($live)->only(['billed_orders', 'billed_offered', 'billed_amount'])));
+        $this->assertSame([0, 0], [$this->merchant->refresh()->live_order_credits, app(LiveStudio::class)->ordersLeft($this->merchant)]);
+    }
+
+    public function test_l_agence_qui_offre_les_lives_paie_les_commandes(): void
+    {
+        $this->settings(['free_orders' => 0]);
+        $fee = fn () => (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount');
+
+        // L'agence offre les lives : elle paie les commandes (6 × 25 F), rien pour l'e-commerçante
         $this->company->forceFill(['live_offered' => true])->save();
         $live3 = $this->prepare();
         $this->addProduct($live3, 'Parfum', 9000, 50);
         $this->postJson("/api/v1/live/{$live3}/start")->assertJsonPath('data.live.plan', 'offered');
         $this->orders($live3, 6);
-        $this->getJson("/api/v1/live/{$live3}")->assertJsonPath('data.billing.by_agency', true)->assertJsonPath('data.billing.price', 2000);
+        $this->getJson("/api/v1/live/{$live3}")->assertJsonPath('data.billing.by_agency', true)->assertJsonPath('data.billing.orders', 6);
         $this->postJson("/api/v1/live/{$live3}/end");
         $this->assertSame(0, $fee());
         $charge = LiveCharge::query()->latest('id')->first();
-        $this->assertSame([2000, true], [$charge->amount, $charge->offered_by_company]);
+        $this->assertSame([150, true], [$charge->amount, $charge->offered_by_company]);
     }
 
-    public function test_commandes_offertes_puis_palier_et_commande_annulee_comptee(): void
+    public function test_commandes_offertes_puis_solde_et_commande_annulee_comptee(): void
     {
-        $this->smallTiers(['free_orders' => 3]);
+        $this->settings(['free_orders' => 3]);
+        $this->merchant->forceFill(['live_order_credits' => 10])->save();
         $fee = fn () => (int) MerchantLedgerEntry::query()->where('type', LedgerEntryType::LiveFee)->sum('amount');
 
         $live = $this->prepare();
@@ -262,21 +287,19 @@ class LiveTest extends TestCase
         $this->orders($live, 2);
         // Pendant le live : 2 commandes, offertes
         $this->getJson("/api/v1/live/{$live}")->assertJsonPath('data.billing.orders', 2)
-            ->assertJsonPath('data.billing.offered', 2)->assertJsonPath('data.billing.price', 0);
+            ->assertJsonPath('data.billing.offered', 2)->assertJsonPath('data.billing.from_balance', 0);
 
-        // 6 commandes dont une annulée ensuite : comptée quand même ; 3 offertes, 3 payantes → 500 F
+        // 6 commandes dont une annulée ensuite : comptée quand même ; 3 offertes, 3 retirées du solde
         $this->orders($live, 4, 3);
         Order::query()->latest('id')->first()->forceFill(['status' => 'cancelled'])->save();
-        $this->getJson("/api/v1/live/{$live}")->assertJsonPath('data.billing.billable', 3)
-            ->assertJsonPath('data.billing.tier', 2)->assertJsonPath('data.billing.next.in', 1)->assertJsonPath('data.billing.next.price', 1000);
+        $this->getJson("/api/v1/live/{$live}")->assertJsonPath('data.billing.from_balance', 3)->assertJsonPath('data.billing.left', 7);
         $this->postJson("/api/v1/live/{$live}/end")->assertOk();
-        $this->assertSame(-500, $fee());
         $this->postJson("/api/v1/live/{$live}/end"); // fin demandée deux fois : comptée une seule fois
-        $this->assertSame(1, LiveCharge::query()->count());
+        $this->assertSame(7, $this->merchant->refresh()->live_order_credits);
+        $this->assertSame(0, $fee());
 
         $offer = $this->postJson('/api/v1/live/prepare')->json('data.offer');
-        $this->assertSame([0, 3], [$offer['free_left'], $offer['billed_lives'][0]['offered']]);
-        $this->assertSame(500, $offer['billed_lives'][0]['amount']);
+        $this->assertSame([0, 7, 3], [$offer['free_left'], $offer['orders_left'], $offer['billed_lives'][0]['offered']]);
 
         // Live oublié ouvert : fermé et compté après 12 h
         $live2 = $this->prepare();
@@ -286,22 +309,23 @@ class LiveTest extends TestCase
         $this->travel(13)->hours();
         $this->assertSame(1, app(LiveStudio::class)->closeStale());
         $this->assertSame('ended', Live::find($live2)->status);
-        $this->assertSame(-1000, $fee());
+        $this->assertSame(5, $this->merchant->refresh()->live_order_credits);
     }
 
-    public function test_paliers_et_300_commandes_offertes_par_defaut(): void
+    public function test_packs_et_50_commandes_offertes_par_defaut(): void
     {
         $offer = $this->postJson('/api/v1/live/prepare')->json('data.offer');
-        $this->assertSame([300, 300, 0, 500, 'tier'], [$offer['free_orders'], $offer['free_left'], $offer['credit'], $offer['min_credit'], $offer['next_plan']]);
-        $this->assertSame([[0, 10, 0], [11, 30, 500], [31, 100, 1000], [101, null, 2000]], array_map(fn ($t) => array_values($t), $offer['tiers']));
-        $this->assertSame(7000, $offer['prices']['month']);
+        $this->assertSame([50, 50, 50, 10, 'orders'], [$offer['free_orders'], $offer['free_left'], $offer['orders_left'], $offer['min_orders'], $offer['next_plan']]);
+        $this->assertSame([[100, 2500, 100, 25], [300, 6000, 300, 20], [1000, 15000, 1000, 15]], array_map(fn ($p) => [$p['orders'], $p['price'], $p['cards'], $p['unit']], $offer['packs']));
+        $this->assertTrue($offer['packs'][1]['advised']);
+        $this->assertSame([7000, 25], [$offer['prices']['month'], $offer['unit_price']]);
         $this->assertTrue($offer['can_start']);
     }
 
     /** Lives payants éteints dans la console : rien n'est compté */
     public function test_lives_gratuits_quand_les_lives_payants_sont_eteints(): void
     {
-        $this->smallTiers(['free_orders' => 0, 'paid' => false]);
+        $this->settings(['free_orders' => 0, 'paid' => false]);
         $live = $this->prepare();
         $this->addProduct($live, 'Robe wax', 9000, 50);
         $this->postJson("/api/v1/live/{$live}/start")->assertOk()->assertJsonPath('data.live.plan', 'free');
@@ -433,17 +457,17 @@ class LiveTest extends TestCase
         config(['platform.domain' => 'jibiat.test']);
         $root = User::factory()->withRole(Role::SuperAdmin)->create(['company_id' => null, 'phone' => '+2250700000099']);
         Sanctum::actingAs($root);
-        $this->putJson('http://admin.jibiat.test/api/v1/console/live', ['free_orders' => 400, 'tier2_price' => 600, 'enabled' => true])->assertOk()
+        $this->putJson('http://admin.jibiat.test/api/v1/console/live', ['free_orders' => 400, 'pack2_price' => 6500, 'enabled' => true])->assertOk()
             ->assertJsonPath('data.settings.free_orders', 400)
-            ->assertJsonPath('data.settings.tier2_price', 600)
+            ->assertJsonPath('data.settings.pack2_price', 6500)
             ->assertJsonPath('data.overview.lives', 0);
-        // Paliers dans le désordre : refusés
-        $this->putJson('http://admin.jibiat.test/api/v1/console/live', ['tier2_upto' => 5])->assertJsonValidationErrors('tier2_upto');
+        // Pack sans commandes : refusé
+        $this->putJson('http://admin.jibiat.test/api/v1/console/live', ['pack1_orders' => 0])->assertJsonValidationErrors('pack1_orders');
     }
 
-    public function test_la_console_offre_des_commandes_du_credit_ou_30_jours_et_voit_les_lives_comptes(): void
+    public function test_la_console_offre_des_commandes_ou_30_jours_et_voit_les_lives_comptes(): void
     {
-        $this->smallTiers(['free_orders' => 0]);
+        $this->settings(['free_orders' => 0]);
         $live = $this->prepare();
         $this->addProduct($live, 'Robe wax', 9000, 50);
         $this->postJson("/api/v1/live/{$live}/start")->assertOk();
@@ -457,14 +481,13 @@ class LiveTest extends TestCase
 
         // Lives comptés du mois
         $this->getJson("{$console}/payments")->assertOk()
-            ->assertJsonPath('data.month.billed.lives', 1)->assertJsonPath('data.month.billed.orders', 2)->assertJsonPath('data.month.billed.amount', 500);
+            ->assertJsonPath('data.month.billed.lives', 1)->assertJsonPath('data.month.billed.orders', 2)->assertJsonPath('data.month.billed.amount', 50);
 
-        // Trouver la boutique, puis lui offrir des commandes, du crédit, 30 jours
+        // Trouver la boutique, puis lui offrir des commandes, 30 jours
         $name = mb_substr($this->merchant->business_name, 0, 5);
         $this->getJson("{$console}/merchants?search=".urlencode($name))->assertOk()->assertJsonPath('data.0.id', $this->merchant->id);
         $this->postJson("{$console}/merchants/{$this->merchant->id}/gift", [])->assertJsonValidationErrors('orders');
         $this->postJson("{$console}/merchants/{$this->merchant->id}/gift", ['orders' => 50])->assertOk()->assertJsonPath('data.free_left', 50);
-        $this->postJson("{$console}/merchants/{$this->merchant->id}/gift", ['credit' => 2000])->assertOk()->assertJsonPath('data.credit', 2000);
         $this->postJson("{$console}/merchants/{$this->merchant->id}/gift", ['month' => true])->assertOk();
         $this->assertTrue($this->merchant->refresh()->live_plan_until->isAfter(now()->addDays(29)));
         // Rien n'est encaissé ni facturé
@@ -472,6 +495,6 @@ class LiveTest extends TestCase
 
         // L'e-commerçant le voit
         $offer = app(LiveStudio::class)->offer($this->merchant->refresh());
-        $this->assertSame([50, 2000, 'monthly'], [$offer['free_left'], $offer['credit'], $offer['next_plan']]);
+        $this->assertSame([50, 50, 'monthly'], [$offer['free_left'], $offer['orders_left'], $offer['next_plan']]);
     }
 }

@@ -67,11 +67,14 @@ class OrderNotifier
                 // Livreur en mission sur la course : prévenu si ce qui le concerne change (adresse, téléphone, montant…)
                 $changes = $event->meta['changes'] ?? [];
                 $what = OrderChanges::labels($changes, OrderChanges::COURIER_FIELDS);
+                // Position envoyée par le destinataire depuis le lien de suivi
+                [$title, $body] = ($event->meta['source'] ?? null) === 'tracking'
+                    ? ["Position du client {$code}", ($order->recipient_name ?: 'Le client').' a envoyé sa position GPS. Ouvrez la mission pour la voir sur la carte.']
+                    : ["Course {$code} modifiée", "{$what}. Ouvrez la mission pour voir les changements."];
                 if ($what !== '' && ($event->meta['notify_courier'] ?? true)) {
                     foreach ($order->assignments()->active()->with('courier.user')->get() as $assignment) {
                         if ($assignment->courier?->user) {
-                            $this->send(collect([$assignment->courier->user]), $actor, $order, 'order_edited',
-                                "Course {$code} modifiée", "{$what}. Ouvrez la mission pour voir les changements.",
+                            $this->send(collect([$assignment->courier->user]), $actor, $order, 'order_edited', $title, $body,
                                 extra: ['assignment_id' => $assignment->id]);
                         }
                     }

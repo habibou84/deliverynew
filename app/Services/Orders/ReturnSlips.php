@@ -6,6 +6,7 @@ use App\Enums\AssignmentType;
 use App\Enums\NotificationEvent;
 use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
+use App\Enums\ReturnCause;
 use App\Enums\WhatsAppTemplate;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Courier;
@@ -14,6 +15,7 @@ use App\Models\Order;
 use App\Models\ReturnSlip;
 use App\Models\User;
 use App\Services\Messaging\Messenger;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +42,16 @@ class ReturnSlips
         private readonly Messenger $messenger,
     ) {}
 
+    /** Colis à rendre pas encore sur un bon (requête) */
+    public function candidatesQuery(): Builder
+    {
+        return Order::query()
+            ->where('return_requested', true)
+            ->whereNull('return_slip_id')
+            ->whereNull('pickup_hub_id')
+            ->whereIn('status', OrderStatus::values(self::RETURNABLE));
+    }
+
     /**
      * Colis à rendre, par marchand, pas encore sur un bon.
      *
@@ -47,14 +59,29 @@ class ReturnSlips
      */
     public function candidates(?int $merchantId = null): Collection
     {
-        return Order::query()
-            ->where('return_requested', true)
-            ->whereNull('return_slip_id')
-            ->whereNull('pickup_hub_id')
-            ->whereIn('status', OrderStatus::values(self::RETURNABLE))
+        return $this->candidatesQuery()
             ->when($merchantId, fn ($q) => $q->where('merchant_id', $merchantId))
             ->with(['merchant', 'deliveryZone:id,name', 'lastIncidentReason:id,label', 'holder.user', 'returnCourier.user'])
             ->orderBy('merchant_id')->orderBy('id')
+            ->get();
+    }
+
+    /**
+     * Résumé par marchand des colis à rendre : combien, combien chez un livreur, combien repris de l'ancienne
+     * application, le plus ancien (jour de livraison prévu). Le plus ancien d'abord.
+     *
+     * @return Collection<int, object{merchant_id: int, total: int, held: int, legacy: int, oldest: ?string}>
+     */
+    public function summary(): Collection
+    {
+        return $this->candidatesQuery()
+            ->select('merchant_id')
+            ->selectRaw('COUNT(*) AS total')
+            ->selectRaw('SUM(CASE WHEN held_by_courier_id IS NOT NULL THEN 1 ELSE 0 END) AS held')
+            ->selectRaw('SUM(CASE WHEN legacy_id IS NOT NULL THEN 1 ELSE 0 END) AS legacy')
+            ->selectRaw('MIN('.Order::DELIVERY_DAY_SQL.') AS oldest')
+            ->groupBy('merchant_id')
+            ->orderByRaw('MIN('.Order::DELIVERY_DAY_SQL.')')
             ->get();
     }
 
@@ -89,7 +116,8 @@ class ReturnSlips
 
             foreach ($orders as $order) {
                 if (! $order->return_requested) {
-                    $order->forceFill(['return_requested' => true])->save();
+                    $order->markForReturn(ReturnCause::Company);
+                    $order->save();
                 }
                 $this->dispatcher->assign($actor, $order, AssignmentType::Return, $courier);
                 Order::whereKey($order->id)->update(['return_slip_id' => $slip->id]);

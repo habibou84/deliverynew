@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\V1\AccountDeletionController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AppearanceController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\AutomaticMessageController;
 use App\Http\Controllers\Api\V1\CancellationController;
 use App\Http\Controllers\Api\V1\CashClosingController;
 use App\Http\Controllers\Api\V1\CompanyController;
@@ -49,6 +50,7 @@ use App\Http\Controllers\Api\V1\DemoAccountController;
 use App\Http\Controllers\Api\V1\FieldReportController;
 use App\Http\Controllers\Api\V1\FinanceController;
 use App\Http\Controllers\Api\V1\HubController;
+use App\Http\Controllers\Api\V1\InboxController;
 use App\Http\Controllers\Api\V1\InvitationController;
 use App\Http\Controllers\Api\V1\JibiatAiController;
 use App\Http\Controllers\Api\V1\LegacyCashBaselineController;
@@ -57,6 +59,7 @@ use App\Http\Controllers\Api\V1\LegacyOrdersController;
 use App\Http\Controllers\Api\V1\LegacyOverviewController;
 use App\Http\Controllers\Api\V1\LegacyPurgeController;
 use App\Http\Controllers\Api\V1\LegacyRecheckController;
+use App\Http\Controllers\Api\V1\LegacySettlementController;
 use App\Http\Controllers\Api\V1\LegacySwitchController;
 use App\Http\Controllers\Api\V1\LiveController;
 use App\Http\Controllers\Api\V1\MerchantAppReferralController;
@@ -113,6 +116,7 @@ use App\Http\Controllers\Api\V1\WhatsAppSettingsController;
 use App\Http\Controllers\Api\V1\WhatsAppSignupController;
 use App\Http\Controllers\Api\V1\ZoneController;
 use App\Http\Controllers\Api\V1\ZoneLinkController;
+use App\Http\Controllers\Api\V1\ZonePriceController;
 use App\Http\Controllers\BrandingController;
 use App\Http\Controllers\CourierAppController;
 use App\Http\Controllers\Webhooks\PayDunyaWebhookController;
@@ -260,6 +264,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
     Route::get('tracking/{code}', TrackingController::class)
         ->middleware('throttle:30,1')
         ->name('tracking.show');
+    // Le destinataire envoie sa position GPS depuis le lien de suivi
+    Route::post('tracking/{code}/location', [TrackingController::class, 'location'])
+        ->middleware('throttle:10,1')
+        ->name('tracking.location');
     // Avis du destinataire sur sa livraison (lien reçu après la livraison)
     Route::get('ratings/{token}', [PublicRatingController::class, 'show'])->middleware('throttle:30,1')->name('ratings.show');
     Route::post('ratings/{token}', [PublicRatingController::class, 'store'])->middleware('throttle:10,1')->name('ratings.store');
@@ -336,6 +344,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', 'show')->name('show');
             Route::post('connect', 'connect')->middleware([$owner, 'throttle:20,1'])->name('connect');
             Route::delete('connect', 'disconnect')->middleware($owner)->name('disconnect');
+            // Bouton « Connecter WhatsApp » : inscription intégrée de Meta, en un clic
+            Route::post('signup-ticket', [WhatsAppSignupController::class, 'platformTicket'])->middleware([$owner, 'throttle:10,1'])->name('signup-ticket');
             Route::put('official', 'official')->middleware([$owner, 'throttle:20,1'])->name('official');
             Route::post('official/verify', 'verifyOfficial')->middleware([$owner, 'throttle:20,1'])->name('official.verify');
             Route::delete('official', 'removeOfficial')->middleware($owner)->name('official.remove');
@@ -456,6 +466,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('{purge}/undo', 'undo')->middleware('throttle:10,1')->name('undo');
             Route::get('on-the-way', 'onTheWay')->name('on-the-way');
             Route::post('on-the-way', 'resolve')->middleware('throttle:30,1')->name('resolve');
+            // Vieux colis de la reprise « à rendre » : clos comme retournés (annulable 7 jours)
+            Route::get('returns', 'returns')->name('returns');
+            Route::post('returns', 'closeReturns')->middleware('throttle:10,1')->name('returns.close');
         });
         // Recomparaison complète avec l'ancienne application : modifiées, supprimées (annulées ou à vérifier)
         Route::prefix('company/legacy-recheck')->name('company.legacy-recheck.')->middleware('can:settings.manage')->controller(LegacyRecheckController::class)->group(function () {
@@ -479,6 +492,12 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('prices/ignore', 'ignorePrice')->name('prices.ignore');
         });
         // Argent chez les livreurs venu de l'ancienne application : point de départ, annulation
+        // Solder l'ancien : sommes dues aux e-commerçants pour les courses reprises, réglées hors Jibiat
+        Route::prefix('company/legacy-settlement')->name('company.legacy-settlement.')->middleware('can:settings.manage')->controller(LegacySettlementController::class)->group(function () {
+            Route::get('/', 'show')->name('show');
+            Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
+            Route::post('{settlement}/undo', 'undo')->name('undo');
+        });
         Route::prefix('company/legacy-cash')->name('company.legacy-cash.')->middleware('can:settings.manage')->controller(LegacyCashBaselineController::class)->group(function () {
             Route::get('/', 'show')->name('show');
             Route::post('/', 'store')->middleware('throttle:10,1')->name('store');
@@ -528,6 +547,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Référentiels
         Route::get('zones', [ZoneController::class, 'index'])->name('zones.index');
+        Route::get('shipping-cities', [ZoneController::class, 'shippingCities'])->name('shipping-cities');
         Route::get('incident-reasons', [ReferenceController::class, 'incidentReasons'])->name('incident-reasons.index');
         Route::get('recipients', [ReferenceController::class, 'recipients'])->name('recipients.index');
         Route::post('quotes', QuoteController::class)->name('quotes.store');
@@ -555,6 +575,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('pricing-grids/{pricing_grid}/groups/{group}', [PricingGroupController::class, 'update'])->whereNumber('group')->name('pricing-grids.groups.update');
             Route::delete('pricing-grids/{pricing_grid}/groups/{group}', [PricingGroupController::class, 'destroy'])->whereNumber('group')->name('pricing-grids.groups.destroy');
             Route::get('pricing-grids/{pricing_grid}/check', [PricingGroupController::class, 'check'])->name('pricing-grids.check');
+            // Zones et tarifs › Zones et prix : le prix de chaque lieu sur sa ligne (rangé dans le groupe de ce prix)
+            Route::get('pricing-grids/{pricing_grid}/zone-prices', [ZonePriceController::class, 'index'])->name('pricing-grids.zone-prices.index');
+            Route::put('pricing-grids/{pricing_grid}/zone-prices/{zone}', [ZonePriceController::class, 'update'])->whereNumber('zone')->name('pricing-grids.zone-prices.update');
 
             // Paie des livreurs : plans de rémunération
             Route::post('pay-plans/simulate', [PayPlanController::class, 'simulate'])->middleware('throttle:30,1')->name('pay-plans.simulate');
@@ -562,6 +585,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
             // WhatsApp
             Route::get('whatsapp/settings', [WhatsAppSettingsController::class, 'show'])->name('whatsapp.settings');
+            // WhatsApp › Messages automatiques : un interrupteur par message
+            Route::get('whatsapp/messages', [AutomaticMessageController::class, 'index'])->name('whatsapp.messages.index');
+            Route::put('whatsapp/messages/{id}', [AutomaticMessageController::class, 'update'])->where('id', '[a-z_]+')->name('whatsapp.messages.update');
             Route::put('whatsapp/settings', [WhatsAppSettingsController::class, 'update'])->name('whatsapp.settings.update');
             Route::post('whatsapp/test', [WhatsAppSettingsController::class, 'test'])->middleware('throttle:10,1')->name('whatsapp.test');
             Route::post('whatsapp/templates/sync', [WhatsAppSettingsController::class, 'syncTemplates'])->name('whatsapp.templates.sync');
@@ -621,11 +647,14 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', [FieldReportController::class, 'index'])->name('index');
             Route::get('counts', [FieldReportController::class, 'counts'])->name('counts');
             Route::post('{event}/handle', [FieldReportController::class, 'handle'])->name('handle');
+            Route::post('{event}/act', [FieldReportController::class, 'act'])->name('act');
             Route::post('{event}/reopen', [FieldReportController::class, 'reopen'])->name('reopen');
         });
 
         // Bons de retour groupés par marchand (droits vérifiés dans le contrôleur)
         Route::get('return-slips', [ReturnSlipController::class, 'index'])->name('return-slips.index');
+        Route::get('return-slips/candidates', [ReturnSlipController::class, 'candidates'])->name('return-slips.candidates');
+        Route::get('return-slips/count', [ReturnSlipController::class, 'count'])->name('return-slips.count');
         Route::post('return-slips', [ReturnSlipController::class, 'store'])->name('return-slips.store');
         Route::get('return-slips/{returnSlip}', [ReturnSlipController::class, 'show'])->name('return-slips.show');
         Route::post('return-slips/{returnSlip}/hand-over', [ReturnSlipController::class, 'handOver'])->middleware('throttle:30,1')->name('return-slips.hand-over');
@@ -645,6 +674,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
         // Journal des messages WhatsApp et SMS
         Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
         Route::post('messages/{message}/retry', [MessageController::class, 'retry'])->name('messages.retry');
+        // Messages › Reçus : conversations WhatsApp reçues sur le numéro de l'entreprise
+        Route::controller(InboxController::class)->prefix('inbox')->name('inbox.')->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::get('summary', 'summary')->name('summary');
+            Route::get('{phone}', 'show')->where('phone', '\\+?[0-9]{6,20}')->name('show');
+            Route::post('{phone}/reply', 'reply')->where('phone', '\\+?[0-9]{6,20}')->middleware('throttle:60,1')->name('reply');
+        });
 
         // Connexion en un clic d'une application (gérant) et demandes d'ouverture de compte (équipe)
         Route::post('connect/authorize', [ConnectController::class, 'authorize'])->middleware('throttle:20,1')->name('connect.authorize');
@@ -709,6 +745,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('delivery-day', [DeliveryDayController::class, 'show'])->name('delivery-day.show');
         Route::post('delivery-day/close', [DeliveryDayController::class, 'close'])->name('delivery-day.close');
         Route::post('delivery-day/reopen', [DeliveryDayController::class, 'reopen'])->name('delivery-day.reopen');
+        Route::get('delivery-day/advice', [DeliveryDayController::class, 'advice'])->name('delivery-day.advice');
+        Route::post('delivery-day/advice/dismiss', [DeliveryDayController::class, 'dismissAdvice'])->name('delivery-day.advice.dismiss');
 
         // Courses
         Route::get('orders/import/template', [OrderImportController::class, 'template'])->name('orders.import.template');
@@ -785,9 +823,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('/', 'index')->name('index');
             Route::post('prepare', 'prepare')->name('prepare');
             Route::post('subscribe', 'subscribe')->middleware('throttle:10,1')->name('subscribe');
-            Route::post('pack', 'pack')->middleware('throttle:10,1')->name('pack');
-            // Recharge du crédit live (PayDunya) : le prix de chaque live y est pris à la fin, selon ses commandes
-            Route::post('credit', 'credit')->middleware('throttle:10,1')->name('credit');
+            // Pack de commandes en live, fiches IA incluses (PayDunya) : chaque commande d'un live y est retirée à la fin
+            Route::post('orders', 'orders')->middleware('throttle:10,1')->name('orders');
             Route::post('products/{product}/photo', 'productPhoto')->whereNumber('product')->middleware('throttle:60,1')->name('products.photo');
             // Paiement en ligne (PayDunya) : état relu au retour de la page de paiement
             Route::get('payments/{payment}', 'payment')->whereNumber('payment')->middleware('throttle:60,1')->name('payment');
@@ -859,6 +896,7 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::post('couriers/{courier}/adjustments', 'adjustCourier')->name('couriers.adjustments');
             Route::get('remittances', 'remittances')->name('remittances.index');
             Route::post('remittances', 'storeRemittance')->name('remittances.store');
+            Route::post('remittances/batch', 'storeRemittanceBatch')->middleware('throttle:10,1')->name('remittances.batch');
             Route::get('remittances/{remittance}', 'showRemittance')->whereNumber('remittance')->name('remittances.show');
             Route::post('remittances/{remittance}/receipt', 'resendReceipt')->whereNumber('remittance')->middleware('throttle:10,1')->name('remittances.receipt');
             Route::post('remittances/{remittance}/cancel', 'cancelRemittance')->whereNumber('remittance')->name('remittances.cancel');
@@ -890,6 +928,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('missions', [CourierSpaceController::class, 'missions'])->name('missions');
             Route::post('assignments/{assignment}/accept', [CourierSpaceController::class, 'accept'])->name('assignments.accept');
             Route::post('assignments/{assignment}/refuse', [CourierSpaceController::class, 'refuse'])->name('assignments.refuse');
+            // Itinéraire : ordre de passage des missions choisi par le livreur
+            Route::put('route', [CourierSpaceController::class, 'route'])->middleware('throttle:60,1')->name('route');
             Route::post('assignments/{assignment}/edit-seen', [CourierSpaceController::class, 'editSeen'])->name('assignments.edit-seen');
             // Sonnerie des missions (application Android)
             Route::post('devices', [CourierRingController::class, 'register'])->middleware('throttle:20,1')->name('devices.register');

@@ -9,6 +9,7 @@ use App\Http\Requests\V1\StoreUserRequest;
 use App\Http\Requests\V1\UpdateUserRequest;
 use App\Http\Resources\V1\UserResource;
 use App\Models\Company;
+use App\Models\Merchant;
 use App\Models\TrustedDevice;
 use App\Models\User;
 use App\Models\UserAccountEvent;
@@ -41,6 +42,8 @@ class UserController extends Controller
             // Onglets de la page Utilisateurs
             'scope' => ['nullable', Rule::in(['team', 'couriers', 'merchants', 'suspended', 'inactive'])],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            // Comptes de connexion d'une boutique (fiche e-commerçant)
+            'merchant_id' => ['nullable', 'integer'],
         ]);
 
         $users = User::query()
@@ -51,6 +54,7 @@ class UserController extends Controller
                 fn ($q) => $q->forCompany($actor->company_id),
             )
             ->when($request->filled('scope'), fn ($q) => self::scope($q, $request->string('scope')->toString()))
+            ->when($request->filled('merchant_id'), fn ($q) => $q->where('merchant_id', $request->integer('merchant_id')))
             ->when($request->filled('role'), fn ($q) => $q->role($request->string('role')->toString()))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
             ->when($request->filled('search'), function ($q) use ($request) {
@@ -189,7 +193,7 @@ class UserController extends Controller
             $invitation = $invitations->create($user, $actor);
             UserAccountEvent::record($user, $actor, UserAccountEvent::INVITATION_SENT);
         }
-        $response = UserResource::make($user->load(['roles', 'company']))->additional($invitation ? ['invitation' => $invitation] : []);
+        $response = UserResource::make($user->load(['roles', 'company', 'courier']))->additional($invitation ? ['invitation' => $invitation] : []);
 
         return $response->response()->setStatusCode(201);
     }
@@ -214,7 +218,7 @@ class UserController extends Controller
         }
 
         $actor = $request->user();
-        $before = ['name' => $user->name, 'role' => $user->primaryRole()?->value];
+        $before = ['name' => $user->name, 'role' => $user->primaryRole()?->value, 'phone' => $user->phone];
 
         DB::transaction(function () use ($user, $data, $actor, $before) {
             $user->fill(collect($data)->except('role')->all())->save();
@@ -229,6 +233,10 @@ class UserController extends Controller
             }
             if ($user->wasChanged('name')) {
                 UserAccountEvent::record($user, $actor, UserAccountEvent::RENAMED, ['from' => $before['name'], 'to' => $user->name]);
+            }
+            // Gérant d'une boutique : le numéro de la boutique suit le sien s'il était le même
+            if ($user->wasChanged('phone') && $user->merchant_id !== null && $user->hasRole(Role::MerchantOwner->value)) {
+                Merchant::whereKey($user->merchant_id)->where('phone', $before['phone'])->update(['phone' => $user->phone]);
             }
             $credentials = array_values(array_filter(['phone', 'email', 'password'], fn ($f) => $user->wasChanged($f)));
             if ($credentials) {
