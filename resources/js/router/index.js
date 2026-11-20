@@ -234,8 +234,8 @@ const routes = [
       { path: '', name: 'marchand', component: () => import('../views/merchant/Home.vue') },
       { path: 'courses', component: () => import('../views/merchant/Orders.vue'), meta: { title: 'Mes courses', fullscreen: true } },
       { path: 'statistiques', component: () => import('../views/merchant/Stats.vue'), meta: { title: 'Mes statistiques', back: true } },
-      { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true, hideTabs: true } },
-      { path: 'courses/plusieurs', component: () => import('../views/merchant/MultiOrder.vue'), meta: { title: 'Plusieurs courses', back: true, hideTabs: true, permission: 'orders.create' } },
+      { path: 'courses/nouvelle', component: () => import('../views/merchant/NewOrder.vue'), meta: { title: 'Nouvelle course', back: true, hideTabs: true, fullscreen: true } },
+      { path: 'courses/plusieurs', component: () => import('../views/merchant/MultiOrder.vue'), meta: { title: 'Plusieurs courses', back: true, hideTabs: true, fullscreen: true, permission: 'orders.create' } },
       { path: 'courses/import', component: () => import('../views/merchant/OrderImport.vue'), meta: { title: 'Importer des courses', back: true, permission: 'orders.create' } },
       { path: 'boutique', component: () => import('../views/merchant/Shop.vue'), meta: { title: 'Ma boutique en ligne', back: true, permission: 'integrations.manage', feature: 'shop' } },
       // API et webhooks : plus proposés aux e-commerçants (l'adresse ramène au profil)
