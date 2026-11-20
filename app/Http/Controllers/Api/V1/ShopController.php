@@ -106,7 +106,7 @@ class ShopController extends Controller
      */
     private function zones(Merchant $merchant)
     {
-        return Zone::forCompany($merchant->company_id)->active()->where('is_shipping', false)->with('parent')->get()
+        return Zone::forCompany($merchant->company_id)->offered()->where('is_shipping', false)->with('parent')->get()
             ->sortBy(fn (Zone $z) => $z->fullName(), SORT_NATURAL | SORT_FLAG_CASE)->values();
     }
 

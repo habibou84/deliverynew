@@ -26,6 +26,8 @@ class ZoneResource extends JsonResource
             'default_shipping' => $this->when(! $request->is('api/public/*'), fn () => (bool) $this->default_shipping),
             'shipping_fee_estimate' => $this->shipping_fee_estimate,
             'is_active' => $this->is_active,
+            // Adresse de l'ancienne application : liée aux commandes reprises, pas proposée comme destination
+            'legacy' => (bool) $this->legacy,
             // Ramassage possible ici (quartier : et dans sa commune). Hors de l'API publique : pas encore au contrat
             'is_pickup' => $this->when(! $request->is('api/public/*'), fn () => $this->acceptsPickup()),
             'sort_order' => $this->sort_order,

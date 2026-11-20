@@ -32,7 +32,7 @@ class OrderDraftController extends Controller
         ], [], ['text' => 'message']);
 
         $user = $request->user();
-        $zones = Zone::forCompany($user->company_id)->active()->with('parent')->get();
+        $zones = Zone::forCompany($user->company_id)->offered()->with('parent')->get();
         $fields = $parser->parse($data['text'], $zones);
 
         // « De Cocody à Yopougon » : la commune de ramassage du marchand n'est pas la destination

@@ -79,7 +79,7 @@ class OrderImporter
      */
     public function preview(Merchant $merchant, string $path, string $extension): array
     {
-        $zones = Zone::forCompany($merchant->company_id)->active()->with('parent')->get();
+        $zones = Zone::forCompany($merchant->company_id)->offered()->with('parent')->get();
         $rows = [];
 
         foreach ($this->read($path, $extension) as $line => $raw) {

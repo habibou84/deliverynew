@@ -3,6 +3,8 @@
 use App\Enums\ApiScope;
 use App\Http\Controllers\Api\BrandedAppBuildController;
 use App\Http\Controllers\Api\Connect\ConnectController;
+use App\Http\Controllers\Api\Connect\DirectConnectController;
+use App\Http\Controllers\Api\Connect\DirectoryQuoteController;
 use App\Http\Controllers\Api\Connect\PublicConnectController;
 use App\Http\Controllers\Api\NativeAppController;
 use App\Http\Controllers\Api\PublicV1\PublicAccountController;
@@ -79,6 +81,7 @@ use App\Http\Controllers\Api\V1\ParcelRelayController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PayPlanController;
+use App\Http\Controllers\Api\V1\PlaceReportController;
 use App\Http\Controllers\Api\V1\PlanningController;
 use App\Http\Controllers\Api\V1\PremiumProgramController;
 use App\Http\Controllers\Api\V1\PricingGridController;
@@ -119,6 +122,7 @@ use App\Http\Controllers\CourierAppController;
 use App\Http\Controllers\Webhooks\PayDunyaWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppBridgeWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
+use App\Http\Middleware\VerifyPartnerSignature;
 use Illuminate\Support\Facades\Route;
 
 // Webhooks des fournisseurs (authentifiés par signature)
@@ -182,6 +186,15 @@ Route::prefix('public/connect')->name('public.connect.')->controller(PublicConne
     Route::post('requests', 'requestAccount')->middleware('throttle:verification-start')->name('requests');
     Route::post('token', 'token')->middleware('throttle:30,1')->name('token');
 });
+// Devis des entreprises de l'annuaire pour un lieu, et connexion directe de Jibiat Marchand (serveur à serveur,
+// requêtes signées) ; contrat : directory-quotes, connect-direct, connect-decision (habibou84/socle 1.12)
+Route::post('public/directory/quotes', [DirectoryQuoteController::class, '__invoke'])->middleware('throttle:120,1')->name('public.directory.quotes');
+Route::prefix('public/connect/direct')->name('public.connect.direct.')->controller(DirectConnectController::class)
+    ->middleware([VerifyPartnerSignature::class, 'throttle:120,1'])->group(function () {
+        Route::post('/', 'store')->name('store');
+        Route::get('{requestId}', 'show')->where('requestId', '[A-Za-z0-9-]{8,64}')->name('show');
+        Route::delete('{requestId}', 'destroy')->where('requestId', '[A-Za-z0-9-]{8,64}')->name('destroy');
+    });
 
 // Applications Android et iOS : entreprise désignée par son code (depuis l'adresse de la plateforme)
 Route::get('public/apps/companies/{code}', [NativeAppController::class, 'company'])
@@ -302,6 +315,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::put('companies/{company}/whatsapp-qr', 'whatsappQr')->middleware($support)->name('companies.whatsapp-qr');
         });
         Route::get('console/dashboard', [ConsoleDashboardController::class, 'show'])->middleware($team)->name('console.dashboard');
+        Route::get('console/place-reports', [PlaceReportController::class, 'index'])->middleware($team)->name('console.place-reports');
+        Route::put('console/place-reports/{placeReport}', [PlaceReportController::class, 'update'])->middleware($support)->name('console.place-reports.update');
         Route::get('console/search', [ConsoleSearchController::class, 'search'])->middleware([$team, 'throttle:60,1'])->name('console.search');
         Route::get('console/audit', [ConsoleAuditController::class, 'index'])->middleware($owner)->name('console.audit');
         Route::get('console/health', [ConsoleHealthController::class, 'show'])->middleware($support)->name('console.health');
@@ -532,6 +547,9 @@ Route::prefix('v1')->name('v1.')->group(function () {
 
         // Référentiels
         Route::get('zones', [ZoneController::class, 'index'])->name('zones.index');
+        Route::get('zones/legacy', [ZoneController::class, 'legacy'])->name('zones.legacy');
+        // Quartier absent de la liste commune : signalé à la plateforme, ajouté ensuite pour tout le monde
+        Route::post('place-reports', [PlaceReportController::class, 'store'])->middleware('throttle:20,1')->name('place-reports.store');
         Route::get('shipping-cities', [ZoneController::class, 'shippingCities'])->name('shipping-cities');
         Route::get('incident-reasons', [ReferenceController::class, 'incidentReasons'])->name('incident-reasons.index');
         Route::get('recipients', [ReferenceController::class, 'recipients'])->name('recipients.index');

@@ -6,7 +6,7 @@
     </p>
     <label class="flex items-start gap-2 text-sm">
       <input v-model="form.directory_listed" type="checkbox" class="mt-1">
-      <span>Figurer dans l'annuaire<span class="block text-slate-600">Vos chiffres n'apparaissent qu'à partir de 20 courses terminées. Vous pouvez vous retirer à tout moment.</span></span>
+      <span>Figurer dans l'annuaire<span class="block text-slate-600">Automatique dès que vous avez des zones et des tarifs. Vos chiffres apparaissent à partir de 20 courses. Décochez pour vous retirer.</span></span>
     </label>
     <div v-if="form.directory_listed">
       <label class="label" :for="`directory-pitch${uid}`">Votre présentation en une phrase</label>
