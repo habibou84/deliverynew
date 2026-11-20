@@ -80,25 +80,16 @@
 
     <!-- 2. Où livrer -->
     <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-3" aria-labelledby="step-where" @pointerdown="enter(2)">
-      <h2 id="step-where" class="m-step"><ColorIcon name="lieu" :size="34" />Où livrer</h2>
+      <h2 id="step-where" class="m-step"><ColorIcon name="lieu" :size="34" />Où livrer <span class="text-red-600">*</span></h2>
       <button v-if="folded.where" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.where = false">
         <span class="min-w-0 truncate font-semibold">{{ [zoneName, form.delivery_address].filter((v) => v && v !== '—').join(' · ') }}<span v-if="quote" class="font-normal text-slate-600"> · livraison {{ money(quote.total) }}</span></span>
         <span class="shrink-0 font-bold text-[var(--app-color)]">Modifier</span>
       </button>
       <template v-else>
       <div id="zone-field">
-        <label class="m-label" for="zone">Commune ou quartier <span class="text-red-600">*</span></label>
-        <!-- Communes proposées en un toucher : celles du message, sinon celles des dernières courses -->
-        <div v-if="quickZones.length" class="mb-2 flex flex-wrap gap-1.5">
-          <button
-            v-for="z in quickZones"
-            :key="z.id"
-            type="button"
-            :class="['tap rounded-full px-3 py-1.5 text-sm font-semibold ring-1', form.delivery_zone_id === z.id ? 'text-white ring-transparent bg-[var(--app-color)]' : 'bg-white ring-slate-300']"
-            @click="form.delivery_zone_id = z.id"
-          >{{ z.full_name }}</button>
-        </div>
-        <ZoneSelect id="zone" v-model="form.delivery_zone_id" :zones="zones" mobile :input-class="['m-input', missing.zone ? 'ring-2 ring-red-500' : '']" />
+        <label class="sr-only" for="zone">Commune ou quartier (obligatoire)</label>
+        <!-- Comme dans Jibiat Marchand : un seul champ, les lieux du message ou les plus livrés proposés avec leur prix -->
+        <PlacePicker id="zone" v-model="form.delivery_zone_id" :zones="zones" :suggested="quickZones" :fees="zoneFees" :invalid="!!missing.zone" />
         <!-- Le tarif dès que la commune est choisie -->
         <p v-if="quote" class="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-800">Livraison : {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
         <p v-else-if="form.delivery_zone_id && !quoteError" class="mt-2 text-sm text-slate-600">Calcul du prix…</p>
@@ -247,7 +238,7 @@ import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import PasteMessage from '../../components/PasteMessage.vue'
-import ZoneSelect from '../../components/ZoneSelect.vue'
+import PlacePicker from '../../components/mobile/PlacePicker.vue'
 import { isoDay, longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { useAuthStore } from '../../stores/auth'
 import { localPhone, money } from '../../utils/format'
@@ -607,8 +598,24 @@ function onPhone(event) {
 const recentZones = ref([])
 const quickZones = computed(() => {
   const ids = zoneChoices.value.length ? zoneChoices.value.map((z) => z.id) : recentZones.value
-  return ids.map((id) => zones.value.find((z) => z.id === id)).filter(Boolean).slice(0, 4)
+  return ids.map((id) => zones.value.find((z) => z.id === id)).filter(Boolean).slice(0, 6)
 })
+
+// Prix de la livraison des lieux proposés, affichés à côté de chacun (même calcul que le tarif de la course)
+const zoneFees = reactive({})
+watch([quickZones, sourceZoneId], () => {
+  quickZones.value.forEach(async (z) => {
+    const key = `${z.id}-${sourceZoneId.value || ''}`
+    if (zoneFees[`_${key}`]) return
+    zoneFees[`_${key}`] = true
+    try {
+      const { data } = await http.post('/quotes', { delivery_zone_id: z.id, pickup_zone_id: sourceZoneId.value || undefined })
+      zoneFees[z.id] = data.data.total
+    } catch {
+      // Sans prix : le lieu reste proposé
+    }
+  })
+}, { immediate: true })
 
 async function loadRecentZones() {
   try {

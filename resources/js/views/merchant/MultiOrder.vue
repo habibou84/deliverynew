@@ -118,10 +118,8 @@
         </div>
         <div>
           <label class="m-label" for="d-zone">Commune ou quartier</label>
-          <div v-if="quickZones.length" class="mb-2 flex flex-wrap gap-1.5">
-            <button v-for="z in quickZones" :key="z.id" type="button" :class="['tap rounded-full px-3 py-1.5 text-sm font-semibold ring-1', draft.delivery_zone_id === z.id ? 'bg-[var(--app-color)] text-white ring-transparent' : 'bg-white ring-slate-300']" @click="draft.delivery_zone_id = z.id">{{ z.full_name }}</button>
-          </div>
-          <ZoneSelect id="d-zone" v-model="draft.delivery_zone_id" :zones="zones" mobile input-class="m-input" />
+          <!-- Comme dans Jibiat Marchand : un seul champ, les lieux les plus livrés proposés avec leur prix -->
+          <PlacePicker id="d-zone" v-model="draft.delivery_zone_id" :zones="zones" :suggested="quickZones" :fees="quotes" />
           <p v-if="draft.delivery_zone_id && quotes[draft.delivery_zone_id] !== undefined" class="mt-1.5 text-sm font-bold text-emerald-700">Livraison : {{ money(quotes[draft.delivery_zone_id]) }}</p>
         </div>
         <div>
@@ -180,7 +178,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
-import ZoneSelect from '../../components/ZoneSelect.vue'
+import PlacePicker from '../../components/mobile/PlacePicker.vue'
 import { useDeliveryDate } from '../../composables/useDeliveryDate'
 import { money } from '../../utils/format'
 import { describeLines, isTracked, limitAt, orderLine } from '../../utils/catalog'
@@ -228,7 +226,9 @@ const draftIsNew = ref(false)
 const phoneInput = ref(null)
 const suggestions = ref([])
 const recentZones = ref([])
-const quickZones = computed(() => recentZones.value.map((id) => zones.value.find((z) => z.id === id)).filter(Boolean).slice(0, 4))
+const quickZones = computed(() => recentZones.value.map((id) => zones.value.find((z) => z.id === id)).filter(Boolean).slice(0, 6))
+// Leur prix, affiché à côté de chacun dans le champ « Commune ou quartier »
+watch(quickZones, (list) => list.forEach((z) => quote(z.id)))
 watch(() => draft.value?.delivery_zone_id, quote)
 
 async function edit(row) {
