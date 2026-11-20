@@ -42,7 +42,7 @@ jobs:
       - name: Secrets masqués
         run: echo "::add-mask::$BUILD_TOKEN"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Fiche de la version
         run: |
