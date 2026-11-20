@@ -73,6 +73,10 @@ jobs:
       - name: Migrations (aller-retour)
         run: php artisan migrate --force && php artisan migrate:rollback --force && php artisan migrate --seed --force
       - run: php artisan test
+      # Comme au déploiement (deploy/update.sh) : une route en double ou une config non sérialisable bloque ici,
+      # pas sur le serveur
+      - name: Cache des routes, de la configuration et des événements
+        run: php artisan optimize && php artisan optimize:clear
 
   frontend:
     name: Build front-end
