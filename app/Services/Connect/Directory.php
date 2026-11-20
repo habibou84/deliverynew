@@ -71,6 +71,8 @@ class Directory
             'ships_inland' => $zones->contains('is_shipping', true),
             'price_from' => $this->priceFrom($company),
             'accepts' => $company->merchant_signup ? 'signup' : 'request',
+            // Connexion directe de Jibiat Marchand et devis de l'annuaire (contrat 1.12)
+            'direct' => true,
             'member_since' => $company->created_at?->toDateString() ?? now()->toDateString(),
             'stats' => $this->stats($company),
         ];

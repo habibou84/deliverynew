@@ -6,6 +6,7 @@ use App\Enums\MerchantStatus;
 use App\Enums\Permission;
 use App\Enums\Role;
 use App\Exceptions\BusinessRuleException;
+use App\Jobs\SendConnectDecision;
 use App\Models\ApiKey;
 use App\Models\Company;
 use App\Models\ConnectCode;
@@ -196,7 +197,8 @@ class AppConnect
     }
 
     /**
-     * Demande acceptée : la boutique et le compte du gérant sont créés avec le mot de passe qu'il a choisi.
+     * Demande acceptée : la boutique et le compte du gérant sont créés avec le mot de passe qu'il a choisi. Venue de
+     * Jibiat Marchand (connexion directe), la clé d'API lui est envoyée avec la décision.
      */
     public function accept(ConnectRequest $request, User $actor): Merchant
     {
@@ -205,49 +207,79 @@ class AppConnect
             if ($request->status !== ConnectRequest::PENDING) {
                 throw new BusinessRuleException('Cette demande a déjà été traitée.');
             }
-            if (User::takenIn($request->company_id, 'phone', $request->phone)
-                || Merchant::forCompany($request->company_id)->where('phone', $request->phone)->exists()) {
-                throw new BusinessRuleException('Ce numéro a déjà un compte : refusez la demande et donnez-lui ses accès.');
+            if ($request->isConfirmation()) {
+                throw new BusinessRuleException('Ce marchand est déjà client : c\'est à lui de confirmer sur WhatsApp.');
             }
 
-            $merchant = Merchant::create([
-                'company_id' => $request->company_id,
-                'business_name' => $request->business_name,
-                'contact_name' => $request->contact_name,
-                'phone' => $request->phone,
-                'email' => User::takenIn($request->company_id, 'email', $request->email) ? null : $request->email,
-                'pickup_zone_id' => $request->pickup_zone_id,
-                'pickup_address' => $request->pickup_address,
-                'status' => MerchantStatus::Active,
-            ]);
-            $merchant->forceFill(['source' => 'connect'])->save();
+            $merchant = $this->createMerchant($request);
 
-            $user = new User([
-                'company_id' => $request->company_id,
-                'merchant_id' => $merchant->id,
-                'name' => $request->contact_name,
-                'phone' => $request->phone,
-                'email' => $merchant->email,
-            ]);
-            $user->forceFill(['password' => $request->password_hash ?: bcrypt(Str::random(32))])->save();
-            $user->assignRole(Role::MerchantOwner->value);
-
-            $request->forceFill([
-                'status' => ConnectRequest::ACCEPTED, 'merchant_id' => $merchant->id, 'decided_by' => $actor->id,
-                'decided_at' => now(), 'password_hash' => null,
-            ])->save();
+            if ($request->isDirect()) {
+                app(DirectConnect::class)->grant($request, $merchant, $actor);
+                SendConnectDecision::dispatch($request->id)->afterCommit();
+            } else {
+                $request->forceFill([
+                    'status' => ConnectRequest::ACCEPTED, 'merchant_id' => $merchant->id, 'decided_by' => $actor->id,
+                    'decided_at' => now(), 'password_hash' => null,
+                ])->save();
+            }
 
             return $merchant;
         });
     }
 
-    public function decline(ConnectRequest $request, User $actor): void
+    /**
+     * Boutique et compte du gérant d'une demande (mot de passe choisi, sinon aucun : il entre par WhatsApp ou en
+     * choisit un plus tard).
+     */
+    public function createMerchant(ConnectRequest $request): Merchant
     {
-        if ($request->status !== ConnectRequest::PENDING) {
-            throw new BusinessRuleException('Cette demande a déjà été traitée.');
+        if (User::takenIn($request->company_id, 'phone', $request->phone)
+            || Merchant::forCompany($request->company_id)->where('phone', $request->phone)->exists()) {
+            throw new BusinessRuleException('Ce numéro a déjà un compte : refusez la demande et donnez-lui ses accès.');
         }
 
-        $request->forceFill(['status' => ConnectRequest::DECLINED, 'decided_by' => $actor->id, 'decided_at' => now(), 'password_hash' => null])->save();
+        $merchant = Merchant::create([
+            'company_id' => $request->company_id,
+            'business_name' => $request->business_name,
+            'contact_name' => $request->contact_name,
+            'phone' => $request->phone,
+            'email' => User::takenIn($request->company_id, 'email', $request->email) ? null : $request->email,
+            'pickup_zone_id' => $request->pickup_zone_id,
+            'pickup_address' => $request->pickup_address,
+            'status' => MerchantStatus::Active,
+        ]);
+        $merchant->forceFill(['source' => 'connect'])->save();
+
+        $user = new User([
+            'company_id' => $request->company_id,
+            'merchant_id' => $merchant->id,
+            'name' => $request->contact_name,
+            'phone' => $request->phone,
+            'email' => $merchant->email,
+        ]);
+        $user->forceFill(['password' => $request->password_hash ?: bcrypt(Str::random(32))])->save();
+        $user->assignRole(Role::MerchantOwner->value);
+
+        return $merchant;
+    }
+
+    public function decline(ConnectRequest $request, User $actor, ?string $reason = null): void
+    {
+        DB::transaction(function () use ($request, $actor, $reason) {
+            $request = ConnectRequest::forCompany($request->company_id)->lockForUpdate()->findOrFail($request->id);
+            if ($request->status !== ConnectRequest::PENDING) {
+                throw new BusinessRuleException('Cette demande a déjà été traitée.');
+            }
+
+            $request->forceFill([
+                'status' => ConnectRequest::DECLINED, 'decided_by' => $actor->id, 'decided_at' => now(), 'password_hash' => null,
+                'decline_reason' => filled($reason) ? trim($reason) : null, 'decide_before' => null,
+            ])->save();
+
+            if ($request->isDirect()) {
+                SendConnectDecision::dispatch($request->id)->afterCommit();
+            }
+        });
     }
 
     /**

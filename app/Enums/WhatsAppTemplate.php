@@ -33,6 +33,7 @@ enum WhatsAppTemplate: string
     case RescheduleRequest = 'colis_a_reporter';
     case RescheduleReminder = 'rappel_colis_a_reporter';
     case RescheduleDone = 'colis_reportes';
+    case ConnectConfirm = 'connexion_boutique_a_confirmer';
 
     public const LANGUAGE = 'fr';
 
@@ -62,6 +63,7 @@ enum WhatsAppTemplate: string
             self::RescheduleRequest => 'Bonjour {{1}}, {{2}} colis prévu(s) {{3}} n\'ont pas pu être ramassés : {{4}}. Choisissez une nouvelle date ici : {{5}} , ou répondez à ce message, par exemple « tout demain » ou « 1 3 lundi ». Merci.',
             self::RescheduleReminder => 'Bonjour {{1}}, rappel : {{2}} colis attendent toujours une nouvelle date de livraison. Choisissez-la ici : {{3}} , ou répondez « tout aujourd\'hui », ou les numéros et le jour. Merci.',
             self::RescheduleDone => 'Bonjour {{1}}, nouvelle date de livraison pour {{2}} colis : {{3}}. Merci de votre confiance.',
+            self::ConnectConfirm => 'Bonjour {{1}}, la boutique « {{2}} » sur Jibiat Marchand demande à confier ses colis à votre compte chez {{3}}. Si c\'est bien vous, confirmez ici : {{4}} . Sinon, refusez ou ignorez ce message : rien ne change sans votre accord.',
             self::ManagerReport => 'Bonjour {{1}}, voici le point de la semaine {{2}} pour {{3}} : {{4}} courses créées ({{5}}), {{6}} livrées, taux de livraison {{7}}. Chiffre d\'affaires : {{8}} ({{9}}). E-commerçants à relancer : {{10}}. Toutes les statistiques : {{11}} .',
         };
     }
@@ -95,6 +97,7 @@ enum WhatsAppTemplate: string
             self::RescheduleRequest => '📅 Colis à reporter',
             self::RescheduleReminder => '📅 Colis à reporter (rappel)',
             self::RescheduleDone => '📅 Nouvelle date de livraison',
+            self::ConnectConfirm => '🔗 Connecter votre boutique',
         };
     }
 
@@ -125,6 +128,7 @@ enum WhatsAppTemplate: string
             self::RescheduleRequest => 'Au marchand, quand des colis n\'ont pas pu être ramassés à leur date : choisir une nouvelle date (message du soir ou demande du dispatch)',
             self::RescheduleReminder => 'Au marchand, rappel le matin quand il n\'a pas encore choisi la nouvelle date de ses colis',
             self::RescheduleDone => 'Au marchand, quand l\'agence donne elle-même une nouvelle date à ses colis pas ramassés',
+            self::ConnectConfirm => 'Au marchand déjà client, quand sa boutique Jibiat Marchand demande à se connecter à son compte (lien pour confirmer ou refuser)',
         };
     }
 
@@ -159,6 +163,7 @@ enum WhatsAppTemplate: string
             self::RescheduleRequest => ['Boutique Chic', '3', 'aujourd\'hui', '1) LV-7K2M-9PQX Awa K. (Yopougon) ; 2) LV-3QX8-K2LM Yao B. (Cocody) ; 3) LV-9TQ4-R2KD Koné A. (Plateau)', 'https://rapide.jibiat.com/reporter/K7PQ2xZ8'],
             self::RescheduleReminder => ['Boutique Chic', '2', 'https://rapide.jibiat.com/reporter/K7PQ2xZ8'],
             self::RescheduleDone => ['Boutique Chic', '2', 'LV-7K2M-9PQX le ven. 6 nov. ; LV-3QX8-K2LM le lun. 9 nov.'],
+            self::ConnectConfirm => ['Awa', 'Awa Mode', 'Rapide Express', 'https://rapide.jibiat.com/marchand/confirmer-connexion/12?signature=abc'],
             self::ManagerReport => ['Awa', 'du 05/10 au 11/10', 'Rapide Express', '312', '+12 %', '287', '94 %', '430 500 F', '+8 %', '3', 'https://exemple.ci/admin/statistiques'],
         };
     }

@@ -38,9 +38,11 @@ class ConnectController extends Controller
     {
         abort_unless($request->user()->can(Permission::MerchantsManage->value), 403);
 
-        $requests = ConnectRequest::query()->with('pickupZone')
+        // Rattachement d'un compte existant : c'est le marchand qui confirme, pas l'équipe
+        $requests = ConnectRequest::query()->with('pickupZone')->where('kind', ConnectRequest::KIND_REQUEST)
             ->when(! $request->boolean('all'), fn ($q) => $q->where('status', ConnectRequest::PENDING))
-            ->latest()->limit(100)->get()
+            // Un colis attend : la demande d'abord (délai de 24 h)
+            ->orderByDesc('waiting_orders')->latest()->limit(100)->get()
             ->map(fn (ConnectRequest $r) => [
                 'id' => $r->id,
                 'business_name' => $r->business_name,
@@ -54,9 +56,17 @@ class ConnectController extends Controller
                 'status' => $r->status,
                 'merchant_id' => $r->merchant_id,
                 'created_at' => $r->created_at,
+                // Connexion directe de Jibiat Marchand : colis qui attendent, délai pour répondre, aperçu d'activité
+                'direct' => $r->isDirect(),
+                'kind' => $r->kind,
+                'store_url' => $r->store_url,
+                'waiting_orders' => $r->waiting_orders,
+                'decide_before' => $r->decide_before,
+                'activity' => $r->activity,
+                'decline_reason' => $r->decline_reason,
             ]);
 
-        return response()->json(['data' => $requests, 'pending' => ConnectRequest::query()->where('status', ConnectRequest::PENDING)->count()]);
+        return response()->json(['data' => $requests, 'pending' => ConnectRequest::query()->where('kind', ConnectRequest::KIND_REQUEST)->where('status', ConnectRequest::PENDING)->count()]);
     }
 
     public function accept(Request $request, ConnectRequest $connectRequest): JsonResponse
@@ -70,7 +80,8 @@ class ConnectController extends Controller
     public function decline(Request $request, ConnectRequest $connectRequest): JsonResponse
     {
         abort_unless($request->user()->can(Permission::MerchantsManage->value), 403);
-        $this->connect->decline($connectRequest, $request->user());
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:500']], [], ['reason' => 'motif']);
+        $this->connect->decline($connectRequest, $request->user(), $data['reason'] ?? null);
 
         return response()->json(null, 204);
     }
