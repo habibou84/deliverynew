@@ -280,6 +280,7 @@ class ReturnHandovers
     {
         return match ($via) {
             'app' => "Rendu au marchand, confirmé dans son application (remise {$handover->reference})",
+            'jibiat_marchand' => "Rendu au marchand, confirmé dans Jibiat Marchand (remise {$handover->reference})",
             default => "Rendu au marchand, confirmé par WhatsApp (remise {$handover->reference})",
         };
     }

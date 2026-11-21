@@ -34,7 +34,7 @@ info:
 
     ## Webhooks
     Déclarez une adresse HTTPS dans **Profil › Intégrations** (ou par `POST /webhooks`) pour recevoir les événements
-    `order.created`, `order.status_changed`, `order.incident`, `order.updated`, `payout.paid` et `stock.low`.
+    `order.created`, `order.status_changed`, `order.incident`, `order.updated`, `payout.paid`, `stock.low` et `return_handover.updated`.
     `order.updated` signale un changement **sans changement de statut** : date de livraison (modifiée, décalée parce que la
     journée est fermée, nouvelle date d'un report), adresse, montant, retour demandé… La liste des champs changés est dans
     `data.change.fields` ; la course complète, à jour, est dans `data.order`.
@@ -433,6 +433,35 @@ paths:
                   data:
                     type: array
                     items: { $ref: '#/components/schemas/Product' }
+  /return-handovers:
+    get:
+      tags: [Retours]
+      summary: Remises de retour à confirmer
+      description: >-
+        Portée `orders:read`. Le livreur qui rapporte des colis crée une remise (« R-4821 ») ; le marchand la
+        confirme (QR code WhatsApp ou ici). Schéma `return-handover-list` du contrat (habibou84/socle, 1.14).
+      responses:
+        '200': { description: Remises encore confirmables (en attente ou de secours récentes) }
+  /return-handovers/{reference}/confirm:
+    post:
+      tags: [Retours]
+      summary: Tout reçu
+      description: Portée `orders:write`. Les colis passent « returned ». Schéma `return-handover-response`.
+      parameters:
+        - { name: reference, in: path, required: true, schema: { type: string, example: R-4821 } }
+      responses:
+        '200': { description: Remise confirmée }
+        '404': { description: Remise inconnue ou trop ancienne }
+  /return-handovers/{reference}/dispute:
+    post:
+      tags: [Retours]
+      summary: Il en manque
+      description: Portée `orders:write`. Les colis restent chez le livreur, l'agence tranche. Schéma `return-handover-response`.
+      parameters:
+        - { name: reference, in: path, required: true, schema: { type: string, example: R-4821 } }
+      responses:
+        '200': { description: Remise contestée }
+        '404': { description: Remise inconnue ou trop ancienne }
   /me:
     get:
       tags: [Compte]
@@ -528,7 +557,7 @@ paths:
               required: [url, events]
               properties:
                 url: { type: string, format: uri }
-                events: { type: array, items: { type: string, enum: [order.created, order.status_changed, order.incident, order.updated, payout.paid, stock.low] } }
+                events: { type: array, items: { type: string, enum: [order.created, order.status_changed, order.incident, order.updated, payout.paid, stock.low, return_handover.updated] } }
                 description: { type: string, maxLength: 255 }
       responses:
         '201':

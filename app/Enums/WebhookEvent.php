@@ -10,6 +10,7 @@ enum WebhookEvent: string
     case OrderUpdated = 'order.updated';
     case PayoutPaid = 'payout.paid';
     case StockLow = 'stock.low';
+    case ReturnHandoverUpdated = 'return_handover.updated';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum WebhookEvent: string
             self::OrderUpdated => 'Course modifiée (date, adresse, montant, décision, retour demandé)',
             self::PayoutPaid => 'Reversement payé',
             self::StockLow => 'Stock bas',
+            self::ReturnHandoverUpdated => 'Remise des retours (livreur chez le marchand, confirmée, contestée)',
         };
     }
 

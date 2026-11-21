@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToCompany;
+use App\Services\Webhooks\WebhookDispatcher;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Remise au marchand des colis qu'un livreur lui rapporte, confirmée par le marchand (WhatsApp ou application),
@@ -41,6 +43,19 @@ class ReturnHandover extends Model
         'confirmed_at', 'confirmed_via', 'confirmed_phone', 'fallback_reason', 'received_by_name',
         'signature_path', 'photo_path', 'lat', 'lng', 'handed_at', 'disputed_at', 'resolved_at', 'resolved_by', 'resolution',
     ];
+
+    /**
+     * Chaque changement qui compte pour le marchand (statut, code, colis) part en webhook, après la transaction :
+     * les colis ont alors leur nouveau statut.
+     */
+    protected static function booted(): void
+    {
+        static::saved(function (self $handover) {
+            if ($handover->wasRecentlyCreated || $handover->wasChanged(['status', 'reference', 'order_ids'])) {
+                DB::afterCommit(fn () => app(WebhookDispatcher::class)->onReturnHandover($handover->fresh()));
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -81,6 +96,33 @@ class ReturnHandover extends Model
     public function needsReview(): bool
     {
         return in_array($this->status, [self::UNCONFIRMED, self::DISPUTED], true);
+    }
+
+    /**
+     * La remise telle que l'API publique et le webhook return_handover.updated la donnent (contrat socle 1.14).
+     *
+     * @return array<string, mixed>
+     */
+    public function toPublic(): array
+    {
+        $this->loadMissing('courier.user');
+
+        return [
+            'reference' => $this->reference,
+            'status' => $this->isExpired() ? 'expired' : $this->status,
+            'expires_at' => $this->expires_at?->toIso8601String(),
+            'handed_at' => $this->handed_at?->toIso8601String(),
+            'confirmed_at' => $this->confirmed_at?->toIso8601String(),
+            'confirmed_via' => $this->confirmed_via,
+            'disputed_at' => $this->disputed_at?->toIso8601String(),
+            'received_by_name' => $this->received_by_name,
+            'courier' => ['name' => $this->courier?->user?->name],
+            'orders' => $this->orders()->map(fn (Order $o) => [
+                'tracking_code' => $o->tracking_code,
+                'recipient_name' => $o->recipient_name,
+                'status' => $o->status->value,
+            ])->values()->all(),
+        ];
     }
 
     /** Texte du message préparé que le marchand envoie après le scan */
