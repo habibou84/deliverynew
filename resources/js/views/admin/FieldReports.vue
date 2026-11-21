@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
         <h1 v-if="!embedded" class="text-xl font-bold">Remontées terrain</h1>
-        <p class="text-sm text-slate-600">Notes et problèmes enregistrés par les livreurs. Marquez-les comme traités pour que l'équipe sache qui s'en est occupé.</p>
+        <p class="text-sm text-slate-600">Notes et problèmes enregistrés par les livreurs. Pour un échec, « Que faire ? » propose les actions adaptées au motif ; chacune marque la remontée comme traitée.</p>
       </div>
       <!-- Place réservée : la page ne bouge pas quand le son s'active au premier clic -->
       <p :class="['text-xs rounded bg-amber-50 text-amber-900 px-2 py-1', alertSound.unlocked || !alertSound.enabled ? 'invisible' : '']" :aria-hidden="alertSound.unlocked">
@@ -94,6 +94,7 @@
               @sent="(m, handled) => replied(r, m, handled)"
               @cancel="replying = null"
             />
+            <FieldReportActions v-if="!r.review" :report="r" class="pt-1" @done="(data) => acted(r, data)" @prefill="(text) => (comments[r.id] = text)" />
             <p v-if="r.review" class="text-sm text-emerald-700">
               Traité par {{ r.review.handled_by || '—' }} le {{ dateTime(r.review.handled_at) }}<span v-if="r.review.comment"> : {{ r.review.comment }}</span>
             </p>
@@ -136,6 +137,7 @@ import { onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { alertSound } from '../../composables/useAlertSound'
 import CourierMessageThread from '../../components/CourierMessageThread.vue'
+import FieldReportActions from '../../components/FieldReportActions.vue'
 import { useFieldReportStore } from '../../stores/fieldReports'
 import { useToastStore } from '../../stores/toasts'
 import { date, dateTime, money, telLink, toneClass } from '../../utils/format'
@@ -197,6 +199,14 @@ async function handle(r) {
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   }
+}
+
+// Action de « Que faire ? » faite : la remontée est traitée
+function acted(r, data) {
+  store.setCounts(data.open)
+  delete comments[r.id]
+  if (filters.state === 'open') reports.value = reports.value.filter((x) => x.id !== r.id)
+  else Object.assign(r, data.data)
 }
 
 async function replied(r, message, handled) {

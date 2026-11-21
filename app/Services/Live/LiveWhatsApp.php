@@ -796,7 +796,7 @@ class LiveWhatsApp
     /** @return Collection<int, Zone> */
     private function companyZones(Merchant $merchant): Collection
     {
-        return Zone::forCompany($merchant->company_id)->active()->with('parent')->get();
+        return Zone::forCompany($merchant->company_id)->offered()->with('parent')->get();
     }
 
     /** Réponse au client ; avec une photo : la photo et le texte en légende (connexion officielle) */

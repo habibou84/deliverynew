@@ -235,7 +235,7 @@ class ZoneLinks
             $parent = $place['type'] === Places::NEIGHBORHOOD
                 ? Zone::withoutGlobalScopes()->where('company_id', $zone->company_id)->where('place_code', $place['parent'])->whereNull('merged_into_id')->first()
                 : null;
-            $before = ['zone' => $zone->only(['name', 'parent_id', 'place_code', 'aliases', 'place_checked_at'])];
+            $before = ['zone' => $zone->only(['name', 'parent_id', 'place_code', 'aliases', 'place_checked_at', 'legacy'])];
 
             $zone->forceFill([
                 'place_code' => $place['code'],
@@ -243,6 +243,8 @@ class ZoneLinks
                 'name' => $place['name'],
                 'aliases' => $this->withAlias($zone->aliases, $zone->name, $place['name']),
                 'place_checked_at' => now(),
+                // Rattachée à un lieu du référentiel : de nouveau proposée comme destination
+                'legacy' => false,
             ])->save();
 
             return ZoneLink::create(['company_id' => $zone->company_id, 'user_id' => $by?->id, 'zone_id' => $zone->id,

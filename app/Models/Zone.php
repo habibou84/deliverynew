@@ -16,13 +16,14 @@ class Zone extends Model
     /** @use HasFactory<ZoneFactory> */
     use BelongsToCompany, HasFactory;
 
-    protected $fillable = ['company_id', 'parent_id', 'place_code', 'name', 'aliases', 'city', 'is_shipping', 'default_shipping', 'shipping_fee_estimate', 'is_active', 'is_pickup', 'sort_order', 'legacy_price'];
+    protected $fillable = ['company_id', 'parent_id', 'place_code', 'name', 'aliases', 'city', 'is_shipping', 'default_shipping', 'shipping_fee_estimate', 'is_active', 'is_pickup', 'sort_order', 'legacy_price', 'legacy'];
 
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
             'is_pickup' => 'boolean',
+            'legacy' => 'boolean',
             'is_shipping' => 'boolean',
             'default_shipping' => 'boolean',
             'shipping_fee_estimate' => 'integer',
@@ -56,11 +57,20 @@ class Zone extends Model
     }
 
     /**
+     * Destinations proposées : zones actives du référentiel (et d'expédition), sans les adresses de l'ancienne
+     * application, qui ne servent plus qu'aux commandes reprises.
+     */
+    public function scopeOffered(Builder $query): Builder
+    {
+        return $query->where('is_active', true)->where('legacy', false);
+    }
+
+    /**
      * Lieux où l'entreprise ramasse : actifs, ramassage permis, et pour un quartier aussi dans sa commune.
      */
     public function scopePickup(Builder $query): Builder
     {
-        return $query->active()->where('is_pickup', true)
+        return $query->offered()->where('is_pickup', true)
             ->where(fn ($q) => $q->whereNull('parent_id')->orWhereHas('parent', fn ($p) => $p->where('is_pickup', true)));
     }
 

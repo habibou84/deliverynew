@@ -80,25 +80,16 @@
 
     <!-- 2. Où livrer -->
     <section class="rounded-[22px] bg-white p-4 shadow-soft space-y-3" aria-labelledby="step-where" @pointerdown="enter(2)">
-      <h2 id="step-where" class="m-step"><ColorIcon name="lieu" :size="34" />Où livrer</h2>
+      <h2 id="step-where" class="m-step"><ColorIcon name="lieu" :size="34" />Où livrer <span class="text-red-600">*</span></h2>
       <button v-if="folded.where" type="button" class="tap w-full flex items-center justify-between gap-3 text-left text-sm" @click="folded.where = false">
         <span class="min-w-0 truncate font-semibold">{{ [zoneName, form.delivery_address].filter((v) => v && v !== '—').join(' · ') }}<span v-if="quote" class="font-normal text-slate-600"> · livraison {{ money(quote.total) }}</span></span>
         <span class="shrink-0 font-bold text-[var(--app-color)]">Modifier</span>
       </button>
       <template v-else>
       <div id="zone-field">
-        <label class="m-label" for="zone">Commune ou quartier <span class="text-red-600">*</span></label>
-        <!-- Communes proposées en un toucher : celles du message, sinon celles des dernières courses -->
-        <div v-if="quickZones.length" class="mb-2 flex flex-wrap gap-1.5">
-          <button
-            v-for="z in quickZones"
-            :key="z.id"
-            type="button"
-            :class="['tap rounded-full px-3 py-1.5 text-sm font-semibold ring-1', form.delivery_zone_id === z.id ? 'text-white ring-transparent bg-[var(--app-color)]' : 'bg-white ring-slate-300']"
-            @click="form.delivery_zone_id = z.id"
-          >{{ z.full_name }}</button>
-        </div>
-        <ZoneSelect id="zone" v-model="form.delivery_zone_id" :zones="zones" mobile :input-class="['m-input', missing.zone ? 'ring-2 ring-red-500' : '']" />
+        <label class="sr-only" for="zone">Commune ou quartier (obligatoire)</label>
+        <!-- Comme dans Jibiat Marchand : un seul champ, les lieux du message ou les plus livrés proposés avec leur prix -->
+        <PlacePicker id="zone" v-model="form.delivery_zone_id" :zones="zones" :suggested="quickZones" :fees="zoneFees" :invalid="!!missing.zone" />
         <!-- Le tarif dès que la commune est choisie -->
         <p v-if="quote" class="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-800">Livraison : {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
         <p v-else-if="form.delivery_zone_id && !quoteError" class="mt-2 text-sm text-slate-600">Calcul du prix…</p>
@@ -126,7 +117,7 @@
       <template v-else>
 
       <button v-if="products.length && !showStock" type="button" class="tap w-full rounded-xl ring-1 ring-slate-200 px-4 py-3 flex items-center justify-between text-sm font-semibold active:bg-slate-50" @click="showStock = true">
-        <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon stock</span><AppIcon name="right" class="h-4 w-4 text-slate-600" />
+        <span class="flex items-center gap-2"><AppIcon name="store" class="h-5 w-5" />Prendre des articles de mon catalogue</span><AppIcon name="right" class="h-4 w-4 text-slate-600" />
       </button>
       <div v-if="products.length && showStock" class="space-y-3">
         <div v-if="stockHubs.length">
@@ -137,7 +128,7 @@
           <div v-for="p in sourceProducts" :key="p.id" class="p-3 flex items-center gap-3">
             <div class="min-w-0 flex-1">
               <p class="font-medium truncate">{{ p.name }}</p>
-              <p class="text-xs text-slate-600">{{ money(p.price) }} · {{ availableAt(p) }} dispo</p>
+              <p class="text-xs text-slate-600">{{ money(p.price) }}<template v-if="isTracked(p)"> · {{ availableAt(p) }} dispo</template></p>
             </div>
             <div class="flex items-center gap-2">
               <button type="button" class="tap h-9 w-9 rounded-full bg-slate-100 text-lg font-bold disabled:opacity-40" :disabled="!picked[p.id]" :aria-label="`Retirer un ${p.name}`" @click="pick(p, -1)">−</button>
@@ -247,7 +238,7 @@ import { useRoute } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import ChoiceChips from '../../components/mobile/ChoiceChips.vue'
 import PasteMessage from '../../components/PasteMessage.vue'
-import ZoneSelect from '../../components/ZoneSelect.vue'
+import PlacePicker from '../../components/mobile/PlacePicker.vue'
 import { isoDay, longDay, useDeliveryDate } from '../../composables/useDeliveryDate'
 import { useAuthStore } from '../../stores/auth'
 import { localPhone, money } from '../../utils/format'
@@ -255,6 +246,7 @@ import { keyboardOpen } from '../../composables/useKeyboard'
 import AppIcon from '../../components/mobile/AppIcon.vue'
 import ColorIcon from '../../components/mobile/ColorIcon.vue'
 import { siteOrigin } from '../../native'
+import { describeLines, isTracked, limitAt, orderLine } from '../../utils/catalog'
 
 const route = useRoute()
 
@@ -307,11 +299,10 @@ const sourceOptions = computed(() => [
 const sourceName = computed(() => hubs.value.find((h) => h.id === source.value)?.name)
 const sourceZoneId = computed(() => hubs.value.find((h) => h.id === source.value)?.zone_id)
 
-function availableAt(product) {
-  return product.levels.find((l) => (l.hub_id ?? null) === source.value)?.available ?? 0
-}
+// Tout le catalogue : un produit sans stock suivi part de chez le marchand, sans limite
+const availableAt = (product) => limitAt(product, source.value)
 const sourceProducts = computed(() => products.value.filter((p) => availableAt(p) > 0 || picked[p.id]))
-const pickedItems = computed(() => products.value.filter((p) => picked[p.id] > 0).map((p) => ({ product_id: p.id, name: p.name, quantity: picked[p.id], unit_price: p.price })))
+const pickedItems = computed(() => products.value.filter((p) => picked[p.id] > 0).map((p) => ({ ...orderLine(p, picked[p.id]), name: p.name })))
 
 function pick(product, delta) {
   picked[product.id] = Math.max(0, Math.min(availableAt(product), (picked[product.id] || 0) + delta))
@@ -324,7 +315,7 @@ function pick(product, delta) {
 let autoDescription = ''
 function fillDescription() {
   if (form.description && form.description !== autoDescription) return
-  autoDescription = pickedItems.value.map((i) => `${i.quantity} × ${i.name}`).join(', ')
+  autoDescription = describeLines(pickedItems.value)
   form.description = autoDescription
 }
 
@@ -607,8 +598,24 @@ function onPhone(event) {
 const recentZones = ref([])
 const quickZones = computed(() => {
   const ids = zoneChoices.value.length ? zoneChoices.value.map((z) => z.id) : recentZones.value
-  return ids.map((id) => zones.value.find((z) => z.id === id)).filter(Boolean).slice(0, 4)
+  return ids.map((id) => zones.value.find((z) => z.id === id)).filter(Boolean).slice(0, 6)
 })
+
+// Prix de la livraison des lieux proposés, affichés à côté de chacun (même calcul que le tarif de la course)
+const zoneFees = reactive({})
+watch([quickZones, sourceZoneId], () => {
+  quickZones.value.forEach(async (z) => {
+    const key = `${z.id}-${sourceZoneId.value || ''}`
+    if (zoneFees[`_${key}`]) return
+    zoneFees[`_${key}`] = true
+    try {
+      const { data } = await http.post('/quotes', { delivery_zone_id: z.id, pickup_zone_id: sourceZoneId.value || undefined })
+      zoneFees[z.id] = data.data.total
+    } catch {
+      // Sans prix : le lieu reste proposé
+    }
+  })
+}, { immediate: true })
 
 async function loadRecentZones() {
   try {
@@ -643,7 +650,7 @@ async function submit() {
     payload.recipient_phone = form.recipient_phone.replace(/[^\d+]/g, '')
     if (payload.recipient_phone2) payload.recipient_phone2 = payload.recipient_phone2.replace(/[^\d+]/g, '')
     payload.items_amount = form.items_amount || 0
-    if (pickedItems.value.length) payload.items = pickedItems.value.map(({ product_id, quantity, unit_price }) => ({ product_id, quantity, unit_price }))
+    if (pickedItems.value.length) payload.items = pickedItems.value.map(({ name, ...line }) => line)
     if (source.value) payload.pickup_hub_id = source.value
     created.value = (await http.post('/orders', payload)).data.data
     saveHabits()

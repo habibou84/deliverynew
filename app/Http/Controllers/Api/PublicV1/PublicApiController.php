@@ -46,7 +46,8 @@ class PublicApiController extends Controller
 
     public function zones(): AnonymousResourceCollection
     {
-        return ZoneResource::collection(Zone::query()->active()->with('parent')->orderBy('name')->get());
+        // Sans les adresses de l'ancienne application : elles ne servent qu'aux commandes reprises
+        return ZoneResource::collection(Zone::query()->offered()->with('parent')->orderBy('name')->get());
     }
 
     public function hubs(): JsonResponse

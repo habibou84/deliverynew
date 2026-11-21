@@ -35,27 +35,11 @@
         @change="$event.target.value && setDay($event.target.value)"
       >
       <span v-if="filters.day" class="hidden xl:inline text-slate-600">· courses prévues ce jour</span>
-      <RouterLink
-        v-if="untreatedCount" to="/admin/courses/en-retard"
-        class="ml-auto inline-flex items-center gap-1.5 rounded-full bg-red-100 px-3 py-1 font-semibold text-red-800 hover:bg-red-200"
-        :title="'Date de livraison dépassée, pas encore livrées, retournées ni annulées'"
-      >
-        <Icone nom="retard" taille="petite" /> {{ untreatedCount }} en retard ›
-      </RouterLink>
     </div>
 
     <!-- Point du jour : livrées, recette, encaissé, à reverser -->
     <DayPoint v-if="isStaff && isDispatch" :day="filters.day" @delivered="showDelivered" />
 
-    <!-- Ramassages pas faits à leur date : cachés chez les livreurs jusqu'à la nouvelle date -->
-    <RouterLink
-      v-if="isStaff && rescheduleCount" to="/admin/courses/en-retard?onglet=pas-ramassees"
-      class="card flex items-center gap-3 border-amber-300 bg-amber-50 px-3 py-2 text-amber-900 hover:bg-amber-100"
-    >
-      <Icone nom="attente" class="text-amber-800" />
-      <span class="min-w-0 flex-1 text-sm"><b>{{ rescheduleCount }} colis à reporter</b> : pas ramassé{{ rescheduleCount > 1 ? 's' : '' }} à la date prévue, caché{{ rescheduleCount > 1 ? 's' : '' }} chez les livreurs jusqu'à la nouvelle date</span>
-      <span class="text-sm font-semibold underline">Voir</span>
-    </RouterLink>
 
     <!-- Cas à régler : cartes visibles seulement s'il y en a, jusqu'à ce qu'ils soient réglés -->
     <div v-if="isStaff && exceptionCards.length" class="grid grid-cols-2 gap-2 lg:grid-cols-4">
@@ -484,8 +468,6 @@ const exceptionCount = (queue) => {
 }
 const exceptionCards = computed(() => EXCEPTIONS.map((e) => ({ ...e, count: exceptionCount(e.value) })).filter((e) => e.count > 0 || filters.queue === e.value))
 // Courses non traitées (jour de livraison dépassé), toutes dates : page à part
-const rescheduleCount = computed(() => (isDispatch.value ? dispatchCounts.counts.to_reschedule || 0 : 0))
-const untreatedCount = computed(() => (isDispatch.value ? dispatchCounts.counts.exceptions?.untreated || 0 : 0))
 
 const filters = reactive({
   // Ancienne adresse « Ramassages par client » : onglet Sans ramasseur, vue par client

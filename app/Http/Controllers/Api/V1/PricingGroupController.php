@@ -26,7 +26,7 @@ class PricingGroupController extends Controller
         $covered = $groups->flatMap(fn (PricingGroup $g) => $g->zones->pluck('id'))->flip();
 
         // Lieux actifs sans prix par destination : ni eux ni le lieu qui les contient ne sont dans un groupe
-        $zones = Zone::query()->active()->get(['id', 'parent_id', 'name', 'place_code', 'is_shipping']);
+        $zones = Zone::query()->offered()->get(['id', 'parent_id', 'name', 'place_code', 'is_shipping']);
         $byId = $zones->keyBy('id');
         $missing = $zones->filter(function (Zone $zone) use ($covered, $byId) {
             for ($z = $zone, $depth = 0; $z !== null && $depth < 5; $z = $byId->get($z->parent_id), $depth++) {
@@ -101,7 +101,7 @@ class PricingGroupController extends Controller
 
         return response()->json(['data' => [
             ...$quote->toArray(),
-            'source' => $group ? 'group' : 'rule',
+            'source' => $group ? 'group' : ($rule ? 'rule' : 'base'),
             'group' => $group?->name,
             'rule' => $rule ? [Zone::find($rule->origin_zone_id)?->name, Zone::find($rule->destination_zone_id)?->name] : null,
             'grid_id' => $quote->pricingGridId,

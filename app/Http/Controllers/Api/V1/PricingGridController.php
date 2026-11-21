@@ -50,6 +50,8 @@ class PricingGridController extends Controller
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:100'],
             'is_default' => ['sometimes', 'accepted'], // on désigne une nouvelle grille par défaut, on ne retire pas
+            // Prix de base : toute destination sans prix (ni le sien, ni celui de sa commune) ; vide pour l'enlever
+            'base_price' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:10000000'],
         ]);
 
         DB::transaction(function () use ($pricingGrid, $data) {
