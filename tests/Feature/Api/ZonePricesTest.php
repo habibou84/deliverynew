@@ -6,6 +6,8 @@ use App\Exceptions\BusinessRuleException;
 use App\Http\Resources\V1\ZoneResource;
 use App\Models\PricingGrid;
 use App\Models\PricingGroup;
+use App\Models\Zone;
+use App\Services\Pricing\PricingService;
 use App\Services\Zones\StandardZones;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
@@ -103,5 +105,28 @@ class ZonePricesTest extends TestCase
         Sanctum::actingAs($this->dispatcher);
 
         $this->setPrice($this->plateau->id, 2000)->assertForbidden();
+    }
+
+    public function test_departure_tiers_are_kept_with_the_grid_and_the_prices_stay_routes(): void
+    {
+        $other = Zone::withoutGlobalScopes()->where('company_id', '!=', $this->company->id)->value('id');
+
+        // Paliers d'une commune de départ : enregistrés avec la grille (zone d'une autre entreprise ignorée)
+        $this->putJson("/api/v1/pricing-grids/{$this->grid->id}", ['tiers' => [
+            $this->plateau->id => [1000, 1500, 2000, 3000],
+            ...($other ? [$other => [500]] : []),
+        ]])->assertOk()->assertJsonPath("data.tiers.{$this->plateau->id}", [1000, 1500, 2000, 3000]);
+        $this->assertSame([$this->plateau->id => [1000, 1500, 2000, 3000]], $this->grid->fresh()->tiers);
+        $this->getJson("/api/v1/pricing-grids/{$this->grid->id}")->assertJsonPath("data.tiers.{$this->plateau->id}.1", 1500);
+
+        // Plus de quatre paliers : refusé
+        $this->putJson("/api/v1/pricing-grids/{$this->grid->id}", ['tiers' => [$this->plateau->id => [1, 2, 3, 4, 5]]])->assertJsonValidationErrors('tiers.'.$this->plateau->id);
+
+        // Le palier touché devient un trajet départ → arrivée, valable dans les deux sens
+        $this->putJson("/api/v1/pricing-grids/{$this->grid->id}/rules", ['rules' => [
+            ['origin_zone_id' => $this->plateau->id, 'destination_zone_id' => $this->yopougon->id, 'price' => 3000, 'is_symmetric' => true],
+        ]])->assertOk();
+        $quote = app(PricingService::class)->quote($this->merchant, $this->yopougon, $this->plateau);
+        $this->assertSame(3000, $quote->basePrice);
     }
 }

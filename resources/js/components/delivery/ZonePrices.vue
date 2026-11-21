@@ -1,6 +1,6 @@
 <template>
-  <!-- Zones et prix : prix de base, puis chaque commune (on ramasse, on livre, son prix, valable pour ses quartiers) et
-       ses quartiers à déplier (prix à part seulement s'il diffère) ; les trajets particuliers en liste à part -->
+  <!-- Zones et prix : prix de base, puis chaque commune (on ramasse, on livre) et le bouton de ses prix au départ, qui
+       ouvre sa fenêtre (paliers, puis un palier par destination) ; vue d'ensemble départ × arrivée -->
   <section class="space-y-3">
     <div class="flex flex-wrap items-center gap-2">
       <input v-model="query" type="search" class="input w-full sm:w-80" placeholder="Chercher une commune ou un quartier" aria-label="Chercher un lieu">
@@ -10,12 +10,12 @@
     </div>
 
     <p class="text-sm text-slate-600">
-      Le prix d'une commune vaut pour tous ses quartiers. Donnez un prix à part seulement au quartier qui diffère.
-      <template v-if="!isDefault"> Laissé vide, le prix est celui de la grille normale.</template>
+      Touchez « Prix au départ » d'une commune : vous réglez ses prix vers toutes les destinations, par paliers. Un prix vaut dans les deux sens.
+      <template v-if="!isDefault"> Sans prix ici, c'est celui de la grille normale.</template>
     </p>
-    <p v-if="isDefault && missingCount" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-      {{ missingCount }} commune{{ missingCount > 1 ? 's' : '' }} livrée{{ missingCount > 1 ? 's' : '' }} sans prix ({{ missingNames }}) :
-      réglez leur prix, ou un prix de base pour toutes.
+    <p v-if="isDefault && baseDraft === null && missingCount" class="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+      {{ missingCount }} trajet{{ missingCount > 1 ? 's' : '' }} entre communes sans prix ({{ missingNames }}) :
+      réglez-les, ou donnez un prix de base.
     </p>
 
     <!-- Les communes et quartiers viennent de la liste commune : un quartier manquant se signale, il sera ajouté pour
@@ -62,7 +62,7 @@
       <div v-if="isDefault" class="card flex flex-wrap items-center gap-x-6 gap-y-3 p-4">
         <div class="min-w-56 flex-1">
           <p class="font-semibold">Prix de base</p>
-          <p class="text-sm text-slate-600">Pour toute commune ou quartier sans prix. Plus aucune course bloquée faute de tarif.</p>
+          <p class="text-sm text-slate-600">Pour tout trajet sans prix. Plus aucune course bloquée faute de tarif.</p>
         </div>
         <label class="flex items-center gap-2">
           <input :value="baseDraft ?? ''" inputmode="numeric" placeholder="—" class="input w-36 py-2 text-right text-base tabular-nums" aria-label="Prix de base" @change="setBase($event.target.value)">
@@ -73,7 +73,7 @@
       <!-- Destinations : la commune d'abord (son prix vaut pour tous ses quartiers), les quartiers à la demande -->
       <div class="card divide-y overflow-hidden">
         <div class="hidden grid-cols-[minmax(12rem,1fr)_7rem_7rem_17rem] items-center gap-4 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-600 md:grid">
-          <span>Destination</span><span class="text-center">On ramasse</span><span class="text-center">On livre</span><span class="text-right">Prix</span>
+          <span>Commune</span><span class="text-center">On ramasse</span><span class="text-center">On livre</span><span class="text-right">Prix au départ</span>
         </div>
         <template v-for="c in [...shownCommunes, ...(inlandOpen || query.trim() ? inlandCities : [])]" :key="c.id">
           <div :class="['grid grid-cols-2 items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[minmax(12rem,1fr)_7rem_7rem_17rem]', c.is_active ? '' : 'bg-slate-50']">
@@ -95,20 +95,16 @@
             <label class="flex items-center gap-2 text-sm md:justify-center">
               <input type="checkbox" class="h-5 w-5" :checked="c.is_active" :disabled="busy[c.id]" :aria-label="`On livre ici : ${c.name}`" @change="toggleActive(c)"><span class="md:hidden">On livre</span>
             </label>
-            <div class="col-span-2 flex items-center justify-end gap-2 md:col-span-1">
-              <span v-if="fallbackHint(c)" class="whitespace-nowrap text-xs text-slate-500">{{ fallbackHint(c) }}</span>
-              <input
-                :value="ownPrice(c) ?? ''" :placeholder="fallbackLabel(c)" inputmode="numeric" :disabled="!c.is_active"
-                :class="['input w-32 py-2 text-right text-base tabular-nums', missing(c) ? 'border-amber-500' : '']"
-                :aria-label="`Prix vers ${c.name}`" @change="setOwnPrice(c, $event.target.value)"
-              ><span class="text-sm text-slate-600">F</span>
+            <div class="col-span-2 flex items-center justify-end gap-3 md:col-span-1">
+              <span v-if="c.is_active" class="text-xs tabular-nums text-slate-600">{{ progress(c).done }}/{{ progress(c).total }} réglés</span>
+              <button type="button" class="btn-secondary py-1.5" :disabled="!c.is_active" :aria-label="`Prix au départ de ${c.name}`" @click="departure = c">Prix au départ</button>
             </div>
           </div>
           <!-- Quartiers : sans prix, celui de la commune ; un prix à part seulement s'il diffère -->
           <template v-if="isOpen(c)">
             <div v-for="q in childrenOf(c)" :key="q.id" :class="['grid grid-cols-2 items-center gap-x-4 gap-y-2 bg-slate-50/60 py-2.5 pl-8 pr-4 md:grid-cols-[minmax(12rem,1fr)_7rem_7rem_17rem]', q.is_active ? '' : 'opacity-60']">
               <p class="col-span-2 min-w-0 md:col-span-1">↳ {{ q.name }}
-                <span v-if="ownPrice(q) !== null" class="ml-1 rounded-full bg-emerald-50 px-1.5 text-xs text-emerald-800 ring-1 ring-emerald-200">prix à part</span>
+                <span v-if="hasOwnDeparture(q)" class="ml-1 rounded-full bg-emerald-50 px-1.5 text-xs text-emerald-800 ring-1 ring-emerald-200">prix à part</span>
               </p>
               <label class="flex items-center gap-2 text-sm md:justify-center">
                 <input type="checkbox" class="h-5 w-5" :checked="pickupOn(q)" :disabled="busy[q.id] || parentPickupOff(q)" :aria-label="`On ramasse ici : ${q.name}`" @change="togglePickup(q)"><span class="md:hidden">On ramasse</span>
@@ -116,14 +112,7 @@
               <label class="flex items-center gap-2 text-sm md:justify-center">
                 <input type="checkbox" class="h-5 w-5" :checked="q.is_active" :disabled="busy[q.id]" :aria-label="`On livre ici : ${q.name}`" @change="toggleActive(q)"><span class="md:hidden">On livre</span>
               </label>
-              <div class="col-span-2 flex items-center justify-end gap-2 md:col-span-1">
-                <button v-if="ownPrice(q) !== null" type="button" class="text-xs text-slate-600 hover:underline" :title="`Remettre le prix de ${c.name}`" @click="setOwnPrice(q, '')">↺</button>
-                <span v-else-if="fallbackHint(q)" class="whitespace-nowrap text-xs text-slate-500">{{ fallbackHint(q) }}</span>
-                <input
-                  :value="ownPrice(q) ?? ''" :placeholder="fallbackLabel(q)" inputmode="numeric" :disabled="!q.is_active"
-                  class="input w-32 py-1.5 text-right tabular-nums" :aria-label="`Prix vers ${q.name}`" @change="setOwnPrice(q, $event.target.value)"
-                ><span class="text-sm text-slate-600">F</span>
-              </div>
+              <p class="col-span-2 text-right text-xs text-slate-500 md:col-span-1">{{ hasOwnDeparture(q) ? 'prix à part au départ' : `suit ${c.name}` }}</p>
             </div>
           </template>
         </template>
@@ -133,38 +122,36 @@
         <p v-if="!shownCommunes.length && !inlandCities.length" class="p-6 text-center text-slate-600">Aucun lieu ne correspond.</p>
       </div>
 
-      <!-- Trajets particuliers : seulement ceux qui diffèrent du prix de la destination -->
-      <section class="card space-y-3 p-4">
-        <div>
-          <p class="font-semibold">Trajets particuliers</p>
-          <p class="text-sm text-slate-600">Un prix précis d'un lieu vers un autre, qui passe avant le prix de la destination. Dans les deux sens, sauf si le sens inverse a son propre prix.</p>
+      <!-- Vue d'ensemble : départ en ligne, arrivée en colonne ; en gris, le prix qui s'applique faute de trajet réglé -->
+      <details class="card p-4">
+        <summary class="cursor-pointer font-semibold">Vue d'ensemble des prix entre communes</summary>
+        <p class="mt-2 text-sm text-slate-600">Départ en ligne, arrivée en colonne. En gris : pas de trajet réglé, c'est le prix habituel ou le prix de base. Touchez une commune pour l'ouvrir.</p>
+        <div class="mt-3 overflow-x-auto">
+          <table class="border-collapse text-xs tabular-nums">
+            <tr>
+              <th class="border bg-slate-50 px-2 py-1.5" />
+              <th v-for="b in overview" :key="b.id" class="border bg-slate-50 px-2 py-1.5 font-semibold" :title="b.name">{{ b.name.slice(0, 5) }}{{ b.name.length > 5 ? '.' : '' }}</th>
+            </tr>
+            <tr v-for="a in overview" :key="a.id">
+              <th class="border bg-slate-50 px-2 py-1.5 text-left"><button type="button" class="font-semibold text-emerald-700 hover:underline" @click="departure = a">{{ a.name }}</button></th>
+              <td v-for="b in overview" :key="b.id" :class="['border px-2 py-1.5 text-center', cell(a, b).kind === 'route' ? '' : 'text-slate-400']">{{ cell(a, b).price === null ? '—' : cell(a, b).price.toLocaleString('fr-FR') }}</td>
+            </tr>
+          </table>
         </div>
-        <ul v-if="trips.length" class="divide-y rounded-lg border">
-          <li v-for="t in shownTrips" :key="t.key" class="flex flex-wrap items-center gap-3 px-3 py-2.5">
-            <span class="min-w-48 flex-1">De <b>{{ label(t.origin) }}</b> {{ t.both ? '↔' : '→' }} <b>{{ label(t.destination) }}</b></span>
-            <input :value="t.price" inputmode="numeric" class="input w-28 py-1.5 text-right tabular-nums" :aria-label="`Prix ${label(t.origin)} vers ${label(t.destination)}`" @change="setCell(t.origin, t.destination, $event.target.value)">
+      </details>
+
+      <!-- Prix habituels par destination (réglage d'avant les prix au départ) : encore appliqués faute de trajet -->
+      <details v-if="usual.length" class="card p-4">
+        <summary class="cursor-pointer font-semibold">Prix habituels par destination ({{ usual.length }})</summary>
+        <p class="mt-2 text-sm text-slate-600">Prix vers une destination d'où que parte le colis, quand aucun trajet n'est réglé. Videz-en un pour qu'il suive le prix de base.</p>
+        <ul class="mt-3 divide-y rounded-lg border">
+          <li v-for="z in usual" :key="z.id" class="flex flex-wrap items-center gap-3 px-3 py-2">
+            <span class="min-w-40 flex-1">{{ label(z.id) }}</span>
+            <input :value="ownPrice(z) ?? ''" inputmode="numeric" class="input w-28 py-1.5 text-right tabular-nums" :aria-label="`Prix habituel vers ${z.name}`" @change="setOwnPrice(z, $event.target.value)">
             <span class="text-sm text-slate-600">F</span>
-            <button type="button" class="text-sm text-red-700" :aria-label="`Supprimer le trajet ${label(t.origin)} vers ${label(t.destination)}`" @click="setCell(t.origin, t.destination, '')">✕</button>
           </li>
         </ul>
-        <button v-if="trips.length > 8" type="button" class="text-sm font-medium text-emerald-700 hover:underline" @click="showAllTrips = !showAllTrips">{{ showAllTrips ? 'Voir moins' : `Voir les ${trips.length} trajets` }}</button>
-        <p v-if="!trips.length" class="text-sm text-slate-600">Aucun trajet particulier : chaque course prend le prix de sa destination.</p>
-        <div class="flex flex-wrap items-end gap-2">
-          <div class="min-w-44 flex-1">
-            <label class="label" for="trip-from">De</label>
-            <SearchSelect id="trip-from" v-model="trip.origin" placeholder="— Départ —" :empty-value="null" search-placeholder="Commune ou quartier…" :options="placeOptions" />
-          </div>
-          <div class="min-w-44 flex-1">
-            <label class="label" for="trip-to">Vers</label>
-            <SearchSelect id="trip-to" v-model="trip.destination" placeholder="— Arrivée —" :empty-value="null" search-placeholder="Commune ou quartier…" :options="placeOptions" />
-          </div>
-          <div class="w-32">
-            <label class="label" for="trip-price">Prix (F)</label>
-            <input id="trip-price" v-model="trip.price" inputmode="numeric" class="input text-right" placeholder="Ex. : 2500">
-          </div>
-          <button type="button" class="btn-secondary" :disabled="!trip.origin || !trip.destination || trip.origin === trip.destination || trip.price === ''" @click="addTrip">+ Ajouter</button>
-        </div>
-      </section>
+      </details>
 
       <!-- Enregistrer : les prix saisis dans le tableau (les cases à cocher s'enregistrent tout de suite) -->
       <div class="sticky bottom-0 z-30 flex flex-wrap items-center gap-3 rounded-xl border bg-white p-3 shadow-lg">
@@ -174,6 +161,12 @@
         <button v-if="changes" type="button" class="btn-secondary" :disabled="saving" @click="load">Annuler</button>
         <button type="button" class="btn-primary" :disabled="!changes || saving" @click="save">{{ saving ? 'Enregistrement…' : 'Enregistrer les prix' }}</button>
       </div>
+
+      <DeparturePrices
+        v-if="departure" :commune="departure" :zones="zones" :prices="prices" :own="own" :base="baseDraft" :is-default="isDefault"
+        :tiers="tiersOf(departure)" :changes="changes" :saving="saving"
+        @close="departure = null" @set="setCell" @tiers="(list) => setTiers(departure, list)" @save="save" @cancel="load"
+      />
 
       <!-- Zones d'expédition -->
       <section v-if="shipping.length" class="space-y-2">
@@ -213,12 +206,14 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { confirmDialog, promptDialog } from '../../composables/useDialog'
 import SearchSelect from '../SearchSelect.vue'
+import DeparturePrices from './DeparturePrices.vue'
+import { resolveRoute } from '../../utils/routePrices'
 
 /**
- * Zones et prix. Prix de base (toute destination sans prix). Puis chaque commune : « on ramasse », « on livre »
- * (enregistrés tout de suite) et son prix, qui vaut pour tous ses quartiers ; ses quartiers se déplient, un prix à part
- * seulement s'il diffère. Les trajets particuliers (d'un lieu vers un autre) sont une liste d'exceptions. Les prix
- * s'enregistrent ensemble.
+ * Zones et prix. Prix de base (tout trajet sans prix). Puis chaque commune : « on ramasse », « on livre »
+ * (enregistrés tout de suite) et « Prix au départ », qui ouvre sa fenêtre : paliers de la commune, puis un palier par
+ * destination, depuis la commune ou un de ses quartiers (DeparturePrices). Vue d'ensemble départ × arrivée. Les prix
+ * habituels par destination (réglage d'avant) restent appliqués faute de trajet. Les prix s'enregistrent ensemble.
  */
 const props = defineProps({ gridId: { type: Number, required: true }, isDefault: { type: Boolean, default: true } })
 
@@ -270,30 +265,13 @@ function toggleOpen(c) {
   next.has(c.id) ? next.delete(c.id) : next.add(c.id)
   opened.value = next
 }
-const ownCount = (c) => childrenOf(c).filter((q) => ownPrice(q) !== null).length
+const ownCount = (c) => childrenOf(c).filter((q) => hasOwnDeparture(q)).length
 // Villes de l'intérieur masquées (elles passent par l'Expédition) : rangées à part, repliées
 const inland = (c) => !c.is_active && !!c.place && !c.place.startsWith('abidjan')
 const matches = (c) => { const q = norm(query.value.trim()); return !q || norm(c.name).includes(q) || childrenOf(c).some((z) => norm(z.name).includes(q)) }
 const shownCommunes = computed(() => communes.value.filter((c) => !inland(c) && matches(c)))
 const inlandCities = computed(() => communes.value.filter((c) => inland(c) && matches(c)))
 const inlandOpen = ref(false)
-const showAllTrips = ref(false)
-const shownTrips = computed(() => (showAllTrips.value ? trips.value : trips.value.slice(0, 8)))
-// Prix appliqué sans prix propre : celui de la commune, sinon le prix de base
-function fallbackLabel(z) {
-  const parent = z.parent_id ? byId.value[z.parent_id] : null
-  if (parent && ownPrice(parent) !== null) return String(ownPrice(parent))
-  if (baseDraft.value !== null) return String(baseDraft.value)
-  return '—'
-}
-// D'où vient le prix d'une destination sans prix propre (écrit à côté de la case)
-function fallbackHint(z) {
-  if (ownPrice(z) !== null) return ''
-  const parent = z.parent_id ? byId.value[z.parent_id] : null
-  if (parent && ownPrice(parent) !== null) return `comme ${parent.name}`
-  if (baseDraft.value !== null) return 'prix de base'
-  return props.isDefault ? '' : 'grille normale'
-}
 // Prix de base de la grille (enregistré avec les autres prix)
 const baseSaved = ref(null)
 const baseDraft = ref(null)
@@ -303,22 +281,40 @@ function setBase(raw) {
 }
 // Trajets particuliers : un par paire (le sens inverse sans prix propre est le même trajet)
 const label = (id) => { const z = byId.value[id]; return z ? (z.parent_id ? `${z.name} (${byId.value[z.parent_id]?.name ?? ''})` : z.name) : '?' }
-const trips = computed(() => Object.entries(prices.value).map(([k, price]) => {
-  const [origin, destination] = k.split('-').map(Number)
-  return { key: k, origin, destination, price, both: prices.value[key(destination, origin)] === undefined }
-}).sort((a, b) => label(a.origin).localeCompare(label(b.origin), 'fr')))
-const placeOptions = computed(() => zones.value.filter((z) => !z.is_shipping && z.is_active).map((z) => ({ value: z.id, label: label(z.id) })).sort((a, b) => a.label.localeCompare(b.label, 'fr')))
-const trip = reactive({ origin: null, destination: null, price: '' })
-function addTrip() {
-  setCell(trip.origin, trip.destination, trip.price)
-  Object.assign(trip, { origin: null, destination: null, price: '' })
-}
 const parentPickupOff = (z) => z.parent_id !== null && byId.value[z.parent_id]?.is_pickup === false
 const pickupOn = (z) => z.is_pickup && !parentPickupOff(z)
-const missing = (z) => props.isDefault && z.is_active && !z.parent_id && ownPrice(z) === null && baseDraft.value === null
-const missingList = computed(() => communes.value.filter(missing))
+// Prix au départ : trajet départ → arrivée, sinon prix habituel de la destination, sinon prix de base (comme le calcul)
+const departure = ref(null)
+const cell = (a, b) => resolveRoute(a, b, { byId: byId.value, prices: prices.value, own: own.value, base: baseDraft.value })
+const delivered = computed(() => communes.value.filter((c) => c.is_active))
+const overview = computed(() => delivered.value.filter((c) => !inland(c)))
+function progress(c) {
+  const list = delivered.value
+  return { done: list.filter((d) => cell(c, d).kind === 'route').length, total: list.length }
+}
+const hasOwnDeparture = (z) => Object.keys(prices.value).some((k) => k.startsWith(`${z.id}-`))
+// Trajets entre communes livrées sans aucun prix (ni trajet, ni prix habituel, ni prix de base)
+const missingList = computed(() => overview.value.flatMap((a) => overview.value.filter((b) => b.id >= a.id && cell(a, b).price === null).map((b) => `${a.name} → ${b.name}`)))
 const missingCount = computed(() => missingList.value.length)
-const missingNames = computed(() => missingList.value.slice(0, 4).map((z) => z.name).join(', ') + (missingCount.value > 4 ? '…' : ''))
+const missingNames = computed(() => missingList.value.slice(0, 3).join(', ') + (missingCount.value > 3 ? '…' : ''))
+// Prix habituels par destination encore enregistrés (hors zones d'expédition)
+const usual = computed(() => zones.value.filter((z) => !z.is_shipping && (own.value[z.id] ?? null) !== null))
+
+// Paliers de chaque commune de départ : enregistrés avec la grille, sinon tirés de ses prix
+const tiersSaved = ref({})
+const tiers = ref({})
+const DEFAULT_TIERS = [1000, 1500, 2000, 3000]
+function tiersOf(c) {
+  if (tiers.value[c.id]) return tiers.value[c.id]
+  const from = new Set([c.id, ...childrenOf(c).map((q) => q.id)])
+  const used = [...new Set(Object.entries(prices.value).filter(([k]) => k.split('-').map(Number).some((id) => from.has(id))).map(([, v]) => v))]
+  const list = [...used.sort((x, y) => x - y), ...DEFAULT_TIERS].filter((v, i, a) => a.indexOf(v) === i).slice(0, 4).sort((x, y) => x - y)
+  return list
+}
+function setTiers(c, list) {
+  tiers.value = { ...tiers.value, [c.id]: list }
+}
+const tierChanges = computed(() => JSON.stringify(tiers.value) !== JSON.stringify(tiersSaved.value))
 
 // Changements de prix pas encore enregistrés
 const ownChanges = computed(() => zones.value.filter((z) => (own.value[z.id] ?? null) !== (z.price ?? null)))
@@ -326,7 +322,7 @@ const ruleChanges = computed(() => {
   const keys = new Set([...Object.keys(rules.value), ...Object.keys(prices.value)])
   return [...keys].filter((k) => (rules.value[k] ?? null) !== (prices.value[k] ?? null)).length
 })
-const changes = computed(() => ownChanges.value.length + ruleChanges.value + (baseDraft.value !== baseSaved.value ? 1 : 0))
+const changes = computed(() => ownChanges.value.length + ruleChanges.value + (baseDraft.value !== baseSaved.value ? 1 : 0) + (tierChanges.value ? 1 : 0))
 
 function parse(raw) {
   if (raw === '' || raw === null) return null
@@ -357,6 +353,8 @@ async function load() {
     own.value = Object.fromEntries(zones.value.map((z) => [z.id, z.price ?? null]))
     rules.value = Object.fromEntries(grid.data.data.rules.map((r) => [key(r.origin_zone_id, r.destination_zone_id), r.price]))
     prices.value = { ...rules.value }
+    tiersSaved.value = Object.fromEntries(Object.entries(grid.data.data.tiers ?? {}).map(([k, v]) => [Number(k), v]))
+    tiers.value = { ...tiersSaved.value }
     baseSaved.value = grid.data.data.base_price ?? null
     baseDraft.value = baseSaved.value
     loadError.value = ''
@@ -370,8 +368,8 @@ async function load() {
 async function save() {
   saving.value = true
   try {
-    if (baseDraft.value !== baseSaved.value) {
-      await http.put(`/pricing-grids/${props.gridId}`, { base_price: baseDraft.value })
+    if (baseDraft.value !== baseSaved.value || tierChanges.value) {
+      await http.put(`/pricing-grids/${props.gridId}`, { base_price: baseDraft.value, tiers: tiers.value })
     }
     for (const z of ownChanges.value) {
       await http.put(`/pricing-grids/${props.gridId}/zone-prices/${z.id}`, { price: own.value[z.id] ?? null })
