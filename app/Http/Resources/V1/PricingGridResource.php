@@ -18,6 +18,8 @@ class PricingGridResource extends JsonResource
             'name' => $this->name,
             'is_default' => $this->is_default,
             'base_price' => $this->base_price,
+            // Paliers de prix par commune de départ : { zone_id: [prix…] }
+            'tiers' => (object) ($this->tiers ?? []),
             'rules_count' => $this->whenCounted('rules'),
             'merchants_count' => $this->whenCounted('merchants'),
             'rules' => $this->whenLoaded('rules', fn () => $this->rules->map(fn ($rule) => [
