@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\CspReportController;
 use App\Http\Controllers\Api\NativeAppController;
 use App\Http\Controllers\Api\PublicV1\PublicAccountController;
 use App\Http\Controllers\Api\PublicV1\PublicApiController;
+use App\Http\Controllers\Api\PublicV1\PublicReturnHandoverController;
 use App\Http\Controllers\Api\V1\AccountDeletionController;
 use App\Http\Controllers\Api\V1\ApiKeyController;
 use App\Http\Controllers\Api\V1\AppearanceController;
@@ -166,6 +167,12 @@ Route::prefix('public/v1')->name('public.')->middleware(['api.key', 'throttle:pu
     Route::post('orders/{trackingCode}/rating', 'rate')->middleware($write)->name('orders.rating');
     Route::get('reports/summary', 'summary')->middleware($read)->name('reports.summary');
     Route::get('products', 'products')->middleware('api.scope:'.ApiScope::StockRead->value)->name('products');
+    // Contrat 1.14 : remise des retours confirmée par le marchand (tout reçu, il en manque)
+    Route::controller(PublicReturnHandoverController::class)->group(function () use ($read, $write) {
+        Route::get('return-handovers', 'index')->middleware($read)->name('return-handovers.index');
+        Route::post('return-handovers/{reference}/confirm', 'confirm')->middleware($write)->name('return-handovers.confirm');
+        Route::post('return-handovers/{reference}/dispute', 'dispute')->middleware($write)->name('return-handovers.dispute');
+    });
 
     // Compte du marchand : identité, adresses webhook, reversements
     Route::controller(PublicAccountController::class)->group(function () {
