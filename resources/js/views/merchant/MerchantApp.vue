@@ -25,7 +25,7 @@ import http from '../../bootstrap/axios'
 import { loadBranding, spaceColor } from '../../composables/useBranding'
 import { useAuthStore } from '../../stores/auth'
 import { cachedGet } from '../../composables/useCachedApi'
-import { orderChanges } from '../../composables/useRealtime'
+import { orderListChanges } from '../../composables/useRealtime'
 
 const auth = useAuthStore()
 
@@ -86,7 +86,7 @@ async function loadToDecide() {
     // Hors ligne : la cloche garde son dernier nombre
   }
 }
-watch(orderChanges, loadToDecide)
+watch(orderListChanges, loadToDecide)
 onMounted(loadToDecide)
 
 // Couleur et logo choisis par l'entreprise (Paramètres › Apparence)

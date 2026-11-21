@@ -143,7 +143,7 @@ import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import PushInvite from '../../components/mobile/PushInvite.vue'
 import ReturnHandoverBanner from '../../components/merchant/ReturnHandoverBanner.vue'
 import { useAuthStore } from '../../stores/auth'
-import { orderChanges } from '../../composables/useRealtime'
+import { orderListChanges } from '../../composables/useRealtime'
 import { date, localPhone, money } from '../../utils/format'
 import { GROUPS, orderStage } from '../../utils/orderStage'
 import { ORDER_FILTERS, filterParams } from '../../utils/orderFilters'
@@ -272,7 +272,7 @@ async function loadBalance() {
   }
 }
 
-watch(orderChanges, () => {
+watch(orderListChanges, () => {
   load()
   loadBalance()
 })

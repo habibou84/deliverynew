@@ -360,7 +360,7 @@ import AutoAssignBanner from '../../components/AutoAssignBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
 import { useDispatchCountStore } from '../../stores/dispatchCounts'
-import { orderChanges, lastOrderChange } from '../../composables/useRealtime'
+import { orderListChanges, lastOrderChange } from '../../composables/useRealtime'
 import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
 import { confirmDialog, promptDialog } from '../../composables/useDialog'
 import Icone from '../../components/ui/Icone.vue'
@@ -805,7 +805,7 @@ watch(() => route.query.search, (value) => {
 onUnmounted(() => { dispatchCounts.day = null })
 
 // Rafraîchissement temps réel
-watch(orderChanges, async () => {
+watch(orderListChanges, async () => {
   await load(meta.value?.current_page || 1)
   highlighted.value = lastOrderChange.value?.order?.id
   setTimeout(() => { highlighted.value = null }, 3000)
