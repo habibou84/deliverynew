@@ -22,7 +22,8 @@ class ZonePriceController extends Controller
     public function index(PricingGrid $pricingGrid): JsonResponse
     {
         $own = $this->ownPrices($pricingGrid);
-        $zones = Zone::query()->with('parent:id,name')
+        // Adresses de l'ancienne application : rubrique à part (elles ne servent qu'aux commandes reprises)
+        $zones = Zone::query()->with('parent:id,name')->where('legacy', false)
             ->orderByRaw('COALESCE(parent_id, id)')->orderByRaw('parent_id IS NOT NULL')->orderBy('sort_order')->orderBy('name')
             ->get();
         $byId = $zones->keyBy('id');
