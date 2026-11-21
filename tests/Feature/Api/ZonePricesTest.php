@@ -129,4 +129,15 @@ class ZonePricesTest extends TestCase
         $quote = app(PricingService::class)->quote($this->merchant, $this->yopougon, $this->plateau);
         $this->assertSame(3000, $quote->basePrice);
     }
+
+    public function test_addresses_of_the_old_application_stay_out_of_the_price_list(): void
+    {
+        $old = Zone::create(['company_id' => $this->company->id, 'name' => 'Carrefour Siporex (ancienne)', 'is_active' => true, 'legacy' => true]);
+        $oldChild = Zone::create(['company_id' => $this->company->id, 'parent_id' => $this->cocody->id, 'name' => 'Angré 8e tranche (ancienne)', 'is_active' => true, 'legacy' => true]);
+
+        $ids = collect($this->getJson("/api/v1/pricing-grids/{$this->grid->id}/zone-prices")->assertOk()->json('data.zones'))->pluck('id');
+        $this->assertNotContains($old->id, $ids);
+        $this->assertNotContains($oldChild->id, $ids);
+        $this->assertContains($this->cocody->id, $ids);
+    }
 }
