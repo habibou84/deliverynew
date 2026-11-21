@@ -16,6 +16,16 @@
         <span class="block text-slate-600">Si le colis est chez un autre livreur, celui qui livre doit d'abord le recevoir en scannant le QR code de l'autre livreur avant de partir livrer.</span>
       </span>
     </label>
+    <label class="flex items-start gap-2 text-sm">
+      <input v-model="form.return_confirmation" type="checkbox" class="mt-1">
+      <span>Faire confirmer chaque retour par le marchand
+        <span class="block text-slate-600">
+          À la remise, le livreur affiche un QR code : le marchand le scanne, WhatsApp s'ouvre sur votre numéro avec le message déjà écrit,
+          il touche Envoyer. Sans scan, il écrit « retour » à votre numéro ou confirme dans son application. Sans téléphone : signature ou
+          photo et motif, l'agence vérifie (Courses › Retours marchands). Aucun message payant : c'est le marchand qui écrit en premier.
+        </span>
+      </span>
+    </label>
     <MoreHelp>
       Hors connexion, le livreur peut enregistrer « récupéré », « en route », « livré » (avec l'encaissement), un échec, un report ou une note,
       à l'heure où ils ont été faits. Une livraison avec un code client faux est gardée mais signalée (file « Codes à vérifier »).

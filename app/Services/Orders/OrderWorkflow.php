@@ -23,6 +23,7 @@ use App\Services\Merchants\MerchantLocation;
 use App\Services\Stock\StockKeeper;
 use App\Support\Money;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
@@ -210,6 +211,13 @@ class OrderWorkflow
                 OrderStatus::Returning, OrderStatus::Returned => $holds(AssignmentType::Return),
                 default => false,
             };
+
+            // Remise au marchand confirmée par lui (ou remise de secours) quand l'entreprise l'exige : jamais par la simple
+            // étape « rendu » (la preuve est un bon de retour ou une remise, jamais une valeur venue de la requête)
+            if ($allowed && $to === OrderStatus::Returned && $order->company?->return_confirmation
+                && ! (($context['return_proof'] ?? null) instanceof Model)) {
+                throw new BusinessRuleException('Faites confirmer la remise par le marchand : touchez « Remettre au marchand ».', 'status');
+            }
 
             if ($allowed && in_array($to, [OrderStatus::OutForDelivery, OrderStatus::Delivered, OrderStatus::DeliveryFailed, OrderStatus::Rescheduled], true)) {
                 $this->ensureDeliveryDay($order, $context['occurred_at'] ?? null);
