@@ -1,5 +1,6 @@
 <template>
   <div class="space-y-3.5">
+    <ReturnHandoverBanner v-if="auth.user?.merchant_id" />
     <!-- Ma journée (courses à livrer aujourd'hui) : nombre, argent encaissé et à encaisser, où en sont les courses -->
     <section class="relative overflow-hidden rounded-[24px] bg-brand-grad p-4 text-white">
       <svg class="pointer-events-none absolute -right-6 -top-8 opacity-[.12]" width="170" height="170" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 5.5 40.5 14v20L24 42.5 7.5 34V14z" fill="#fff" /></svg>
@@ -140,6 +141,7 @@ import OrderCard from '../../components/mobile/OrderCard.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
 import InstallBanner from '../../components/mobile/InstallBanner.vue'
 import PushInvite from '../../components/mobile/PushInvite.vue'
+import ReturnHandoverBanner from '../../components/merchant/ReturnHandoverBanner.vue'
 import { useAuthStore } from '../../stores/auth'
 import { orderChanges } from '../../composables/useRealtime'
 import { date, localPhone, money } from '../../utils/format'
