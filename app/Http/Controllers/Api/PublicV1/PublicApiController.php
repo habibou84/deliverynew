@@ -42,7 +42,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class PublicApiController extends Controller
 {
-    private const RELATIONS = ['deliveryZone', 'pickupZone', 'items', 'lastIncidentReason', 'attachments', 'courierRatings'];
+    private const RELATIONS = ['company', 'deliveryZone', 'pickupZone', 'items', 'lastIncidentReason', 'attachments', 'courierRatings'];
 
     public function zones(): AnonymousResourceCollection
     {

@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -65,6 +66,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->frenchRelativeDates();
+
         // Détecte en développement les requêtes N+1 et les attributs non assignables ignorés
         // (la préproduction se comporte comme la production)
         $strict = $this->app->environment('local', 'testing');
@@ -147,5 +150,23 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute((int) config('services.public_api.rate_limit', 120))
                 ->by(preg_match('/^lv_([a-z0-9]{8})_/', $key, $m) ? 'api-key:'.$m[1] : 'api-ip:'.$request->ip());
         });
+    }
+
+    /**
+     * « after_or_equal:today » : « postérieure ou égale à aujourd'hui » (et non « au today »).
+     */
+    private function frenchRelativeDates(): void
+    {
+        $words = ['today' => 'aujourd\'hui', 'tomorrow' => 'demain', 'yesterday' => 'hier', 'now' => 'maintenant'];
+        foreach (['after', 'after_or_equal', 'before', 'before_or_equal', 'date_equals'] as $rule) {
+            Validator::replacer($rule, function (string $message, string $attribute, string $rule, array $parameters, $validator) use ($words) {
+                $date = (string) ($parameters[0] ?? '');
+                $label = $words[strtolower($date)] ?? (strtotime($date) !== false
+                    ? $validator->getDisplayableValue($attribute, $date)
+                    : $validator->getDisplayableAttribute($date));
+
+                return str_replace(':date', $label, $message);
+            });
+        }
     }
 }
