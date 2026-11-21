@@ -35,7 +35,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import http from '../../../bootstrap/axios'
-import { orderChanges } from '../../../composables/useRealtime'
+import { orderListChanges } from '../../../composables/useRealtime'
 import { branding } from '../../../composables/useBranding'
 
 const couriers = ref([])
@@ -60,7 +60,7 @@ function fullscreen() {
   document.documentElement.requestFullscreen?.().catch(() => {})
 }
 
-watch(orderChanges, () => load().catch(() => {}))
+watch(orderListChanges, () => load().catch(() => {}))
 onMounted(() => {
   load()
   timer = setInterval(() => load().catch(() => {}), 30000)

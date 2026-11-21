@@ -40,7 +40,8 @@ class ConsoleSearchController extends Controller
             ->orderBy('name')->limit(self::LIMIT)->get(['id', 'name', 'slug', 'phone', 'status']);
 
         $orders = Order::query()->withoutGlobalScopes()->with('company:id,name')
-            ->where(fn ($w) => $w->where('tracking_code', 'like', '%'.mb_strtoupper($q).'%')
+            // LOWER(…) : même expression que l'index trigramme orders_tracking_code_trgm_index
+            ->where(fn ($w) => $w->whereRaw('LOWER(tracking_code) LIKE ?', [$like])
                 ->when($phone, fn ($w) => $w->orWhere('recipient_phone', 'like', $phone)))
             ->latest('id')->limit(self::LIMIT)->get(['id', 'company_id', 'tracking_code', 'status', 'recipient_name', 'recipient_phone', 'created_at']);
 
