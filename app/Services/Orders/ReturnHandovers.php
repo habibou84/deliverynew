@@ -13,11 +13,11 @@ use App\Models\ReturnHandover;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
 use App\Notifications\ReturnHandoverToReview;
+use App\Support\Files;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Remise au marchand des colis qu'un livreur lui rapporte, avec la preuve que le marchand les a reçus :
@@ -181,8 +181,8 @@ class ReturnHandovers
                 'status' => ReturnHandover::UNCONFIRMED,
                 'fallback_reason' => $reason,
                 'received_by_name' => $receivedBy,
-                'signature_path' => $signatureData !== null ? tap("{$dir}/signature.png", fn ($p) => Storage::disk('local')->put($p, $signatureData)) : null,
-                'photo_path' => $photo?->store($dir, 'local'),
+                'signature_path' => $signatureData !== null ? tap("{$dir}/signature.png", fn ($p) => Files::private()->put($p, $signatureData)) : null,
+                'photo_path' => $photo?->store($dir, Files::privateDisk()),
                 'lat' => $lat,
                 'lng' => $lng,
                 'handed_at' => now(),

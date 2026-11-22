@@ -164,7 +164,8 @@ class Appearance
 
         [$size, $ratio] = self::ICONS[$variant];
         $own = self::iconPath($company, $app);
-        $source = self::load($disk->path($own ?? $company->logo_path));
+        // Image d'origine sur le disque des fichiers (Files, éventuellement R2) ; icône calculée gardée en local
+        $source = self::load(Files::private()->get($own ?? $company->logo_path));
         if ($source === null) {
             return null;
         }
@@ -205,12 +206,12 @@ class Appearance
         return $disk->path($cached);
     }
 
-    private static function load(string $file): ?\GdImage
+    private static function load(?string $bytes): ?\GdImage
     {
-        if (! is_file($file)) {
+        if ($bytes === null || $bytes === '') {
             return null;
         }
-        $image = @imagecreatefromstring((string) file_get_contents($file));
+        $image = @imagecreatefromstring($bytes);
 
         return $image ?: null;
     }

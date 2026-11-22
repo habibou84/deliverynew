@@ -5,11 +5,11 @@ namespace App\Http\Controllers;
 use App\Models\Company;
 use App\Support\Appearance;
 use App\Support\Branding;
+use App\Support\Files;
 use App\Support\ImageVariants;
 use App\Support\LogoColors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -28,7 +28,7 @@ class BrandingController extends Controller
     public function logo(Request $request): Response
     {
         $path = Branding::company()?->logo_path;
-        abort_if($path === null || ! Storage::disk('local')->exists($path), 404);
+        abort_if($path === null || ! Files::private()->exists($path), 404);
 
         return ImageVariants::response($path, ImageVariants::width($request->query('w'), 320), keepAlpha: true, headers: [
             'Cache-Control' => 'public, max-age=31536000, immutable',
@@ -58,11 +58,11 @@ class BrandingController extends Controller
         ], [], ['logo' => 'logo']);
 
         $previous = $company->logo_path;
-        $path = $request->file('logo')->store("branding/company-{$company->id}", 'local');
+        $path = $request->file('logo')->store("branding/company-{$company->id}", Files::privateDisk());
         $company->forceFill(['logo_path' => $path])->save();
 
         if ($previous && $previous !== $path) {
-            Storage::disk('local')->delete($previous);
+            Files::private()->delete($previous);
             ImageVariants::forget($previous);
         }
 
@@ -84,7 +84,7 @@ class BrandingController extends Controller
         $company = $this->editableCompany($request);
 
         if ($company->logo_path) {
-            Storage::disk('local')->delete($company->logo_path);
+            Files::private()->delete($company->logo_path);
             ImageVariants::forget($company->logo_path);
             $company->forceFill(['logo_path' => null])->save();
         }

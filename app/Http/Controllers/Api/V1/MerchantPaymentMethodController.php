@@ -11,11 +11,11 @@ use App\Models\MerchantPaymentMethod;
 use App\Models\MerchantPaymentMethodEvent;
 use App\Models\User;
 use App\Services\Finance\MerchantPaymentMethods;
+use App\Support\Files;
 use App\Support\PhoneNumber;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -96,9 +96,9 @@ class MerchantPaymentMethodController extends Controller
     public function qr(Request $request, MerchantPaymentMethod $method): StreamedResponse
     {
         $this->authorizeFor($request, $method->merchant);
-        abort_unless($method->qr_path && Storage::disk('local')->exists($method->qr_path), 404);
+        abort_unless($method->qr_path && Files::private()->exists($method->qr_path), 404);
 
-        return Storage::disk('local')->response($method->qr_path);
+        return Files::private()->response($method->qr_path);
     }
 
     /**

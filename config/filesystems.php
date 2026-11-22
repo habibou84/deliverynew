@@ -15,6 +15,9 @@ return [
 
     'default' => env('FILESYSTEM_DISK', 'local'),
 
+    // Fichiers de l'application servis par elle (App\Support\Files) : « local » ou « r2-private » (docs/FICHIERS-R2.md)
+    'private_disk' => env('PRIVATE_DISK', 'local'),
+
     /*
     |--------------------------------------------------------------------------
     | Filesystem Disks
@@ -43,6 +46,22 @@ return [
             'root' => storage_path('app/public'),
             'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
             'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        // Cloudflare R2, espace privé (docs/FICHIERS-R2.md)
+        'r2-private' => [
+            'driver' => 's3',
+            'key' => env('R2_ACCESS_KEY_ID'),
+            'secret' => env('R2_SECRET_ACCESS_KEY'),
+            'region' => 'auto',
+            'bucket' => env('R2_PRIVATE_BUCKET'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'use_path_style_endpoint' => true,
+            'visibility' => 'private',
+            // R2 n'a pas d'ACL par fichier : une copie ne relit pas la visibilité
+            'retain_visibility' => false,
             'throw' => false,
             'report' => false,
         ],

@@ -153,6 +153,7 @@ Les scripts peuvent être **relancés sans risque** : base, `.env` et clés sont
 - Après une modification du `.env` : relancez `deploy/update.sh` (il recompile l'interface et vide les caches).
 - **Sauvegardes** : installées automatiquement (base et fichiers chaque nuit, copie avant chaque mise à jour,
   test de restauration le dimanche). Reste à régler la copie hors du serveur : voir docs/SAUVEGARDES.md.
+- **Fichiers sur Cloudflare R2** (préalable à un second serveur web) : docs/FICHIERS-R2.md.
 
 ## En cas de problème
 

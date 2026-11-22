@@ -23,6 +23,7 @@ use App\Services\Orders\OrderJournal;
 use App\Services\Orders\OrderLosses;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\OrderWorkflow;
+use App\Support\Files;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -311,13 +312,13 @@ class OrderActionController extends Controller
                 'meta' => ['attachment_type' => $data['type']],
             ]);
 
-            $path = $request->file('file')->store("orders/{$order->id}", 'local');
+            $path = $request->file('file')->store("orders/{$order->id}", Files::privateDisk());
 
             return OrderAttachment::create([
                 'order_id' => $order->id,
                 'event_id' => $event->id,
                 'type' => $data['type'],
-                'disk' => 'local',
+                'disk' => Files::privateDisk(),
                 'path' => $path,
                 'mime_type' => $request->file('file')->getMimeType(),
                 'uploaded_by' => $request->user()->id,

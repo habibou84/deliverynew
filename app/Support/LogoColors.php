@@ -3,7 +3,6 @@
 namespace App\Support;
 
 use App\Models\Company;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Couleurs du logo de l'entreprise et palettes proposées pour l'espace e-commerçant. Le fond transparent, le
@@ -25,7 +24,7 @@ class LogoColors
      */
     public static function for(Company $company): array
     {
-        $disk = Storage::disk('local');
+        $disk = Files::private();
         $path = $company->logo_path;
         $colors = $path !== null && $disk->exists($path) && function_exists('imagecreatefromstring')
             ? self::extract((string) $disk->get($path))

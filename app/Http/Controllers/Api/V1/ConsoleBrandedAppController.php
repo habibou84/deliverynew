@@ -8,9 +8,9 @@ use App\Models\BrandedAppBuild;
 use App\Models\Company;
 use App\Services\Platform\BrandedApps;
 use App\Services\Platform\GithubAppsToken;
+use App\Support\Files;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -153,6 +153,6 @@ class ConsoleBrandedAppController extends Controller
         $path = $this->apps->file($build, $app, $kind);
         abort_if($path === null, 404, 'Fichier introuvable.');
 
-        return Storage::disk(BrandedApps::DISK)->download($path, "{$company->slug}-{$app}-{$build->version_name}.{$kind}");
+        return Files::private()->download($path, "{$company->slug}-{$app}-{$build->version_name}.{$kind}");
     }
 }

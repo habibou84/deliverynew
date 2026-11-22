@@ -7,7 +7,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Téléchargement de l'application Android des livreurs : page d'explication, fichier APK, version en ligne (pour
@@ -22,14 +22,12 @@ class CourierAppController extends Controller
         return view('platform.courier-app', ['app' => $this->apk->latest()]);
     }
 
-    public function download(): BinaryFileResponse
+    public function download(): StreamedResponse
     {
         $app = $this->apk->latest();
         abort_if($app === null, 404, 'Application pas encore disponible.');
 
-        return response()->download($this->apk->path(), "jibiat-livreur-{$app['version_name']}.apk", [
-            'Content-Type' => 'application/vnd.android.package-archive',
-        ]);
+        return $this->apk->download("jibiat-livreur-{$app['version_name']}.apk");
     }
 
     public function latest(): JsonResponse

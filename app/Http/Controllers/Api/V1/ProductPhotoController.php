@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\V1\ProductResource;
 use App\Models\Product;
+use App\Support\Files;
 use App\Support\ImageVariants;
 use App\Support\Tenancy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -28,11 +28,11 @@ class ProductPhotoController extends Controller
         ], [], ['photo' => 'photo']);
 
         $previous = $product->photo_path;
-        $path = $request->file('photo')->store("products/merchant-{$product->merchant_id}", 'local');
+        $path = $request->file('photo')->store("products/merchant-{$product->merchant_id}", Files::privateDisk());
         $product->forceFill(['photo_path' => $path])->save();
 
         if ($previous && $previous !== $path) {
-            Storage::disk('local')->delete($previous);
+            Files::private()->delete($previous);
             ImageVariants::forget($previous);
         }
 
@@ -44,7 +44,7 @@ class ProductPhotoController extends Controller
         Gate::authorize('update', $product);
 
         if ($product->photo_path) {
-            Storage::disk('local')->delete($product->photo_path);
+            Files::private()->delete($product->photo_path);
             ImageVariants::forget($product->photo_path);
             $product->forceFill(['photo_path' => null])->save();
         }
@@ -59,7 +59,7 @@ class ProductPhotoController extends Controller
     {
         // Photo publique (boutique) : seulement à l'adresse de l'entreprise du produit
         abort_if(app(Tenancy::class)->zone() === Tenancy::COMPANY && $product->company_id !== app(Tenancy::class)->company()?->id, 404);
-        abort_if($product->photo_path === null || ! Storage::disk('local')->exists($product->photo_path), 404);
+        abort_if($product->photo_path === null || ! Files::private()->exists($product->photo_path), 404);
         // Produit pas publié dans la boutique : seulement avec le lien donné par l'application (empreinte de la
         // photo), pas en essayant les numéros de produit
         if (! ($product->shop_visible && $product->is_active)) {

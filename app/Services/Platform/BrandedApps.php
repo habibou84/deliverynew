@@ -8,11 +8,11 @@ use App\Models\Company;
 use App\Models\User;
 use App\Support\Appearance;
 use App\Support\Branding;
+use App\Support\Files;
 use App\Support\Tenancy;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -29,8 +29,6 @@ class BrandedApps
 
     /** Application fabriquée (mobile/<application>) → espace de l'apparence */
     public const SPACES = ['ecommercant' => 'marchand', 'livreur' => 'livreur'];
-
-    public const DISK = 'local';
 
     /**
      * Réglages proposés pour une nouvelle entreprise : identifiants à partir de son adresse, noms de l'apparence.
@@ -244,7 +242,7 @@ class BrandedApps
      */
     public function store(BrandedAppBuild $build, string $name, string $kind, UploadedFile $file): BrandedAppBuild
     {
-        $path = $file->storeAs($this->folder($build), "{$name}.{$kind}", self::DISK);
+        $path = $file->storeAs($this->folder($build), "{$name}.{$kind}", Files::privateDisk());
         $files = $build->files ?? [];
         $files[$name][$kind] = $path;
         $build->files = $files;
@@ -411,6 +409,6 @@ class BrandedApps
     {
         $path = $build->files[$name][$kind] ?? null;
 
-        return $path !== null && Storage::disk(self::DISK)->exists($path) ? $path : null;
+        return $path !== null && Files::private()->exists($path) ? $path : null;
     }
 }

@@ -24,13 +24,13 @@ use App\Notifications\LiveOrderReceived;
 use App\Services\Orders\OrderService;
 use App\Services\Payments\PayDunya;
 use App\Services\Stock\StockKeeper;
+use App\Support\Files;
 use App\Support\PhoneNumber;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -463,9 +463,9 @@ class LiveStudio
             throw new BusinessRuleException('Ce produit n\'est pas dans votre catalogue.');
         }
         $old = $product->photo_path;
-        $product->forceFill(['photo_path' => $photo->store("products/merchant-{$merchant->id}", 'local')])->save();
+        $product->forceFill(['photo_path' => $photo->store("products/merchant-{$merchant->id}", Files::privateDisk())])->save();
         if ($old && $old !== $product->photo_path) {
-            Storage::disk('local')->delete($old);
+            Files::private()->delete($old);
         }
 
         return $product;
@@ -485,7 +485,7 @@ class LiveStudio
                 'shop_visible' => (bool) ($data['keep_in_catalog'] ?? true),
             ]);
             if ($photo) {
-                $product->forceFill(['photo_path' => $photo->store("products/merchant-{$merchant->id}", 'local')])->save();
+                $product->forceFill(['photo_path' => $photo->store("products/merchant-{$merchant->id}", Files::privateDisk())])->save();
             }
             if (($quantity = (int) ($data['quantity'] ?? 0)) > 0) {
                 $this->stock->receive($user, $product, $this->stock->location($merchant), $quantity, 'Ajouté pour un live');

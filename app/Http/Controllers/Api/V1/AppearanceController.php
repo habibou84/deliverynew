@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Support\Appearance;
+use App\Support\Files;
 use App\Support\LogoColors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Paramètres › Apparence : couleurs des espaces, noms et icônes des applications installables.
@@ -77,10 +77,10 @@ class AppearanceController extends Controller
 
         $saved = $company->appearance ?? [];
         $previous = $saved['spaces'][$space]['icon_path'] ?? null;
-        $saved['spaces'][$space]['icon_path'] = $request->file('icon')->store("branding/company-{$company->id}", 'local');
+        $saved['spaces'][$space]['icon_path'] = $request->file('icon')->store("branding/company-{$company->id}", Files::privateDisk());
         $company->forceFill(['appearance' => $saved])->save();
         if ($previous) {
-            Storage::disk('local')->delete($previous);
+            Files::private()->delete($previous);
         }
 
         return response()->json(['data' => Appearance::for($company)]);
@@ -93,7 +93,7 @@ class AppearanceController extends Controller
 
         $saved = $company->appearance ?? [];
         if ($path = $saved['spaces'][$space]['icon_path'] ?? null) {
-            Storage::disk('local')->delete($path);
+            Files::private()->delete($path);
             unset($saved['spaces'][$space]['icon_path']);
             $company->forceFill(['appearance' => $saved])->save();
         }

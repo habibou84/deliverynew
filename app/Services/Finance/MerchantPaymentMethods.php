@@ -12,10 +12,10 @@ use App\Models\MerchantPaymentMethodEvent;
 use App\Models\User;
 use App\Notifications\MerchantPaymentMethodChanged;
 use App\Services\Messaging\Messenger;
+use App\Support\Files;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Moyens de paiement des marchands. Ce que le marchand ajoute ou change reste « à vérifier » jusqu'à la
@@ -221,14 +221,14 @@ class MerchantPaymentMethods
 
     private function storeQr(MerchantPaymentMethod $method, UploadedFile $qr): void
     {
-        $path = $qr->store("payment-methods/{$method->company_id}/{$method->merchant_id}", 'local');
+        $path = $qr->store("payment-methods/{$method->company_id}/{$method->merchant_id}", Files::privateDisk());
         $method->update(['qr_path' => $path, 'qr_mime' => $qr->getMimeType()]);
     }
 
     private function deleteQr(MerchantPaymentMethod $method): void
     {
         if ($method->qr_path) {
-            Storage::disk('local')->delete($method->qr_path);
+            Files::private()->delete($method->qr_path);
             $method->update(['qr_path' => null, 'qr_mime' => null]);
         }
     }

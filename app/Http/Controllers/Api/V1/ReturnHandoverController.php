@@ -8,9 +8,9 @@ use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\ReturnHandover;
 use App\Services\Orders\ReturnHandovers;
+use App\Support\Files;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -122,9 +122,9 @@ class ReturnHandoverController extends Controller
     {
         abort_unless($request->user()->can(Permission::OrdersDispatch->value) || $request->user()->courier?->id === $returnHandover->courier_id, 403);
         $path = $kind === 'signature' ? $returnHandover->signature_path : $returnHandover->photo_path;
-        abort_if($path === null || ! Storage::disk('local')->exists($path), 404);
+        abort_if($path === null || ! Files::private()->exists($path), 404);
 
-        return Storage::disk('local')->response($path);
+        return Files::private()->response($path);
     }
 
     private function authorizeCourier(Request $request, ReturnHandover $handover): void

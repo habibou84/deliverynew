@@ -18,14 +18,17 @@ class ImageVariants
     /** Réponse avec la version réduite ; l'original si l'image ne peut pas être lue */
     public static function response(string $path, int $width, bool $keepAlpha = false, array $headers = []): Response
     {
+        // Original sur le disque des fichiers (Files, éventuellement R2) ; versions réduites gardées sur le disque
+        // local de chaque serveur (recalculables). Un original remplacé a un nouveau chemin, donc une nouvelle clé.
+        $files = Files::private();
         $disk = Storage::disk('local');
         $format = str_contains((string) request()->header('Accept'), 'image/webp') ? 'webp' : ($keepAlpha ? 'png' : 'jpg');
         $variant = self::variantPath($path, $width, $format);
 
-        if (! $disk->exists($variant) || $disk->lastModified($variant) < $disk->lastModified($path)) {
-            $data = self::resize($disk->get($path), $width, $format);
+        if (! $disk->exists($variant)) {
+            $data = self::resize((string) $files->get($path), $width, $format);
             if ($data === null) {
-                return $disk->response($path, null, $headers);
+                return $files->response($path, null, $headers);
             }
             $disk->put($variant, $data);
         }

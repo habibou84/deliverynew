@@ -9,9 +9,9 @@ use App\Models\Courier;
 use App\Models\Vehicle;
 use App\Models\VehicleDocument;
 use App\Services\Vehicles\VehicleFleet;
+use App\Support\Files;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -96,9 +96,9 @@ class VehicleController extends Controller
     {
         $request->validate(['file' => ['required', 'image', 'max:5120']], [], ['file' => 'photo']);
         $old = $vehicle->photo_path;
-        $vehicle->update(['photo_path' => $request->file('file')->store("vehicles/{$vehicle->company_id}", 'local')]);
+        $vehicle->update(['photo_path' => $request->file('file')->store("vehicles/{$vehicle->company_id}", Files::privateDisk())]);
         if ($old) {
-            Storage::disk('local')->delete($old);
+            Files::private()->delete($old);
         }
 
         return new VehicleResource($vehicle->load(['courier.user', 'documents']));
@@ -106,9 +106,9 @@ class VehicleController extends Controller
 
     public function photoFile(Vehicle $vehicle): StreamedResponse
     {
-        abort_unless($vehicle->photo_path && Storage::disk('local')->exists($vehicle->photo_path), 404);
+        abort_unless($vehicle->photo_path && Files::private()->exists($vehicle->photo_path), 404);
 
-        return Storage::disk('local')->response($vehicle->photo_path);
+        return Files::private()->response($vehicle->photo_path);
     }
 
     /** Papier d'un véhicule (vehicle_id) ou permis d'un livreur (courier_id), avec sa photo ou son PDF */
@@ -144,7 +144,7 @@ class VehicleController extends Controller
             $fields += ['warned_at' => null, 'expired_warned_at' => null];
         }
         if (isset($fields['file_path']) && $document->file_path) {
-            Storage::disk('local')->delete($document->file_path);
+            Files::private()->delete($document->file_path);
         }
         $document->update($fields);
 
@@ -154,7 +154,7 @@ class VehicleController extends Controller
     public function destroyDocument(VehicleDocument $document): JsonResponse
     {
         if ($document->file_path) {
-            Storage::disk('local')->delete($document->file_path);
+            Files::private()->delete($document->file_path);
         }
         $document->delete();
 
@@ -163,9 +163,9 @@ class VehicleController extends Controller
 
     public function documentFile(VehicleDocument $document): StreamedResponse
     {
-        abort_unless($document->file_path && Storage::disk('local')->exists($document->file_path), 404);
+        abort_unless($document->file_path && Files::private()->exists($document->file_path), 404);
 
-        return Storage::disk('local')->response($document->file_path);
+        return Files::private()->response($document->file_path);
     }
 
     /**
@@ -239,7 +239,7 @@ class VehicleController extends Controller
             'notes' => $data['notes'] ?? null,
         ];
         if ($request->hasFile('file')) {
-            $fields['file_path'] = $request->file('file')->store("vehicle-documents/{$request->user()->company_id}", 'local');
+            $fields['file_path'] = $request->file('file')->store("vehicle-documents/{$request->user()->company_id}", Files::privateDisk());
             $fields['file_mime'] = $request->file('file')->getMimeType();
         }
 

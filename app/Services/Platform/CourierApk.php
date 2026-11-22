@@ -2,9 +2,10 @@
 
 namespace App\Services\Platform;
 
+use App\Support\Files;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Application Android « Jibiat Livreur » proposée au téléchargement (jibiat.com/app/livreur) : la dernière version,
@@ -19,7 +20,7 @@ class CourierApk
     /** @return array{version_code: int, version_name: string, size: int, published_at: string}|null */
     public function latest(): ?array
     {
-        $disk = Storage::disk('local');
+        $disk = Files::private();
         if (! $disk->exists(self::FILE) || ! $disk->exists(self::META)) {
             return null;
         }
@@ -28,9 +29,10 @@ class CourierApk
         return is_array($meta) ? $meta : null;
     }
 
-    public function path(): string
+    /** Téléchargement de l'APK, lu en continu sur le disque des fichiers (local ou R2) */
+    public function download(string $name): StreamedResponse
     {
-        return Storage::disk('local')->path(self::FILE);
+        return Files::private()->download(self::FILE, $name, ['Content-Type' => 'application/vnd.android.package-archive']);
     }
 
     /** @return array{version_code: int, version_name: string, size: int, published_at: string} */
@@ -45,7 +47,7 @@ class CourierApk
             throw new RuntimeException("Version {$versionCode} déjà dépassée (en ligne : {$current['version_code']}).");
         }
 
-        $disk = Storage::disk('local');
+        $disk = Files::private();
         $disk->putFileAs('apps', $file, 'livreur.apk.part');
         $disk->move('apps/livreur.apk.part', self::FILE.'.new');
         $disk->delete(self::FILE);
