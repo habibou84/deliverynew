@@ -53,8 +53,6 @@ class AutomaticMessages
                 'templates' => $t(WhatsAppTemplate::DeliveryIncident), 'event' => NotificationEvent::OrderIncident],
             ['id' => 'payout', 'audience' => 'merchant', 'title' => 'Reversement effectué', 'when' => 'Quand son reversement est payé',
                 'templates' => $t(WhatsAppTemplate::PayoutPaid), 'event' => NotificationEvent::PayoutPaid],
-            ['id' => 'returned', 'audience' => 'merchant', 'title' => 'Retour de colis', 'when' => 'Bon de retour confié à un livreur, puis colis rendus',
-                'templates' => $t(WhatsAppTemplate::ReturnSlip, WhatsAppTemplate::ReturnHanded), 'event' => NotificationEvent::ReturnSlip],
             ['id' => 'reschedule_evening', 'audience' => 'merchant', 'title' => 'Colis à reporter', 'when' => 'Le soir, pour les colis pas ramassés : choisir une nouvelle date',
                 'templates' => $t(WhatsAppTemplate::RescheduleRequest), 'column' => 'reschedule_evening', 'channel' => 'Jibiat Marchand, sinon WhatsApp',
                 'link' => fn (Company $c) => ['label' => 'Heure : '.substr((string) ($c->reschedule_evening_time ?? '19:00'), 0, 5), 'to' => '/admin/reglages/courses']],

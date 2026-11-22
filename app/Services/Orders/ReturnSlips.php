@@ -3,29 +3,21 @@
 namespace App\Services\Orders;
 
 use App\Enums\AssignmentType;
-use App\Enums\NotificationEvent;
-use App\Enums\OrderEventType;
 use App\Enums\OrderStatus;
 use App\Enums\ReturnCause;
-use App\Enums\WhatsAppTemplate;
 use App\Exceptions\BusinessRuleException;
 use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\Order;
-use App\Models\ReturnSlip;
 use App\Models\User;
-use App\Services\Messaging\Messenger;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 /**
- * Bons de retour : les colis d'un marchand à lui rendre partent ensemble avec
- * un livreur ; à la remise, le marchand signe (ou le livreur photographie la
- * remise) et toutes les courses passent « Retourné » d'un coup.
+ * Retours aux marchands : colis à rendre, résumés par marchand, que l'agence confie à un livreur (mission de retour).
+ * Il n'y a plus de bon de retour : la remise se fait chez le marchand en scannant le QR code du livreur
+ * (ReturnHandovers), plus sûr qu'une signature.
  */
 class ReturnSlips
 {
@@ -35,14 +27,9 @@ class ReturnSlips
         OrderStatus::DeliveryFailed, OrderStatus::Rescheduled, OrderStatus::ReturnAssigned,
     ];
 
-    public function __construct(
-        private readonly OrderDispatcher $dispatcher,
-        private readonly OrderWorkflow $workflow,
-        private readonly OrderJournal $journal,
-        private readonly Messenger $messenger,
-    ) {}
+    public function __construct(private readonly OrderDispatcher $dispatcher) {}
 
-    /** Colis à rendre pas encore sur un bon (requête) */
+    /** Colis à rendre (requête) : au dépôt, chez un livreur, ou déjà confiés pour le retour */
     public function candidatesQuery(): Builder
     {
         return Order::query()
@@ -53,7 +40,7 @@ class ReturnSlips
     }
 
     /**
-     * Colis à rendre, par marchand, pas encore sur un bon.
+     * Colis à rendre, par marchand.
      *
      * @return Collection<int, Order>
      */
@@ -86,157 +73,40 @@ class ReturnSlips
     }
 
     /**
+     * L'agence confie à un livreur les colis à rendre d'un marchand : mission de retour pour chacun. La remise se fait
+     * chez le marchand par le QR code (voir ReturnHandovers) ; un colis encore chez un autre livreur passe par un relais.
+     *
      * @param  list<int>  $orderIds
+     * @return int colis confiés
      */
-    public function create(User $actor, Merchant $merchant, Courier $courier, array $orderIds, ?string $notes = null): ReturnSlip
+    public function assign(User $actor, Merchant $merchant, Courier $courier, array $orderIds): int
     {
         $orderIds = array_values(array_unique($orderIds));
 
-        $slip = DB::transaction(function () use ($actor, $merchant, $courier, $orderIds, $notes) {
-            $orders = Order::query()->whereIn('id', $orderIds)->where('merchant_id', $merchant->id)->lockForUpdate()->with('holder.user')->get();
+        return DB::transaction(function () use ($actor, $merchant, $courier, $orderIds) {
+            $orders = Order::query()->whereIn('id', $orderIds)->where('merchant_id', $merchant->id)->lockForUpdate()->get();
 
             if ($orders->count() !== count($orderIds)) {
                 throw new BusinessRuleException('Certains colis sont introuvables ou n\'appartiennent pas à ce marchand.', 'order_ids');
             }
 
             foreach ($orders as $order) {
-                $this->assertReturnable($order, $courier);
+                $this->assertReturnable($order);
             }
-
-            $slip = ReturnSlip::create([
-                'company_id' => $merchant->company_id,
-                'merchant_id' => $merchant->id,
-                'courier_id' => $courier->id,
-                'reference' => 'TMP-'.Str::random(20),
-                'status' => ReturnSlip::OPEN,
-                'created_by' => $actor->id,
-                'notes' => $notes,
-            ]);
-            $slip->forceFill(['reference' => sprintf('BR-%s-%05d', now()->format('ymd'), $slip->id)])->save();
 
             foreach ($orders as $order) {
                 if (! $order->return_requested) {
                     $order->markForReturn(ReturnCause::Company);
                     $order->save();
                 }
-                $this->dispatcher->assign($actor, $order, AssignmentType::Return, $courier);
-                Order::whereKey($order->id)->update(['return_slip_id' => $slip->id]);
+                $this->dispatcher->assign($actor, $order->fresh(), AssignmentType::Return, $courier);
             }
 
-            return $slip;
+            return $orders->count();
         });
-
-        DB::afterCommit(fn () => $this->messenger->toMerchant($merchant, NotificationEvent::ReturnSlip, WhatsAppTemplate::ReturnSlip, [
-            $merchant->business_name,
-            $courier->user?->name ?? 'notre livreur',
-            (string) count($orderIds),
-            $slip->reference,
-            $this->url($slip),
-        ]));
-
-        return $slip;
     }
 
-    /**
-     * Remise des colis au marchand par le livreur du bon : nom de la personne qui
-     * reçoit, signature et/ou photo. Les colis non cochés restent à rendre (hors bon).
-     *
-     * @param  list<int>|null  $orderIds  colis effectivement remis (tous par défaut)
-     */
-    public function handOver(User $actor, ReturnSlip $slip, string $receivedBy, ?string $signature, ?UploadedFile $photo, ?array $orderIds = null, ?float $lat = null, ?float $lng = null): ReturnSlip
-    {
-        if ($slip->status !== ReturnSlip::OPEN) {
-            throw new BusinessRuleException('Ce bon de retour n\'est plus en cours.', 'status');
-        }
-
-        if ($actor->courier?->id !== $slip->courier_id) {
-            throw new BusinessRuleException('Ce bon de retour est confié à un autre livreur.', 'status');
-        }
-
-        $signatureData = $this->decodeSignature($signature);
-
-        if ($signatureData === null && $photo === null) {
-            throw new BusinessRuleException('Faites signer le marchand ou prenez une photo de la remise.', 'signature');
-        }
-
-        DB::transaction(function () use ($actor, $slip, $receivedBy, $signatureData, $photo, $orderIds, $lat, $lng) {
-            $orders = $slip->orders()->lockForUpdate()->get();
-            $handed = $orderIds === null ? $orders : $orders->whereIn('id', $orderIds);
-
-            if ($handed->isEmpty()) {
-                throw new BusinessRuleException('Cochez au moins un colis remis.', 'order_ids');
-            }
-
-            $note = "Remis au marchand (bon {$slip->reference}), reçu par {$receivedBy}";
-
-            foreach ($handed as $order) {
-                // Déjà rendu individuellement depuis la mission
-                if ($order->status === OrderStatus::Returned) {
-                    continue;
-                }
-                if ($order->status === OrderStatus::ReturnAssigned) {
-                    $order = $this->workflow->transition($actor, $order, OrderStatus::Returning, ['lat' => $lat, 'lng' => $lng]);
-                }
-                $this->workflow->transition($actor, $order, OrderStatus::Returned, ['note' => $note, 'lat' => $lat, 'lng' => $lng, 'return_proof' => $slip]);
-            }
-
-            // Colis non remis : ils sortent du bon et restent à rendre
-            $missing = $orders->diff($handed);
-            if ($missing->isNotEmpty()) {
-                Order::whereKey($missing->modelKeys())->update(['return_slip_id' => null]);
-                foreach ($missing as $order) {
-                    $this->journal->record($order, $actor, OrderEventType::Note, [
-                        'note' => "Non remis avec le bon {$slip->reference} : reste à rendre au marchand",
-                        'visible_to_merchant' => false,
-                    ]);
-                }
-            }
-
-            $dir = "return-slips/{$slip->id}";
-            $slip->forceFill([
-                'status' => ReturnSlip::HANDED,
-                'handed_at' => now(),
-                'received_by_name' => $receivedBy,
-                'signature_path' => $signatureData !== null ? tap("{$dir}/signature.png", fn ($p) => Storage::disk('local')->put($p, $signatureData)) : null,
-                'photo_path' => $photo?->store($dir, 'local'),
-                'lat' => $lat,
-                'lng' => $lng,
-            ])->save();
-        });
-
-        $slip->refresh();
-        $count = $slip->orders()->count();
-
-        $this->messenger->toMerchant($slip->merchant, NotificationEvent::ReturnSlip, WhatsAppTemplate::ReturnHanded, [
-            $slip->merchant->business_name, (string) $count, $slip->reference, $receivedBy, $this->url($slip),
-        ]);
-
-        return $slip;
-    }
-
-    /**
-     * Bon annulé avant la remise : les colis sortent du bon, leur mission de retour reste.
-     */
-    public function cancel(User $actor, ReturnSlip $slip): ReturnSlip
-    {
-        if ($slip->status !== ReturnSlip::OPEN) {
-            throw new BusinessRuleException('Seul un bon en cours peut être annulé.', 'status');
-        }
-
-        DB::transaction(function () use ($slip) {
-            $slip->orders()->update(['return_slip_id' => null]);
-            $slip->forceFill(['status' => ReturnSlip::CANCELLED])->save();
-        });
-
-        return $slip->refresh();
-    }
-
-    public function url(ReturnSlip $slip): string
-    {
-        return $slip->company->url("/bon-de-retour/{$slip->id}");
-    }
-
-    private function assertReturnable(Order $order, Courier $courier): void
+    private function assertReturnable(Order $order): void
     {
         if ($order->fromWarehouse()) {
             throw new BusinessRuleException("{$order->tracking_code} : commande d'entrepôt, à remettre en stock.", 'order_ids');
@@ -244,16 +114,6 @@ class ReturnSlips
 
         if (! in_array($order->status, self::RETURNABLE, true)) {
             throw new BusinessRuleException("{$order->tracking_code} : impossible de retourner une course « {$order->status->label()} ».", 'order_ids');
-        }
-
-        if ($order->return_slip_id !== null) {
-            throw new BusinessRuleException("{$order->tracking_code} est déjà sur un bon de retour.", 'order_ids');
-        }
-
-        // Le colis doit être au dépôt ou déjà chez le livreur du bon
-        if ($order->held_by_courier_id !== null && $order->held_by_courier_id !== $courier->id) {
-            $holder = $order->holder?->user?->name ?? 'un autre livreur';
-            throw new BusinessRuleException("{$order->tracking_code} est encore chez {$holder} : recevez-le d'abord au dépôt ou confiez-lui le bon.", 'order_ids');
         }
     }
 

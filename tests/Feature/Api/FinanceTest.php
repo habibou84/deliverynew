@@ -265,7 +265,8 @@ class FinanceTest extends TestCase
 
     public function test_return_fee_follows_company_setting_and_pays_the_courier(): void
     {
-        $this->company->update(['return_fee_percent' => 50]);
+        // Remise sans confirmation du marchand (réglage coupé) : on teste ici les frais
+        $this->company->update(['return_fee_percent' => 50, 'return_confirmation' => false]);
         $order = $this->createOrder();
         $this->as($this->dispatcher);
         $this->postJson("/api/v1/orders/{$order->id}/assign", ['type' => 'pickup', 'courier_id' => $this->courierA->id]);
