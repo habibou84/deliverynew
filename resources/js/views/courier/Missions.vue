@@ -13,16 +13,6 @@
       </div>
     </div>
 
-    <!-- Bons de retour à remettre aux marchands -->
-    <RouterLink v-for="s in returnSlips" :key="s.id" :to="`/livreur/retours/${s.id}`" class="tap flex items-center gap-3 rounded-2xl bg-rose-600 text-white p-4 active:bg-rose-700">
-      <Icone nom="bon-retour" taille="grande" />
-      <span class="flex-1">
-        <span class="block font-semibold">{{ s.orders_count }} colis à rendre à {{ s.merchant.business_name }}</span>
-        <span class="block text-sm text-white/80">Bon {{ s.reference }} · faites signer le marchand à la remise</span>
-      </span>
-      <Icone nom="ouvrir" />
-    </RouterLink>
-
     <!-- Relais : colis à remettre à un autre livreur ou à recevoir de lui -->
     <RouterLink v-if="relays" to="/livreur/relais" class="tap flex items-center gap-3 rounded-2xl bg-violet-600 text-white p-4 active:bg-violet-700">
       <Icone nom="relais" taille="grande" />
@@ -194,7 +184,6 @@ const messages = useCourierMessageStore()
 const missions = ref([])
 const history = ref([])
 const wallet = ref(null)
-const returnSlips = ref([])
 const relays = ref(0)
 const loading = ref(true)
 const stale = ref(false)
@@ -274,13 +263,11 @@ const placeOf = (m) => { const p = missionPlace(m); return [p.zone, p.address].f
 let firstLoad = true
 async function load() {
   try {
-    const [m, w, r, hist] = await Promise.all([
+    const [m, w, hist] = await Promise.all([
       cachedGet('/courier/missions'),
       cachedGet('/courier/wallet'),
-      cachedGet('/courier/return-slips').catch(() => null),
       cachedGet('/courier/missions?history=1').catch(() => null),
     ])
-    returnSlips.value = r?.data.data || []
     missions.value = withPending(m.data.data)
     history.value = hist?.data.data || []
     messages.setUnread(m.data.meta?.unread_messages)
