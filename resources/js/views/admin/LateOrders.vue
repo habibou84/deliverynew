@@ -8,11 +8,11 @@
       <RouterLink v-if="tab === 'pas-ramassees' && auth.can('settings.manage')" to="/admin/reglages/courses" class="inline-flex items-center gap-1 text-sm text-blue-700"><Icone nom="reglages" taille="petite" /> Message du soir</RouterLink>
     </div>
 
-    <Onglets
-      label="Courses en retard" :model-value="tab"
-      :items="tabs.map((t) => ({ value: t.key, label: t.label, count: t.count, urgent: !!t.count }))"
-      @update:model-value="select"
-    />
+    <!-- Les colis ramassés dont la date est passée sont dans Courses › « Ramassé, date de livraison dépassée » -->
+    <RouterLink v-if="pickedLate" to="/admin/courses?queue=picked_late" class="card flex items-center gap-3 border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 hover:bg-red-100">
+      <span class="flex-1"><b>{{ pickedLate }} colis ramassé{{ pickedLate > 1 ? 's' : '' }}</b>, date de livraison dépassée : à renvoyer ou à reporter dans Courses.</span>
+      <span class="font-semibold underline">Décider</span>
+    </RouterLink>
     <!-- Âge du retard : hier et avant-hier (à reporter vite), plus de 2 jours (non traitées depuis longtemps) -->
     <div role="group" aria-label="Âge du retard" class="inline-flex flex-wrap overflow-hidden rounded-lg border border-slate-400">
       <button
@@ -25,23 +25,19 @@
     </div>
     <p class="text-sm text-slate-600">{{ current.help }}</p>
 
-    <!-- Pas ramassées : nouvelle date à demander ou à choisir (ancienne page « À reporter ») -->
-    <RescheduleOrders v-if="tab === 'pas-ramassees'" embedded :age="age" />
-    <!-- Ramassées pas livrées, ou toutes : actions sur les courses (ancienne page « Courses non traitées ») -->
-    <UntreatedOrders v-else embedded :stage="tab === 'ramassees' ? 'picked' : 'all'" :age="age" />
+    <!-- Jamais ramassées : nouvelle date à demander ou à choisir -->
+    <RescheduleOrders embedded :age="age" />
   </div>
 </template>
 
 <script setup>
 import CoursesTabs from '../../components/CoursesTabs.vue'
-import Onglets from '../../components/ui/Onglets.vue'
 import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 import { useDispatchCountStore } from '../../stores/dispatchCounts'
 import RescheduleOrders from './RescheduleOrders.vue'
-import UntreatedOrders from './UntreatedOrders.vue'
 
 /** Courses en retard : un seul menu, trois onglets (pas ramassées, ramassées pas livrées, toutes) */
 const auth = useAuthStore()
@@ -77,7 +73,10 @@ const tabs = computed(() => {
   ]
 })
 // Arrivée depuis le poste de pilotage avec un âge (?age=) : toutes les étapes
-const tab = ref(['pas-ramassees', 'ramassees', 'toutes'].includes(route.query.onglet) ? route.query.onglet : (route.query.age ? 'toutes' : 'pas-ramassees'))
+// Courses en retard : seulement les colis jamais ramassés ; les ramassés sont dans Courses (« Ramassé, date dépassée »)
+if (['ramassees', 'toutes'].includes(route.query.onglet)) router.replace({ path: '/admin/courses', query: { queue: 'picked_late' } })
+const tab = ref('pas-ramassees')
+const pickedLate = computed(() => dispatchCounts.counts.exceptions?.picked_late || 0)
 const current = computed(() => tabs.value.find((t) => t.key === tab.value))
 
 const query = () => ({ onglet: tab.value, ...(age.value ? { age: age.value } : {}) })

@@ -47,7 +47,7 @@ class UntreatedOrdersTest extends TestCase
         $failedToday = $this->orderOn($today, OrderStatus::DeliveryFailed);
         $this->orderOn($yesterday, OrderStatus::DeliveryFailed);
         $returnToday = $this->orderOn($today, OrderStatus::PickedUp, ['return_requested' => true]);
-        $this->orderOn($yesterday, OrderStatus::PickedUp, ['return_requested' => true]);
+        $returnYesterday = $this->orderOn($yesterday, OrderStatus::PickedUp, ['return_requested' => true]);
 
         // À ramasser : livreur de ramassage assigné, colis pas encore récupéré (sans livreur : « Sans livreur »)
         $assigned = $this->orderOn($today, OrderStatus::PickupAssigned);
@@ -57,10 +57,11 @@ class UntreatedOrdersTest extends TestCase
         $this->assertSame([$assigned->id], $this->codes("/api/v1/orders?queue=to_pickup&day={$today}"));
         $this->assertSame([$pendingToday->id], $this->codes("/api/v1/orders?queue=to_confirm&day={$today}"));
         $this->assertSame([$failedToday->id], $this->codes("/api/v1/orders?queue=failed&day={$today}"));
-        $this->assertSame([$returnToday->id], $this->codes("/api/v1/orders?queue=to_return&day={$today}"));
+        // À retourner : toutes dates (un colis à rendre ne dépend pas du jour choisi)
+        $this->assertEqualsCanonicalizing([$returnToday->id, $returnYesterday->id], $this->codes("/api/v1/orders?queue=to_return&day={$today}"));
 
         $day = $this->getJson("/api/v1/orders/counts?day={$today}")->assertOk()->json('data.day');
-        $this->assertSame([1, 1, 1], [$day['to_confirm'], $day['failed'], $day['to_return']]);
+        $this->assertSame([1, 1, 2], [$day['to_confirm'], $day['failed'], $day['to_return']]);
         // Toutes les dates : les deux jours
         $this->assertCount(2, $this->codes('/api/v1/orders?queue=to_confirm'));
     }

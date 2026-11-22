@@ -58,8 +58,10 @@ const cards = computed(() => {
   const end = activity.value?.totals?.estimated_end
   const r = returns.value
   const ex = counts.counts.exceptions || {}
-  const late = ex.untreated || 0
-  const old = counts.counts.overdue?.old?.untreated || 0
+  // Courses en retard : seulement les colis jamais ramassés ; les ramassés sont « à décider » dans Courses
+  const late = counts.counts.to_reschedule || 0
+  const old = counts.counts.overdue?.old?.to_reschedule || 0
+  const toDecide = ex.picked_late || 0
   const watch = fieldReports.open.total + heldParcels.counts.overdue
 
   return [
@@ -68,8 +70,8 @@ const cards = computed(() => {
       number: all, unit: isToday ? 'du jour' : `le ${new Date(`${day.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`,
       progress: all ? Math.round((100 * delivered) / all) : 0,
       lines: [`${delivered} livrée${delivered > 1 ? 's' : ''} · ${day?.on_the_way ?? 0} en chemin`],
-      alert: toAssign || toConfirm ? [toAssign ? `${toAssign} à assigner` : '', toConfirm ? `${toConfirm} à valider` : ''].filter(Boolean).join(' · ') : '',
-      alertClass: 'bg-red-50 text-red-800', badge: toAssign + toConfirm,
+      alert: [toDecide ? `${toDecide} à décider` : '', toAssign ? `${toAssign} à assigner` : '', toConfirm ? `${toConfirm} à valider` : ''].filter(Boolean).join(' · '),
+      alertClass: 'bg-red-50 text-red-800', badge: toDecide + toAssign + toConfirm,
     },
     {
       to: '/admin/activite', label: 'Activité des livreurs', icon: 'activite', active: route.path.startsWith('/admin/activite'),
@@ -87,8 +89,8 @@ const cards = computed(() => {
     },
     {
       to: '/admin/courses/en-retard', label: 'Courses en retard', icon: 'retard', active: route.path === '/admin/courses/en-retard',
-      number: late, unit: 'date dépassée', numberClass: late ? 'text-red-700' : '',
-      lines: [`${counts.counts.to_reschedule || 0} pas ramassées (à reporter)`, `${ex.untreated_picked || 0} ramassées, pas livrées`],
+      number: late, unit: 'jamais ramassées', numberClass: late ? 'text-red-700' : '',
+      lines: ['date passée : à reporter avec l\'e-commerçant'],
       alert: old ? `${old} depuis plus de 2 jours` : '', alertClass: 'bg-red-50 text-red-800', badge: late,
     },
   ]
