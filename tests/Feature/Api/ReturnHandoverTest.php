@@ -9,6 +9,8 @@ use App\Models\OutboundMessage;
 use App\Models\ReturnHandover;
 use App\Models\User;
 use App\Models\WebhookSubscription;
+use App\Models\WhatsAppAccount;
+use App\Notifications\ReturnHandoverStarted;
 use App\Notifications\ReturnHandoverToReview;
 use App\Services\WhatsApp\Conversation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -161,6 +163,32 @@ class ReturnHandoverTest extends TestCase
         $this->postJson("/api/v1/return-handovers/{$data['id']}/resolve", ['decision' => 'kept'])->assertOk()->assertJsonPath('data.status', 'cancelled');
         $this->assertSame('return_assigned', $order->fresh()->status->value);
         $this->getJson('/api/v1/return-handovers/review')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_merchant_is_notified_and_courier_screen_follows_the_whatsapp_connection(): void
+    {
+        Notification::fake();
+        $this->toReturn();
+        $this->toReturn();
+
+        // WhatsApp de l'agence pas relié : ni QR code, l'e-commerçant est prévenu pour confirmer dans son application
+        $data = $this->start();
+        $this->assertNull($data['whatsapp_link']);
+        $this->assertFalse($data['whatsapp_connected']);
+        Notification::assertSentTo($this->merchantUser, ReturnHandoverStarted::class, fn (ReturnHandoverStarted $n) => $n->count === 2
+            && $n->toArray($this->merchantUser)['title'] === "📦 {$this->courierA->user->name} est chez vous avec 2 colis"
+            && $n->toArray($this->merchantUser)['href'] === '/marchand');
+        Notification::assertNotSentTo($this->dispatcher, ReturnHandoverStarted::class);
+
+        // Écran rouvert : même remise, pas de seconde notification
+        $this->start();
+        Notification::assertSentToTimes($this->merchantUser, ReturnHandoverStarted::class, 1);
+
+        // WhatsApp relié : QR code
+        WhatsAppAccount::create(['company_id' => $this->company->id, 'owner_type' => 'company', 'display_phone' => '+225 07 00 00 00 99', 'status' => 'connected']);
+        $data = $this->start();
+        $this->assertTrue($data['whatsapp_connected']);
+        $this->assertStringStartsWith('https://wa.me/2250700000099?text=', $data['whatsapp_link']);
     }
 
     public function test_merchant_confirms_in_the_app(): void
