@@ -35,6 +35,8 @@ class MerchantLocationController extends Controller
             ...self::coordinates(),
             'pickup_address' => ['sometimes', 'nullable', 'string', 'max:255'],
             'pickup_landmark' => ['sometimes', 'nullable', 'string', 'max:255'],
+            // Confirmation : « mettre à jour mon lieu de ramassage » avec la zone trouvée pour cette position
+            'pickup_zone_id' => ['sometimes', 'nullable', 'integer'],
         ], [], self::attributes());
 
         $merchant->fill(collect($data)->only(['pickup_address', 'pickup_landmark'])->all())->save();
@@ -46,7 +48,22 @@ class MerchantLocationController extends Controller
             $this->locations->set($merchant, $data['lat'], $data['lng'], Merchant::LOCATION_MERCHANT, $data['accuracy'] ?? null);
         }
 
-        return response()->json(['data' => self::data($merchant)]);
+        // Zone de la position validée : proposée si elle diffère du lieu de ramassage enregistré (les prix en
+        // dépendent) ; changée seulement sur confirmation, et seulement vers la zone trouvée pour cette position
+        $zone = $this->locations->zoneAt($merchant, (float) $data['lat'], (float) $data['lng']);
+        if (! empty($data['pickup_zone_id'])) {
+            if ($zone === null || $zone->id !== (int) $data['pickup_zone_id']) {
+                throw ValidationException::withMessages(['pickup_zone_id' => 'Ce lieu ne correspond pas à votre position : validez votre position sur place.']);
+            }
+            if ($zone->id !== $merchant->pickup_zone_id) {
+                $this->locations->moveTo($merchant, $zone);
+            }
+        }
+
+        return response()->json(['data' => [
+            ...self::data($merchant),
+            'detected_zone' => $zone && $zone->id !== $merchant->pickup_zone_id ? ['id' => $zone->id, 'name' => $zone->fullName()] : null,
+        ]]);
     }
 
     /**
@@ -139,6 +156,8 @@ class MerchantLocationController extends Controller
             'pickup_address' => $merchant->pickup_address,
             'pickup_landmark' => $merchant->pickup_landmark,
             'pickup_zone_name' => $merchant->pickupZone?->name,
+            'pickup_zone_id' => $merchant->pickup_zone_id,
+            'pickup_zone_full_name' => $merchant->pickupZone?->fullName(),
         ];
     }
 }

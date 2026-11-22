@@ -5,9 +5,11 @@ namespace Tests\Feature\Api;
 use App\Models\Merchant;
 use App\Models\Order;
 use App\Models\User;
+use App\Notifications\MerchantPickupZoneChanged;
 use App\Services\Merchants\GeoLink;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -20,10 +22,15 @@ class MerchantLocationTest extends TestCase
 {
     use BuildsDeliveryWorld, RefreshDatabase;
 
+    /** Réponse simulée du service des noms de lieux */
+    private ?\Closure $nominatim = null;
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->buildWorld();
+        // Nom du lieu d'une position : réponse du test, sinon rien (pas d'appel au vrai service)
+        Http::fake(['nominatim.openstreetmap.org/*' => fn ($request) => $this->nominatim ? ($this->nominatim)($request) : Http::response(['address' => []])]);
     }
 
     private function as(User $user): static
@@ -143,9 +150,9 @@ class MerchantLocationTest extends TestCase
     public function test_place_name_of_a_position_is_shown_and_kept(): void
     {
         $down = false;
-        Http::fake(['nominatim.openstreetmap.org/*' => function () use (&$down) {
+        $this->nominatim = function () use (&$down) {
             return $down ? Http::response('', 503) : Http::response(['address' => ['road' => 'Rue des Jardins', 'neighbourhood' => 'Riviera 2', 'city_district' => 'Cocody', 'city' => 'Abidjan']]);
-        }]);
+        };
 
         $this->as($this->merchantUser)->getJson('/api/v1/geo/place?lat=5.3631&lng=-3.9735')
             ->assertOk()->assertJsonPath('data', ['name' => 'Riviera 2, Cocody', 'street' => 'Rue des Jardins']);
@@ -158,6 +165,56 @@ class MerchantLocationTest extends TestCase
         $down = true;
         $this->getJson('/api/v1/geo/place?lat=5.30&lng=-4.00')->assertOk()->assertJsonPath('data', null);
         $this->getJson('/api/v1/geo/place?lat=95&lng=-4')->assertJsonValidationErrors('lat');
+    }
+
+    public function test_validated_position_updates_the_pickup_place_on_confirmation(): void
+    {
+        Notification::fake();
+        $riviera = $this->zone('Riviera 2', $this->cocody);
+        $this->nominatim = fn () => Http::response(['address' => ['neighbourhood' => 'Riviera 2', 'city_district' => 'Cocody', 'city' => 'Abidjan']]);
+        $this->merchant->forceFill(['pickup_zone_id' => $this->angre->id])->save();
+
+        // Position à Riviera 2 alors que le lieu de ramassage est Angré : mise à jour proposée, rien de changé
+        $this->as($this->merchantUser)->putJson('/api/v1/merchant/pickup-location', ['lat' => 5.3631, 'lng' => -3.9735])
+            ->assertOk()
+            ->assertJsonPath('data.detected_zone.id', $riviera->id)
+            ->assertJsonPath('data.detected_zone.name', 'Cocody › Riviera 2')
+            ->assertJsonPath('data.pickup_zone_full_name', 'Cocody › Angré');
+        $this->assertSame($this->angre->id, $this->merchant->fresh()->pickup_zone_id);
+
+        // Une autre zone que celle de la position : refusée (pas de lieu plus proche choisi pour payer moins)
+        $this->putJson('/api/v1/merchant/pickup-location', ['lat' => 5.3631, 'lng' => -3.9735, 'pickup_zone_id' => $this->yopougon->id])
+            ->assertJsonValidationErrors('pickup_zone_id');
+
+        // Confirmé : le lieu de ramassage change et l'agence est prévenue
+        $this->putJson('/api/v1/merchant/pickup-location', ['lat' => 5.3631, 'lng' => -3.9735, 'pickup_zone_id' => $riviera->id])
+            ->assertOk()
+            ->assertJsonPath('data.pickup_zone_full_name', 'Cocody › Riviera 2')
+            ->assertJsonPath('data.detected_zone', null);
+        $this->assertSame($riviera->id, $this->merchant->fresh()->pickup_zone_id);
+        Notification::assertSentTo($this->admin, MerchantPickupZoneChanged::class, fn ($n) => $n->from === 'Cocody › Angré' && $n->to === 'Cocody › Riviera 2');
+        Notification::assertNotSentTo($this->merchantUser, MerchantPickupZoneChanged::class);
+
+        // Lieu introuvable : rien de proposé
+        $this->nominatim = null;
+        $this->putJson('/api/v1/merchant/pickup-location', ['lat' => 5.40, 'lng' => -3.90])->assertOk()->assertJsonPath('data.detected_zone', null);
+    }
+
+    public function test_another_pickup_place_for_one_course_only(): void
+    {
+        $this->merchant->forceFill(['pickup_lat' => 5.3631, 'pickup_lng' => -3.9735, 'pickup_address' => 'Boutique'])->save();
+        $this->rule($this->grid, $this->yopougon, $this->cocody, 2500, false);
+
+        // Prix calculé depuis l'autre lieu
+        $this->as($this->merchantUser)->postJson('/api/v1/quotes', ['delivery_zone_id' => $this->cocody->id, 'pickup_zone_id' => $this->yopougon->id])
+            ->assertOk()->assertJsonPath('data.total', 2500);
+
+        $order = $this->createOrder(['pickup_zone_id' => $this->yopougon->id, 'pickup_address' => 'Chez le fournisseur', 'delivery_zone_id' => $this->cocody->id]);
+        $this->assertSame([$this->yopougon->id, 'Chez le fournisseur', null, 2500], [$order->pickup_zone_id, $order->pickup_address, $order->pickup_lat, $order->delivery_fee]);
+        // La fiche ne change pas ; la course suivante repart du lieu habituel
+        $this->assertSame($this->cocody->id, $this->merchant->fresh()->pickup_zone_id);
+        $next = $this->createOrder();
+        $this->assertSame([$this->cocody->id, 'Boutique', 5.3631], [$next->pickup_zone_id, $next->pickup_address, (float) $next->pickup_lat]);
     }
 
     public function test_changing_only_the_address_keeps_the_position_and_its_origin(): void

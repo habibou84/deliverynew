@@ -40,6 +40,22 @@
         </LocationPicker>
       </section>
 
+      <!-- Lieu de ramassage (zone) : les prix des courses en partent. Proposé d'après la position validée -->
+      <section v-if="detected" class="rounded-[22px] bg-amber-50 p-4 ring-1 ring-amber-300 space-y-3" role="alert">
+        <p class="font-bold text-amber-950">Votre position est à {{ detected.name }}</p>
+        <p class="text-sm text-amber-900">
+          Votre lieu de ramassage enregistré est <b>{{ current.pickup_zone_full_name || 'non renseigné' }}</b>.
+          Le prix de vos livraisons est calculé à partir de ce lieu.
+        </p>
+        <button type="button" class="m-btn-primary w-full" :disabled="saving" @click="moveZone">{{ saving ? 'Mise à jour…' : `Mettre à jour : ${detected.name}` }}</button>
+        <button type="button" class="m-btn-secondary w-full" :disabled="saving" @click="keepZone">Garder {{ current.pickup_zone_full_name || 'mon lieu actuel' }}</button>
+      </section>
+      <section v-else-if="current.pickup_zone_full_name" class="m-card p-4">
+        <p class="text-sm text-slate-600">Lieu de ramassage</p>
+        <p class="font-bold">{{ current.pickup_zone_full_name }}</p>
+        <p class="text-[13px] text-slate-600">Le prix de vos livraisons est calculé à partir de ce lieu. Il se met à jour quand vous enregistrez votre position depuis votre boutique.</p>
+      </section>
+
       <!-- Facultatif : l'adresse et le repère, pour le livreur -->
       <section v-if="saved" class="m-card p-4 space-y-3">
         <h2 class="font-semibold">🏠 Pour aider le livreur <span class="text-[13px] font-normal text-slate-600">(facultatif)</span></h2>
@@ -82,6 +98,8 @@ const current = ref({})
 const point = ref(null)
 const address = ref('')
 const landmark = ref('')
+// Zone trouvée pour la position validée, différente du lieu de ramassage enregistré : mise à jour proposée
+const detected = ref(null)
 
 // Une position enregistrée, et le repère posé ailleurs (pas encore enregistré)
 const saved = computed(() => current.value.pickup_lat != null)
@@ -122,14 +140,41 @@ async function save() {
       pickup_landmark: landmark.value || null,
     })
     current.value = data.data
+    detected.value = data.data.detected_zone
     await auth.fetchUser()
-    toasts.success(addressOnly ? 'Adresse enregistrée.' : 'Lieu de ramassage enregistré. Merci !')
-    if (welcome.value) router.replace('/marchand')
+    toasts.success(addressOnly ? 'Adresse enregistrée.' : 'Position enregistrée. Merci !')
+    if (welcome.value && !detected.value) router.replace('/marchand')
   } catch (e) {
     error.value = apiErrorMessage(e)
   } finally {
     saving.value = false
   }
+}
+
+// Le lieu de ramassage passe à la zone de la position (le serveur vérifie qu'elle correspond bien)
+async function moveZone() {
+  saving.value = true
+  error.value = ''
+  try {
+    const { data } = await http.put('/merchant/pickup-location', {
+      lat: current.value.pickup_lat,
+      lng: current.value.pickup_lng,
+      pickup_zone_id: detected.value.id,
+    })
+    current.value = data.data
+    detected.value = null
+    toasts.success(`Lieu de ramassage : ${data.data.pickup_zone_full_name}. Vos prix partent maintenant de là.`)
+    if (welcome.value) router.replace('/marchand')
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    saving.value = false
+  }
+}
+
+function keepZone() {
+  detected.value = null
+  if (welcome.value) router.replace('/marchand')
 }
 
 onMounted(async () => {
