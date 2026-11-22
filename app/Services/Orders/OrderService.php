@@ -105,15 +105,19 @@ class OrderService
                     : implode(', ', array_map(fn ($i) => "{$i['quantity']} × {$i['label']}", $items));
             }
 
-            // Adresse de ramassage du marchand par défaut
+            // Adresse de ramassage du marchand par défaut ; un autre lieu pour cette course seulement (autre zone) ne
+            // reprend ni son adresse ni sa position GPS
             if ($hub === null) {
+                $elsewhere = isset($data['pickup_zone_id']) && (int) $data['pickup_zone_id'] !== $merchant->pickup_zone_id;
                 $data['pickup_zone_id'] ??= $merchant->pickup_zone_id;
-                $data['pickup_address'] ??= $merchant->pickup_address;
-                $data['pickup_landmark'] ??= $merchant->pickup_landmark;
                 $data['pickup_contact_name'] ??= $merchant->contact_name ?? $merchant->business_name;
                 $data['pickup_phone'] ??= $merchant->phone;
-                $data['pickup_lat'] ??= $merchant->pickup_lat;
-                $data['pickup_lng'] ??= $merchant->pickup_lng;
+                if (! $elsewhere) {
+                    $data['pickup_address'] ??= $merchant->pickup_address;
+                    $data['pickup_landmark'] ??= $merchant->pickup_landmark;
+                    $data['pickup_lat'] ??= $merchant->pickup_lat;
+                    $data['pickup_lng'] ??= $merchant->pickup_lng;
+                }
             }
 
             if ($data['pickup_zone_id'] === null) {
