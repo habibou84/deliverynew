@@ -83,7 +83,7 @@ class OrderController extends Controller
             'status' => ['nullable', 'array'],
             'status.*' => [Rule::enum(OrderStatus::class)],
             // File d'attente du dispatch : à valider, à ramasser, à livrer, à retourner
-            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'pickup_unassigned', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered', 'to_decide', 'scheduled', 'to_return', 'incidents', 'failed', 'code_to_verify', 'change_requests', 'untreated', 'untreated_picked', 'to_reschedule'])],
+            'queue' => ['nullable', Rule::in(['to_confirm', 'late', 'to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'pickup_unassigned', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered', 'to_decide', 'scheduled', 'to_return', 'incidents', 'failed', 'code_to_verify', 'change_requests', 'untreated', 'untreated_picked', 'picked_late', 'to_reschedule'])],
             // Courses non traitées : celles qui n'ont pas de livreur
             'without_courier' => ['nullable', 'boolean'],
             // Courses non traitées : livreur de la livraison, à défaut du ramassage
@@ -247,7 +247,7 @@ class OrderController extends Controller
                 'to_reschedule' => Order::query()->toReschedule(today()->toDateString())->overdueAge($age)->count(),
             ]])->all(),
             // Cas à régler (cartes au-dessus des onglets) : toutes dates, tant qu'ils ne sont pas réglés
-            'exceptions' => collect(['late', 'untreated', 'untreated_picked', 'to_return', 'to_decide', 'incidents', 'failed', 'code_to_verify', 'scheduled', 'to_prepare'])
+            'exceptions' => collect(['late', 'untreated', 'untreated_picked', 'picked_late', 'to_return', 'to_decide', 'incidents', 'failed', 'code_to_verify', 'scheduled', 'to_prepare'])
                 ->mapWithKeys(fn (string $queue) => [$queue => $count($queue)])->all(),
             'late' => $awaiting->lateCounts($company, $waiting),
             // Tableau de bord : en attente d'un livreur, par étape
@@ -275,7 +275,8 @@ class OrderController extends Controller
             'all' => Order::query()->ofDay($day)->count(),
             'to_confirm' => $queue('to_confirm')->ofDay($day)->count(),
             'late' => $queue('late')->count(),
-            'to_return' => $queue('to_return')->ofDay($day)->count(),
+            // Retours : toutes dates (un colis à rendre ne dépend pas du jour choisi)
+            'to_return' => $queue('to_return')->count(),
             'failed' => $queue('failed')->ofDay($day)->count(),
             ...collect(self::WORK_QUEUES)->mapWithKeys(fn (string $name) => [$name => $queue($name)->ofDay($day)->count()])->all(),
             'later' => collect(self::LATER_QUEUES)->mapWithKeys(fn (string $name) => [$name => $later($name)])->all(),
@@ -287,7 +288,7 @@ class OrderController extends Controller
     }
 
     /** Onglets limités aux courses du jour choisi (les jours passés sont dans « Courses non traitées ») */
-    private const DAY_QUEUES = ['to_confirm', 'to_return', 'failed'];
+    private const DAY_QUEUES = ['to_confirm', 'failed'];
 
     /** Files de travail : limitées au jour choisi (les retards sont dans « En retard ») */
     private const WORK_QUEUES = ['to_pickup', 'to_prepare', 'to_deliver', 'unassigned', 'pickup_unassigned', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered'];
@@ -453,6 +454,8 @@ class OrderController extends Controller
             'failed' => $query->where('status', OrderStatus::DeliveryFailed),
             // Non traitées : jour de livraison dépassé et course pas terminée (retours demandés compris), toutes dates
             'untreated' => $query->untreated(),
+            // Ramassé, date de livraison dépassée : retour ou report à décider (toutes dates)
+            'picked_late' => $query->pickedLate(),
             // Courses en retard déjà ramassées (ou à l'entrepôt) : tout sauf les « à reporter »
             'untreated_picked' => $query->untreated()->withoutToReschedule(today()->toDateString()),
             // Livrées hors connexion avec un code client incorrect : à vérifier auprès du destinataire
