@@ -18,8 +18,6 @@ enum WhatsAppTemplate: string
     case ActivityReport = 'rapport_activite';
     case Shipped = 'colis_expedie';
     case ShippedRecipient = 'colis_expedie_client';
-    case ReturnSlip = 'bon_de_retour';
-    case ReturnHanded = 'retour_remis';
     case ManagerReport = 'point_semaine_gerant';
     case OrderConfirmedForDate = 'course_validee_date';
     case RatingRequest = 'avis_livraison';
@@ -50,8 +48,6 @@ enum WhatsAppTemplate: string
             self::ActivityReport => 'Bonjour {{1}}, voici votre point {{2}} : {{3}} courses, {{4}} livrées ou expédiées, {{5}} non livrées ou reportées, {{6}} retournées. Encaissé : {{7}}. Frais de livraison : {{8}}. Frais d\'expédition et autres frais : {{9}}. Net : {{10}}. Merci de votre confiance.',
             self::Shipped => 'Bonjour {{1}}, le colis {{2}} pour {{3}} a été expédié par {{4}} (ticket {{5}}). Frais d\'expédition : {{6}}, déduits de votre point. Merci.',
             self::ShippedRecipient => 'Bonjour {{1}}, votre colis de {{2}} a été expédié par {{3}} (ticket {{4}}). Récupérez-le à l\'arrivée auprès du transporteur. Merci de votre confiance.',
-            self::ReturnSlip => 'Bonjour {{1}}, notre livreur {{2}} vous rapporte {{3}} colis non livré(s) (bon de retour {{4}}). Détail du bon : {{5}} . Merci.',
-            self::ReturnHanded => 'Bonjour {{1}}, {{2}} colis vous ont été rendus (bon de retour {{3}}), reçus par {{4}}. Détail du bon : {{5}} . Merci.',
             self::RatingRequest => 'Bonjour {{1}}, votre colis de {{2}} a été livré par {{3}}. Comment s\'est passée la livraison ? Répondez par un chiffre de 1 (mauvais) à 5 (excellent), ou donnez votre avis ici : {{4}} . Merci !',
             self::PaymentMethodChanged => 'Bonjour {{1}}, un moyen de paiement a été {{2}} sur votre compte : {{3}}. Si ce n\'est pas vous, prévenez votre agence tout de suite. Merci.',
             self::PremiumLevelReached => 'Bonjour {{1}}, bravo ! Vous passez au niveau {{2}} chez {{3}}. Vos avantages : {{4}}. Merci de votre confiance.',
@@ -83,8 +79,6 @@ enum WhatsAppTemplate: string
             self::PayoutPaid => '💰 Reversement effectué',
             self::ActivityReport => '📊 Votre point d\'activité',
             self::Shipped, self::ShippedRecipient => '🚌 Colis expédié',
-            self::ReturnSlip => '↩️ Colis en retour',
-            self::ReturnHanded => '↩️ Colis rendus',
             self::ManagerReport => '📊 Point de la semaine',
             self::RatingRequest => '⭐ Votre avis',
             self::PaymentMethodChanged => '🔒 Moyen de paiement modifié',
@@ -131,8 +125,6 @@ enum WhatsAppTemplate: string
             self::ActivityReport => 'Au marchand, point quotidien ou hebdomadaire',
             self::Shipped => 'Au marchand, quand un colis est déposé à la gare (zone d\'expédition)',
             self::ShippedRecipient => 'Au destinataire, quand son colis est déposé à la gare',
-            self::ReturnSlip => 'Au marchand, quand un bon de retour de ses colis est confié à un livreur',
-            self::ReturnHanded => 'Au marchand, quand ses colis lui ont été rendus (bon de retour signé)',
             self::ManagerReport => 'Aux administrateurs de l\'entreprise, point de la semaine (lundi matin)',
             self::RatingRequest => 'Au destinataire, après la livraison : noter le livreur (réponse de 1 à 5 ou lien)',
             self::PaymentMethodChanged => 'Au marchand, quand un moyen de paiement est ajouté, modifié ou retiré sur son compte (sécurité)',
@@ -167,8 +159,6 @@ enum WhatsAppTemplate: string
             self::ActivityReport => ['Boutique Chic', 'du 08/10/2026', '24', '20', '3', '1', '310 000 F', '36 000 F', '6 000 F', '268 000 F'],
             self::Shipped => ['Boutique Chic', 'LV-7K2M-9PQX', 'Awa Koné (Bouaké)', 'UTB Adjamé', 'A-15234', '3 000 F'],
             self::ShippedRecipient => ['Awa', 'Boutique Chic', 'UTB Adjamé', 'A-15234'],
-            self::ReturnSlip => ['Boutique Chic', 'Koffi', '4', 'BR-261009-00012', 'https://exemple.ci/bon-de-retour/12'],
-            self::ReturnHanded => ['Boutique Chic', '4', 'BR-261009-00012', 'Mariam Koné', 'https://exemple.ci/bon-de-retour/12'],
             self::RatingRequest => ['Awa', 'Boutique Chic', 'Koffi', 'https://exemple.ci/avis/Xk29aLm4'],
             self::PaymentMethodChanged => ['Boutique Chic', 'ajouté', 'Wave 07 09 98 08 85'],
             self::PremiumLevelReached => ['Boutique Chic', 'Or', 'Rapide Express', '−10 % sur chaque livraison, ramassage en priorité'],

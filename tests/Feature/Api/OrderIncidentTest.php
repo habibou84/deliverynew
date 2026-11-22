@@ -164,6 +164,8 @@ class OrderIncidentTest extends TestCase
         $this->postJson("/api/v1/orders/{$order->id}/assign", ['type' => 'return', 'courier_id' => $this->courierA->id])
             ->assertOk()
             ->assertJsonPath('data.status', 'return_assigned');
+        // Remise sans confirmation du marchand (réglage coupé) : on teste ici le parcours des tentatives
+        $this->company->update(['return_confirmation' => false]);
         $this->as($this->courierA->user);
         $this->move($order, 'returning')->assertOk();
         $this->move($order, 'returned')->assertOk()->assertJsonPath('data.status', 'returned');
