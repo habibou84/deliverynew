@@ -11,7 +11,12 @@
         <span class="flex-1 font-bold leading-tight">{{ c.label }}</span>
         <span v-if="c.badge" class="grid h-6 min-w-6 place-items-center rounded-full bg-red-600 px-1.5 text-xs font-bold text-white">{{ c.badge > 99 ? '99+' : c.badge }}</span>
       </span>
-      <span :class="['text-2xl font-extrabold tabular-nums sm:text-3xl', c.numberClass]">{{ c.number ?? '—' }} <span class="text-sm font-semibold text-slate-600">{{ c.unit }}</span></span>
+      <!-- Chiffre mis en avant (Courses en retard : à décider) -->
+      <span v-if="c.highlight" :class="['rounded-xl px-3 py-2', c.highlight.number ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-700']">
+        <span class="block text-2xl font-extrabold tabular-nums">{{ c.highlight.number }} <span class="text-sm font-semibold">{{ c.highlight.unit }}</span></span>
+        <span class="block text-xs font-semibold sm:text-sm">{{ c.highlight.label }}</span>
+      </span>
+      <span v-else :class="['text-2xl font-extrabold tabular-nums sm:text-3xl', c.numberClass]">{{ c.number ?? '—' }} <span class="text-sm font-semibold text-slate-600">{{ c.unit }}</span></span>
       <span v-if="c.progress !== undefined" class="h-2 rounded-full bg-slate-200"><span class="block h-2 rounded-full bg-emerald-600" :style="{ width: `${c.progress}%` }" /></span>
       <span v-for="(l, i) in c.lines" :key="i" class="hidden text-sm text-slate-700 sm:block">{{ l }}</span>
       <span v-if="c.alert" :class="['mt-auto rounded-lg px-2 py-1 text-xs font-semibold sm:text-sm', c.alertClass]">{{ c.alert }}</span>
@@ -70,8 +75,8 @@ const cards = computed(() => {
       number: all, unit: isToday ? 'du jour' : `le ${new Date(`${day.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`,
       progress: all ? Math.round((100 * delivered) / all) : 0,
       lines: [`${delivered} livrée${delivered > 1 ? 's' : ''} · ${day?.on_the_way ?? 0} en chemin`],
-      alert: [toDecide ? `${toDecide} à décider` : '', toAssign ? `${toAssign} à assigner` : '', toConfirm ? `${toConfirm} à valider` : ''].filter(Boolean).join(' · '),
-      alertClass: 'bg-red-50 text-red-800', badge: toDecide + toAssign + toConfirm,
+      alert: [toAssign ? `${toAssign} à assigner` : '', toConfirm ? `${toConfirm} à valider` : ''].filter(Boolean).join(' · '),
+      alertClass: 'bg-red-50 text-red-800', badge: toAssign + toConfirm,
     },
     {
       to: '/admin/activite', label: 'Activité des livreurs', icon: 'activite', active: route.path.startsWith('/admin/activite'),
@@ -89,9 +94,9 @@ const cards = computed(() => {
     },
     {
       to: '/admin/courses/en-retard', label: 'Courses en retard', icon: 'retard', active: route.path === '/admin/courses/en-retard',
-      number: late, unit: 'jamais ramassées', numberClass: late ? 'text-red-700' : '',
-      lines: ['date passée : à reporter avec l\'e-commerçant'],
-      alert: old ? `${old} depuis plus de 2 jours` : '', alertClass: 'bg-red-50 text-red-800', badge: late,
+      highlight: { number: toDecide, unit: 'à décider', label: 'Ramassés, date de livraison dépassée' },
+      lines: [`${late} jamais ramassé${late > 1 ? 's' : ''} · à reporter`],
+      alert: old ? `${old} jamais ramassé${old > 1 ? 's' : ''} depuis plus de 2 jours` : '', alertClass: 'bg-amber-50 text-amber-900', badge: late + toDecide,
     },
   ]
 })

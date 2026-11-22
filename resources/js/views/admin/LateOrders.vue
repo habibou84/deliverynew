@@ -8,30 +8,37 @@
       <RouterLink v-if="tab === 'pas-ramassees' && auth.can('settings.manage')" to="/admin/reglages/courses" class="inline-flex items-center gap-1 text-sm text-blue-700"><Icone nom="reglages" taille="petite" /> Message du soir</RouterLink>
     </div>
 
-    <!-- Les colis ramassés dont la date est passée sont dans Courses › « Ramassé, date de livraison dépassée » -->
-    <RouterLink v-if="pickedLate" to="/admin/courses?queue=picked_late" class="card flex items-center gap-3 border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900 hover:bg-red-100">
-      <span class="flex-1"><b>{{ pickedLate }} colis ramassé{{ pickedLate > 1 ? 's' : '' }}</b>, date de livraison dépassée : à renvoyer ou à reporter dans Courses.</span>
-      <span class="font-semibold underline">Décider</span>
-    </RouterLink>
-    <!-- Âge du retard : hier et avant-hier (à reporter vite), plus de 2 jours (non traitées depuis longtemps) -->
-    <div role="group" aria-label="Âge du retard" class="inline-flex flex-wrap overflow-hidden rounded-lg border border-slate-400">
-      <button
-        v-for="a in AGES" :key="a.value" type="button"
-        :class="['min-h-10 px-4 text-sm', age === a.value ? 'bg-[var(--admin-color,#0f172a)] font-semibold text-white' : 'bg-white text-slate-900 hover:bg-slate-50', a.value ? 'border-l border-slate-400' : '']"
-        :aria-pressed="age === a.value" @click="selectAge(a.value)"
-      >
-        {{ a.label }}<span v-if="ageCount(a.value) !== null" class="ml-1.5 tabular-nums opacity-80">{{ ageCount(a.value) }}</span>
-      </button>
-    </div>
-    <p class="text-sm text-slate-600">{{ current.help }}</p>
+    <!-- À décider (ramassés, date dépassée) d'abord ; jamais ramassés ensuite -->
+    <Onglets
+      label="Courses en retard" :model-value="tab"
+      :items="tabs.map((t) => ({ value: t.key, label: t.label, count: t.count, urgent: t.key === 'a-decider' && !!t.count }))"
+      @update:model-value="select"
+    />
 
-    <!-- Jamais ramassées : nouvelle date à demander ou à choisir -->
-    <RescheduleOrders embedded :age="age" />
+    <PickedLateGroups v-if="tab === 'a-decider'" />
+
+    <template v-else>
+      <!-- Âge du retard : hier et avant-hier (à reporter vite), plus de 2 jours -->
+      <div role="group" aria-label="Âge du retard" class="inline-flex flex-wrap overflow-hidden rounded-lg border border-slate-400">
+        <button
+          v-for="a in AGES" :key="a.value" type="button"
+          :class="['min-h-10 px-4 text-sm', age === a.value ? 'bg-[var(--admin-color,#0f172a)] font-semibold text-white' : 'bg-white text-slate-900 hover:bg-slate-50', a.value ? 'border-l border-slate-400' : '']"
+          :aria-pressed="age === a.value" @click="selectAge(a.value)"
+        >
+          {{ a.label }}<span v-if="ageCount(a.value) !== null" class="ml-1.5 tabular-nums opacity-80">{{ ageCount(a.value) }}</span>
+        </button>
+      </div>
+      <p class="text-sm text-slate-600">Colis jamais ramassés : ils sont cachés chez les livreurs tant que la date n'est pas actualisée. Demandez une nouvelle date ou choisissez-la.</p>
+      <!-- Jamais ramassées : nouvelle date à demander ou à choisir -->
+      <RescheduleOrders embedded :age="age" />
+    </template>
   </div>
 </template>
 
 <script setup>
 import CoursesTabs from '../../components/CoursesTabs.vue'
+import PickedLateGroups from '../../components/PickedLateGroups.vue'
+import Onglets from '../../components/ui/Onglets.vue'
 import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
@@ -52,32 +59,23 @@ const AGES = [
   { value: 'old', label: 'Plus de 2 jours' },
 ]
 const age = ref(['recent', 'old'].includes(route.query.age) ? route.query.age : '')
-// Compteurs de l'onglet choisi, par âge (null : pas encore chargés)
-const TAB_KEYS = { 'pas-ramassees': 'to_reschedule', ramassees: 'untreated_picked', toutes: 'untreated' }
+// Jamais ramassées, par âge (null : pas encore chargés)
 const ageCount = (value) => {
   const o = dispatchCounts.counts.overdue
   if (!o) return null
-  const key = TAB_KEYS[tab.value]
-  return value ? o[value][key] : o.recent[key] + o.old[key]
+  return value ? o[value].to_reschedule : o.recent.to_reschedule + o.old.to_reschedule
 }
 
 const tabs = computed(() => {
   const c = dispatchCounts.counts
   const o = c.overdue
-  // Avec un âge choisi, les onglets comptent seulement les courses de cet âge
-  const n = (key, all) => (age.value && o ? o[age.value][key] : all)
   return [
-    { key: 'pas-ramassees', label: 'Pas ramassées', count: n('to_reschedule', c.to_reschedule || 0), help: 'Colis jamais ramassés : ils sont cachés chez les livreurs tant que la date n\'est pas actualisée. Demandez une nouvelle date ou choisissez-la.' },
-    { key: 'ramassees', label: 'Ramassées, pas livrées', count: n('untreated_picked', c.exceptions?.untreated_picked || 0), help: 'Colis chez un livreur ou à l\'entrepôt : à livrer, reporter ou faire revenir.' },
-    { key: 'toutes', label: 'Toutes', count: n('untreated', c.exceptions?.untreated || 0), help: 'Toutes les courses en retard, quelle que soit l\'étape.' },
+    { key: 'a-decider', label: 'À décider · ramassés, date dépassée', count: c.exceptions?.picked_late || 0 },
+    { key: 'pas-ramassees', label: 'Jamais ramassés', count: age.value && o ? o[age.value].to_reschedule : (c.to_reschedule || 0) },
   ]
 })
-// Arrivée depuis le poste de pilotage avec un âge (?age=) : toutes les étapes
-// Courses en retard : seulement les colis jamais ramassés ; les ramassés sont dans Courses (« Ramassé, date dépassée »)
-if (['ramassees', 'toutes'].includes(route.query.onglet)) router.replace({ path: '/admin/courses', query: { queue: 'picked_late' } })
-const tab = ref('pas-ramassees')
-const pickedLate = computed(() => dispatchCounts.counts.exceptions?.picked_late || 0)
-const current = computed(() => tabs.value.find((t) => t.key === tab.value))
+// Anciens onglets « ramassées » et « toutes » : À décider
+const tab = ref(route.query.onglet === 'pas-ramassees' ? 'pas-ramassees' : 'a-decider')
 
 const query = () => ({ onglet: tab.value, ...(age.value ? { age: age.value } : {}) })
 
