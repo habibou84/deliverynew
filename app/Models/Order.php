@@ -464,6 +464,20 @@ class Order extends Model
         return $query->whereRaw(self::DELIVERY_DAY_SQL.' < ?', [today()->toDateString()])->whereNotIn('status', $final);
     }
 
+    /** Colis ramassés (chez un livreur ou au dépôt) dont la date de livraison est dépassée : à renvoyer ou à reporter */
+    public const PICKED_LATE_STATUSES = [
+        OrderStatus::PickedUp, OrderStatus::AtHub, OrderStatus::DeliveryAssigned, OrderStatus::DeliveryFailed, OrderStatus::Rescheduled,
+    ];
+
+    /** Ramassé, date de livraison dépassée, retour pas encore décidé (hors commandes d'entrepôt) */
+    public function scopePickedLate(Builder $query): Builder
+    {
+        return $query->whereRaw(self::DELIVERY_DAY_SQL.' < ?', [today()->toDateString()])
+            ->whereIn('orders.status', OrderStatus::values(self::PICKED_LATE_STATUSES))
+            ->where('orders.return_requested', false)
+            ->whereNull('orders.pickup_hub_id');
+    }
+
     public function activeAssignment(AssignmentType $type): ?OrderAssignment
     {
         return $this->assignments()->active()->where('type', $type->value)->latest('id')->first();

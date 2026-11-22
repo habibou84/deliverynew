@@ -72,8 +72,8 @@ class OrderListDayTest extends TestCase
         $this->assertEqualsCanonicalizing(['late', 'pending'], $this->names(['day' => self::TODAY, 'queue' => 'late']));
         // Pour demain, la course d'aujourd'hui n'est pas encore en retard
         $this->assertEqualsCanonicalizing(['late', 'pending'], $this->names(['day' => self::TOMORROW, 'queue' => 'late']));
-        // À retourner : seulement le jour choisi ; le retour demandé d'un jour passé est dans les non traitées
-        $this->assertSame([], $this->names(['day' => self::TODAY, 'queue' => 'to_return']));
+        // À retourner : toutes dates (un colis à rendre ne dépend pas du jour choisi)
+        $this->assertSame(['back'], $this->names(['day' => self::TODAY, 'queue' => 'to_return']));
         $this->assertSame(['back'], $this->names(['day' => '2026-11-29', 'queue' => 'to_return']));
         $this->assertContains('back', $this->names(['queue' => 'untreated']));
 
@@ -106,7 +106,7 @@ class OrderListDayTest extends TestCase
         $counts = $this->getJson('/api/v1/orders/counts?day='.self::TODAY)->assertOk();
         $counts->assertJsonPath('data.day.all', 1)
             ->assertJsonPath('data.day.late', 2)
-            ->assertJsonPath('data.day.to_return', 0)
+            ->assertJsonPath('data.day.to_return', 1)
             ->assertJsonPath('data.day.to_confirm', 0)
             ->assertJsonPath('data.day.to_pickup', 0)
             ->assertJsonPath('data.day.to_deliver', 0)
