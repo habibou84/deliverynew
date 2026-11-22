@@ -43,6 +43,7 @@ const STATUS_TEXT = {
   cancelled: 'Course annulée',
   rejected: 'Course refusée par l\'agence',
   lost: 'Colis déclaré perdu',
+  reassigned: 'Parti chez un autre client',
 }
 
 const time = (value) => {

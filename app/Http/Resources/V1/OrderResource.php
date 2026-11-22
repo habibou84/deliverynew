@@ -143,6 +143,10 @@ class OrderResource extends JsonResource
             'return_requested' => $this->return_requested,
             // Raison du retour : refus du client, tentatives épuisées, agence ou e-commerçant
             'return_cause' => $this->return_requested ? $this->return_cause?->value : null,
+            // Colis en retour réaffecté : nouvelle course qui l'emporte ; course qui l'a repris, étiquette à changer
+            'reassigned_to' => $this->reassigned_to_order_id ? ['id' => $this->reassigned_to_order_id, 'tracking_code' => $this->resource->linkedCode('reassignedTo')] : null,
+            'reassigned_from' => $this->reassigned_from_order_id ? ['id' => $this->reassigned_from_order_id, 'tracking_code' => $this->resource->linkedCode('reassignedFrom')] : null,
+            'label_to_change' => $this->resource->labelToChange(),
             'return_cause_label' => $this->return_requested ? ($request->user()?->merchant_id !== null ? $this->return_cause?->merchantLabel() : $this->return_cause?->label()) : null,
             'last_incident' => $this->whenLoaded('lastIncidentReason', fn () => $this->lastIncidentReason ? [
                 'id' => $this->lastIncidentReason->id,

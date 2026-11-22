@@ -21,6 +21,8 @@ enum OrderStatus: string
     case Returned = 'returned';
     case Cancelled = 'cancelled';
     case Lost = 'lost';
+    // Colis en retour parti avec une autre course du même e-commerçant (même article) : pas de retour à la boutique
+    case Reassigned = 'reassigned';
 
     public function label(): string
     {
@@ -42,6 +44,7 @@ enum OrderStatus: string
             self::Returned => 'Retourné',
             self::Cancelled => 'Annulée',
             self::Lost => 'Perdu',
+            self::Reassigned => 'Réaffecté',
         };
     }
 
@@ -71,7 +74,8 @@ enum OrderStatus: string
             self::Rescheduled => [self::OutForDelivery, self::AtHub, self::Rescheduled, self::Returned, self::Lost],
             self::ReturnAssigned => [self::Returning, self::Returned, self::Lost],
             self::Returning => [self::Returned, self::Lost],
-            self::Delivered, self::Returned, self::Cancelled, self::Rejected, self::Lost => [],
+            // « Réaffecté » passe uniquement par la réaffectation (OrderReassignments)
+            self::Delivered, self::Returned, self::Cancelled, self::Rejected, self::Lost, self::Reassigned => [],
         };
     }
 
@@ -82,7 +86,7 @@ enum OrderStatus: string
 
     public function isFinal(): bool
     {
-        return in_array($this, [self::Delivered, self::Returned, self::Cancelled, self::Rejected, self::Lost], true);
+        return in_array($this, [self::Delivered, self::Returned, self::Cancelled, self::Rejected, self::Lost, self::Reassigned], true);
     }
 
     /**

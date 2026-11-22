@@ -51,6 +51,7 @@ export const STATUS_TONES = {
   returned: 'neutre',
   cancelled: 'neutre',
   lost: 'critique',
+  reassigned: 'info',
 }
 
 export function toneClass(tone) {
@@ -79,6 +80,7 @@ export const STATUS_LABELS = {
   returned: 'Retourné',
   cancelled: 'Annulée',
   lost: 'Perdu',
+  reassigned: 'Réaffecté',
 }
 
 export const EVENT_LABELS = {

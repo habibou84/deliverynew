@@ -144,6 +144,14 @@ class FieldReportTest extends TestCase
         $this->postJson("/api/v1/field-reports/{$report['id']}/act", ['action' => 'return'])->assertUnprocessable();
     }
 
+    public function test_a_waiting_order_of_the_same_article_offers_to_reassign(): void
+    {
+        $this->order->forceFill(['description' => 'Robe wax M'])->save();
+        $this->createOrder(['description' => '1 × Robe wax M']);
+
+        $this->assertSame(['return', 'reassign', 'call', 'reopen', 'open'], $this->failWith('refused')['suggestions']);
+    }
+
     public function test_exhausted_attempts_offer_the_return_or_one_more_attempt(): void
     {
         $this->order->forceFill(['max_attempts' => 1])->save();

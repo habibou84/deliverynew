@@ -42,6 +42,11 @@ class OrderMessages
             return;
         }
 
+        // Réaffectation : pas de « colis récupéré » ni de message de statut (l'e-commerçant est prévenu par une note)
+        if (! empty($event->meta['reassignment'])) {
+            return;
+        }
+
         $order->loadMissing(['merchant', 'deliveryZone', 'company']);
         $merchant = $order->merchant;
         $code = $order->tracking_code;
