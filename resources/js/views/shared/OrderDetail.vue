@@ -12,6 +12,10 @@
       </div>
     </div>
 
+    <!-- Colis en retour réaffecté : lien entre les deux courses, étiquette à changer ; courses qui attendent le même article -->
+    <ReassignBanner :order="order" :base="detailBase" @updated="(o) => (order = o)" />
+    <ReassignPanel :order="order" @done="(o) => router.push(`${detailBase}/${o.id}`)" />
+
     <!-- Modification de l'e-commerçant en attente : l'équipe valide ou refuse -->
     <!-- Pas ramassé à sa date : caché chez les livreurs jusqu'à la nouvelle date -->
     <RouterLink
@@ -248,6 +252,8 @@
 import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { agencyReturnText } from '../../utils/returnCause'
+import ReassignBanner from '../../components/orders/ReassignBanner.vue'
+import ReassignPanel from '../../components/orders/ReassignPanel.vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatusBadge from '../../components/StatusBadge.vue'
@@ -279,6 +285,8 @@ const ASSIGNMENT_STATUS = {
 }
 
 const route = useRoute()
+// Fiche d'une course : espace de l'agence ou de l'e-commerçant
+const detailBase = computed(() => (route.path.startsWith('/marchand') ? '/marchand/courses' : '/admin/courses'))
 const router = useRouter()
 const auth = useAuthStore()
 const toasts = useToastStore()

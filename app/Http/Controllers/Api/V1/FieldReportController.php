@@ -10,6 +10,7 @@ use App\Models\Courier;
 use App\Models\FieldReportReview;
 use App\Models\OrderEvent;
 use App\Services\Orders\OrderDecisions;
+use App\Services\Orders\OrderReassignments;
 use App\Services\Orders\OrderService;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
@@ -242,6 +243,10 @@ class FieldReportController extends Controller
         // Retour déjà en route chez l'e-commerçant : rien à lui demander
         if ($order->return_requested) {
             $list = array_diff($list, ['ask_merchant', 'redeliver']);
+            // Une commande du même e-commerçant attend le même article : le colis peut partir chez ce client
+            if (app(OrderReassignments::class)->candidatesFor($order)->isNotEmpty()) {
+                array_splice($list, (int) array_search($return, array_values($list), true) + 1, 0, ['reassign']);
+            }
         }
 
         return array_values(array_unique(array_filter([...$list, 'open'])));

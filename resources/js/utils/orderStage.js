@@ -57,7 +57,8 @@ function groupOf(order) {
     case 'delivered': return 'delivered'
     case 'return_assigned':
     case 'returning':
-    case 'returned': return 'returns'
+    case 'returned':
+    case 'reassigned': return 'returns'
     default: return 'closed'
   }
 }
@@ -66,7 +67,7 @@ const STEPS = {
   pending: 1, confirmed: 1, pickup_assigned: 1, pickup_in_progress: 1,
   picked_up: 2, at_hub: 2, delivery_assigned: 2, delivery_failed: 2, rescheduled: 2,
   out_for_delivery: 3, delivered: 4,
-  return_assigned: 2, returning: 2, returned: 2, cancelled: 1, rejected: 1, lost: 2,
+  return_assigned: 2, returning: 2, returned: 2, cancelled: 1, rejected: 1, lost: 2, reassigned: 2,
 }
 
 function sentence(order) {
@@ -91,6 +92,7 @@ function sentence(order) {
     case 'cancelled': return ['Annulée', 'x']
     case 'rejected': return ['Refusée par l\'agence', 'ban']
     case 'lost': return ['Colis perdu : l\'agence vous contacte', 'alert']
+    case 'reassigned': return [order.reassigned_to?.tracking_code ? `Parti chez un autre client (${order.reassigned_to.tracking_code})` : 'Parti chez un autre client', 'box']
     default: return [order.status_label || order.status, 'box']
   }
 }

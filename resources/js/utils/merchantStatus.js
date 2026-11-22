@@ -40,6 +40,8 @@ function line(order) {
     case 'cancelled': return ['x', 'Annulée', 'slate']
     case 'rejected': return ['ban', 'Refusée par l\'agence', 'red']
     case 'lost': return ['search', 'Colis perdu : l\'agence vous contacte', 'red']
+    // Colis en retour envoyé à un autre client qui avait commandé le même article
+    case 'reassigned': return ['package', order.reassigned_to?.tracking_code ? `Parti chez un autre client (${order.reassigned_to.tracking_code})` : 'Parti chez un autre client', 'blue']
     default: return ['package', order.status_label || order.status, 'slate']
   }
 }
@@ -53,7 +55,7 @@ export function merchantStatus(order) {
 /** La course attend-elle une décision ? (calculé par le serveur, comme la file « À décider » de l'agence) */
 export const needsDecision = (order) => !!order.needs_decision
 
-const FINAL = ['delivered', 'returned', 'cancelled', 'rejected', 'lost']
+const FINAL = ['delivered', 'returned', 'cancelled', 'rejected', 'lost', 'reassigned']
 
 /**
  * Jour de livraison d'une course prévue après aujourd'hui, en court : « Demain », « Mer. 22 » (vide sinon).
