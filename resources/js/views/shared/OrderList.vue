@@ -68,7 +68,7 @@
       </div>
       <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[var(--stage-cols)]" :style="{ '--stage-cols': stageCols }" role="group" aria-label="Étapes des courses">
         <section v-for="(st, i) in stages" :key="st.key" :class="['card space-y-2 p-3', st.key === 'delivery' ? 'sm:col-span-2 2xl:col-span-1' : '']" :aria-label="st.label">
-          <p :class="['text-xs font-bold uppercase tracking-wide', STAGE_COLORS[st.key].title]">{{ st.key === 'decide' ? '⚠' : `${i}.` }} {{ st.label }}</p>
+          <p :class="['text-xs font-bold uppercase tracking-wide', STAGE_COLORS[st.key].title]">{{ i + 1 }}. {{ st.label }}</p>
           <div :class="['grid gap-2', CELL_GRID[st.items.length] || 'grid-cols-2']">
             <button
               v-for="q in st.items" :key="q.value" type="button"
@@ -79,7 +79,7 @@
               ]"
               :aria-pressed="filters.queue === q.value" :title="q.hint" @click="setQueue(filters.queue === q.value ? '' : q.value)"
             >
-              <span :class="['block text-sm font-semibold', q.value === 'picked_late' ? 'leading-tight' : 'truncate']">{{ q.label }}</span>
+              <span class="block truncate text-sm font-semibold">{{ q.label }}</span>
               <span v-if="isDispatch" class="block text-2xl font-extrabold tabular-nums">{{ tabCount(q.value) }}</span>
               <span v-if="isDispatch && tabLate(q.value)" class="block truncate text-xs font-semibold text-red-700">{{ tabLate(q.value) }} attendent trop</span>
               <span v-else-if="q.hint" class="hidden truncate text-xs opacity-80 sm:block">{{ q.hint }}</span>
@@ -199,17 +199,6 @@
         Filtré sur un livreur · <button class="text-blue-600" @click="filters.courier_id = ''; load(1)">retirer le filtre</button>
       </p>
 
-      <!-- Ramassé, date de livraison dépassée : retour ou report, pour les colis cochés -->
-      <div v-if="filters.queue === 'picked_late' && isDispatch" class="card flex flex-wrap items-center gap-3 border-red-200 bg-red-50 p-3">
-        <p class="min-w-[16rem] flex-1 text-sm text-red-900">
-          <b>Colis ramassés dont la date de livraison est passée.</b> Ils sont chez un livreur ou au dépôt : renvoyez-les à l'e-commerçant ou choisissez une nouvelle date.
-        </p>
-        <template v-if="selected.length">
-          <button type="button" class="btn-secondary" @click="decideLate('return', selectedOrders)"><Icone nom="retourner" taille="petite" /> Retour ({{ selected.length }})</button>
-          <button type="button" class="btn-secondary" @click="decideLate('reschedule', selectedOrders)"><Icone nom="planning" taille="petite" /> Reporter ({{ selected.length }})</button>
-        </template>
-      </div>
-
       <!-- Actions groupées : validation, assignation -->
       <!-- Téléphone : barre fixée au-dessus des onglets, toujours à portée de pouce -->
       <div v-if="isStaff && selected.length" class="card p-3 flex flex-wrap items-center gap-2 bg-blue-50 border-blue-200 fixed inset-x-2 bottom-16 z-30 shadow-lg md:static md:shadow-none">
@@ -268,11 +257,7 @@
           <OrderStatusCell :order="o" :late="isLate(o)" :late-day="deliveryDay(o)" @decide="deciding = $event" />
           <CourierCell v-if="o.pickup_courier || o.delivery_courier || o.held_by || (isDispatch && o.awaiting_courier)" :order="o" :couriers="couriers" :can-dispatch="isDispatch" class="text-slate-700" @updated="replaceOrder" />
           <div class="text-xs text-slate-600">Livraison {{ date(o.delivery.scheduled_date || o.created_at) }} · créée {{ dateTime(o.created_at) }}</div>
-          <div v-if="filters.queue === 'picked_late' && isDispatch" class="flex gap-2 pt-1" @click.stop>
-            <button type="button" class="btn-primary flex-1 !py-1.5 text-sm" @click="decideLate('return', [o])"><Icone nom="retourner" taille="petite" /> Retour</button>
-            <button type="button" class="btn-secondary flex-1 !py-1.5 text-sm" @click="decideLate('reschedule', [o])"><Icone nom="planning" taille="petite" /> Reporter</button>
-          </div>
-          <div v-else-if="o.pending_change && isDispatch" class="flex gap-2 pt-1" @click.stop>
+          <div v-if="o.pending_change && isDispatch" class="flex gap-2 pt-1" @click.stop>
             <span class="flex-1 text-xs text-amber-800">Modification demandée : {{ changeSummary(o) }}</span>
             <button class="btn-primary !py-1 text-xs" @click="decideChange(o, 'approve')">Valider</button>
             <button class="btn-secondary !py-1 text-xs" @click="decideChange(o, 'refuse')">Refuser</button>
@@ -331,13 +316,8 @@
                 <div class="text-slate-600">créée {{ dateTime(o.created_at) }}</div>
               </td>
               <td class="p-2 text-right whitespace-nowrap" @click.stop>
-                <!-- Ramassé, date dépassée : retour ou report -->
-                <template v-if="filters.queue === 'picked_late' && isDispatch">
-                  <button type="button" class="btn-primary !px-2 !py-1 text-xs" @click="decideLate('return', [o])"><Icone nom="retourner" taille="petite" /> Retour</button>
-                  <button type="button" class="btn-secondary !px-2 !py-1 text-xs ml-1" @click="decideLate('reschedule', [o])"><Icone nom="planning" taille="petite" /> Reporter</button>
-                </template>
                 <!-- Modification de l'e-commerçant à valider -->
-                <template v-else-if="o.pending_change && isDispatch">
+                <template v-if="o.pending_change && isDispatch">
                   <button class="btn-primary !px-2 !py-1 text-xs" :title="changeSummary(o)" @click="decideChange(o, 'approve')">Valider</button>
                   <button class="btn-secondary !px-2 !py-1 text-xs ml-1" @click="decideChange(o, 'refuse')">Refuser</button>
                 </template>
@@ -358,7 +338,6 @@
 
     <OrderEditModal :open="!!editing" :order="editing" :focus="editFocus" @close="editing = null; editFocus = null" @saved="replaceOrder" />
     <OrderDecision :open="!!deciding" :order="deciding" :couriers="couriers" @close="deciding = null" @decided="decided" />
-    <PickedLateDialog :orders="lateDecision.orders" :mode="lateDecision.mode" :couriers="couriers" @close="lateDecision.orders = []" @done="lateDecided" />
   </div>
 </template>
 
@@ -386,7 +365,6 @@ import { date, dateTime, money, STATUS_LABELS } from '../../utils/format'
 import { confirmDialog, promptDialog } from '../../composables/useDialog'
 import Icone from '../../components/ui/Icone.vue'
 import CoursesTabs from '../../components/CoursesTabs.vue'
-import PickedLateDialog from '../../components/PickedLateDialog.vue'
 
 const auth = useAuthStore()
 const toasts = useToastStore()
@@ -414,7 +392,6 @@ const LATER_QUEUES = { to_pickup: 'à ramasser', to_prepare: 'à préparer', una
 
 // Onglets par étape, dans l'ordre du parcours du colis : validation, ramassage, livraison, retours ; « Toutes » en dernier
 const queues = [
-  { value: 'picked_late', label: 'Ramassé, date de livraison dépassée', group: 'À décider' },
   { value: 'to_confirm', label: 'À valider', group: 'Validation' },
   { value: 'pickup_unassigned', label: 'Sans ramasseur', group: 'Ramassage' },
   { value: 'to_pickup', label: 'Ramassage en cours', group: 'Ramassage' },
@@ -441,8 +418,6 @@ const queues = [
 
 // Étapes du colis (cases au-dessus de la liste) : dans l'ordre du parcours, chacune avec ses états ; « action » : rouge quand il y en a
 const STAGES = [
-  // Colis ramassés dont la date est passée : retour ou report, toutes dates
-  { key: 'decide', label: 'À décider', items: [{ value: 'picked_late', label: 'Ramassé, date de livraison dépassée', hint: 'retour ou report', action: true }] },
   { key: 'validation', label: 'Validation', items: [{ value: 'to_confirm', label: 'À valider', action: true }] },
   { key: 'pickup', label: 'Ramassage', items: [
     { value: 'pickup_unassigned', label: 'À assigner', hint: 'sans ramasseur', action: true },
@@ -461,28 +436,14 @@ const STAGES = [
 // Cases d'une étape : côte à côte (classes écrites en entier pour Tailwind)
 const CELL_GRID = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4', 5: 'grid-cols-3 sm:grid-cols-5' }
 const STAGE_COLORS = {
-  decide: { title: 'text-red-700', cell: 'bg-red-50 text-red-900' },
   validation: { title: 'text-violet-700', cell: 'bg-violet-50 text-violet-900' },
   pickup: { title: 'text-amber-700', cell: 'bg-amber-50 text-amber-900' },
   delivery: { title: 'text-blue-700', cell: 'bg-blue-50 text-blue-900' },
   returns: { title: 'text-slate-600', cell: 'bg-slate-100 text-slate-900' },
 }
 const stages = computed(() => STAGES.map((st) => ({ ...st, items: st.items.filter((q) => mainQueues.value.some((m) => m.value === q.value)) })))
-// Ramassé, date dépassée : fenêtre Retour ou Reporter pour une ou plusieurs courses
-const lateDecision = reactive({ mode: 'return', orders: [] })
-const selectedOrders = computed(() => orders.value.filter((o) => selected.value.includes(o.id)))
-function decideLate(mode, list) {
-  lateDecision.mode = mode
-  lateDecision.orders = list
-}
-function lateDecided() {
-  selected.value = []
-  load(1)
-  dispatchCounts.fetchCounts().catch(() => {})
-}
-
 // Largeur de chaque étape selon son nombre de cases (grand écran : une seule ligne)
-const stageCols = computed(() => stages.value.map((st) => `minmax(0,${st.key === 'decide' ? 1.9 : st.items.length + 0.4}fr)`).join(' '))
+const stageCols = computed(() => stages.value.map((st) => `minmax(0,${st.items.length + 0.4}fr)`).join(' '))
 function stageCellClass(st, q) {
   if (q.action && isDispatch.value && tabCount(q.value) > 0) return 'bg-red-50 text-red-900 ring-1 ring-red-200'
   if (q.done) return 'bg-emerald-50 text-emerald-900'
@@ -490,7 +451,7 @@ function stageCellClass(st, q) {
 }
 
 // Onglets : les courses du jour choisi ; les jours passés sont dans « Courses en retard » (page à part)
-const MAIN_QUEUES = ['picked_late', 'to_confirm', 'pickup_unassigned', 'to_pickup', 'to_prepare', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered', 'failed', 'to_return', '']
+const MAIN_QUEUES = ['to_confirm', 'pickup_unassigned', 'to_pickup', 'to_prepare', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered', 'failed', 'to_return', '']
 // « À préparer » : seulement pour une entreprise qui a un stock (ou s'il reste des commandes à préparer)
 const mainQueues = computed(() => queues.filter((q) => MAIN_QUEUES.includes(q.value) && (q.value !== 'to_prepare' || auth.hasFeature('stock') || tabCount('to_prepare') > 0)))
 // Sans ramasseur : en liste ou regroupés par client et adresse (lot à assigner d'un coup)
@@ -578,8 +539,6 @@ const dayCounts = computed(() => (filters.day && dispatchCounts.dayCounts?.date 
 const tabCount = (queue) => {
   if (!isDispatch.value) return 0
   if (queue === 'change_requests') return dispatchCounts.counts.change_requests || 0
-  // Ramassé, date dépassée : toutes dates, quel que soit le jour choisi
-  if (queue === 'picked_late') return dispatchCounts.counts.exceptions?.picked_late || 0
   if (dayCounts.value) return dayCounts.value[DAY_COUNTED[queue]] || 0
   // Jour choisi, compteurs du jour pas encore arrivés : rien plutôt que le total de toutes les dates
   if (filters.day) return 0
