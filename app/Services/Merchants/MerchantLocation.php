@@ -3,9 +3,15 @@
 namespace App\Services\Merchants;
 
 use App\Enums\OrderStatus;
+use App\Enums\Role;
 use App\Models\Merchant;
 use App\Models\OrderEvent;
+use App\Models\User;
+use App\Models\Zone;
+use App\Notifications\MerchantPickupZoneChanged;
+use App\Services\Orders\ZoneResolver;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Position de ramassage des marchands. Elle vient du marchand (sur place, GPS de son
@@ -23,6 +29,39 @@ class MerchantLocation
 
     // Ramassages récents pris en compte
     private const SAMPLE = 20;
+
+    /**
+     * Zone de l'agence où se trouve une position (d'après le nom du lieu : quartier, commune), parmi celles où elle
+     * ramasse. null si le lieu est inconnu ou ne correspond à aucune zone.
+     */
+    public function zoneAt(Merchant $merchant, float $lat, float $lng): ?Zone
+    {
+        $place = app(PlaceName::class)->at($lat, $lng);
+        if (! $place) {
+            return null;
+        }
+
+        $zones = Zone::forCompany($merchant->company_id)->pickup()->with('parent')->where('is_shipping', false)->get()
+            ->filter(fn (Zone $z) => $z->parent?->is_pickup !== false);
+        $found = app(ZoneResolver::class)->match($place['name'], $zones);
+
+        return $found->count() === 1 ? $found->first() : null;
+    }
+
+    /**
+     * Lieu de ramassage changé par l'e-commerçant (zone trouvée d'après la position qu'il vient de valider) :
+     * l'agence est prévenue.
+     */
+    public function moveTo(Merchant $merchant, Zone $zone): void
+    {
+        $from = $merchant->pickupZone?->fullName();
+        $merchant->forceFill(['pickup_zone_id' => $zone->id])->save();
+        $merchant->setRelation('pickupZone', $zone);
+
+        $staff = User::forCompany($merchant->company_id)->where('status', 'active')->whereNull('merchant_id')
+            ->role([Role::Admin->value, Role::Dispatcher->value])->get();
+        Notification::send($staff, new MerchantPickupZoneChanged($merchant, $from, $zone->fullName()));
+    }
 
     public function set(Merchant $merchant, float $lat, float $lng, string $source, ?int $accuracy = null): Merchant
     {
