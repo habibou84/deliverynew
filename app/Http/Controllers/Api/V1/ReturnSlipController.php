@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\OrderStatus;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
@@ -54,8 +53,8 @@ class ReturnSlipController extends Controller
     }
 
     /**
-     * Colis à rendre (compteur du menu, carte « Retours marchands ») : combien, chez combien d'e-commerçants,
-     * combien chez un livreur, bons de retour en route, plus ancien jour de livraison prévu.
+     * Colis à rendre (compteur du menu, carte « Retours marchands ») : combien, dont à confier et confiés (ou en
+     * route), chez combien d'e-commerçants, combien chez un livreur, plus ancien jour de livraison prévu.
      */
     public function count(Request $request): JsonResponse
     {
@@ -63,12 +62,17 @@ class ReturnSlipController extends Controller
         $summary = $this->slips->summary();
         $oldest = $summary->pluck('oldest')->filter()->min();
 
+        $returning = $this->slips->returningQuery()->count();
+        $toAssign = $this->slips->toAssignQuery()->count();
+        $waiting = (int) $summary->sum('total');
+
         return response()->json(['data' => [
-            'to_return' => (int) $summary->sum('total'),
+            // Colis à rendre : à confier, confiés à un livreur, ou en route vers le marchand (même règle partout)
+            'to_return' => $waiting + $returning,
+            'to_assign' => $toAssign,
+            'assigned' => $waiting - $toAssign + $returning,
             'merchants' => $summary->count(),
             'held' => (int) $summary->sum('held'),
-            // Colis déjà confiés à un livreur pour le retour (ou en route vers le marchand)
-            'assigned' => Order::query()->where('return_requested', true)->whereIn('status', [OrderStatus::ReturnAssigned->value, OrderStatus::Returning->value])->count(),
             'oldest_days' => $oldest ? (int) Carbon::parse(substr((string) $oldest, 0, 10))->diffInDays(today()) : null,
         ]]);
     }

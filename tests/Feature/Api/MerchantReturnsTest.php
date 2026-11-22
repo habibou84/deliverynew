@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Enums\OrderStatus;
 use App\Models\IncidentReason;
 use App\Models\Order;
 use App\Models\User;
@@ -60,8 +61,14 @@ class MerchantReturnsTest extends TestCase
         Sanctum::actingAs($this->dispatcher);
         $this->getJson('/api/v1/return-slips')->assertOk()->assertJsonPath('candidates.0.total', 3)
             ->assertJsonPath('candidates.0.held', 1)->assertJsonMissingPath('data');
-        $this->getJson('/api/v1/return-slips/count')->assertOk()->assertJsonPath('data.to_return', 3)
+        // Une course livrée avec un retour demandé n'est pas « à rendre »
+        $delivered = $this->createOrder();
+        $delivered->forceFill(['status' => OrderStatus::Delivered, 'return_requested' => true])->save();
+
+        $this->getJson('/api/v1/return-slips/count')->assertOk()->assertJsonPath('data.to_return', 3)->assertJsonPath('data.to_assign', 3)
             ->assertJsonPath('data.merchants', 1)->assertJsonPath('data.held', 1)->assertJsonPath('data.assigned', 0);
+        // La file « à retourner » de la liste suit la même règle
+        $this->assertEqualsCanonicalizing([$first->id, $second->id, $stillWithB->id], collect($this->getJson('/api/v1/orders?queue=to_return')->json('data'))->pluck('id')->all());
 
         // Confiés à A, même celui encore chez B (il passera par un relais)
         $this->postJson('/api/v1/return-slips/assign', ['merchant_id' => $this->merchant->id, 'courier_id' => $this->courierA->id, 'order_ids' => [$first->id, $second->id, $stillWithB->id]])
@@ -71,7 +78,8 @@ class MerchantReturnsTest extends TestCase
             $this->assertSame($this->courierA->id, $order->fresh()->return_courier_id);
             $this->assertNull($order->fresh()->return_slip_id);
         }
-        $this->getJson('/api/v1/return-slips/count')->assertJsonPath('data.assigned', 3);
+        $this->getJson('/api/v1/return-slips/count')->assertJsonPath('data.to_return', 3)->assertJsonPath('data.to_assign', 0)->assertJsonPath('data.assigned', 3);
+        $this->assertSame([], $this->getJson('/api/v1/orders?queue=to_return')->json('data'));
 
         // Réassigner à B
         $this->postJson('/api/v1/return-slips/assign', ['merchant_id' => $this->merchant->id, 'courier_id' => $this->courierB->id, 'order_ids' => [$first->id]])->assertOk();
