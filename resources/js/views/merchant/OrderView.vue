@@ -25,6 +25,12 @@
       <p v-if="plannedDay" class="mt-3 flex items-center gap-2 rounded-xl bg-[#FFF6F7] px-3 py-2 text-sm text-slate-700"><ColorIcon name="calendrier" :size="22" :tile="false" />Livraison prévue le <strong>{{ plannedDay }}</strong></p>
     </section>
 
+    <!-- Colis en retour : peut partir chez un autre client du même article ; liens entre les deux courses -->
+    <div class="mx-4 mt-3 space-y-3 empty:hidden">
+      <ReassignBanner :order="order" base="/marchand/courses" :can-confirm="false" />
+      <ReassignPanel :order="order" @done="(o) => router.push(`/marchand/courses/${o.id}`)" />
+    </div>
+
     <div class="px-4 pt-3 space-y-3">
       <!-- Échec de livraison : la décision d'abord -->
       <!-- Annulée ou refusée : par qui et pourquoi -->
@@ -285,7 +291,9 @@
 <script setup>
 import EditOrderSheet from '../../components/merchant/EditOrderSheet.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import ReassignBanner from '../../components/orders/ReassignBanner.vue'
+import ReassignPanel from '../../components/orders/ReassignPanel.vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import OrderTimeline from '../../components/OrderTimeline.vue'
 import MerchantHistory from '../../components/mobile/MerchantHistory.vue'
@@ -307,6 +315,7 @@ import { BEFORE_PICKUP, FINAL } from '../../utils/workflow'
 import { siteOrigin } from '../../native'
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const toasts = useToastStore()
 
@@ -554,4 +563,6 @@ watch(orderChanges, () => {
 // Jour « demain » connu dès que l'agence répond (fermeture du jour comprise)
 watch(day, () => { if (sheet.value === 'decide' && choice.value === 'tomorrow') choose('tomorrow') })
 onMounted(load)
+// Autre course (ex. après une réaffectation) : même écran, nouvelle course
+watch(() => route.params.id, (id, old) => { if (id && id !== old) load() })
 </script>

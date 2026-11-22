@@ -67,6 +67,9 @@
       <p class="font-mono text-xs text-slate-600">{{ order.tracking_code }}<span v-if="mission.type === 'pickup'"> · {{ order.merchant?.business_name }}</span></p>
     </section>
 
+    <!-- Colis repris d'une course en retour : nouvelle étiquette à coller, puis à confirmer -->
+    <ReassignBanner v-if="order.reassigned_from" :order="order" :links="false" class="mx-0" @updated="(o) => (mission = { ...mission, order: o })" />
+
     <!-- Frais déclarés -->
     <section v-if="order.expenses?.length" class="m-card p-4 space-y-2">
       <h2 class="font-semibold">Mes frais sur cette course</h2>
@@ -226,6 +229,7 @@
 </template>
 
 <script setup>
+import ReassignBanner from '../../components/orders/ReassignBanner.vue'
 import { refusalOptions } from '../../utils/refusals'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

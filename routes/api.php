@@ -79,6 +79,7 @@ use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\OrderDraftController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
+use App\Http\Controllers\Api\V1\OrderReassignmentController;
 use App\Http\Controllers\Api\V1\ParcelController;
 use App\Http\Controllers\Api\V1\ParcelRelayController;
 use App\Http\Controllers\Api\V1\PasswordController;
@@ -810,6 +811,11 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/rating', [OrderActionController::class, 'rate'])->name('orders.rating');
         Route::post('orders/{order}/verify-delivery-code', [OrderActionController::class, 'verifyDeliveryCode'])->name('orders.verify-delivery-code');
         Route::post('orders/{order}/return-request', [OrderActionController::class, 'requestReturn'])->name('orders.return-request');
+        // Colis en retour réaffecté à une autre course du même e-commerçant (même article)
+        Route::get('orders/{order}/reassign-candidates', [OrderReassignmentController::class, 'candidates'])->name('orders.reassign-candidates');
+        Route::post('orders/{order}/reassign', [OrderReassignmentController::class, 'reassign'])->name('orders.reassign');
+        Route::post('orders/{order}/label', [OrderReassignmentController::class, 'confirmLabel'])->middleware('throttle:30,1')->name('orders.label');
+        Route::get('returning-parcels', [OrderReassignmentController::class, 'returning'])->name('returning-parcels');
         // Colis pas ramassé à sa date : nouvelle date choisie dans l'application e-commerçant
         Route::post('orders/{order}/reschedule-date', [RescheduleController::class, 'choose'])->middleware('throttle:30,1')->name('orders.reschedule-date');
         Route::post('orders/{order}/edit-preview', [OrderController::class, 'editPreview'])->middleware('throttle:120,1')->name('orders.edit-preview');

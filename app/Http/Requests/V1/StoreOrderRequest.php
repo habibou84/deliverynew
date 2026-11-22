@@ -73,6 +73,8 @@ class StoreOrderRequest extends FormRequest
 
             // Commande préparée dans un entrepôt (produits en stock chez l'entreprise)
             'pickup_hub_id' => ['nullable', 'integer', Rule::exists('hubs', 'id')->where('company_id', $companyId)->where('is_active', true)],
+            // Colis en retour du même e-commerçant qui part avec cette course (pas de ramassage)
+            'reuse_order_id' => ['nullable', 'integer', Rule::exists('orders', 'id')->where('company_id', $companyId)],
             'pickup_zone_id' => ['nullable', 'integer', $zone],
             'pickup_zone' => ['nullable', 'string', 'max:150'],
             'pickup_place' => ['nullable', 'string', 'max:120'],

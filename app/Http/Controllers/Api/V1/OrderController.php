@@ -15,6 +15,7 @@ use App\Models\Merchant;
 use App\Models\Order;
 use App\Services\Merchants\QuickMerchant;
 use App\Services\Orders\AwaitingCourier;
+use App\Services\Orders\OrderReassignments;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\PickupGroups;
 use App\Services\Orders\ReturnSlips;
@@ -370,7 +371,20 @@ class OrderController extends Controller
         }
 
         $merchant = Merchant::findOrFail($user->merchant_id ?? $data['merchant_id']);
-        $order = $this->orders->create($user, $merchant, $data, $source);
+        $reuse = isset($data['reuse_order_id']) ? Order::query()->findOrFail($data['reuse_order_id']) : null;
+        unset($data['reuse_order_id']);
+        if ($reuse !== null) {
+            Gate::authorize('update', $reuse);
+        }
+        $order = DB::transaction(function () use ($user, $merchant, $data, $source, $reuse) {
+            $order = $this->orders->create($user, $merchant, $data, $source);
+            // Colis en retour réutilisé : la course part sans ramassage
+            if ($reuse !== null) {
+                $order = app(OrderReassignments::class)->reassign($user, $reuse, $order);
+            }
+
+            return $order;
+        });
 
         return OrderResource::make($this->loadDetail($order))->response()->setStatusCode(201);
     }
