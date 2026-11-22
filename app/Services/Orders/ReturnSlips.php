@@ -29,7 +29,10 @@ class ReturnSlips
 
     public function __construct(private readonly OrderDispatcher $dispatcher) {}
 
-    /** Colis à rendre (requête) : au dépôt, chez un livreur, ou déjà confiés pour le retour */
+    /**
+     * Colis à rendre (requête) : retour demandé, colis récupéré, pas encore parti chez le marchand (au dépôt, chez un
+     * livreur, ou déjà confié pour le retour). Jamais une course livrée, annulée ou perdue, ni une commande d'entrepôt.
+     */
     public function candidatesQuery(): Builder
     {
         return Order::query()
@@ -37,6 +40,18 @@ class ReturnSlips
             ->whereNull('return_slip_id')
             ->whereNull('pickup_hub_id')
             ->whereIn('status', OrderStatus::values(self::RETURNABLE));
+    }
+
+    /** Colis à rendre encore à confier à un livreur (aucune mission de retour) */
+    public function toAssignQuery(): Builder
+    {
+        return $this->candidatesQuery()->where('status', '!=', OrderStatus::ReturnAssigned->value);
+    }
+
+    /** Colis en route vers le marchand (le livreur est parti le rapporter) */
+    public function returningQuery(): Builder
+    {
+        return Order::query()->where('return_requested', true)->whereNull('pickup_hub_id')->where('status', OrderStatus::Returning->value);
     }
 
     /**

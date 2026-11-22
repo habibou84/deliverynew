@@ -227,7 +227,7 @@ const todos = computed(() => {
     { key: 'cancel', level: 'faire', count: c.cancellation_requests || 0, title: 'Annulations demandées', sub: 'à accepter ou refuser', action: 'Décider', to: '/admin/courses/annulations' },
     { key: 'change', level: 'faire', count: c.change_requests || 0, title: 'Modifications à valider', sub: 'prix ou livraison changés par l\'e-commerçant', action: 'Voir', to: queue('change_requests') },
     { key: 'decide', level: 'faire', count: exc.value.to_decide || 0, title: 'Échecs de livraison sans suite', sub: 'relivrer, retourner ou remettre en stock', action: 'Décider', to: queue('to_decide') },
-    { key: 'return', level: 'faire', count: day.value.to_return || 0, title: 'Colis à retourner', sub: 'refusés, tentatives épuisées ou retour demandé', action: 'Organiser', to: queue('to_return') },
+    { key: 'return', level: 'faire', count: day.value.to_return || 0, title: 'Colis à retourner', sub: 'refusés, tentatives épuisées ou retour demandé', action: 'Organiser', to: '/admin/retours' },
     { key: 'held', level: 'voir', count: heldParcels.counts.overdue || 0, title: 'Colis gardés trop longtemps par un livreur', sub: 'à faire rapporter ou livrer', action: 'Voir', to: '/admin/activite/colis' },
     { key: 'reports', level: 'voir', count: fieldReports.open.total || 0, title: 'Remontées terrain', sub: 'signalées par les livreurs, pas encore traitées', action: 'Ouvrir', to: '/admin/activite/remontees' },
   ].filter((t) => t.count > 0)
@@ -249,7 +249,7 @@ const steps = computed(() => {
     { label: 'En chemin', count: d.on_the_way || 0, to: queue('on_the_way') },
     { label: 'Livrées', count: d.delivered || 0, tone: 'text-emerald-700', to: queue('delivered'), outcome: true },
     { label: 'Échecs', count: d.failed || 0, tone: (d.failed ? 'text-red-700' : ''), to: queue('failed'), outcome: true },
-    { label: 'À retourner', count: d.to_return || 0, to: queue('to_return'), outcome: true },
+    { label: 'À retourner', count: d.to_return || 0, to: '/admin/retours', outcome: true },
   )
   return list
 })

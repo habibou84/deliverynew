@@ -66,7 +66,7 @@
         </button>
         <span class="hidden text-xs text-slate-600 sm:inline">Ou une étape du colis : les cases rouges demandent une action.</span>
       </div>
-      <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-[var(--stage-cols)]" :style="{ '--stage-cols': stageCols }" role="group" aria-label="Étapes des courses">
+      <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] 2xl:grid-cols-[var(--stage-cols)]" :style="{ '--stage-cols': stageCols }" role="group" aria-label="Étapes des courses">
         <section v-for="(st, i) in stages" :key="st.key" :class="['card space-y-2 p-3', st.key === 'delivery' ? 'sm:col-span-2 2xl:col-span-1' : '']" :aria-label="st.label">
           <p :class="['text-xs font-bold uppercase tracking-wide', STAGE_COLORS[st.key].title]">{{ i + 1 }}. {{ st.label }}</p>
           <div :class="['grid gap-2', CELL_GRID[st.items.length] || 'grid-cols-2']">
@@ -431,7 +431,6 @@ const STAGES = [
     { value: 'delivered', label: 'Livrées', done: true },
     { value: 'failed', label: 'Échecs', hint: 'à relivrer', action: true },
   ] },
-  { key: 'returns', label: 'Retours', items: [{ value: 'to_return', label: 'À retourner', hint: 'vers l\'e-commerçant' }] },
 ]
 // Cases d'une étape : côte à côte (classes écrites en entier pour Tailwind)
 const CELL_GRID = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-2 sm:grid-cols-4', 5: 'grid-cols-3 sm:grid-cols-5' }
@@ -439,7 +438,6 @@ const STAGE_COLORS = {
   validation: { title: 'text-violet-700', cell: 'bg-violet-50 text-violet-900' },
   pickup: { title: 'text-amber-700', cell: 'bg-amber-50 text-amber-900' },
   delivery: { title: 'text-blue-700', cell: 'bg-blue-50 text-blue-900' },
-  returns: { title: 'text-slate-600', cell: 'bg-slate-100 text-slate-900' },
 }
 const stages = computed(() => STAGES.map((st) => ({ ...st, items: st.items.filter((q) => mainQueues.value.some((m) => m.value === q.value)) })))
 // Largeur de chaque étape selon son nombre de cases (grand écran : une seule ligne)
@@ -451,7 +449,7 @@ function stageCellClass(st, q) {
 }
 
 // Onglets : les courses du jour choisi ; les jours passés sont dans « Courses en retard » (page à part)
-const MAIN_QUEUES = ['to_confirm', 'pickup_unassigned', 'to_pickup', 'to_prepare', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered', 'failed', 'to_return', '']
+const MAIN_QUEUES = ['to_confirm', 'pickup_unassigned', 'to_pickup', 'to_prepare', 'delivery_unassigned', 'delivery_assigned', 'on_the_way', 'delivered', 'failed', '']
 // « À préparer » : seulement pour une entreprise qui a un stock (ou s'il reste des commandes à préparer)
 const mainQueues = computed(() => queues.filter((q) => MAIN_QUEUES.includes(q.value) && (q.value !== 'to_prepare' || auth.hasFeature('stock') || tabCount('to_prepare') > 0)))
 // Sans ramasseur : en liste ou regroupés par client et adresse (lot à assigner d'un coup)

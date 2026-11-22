@@ -16,6 +16,7 @@ use App\Services\Merchants\QuickMerchant;
 use App\Services\Orders\AwaitingCourier;
 use App\Services\Orders\OrderService;
 use App\Services\Orders\PickupGroups;
+use App\Services\Orders\ReturnSlips;
 use App\Support\PhoneNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -447,8 +448,9 @@ class OrderController extends Controller
             'scheduled' => $query->whereIn('status', OrderStatus::values([OrderStatus::Pending, OrderStatus::Confirmed, OrderStatus::PickupAssigned, OrderStatus::PickupInProgress, OrderStatus::Rescheduled, OrderStatus::PickedUp, OrderStatus::AtHub]))
                 ->whereDate('delivery_scheduled_date', '>', $day)
                 ->where('return_requested', false),
-            'to_return' => $query->where('return_requested', true)
-                ->whereNotIn('status', OrderStatus::values([OrderStatus::ReturnAssigned, OrderStatus::Returning, OrderStatus::Returned])),
+            // Colis à rendre encore à confier (même règle que Retours marchands : jamais une course livrée ou annulée)
+            'to_return' => $query->where('return_requested', true)->whereNull('return_slip_id')->whereNull('pickup_hub_id')
+                ->whereIn('status', OrderStatus::values(array_filter(ReturnSlips::RETURNABLE, fn (OrderStatus $s) => $s !== OrderStatus::ReturnAssigned))),
             'incidents' => $query->whereIn('status', OrderStatus::values([OrderStatus::DeliveryFailed, OrderStatus::Rescheduled])),
             // Échec de livraison
             'failed' => $query->where('status', OrderStatus::DeliveryFailed),

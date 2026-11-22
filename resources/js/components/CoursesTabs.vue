@@ -88,9 +88,9 @@ const cards = computed(() => {
     {
       to: '/admin/retours', label: 'Retours marchands', icon: 'retour', active: route.path === '/admin/retours',
       number: r?.to_return ?? null, unit: 'colis à rendre',
-      lines: r ? [`chez ${plural(r.merchants || 0, 'e-commerçant', 'e-commerçants')} · ${r.assigned || 0} confié${(r.assigned || 0) > 1 ? 's' : ''} à un livreur`, `${(r.to_return || 0) - (r.held || 0)} au dépôt, ${r.held || 0} chez les livreurs`] : [],
+      lines: r ? [`${r.to_assign || 0} à confier · ${r.assigned || 0} confié${(r.assigned || 0) > 1 ? 's' : ''} à un livreur`, `chez ${plural(r.merchants || 0, 'e-commerçant', 'e-commerçants')}`] : [],
       alert: r?.oldest_days ? `Le plus ancien attend depuis ${plural(r.oldest_days, 'jour', 'jours')}` : '',
-      alertClass: 'bg-amber-50 text-amber-900', badge: r?.to_return || 0,
+      alertClass: 'bg-amber-50 text-amber-900', badge: r?.to_assign || 0,
     },
     {
       to: '/admin/courses/en-retard', label: 'Courses en retard', icon: 'retard', active: route.path === '/admin/courses/en-retard',

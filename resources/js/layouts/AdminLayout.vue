@@ -273,7 +273,7 @@ window.addEventListener('inbox-changed', fetchInbox)
 const returnsCount = ref(0)
 async function fetchReturns() {
   if (!auth.can('orders.dispatch')) return
-  returnsCount.value = (await http.get('/return-slips/count').catch(() => null))?.data?.data?.to_return ?? returnsCount.value
+  returnsCount.value = (await http.get('/return-slips/count').catch(() => null))?.data?.data?.to_assign ?? returnsCount.value
 }
 window.addEventListener('returns-changed', fetchReturns)
 
