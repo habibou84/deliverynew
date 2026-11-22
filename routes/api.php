@@ -84,6 +84,7 @@ use App\Http\Controllers\Api\V1\ParcelRelayController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
 use App\Http\Controllers\Api\V1\PayPlanController;
+use App\Http\Controllers\Api\V1\PickedLateController;
 use App\Http\Controllers\Api\V1\PlaceReportController;
 use App\Http\Controllers\Api\V1\PlanningController;
 use App\Http\Controllers\Api\V1\PremiumProgramController;
@@ -802,6 +803,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::post('orders/{order}/assign', [OrderActionController::class, 'assign'])->name('orders.assign');
         Route::post('orders/{order}/unassign', [OrderActionController::class, 'unassign'])->name('orders.unassign');
         Route::post('orders/{order}/decision', [OrderActionController::class, 'decide'])->name('orders.decision');
+        // Ramassé, date de livraison dépassée : retour ou report (un ou plusieurs colis)
+        Route::post('orders/picked-late/decide', [PickedLateController::class, 'decide'])->name('orders.picked-late.decide');
         Route::post('orders/{order}/lost', [OrderActionController::class, 'declareLost'])->name('orders.lost');
         Route::post('orders/{order}/notes', [OrderActionController::class, 'note'])->name('orders.notes');
         Route::post('orders/{order}/rating', [OrderActionController::class, 'rate'])->name('orders.rating');
