@@ -132,6 +132,12 @@ function targets(s) {
       list.push({ type: 'pickup', to: `/livreur/ramassage/${t.missions[0].pickup_group}`, label: t.label })
       continue
     }
+    // Retours d'un même marchand : un seul écran pour tous ses colis
+    const merchant = t.missions[0].order?.merchant?.id
+    if (t.type === 'return' && merchant) {
+      list.push({ type: 'return', to: `/livreur/retour/${merchant}`, label: t.label })
+      continue
+    }
     for (const m of t.missions) {
       const verb = { pickup: 'Ramasser', delivery: 'Livrer', return: 'Retourner' }[t.type]
       list.push({ type: t.type, to: `/livreur/missions/${m.id}`, label: `${verb} · ${m.order?.tracking_code || ''}` })

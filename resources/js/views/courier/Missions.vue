@@ -110,6 +110,7 @@
                 <span v-if="c.cod" class="font-bold whitespace-nowrap">{{ money(c.cod) }}</span>
               </div>
               <p class="flex items-center gap-1 text-sm text-slate-600 truncate"><Icone nom="adresse" taille="petite" />{{ c.place }}</p>
+              <p v-if="c.note" class="mt-0.5 text-sm font-semibold text-slate-700">{{ c.note }}</p>
               <div class="flex flex-wrap items-center gap-1.5 mt-2">
                 <span v-if="c.toAccept" class="rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5">{{ c.toAccept }} à accepter</span>
                 <StatusBadge v-else-if="c.status" :status="c.status" :label="c.statusLabel" />
@@ -220,6 +221,25 @@ const nextStopText = computed(() => {
 const cards = computed(() => {
   const type = tab.value
   const which = sub[type]
+  // Retours déjà rendus : une carte par marchand et par jour
+  if (type === 'return' && which === 'done') {
+    const days = new Map()
+    for (const m of finished(type, 'completed')) {
+      const day = localDay(m.completed_at || m.started_at || m.assigned_at)
+      const key = `${m.order?.merchant?.id ?? titleOf(m)}|${day}`
+      if (!days.has(key)) days.set(key, [])
+      days.get(key).push(m)
+    }
+    return [...days].map(([key, list]) => ({
+      key: `h${key}`,
+      art: 'livre',
+      title: titleOf(list[0]),
+      note: `${list.length} colis rendu${list.length > 1 ? 's' : ''} le ${shortDay(key.split('|')[1])}`,
+      place: placeOf(list[0]),
+      done: 'Retourné',
+      missions: list,
+    }))
+  }
   if (which !== 'todo') {
     return finished(type, which === 'done' ? 'completed' : 'failed').map((m) => ({
       key: `h${m.id}`,
@@ -234,7 +254,9 @@ const cards = computed(() => {
   }
   const groups = new Map()
   for (const m of active(type)) {
-    const key = type === 'pickup' && m.pickup_group ? m.pickup_group : `m${m.id}`
+    // Ramassages d'une même boutique, retours d'un même marchand : une seule carte
+    const merchant = m.order?.merchant?.id
+    const key = type === 'pickup' && m.pickup_group ? m.pickup_group : (type === 'return' && merchant ? `r${merchant}` : `m${m.id}`)
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key).push(m)
   }
@@ -243,9 +265,10 @@ const cards = computed(() => {
     const near = type === 'delivery' ? nearbyReturn(first, stops.value) : null
     return {
       key,
-      link: list.length > 1 ? `/livreur/ramassage/${key}` : `/livreur/missions/${first.id}`,
+      link: key.startsWith('r') ? `/livreur/retour/${key.slice(1)}` : (list.length > 1 ? `/livreur/ramassage/${key}` : `/livreur/missions/${first.id}`),
       art: { pickup: 'boutique', delivery: 'moto', return: 'retour' }[type],
-      title: list.length > 1 ? `${titleOf(first)} : ${list.length} colis` : titleOf(first),
+      title: type === 'return' || list.length === 1 ? titleOf(first) : `${titleOf(first)} : ${list.length} colis`,
+      note: type === 'return' ? `${list.length} colis à rendre · rien à encaisser` : '',
       place: placeOf(first),
       cod: type === 'delivery' ? first.order?.amounts?.cod_amount : 0,
       toAccept: list.filter((m) => m.status === 'assigned').length,
@@ -257,6 +280,9 @@ const cards = computed(() => {
     }
   })
 })
+// Jour local (AAAA-MM-JJ) d'une date, et son affichage court JJ/MM
+const localDay = (value) => { const d = new Date(value); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+const shortDay = (day) => day.split('-').reverse().slice(0, 2).join('/')
 const titleOf = (m) => (m.type === 'delivery' ? (m.order?.recipient?.name || m.order?.recipient?.phone) : (m.order?.merchant?.business_name || m.order?.pickup?.contact_name))
 const placeOf = (m) => { const p = missionPlace(m); return [p.zone, p.address].filter(Boolean).join(' · ') }
 
