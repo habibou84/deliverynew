@@ -14,6 +14,7 @@ use App\Models\MerchantPayout;
 use App\Models\Order;
 use App\Models\OrderEvent;
 use App\Models\Product;
+use App\Models\ReturnHandover;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookSubscription;
 use Illuminate\Support\Str;
@@ -113,6 +114,16 @@ class WebhookDispatcher
             'available' => $available,
             'low_stock_threshold' => $product->low_stock_threshold,
         ]]);
+    }
+
+    /**
+     * Remise des retours créée (livreur chez le marchand), renouvelée, confirmée, contestée, tranchée (contrat 1.14).
+     */
+    public function onReturnHandover(ReturnHandover $handover): void
+    {
+        $this->dispatch($handover->company_id, $handover->merchant_id, WebhookEvent::ReturnHandoverUpdated->value, [
+            'return_handover' => $handover->toPublic(),
+        ]);
     }
 
     /**

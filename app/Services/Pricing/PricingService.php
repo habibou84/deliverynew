@@ -18,6 +18,7 @@ use App\Services\Premium\PremiumLevels;
  *    tous les niveaux, dans les deux sens si le prix est symétrique ;
  * 3. sinon prix « depuis partout » du groupe où se trouve le lieu de livraison, ou à défaut le lieu qui le
  *    contient (quartier, puis commune) ;
+ * 3 bis. sinon prix de base de la grille (toute destination sans prix, hors expédition) ;
  * 4. suppléments (express, fragile, poids) ;
  * 5. réduction du niveau Premium du marchand sur le prix de base.
  */
@@ -53,6 +54,19 @@ class PricingService
                     pricingGridId: $grid->id,
                     pricingRuleId: null,
                     pricingGroupId: $group->id,
+                    premiumDiscount: $discount,
+                );
+            }
+
+            // Ni trajet ni prix pour la destination (ni sa commune) : prix de base de la grille
+            if ($grid->base_price !== null && ! $deliveryZone->is_shipping) {
+                $discount = app(PremiumLevels::class)->deliveryDiscount($merchant, $grid->base_price);
+
+                return new Quote(
+                    basePrice: $grid->base_price - $discount,
+                    surcharges: $this->surcharges($grid, $grid->base_price, $options),
+                    pricingGridId: $grid->id,
+                    pricingRuleId: null,
                     premiumDiscount: $discount,
                 );
             }
