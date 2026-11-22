@@ -45,7 +45,9 @@
 
     <!-- Argent et colis -->
     <section class="m-card p-4 space-y-2">
-      <div v-if="mission.type !== 'pickup' && !(shipping && !order.amounts.cod_amount)" class="flex items-center justify-between">
+      <!-- Retour : on rapporte le colis, aucun encaissement -->
+      <p v-if="mission.type === 'return'" class="flex items-center gap-2 font-semibold text-slate-700"><Icone nom="retourner" />Colis à rendre · rien à encaisser</p>
+      <div v-else-if="mission.type !== 'pickup' && !(shipping && !order.amounts.cod_amount)" class="flex items-center justify-between">
         <span class="text-slate-600">À encaisser</span>
         <span class="text-3xl font-bold">{{ money(order.amounts.cod_amount) }}</span>
       </div>

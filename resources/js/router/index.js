@@ -187,6 +187,7 @@ const routes = [
       { path: 'gains', component: () => import('../views/courier/Earnings.vue'), meta: { title: 'Mes gains' } },
       { path: 'messages', component: () => import('../views/courier/Messages.vue'), meta: { title: 'Consignes de l\'agence', back: true } },
       { path: 'relais', component: () => import('../views/courier/Relays.vue'), meta: { title: 'Relais', back: true } },
+      { path: 'retour/:merchant(\\d+)', component: () => import('../views/courier/ReturnGroup.vue'), meta: { title: 'Retour au marchand', back: true } },
       { path: 'remise/:merchant(\\d+)', component: () => import('../views/courier/ReturnConfirm.vue'), meta: { title: 'Remise au marchand', back: true } },
       { path: 'notifications', component: mobile.notifications, meta: { title: 'Notifications', back: true } },
       { path: 'profil', component: mobile.profile, meta: { title: 'Mon profil' } },
