@@ -123,6 +123,7 @@ class Order extends Model
             'hold_escalated_at' => 'datetime',
             'hold_alerted_at' => 'datetime',
             'returned_at' => 'datetime',
+            'label_confirmed_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'status_changed_at' => 'datetime',
             'unassigned_alerted_at' => 'datetime',
@@ -267,6 +268,37 @@ class Order extends Model
         $this->held_since = $courierId ? now() : null;
         $this->hold_alerted_at = null;
         $this->hold_escalated_at = null;
+    }
+
+    /** Nouvelle course partie avec ce colis (statut « Réaffecté ») */
+    public function reassignedTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reassigned_to_order_id');
+    }
+
+    /** Course en retour dont cette course a repris le colis */
+    public function reassignedFrom(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'reassigned_from_order_id');
+    }
+
+    /** Code de la course liée par une réaffectation (sans charger la relation dans les listes) */
+    public function linkedCode(string $relation): ?string
+    {
+        $id = $relation === 'reassignedTo' ? $this->reassigned_to_order_id : $this->reassigned_from_order_id;
+        if ($id === null) {
+            return null;
+        }
+
+        return $this->relationLoaded($relation)
+            ? $this->getRelation($relation)?->tracking_code
+            : self::withoutGlobalScopes()->whereKey($id)->value('tracking_code');
+    }
+
+    /** Colis repris d'une autre course : l'étiquette doit être remplacée, tant que ce n'est pas confirmé */
+    public function labelToChange(): bool
+    {
+        return $this->reassigned_from_order_id !== null && $this->label_confirmed_at === null && ! $this->status->isFinal();
     }
 
     public function lastIncidentReason(): BelongsTo

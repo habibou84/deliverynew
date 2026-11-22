@@ -378,7 +378,7 @@ const todayIso = isoDay(new Date())
 const tomorrowIso = isoDay(new Date(Date.now() + 86400000))
 // Jour de livraison : la date prévue, sinon le jour de création
 const deliveryDay = (o) => (o.delivery.scheduled_date || o.created_at || '').slice(0, 10)
-const FINAL = ['delivered', 'cancelled', 'rejected', 'returned', 'lost']
+const FINAL = ['delivered', 'cancelled', 'rejected', 'returned', 'lost', 'reassigned']
 // Jour affiché par l'agence : aujourd'hui par défaut, « all » dans l'adresse pour toutes les dates
 const initialDay = () => {
   if (!auth.user || auth.user.merchant_id) return ''

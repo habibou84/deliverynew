@@ -127,6 +127,21 @@ class PublicContractTest extends TestCase
         $this->api('POST', "orders/{$delivered->tracking_code}/rating", ['score' => 5, 'tags' => ['inconnue']])->assertJsonValidationErrors('tags.0');
     }
 
+    public function test_a_reassigned_parcel_follows_the_contract(): void
+    {
+        $returning = $this->failed();
+        Sanctum::actingAs($this->dispatcher);
+        $this->postJson("/api/v1/orders/{$returning->id}/return-request")->assertSuccessful();
+        $waiting = $this->createOrder(['description' => $returning->description]);
+        $this->postJson("/api/v1/orders/{$returning->id}/reassign", ['order_id' => $waiting->id])->assertOk();
+        $this->app['auth']->forgetGuards();
+
+        $this->assertContract('order-response', $this->api('GET', "orders/{$returning->tracking_code}")
+            ->assertJsonPath('data.status', 'reassigned')->assertJsonPath('data.reassigned_to', $waiting->tracking_code)->json(), 'réaffectée');
+        $this->assertContract('order-response', $this->api('GET', "orders/{$waiting->tracking_code}")
+            ->assertJsonPath('data.status', 'picked_up')->assertJsonPath('data.reassigned_from', $returning->tracking_code)->json(), 'repris');
+    }
+
     public function test_account_and_reference_responses_follow_the_contract(): void
     {
         $this->assertContract('me', $this->api('GET', 'me')->assertOk()->json());

@@ -79,6 +79,7 @@ const actions = computed(() => {
       href: wa(`${hello}, votre livreur n'a pas pu vous joindre pour votre colis ${o.merchant || ''}. Quand pouvons-nous vous livrer ?`) },
     location: { icon: 'position', label: 'Demander la position au client', sub: 'Lien de suivi avec « Envoyer ma position »', comment: 'Position demandée au client',
       href: wa(`${hello}, votre livreur ne trouve pas votre adresse. Ouvrez ce lien et touchez « Envoyer ma position » : ${o.tracking_url || ''}`) },
+    reassign: { icon: 'retourner', label: 'Réaffecter à une autre commande', sub: 'Un client a commandé le même article : pas de retour', to: `/admin/courses/${o.id}#reassign` },
     open: { icon: 'ouvrir', label: 'Ouvrir la course', sub: o.status_label || '', to: `/admin/courses/${o.id}` },
   }
 

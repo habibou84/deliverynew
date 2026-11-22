@@ -58,7 +58,7 @@ const props = defineProps({
 const emit = defineEmits(['updated'])
 const toasts = useToastStore()
 const busy = ref(false)
-const FINAL = ['delivered', 'cancelled', 'rejected', 'returned', 'lost']
+const FINAL = ['delivered', 'cancelled', 'rejected', 'returned', 'lost', 'reassigned']
 
 const editable = computed(() => props.canDispatch && props.couriers.length > 0)
 const pickupEditable = computed(() => editable.value && !props.order.to_reschedule && !!props.order.pickup_courier && ['pickup_assigned', 'pickup_in_progress'].includes(props.order.status))

@@ -93,8 +93,22 @@
         <!-- Le tarif dès que la commune est choisie -->
         <p v-if="quote" class="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-800">Livraison : {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
         <p v-else-if="form.delivery_zone_id && !quoteError" class="mt-2 text-sm text-slate-600">Calcul du prix…</p>
+        <!-- Colis du même article déjà en retour : il peut partir avec cette course, sans ramassage -->
+        <div v-if="returningMatch && !reuse" class="mt-3 rounded-xl bg-emerald-50 p-3 ring-1 ring-emerald-200 space-y-2 text-sm">
+          <p class="font-bold text-emerald-900">⟳ Vous avez déjà ce colis en retour</p>
+          <p class="text-emerald-900/90">{{ returningMatch.content }} · {{ returningMatch.status_label.toLowerCase() }} chez {{ returningMatch.recipient_name || 'un client' }} (<span class="font-mono">{{ returningMatch.tracking_code }}</span>). Avec ce colis : pas de ramassage, pas de retour.</p>
+          <div class="flex gap-2">
+            <button type="button" class="m-btn-primary !py-2.5" @click="reuse = returningMatch">Utiliser ce colis</button>
+            <button type="button" class="m-btn-secondary !py-2.5" @click="dismissedMatch = returningMatch.id">Non, ramasser</button>
+          </div>
+        </div>
+        <div v-if="reuse" class="mt-3 flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-sm ring-1 ring-emerald-200">
+          <span aria-hidden="true">⟳</span>
+          <p class="min-w-0 flex-1"><b>Colis repris de <span class="font-mono">{{ reuse.tracking_code }}</span></b><span class="block text-xs text-emerald-900">Déjà chez le livreur : pas de ramassage. Il changera l'étiquette.</span></p>
+          <button type="button" class="shrink-0 font-bold text-[var(--app-color)]" @click="reuse = null">Annuler</button>
+        </div>
         <!-- Lieu de ramassage : le prix en part. Modifiable pour cette course, ou pour de bon (position validée sur place) -->
-        <div class="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
+        <div v-if="!reuse" class="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
           <div class="flex items-start gap-2">
             <span aria-hidden="true">📍</span>
             <p class="min-w-0 flex-1">
@@ -356,6 +370,29 @@ watch(() => oneOff.on && oneOff.zone_id, () => fetchQuote())
 const availableAt = (product) => limitAt(product, source.value)
 const sourceProducts = computed(() => products.value.filter((p) => availableAt(p) > 0 || picked[p.id]))
 const pickedItems = computed(() => products.value.filter((p) => picked[p.id] > 0).map((p) => ({ ...orderLine(p, picked[p.id]), name: p.name })))
+
+// Colis du même article déjà en retour chez ce marchand : proposé pour partir avec cette course (pas de ramassage)
+const returningList = ref([])
+const dismissedMatch = ref(null)
+const reuse = ref(null)
+const returningMatch = computed(() => returningList.value.find((o) => o.id !== dismissedMatch.value) || null)
+let returningTimer
+watch(() => [form.description, pickedItems.value.map((i) => i.product_id).join(',')], () => {
+  clearTimeout(returningTimer)
+  returningTimer = setTimeout(async () => {
+    const items = pickedItems.value.map((i) => ({ product_id: i.product_id, label: i.name }))
+    if (!items.length && (form.description || '').trim().length < 3) {
+      returningList.value = []
+      return
+    }
+    try {
+      returningList.value = (await http.get('/returning-parcels', { params: { description: form.description || undefined, items: items.length ? JSON.stringify(items) : undefined } })).data.data
+    } catch {
+      returningList.value = []
+    }
+    if (reuse.value && !returningList.value.some((o) => o.id === reuse.value.id)) reuse.value = null
+  }, 500)
+})
 
 function pick(product, delta) {
   picked[product.id] = Math.max(0, Math.min(availableAt(product), (picked[product.id] || 0) + delta))
@@ -704,7 +741,8 @@ async function submit() {
     if (payload.recipient_phone2) payload.recipient_phone2 = payload.recipient_phone2.replace(/[^\d+]/g, '')
     payload.items_amount = form.items_amount || 0
     if (pickedItems.value.length) payload.items = pickedItems.value.map(({ name, ...line }) => line)
-    if (source.value) payload.pickup_hub_id = source.value
+    if (reuse.value) payload.reuse_order_id = reuse.value.id
+    else if (source.value) payload.pickup_hub_id = source.value
     // Autre lieu de ramassage pour cette course seulement
     else if (oneOff.on && oneOff.zone_id) Object.assign(payload, { pickup_zone_id: oneOff.zone_id, pickup_address: oneOff.address || undefined })
     created.value = (await http.post('/orders', payload)).data.data
@@ -737,6 +775,9 @@ function reset(sameClient = false) {
   source.value = null
   // La course suivante repart du lieu de ramassage habituel
   resetOneOff()
+  reuse.value = null
+  dismissedMatch.value = null
+  returningList.value = []
   Object.keys(picked).forEach((id) => delete picked[id])
   resetDate()
   fromMessage.value = false
