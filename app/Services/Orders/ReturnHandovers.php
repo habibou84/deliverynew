@@ -12,6 +12,7 @@ use App\Models\Order;
 use App\Models\ReturnHandover;
 use App\Models\User;
 use App\Models\WhatsAppAccount;
+use App\Notifications\ReturnHandoverStarted;
 use App\Notifications\ReturnHandoverToReview;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
@@ -73,10 +74,18 @@ class ReturnHandovers
             ]);
 
             $handover->order_ids = $orders->modelKeys();
-            if (! $handover->exists || $handover->isExpired()) {
+            $new = ! $handover->exists;
+            if ($new || $handover->isExpired()) {
                 $this->renewReference($handover);
             }
             $handover->save();
+
+            // L'e-commerçant est prévenu sur son téléphone : il confirme dans son application (seul moyen quand le
+            // WhatsApp de l'agence n'est pas relié)
+            if ($new) {
+                $users = $merchant->users()->where('status', 'active')->get();
+                Notification::send($users, new ReturnHandoverStarted($handover, $courier->user?->name ?: 'Le livreur', $orders->count()));
+            }
 
             return $handover;
         });
@@ -252,14 +261,23 @@ class ReturnHandovers
     /** Lien WhatsApp du QR code : numéro de l'entreprise, message déjà écrit (null sans numéro WhatsApp relié) */
     public function whatsappLink(ReturnHandover $handover): ?string
     {
-        $account = WhatsAppAccount::forCompanyId($handover->company_id);
+        $digits = $this->whatsappDigits($handover->company_id);
+
+        return $digits === null ? null : "https://wa.me/{$digits}?text=".rawurlencode($handover->message());
+    }
+
+    /** Le WhatsApp de l'agence est-il relié ? Sinon ni QR code ni mot « retour » : application ou remise de secours */
+    public function whatsappConnected(int $companyId): bool
+    {
+        return $this->whatsappDigits($companyId) !== null;
+    }
+
+    private function whatsappDigits(int $companyId): ?string
+    {
+        $account = WhatsAppAccount::forCompanyId($companyId);
         $digits = preg_replace('/\D/', '', (string) $account?->display_phone);
 
-        if ($account === null || $account->status !== 'connected' || $digits === '') {
-            return null;
-        }
-
-        return "https://wa.me/{$digits}?text=".rawurlencode($handover->message());
+        return $account === null || $account->status !== 'connected' || $digits === '' ? null : $digits;
     }
 
     private function markReturned(ReturnHandover $handover, User $actor, string $note, ?float $lat = null, ?float $lng = null): void

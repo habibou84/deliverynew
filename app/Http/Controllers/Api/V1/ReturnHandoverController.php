@@ -164,6 +164,7 @@ class ReturnHandoverController extends Controller
             ])->values(),
             ...($full ? [
                 'whatsapp_link' => $h->status === ReturnHandover::PENDING ? $this->handovers->whatsappLink($h) : null,
+                'whatsapp_connected' => $this->handovers->whatsappConnected($h->company_id),
                 'message' => $h->message(),
                 'fallback_reason' => $h->fallback_reason,
                 'fallback_label' => ReturnHandover::FALLBACK_REASONS[$h->fallback_reason] ?? null,

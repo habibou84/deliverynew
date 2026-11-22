@@ -80,11 +80,13 @@
             <span class="inline-flex items-center justify-center gap-2"><Icone nom="actualiser" />Nouveau QR code</span>
           </button>
         </template>
-        <p v-else class="text-sm text-slate-700">Demandez au marchand d'écrire <strong>retour</strong> au WhatsApp de l'agence, ou de confirmer dans son application.</p>
+        <p v-else-if="handover.whatsapp_connected" class="text-sm text-slate-700">Demandez au marchand d'écrire <strong>retour</strong> au WhatsApp de l'agence, ou de confirmer dans son application.</p>
+        <!-- WhatsApp de l'agence pas relié : ni QR code ni « retour », seulement l'application (il vient d'être prévenu) -->
+        <p v-else class="text-sm text-slate-700">Demandez au marchand de <strong>confirmer dans son application</strong> : il vient de recevoir une notification « {{ handover.courier.name || 'Le livreur' }} est chez vous ».</p>
         <p class="flex items-center justify-center gap-2 text-sm text-slate-600"><span class="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />En attente de la confirmation du marchand…</p>
       </section>
       <OrderList :orders="handover.orders" />
-      <p class="text-sm text-slate-600">Le marchand n'a pas son téléphone ? Il peut aussi écrire « retour » au WhatsApp de l'agence, ou confirmer dans son application.</p>
+      <p class="text-sm text-slate-600">{{ handover.whatsapp_connected ? 'Le marchand ne peut pas scanner ? Il peut aussi écrire « retour » au WhatsApp de l\'agence, ou confirmer dans son application.' : 'Le marchand n\'a pas l\'application, ou pas de téléphone ? Touchez « Il ne peut pas confirmer ».' }}</p>
       <button type="button" class="m-btn-secondary" @click="fallbackOpen = true">
         <span class="inline-flex items-center justify-center gap-2"><Icone nom="ecrire" />Il ne peut pas confirmer</span>
       </button>
