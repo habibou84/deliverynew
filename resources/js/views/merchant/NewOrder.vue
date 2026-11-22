@@ -93,6 +93,35 @@
         <!-- Le tarif dès que la commune est choisie -->
         <p v-if="quote" class="mt-2 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-800">Livraison : {{ money(quote.total) }}{{ quote.is_shipping ? ` + expédition ≈ ${money(shippingEstimate)}` : '' }}</p>
         <p v-else-if="form.delivery_zone_id && !quoteError" class="mt-2 text-sm text-slate-600">Calcul du prix…</p>
+        <!-- Lieu de ramassage : le prix en part. Modifiable pour cette course, ou pour de bon (position validée sur place) -->
+        <div class="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm">
+          <div class="flex items-start gap-2">
+            <span aria-hidden="true">📍</span>
+            <p class="min-w-0 flex-1">
+              <span class="text-slate-600">Lieu de ramassage :</span>&nbsp;<b>{{ pickupLabel || 'non renseigné' }}</b>
+              <span v-if="oneOff.on && !source" class="block text-xs text-amber-800">Pour cette course seulement</span>
+            </p>
+            <button v-if="!source" type="button" class="shrink-0 font-bold text-[var(--app-color)]" :aria-expanded="pickupOpen" @click="pickupOpen = !pickupOpen">{{ pickupOpen ? 'Fermer' : 'Modifier' }}</button>
+          </div>
+          <div v-if="pickupOpen && !source" class="mt-3 space-y-2">
+            <button type="button" :class="['tap w-full rounded-xl px-3 py-2.5 text-left ring-1', oneOffChoice ? 'bg-white ring-[var(--app-color)]' : 'bg-white ring-slate-200']" @click="oneOffChoice = true">
+              <b class="block">Pour cette course seulement</b>
+              <span class="text-xs text-slate-600">Le colis part d'un autre endroit cette fois-ci</span>
+            </button>
+            <div v-if="oneOffChoice" class="space-y-2 rounded-xl bg-white p-3 ring-1 ring-slate-200">
+              <PlacePicker id="pickup-zone" v-model="oneOff.zone_id" :zones="pickupZones" />
+              <input id="pickup-address" v-model.trim="oneOff.address" class="m-input" maxlength="255" placeholder="Adresse et repère du ramassage" aria-label="Adresse et repère du ramassage">
+              <div class="flex gap-2">
+                <button type="button" class="m-btn-primary !py-2.5" :disabled="!oneOff.zone_id" @click="useOneOff">Utiliser ce lieu</button>
+                <button v-if="oneOff.on" type="button" class="m-btn-secondary !py-2.5" @click="resetOneOff">Revenir à mon lieu habituel</button>
+              </div>
+            </div>
+            <RouterLink to="/marchand/lieu-de-ramassage" class="tap block rounded-xl bg-white px-3 py-2.5 ring-1 ring-slate-200">
+              <b class="block">Changer mon lieu de ramassage habituel</b>
+              <span class="text-xs text-slate-600">Depuis votre boutique, validez votre position : toutes vos courses partiront de là</span>
+            </RouterLink>
+          </div>
+        </div>
         <p v-if="selectedZone?.is_shipping" class="mt-2 rounded-xl bg-indigo-50 text-indigo-900 text-sm p-3">
           <strong>Expédition</strong> : notre livreur dépose le colis à la gare et paie l'envoi
           <template v-if="selectedZone.shipping_fee_estimate">(environ {{ money(selectedZone.shipping_fee_estimate) }})</template>.
@@ -299,6 +328,30 @@ const sourceOptions = computed(() => [
 const sourceName = computed(() => hubs.value.find((h) => h.id === source.value)?.name)
 const sourceZoneId = computed(() => hubs.value.find((h) => h.id === source.value)?.zone_id)
 
+// Lieu de ramassage : celui de la fiche (zone choisie à l'inscription, mise à jour avec la position validée sur
+// place), l'entrepôt d'où part la commande, ou un autre lieu pour cette course seulement
+const home = ref(null)
+const pickupOpen = ref(false)
+const oneOffChoice = ref(false)
+const oneOff = reactive({ on: false, zone_id: null, address: '' })
+const pickupZones = computed(() => zones.value.filter((z) => !z.is_shipping && z.is_pickup !== false))
+const pickupZoneId = computed(() => sourceZoneId.value || (oneOff.on ? oneOff.zone_id : null) || undefined)
+const pickupLabel = computed(() => {
+  if (source.value) return sourceName.value
+  const zone = oneOff.on ? zones.value.find((z) => z.id === oneOff.zone_id)?.full_name : home.value?.pickup_zone_full_name
+  return (zone || '').split(' › ').reverse().join(', ')
+})
+function useOneOff() {
+  oneOff.on = true
+  pickupOpen.value = false
+}
+function resetOneOff() {
+  Object.assign(oneOff, { on: false, zone_id: null, address: '' })
+  oneOffChoice.value = false
+  pickupOpen.value = false
+}
+watch(() => oneOff.on && oneOff.zone_id, () => fetchQuote())
+
 // Tout le catalogue : un produit sans stock suivi part de chez le marchand, sans limite
 const availableAt = (product) => limitAt(product, source.value)
 const sourceProducts = computed(() => products.value.filter((p) => availableAt(p) > 0 || picked[p.id]))
@@ -358,7 +411,7 @@ async function fetchQuote() {
   try {
     const { data } = await http.post('/quotes', {
       delivery_zone_id: form.delivery_zone_id,
-      pickup_zone_id: sourceZoneId.value || undefined,
+      pickup_zone_id: pickupZoneId.value,
       is_express: form.is_express,
       is_fragile: form.is_fragile,
     })
@@ -603,13 +656,13 @@ const quickZones = computed(() => {
 
 // Prix de la livraison des lieux proposés, affichés à côté de chacun (même calcul que le tarif de la course)
 const zoneFees = reactive({})
-watch([quickZones, sourceZoneId], () => {
+watch([quickZones, pickupZoneId], () => {
   quickZones.value.forEach(async (z) => {
-    const key = `${z.id}-${sourceZoneId.value || ''}`
+    const key = `${z.id}-${pickupZoneId.value || ''}`
     if (zoneFees[`_${key}`]) return
     zoneFees[`_${key}`] = true
     try {
-      const { data } = await http.post('/quotes', { delivery_zone_id: z.id, pickup_zone_id: sourceZoneId.value || undefined })
+      const { data } = await http.post('/quotes', { delivery_zone_id: z.id, pickup_zone_id: pickupZoneId.value })
       zoneFees[z.id] = data.data.total
     } catch {
       // Sans prix : le lieu reste proposé
@@ -652,6 +705,8 @@ async function submit() {
     payload.items_amount = form.items_amount || 0
     if (pickedItems.value.length) payload.items = pickedItems.value.map(({ name, ...line }) => line)
     if (source.value) payload.pickup_hub_id = source.value
+    // Autre lieu de ramassage pour cette course seulement
+    else if (oneOff.on && oneOff.zone_id) Object.assign(payload, { pickup_zone_id: oneOff.zone_id, pickup_address: oneOff.address || undefined })
     created.value = (await http.post('/orders', payload)).data.data
     saveHabits()
     loadStock()
@@ -680,6 +735,8 @@ function reset(sameClient = false) {
   created.value = null
   quote.value = null
   source.value = null
+  // La course suivante repart du lieu de ramassage habituel
+  resetOneOff()
   Object.keys(picked).forEach((id) => delete picked[id])
   resetDate()
   fromMessage.value = false
@@ -711,6 +768,7 @@ async function loadStock() {
 }
 
 onMounted(async () => {
+  http.get('/merchant/pickup-location').then(({ data }) => { home.value = data.data }).catch(() => {})
   loadDeliveryDay().then(applyHabits)
   loadRecentZones()
   // « Coller un message » du menu : le message copié est analysé tout de suite s'il y en a un
