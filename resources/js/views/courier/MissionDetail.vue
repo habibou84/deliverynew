@@ -324,12 +324,8 @@ const primary = computed(() => {
   if (t === 'delivery' && s === 'out_for_delivery') return { icon: 'valider', label: shipping.value ? 'Colis expédié' : 'Colis livré', class: 'm-btn-success', action: openDelivered }
   if (t === 'return' && s === 'return_assigned') return { icon: 'retourner', label: 'Je rapporte le colis', class: 'm-btn-primary', action: () => move('returning') }
   // Remise confirmée par le marchand (réglage de l'entreprise) : QR code à lui faire scanner
-  if (t === 'return' && ['return_assigned', 'returning'].includes(s) && auth.user?.company?.return_confirmation && order.value.merchant?.id && !order.value.return_slip_id) {
+  if (t === 'return' && ['return_assigned', 'returning'].includes(s) && auth.user?.company?.return_confirmation && order.value.merchant?.id) {
     return { icon: 'valider', label: 'Remettre au marchand', class: 'm-btn-success', action: () => router.push(`/livreur/remise/${order.value.merchant.id}`) }
-  }
-  // Colis sur un bon de retour : remise signée depuis l'écran du bon
-  if (t === 'return' && ['return_assigned', 'returning'].includes(s) && auth.user?.company?.return_confirmation && order.value.return_slip_id) {
-    return { icon: 'valider', label: 'Remettre au marchand (bon de retour)', class: 'm-btn-success', action: () => router.push(`/livreur/retours/${order.value.return_slip_id}`) }
   }
   if (t === 'return' && ['return_assigned', 'returning'].includes(s)) return { icon: 'valider', label: 'Colis rendu au marchand', class: 'm-btn-success', action: () => move('returned') }
   return null

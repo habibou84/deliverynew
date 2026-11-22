@@ -6,8 +6,8 @@
     <div class="max-w-6xl">
       <p class="text-sm text-slate-600">
         Les colis à rendre aux e-commerçants : trop de tentatives, colis refusé, ou retour demandé par l'e-commerçant ou par l'agence.
-        Regroupez ceux d'un e-commerçant sur un bon de retour confié à un livreur : l'e-commerçant est prévenu, il signe à la remise,
-        et tous les colis passent « Retourné ».
+        Confiez ceux d'un e-commerçant à un livreur. Chez l'e-commerçant, le livreur affiche un QR code : l'e-commerçant le scanne
+        pour confirmer qu'il a bien reçu ses colis, et ils passent « Retourné ».
       </p>
     </div>
 
@@ -73,7 +73,7 @@
           <span class="text-sm font-semibold text-blue-700">{{ opened[g.merchant.id] ? 'Masquer' : 'Voir les colis' }}</span>
         </button>
 
-        <!-- Dépliée : ses colis et le bon de retour -->
+        <!-- Dépliée : ses colis, à confier à un livreur -->
         <div v-if="opened[g.merchant.id]" class="border-t">
           <p v-if="!orders[g.merchant.id]" class="p-4 text-sm text-slate-600">Chargement…</p>
           <template v-else>
@@ -84,7 +84,7 @@
                 :aria-label="`Livreur pour ${g.merchant.business_name}`"
                 :options="couriers.map((c) => ({ value: c.id, label: c.name, hint: `${holderCount(g, c.id) ? `a ${holderCount(g, c.id)} colis` : ''}${c.is_available ? '' : ' · indisponible'}`, search: c.phone }))"
               />
-              <button class="btn-primary" :disabled="!selectedOf(g).length || !courierFor[g.merchant.id] || busy" @click="create(g)"><Icone nom="document" /> Créer le bon de retour ({{ selectedOf(g).length }})</button>
+              <button class="btn-primary" :disabled="!selectedOf(g).length || !courierFor[g.merchant.id] || busy" @click="assign(g)"><Icone nom="retourner" /> Confier le retour ({{ selectedOf(g).length }} colis)</button>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-sm">
@@ -118,34 +118,6 @@
       </div>
     </section>
 
-    <!-- Bons -->
-    <section class="card">
-      <h2 class="font-semibold p-4 border-b">Bons de retour (30 derniers jours)</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead class="bg-slate-50 text-left text-slate-600">
-            <tr><th class="p-2">Bon</th><th class="p-2">Marchand</th><th class="p-2">Livreur</th><th class="p-2">Colis</th><th class="p-2">État</th><th /></tr>
-          </thead>
-          <tbody class="divide-y">
-            <tr v-for="s in slips" :key="s.id">
-              <td class="p-2 font-mono text-xs">{{ s.reference }}<div class="text-slate-600">{{ dateTime(s.created_at) }}</div></td>
-              <td class="p-2">{{ s.merchant?.business_name }}</td>
-              <td class="p-2">{{ s.courier?.name }}</td>
-              <td class="p-2">{{ s.orders_count }}</td>
-              <td class="p-2">
-                <span :class="['rounded-full px-2 py-0.5 text-xs', s.status === 'handed' ? 'bg-emerald-100 text-emerald-800' : s.status === 'open' ? 'bg-amber-100 text-amber-900' : 'bg-slate-100 text-slate-600']">{{ s.status_label }}</span>
-                <div v-if="s.handed_at" class="text-xs text-slate-600">{{ dateTime(s.handed_at) }} · {{ s.received_by_name }}</div>
-              </td>
-              <td class="p-2 text-right whitespace-nowrap space-x-1">
-                <RouterLink :to="`/bon-de-retour/${s.id}`" class="btn-secondary"><Icone nom="imprimer" taille="petite" /> Voir / imprimer</RouterLink>
-                <button v-if="s.status === 'open'" class="btn-secondary text-xs" @click="cancel(s)">Annuler</button>
-              </td>
-            </tr>
-            <tr v-if="!slips.length"><td colspan="6" class="p-4 text-center text-slate-600">Aucun bon de retour.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -155,7 +127,6 @@ import Icone from '../../components/ui/Icone.vue'
 import ReturnHandoverReview from '../../components/admin/ReturnHandoverReview.vue'
 import SearchSelect from '../../components/SearchSelect.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useAuthStore } from '../../stores/auth'
 import { useToastStore } from '../../stores/toasts'
@@ -175,12 +146,10 @@ const FILTERS = [
 ]
 const OLD_DAYS = 7
 
-const router = useRouter()
 const auth = useAuthStore()
 const toasts = useToastStore()
 const candidates = ref([])
 const total = ref(0)
-const slips = ref([])
 const couriers = ref([])
 const selected = ref([])
 const courierFor = reactive({})
@@ -242,7 +211,6 @@ async function load() {
   const { data } = await http.get('/return-slips')
   candidates.value = data.candidates
   total.value = data.candidates_total
-  slips.value = data.data
   // Les listes dépliées sont rechargées à la demande
   for (const key of Object.keys(orders)) delete orders[key]
   for (const key of Object.keys(opened)) opened[key] = false
@@ -285,26 +253,18 @@ async function undoLegacy() {
   }
 }
 
-async function create(g) {
+// Confier les colis cochés au livreur choisi : missions de retour ; la remise se fait par le QR code du livreur
+async function assign(g) {
   busy.value = true
   try {
-    const { data } = await http.post('/return-slips', { merchant_id: g.merchant.id, courier_id: courierFor[g.merchant.id], order_ids: selectedOf(g) })
-    toasts.success(`Bon ${data.data.reference} créé : ${data.data.orders_count} colis. Le marchand est prévenu.`)
-    router.push(`/bon-de-retour/${data.data.id}`)
+    const { data } = await http.post('/return-slips/assign', { merchant_id: g.merchant.id, courier_id: courierFor[g.merchant.id], order_ids: selectedOf(g) })
+    const name = couriers.value.find((c) => c.id === courierFor[g.merchant.id])?.name || 'le livreur'
+    toasts.success(`${data.data.assigned} colis confié(s) à ${name}. Chez ${g.merchant.business_name}, il fera scanner son QR code.`)
+    await load()
   } catch (e) {
     toasts.error(apiErrorMessage(e))
   } finally {
     busy.value = false
-  }
-}
-
-async function cancel(s) {
-  if (!await confirmDialog(`Annuler le bon ${s.reference} ? Les missions de retour restent assignées.`)) return
-  try {
-    await http.post(`/return-slips/${s.id}/cancel`)
-    load()
-  } catch (e) {
-    toasts.error(apiErrorMessage(e))
   }
 }
 

@@ -659,11 +659,8 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('return-slips', [ReturnSlipController::class, 'index'])->name('return-slips.index');
         Route::get('return-slips/candidates', [ReturnSlipController::class, 'candidates'])->name('return-slips.candidates');
         Route::get('return-slips/count', [ReturnSlipController::class, 'count'])->name('return-slips.count');
-        Route::post('return-slips', [ReturnSlipController::class, 'store'])->name('return-slips.store');
-        Route::get('return-slips/{returnSlip}', [ReturnSlipController::class, 'show'])->name('return-slips.show');
-        Route::post('return-slips/{returnSlip}/hand-over', [ReturnSlipController::class, 'handOver'])->middleware('throttle:30,1')->name('return-slips.hand-over');
-        Route::post('return-slips/{returnSlip}/cancel', [ReturnSlipController::class, 'cancel'])->name('return-slips.cancel');
-        Route::get('return-slips/{returnSlip}/proof/{kind}', [ReturnSlipController::class, 'proof'])->whereIn('kind', ['signature', 'photo'])->name('return-slips.proof');
+        // Confier à un livreur les colis à rendre d'un marchand (plus de bon de retour : remise par QR code)
+        Route::post('return-slips/assign', [ReturnSlipController::class, 'assign'])->name('return-slips.assign');
         // Remises au marchand confirmées par lui : bandeau du marchand, remises à vérifier par l'agence (droits vérifiés dans le contrôleur)
         Route::get('return-handovers/mine', [ReturnHandoverController::class, 'mine'])->name('return-handovers.mine');
         Route::get('return-handovers/review', [ReturnHandoverController::class, 'review'])->name('return-handovers.review');
@@ -954,7 +951,6 @@ Route::prefix('v1')->name('v1.')->group(function () {
             Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
             Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
             Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');
-            Route::get('return-slips', [ReturnSlipController::class, 'mine'])->name('return-slips');
             // Remise au marchand : QR code à lui faire scanner, remise de secours
             Route::post('return-handovers', [ReturnHandoverController::class, 'start'])->middleware('throttle:30,1')->name('return-handovers.start');
             Route::get('return-handovers/{returnHandover}', [ReturnHandoverController::class, 'show'])->name('return-handovers.show');
