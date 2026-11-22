@@ -101,7 +101,7 @@ class PricingGroupController extends Controller
 
         return response()->json(['data' => [
             ...$quote->toArray(),
-            'source' => $group ? 'group' : 'rule',
+            'source' => $group ? 'group' : ($rule ? 'rule' : 'base'),
             'group' => $group?->name,
             'rule' => $rule ? [Zone::find($rule->origin_zone_id)?->name, Zone::find($rule->destination_zone_id)?->name] : null,
             'grid_id' => $quote->pricingGridId,

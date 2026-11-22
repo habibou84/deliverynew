@@ -2,16 +2,22 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\ApiKey;
 use App\Models\IncidentReason;
 use App\Models\Order;
 use App\Models\OutboundMessage;
 use App\Models\ReturnHandover;
 use App\Models\User;
+use App\Models\WebhookSubscription;
 use App\Notifications\ReturnHandoverToReview;
 use App\Services\WhatsApp\Conversation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
+use Jibiat\Socle\Contract\Contract;
 use Laravel\Sanctum\Sanctum;
 use Tests\Concerns\BuildsDeliveryWorld;
 use Tests\TestCase;
@@ -199,5 +205,75 @@ class ReturnHandoverTest extends TestCase
         Sanctum::actingAs($this->courierB->user);
         $this->postJson('/api/v1/courier/return-handovers', ['merchant_id' => $this->merchant->id])->assertJsonValidationErrors('merchant_id');
         $this->assertStringContainsString('Aucun retour', $this->whatsapp('retour'));
+    }
+
+    // --- Jibiat Marchand (API publique, contrat socle 1.14) ---
+
+    private function publicApi(string $method, string $uri): TestResponse
+    {
+        [, $key] = ApiKey::issue($this->merchant, 'Jibiat Marchand', ['orders:read', 'orders:write', 'webhooks:write'], $this->merchantUser);
+        $this->app['auth']->forgetGuards();
+
+        return $this->json($method, '/api/public/v1/'.$uri, [], ['Authorization' => 'Bearer '.$key, 'X-Client-App' => 'jibiat-marchand']);
+    }
+
+    public function test_jibiat_marchand_lists_and_confirms_the_handover_within_the_contract(): void
+    {
+        $order = $this->toReturn();
+        $data = $this->start();
+
+        $list = $this->publicApi('GET', 'return-handovers')->assertOk()->json();
+        $this->assertSame([], Contract::validate('return-handover-list', $list));
+        $this->assertSame($data['reference'], $list['data'][0]['reference']);
+        $this->assertSame($order->tracking_code, $list['data'][0]['orders'][0]['tracking_code']);
+
+        $confirmed = $this->publicApi('POST', "return-handovers/{$data['reference']}/confirm")->assertOk()->json();
+        $this->assertSame([], Contract::validate('return-handover-response', $confirmed));
+        $this->assertSame('confirmed', $confirmed['data']['status']);
+        $this->assertSame('jibiat_marchand', $confirmed['data']['confirmed_via']);
+        $this->assertSame('returned', $confirmed['data']['orders'][0]['status']);
+        $this->assertSame('returned', $order->fresh()->status->value);
+
+        // Plus rien à confirmer ; un code inconnu ou d'un autre marchand : introuvable
+        $this->assertSame([], $this->publicApi('GET', 'return-handovers')->json('data'));
+        $this->publicApi('POST', 'return-handovers/R-0000/confirm')->assertNotFound();
+    }
+
+    public function test_jibiat_marchand_says_parcels_are_missing(): void
+    {
+        Notification::fake();
+        $order = $this->toReturn();
+        $data = $this->start();
+
+        $disputed = $this->publicApi('POST', "return-handovers/{$data['reference']}/dispute")->assertOk()->json();
+        $this->assertSame([], Contract::validate('return-handover-response', $disputed));
+        $this->assertSame('disputed', $disputed['data']['status']);
+        $this->assertSame('return_assigned', $order->fresh()->status->value);
+        Notification::assertSentTo($this->dispatcher, ReturnHandoverToReview::class);
+    }
+
+    public function test_each_change_of_the_handover_is_sent_by_webhook(): void
+    {
+        config(['services.webhooks.allow_private_targets' => true]);
+        WebhookSubscription::create([
+            'company_id' => $this->company->id, 'merchant_id' => $this->merchant->id, 'url' => 'https://awa.jibiat-marchand.com/hook',
+            'events' => ['return_handover.updated'], 'secret' => 'whsec_contract', 'is_active' => true,
+        ]);
+        ApiKey::issue($this->merchant, 'Jibiat Marchand', ['orders:read'], $this->merchantUser);
+        Http::fake(['awa.jibiat-marchand.com/*' => Http::response('ok')]);
+
+        $this->toReturn();
+        $data = $this->start();
+        $this->start(); // même remise, rien de changé : pas de nouvel envoi
+        $this->whatsapp("RETOUR {$data['reference']} : j'ai bien reçu le colis");
+
+        $sent = Http::recorded(fn (Request $r) => str_contains($r->url(), 'awa.jibiat-marchand.com/hook'))
+            ->map(fn (array $pair) => json_decode($pair[0]->body(), true))->values()->all();
+
+        $this->assertSame(['pending', 'confirmed'], array_map(fn ($p) => $p['data']['return_handover']['status'], $sent));
+        foreach ($sent as $payload) {
+            $this->assertSame([], Contract::validate('return-handover-webhook', $payload));
+        }
+        $this->assertSame('returned', $sent[1]['data']['return_handover']['orders'][0]['status']);
     }
 }

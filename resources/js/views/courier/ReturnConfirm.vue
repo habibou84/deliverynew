@@ -105,7 +105,7 @@ import { currentPosition } from '../../composables/useGeolocation'
 import { useToastStore } from '../../stores/toasts'
 
 const REASONS = { no_phone: 'Pas de téléphone ou pas de réseau', employee: 'Remis à un employé sans WhatsApp', other: 'Autre' }
-const VIA = { whatsapp: 'par WhatsApp', whatsapp_word: 'par WhatsApp', app: 'dans son application' }
+const VIA = { whatsapp: 'par WhatsApp', whatsapp_word: 'par WhatsApp', app: 'dans son application', jibiat_marchand: 'dans Jibiat Marchand' }
 
 // Liste des colis de la remise
 const OrderList = defineComponent({
