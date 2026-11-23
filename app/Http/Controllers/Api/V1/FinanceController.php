@@ -24,9 +24,11 @@ use App\Models\MerchantPaymentMethod;
 use App\Models\MerchantPayout;
 use App\Models\OrderExpense;
 use App\Models\OutboundMessage;
+use App\Models\ParcelGap;
 use App\Models\PremiumLevel;
 use App\Models\User;
 use App\Services\Couriers\ParcelCustody;
+use App\Services\Couriers\ParcelGaps;
 use App\Services\Finance\CashAlerts;
 use App\Services\Finance\CashDays;
 use App\Services\Finance\CashDesk;
@@ -235,11 +237,17 @@ class FinanceController extends Controller
             // Colis non livrés que le livreur rend au dépôt pendant le point
             'returned_order_ids' => ['nullable', 'array'],
             'returned_order_ids.*' => ['integer'],
+            // Colis à rendre que l'agent n'a pas réceptionnés : un motif chacun (le livreur est prévenu)
+            'missing' => ['nullable', 'array'],
+            'missing.*.order_id' => ['required', 'integer'],
+            'missing.*.reason' => ['required', Rule::in(array_keys(ParcelGap::REASONS))],
+            'missing.*.note' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:1000'],
-        ], [], ['amount_received' => 'montant reçu', 'courier_id' => 'livreur']);
+        ], [], ['amount_received' => 'montant reçu', 'courier_id' => 'livreur', 'missing' => 'colis non réceptionnés']);
 
         $remittance = $this->recordRemittance($request->user(), Courier::findOrFail($data['courier_id']), $data['amount_received'],
-            $data['collection_ids'] ?? null, $data['returned_order_ids'] ?? [], $data['notes'] ?? null);
+            $data['collection_ids'] ?? null, $data['returned_order_ids'] ?? [], $data['notes'] ?? null,
+            ParcelDropController::missingMap($data['missing'] ?? []));
 
         return response()->json(['data' => $this->remittanceData($remittance)], 201);
     }
@@ -277,8 +285,9 @@ class FinanceController extends Controller
      * @param  int|null  $amountReceived  null : reçu exactement le montant attendu
      * @param  list<int>|null  $collectionIds  null : tous les encaissements en main
      * @param  list<int>  $returnedOrderIds
+     * @param  array<int, array{reason: string, note: ?string}>|null  $missing  null : versements validés ensemble, sans réception
      */
-    private function recordRemittance(User $actor, Courier $courier, ?int $amountReceived, ?array $collectionIds, array $returnedOrderIds, ?string $notes): CourierRemittance
+    private function recordRemittance(User $actor, Courier $courier, ?int $amountReceived, ?array $collectionIds, array $returnedOrderIds, ?string $notes, ?array $missing = null): CourierRemittance
     {
         // Pas de point tant qu'une course est « En chemin » : le livreur doit d'abord la clôturer
         $onTheRoad = $this->custody->onTheRoad($courier);
@@ -290,8 +299,8 @@ class FinanceController extends Controller
             );
         }
 
-        $remittance = DB::transaction(function () use ($actor, $courier, $amountReceived, $collectionIds, $returnedOrderIds, $notes) {
-            $received = $this->custody->receive($actor, $courier, $returnedOrderIds);
+        $remittance = DB::transaction(function () use ($actor, $courier, $amountReceived, $collectionIds, $returnedOrderIds, $notes, $missing) {
+            $received = $this->custody->receive($actor, $courier, $returnedOrderIds, $missing);
 
             $remittance = $this->cashDesk->remit(
                 $actor,
@@ -307,6 +316,9 @@ class FinanceController extends Controller
                 $remittance->update(['parcels' => [
                     'returned' => $received->pluck('tracking_code')->values()->all(),
                     'kept' => $kept->pluck('tracking_code')->values()->all(),
+                    // Colis à rendre non réceptionnés, avec le motif de l'agent
+                    'missing' => $missing ? $kept->filter(fn ($o) => isset($missing[$o->id]))
+                        ->map(fn ($o) => ['code' => $o->tracking_code, 'reason' => ParcelGap::REASONS[$missing[$o->id]['reason']] ?? $missing[$o->id]['reason']])->values()->all() : [],
                 ]]);
             }
 
@@ -867,6 +879,18 @@ class FinanceController extends Controller
             'pay_deduction' => min($extras['pay_deduction'], max(0, $extras['balance']['due'])),
             'collections' => $courier->collections()->inCourierHands()->with('order:id,tracking_code,recipient_name,merchant_id')
                 ->orderBy('collected_at')->get()->map(fn ($c) => $this->collectionData($c)),
+            // Colis à rendre non réceptionnés au dépôt : à confirmer (« je l'ai encore ») ou contester (« je l'ai remis »)
+            'parcel_gaps' => app(ParcelGaps::class)->openFor($courier)->map(fn (ParcelGap $g) => [
+                'id' => $g->id,
+                'tracking_code' => $g->order?->tracking_code,
+                'recipient_name' => $g->order?->recipient_name,
+                'merchant' => $g->order?->merchant?->business_name,
+                'reason_label' => $g->reasonLabel(),
+                'note' => $g->note,
+                'source' => $g->source,
+                'reported_by' => $g->reporter?->name,
+                'created_at' => $g->created_at,
+            ])->values(),
             // Fiches de paie préparées, pas encore payées
             'pending_payslips' => $courier->payouts()->where('status', 'draft')->orderBy('id')->get()
                 ->map(fn ($p) => ['reference' => $p->reference, 'amount' => $p->amount, 'period_start' => $p->period_start?->toDateString(), 'period_end' => $p->period_end?->toDateString()]),
@@ -1036,6 +1060,7 @@ class FinanceController extends Controller
             'notes' => $r->notes,
             'parcels_returned' => $r->parcels['returned'] ?? [],
             'parcels_kept' => $r->parcels['kept'] ?? [],
+            'parcels_missing' => $r->parcels['missing'] ?? [],
             'reference' => $r->reference(),
             'cancelled_at' => $r->cancelled_at,
             'cancel_reason' => $r->cancel_reason,
