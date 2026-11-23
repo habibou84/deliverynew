@@ -31,8 +31,12 @@ class ParcelDropController extends Controller
         $this->authorizeStaff($request);
         $companyId = $request->user()->company_id;
 
+        $enabled = ParcelDrops::enabled($companyId);
+
         return response()->json(['data' => [
-            'code' => ParcelDrops::kioskCode($companyId),
+            // Option désactivée : pas de QR code (les dépôts déjà faits restent à contrôler)
+            'enabled' => $enabled,
+            'code' => $enabled ? ParcelDrops::kioskCode($companyId) : null,
             'expires_in' => ParcelDrops::WINDOW - (time() % ParcelDrops::WINDOW),
             'today' => ParcelDrop::query()->whereDate('dropped_at', today())->count(),
             'pending' => ParcelDrop::query()->where('status', ParcelDrop::PENDING)->count(),

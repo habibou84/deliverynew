@@ -38,6 +38,8 @@ class CompanyResource extends JsonResource
             'require_delivery_code' => $this->require_delivery_code,
             'offline_courier_actions' => $this->offline_courier_actions,
             'return_confirmation' => (bool) $this->return_confirmation,
+            // Dépôt des colis en libre-service (borne du dépôt)
+            'parcel_self_drop' => (bool) $this->parcel_self_drop,
             'return_fee_percent' => $this->return_fee_percent,
             'field_alert_reminder_minutes' => $this->field_alert_reminder_minutes,
             'parcel_hold_alert_hours' => $this->parcel_hold_alert_hours,

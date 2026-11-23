@@ -26,6 +26,15 @@
         </span>
       </span>
     </label>
+    <label class="flex items-start gap-2 text-sm">
+      <input v-model="form.parcel_self_drop" type="checkbox" class="mt-1">
+      <span>Dépôt des colis en libre-service
+        <span class="block text-slate-600">
+          Le livreur rend ses colis au dépôt sans agent : il scanne la borne du dépôt (Activité des livreurs › Colis chez les livreurs › Borne de dépôt),
+          chaque colis, et prend une photo du bac. Un agent contrôle le bac ensuite ; sans contrôle, le dépôt est confirmé au bout de 24 h.
+        </span>
+      </span>
+    </label>
     <MoreHelp>
       Hors connexion, le livreur peut enregistrer « récupéré », « en route », « livré » (avec l'encaissement), un échec, un report ou une note,
       à l'heure où ils ont été faits. Une livraison avec un code client faux est gardée mais signalée (file « Codes à vérifier »).

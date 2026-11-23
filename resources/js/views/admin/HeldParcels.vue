@@ -14,7 +14,7 @@
               :class="['btn whitespace-nowrap', view === v.value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300']" @click="setView(v.value)">
         {{ v.label }}<span v-if="v.count" class="ml-1.5 rounded-full bg-red-600 px-1.5 text-xs text-white">{{ v.count }}</span>
       </button>
-      <RouterLink to="/admin/borne-depot" class="btn-secondary ml-auto"><Icone nom="scanner" /> Borne de dépôt</RouterLink>
+      <RouterLink v-if="pending.enabled" to="/admin/borne-depot" class="btn-secondary ml-auto"><Icone nom="scanner" /> Borne de dépôt</RouterLink>
     </div>
 
     <ParcelDropsPanel v-if="view === 'depots'" @changed="panelChanged" />
@@ -225,16 +225,18 @@ const route = useRoute()
 const router = useRouter()
 const view = computed(() => (['depots', 'ecarts'].includes(route.query.vue) ? route.query.vue : 'colis'))
 const setView = (v) => router.replace({ query: { ...route.query, vue: v === 'colis' ? undefined : v } })
-const pending = reactive({ drops: 0, gaps: 0 })
+const pending = reactive({ drops: 0, gaps: 0, enabled: false })
+// Dépôts à contrôler : seulement si le dépôt en libre-service est activé (ou s'il en reste à contrôler)
 const VIEWS = computed(() => [
   { value: 'colis', label: 'Colis chez les livreurs' },
-  { value: 'depots', label: 'Dépôts à contrôler', count: pending.drops },
+  ...(pending.enabled || pending.drops ? [{ value: 'depots', label: 'Dépôts à contrôler', count: pending.drops }] : []),
   { value: 'ecarts', label: 'Colis non reçus', count: pending.gaps },
 ])
 async function loadCounts() {
   try {
     const [drops, gaps] = await Promise.all([http.get('/parcel-drops/kiosk'), http.get('/parcel-gaps')])
     pending.drops = drops.data.data.pending
+    pending.enabled = drops.data.data.enabled
     pending.gaps = gaps.data.data.filter((g) => g.courier_answer === 'handed' && !g.resolution).length
   } catch {
     // Compteurs facultatifs
