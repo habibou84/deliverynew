@@ -73,8 +73,8 @@
             <p class="text-xs text-right text-slate-600">{{ p.rescheduled_to ? `Reporté au ${date(p.rescheduled_to)}` : (p.incident || p.status_label) }}</p>
           </div>
         </div>
-        <p class="text-sm text-slate-600 text-center">Remettez-les à la caisse lors de votre point, ou déposez-les vous-même dans le bac du dépôt.</p>
-        <RouterLink to="/livreur/caisse/deposer" class="m-btn-primary inline-flex items-center justify-center gap-2"><Icone nom="scanner" />Déposer mes colis au dépôt</RouterLink>
+        <p class="text-sm text-slate-600 text-center">Remettez-les à la caisse lors de votre point<template v-if="selfDrop">, ou déposez-les vous-même dans le bac du dépôt</template>.</p>
+        <RouterLink v-if="selfDrop" to="/livreur/caisse/deposer" class="m-btn-primary inline-flex items-center justify-center gap-2"><Icone nom="scanner" />Déposer mes colis au dépôt</RouterLink>
       </template>
       <template v-if="parcelsDropped.length">
         <h2 class="flex items-center gap-2 font-semibold"><Icone nom="depot" />Déposés dans le bac, en attente du contrôle ({{ parcelsDropped.length }})</h2>
@@ -146,11 +146,15 @@ import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, ref } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
+import { useAuthStore } from '../../stores/auth'
 import { cachedGet } from '../../composables/useCachedApi'
 import EmptyState from '../../components/mobile/EmptyState.vue'
 import { date, dateTime, money } from '../../utils/format'
 
 const wallet = ref(null)
+// Dépôt en libre-service activé par l'entreprise
+const auth = useAuthStore()
+const selfDrop = computed(() => !!auth.user?.company?.parcel_self_drop)
 const stale = ref(false)
 const error = ref('')
 // À rendre au dépôt (ni gardés pour leur livraison, ni à rapporter au marchand, ni déjà déposés dans le bac)

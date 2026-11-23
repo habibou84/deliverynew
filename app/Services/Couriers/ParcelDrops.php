@@ -5,6 +5,7 @@ namespace App\Services\Couriers;
 use App\Enums\OrderEventType;
 use App\Enums\Role;
 use App\Exceptions\BusinessRuleException;
+use App\Models\Company;
 use App\Models\Order;
 use App\Models\ParcelDrop;
 use App\Models\ParcelGap;
@@ -67,6 +68,7 @@ class ParcelDrops
     {
         $courier = $courierUser->courier;
         abort_if($courier === null, 403);
+        self::ensureEnabled($courier->company_id);
 
         if (! self::validKiosk($courier->company_id, $kioskCode)) {
             throw new BusinessRuleException('QR code de la borne expiré ou invalide : scannez à nouveau la borne du dépôt.', 'kiosk_code');
@@ -89,6 +91,19 @@ class ParcelDrops
             && hash_equals(substr(hash_hmac('sha256', "drop:{$courierId}:{$at}", (string) config('app.key')), 0, 24), $parts[2]);
     }
 
+    /** Option de l'entreprise (Réglages › Courses › Livreurs), désactivée par défaut */
+    public static function enabled(int $companyId): bool
+    {
+        return (bool) Company::query()->whereKey($companyId)->value('parcel_self_drop');
+    }
+
+    private static function ensureEnabled(int $companyId): void
+    {
+        if (! self::enabled($companyId)) {
+            throw new BusinessRuleException('Le dépôt des colis en libre-service n\'est pas activé : remettez vos colis au point de caisse.', 'kiosk_code');
+        }
+    }
+
     private static function signature(int $companyId, int $window): string
     {
         return substr(hash_hmac('sha256', "depot:{$companyId}:{$window}", (string) config('app.key')), 0, 16);
@@ -104,6 +119,7 @@ class ParcelDrops
     {
         $courier = $courierUser->courier;
         abort_if($courier === null, 403);
+        self::ensureEnabled($courier->company_id);
 
         if (! self::validSession($courier->id, $session)) {
             throw new BusinessRuleException('Dépôt expiré : scannez à nouveau la borne du dépôt.', 'session');

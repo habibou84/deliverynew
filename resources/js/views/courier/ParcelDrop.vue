@@ -7,6 +7,12 @@
       <RouterLink to="/livreur/caisse" class="m-btn-primary">Retour à ma caisse</RouterLink>
     </section>
 
+    <section v-else-if="!selfDrop" class="m-card p-5 space-y-3 text-center">
+      <p class="font-semibold">Le dépôt en libre-service n'est pas activé par votre entreprise.</p>
+      <p class="text-slate-600">Remettez vos colis à la caisse lors de votre point.</p>
+      <RouterLink to="/livreur/caisse" class="m-btn-primary">Retour à ma caisse</RouterLink>
+    </section>
+
     <template v-else>
       <!-- Étape 1 : la borne -->
       <section class="m-card p-4 space-y-2">
@@ -75,6 +81,7 @@ import QrScanner from '../../components/courier/QrScanner.vue'
 import Icone from '../../components/ui/Icone.vue'
 import { currentPosition } from '../../composables/useGeolocation'
 import { useToastStore } from '../../stores/toasts'
+import { useAuthStore } from '../../stores/auth'
 import { dateTime } from '../../utils/format'
 import { codeFromScan } from '../../utils/parcelReception'
 
@@ -83,6 +90,8 @@ import { codeFromScan } from '../../utils/parcelReception'
  * le bac, photo du bac. Les colis passent « déposés, à contrôler » ; un agent contrôle le bac plus tard.
  */
 const toasts = useToastStore()
+const auth = useAuthStore()
+const selfDrop = computed(() => !!auth.user?.company?.parcel_self_drop)
 const parcels = ref([])
 const session = ref('')
 const minutes = ref(30)
