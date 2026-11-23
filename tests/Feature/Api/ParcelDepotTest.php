@@ -130,8 +130,17 @@ class ParcelDepotTest extends TestCase
         $found = $this->failedWithB();
         $lost = $this->failedWithB();
 
+        // Option désactivée par défaut : pas de borne, pas de dépôt
         Sanctum::actingAs($this->cashier);
-        $code = $this->getJson('/api/v1/parcel-drops/kiosk')->assertOk()->json('data.code');
+        $this->getJson('/api/v1/parcel-drops/kiosk')->assertOk()->assertJsonPath('data.enabled', false)->assertJsonPath('data.code', null);
+        Sanctum::actingAs($this->courierB->user);
+        $this->postJson('/api/v1/courier/parcel-drops/start', ['kiosk_code' => ParcelDrops::kioskCode($this->company->id)])->assertJsonValidationErrors('kiosk_code');
+
+        // Activée dans les réglages
+        Sanctum::actingAs($this->admin);
+        $this->patchJson("/api/v1/companies/{$this->company->id}", ['parcel_self_drop' => true])->assertOk()->assertJsonPath('data.parcel_self_drop', true);
+        Sanctum::actingAs($this->cashier);
+        $code = $this->getJson('/api/v1/parcel-drops/kiosk')->assertOk()->assertJsonPath('data.enabled', true)->json('data.code');
 
         Sanctum::actingAs($this->courierB->user);
         $photo = UploadedFile::fake()->image('bac.jpg');
@@ -184,6 +193,7 @@ class ParcelDepotTest extends TestCase
     {
         Notification::fake();
         $order = $this->failedWithB();
+        $this->company->update(['parcel_self_drop' => true]);
 
         Sanctum::actingAs($this->courierB->user);
         $session = $this->postJson('/api/v1/courier/parcel-drops/start', ['kiosk_code' => ParcelDrops::kioskCode($this->company->id)])->json('data.session');

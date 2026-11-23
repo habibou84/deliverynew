@@ -32,7 +32,8 @@ class ParcelReminders
 
         $n = $due->count();
         $user->notify(new OrderAlert($due->first(), 'parcel_reminder', '📦 Colis à rendre au dépôt',
-            "Vous avez {$n} colis à rendre au dépôt : remettez-les au point de caisse, ou déposez-les dans le bac (Ma caisse → Déposer mes colis).",
+            "Vous avez {$n} colis à rendre au dépôt : remettez-les au point de caisse"
+                .(ParcelDrops::enabled($courier->company_id) ? ', ou déposez-les dans le bac (Ma caisse → Déposer mes colis).' : '.'),
             ['url' => '/livreur/caisse', 'href' => '/livreur/caisse', 'count' => $n]));
 
         return true;
