@@ -239,6 +239,7 @@
               <td data-label="Écart" :class="['p-2 text-right font-medium', signedClass(r.difference)]">{{ r.difference ? money(r.difference) : '—' }}</td>
               <td data-label="Colis" class="p-2 text-xs">
                 <span v-if="r.parcels_returned.length" class="block text-emerald-700" :title="r.parcels_returned.join(', ')">✓ {{ r.parcels_returned.length }} rendu{{ r.parcels_returned.length > 1 ? 's' : '' }}</span>
+                <span v-if="r.parcels_missing?.length" class="block text-red-700" :title="r.parcels_missing.map((m) => `${m.code} : ${m.reason}`).join(', ')">✗ {{ r.parcels_missing.length }} non reçu{{ r.parcels_missing.length > 1 ? 's' : '' }} (motif)</span>
                 <span v-if="r.parcels_kept.length" class="block text-amber-700" :title="r.parcels_kept.join(', ')">⚠ {{ r.parcels_kept.length }} gardé{{ r.parcels_kept.length > 1 ? 's' : '' }} : {{ r.parcels_kept.join(', ') }}</span>
                 <span v-if="!r.parcels_returned.length && !r.parcels_kept.length" class="text-slate-600">—</span>
               </td>
@@ -552,29 +553,8 @@
           </p>
         </div>
 
-        <!-- Colis non livrés à rendre au dépôt -->
-        <div v-if="remitParcels.length" class="space-y-1">
-          <div class="flex items-center justify-between">
-            <p class="text-sm font-semibold">📦 Colis à rendre au dépôt ({{ remitParcels.length }})</p>
-            <button type="button" class="text-xs text-blue-700" @click="remit.returned = remit.returned.length === remitParcels.length ? [] : remitParcels.map((p) => p.id)">
-              {{ remit.returned.length === remitParcels.length ? 'Tout décocher' : 'Tout cocher' }}
-            </button>
-          </div>
-          <p class="text-xs text-slate-600">Cochez chaque colis que le livreur vous remet. Ceux qui restent décochés sont notés comme gardés par le livreur.</p>
-          <ul class="border rounded divide-y max-h-56 overflow-y-auto text-sm">
-            <li v-for="p in remitParcels" :key="p.id" :class="['flex items-center gap-2 p-2', remit.returned.includes(p.id) ? 'bg-emerald-50' : '']">
-              <input v-model="remit.returned" type="checkbox" :value="p.id" :aria-label="`Colis ${p.tracking_code} rendu`">
-              <span class="font-mono text-xs">{{ p.tracking_code }}</span>
-              <span class="flex-1 min-w-0 truncate">{{ p.recipient_name || p.recipient_phone }} <span class="text-xs text-slate-600">· {{ p.merchant }}</span></span>
-              <span v-if="p.kept_for" class="text-xs text-indigo-700 whitespace-nowrap">🌙 Gardé pour la livraison du {{ date(p.kept_for) }}</span>
-              <span v-else class="text-xs text-slate-600 whitespace-nowrap">{{ p.rescheduled_to ? `Reporté au ${date(p.rescheduled_to)}` : (p.incident || p.status_label) }}</span>
-              <span :class="['text-xs whitespace-nowrap', !p.kept_for && isOld(p.held_since) ? 'text-red-600 font-semibold' : 'text-slate-600']">{{ heldFor(p.held_since) }}</span>
-            </li>
-          </ul>
-          <p v-if="remitParcels.length - remit.returned.length > 0" class="text-xs text-amber-700">
-            ⚠ {{ remitParcels.length - remit.returned.length }} colis resteront chez le livreur<template v-if="remitKept.length"> (dont {{ remitKept.length }} gardé{{ remitKept.length > 1 ? 's' : '' }} pour leur livraison)</template>.
-          </p>
-        </div>
+        <!-- Colis non livrés à rendre au dépôt : cochés par défaut, motif obligatoire pour un colis non reçu -->
+        <ParcelReception v-if="remitParcels.length" v-model:returned="remit.returned" :parcels="remitParcels" :reasons="remit.reasons" :courier-name="remit.courier?.name" />
 
         <p v-if="remit.collections.length" class="text-sm font-semibold pt-1">💵 Encaissements</p>
         <p v-if="remit.collections.length" class="text-sm text-slate-600">
@@ -658,7 +638,7 @@
         <button v-if="remitHasCash" class="btn-primary w-full" :disabled="remitOnTheRoad.length > 0 || (!remit.selected.length && !remit.advances.length && !remit.expenses.length)">
           Valider le versement{{ remit.returned.length ? ` et ${remit.returned.length} colis` : '' }}
         </button>
-        <button v-else class="btn-primary w-full" :disabled="!remit.returned.length">Valider la réception de {{ remit.returned.length }} colis</button>
+        <button v-else class="btn-primary w-full" :disabled="!remit.returned.length && !remitUnchecked.length">Valider la réception de {{ remit.returned.length }} colis</button>
       </form>
     </Modal>
 
@@ -745,6 +725,8 @@
 </template>
 
 <script setup>
+import ParcelReception from '../../components/finance/ParcelReception.vue'
+import { defaultReturned, incomplete, receptionPayload, uncheckedDue } from '../../utils/parcelReception'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
@@ -888,18 +870,12 @@ const alertText = computed(() => {
 const today = new Date().toISOString().slice(0, 10)
 const remitFilter = reactive({ from: today, to: today, basis: 'received' })
 
-const remit = reactive({ open: false, courier: null, pay_deduction: 0, collections: [], advances: [], expenses: [], expensesToApprove: [], parcels: [], returned: [], selected: [], amount_received: 0, notes: '', error: '' })
+const remit = reactive({ open: false, courier: null, pay_deduction: 0, collections: [], advances: [], expenses: [], expensesToApprove: [], parcels: [], returned: [], reasons: {}, selected: [], amount_received: 0, notes: '', error: '' })
 const remitHasCash = computed(() => remit.collections.length > 0 || remit.advances.length > 0 || remit.expenses.length > 0)
 const remitOnTheRoad = computed(() => remit.parcels.filter((p) => p.on_the_road))
 const remitParcels = computed(() => remit.parcels.filter((p) => !p.on_the_road))
-// Gardés par le livreur pour leur livraison (mission ramassage) : normalement pas rendus au point
-const remitKept = computed(() => remitParcels.value.filter((p) => p.kept_for && !remit.returned.includes(p.id)))
-const isOld = (since) => since && Date.now() - new Date(since).getTime() > 24 * 3600000
-function heldFor(since) {
-  const hours = Math.floor((Date.now() - new Date(since).getTime()) / 3600000)
-  if (hours < 1) return "depuis moins d'1 h"
-  return hours >= 24 ? `depuis ${Math.floor(hours / 24)} j` : `depuis ${hours} h`
-}
+// Colis à rendre que l'agent n'a pas cochés : un motif chacun
+const remitUnchecked = computed(() => uncheckedDue(remitParcels.value, remit.returned))
 const advance = reactive({ open: false, courier: null, amount: null, reason: 'Frais de gare', error: '' })
 const adjust = reactive({ open: false, courier: null, amount: null, description: '', error: '' })
 const courierPayout = reactive({ open: false, data: null })
@@ -952,7 +928,12 @@ async function remitAll() {
   const list = remittable.value
   // Paie déduite au versement (plan du livreur) : il la garde
   const total = list.reduce((n, c) => n + c.cash_in_hand - (c.pay_deduction || 0), 0)
-  if (!await confirmDialog(`Valider le versement de ${list.length} livreurs pour ${money(total)} au total ?\n\n`
+  // Colis à rendre : pas reçus par la validation groupée, ils restent chez les livreurs
+  const withParcels = list.filter((c) => c.parcels_in_hand)
+  const parcelsWarning = withParcels.length
+    ? `⚠ ${withParcels.length} livreur${withParcels.length > 1 ? 's ont' : ' a'} des colis en main (${withParcels.reduce((n, c) => n + c.parcels_in_hand, 0)} colis) : ils resteront chez eux. Pour les recevoir, utilisez « Recevoir » livreur par livreur.\n\n`
+    : ''
+  if (!await confirmDialog(`Valider le versement de ${list.length} livreurs pour ${money(total)} au total ?\n\n${parcelsWarning}`
     + 'Chacun est noté comme ayant remis exactement ce qu\'il doit, toutes dates confondues. Les colis restent notés chez les livreurs ; '
     + 'ceux qui ont une course « En chemin » sont laissés de côté. Pour un écart ou des colis rendus, utilisez « Recevoir » livreur par livreur.')) return
   batch.busy = true
@@ -1144,7 +1125,9 @@ async function openRemit(courier, all = false) {
     expenses: data.expenses || [],
     expensesToApprove: data.expenses_to_approve || [],
     parcels: data.parcels || [],
-    returned: [],
+    // Colis à rendre cochés par défaut : l'agent décoche ce qui manque, avec un motif
+    returned: defaultReturned(data.parcels || []),
+    reasons: {},
     // Caisse filtrée sur des dates : seules les courses de ces dates sont cochées au départ
     selected: data.data.filter((c) => all || !c.delivery_day || inPeriod(c.delivery_day)).map((c) => c.id),
     amount_received: 0,
@@ -1182,25 +1165,31 @@ async function decideExpense(e, approve) {
 
 async function saveRemit() {
   remit.error = ''
+  const lacking = incomplete(remitUnchecked.value, remit.reasons)
+  if (lacking.length) {
+    remit.error = `Indiquez le motif des colis non reçus : ${lacking.join(', ')}.`
+    return
+  }
+  const reception = receptionPayload(remitParcels.value, remit.returned, remit.reasons)
   try {
     if (!remitHasCash.value) {
-      await http.post(`/couriers/${remit.courier.courier_id}/parcels/receive`, { order_ids: remit.returned })
+      await http.post(`/couriers/${remit.courier.courier_id}/parcels/receive`, reception)
       remit.open = false
-      toasts.success(`${remit.returned.length} colis reçu(s) au dépôt.`)
+      toasts.success(`${remit.returned.length} colis reçu(s) au dépôt.${reception.missing.length ? ` ${remit.courier.name} est prévenu des ${reception.missing.length} non reçu(s).` : ''}`)
       load()
       return
     }
     const allSelected = remit.selected.length === remit.collections.length
-    const kept = remitParcels.value.length - remit.returned.length
     await http.post('/finance/remittances', {
       courier_id: remit.courier.courier_id,
       amount_received: remitSigned.value,
       collection_ids: allSelected ? undefined : remit.selected,
-      returned_order_ids: remit.returned,
+      returned_order_ids: reception.order_ids,
+      missing: reception.missing,
       notes: remit.notes || undefined,
     })
     remit.open = false
-    if (kept > 0) toasts.push(`${kept} colis reste(nt) chez ${remit.courier.name}.`, 'info', { title: 'Versement enregistré' })
+    if (reception.missing.length) toasts.push(`${reception.missing.length} colis non reçu(s) : ${remit.courier.name} est prévenu et doit confirmer.`, 'info', { title: 'Versement enregistré' })
     else toasts.success('Versement enregistré.')
     load()
   } catch (e) {

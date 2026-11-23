@@ -8,6 +8,18 @@
       </p>
     </div>
 
+    <!-- Colis chez les livreurs, dépôts en libre-service à contrôler, colis non reçus (écarts) -->
+    <div class="flex flex-wrap gap-2" role="tablist">
+      <button v-for="v in VIEWS" :key="v.value" type="button" role="tab" :aria-selected="view === v.value"
+              :class="['btn whitespace-nowrap', view === v.value ? 'bg-slate-900 text-white' : 'bg-white border border-slate-300']" @click="setView(v.value)">
+        {{ v.label }}<span v-if="v.count" class="ml-1.5 rounded-full bg-red-600 px-1.5 text-xs text-white">{{ v.count }}</span>
+      </button>
+      <RouterLink to="/admin/borne-depot" class="btn-secondary ml-auto"><Icone nom="scanner" /> Borne de dépôt</RouterLink>
+    </div>
+
+    <ParcelDropsPanel v-if="view === 'depots'" @changed="panelChanged" />
+    <ParcelGapsPanel v-else-if="view === 'ecarts'" @changed="panelChanged" />
+    <template v-else>
     <SettingsShortcut :blocks="['holdAlert']" title="Colis chez les livreurs" more="/admin/reglages/alertes" @saved="alertSaved" />
 
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -42,23 +54,17 @@
           </span>
         </button>
         <a v-if="c.phone" :href="telLink(c.phone)" class="text-sm text-blue-600">{{ c.phone }}</a>
-        <div v-if="canReceive && open[c.courier_id]" class="flex gap-2">
-          <button type="button" class="btn-secondary text-xs" @click="toggleAll(c)">{{ allSelected(c) ? 'Tout décocher' : 'Tout cocher' }}</button>
-          <button type="button" class="btn-success" :disabled="!selectedOf(c).length" @click="receive(c)"><Icone nom="valider" /> Rendus au dépôt ({{ selectedOf(c).length }})</button>
-        </div>
+        <button v-if="canReceive" type="button" class="btn-success" @click="openReception(c)"><Icone nom="valider" /> Recevoir ses colis</button>
       </header>
       <template v-if="open[c.courier_id]">
         <p v-if="open[c.courier_id].loading && !open[c.courier_id].parcels.length" class="p-4 text-sm text-slate-600">Chargement…</p>
         <div v-else class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="bg-slate-50 text-left text-slate-600">
-              <tr><th v-if="canReceive" class="p-2 w-8" /><th class="p-2">Colis</th><th class="p-2">Destinataire</th><th class="p-2">Situation</th><th class="p-2 text-right">À encaisser</th><th class="p-2">Chez le livreur</th></tr>
+              <tr><th class="p-2">Colis</th><th class="p-2">Destinataire</th><th class="p-2">Situation</th><th class="p-2 text-right">À encaisser</th><th class="p-2">Chez le livreur</th></tr>
             </thead>
             <tbody class="divide-y">
               <tr v-for="p in open[c.courier_id].parcels" :key="p.id" :class="isOverdue(p) ? 'bg-red-50' : ''">
-                <td v-if="canReceive" class="p-2">
-                  <input v-if="!p.on_the_road" v-model="selected" type="checkbox" :value="p.id" :aria-label="`Colis ${p.tracking_code} rendu`">
-                </td>
                 <td class="p-2">
                   <RouterLink :to="`/admin/courses/${p.id}`" class="font-mono text-blue-700">{{ p.tracking_code }}</RouterLink>
                   <div class="text-xs text-slate-600">{{ p.merchant }}</div>
@@ -69,6 +75,7 @@
                   <div v-if="p.incident" class="text-xs text-slate-600 mt-0.5">{{ p.incident }}</div>
                   <div v-if="p.rescheduled_to" class="text-xs text-slate-600">Reportée au {{ date(p.rescheduled_to) }}</div>
                   <div v-if="p.return_requested" class="text-xs text-amber-800 font-medium">Retour au marchand à organiser</div>
+                  <div v-if="p.dropped" class="text-xs text-sky-800 font-medium">🧺 Déposé dans le bac, à contrôler</div>
                   <div v-if="p.kept_for" class="text-xs text-blue-800 font-medium">Gardé pour sa livraison du {{ date(p.kept_for) }}</div>
                   <div v-else-if="p.custody_plan === 'depot' && p.status === 'picked_up'" class="text-xs text-slate-700 font-medium">À rapporter au dépôt (mission ramassage)</div>
                 </td>
@@ -93,6 +100,25 @@
     <div v-if="loaded && !couriers.length" class="card p-8 text-center text-slate-600">
       {{ search.trim() ? 'Aucun colis ne correspond à la recherche.' : overdueOnly ? 'Aucun colis en retard.' : 'Aucun colis chez les livreurs : tout est livré ou au dépôt.' }}
     </div>
+    </template>
+
+    <!-- Réception au dépôt : colis à rendre cochés, motif obligatoire pour un colis non reçu -->
+    <Modal :open="reception.open" :title="`Colis de ${reception.courier?.name || ''}`" @close="reception.open = false">
+      <form class="space-y-3" @submit.prevent="saveReception">
+        <p v-if="reception.loading" class="text-sm text-slate-600">Chargement…</p>
+        <template v-else>
+          <p v-if="reception.parcels.some((p) => p.on_the_road)" class="rounded bg-blue-50 p-2 text-xs text-blue-900">
+            🛵 {{ reception.parcels.filter((p) => p.on_the_road).length }} course(s) encore en route : elles ne peuvent pas être reçues.
+          </p>
+          <ParcelReception v-model:returned="reception.returned" :parcels="reception.parcels.filter((p) => !p.on_the_road)" :reasons="reception.reasons" :courier-name="reception.courier?.name" />
+          <p v-if="!reception.parcels.some((p) => p.due || p.kept_for)" class="text-sm text-slate-600">Aucun colis à recevoir.</p>
+          <p v-if="reception.error" class="field-error">{{ reception.error }}</p>
+          <button class="btn-primary w-full" :disabled="reception.busy || (!reception.returned.length && !receptionUnchecked.length)">
+            Valider la réception de {{ reception.returned.length }} colis
+          </button>
+        </template>
+      </form>
+    </Modal>
   </div>
 </template>
 
@@ -101,6 +127,12 @@ import Icone from '../../components/ui/Icone.vue'
 // Onglet de « Activité des livreurs » : le titre de la page n'est pas répété
 defineProps({ embedded: { type: Boolean, default: false } })
 import SettingsShortcut from '../../components/settings/SettingsShortcut.vue'
+import Modal from '../../components/Modal.vue'
+import ParcelReception from '../../components/finance/ParcelReception.vue'
+import ParcelDropsPanel from '../../components/parcels/ParcelDropsPanel.vue'
+import ParcelGapsPanel from '../../components/parcels/ParcelGapsPanel.vue'
+import { useRoute, useRouter } from 'vue-router'
+import { defaultReturned, incomplete, receptionPayload, uncheckedDue } from '../../utils/parcelReception'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import http, { apiErrorMessage } from '../../bootstrap/axios'
 import StatCard from '../../components/StatCard.vue'
@@ -121,7 +153,6 @@ const alertSaved = (form) => { alertHours.value = form.parcel_hold_alert_hours }
 const loaded = ref(false)
 const overdueOnly = ref(false)
 const search = ref('')
-const selected = ref([])
 const filters = [{ value: false, label: 'Tous les colis' }, { value: true, label: 'En retard' }]
 const canReceive = computed(() => auth.can('orders.dispatch') || auth.can('finance.manage'))
 
@@ -139,18 +170,8 @@ function heldFor(since) {
   return hours >= 24 ? `${Math.floor(hours / 24)} j ${hours % 24} h` : `${hours} h`
 }
 
-const receivable = (c) => (open[c.courier_id]?.parcels || []).filter((p) => !p.on_the_road).map((p) => p.id)
-const selectedOf = (c) => receivable(c).filter((id) => selected.value.includes(id))
-const allSelected = (c) => receivable(c).length > 0 && selectedOf(c).length === receivable(c).length
-function toggleAll(c) {
-  const ids = receivable(c)
-  selected.value = allSelected(c) ? selected.value.filter((id) => !ids.includes(id)) : [...new Set([...selected.value, ...ids])]
-}
-
 function toggle(c) {
   if (open[c.courier_id]) {
-    const ids = receivable(c)
-    selected.value = selected.value.filter((id) => !ids.includes(id))
     delete open[c.courier_id]
   } else {
     loadParcels(c, 1)
@@ -188,27 +209,72 @@ async function load() {
     if (!present.has(Number(id))) delete open[id]
   }
   await Promise.all(data.data.filter((c) => open[c.courier_id]).map((c) => loadParcels(c, 1)))
-  const ids = new Set(Object.values(open).flatMap((o) => o.parcels.map((p) => p.id)))
-  selected.value = selected.value.filter((id) => ids.has(id))
+  loadCounts()
 }
 
 // Filtre ou recherche changés : tout est refermé et recompté
 function reload() {
   for (const id of Object.keys(open)) delete open[id]
-  selected.value = []
   load()
 }
 let searchTimer
 watch(search, () => { clearTimeout(searchTimer); searchTimer = setTimeout(reload, 400) })
 
-async function receive(c) {
-  const ids = selectedOf(c)
+// Vues : colis chez les livreurs, dépôts à contrôler, écarts de remise (adresse ?vue=)
+const route = useRoute()
+const router = useRouter()
+const view = computed(() => (['depots', 'ecarts'].includes(route.query.vue) ? route.query.vue : 'colis'))
+const setView = (v) => router.replace({ query: { ...route.query, vue: v === 'colis' ? undefined : v } })
+const pending = reactive({ drops: 0, gaps: 0 })
+const VIEWS = computed(() => [
+  { value: 'colis', label: 'Colis chez les livreurs' },
+  { value: 'depots', label: 'Dépôts à contrôler', count: pending.drops },
+  { value: 'ecarts', label: 'Colis non reçus', count: pending.gaps },
+])
+async function loadCounts() {
   try {
-    await http.post(`/couriers/${c.courier_id}/parcels/receive`, { order_ids: ids })
-    toasts.success(`${ids.length} colis de ${c.name} reçu(s) au dépôt.`)
+    const [drops, gaps] = await Promise.all([http.get('/parcel-drops/kiosk'), http.get('/parcel-gaps')])
+    pending.drops = drops.data.data.pending
+    pending.gaps = gaps.data.data.filter((g) => g.courier_answer === 'handed' && !g.resolution).length
+  } catch {
+    // Compteurs facultatifs
+  }
+}
+const panelChanged = () => { loadCounts(); load() }
+
+// Réception au dépôt des colis d'un livreur
+const reception = reactive({ open: false, courier: null, parcels: [], returned: [], reasons: {}, loading: false, busy: false, error: '' })
+const receptionUnchecked = computed(() => uncheckedDue(reception.parcels, reception.returned))
+async function openReception(c) {
+  Object.assign(reception, { open: true, courier: c, parcels: [], returned: [], reasons: {}, loading: true, busy: false, error: '' })
+  try {
+    const { data } = await http.get(`/couriers/${c.courier_id}/parcels`, { params: { all: 1 } })
+    reception.parcels = data.data
+    reception.returned = defaultReturned(data.data)
+  } catch (e) {
+    reception.error = apiErrorMessage(e)
+  } finally {
+    reception.loading = false
+  }
+}
+async function saveReception() {
+  reception.error = ''
+  const lacking = incomplete(receptionUnchecked.value, reception.reasons)
+  if (lacking.length) {
+    reception.error = `Indiquez le motif des colis non reçus : ${lacking.join(', ')}.`
+    return
+  }
+  const payload = receptionPayload(reception.parcels.filter((p) => !p.on_the_road), reception.returned, reception.reasons)
+  reception.busy = true
+  try {
+    await http.post(`/couriers/${reception.courier.courier_id}/parcels/receive`, payload)
+    toasts.success(`${payload.order_ids.length} colis de ${reception.courier.name} reçu(s) au dépôt.${payload.missing.length ? ` ${reception.courier.name} est prévenu des ${payload.missing.length} non reçu(s).` : ''}`)
+    reception.open = false
     load()
   } catch (e) {
-    toasts.error(apiErrorMessage(e))
+    reception.error = apiErrorMessage(e)
+  } finally {
+    reception.busy = false
   }
 }
 

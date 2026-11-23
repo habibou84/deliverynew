@@ -22,8 +22,29 @@
       </span>
     </RouterLink>
 
+    <!-- Colis non reçus au dépôt : le livreur confirme ou conteste -->
+    <section v-if="wallet.parcel_gaps?.length" class="space-y-2">
+      <h2 class="flex items-center gap-2 font-semibold text-red-700"><Icone nom="urgent" />Colis non reçus au dépôt : à confirmer ({{ wallet.parcel_gaps.length }})</h2>
+      <div v-for="g in wallet.parcel_gaps" :key="g.id" class="m-card p-4 space-y-3 border-l-4 border-red-500">
+        <div>
+          <p class="font-semibold">{{ g.tracking_code }} · {{ g.recipient_name }}</p>
+          <p class="text-sm text-slate-600">{{ g.merchant }}</p>
+          <p class="mt-1 text-sm">
+            {{ g.source === 'drop_control' ? 'Absent du bac au contrôle' : 'Non reçu au point' }} par {{ g.reported_by || 'l\'agent' }}, {{ dateTime(g.created_at) }} :
+            <strong>{{ g.reason_label }}</strong><template v-if="g.note"> « {{ g.note }} »</template>
+          </p>
+        </div>
+        <p class="text-sm font-medium">Avez-vous encore ce colis ?</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button class="m-btn-secondary" :disabled="answering" @click="answer(g, 'kept')">Oui, je l'ai encore</button>
+          <button class="m-btn-primary" :disabled="answering" @click="answer(g, 'handed')">Non, je l'ai remis</button>
+        </div>
+      </div>
+      <p class="text-sm text-slate-600 text-center">« Je l'ai remis » : un administrateur vérifie et tranche.</p>
+    </section>
+
     <!-- Colis non livrés encore en main : à rapporter au dépôt lors du point -->
-    <section v-if="parcelsToReturn.length || parcelsKept.length || onTheRoad.length" class="space-y-2">
+    <section v-if="parcelsToReturn.length || parcelsKept.length || onTheRoad.length || parcelsDropped.length" class="space-y-2">
       <p v-if="onTheRoad.length" class="flex items-start gap-2 rounded-xl bg-sky-50 text-sky-900 text-sm px-4 py-3">
         <Icone nom="livrer" taille="petite" class="mt-0.5" />{{ onTheRoad.length }} course{{ onTheRoad.length > 1 ? 's' : '' }} en chemin : indiquez « livré » ou « échec » avant de faire votre point à la caisse.
       </p>
@@ -52,7 +73,21 @@
             <p class="text-xs text-right text-slate-600">{{ p.rescheduled_to ? `Reporté au ${date(p.rescheduled_to)}` : (p.incident || p.status_label) }}</p>
           </div>
         </div>
-        <p class="text-sm text-slate-600 text-center">Remettez-les à la caisse ou au dépôt lors de votre point.</p>
+        <p class="text-sm text-slate-600 text-center">Remettez-les à la caisse lors de votre point, ou déposez-les vous-même dans le bac du dépôt.</p>
+        <RouterLink to="/livreur/caisse/deposer" class="m-btn-primary inline-flex items-center justify-center gap-2"><Icone nom="scanner" />Déposer mes colis au dépôt</RouterLink>
+      </template>
+      <template v-if="parcelsDropped.length">
+        <h2 class="flex items-center gap-2 font-semibold"><Icone nom="depot" />Déposés dans le bac, en attente du contrôle ({{ parcelsDropped.length }})</h2>
+        <div class="m-card divide-y">
+          <div v-for="p in parcelsDropped" :key="p.id" class="p-4 flex justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-medium truncate">{{ p.recipient_name || p.recipient_phone }}</p>
+              <p class="text-xs text-slate-600">{{ p.tracking_code }} · {{ p.merchant }}</p>
+            </div>
+            <p class="text-xs text-right text-sky-700">À contrôler</p>
+          </div>
+        </div>
+        <p class="text-sm text-slate-600 text-center">Un agent contrôle le bac ; sans contrôle, ils sont confirmés au bout de 24 h.</p>
       </template>
     </section>
 
@@ -109,7 +144,8 @@
 <script setup>
 import Icone from '../../components/ui/Icone.vue'
 import { computed, onMounted, ref } from 'vue'
-import { apiErrorMessage } from '../../bootstrap/axios'
+import http, { apiErrorMessage } from '../../bootstrap/axios'
+import { useToastStore } from '../../stores/toasts'
 import { cachedGet } from '../../composables/useCachedApi'
 import EmptyState from '../../components/mobile/EmptyState.vue'
 import { date, dateTime, money } from '../../utils/format'
@@ -117,9 +153,11 @@ import { date, dateTime, money } from '../../utils/format'
 const wallet = ref(null)
 const stale = ref(false)
 const error = ref('')
-const parcelsToReturn = computed(() => (wallet.value?.parcels || []).filter((p) => !p.on_the_road && !p.kept_for))
+// À rendre au dépôt (ni gardés pour leur livraison, ni à rapporter au marchand, ni déjà déposés dans le bac)
+const parcelsToReturn = computed(() => (wallet.value?.parcels || []).filter((p) => p.due))
+const parcelsDropped = computed(() => (wallet.value?.parcels || []).filter((p) => p.dropped))
 // Mission ramassage « garde » : colis à garder jusqu'à leur jour de livraison
-const parcelsKept = computed(() => (wallet.value?.parcels || []).filter((p) => !p.on_the_road && p.kept_for))
+const parcelsKept = computed(() => (wallet.value?.parcels || []).filter((p) => !p.on_the_road && p.kept_for && !p.dropped))
 const onTheRoad = computed(() => (wallet.value?.parcels || []).filter((p) => p.on_the_road))
 // Avances réelles de la caisse (la paie gardée sur l'encaissé figure dans le solde)
 const cashAdvances = computed(() => (wallet.value?.advances || []).filter((a) => !a.pay_kept))
@@ -134,6 +172,22 @@ async function load() {
     stale.value = offline
   } catch (e) {
     error.value = apiErrorMessage(e, 'Impossible de charger votre caisse.')
+  }
+}
+
+// Colis non reçu au dépôt : « je l'ai encore » ou « je l'ai remis »
+const toasts = useToastStore()
+const answering = ref(false)
+async function answer(g, value) {
+  answering.value = true
+  try {
+    await http.post(`/courier/parcel-gaps/${g.id}/answer`, { answer: value })
+    toasts.success(value === 'kept' ? 'Merci : rapportez ce colis au dépôt.' : 'Contestation envoyée : un administrateur va vérifier.')
+    await load()
+  } catch (e) {
+    toasts.error(apiErrorMessage(e))
+  } finally {
+    answering.value = false
   }
 }
 

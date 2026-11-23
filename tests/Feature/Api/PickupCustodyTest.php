@@ -104,7 +104,8 @@ class PickupCustodyTest extends TestCase
         $this->assertSame('depot', $parcels[$depot->id]['custody_plan']);
 
         // Rendu au dépôt : la garde prévue s'arrête
-        $this->postJson("/api/v1/couriers/{$this->courierA->id}/parcels/receive", ['order_ids' => [$kept->id]])->assertOk();
+        $this->postJson("/api/v1/couriers/{$this->courierA->id}/parcels/receive", ['order_ids' => [$kept->id],
+            'missing' => [['order_id' => $depot->id, 'reason' => 'other', 'note' => 'Reste au dépôt demain']]])->assertOk();
         $this->assertNull($kept->fresh()->custody_plan);
         $this->assertSame(OrderStatus::AtHub, $kept->fresh()->status);
     }

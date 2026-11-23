@@ -44,6 +44,8 @@ class OverdueParcels
         $orders = Order::withoutGlobalScopes()
             ->where('company_id', $company->id)
             ->whereNotNull('held_by_courier_id')
+            // Déposé dans le bac du dépôt : en attente du contrôle, plus chez le livreur
+            ->whereNull('parcel_drop_id')
             ->whereNull('hold_escalated_at')
             ->where('held_since', '<=', now()->subHours(3 * $company->parcel_hold_alert_hours))
             // Gardé par le livreur pour sa livraison à venir (mission ramassage) : pas en retard
@@ -85,6 +87,8 @@ class OverdueParcels
         $orders = Order::withoutGlobalScopes()
             ->where('company_id', $company->id)
             ->whereNotNull('held_by_courier_id')
+            // Déposé dans le bac du dépôt : en attente du contrôle, plus chez le livreur
+            ->whereNull('parcel_drop_id')
             ->whereNull('hold_alerted_at')
             ->where('held_since', '<=', now()->subHours($company->parcel_hold_alert_hours))
             // Gardé par le livreur pour sa livraison à venir (mission ramassage) : pas en retard
