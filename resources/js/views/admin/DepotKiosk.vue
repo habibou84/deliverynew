@@ -6,7 +6,11 @@
       <p class="text-slate-600">Livreur : dans votre application, ouvrez <strong>Ma caisse → Déposer mes colis</strong> et scannez ce QR code.</p>
     </div>
 
-    <div class="card p-6 space-y-3">
+    <div v-if="disabled" class="card p-6 space-y-2">
+      <p class="font-semibold">Le dépôt des colis en libre-service n'est pas activé.</p>
+      <p class="text-sm text-slate-600">Activez-le dans <RouterLink to="/admin/reglages/courses" class="text-blue-700 underline">Réglages › Courses › Livreurs</RouterLink> pour afficher la borne.</p>
+    </div>
+    <div v-else class="card p-6 space-y-3">
       <img v-if="qr" :src="qr" alt="QR code de la borne de dépôt" class="mx-auto w-full max-w-sm">
       <p v-else-if="error" class="field-error">{{ error }}</p>
       <p v-else class="py-24 text-slate-600">Chargement…</p>
@@ -32,6 +36,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 const WINDOW = 30
 const qr = ref('')
 const error = ref('')
+const disabled = ref(false)
 const left = ref(WINDOW)
 const stats = reactive({ today: 0, pending: 0 })
 let tick = null
@@ -40,6 +45,12 @@ let wakeLock = null
 async function refresh() {
   try {
     const { data } = await http.get('/parcel-drops/kiosk')
+    disabled.value = !data.data.enabled
+    Object.assign(stats, { today: data.data.today, pending: data.data.pending })
+    if (disabled.value) {
+      left.value = 30
+      return
+    }
     qr.value = await QRCode.toDataURL(data.data.code, { margin: 1, width: 480 })
     left.value = data.data.expires_in
     Object.assign(stats, { today: data.data.today, pending: data.data.pending })
