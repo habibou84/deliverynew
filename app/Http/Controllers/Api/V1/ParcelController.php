@@ -6,6 +6,7 @@ use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Models\Courier;
 use App\Models\Order;
+use App\Models\ParcelGap;
 use App\Services\Couriers\ParcelCustody;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -74,7 +75,13 @@ class ParcelController extends Controller
         $request->validate([
             'overdue' => ['nullable', 'boolean'],
             'q' => ['nullable', 'string', 'max:100'],
+            // Réception au dépôt : tous ses colis d'un coup, sans filtre
+            'all' => ['nullable', 'boolean'],
         ]);
+
+        if ($request->boolean('all')) {
+            return response()->json(['data' => $this->custody->held($courier)->map(fn (Order $o) => ParcelCustody::parcelData($o))->values()]);
+        }
 
         $page = $this->filtered($request, $this->alertHours($request))
             ->where('held_by_courier_id', $courier->id)
@@ -131,11 +138,16 @@ class ParcelController extends Controller
         ), 403);
 
         $data = $request->validate([
-            'order_ids' => ['required', 'array', 'min:1'],
+            'order_ids' => ['present', 'array'],
             'order_ids.*' => ['integer', Rule::exists('orders', 'id')->where('company_id', $user->company_id)],
-        ], [], ['order_ids' => 'colis']);
+            // Colis à rendre non réceptionnés : un motif chacun (le livreur est prévenu)
+            'missing' => ['nullable', 'array'],
+            'missing.*.order_id' => ['required', 'integer'],
+            'missing.*.reason' => ['required', Rule::in(array_keys(ParcelGap::REASONS))],
+            'missing.*.note' => ['nullable', 'string', 'max:500'],
+        ], [], ['order_ids' => 'colis', 'missing' => 'colis non réceptionnés']);
 
-        $received = $this->custody->receive($user, $courier, $data['order_ids']);
+        $received = $this->custody->receive($user, $courier, $data['order_ids'], ParcelDropController::missingMap($data['missing'] ?? []));
 
         return response()->json([
             'data' => ['received' => $received->pluck('tracking_code')->values()],

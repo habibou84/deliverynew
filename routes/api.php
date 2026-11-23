@@ -80,6 +80,7 @@ use App\Http\Controllers\Api\V1\OrderDraftController;
 use App\Http\Controllers\Api\V1\OrderExpenseController;
 use App\Http\Controllers\Api\V1\OrderImportController;
 use App\Http\Controllers\Api\V1\ParcelController;
+use App\Http\Controllers\Api\V1\ParcelDropController;
 use App\Http\Controllers\Api\V1\ParcelRelayController;
 use App\Http\Controllers\Api\V1\PasswordController;
 use App\Http\Controllers\Api\V1\PasswordResetController;
@@ -689,6 +690,13 @@ Route::prefix('v1')->name('v1.')->group(function () {
         Route::get('parcels/held/counts', [ParcelController::class, 'counts'])->name('parcels.held.counts');
         Route::get('couriers/{courier}/parcels', [ParcelController::class, 'parcels'])->name('couriers.parcels');
         Route::post('couriers/{courier}/parcels/receive', [ParcelController::class, 'receive'])->name('couriers.parcels.receive');
+        // Dépôt en libre-service (borne, contrôle du bac) et écarts de remise
+        Route::get('parcel-drops/kiosk', [ParcelDropController::class, 'kiosk'])->name('parcel-drops.kiosk');
+        Route::get('parcel-drops', [ParcelDropController::class, 'index'])->name('parcel-drops.index');
+        Route::get('parcel-drops/{parcelDrop}/photo', [ParcelDropController::class, 'photo'])->name('parcel-drops.photo');
+        Route::post('parcel-drops/{parcelDrop}/control', [ParcelDropController::class, 'control'])->name('parcel-drops.control');
+        Route::get('parcel-gaps', [ParcelDropController::class, 'gaps'])->name('parcel-gaps.index');
+        Route::post('parcel-gaps/{parcelGap}/resolve', [ParcelDropController::class, 'resolve'])->name('parcel-gaps.resolve');
 
         // Relais entre livreurs (dispatch)
         Route::get('relays', [ParcelRelayController::class, 'index'])->name('relays.index');
@@ -966,6 +974,10 @@ Route::prefix('v1')->name('v1.')->group(function () {
             // Actions faites hors connexion, envoyées au retour du réseau
             Route::post('sync', OfflineSyncController::class)->middleware('throttle:120,1')->name('sync');
             Route::get('wallet', [FinanceController::class, 'wallet'])->name('wallet');
+            // Dépôt des colis au dépôt sans agent, réponse à un colis non réceptionné
+            Route::post('parcel-drops/start', [ParcelDropController::class, 'start'])->middleware('throttle:30,1')->name('parcel-drops.start');
+            Route::post('parcel-drops', [ParcelDropController::class, 'store'])->middleware('throttle:20,1')->name('parcel-drops.store');
+            Route::post('parcel-gaps/{parcelGap}/answer', [ParcelDropController::class, 'answer'])->middleware('throttle:30,1')->name('parcel-gaps.answer');
             Route::get('messages', [CourierMessageController::class, 'mine'])->name('messages');
             Route::post('messages/{message}/ack', [CourierMessageController::class, 'acknowledge'])->name('messages.ack');
             // Remise au marchand : QR code à lui faire scanner, remise de secours

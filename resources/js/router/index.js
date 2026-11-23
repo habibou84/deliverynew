@@ -103,6 +103,8 @@ const routes = [
       // Anciennes adresses (liens des notifications, favoris) : vers l'onglet, en gardant les paramètres
       { path: 'carte', redirect: (to) => ({ path: '/admin/activite/carte', query: to.query }) },
       { path: 'disponibilites', redirect: (to) => ({ path: '/admin/activite/disponibles', query: to.query }) },
+      // Borne du dépôt : QR code que les livreurs scannent pour déposer leurs colis sans agent
+      { path: 'borne-depot', component: () => import('../views/admin/DepotKiosk.vue'), meta: { title: 'Borne de dépôt' } },
       { path: 'colis-livreurs', redirect: (to) => ({ path: '/admin/activite/colis', query: to.query }) },
       { path: 'terrain', redirect: (to) => ({ path: '/admin/activite/remontees', query: to.query }) },
       // Livraison › Planning des livreurs
@@ -184,6 +186,7 @@ const routes = [
       { path: 'stock', component: () => import('../views/admin/Stock.vue'), meta: { permission: 'stock.manage', feature: 'stock' } },
       { path: 'itineraire', component: () => import('../views/courier/Itinerary.vue'), meta: { title: 'Mon itinéraire', back: true } },
       { path: 'caisse', component: () => import('../views/courier/Wallet.vue'), meta: { title: 'Ma caisse' } },
+      { path: 'caisse/deposer', component: () => import('../views/courier/ParcelDrop.vue'), meta: { title: 'Déposer mes colis', back: true } },
       { path: 'gains', component: () => import('../views/courier/Earnings.vue'), meta: { title: 'Mes gains' } },
       { path: 'messages', component: () => import('../views/courier/Messages.vue'), meta: { title: 'Consignes de l\'agence', back: true } },
       { path: 'relais', component: () => import('../views/courier/Relays.vue'), meta: { title: 'Relais', back: true } },
