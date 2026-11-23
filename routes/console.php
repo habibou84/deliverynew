@@ -67,6 +67,8 @@ Schedule::command('queue:prune-failed --hours=720')->dailyAt('04:40');
 Schedule::command('notifications:prune')->dailyAt('03:40')->withoutOverlapping();
 Schedule::command('field-reports:remind')->everyMinute()->withoutOverlapping();
 Schedule::command('parcels:overdue')->everyFifteenMinutes()->withoutOverlapping();
+// Dépôts en libre-service non contrôlés depuis 24 h : confirmés ; rappel de 19 h aux livreurs qui ont des colis à rendre
+Schedule::command('parcels:depot')->everyFifteenMinutes()->withoutOverlapping();
 // Argent gardé trop longtemps par un livreur : caisse prévenue, rappel au livreur (une fois par jour)
 Schedule::command('cash:held')->hourlyAt(5)->between('7:00', '21:00')->withoutOverlapping();
 // Caisse pas clôturée à l'heure choisie par l'entreprise : rappel aux responsables (une fois par jour)

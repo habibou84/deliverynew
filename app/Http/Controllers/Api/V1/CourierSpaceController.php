@@ -19,6 +19,7 @@ use App\Services\Assignment\AutoAssigner;
 use App\Services\Couriers\CourierTracker;
 use App\Services\Couriers\MissionRing;
 use App\Services\Couriers\ParcelRelays;
+use App\Services\Couriers\ParcelReminders;
 use App\Services\Finance\CourierPay;
 use App\Services\Orders\OrderChanges;
 use App\Services\Orders\OrderDispatcher;
@@ -234,7 +235,13 @@ class CourierSpaceController extends Controller
         }
 
         $changed = $courier->isDirty(['is_available', 'current_lat', 'current_lng', 'last_location_at']);
+        $leaving = $courier->isDirty('is_available') && ! $courier->is_available;
         $courier->save();
+
+        // Fin de service : rappel des colis à rendre au dépôt
+        if ($leaving) {
+            app(ParcelReminders::class)->remind($courier, 'unavailable');
+        }
 
         // Historique des trajets, pendant le service uniquement
         if (isset($data['lat'], $data['lng']) && $courier->is_available) {

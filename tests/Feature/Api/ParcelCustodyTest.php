@@ -129,9 +129,11 @@ class ParcelCustodyTest extends TestCase
         $this->postJson('/api/v1/finance/remittances', [
             'courier_id' => $this->courierB->id, 'amount_received' => 10000,
             'returned_order_ids' => [$failed->id, $road->id],
+            'missing' => [['order_id' => $rescheduled->id, 'reason' => 'not_presented']],
         ])->assertCreated()
             ->assertJsonPath('data.parcels_returned', [$failed->tracking_code, $road->tracking_code])
-            ->assertJsonPath('data.parcels_kept', [$rescheduled->tracking_code]);
+            ->assertJsonPath('data.parcels_kept', [$rescheduled->tracking_code])
+            ->assertJsonPath('data.parcels_missing.0.code', $rescheduled->tracking_code);
 
         $failed->refresh();
         $this->assertNull($failed->held_by_courier_id);
