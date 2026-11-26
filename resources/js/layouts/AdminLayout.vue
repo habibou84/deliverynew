@@ -330,6 +330,8 @@ const menu = computed(() => {
       id: 'operations',
       label: 'Opérations',
       items: [
+        // Poste de pilotage (accueil) : seulement sur /admin même, pas sur les pages en dessous
+        { to: '/admin', icon: 'pilotage', label: isDispatch.value ? 'Poste de pilotage' : 'Tableau de bord', exact: true },
         // Courses : quatre cartes (la liste, l'activité des livreurs, les retours marchands, les courses en retard)
         { to: '/admin/courses', icon: 'course', label: 'Courses', permission: 'orders.view', active: ['/admin/activite', '/admin/retours', '/admin/courses/en-retard'], badge: isDispatch.value ? (dispatchCounts.counts.to_reschedule || 0) + (dispatchCounts.counts.exceptions?.picked_late || 0) + fieldReports.open.total + heldParcels.counts.overdue + returnsCount.value : 0 },
       ],
@@ -395,7 +397,6 @@ const menu = computed(() => {
 
   return {
     top: [
-      { to: '/admin', icon: 'pilotage', label: isDispatch.value ? 'Poste de pilotage' : 'Tableau de bord' },
       { to: '/admin/statistiques', icon: 'statistiques', label: 'Statistiques', permission: 'orders.view' },
     ].filter(visible),
     groups: groups.map((g) => ({ ...g, items: g.items.filter(visible) })).filter((g) => g.items.length),

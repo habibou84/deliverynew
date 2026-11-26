@@ -48,7 +48,7 @@ const open = ref(stored() ?? props.defaultOpen)
 const badgeTotal = computed(() => props.items.reduce((sum, item) => sum + (item.badge || 0), 0))
 
 // La rubrique de la page affichée s'ouvre d'elle-même
-const containsCurrentPage = computed(() => props.items.some((item) => route.path === item.to || route.path.startsWith(`${item.to}/`)))
+const containsCurrentPage = computed(() => props.items.some((item) => route.path === item.to || (!item.exact && route.path.startsWith(`${item.to}/`))))
 watch(containsCurrentPage, (inside) => {
   if (inside) open.value = true
 }, { immediate: true })
