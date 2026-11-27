@@ -89,12 +89,12 @@
                 <button type="button" class="ml-2 text-xs text-red-700" @click="remove(c)">Supprimer</button>
               </template>
             </div>
-            <label class="flex items-center gap-2 text-sm md:justify-center">
-              <input type="checkbox" class="h-5 w-5" :checked="pickupOn(c)" :disabled="busy[c.id]" :aria-label="`On ramasse ici : ${c.name}`" @change="togglePickup(c)"><span class="md:hidden">On ramasse</span>
-            </label>
-            <label class="flex items-center gap-2 text-sm md:justify-center">
-              <input type="checkbox" class="h-5 w-5" :checked="c.is_active" :disabled="busy[c.id]" :aria-label="`On livre ici : ${c.name}`" @change="toggleActive(c)"><span class="md:hidden">On livre</span>
-            </label>
+            <div class="flex items-center gap-2 text-sm md:justify-center">
+              <SwitchButton :on="!!(pickupOn(c))" :disabled="!!(busy[c.id])" :label="`On ramasse ici : ${c.name}`" @toggle="togglePickup(c)" /><span class="md:hidden">On ramasse</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm md:justify-center">
+              <SwitchButton :on="!!(c.is_active)" :disabled="!!(busy[c.id])" :label="`On livre ici : ${c.name}`" @toggle="toggleActive(c)" /><span class="md:hidden">On livre</span>
+            </div>
             <div class="col-span-2 flex items-center justify-end gap-3 md:col-span-1">
               <span v-if="c.is_active" class="text-xs tabular-nums text-slate-600">{{ progress(c).done }}/{{ progress(c).total }} réglés</span>
               <button type="button" class="btn-secondary py-1.5" :disabled="!c.is_active" :aria-label="`Prix au départ de ${c.name}`" @click="departure = c">Prix au départ</button>
@@ -106,12 +106,12 @@
               <p class="col-span-2 min-w-0 md:col-span-1">↳ {{ q.name }}
                 <span v-if="hasOwnDeparture(q)" class="ml-1 rounded-full bg-emerald-50 px-1.5 text-xs text-emerald-800 ring-1 ring-emerald-200">prix à part</span>
               </p>
-              <label class="flex items-center gap-2 text-sm md:justify-center">
-                <input type="checkbox" class="h-5 w-5" :checked="pickupOn(q)" :disabled="busy[q.id] || parentPickupOff(q)" :aria-label="`On ramasse ici : ${q.name}`" @change="togglePickup(q)"><span class="md:hidden">On ramasse</span>
-              </label>
-              <label class="flex items-center gap-2 text-sm md:justify-center">
-                <input type="checkbox" class="h-5 w-5" :checked="q.is_active" :disabled="busy[q.id]" :aria-label="`On livre ici : ${q.name}`" @change="toggleActive(q)"><span class="md:hidden">On livre</span>
-              </label>
+              <div class="flex items-center gap-2 text-sm md:justify-center">
+                <SwitchButton :on="!!(pickupOn(q))" :disabled="!!(busy[q.id] || parentPickupOff(q))" :label="`On ramasse ici : ${q.name}`" @toggle="togglePickup(q)" /><span class="md:hidden">On ramasse</span>
+              </div>
+              <div class="flex items-center gap-2 text-sm md:justify-center">
+                <SwitchButton :on="!!(q.is_active)" :disabled="!!(busy[q.id])" :label="`On livre ici : ${q.name}`" @toggle="toggleActive(q)" /><span class="md:hidden">On livre</span>
+              </div>
               <p class="col-span-2 text-right text-xs text-slate-500 md:col-span-1">{{ hasOwnDeparture(q) ? 'prix à part au départ' : `suit ${c.name}` }}</p>
             </div>
           </template>
@@ -153,10 +153,10 @@
         </ul>
       </details>
 
-      <!-- Enregistrer : les prix saisis dans le tableau (les cases à cocher s'enregistrent tout de suite) -->
+      <!-- Enregistrer : les prix saisis dans le tableau (les interrupteurs s'enregistrent tout de suite) -->
       <div class="sticky bottom-0 z-30 flex flex-wrap items-center gap-3 rounded-xl border bg-white p-3 shadow-lg">
         <span class="flex-1 text-sm" :class="changes ? 'font-semibold text-amber-800' : 'text-slate-600'">
-          {{ changes ? `${changes} prix modifié${changes > 1 ? 's' : ''}, pas encore enregistré${changes > 1 ? 's' : ''}` : 'Les cases à cocher s\'enregistrent tout de suite ; les prix avec ce bouton.' }}
+          {{ changes ? `${changes} prix modifié${changes > 1 ? 's' : ''}, pas encore enregistré${changes > 1 ? 's' : ''}` : 'Les interrupteurs s\'enregistrent tout de suite ; les prix avec ce bouton.' }}
         </span>
         <button v-if="changes" type="button" class="btn-secondary" :disabled="saving" @click="load">Annuler</button>
         <button type="button" class="btn-primary" :disabled="!changes || saving" @click="save">{{ saving ? 'Enregistrement…' : 'Enregistrer les prix' }}</button>
@@ -177,7 +177,7 @@
         </p>
         <div class="card divide-y overflow-hidden">
           <div v-for="z in shipping" :key="z.id" class="flex flex-wrap items-center gap-3 px-4 py-3">
-            <label class="flex items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5" :checked="z.is_active" :aria-label="`On livre ici : ${z.name}`" @change="toggleActive(z)"> On livre ici</label>
+            <div class="flex items-center gap-2 text-sm"><SwitchButton :on="!!z.is_active" :label="`On livre ici : ${z.name}`" @toggle="toggleActive(z)" /> On livre ici</div>
             <span :class="['min-w-40 flex-1 font-medium', z.is_active ? '' : 'text-slate-600 line-through']">{{ z.name }}</span>
             <label class="flex items-center gap-2 text-xs text-slate-600">
               Frais habituels du transporteur
@@ -206,6 +206,7 @@ import http, { apiErrorMessage } from '../../bootstrap/axios'
 import { useToastStore } from '../../stores/toasts'
 import { confirmDialog, promptDialog } from '../../composables/useDialog'
 import SearchSelect from '../SearchSelect.vue'
+import SwitchButton from '../ui/SwitchButton.vue'
 import DeparturePrices from './DeparturePrices.vue'
 import { resolveRoute } from '../../utils/routePrices'
 
