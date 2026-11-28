@@ -40,6 +40,22 @@ class AwaitingCourierTest extends TestCase
         return $this->getJson("/api/v1/orders/{$order->id}")->assertOk()->json('data.awaiting_courier');
     }
 
+    public function test_counters_are_shared_between_screens_for_a_moment(): void
+    {
+        config(['platform.orders_counts_cache_seconds' => 2]);
+        Sanctum::actingAs($this->dispatcher);
+        $this->confirmedOrder();
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.unassigned', 1);
+
+        // Rafale : les écrans qui rechargent dans la foulée lisent le même calcul
+        $this->confirmedOrder();
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.unassigned', 1);
+
+        // Le rechargement qui suit un changement (au moins 2 s plus tard côté écran) voit le nouveau compte
+        $this->travel(3)->seconds();
+        $this->getJson('/api/v1/orders/counts')->assertJsonPath('data.unassigned', 2);
+    }
+
     public function test_validated_order_without_pickup_courier_becomes_late(): void
     {
         Sanctum::actingAs($this->dispatcher);

@@ -29,6 +29,8 @@ class CustomDomainTest extends TestCase
         config([
             'platform.domain' => 'jibiat.test',
             'platform.custom_domains.target' => 'clients.jibiat.test',
+            // Les domaines de test ne se résolvent pas : le contrôle réseau est vérifié à part
+            'services.webhooks.allow_private_targets' => true,
         ]);
         Notification::fake();
         $this->buildWorld();
@@ -81,6 +83,19 @@ class CustomDomainTest extends TestCase
         // La vérification en arrière-plan l'active dès qu'il répond
         $this->artisan('domains:check')->assertSuccessful();
         $this->assertSame('active', $this->company->fresh()->custom_domain_status);
+    }
+
+    public function test_check_never_calls_an_internal_address(): void
+    {
+        // Domaine qui pointe vers le serveur lui-même ou le réseau interne : aucune requête n'est envoyée (SSRF)
+        config(['services.webhooks.allow_private_targets' => false]);
+        Http::fake();
+        $this->company->forceFill(['custom_domain' => '127.0.0.1', 'custom_domain_status' => 'pending'])->save();
+
+        app(CustomDomains::class)->check($this->company->fresh());
+
+        Http::assertNothingSent();
+        $this->assertSame('pending', $this->company->fresh()->custom_domain_status);
     }
 
     public function test_domain_rules(): void

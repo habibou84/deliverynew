@@ -73,7 +73,7 @@ import PostePilotage from '../../components/PostePilotage.vue'
 import StatCard from '../../components/StatCard.vue'
 import StatusBadge from '../../components/StatusBadge.vue'
 import { useAuthStore } from '../../stores/auth'
-import { orderChanges } from '../../composables/useRealtime'
+import { orderListChanges } from '../../composables/useRealtime'
 import { date, money, today } from '../../utils/format'
 
 const auth = useAuthStore()
@@ -116,6 +116,6 @@ function refresh() {
   loadRecent()
 }
 
-watch(orderChanges, refresh)
+watch(orderListChanges, refresh)
 onMounted(refresh)
 </script>

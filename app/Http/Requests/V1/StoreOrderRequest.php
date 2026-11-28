@@ -111,6 +111,8 @@ class StoreOrderRequest extends FormRequest
             'merchant_note' => ['nullable', 'string', 'max:1000'],
 
             'items_amount' => ['nullable', 'integer', 'min:0', 'max:100000000'],
+            // API publique : un montant envoyé sous un autre nom serait ignoré et la course partirait à 0 F
+            ...($this->is('api/public/*') ? array_fill_keys(self::AMOUNT_ALIASES, [Rule::prohibitedIf(! $this->filled('items_amount'))]) : []),
             // Saisie dans l'application ou le back-office : choix explicite, jamais par défaut
             // (API publique : réglage habituel du marchand si absent)
             'fee_payer' => [Rule::requiredIf(! $this->is('api/public/*')), 'nullable', Rule::enum(FeePayer::class)],
@@ -124,9 +126,17 @@ class StoreOrderRequest extends FormRequest
         ];
     }
 
+    /** Noms de montant souvent essayés par les intégrateurs à la place de « items_amount » */
+    public const AMOUNT_ALIASES = ['cod_amount', 'cod', 'amount', 'amount_to_collect', 'collect_amount', 'total', 'total_amount', 'price'];
+
     public function messages(): array
     {
-        return ['fee_payer.required' => 'Indiquez qui paie la livraison : le marchand ou le client.'];
+        return [
+            'fee_payer.required' => 'Indiquez qui paie la livraison : le marchand ou le client.',
+            ...collect(self::AMOUNT_ALIASES)->mapWithKeys(fn (string $field) => [
+                "{$field}.prohibited" => "Champ inconnu « {$field} » : le montant à encaisser s'envoie dans « items_amount ».",
+            ])->all(),
+        ];
     }
 
     public function attributes(): array

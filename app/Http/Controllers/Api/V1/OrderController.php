@@ -9,6 +9,7 @@ use App\Http\Requests\V1\StoreOrderRequest;
 use App\Http\Requests\V1\UpdateOrderRequest;
 use App\Http\Resources\V1\OrderResource;
 use App\Models\CancellationRequest;
+use App\Models\Company;
 use App\Models\Courier;
 use App\Models\Merchant;
 use App\Models\Order;
@@ -24,6 +25,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -227,13 +229,33 @@ class OrderController extends Controller
     {
         Gate::authorize('dispatch', Order::class);
 
-        $count = fn (string $queue) => $this->applyQueue(Order::query(), $queue)->count();
         $day = $request->validate(['day' => ['nullable', 'date']])['day'] ?? null;
-        // Courses en attente d'un livreur : lues une fois pour les trois compteurs
         $company = $request->user()->company;
+
+        // Mêmes compteurs pour tous les postes de l'entreprise (seul le filtre entreprise s'applique) : quand un
+        // changement de course fait recharger tous les écrans ouverts, ils sont calculés une fois pour tous.
+        // La durée (platform.orders_counts_cache_seconds) reste inférieure au délai minimal avant rechargement
+        // côté écran (LIST_QUIET_MS, useRealtime.js) : le rechargement qui suit un changement ne lit pas un
+        // résultat calculé avant ce changement.
+        $data = Cache::remember(
+            'orders-counts:'.$company->id.':'.($day ?? '-'),
+            (int) config('platform.orders_counts_cache_seconds'),
+            fn () => $this->computeCounts($company, $awaiting, $day),
+        );
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function computeCounts(Company $company, AwaitingCourier $awaiting, ?string $day): array
+    {
+        $count = fn (string $queue) => $this->applyQueue(Order::query(), $queue)->count();
+        // Courses en attente d'un livreur : lues une fois pour les trois compteurs
         $waiting = $awaiting->waiting($company);
 
-        return response()->json(['data' => [
+        return [
             'to_confirm' => $count('to_confirm'),
             'to_pickup' => $count('to_pickup'),
             'to_deliver' => $count('to_deliver'),
@@ -258,7 +280,7 @@ class OrderController extends Controller
             'cutoff' => $awaiting->cutoff($company, $waiting),
             // Liste de l'agence sur un jour : files limitées à ce qui est dû, courses prévues plus tard à part
             ...($day ? ['day' => $this->dayCounts(Carbon::parse($day)->toDateString())] : []),
-        ]]);
+        ];
     }
 
     /**
