@@ -96,7 +96,7 @@ import BottomSheet from '../../components/mobile/BottomSheet.vue'
 import OrderCard from '../../components/mobile/OrderCard.vue'
 import EditOrderSheet from '../../components/merchant/EditOrderSheet.vue'
 import EmptyState from '../../components/mobile/EmptyState.vue'
-import { orderChanges } from '../../composables/useRealtime'
+import { orderListChanges } from '../../composables/useRealtime'
 import { useAuthStore } from '../../stores/auth'
 import { date as formatDate, today } from '../../utils/format'
 import { groupOrders } from '../../utils/orderStage'
@@ -220,7 +220,7 @@ function debouncedLoad() {
   timer = setTimeout(() => load(), 300)
 }
 
-watch(orderChanges, () => {
+watch(orderListChanges, () => {
   load()
   loadCounts()
 })

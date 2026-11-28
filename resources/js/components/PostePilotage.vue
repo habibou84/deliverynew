@@ -170,7 +170,7 @@ import Icone from './ui/Icone.vue'
 import { useDispatchCountStore } from '../stores/dispatchCounts'
 import { useFieldReportStore } from '../stores/fieldReports'
 import { useHeldParcelStore } from '../stores/heldParcels'
-import { orderChanges } from '../composables/useRealtime'
+import { orderListChanges } from '../composables/useRealtime'
 import { refreshWhenVisible, visible as screenVisible } from '../composables/useVisibleRefresh'
 import { money, waitDuration } from '../utils/format'
 
@@ -298,7 +298,7 @@ async function refresh() {
 }
 
 let timer
-watch(orderChanges, refresh)
+watch(orderListChanges, refresh)
 onMounted(() => {
   refresh()
   timer = setInterval(() => screenVisible() && refresh(), 60000)

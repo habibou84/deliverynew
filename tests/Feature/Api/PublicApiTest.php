@@ -164,6 +164,30 @@ class PublicApiTest extends TestCase
         $this->api('GET', 'products')->assertOk();
     }
 
+    public function test_orders_list_several_orders_without_lazy_loading(): void
+    {
+        // Liste relue par Jibiat Marchand toutes les 10 minutes : plusieurs courses, aucune relation chargée une à une
+        foreach (['cmd-a', 'cmd-b', 'cmd-c'] as $key) {
+            $this->newOrder(['merchant_reference' => strtoupper($key)], $key)->assertCreated();
+        }
+
+        $this->api('GET', 'orders')->assertOk()->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.tracking_url', fn ($url) => str_contains($url, '/suivi/'));
+    }
+
+    public function test_a_misnamed_amount_field_is_refused_instead_of_ignored(): void
+    {
+        // « cod_amount » au lieu de « items_amount » : sans ce refus, la course partirait avec 0 F à encaisser
+        $this->newOrder(['items_amount' => null, 'cod_amount' => 25000], 'cmd-alias')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('cod_amount')
+            ->assertJsonPath('errors.cod_amount.0', fn ($m) => str_contains($m, 'items_amount'));
+
+        // Le bon champ à côté d'un ancien nom : accepté, le bon champ fait foi
+        $this->newOrder(['items_amount' => 25000, 'amount' => 25000], 'cmd-both')->assertCreated()
+            ->assertJsonPath('data.amounts.items_amount', 25000);
+    }
+
     public function test_requests_are_rate_limited_per_key(): void
     {
         config(['services.public_api.rate_limit' => 3]);

@@ -63,6 +63,11 @@ return [
     // Sous-domaines qui ne peuvent pas être attribués à une entreprise
     'reserved_subdomains' => ['www', 'admin', 'api', 'app', 'mail', 'smtp', 'ftp', 'ws', 'socket', 'static', 'cdn', 'docs', 'status', 'support', 'aide', 'blog', 'frip'],
 
+    // Compteurs du dispatch (/orders/counts) partagés entre les postes d'une entreprise, en secondes. Doit rester
+    // inférieur au délai minimal de rechargement des écrans (LIST_QUIET_MS, resources/js/composables/useRealtime.js).
+    // 0 : pas de partage (tests).
+    'orders_counts_cache_seconds' => (int) env('ORDERS_COUNTS_CACHE_SECONDS', 2),
+
     // Dossier des sauvegardes (deploy/backup.sh, docs/SAUVEGARDES.md) : la console lit leur état (etat-*.json)
     'backup_path' => env('PLATFORM_BACKUP_PATH', '/var/backups/livraison'),
 
